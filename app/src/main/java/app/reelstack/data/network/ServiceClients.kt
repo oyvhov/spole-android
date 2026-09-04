@@ -5,6 +5,8 @@ import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import kotlin.system.measureTimeMillis
 
 private data class ServiceProbe(
@@ -21,6 +23,11 @@ data class MediaServerFeed(
     val sessions: List<RemotePlayback>,
     val continueWatching: List<RemoteLibraryItem>,
     val recentlyAdded: List<RemoteLibraryItem>,
+)
+
+data class QueueServiceFeed(
+    val queue: List<RemoteQueueItem>,
+    val upcoming: List<RemoteUpcomingItem>,
 )
 
 class ServiceConnectionTester(
@@ -134,6 +141,29 @@ class QueueServiceClient(
         response.requireSuccess(connection.kind)
         return ServicePayloadParser.queue(response.body, connection.kind)
     }
+
+    fun feed(connection: ServiceConnection): QueueServiceFeed {
+        val queue = queue(connection)
+        val start = encode(Instant.now().minus(1, ChronoUnit.DAYS).toString())
+        val end = encode(Instant.now().plus(28, ChronoUnit.DAYS).toString())
+        val options = if (connection.kind == ServiceKind.SONARR) {
+            "&includeSeries=true&includeEpisodeImages=true"
+        } else {
+            ""
+        }
+        val response = transport.get(
+            EndpointValidator.resolve(
+                connection.baseUrl,
+                "api/v3/calendar?start=$start&end=$end&unmonitored=false$options",
+            ),
+            headers(connection),
+        )
+        response.requireSuccess(connection.kind)
+        return QueueServiceFeed(
+            queue = queue,
+            upcoming = ServicePayloadParser.upcoming(response.body, connection.kind),
+        )
+    }
 }
 
 class SeerrServiceClient(
@@ -153,9 +183,30 @@ class SeerrServiceClient(
             requestHeaders,
         )
         requestsResponse.requireSuccess(connection.kind)
+        val requests = ServicePayloadParser.requests(requestsResponse.body).mapIndexed { index, request ->
+            if (index >= REQUEST_DETAIL_LIMIT || request.remoteId == null ||
+                (request.title != null && request.artworkUrl != null)
+            ) {
+                request
+            } else {
+                val detailsResponse = transport.get(
+                    EndpointValidator.resolve(connection.baseUrl, "api/v1/${request.mediaType}/${request.remoteId}"),
+                    requestHeaders,
+                )
+                if (detailsResponse.statusCode in 200..299) {
+                    val details = ServicePayloadParser.mediaDetails(detailsResponse.body)
+                    request.copy(
+                        title = request.title ?: details.title,
+                        artworkUrl = request.artworkUrl ?: details.artworkUrl,
+                    )
+                } else {
+                    request
+                }
+            }
+        }
         return SeerrFeed(
             discover = ServicePayloadParser.discover(discoverResponse.body),
-            requests = ServicePayloadParser.requests(requestsResponse.body),
+            requests = requests,
         )
     }
 
@@ -174,12 +225,18 @@ class SeerrServiceClient(
         )
         response.requireSuccess(connection.kind)
     }
+
+    private companion object {
+        const val REQUEST_DETAIL_LIMIT = 4
+    }
 }
 
 private fun headers(connection: ServiceConnection): Map<String, String> = when (connection.kind) {
     ServiceKind.JELLYFIN, ServiceKind.EMBY -> mapOf("X-Emby-Token" to connection.token)
     ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> mapOf("X-Api-Key" to connection.token)
 }
+
+private fun encode(value: String): String = java.net.URLEncoder.encode(value, Charsets.UTF_8.name())
 
 private fun HttpResponse.requireSuccess(kind: ServiceKind) {
     when (statusCode) {

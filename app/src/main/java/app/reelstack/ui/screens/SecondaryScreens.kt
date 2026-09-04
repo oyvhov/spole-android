@@ -63,8 +63,10 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.data.model.ActivityEvent
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.DiscoverMedia
+import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.R
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.theme.Muted
@@ -295,32 +297,37 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
 
 @Composable
 private fun ActivityRow(event: ActivityEvent) {
-    Row(modifier = Modifier.fillMaxWidth().height(142.dp)) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(48.dp)) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF191423))
-                    .border(1.dp, Primary.copy(alpha = 0.28f), CircleShape),
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Box(modifier = Modifier.size(width = 72.dp, height = 96.dp)) {
+            MediaArtwork(
+                url = event.artworkUrl,
+                fallbackRes = event.artworkRes ?: R.drawable.session_still,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(15.dp)),
+            )
+            Surface(
+                color = if (event.complete) Success else Primary,
+                contentColor = Color(0xFF130D1B),
+                shape = CircleShape,
+                modifier = Modifier.align(Alignment.BottomEnd).size(27.dp),
             ) {
-                Icon(
-                    if (event.complete) Icons.Rounded.CheckCircle else Icons.Rounded.Download,
-                    contentDescription = null,
-                    tint = if (event.complete) Success else PrimarySoft,
-                    modifier = Modifier.size(23.dp),
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        if (event.complete) Icons.Rounded.Check else Icons.Rounded.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
-            Box(Modifier.width(1.dp).weight(1f).background(Primary.copy(alpha = 0.22f)))
         }
-        Column(modifier = Modifier.weight(1f).padding(start = 17.dp, top = 2.dp)) {
+        Column(modifier = Modifier.weight(1f).padding(start = 16.dp)) {
             Text(event.time, color = Color(0xFF888093), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            Text(event.title, color = Color.White, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 5.dp))
-            Text(event.detail, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 3.dp))
+            Text(event.title, color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            Text(event.detail, color = Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
             event.progress?.let { progress ->
-                Box(Modifier.fillMaxWidth().padding(top = 15.dp).height(7.dp).clip(CircleShape).background(Color(0x24C6B1E7))) {
-                    Box(Modifier.fillMaxWidth(progress / 100f).height(7.dp).background(Primary))
+                Box(Modifier.fillMaxWidth().padding(top = 10.dp).height(6.dp).clip(CircleShape).background(Color(0x24C6B1E7))) {
+                    Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).height(6.dp).background(Primary))
                 }
             }
         }
@@ -334,6 +341,7 @@ fun SettingsScreen(
     onConnectionClick: (ServiceKind) -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
+    onHomeSectionChange: (HomeSection, Boolean) -> Unit,
 ) {
     LazyColumn(
         contentPadding = screenPadding(contentPadding),
@@ -341,7 +349,7 @@ fun SettingsScreen(
     ) {
         item {
             ScreenHeader(
-                kicker = state.selectedConnection?.name ?: "Home server",
+                kicker = "HomeReel",
                 title = "Settings",
                 lede = "Connections, preferences, and privacy.",
             )
@@ -351,16 +359,31 @@ fun SettingsScreen(
             ServiceRow(connection = connection, onClick = { onConnectionClick(connection.kind) })
         }
         item {
+            SettingsSectionTitle("Home screen")
+            Text(
+                "Every connected service contributes automatically. Choose which sections stay on Home.",
+                color = Muted,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            HomeSectionRow(HomeSection.NOW_PLAYING, "Now playing", "Active sessions from Jellyfin and Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.CONTINUE_WATCHING, "Continue watching", "Resume items from both media servers", Icons.Rounded.Tv, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECENTLY_ADDED, "Recently added", "New library items from Jellyfin and Emby", Icons.Rounded.Movie, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.UPCOMING, "Upcoming", "Monitored releases from Radarr and Sonarr", Icons.Rounded.Notifications, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.DOWNLOADS, "Downloads", "Current Radarr and Sonarr queues", Icons.Rounded.Download, state, onHomeSectionChange)
             SettingsSectionTitle("Preferences")
             PreferenceRow(
                 icon = Icons.Rounded.Notifications,
                 label = "Activity notifications",
+                description = "Notify when requests and downloads change",
                 checked = state.notificationsEnabled,
                 onCheckedChange = onNotificationsChange,
             )
             PreferenceRow(
                 icon = Icons.Rounded.Wifi,
                 label = "Sync on Wi-Fi only",
+                description = "Limit background refresh to unmetered networks",
                 checked = state.wifiOnly,
                 onCheckedChange = onWifiOnlyChange,
             )
@@ -447,6 +470,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
 private fun PreferenceRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
+    description: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -460,7 +484,10 @@ private fun PreferenceRow(
         ) {
             Icon(icon, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(21.dp))
         }
-        Text(label, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(start = 12.dp))
+        Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
+            Text(label, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            description?.let { Text(it, color = Muted, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 2.dp)) }
+        }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -473,4 +500,22 @@ private fun PreferenceRow(
         )
     }
     HorizontalDivider(color = Color(0x20E2D5FF))
+}
+
+@Composable
+private fun HomeSectionRow(
+    section: HomeSection,
+    label: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    state: ReelstackUiState,
+    onChange: (HomeSection, Boolean) -> Unit,
+) {
+    PreferenceRow(
+        icon = icon,
+        label = label,
+        description = description,
+        checked = section in state.homeSections,
+        onCheckedChange = { onChange(section, it) },
+    )
 }

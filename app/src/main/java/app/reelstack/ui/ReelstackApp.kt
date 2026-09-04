@@ -113,8 +113,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     AppTab.HOME -> HomeScreen(
                         state = state,
                         contentPadding = paddingValues,
-                        onServerClick = { viewModel.openSheet(AppSheet.ServerPicker) },
-                        onSessionClick = { viewModel.openSheet(AppSheet.SessionDetails) },
+                        onSessionClick = { viewModel.openSheet(AppSheet.SessionDetails(it)) },
                         onPlaybackToggle = viewModel::togglePlayback,
                         onMediaClick = { viewModel.openSheet(AppSheet.MediaDetails(it)) },
                         onLibraryClick = { viewModel.openSheet(AppSheet.LibraryDetails(it)) },
@@ -133,6 +132,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onConnectionClick = { viewModel.openSheet(AppSheet.ConnectionEditor(it)) },
                         onNotificationsChange = viewModel::setNotifications,
                         onWifiOnlyChange = viewModel::setWifiOnly,
+                        onHomeSectionChange = viewModel::setHomeSectionVisible,
                     )
                 }
             }
@@ -143,7 +143,6 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         state = state,
         connectionDraft = connectionDraft,
         onDismiss = viewModel::closeSheet,
-        onSelectServer = viewModel::selectServer,
         onPlaybackToggle = viewModel::togglePlayback,
         onConnectionNameChange = viewModel::updateConnectionName,
         onConnectionUrlChange = viewModel::updateConnectionUrl,

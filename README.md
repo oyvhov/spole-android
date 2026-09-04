@@ -1,8 +1,8 @@
-# Reelstack Android
+# HomeReel Android
 
-Reelstack is a native Android companion for a self-hosted media stack. It brings Jellyfin, Emby, Seerr, Radarr, and Sonarr into one calm, cinematic interface without replacing the servers themselves.
+HomeReel is a native Android companion for a self-hosted media stack. It brings Jellyfin, Emby, Seerr, Radarr, and Sonarr into one calm, cinematic interface without replacing the servers themselves.
 
-This repository contains the third native milestone: a complete Compose shell, four interactive destinations, secure connection profiles, a resilient live-data layer, offline dashboard cache, and background refresh. Curated demo content remains available until a service is connected; configured services then replace their portion of the UI with live data.
+This repository contains the fourth native milestone: an aggregated multi-server Home, four interactive destinations, secure connection profiles, a resilient live-data layer, offline dashboard cache, and background refresh. Curated demo content remains available until a service is connected; configured services then replace their portion of the UI with live data.
 
 ## Download
 
@@ -11,7 +11,8 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 ## Included now
 
 - Native Kotlin and Jetpack Compose UI; no embedded web app
-- Home dashboard with server switching, now playing, playback controls, and incoming-media cards
+- Aggregated Home dashboard with content from every connected server; no server switching required
+- Multiple simultaneous Jellyfin/Emby sessions with independent playback controls
 - Discover search and a working Seerr request interaction
 - Unified activity timeline for Seerr, Sonarr, and Radarr events
 - Settings and connection editors for Jellyfin, Emby, Seerr, Radarr, and Sonarr
@@ -20,9 +21,11 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Live Jellyfin/Emby continue-watching and recently-added rails
 - Real Jellyfin/Emby remote pause and resume commands with pending/error feedback
 - Live Radarr/Sonarr download queues with normalized progress
+- 28-day Radarr/Sonarr upcoming calendar with movie and episode artwork
 - Live Seerr trending discovery, request activity, and request submission
 - Independent per-service refresh errors, stale-data retention, empty states, and pull-to-refresh
 - Persistent non-secret dashboard cache and 30-minute WorkManager refresh with an optional Wi-Fi-only constraint
+- Per-section Home visibility controls in Settings
 - Remote artwork with local fallbacks and HTTPS-only external image filtering
 - Android Keystore-backed AES/GCM encryption for API tokens
 - HTTPS by default; plain HTTP accepted only for localhost and private-LAN hosts
@@ -55,7 +58,7 @@ Typical local addresses:
 - Radarr: `http://192.168.1.20:7878`
 - Sonarr: `http://192.168.1.20:8989`
 
-Use HTTPS through a trusted reverse proxy when the services are reachable outside your home network. API tokens are never placed in URLs, logs, UI state, or ordinary preferences. Android backups are disabled for the app's local connection data.
+Use HTTPS through a trusted reverse proxy when the services are reachable outside your home network. API tokens are never placed in URLs, logs, or the dashboard cache, and are encrypted at rest. Android backups are disabled for the app's local connection data.
 
 ## Architecture
 
@@ -69,4 +72,4 @@ The app uses a single activity, immutable UI state, unidirectional events, and e
 
 ## Next milestone
 
-The next implementation pass expands queue and discovery depth: Radarr/Sonarr calendar and history, paginated Seerr results, playback deep links, notification channels, and adaptive tablet layouts. See `docs/PRODUCT_PLAN.md` for the sequence and acceptance criteria.
+The next implementation pass expands actions and reliability: Radarr/Sonarr history and queue actions, paginated Seerr results, playback deep links, notification channels, and adaptive tablet layouts. See `docs/PRODUCT_PLAN.md` for the sequence and acceptance criteria.

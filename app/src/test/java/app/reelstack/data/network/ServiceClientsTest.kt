@@ -77,6 +77,24 @@ class ServiceClientsTest {
     }
 
     @Test
+    fun sonarrFeedLoadsQueueAndUpcomingCalendar() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(200, """{"records":[]}"""),
+                HttpResponse(200, """[{"id":3,"airDateUtc":"2026-09-09T19:00:00Z","series":{"title":"Andor"}}]"""),
+            ),
+        )
+        val connection = connection(ServiceKind.SONARR, "sonarr-secret")
+
+        val feed = QueueServiceClient(transport).feed(connection)
+
+        assertEquals("Andor", feed.upcoming.single().title)
+        assertTrue(transport.urls[1].contains("/api/v3/calendar?"))
+        assertTrue(transport.urls[1].contains("includeSeries=true"))
+        assertTrue(transport.headers.all { it["X-Api-Key"] == "sonarr-secret" })
+    }
+
+    @Test
     fun televisionRequestIncludesAllSeasons() {
         val transport = RecordingTransport(postResponse = HttpResponse(201, "{}"))
         val connection = connection(ServiceKind.SEERR, "seerr-secret")
@@ -86,6 +104,23 @@ class ServiceClientsTest {
         assertEquals("seerr-secret", transport.lastHeaders["X-Api-Key"])
         assertEquals("{\"mediaType\":\"tv\",\"mediaId\":202,\"seasons\":\"all\"}", transport.lastBody)
         assertFalse(transport.lastUrl.contains("seerr-secret"))
+    }
+
+    @Test
+    fun seerrFeedEnrichesRequestWithRealArtwork() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(200, """{"results":[]}"""),
+                HttpResponse(200, """{"results":[{"id":4,"status":2,"media":{"tmdbId":101,"mediaType":"movie"},"requestedBy":{"displayName":"Maya"}}]}"""),
+                HttpResponse(200, """{"title":"The Odyssey","posterPath":"/odyssey.jpg"}"""),
+            ),
+        )
+
+        val feed = SeerrServiceClient(transport).feed(connection(ServiceKind.SEERR, "seerr-secret"))
+
+        assertEquals("The Odyssey", feed.requests.single().title)
+        assertEquals("https://image.tmdb.org/t/p/w500/odyssey.jpg", feed.requests.single().artworkUrl)
+        assertTrue(transport.lastUrl.endsWith("/api/v1/movie/101"))
     }
 
     private fun connection(kind: ServiceKind, token: String) = ServiceConnection(

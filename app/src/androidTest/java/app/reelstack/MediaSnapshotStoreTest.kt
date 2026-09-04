@@ -2,10 +2,12 @@ package app.reelstack
 
 import androidx.test.core.app.ApplicationProvider
 import app.reelstack.data.model.LibraryMedia
+import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.repository.MediaSnapshotStore
 import app.reelstack.data.repository.MediaSyncSnapshot
+import app.reelstack.data.repository.AppPreferencesRepository
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -13,11 +15,22 @@ import org.junit.Test
 
 class MediaSnapshotStoreTest {
     @Test
+    fun persistsVisibleHomeSections() {
+        val repository = AppPreferencesRepository(ApplicationProvider.getApplicationContext())
+        val selected = setOf(HomeSection.NOW_PLAYING, HomeSection.UPCOMING)
+
+        repository.visibleHomeSections = selected
+
+        assertEquals(selected, repository.visibleHomeSections)
+        repository.visibleHomeSections = HomeSection.entries.toSet()
+    }
+
+    @Test
     fun roundTripsDashboardWithoutConnectionSecrets() {
         val store = MediaSnapshotStore(ApplicationProvider.getApplicationContext())
         store.clear()
         val snapshot = MediaSyncSnapshot(
-            session = PlaybackSession(
+            sessions = listOf(PlaybackSession(
                 userName = "Maya",
                 deviceName = "TV",
                 title = "Severance",
@@ -29,11 +42,12 @@ class MediaSnapshotStoreTest {
                 paused = false,
                 sessionId = "session-1",
                 source = ServiceKind.JELLYFIN,
-            ),
+            )),
             continueWatching = listOf(
                 LibraryMedia("episode-4", "Severance", "S02 E04", 0.5f, R.drawable.session_still, ServiceKind.JELLYFIN),
             ),
             recentlyAdded = emptyList(),
+            upcoming = emptyList(),
             incoming = emptyList(),
             discover = emptyList(),
             activity = emptyList(),
@@ -45,8 +59,8 @@ class MediaSnapshotStoreTest {
         store.save(snapshot)
         val restored = store.read()
 
-        assertEquals("Severance", restored?.session?.title)
-        assertEquals("session-1", restored?.session?.sessionId)
+        assertEquals("Severance", restored?.sessions?.single()?.title)
+        assertEquals("session-1", restored?.sessions?.single()?.sessionId)
         assertEquals(0.5f, restored?.continueWatching?.single()?.progress ?: 0f, 0.001f)
         assertEquals(Instant.parse("2026-09-04T08:00:00Z").toEpochMilli(), restored?.refreshedAtEpochMillis)
 

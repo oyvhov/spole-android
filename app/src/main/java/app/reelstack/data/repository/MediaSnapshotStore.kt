@@ -10,6 +10,7 @@ import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.UpcomingMedia
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -25,9 +26,10 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 data class CachedMediaSnapshot(
-    val session: PlaybackSession?,
+    val sessions: List<PlaybackSession>,
     val continueWatching: List<LibraryMedia>,
     val recentlyAdded: List<LibraryMedia>,
+    val upcoming: List<UpcomingMedia>,
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
     val activity: List<ActivityEvent>,
@@ -41,9 +43,10 @@ class MediaSnapshotStore(context: Context) {
     fun save(snapshot: MediaSyncSnapshot) {
         val payload = buildJsonObject {
             put("refreshedAt", snapshot.refreshedAt.toEpochMilli())
-            snapshot.session?.let { put("session", sessionJson(it)) }
+            put("sessions", buildJsonArray { snapshot.sessions.forEach { add(sessionJson(it)) } })
             put("continueWatching", libraryJson(snapshot.continueWatching))
             put("recentlyAdded", libraryJson(snapshot.recentlyAdded))
+            put("upcoming", upcomingJson(snapshot.upcoming))
             put("incoming", incomingJson(snapshot.incoming))
             put("discover", discoverJson(snapshot.discover))
             put("activity", activityJson(snapshot.activity))
@@ -55,9 +58,11 @@ class MediaSnapshotStore(context: Context) {
         val payload = preferences.getString(CACHE_KEY, null) ?: return null
         val root = json.parseToJsonElement(payload) as? JsonObject ?: return null
         CachedMediaSnapshot(
-            session = root.obj("session")?.let(::session),
+            sessions = root.array("sessions").mapNotNull { (it as? JsonObject)?.let(::session) }
+                .ifEmpty { listOfNotNull(root.obj("session")?.let(::session)) },
             continueWatching = root.array("continueWatching").mapIndexedNotNull(::libraryItem),
             recentlyAdded = root.array("recentlyAdded").mapIndexedNotNull(::libraryItem),
+            upcoming = root.array("upcoming").mapIndexedNotNull(::upcomingItem),
             incoming = root.array("incoming").mapNotNull(::incomingItem),
             discover = root.array("discover").mapNotNull(::discoverItem),
             activity = root.array("activity").mapNotNull(::activityItem),
@@ -122,6 +127,35 @@ class MediaSnapshotStore(context: Context) {
             progress = item.float("progress"),
             artworkRes = if (index % 2 == 0) R.drawable.session_still else R.drawable.kitchen_request,
             source = item.enumValue<ServiceKind>("source") ?: return null,
+        )
+    }
+
+    private fun upcomingJson(items: List<UpcomingMedia>) = buildJsonArray {
+        items.take(CACHE_ITEM_LIMIT).forEach { item ->
+            add(buildJsonObject {
+                put("id", item.id)
+                put("title", item.title)
+                put("subtitle", item.subtitle)
+                put("dateLabel", item.dateLabel)
+                put("airDate", item.airDateEpochMillis)
+                put("source", item.source.name)
+                item.artworkUrl?.let { put("artworkUrl", it) }
+            })
+        }
+    }
+
+    private fun upcomingItem(index: Int, element: kotlinx.serialization.json.JsonElement): UpcomingMedia? {
+        val item = element as? JsonObject ?: return null
+        val source = item.enumValue<ServiceKind>("source") ?: return null
+        return UpcomingMedia(
+            id = item.string("id") ?: return null,
+            title = item.string("title") ?: return null,
+            subtitle = item.string("subtitle").orEmpty(),
+            dateLabel = item.string("dateLabel") ?: "Upcoming",
+            airDateEpochMillis = item.long("airDate") ?: return null,
+            artworkRes = if (source == ServiceKind.RADARR || index % 2 == 0) R.drawable.desert_arrival else R.drawable.kitchen_request,
+            source = source,
+            artworkUrl = item.string("artworkUrl"),
         )
     }
 
@@ -193,6 +227,7 @@ class MediaSnapshotStore(context: Context) {
                 item.progress?.let { put("progress", it) }
                 put("complete", item.complete)
                 item.source?.let { put("source", it.name) }
+                item.artworkUrl?.let { put("artworkUrl", it) }
             })
         }
     }
@@ -207,6 +242,12 @@ class MediaSnapshotStore(context: Context) {
             progress = item.int("progress"),
             complete = item.bool("complete") ?: false,
             source = item.enumValue<ServiceKind>("source"),
+            artworkRes = when (item.enumValue<ServiceKind>("source")) {
+                ServiceKind.RADARR -> R.drawable.desert_arrival
+                ServiceKind.SONARR, ServiceKind.SEERR -> R.drawable.kitchen_request
+                else -> R.drawable.session_still
+            },
+            artworkUrl = item.string("artworkUrl"),
         )
     }
 

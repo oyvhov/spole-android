@@ -26,14 +26,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MovieFilter
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Tv
-import androidx.compose.material.icons.rounded.TvOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -51,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -61,8 +59,10 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.data.model.IncomingMedia
 import app.reelstack.data.model.IncomingState
+import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.LibraryMedia
-import app.reelstack.data.model.ConnectionState
+import app.reelstack.data.model.PlaybackSession
+import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.theme.Muted
@@ -78,9 +78,8 @@ import app.reelstack.ui.theme.Warning
 fun HomeScreen(
     state: ReelstackUiState,
     contentPadding: PaddingValues,
-    onServerClick: () -> Unit,
-    onSessionClick: () -> Unit,
-    onPlaybackToggle: () -> Unit,
+    onSessionClick: (String) -> Unit,
+    onPlaybackToggle: (String) -> Unit,
     onMediaClick: (String) -> Unit,
     onLibraryClick: (String) -> Unit,
     onRefresh: () -> Unit,
@@ -101,13 +100,12 @@ fun HomeScreen(
         ) {
             item {
                 Header(
-                    serverName = state.selectedConnection?.name ?: "Home server",
-                    serverOnline = state.selectedConnection?.state == ConnectionState.CONNECTED,
-                    onServerClick = onServerClick,
+                    configuredCount = state.configuredCount,
+                    onlineCount = state.onlineCount,
                 )
                 Spacer(Modifier.height(28.dp))
                 Text(
-                    text = "Good evening",
+                    text = greeting(),
                     color = TextColor,
                     style = MaterialTheme.typography.displaySmall,
                 )
@@ -117,34 +115,53 @@ fun HomeScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                SectionTitle("Now playing", Modifier.padding(top = 28.dp, bottom = 15.dp))
-                if (state.session != null) {
-                    NowPlayingCard(
-                        state = state,
-                        onOpen = onSessionClick,
-                        onPlaybackToggle = onPlaybackToggle,
-                    )
-                } else {
-                    EmptyNowPlayingCard()
-                }
-                SectionTitle("Coming in", Modifier.padding(top = 26.dp, bottom = 10.dp))
-                if (state.incoming.isEmpty()) {
-                    EmptyIncomingCard()
+            }
+            if (HomeSection.NOW_PLAYING in state.homeSections) {
+                item {
+                    SectionTitle("Now playing", Modifier.padding(top = 28.dp, bottom = 15.dp))
+                    if (state.sessions.isEmpty()) {
+                        EmptyNowPlayingCard()
+                    } else {
+                        NowPlayingRail(
+                            sessions = state.sessions,
+                            pendingSessionKey = state.pendingSessionKey,
+                            onOpen = onSessionClick,
+                            onPlaybackToggle = onPlaybackToggle,
+                        )
+                    }
                 }
             }
-            items(state.incoming, key = IncomingMedia::id) { media ->
-                IncomingRow(media = media, onClick = { onMediaClick(media.id) })
-            }
-            if (state.continueWatching.isNotEmpty()) {
+            if (HomeSection.CONTINUE_WATCHING in state.homeSections && state.continueWatching.isNotEmpty()) {
                 item {
                     SectionTitle("Continue watching", Modifier.padding(top = 25.dp, bottom = 13.dp))
                     LibraryRail(state.continueWatching, onLibraryClick)
                 }
             }
-            if (state.recentlyAdded.isNotEmpty()) {
+            if (HomeSection.RECENTLY_ADDED in state.homeSections && state.recentlyAdded.isNotEmpty()) {
                 item {
                     SectionTitle("Recently added", Modifier.padding(top = 25.dp, bottom = 13.dp))
                     LibraryRail(state.recentlyAdded, onLibraryClick)
+                }
+            }
+            if (HomeSection.UPCOMING in state.homeSections) {
+                item {
+                    SectionTitle("Upcoming", Modifier.padding(top = 25.dp, bottom = 13.dp))
+                    if (state.upcoming.isEmpty()) {
+                        EmptySectionLine("No monitored releases in the next 28 days.")
+                    } else {
+                        UpcomingRail(state.upcoming)
+                    }
+                }
+            }
+            if (HomeSection.DOWNLOADS in state.homeSections) {
+                item {
+                    SectionTitle("Downloads", Modifier.padding(top = 26.dp, bottom = 10.dp))
+                    if (state.incoming.isEmpty()) {
+                        EmptySectionLine("Radarr and Sonarr queues are clear.")
+                    }
+                }
+                items(state.incoming, key = IncomingMedia::id) { media ->
+                    IncomingRow(media = media, onClick = { onMediaClick(media.id) })
                 }
             }
         }
@@ -152,21 +169,20 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Header(serverName: String, serverOnline: Boolean, onServerClick: () -> Unit) {
+private fun Header(configuredCount: Int, onlineCount: Int) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Rounded.MovieFilter,
+            androidx.compose.foundation.Image(
+                painter = painterResource(R.drawable.ic_launcher),
                 contentDescription = null,
-                tint = Primary,
                 modifier = Modifier.size(36.dp),
             )
             Text(
-                text = "Reelstack",
+                text = "HomeReel",
                 color = TextColor,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -176,7 +192,6 @@ private fun Header(serverName: String, serverOnline: Boolean, onServerClick: () 
         }
 
         Surface(
-            onClick = onServerClick,
             color = Color(0xDD14111D),
             contentColor = TextColor,
             shape = RoundedCornerShape(50),
@@ -186,14 +201,27 @@ private fun Header(serverName: String, serverOnline: Boolean, onServerClick: () 
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
             ) {
-                Text(serverName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp)
+                Text(
+                    when {
+                        configuredCount == 0 -> "Preview"
+                        onlineCount == 0 -> "Offline"
+                        else -> "$onlineCount connected"
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 12.sp,
+                )
                 Spacer(Modifier.width(8.dp))
-                Box(Modifier.size(9.dp).clip(CircleShape).background(if (serverOnline) Success else Primary))
-                Spacer(Modifier.width(5.dp))
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Choose server", modifier = Modifier.size(17.dp))
+                Box(Modifier.size(9.dp).clip(CircleShape).background(if (onlineCount > 0) Success else Primary))
             }
         }
     }
+}
+
+private fun greeting(): String = when (java.time.LocalTime.now().hour) {
+    in 5..11 -> "Good morning"
+    in 12..17 -> "Good afternoon"
+    else -> "Good evening"
 }
 
 @Composable
@@ -207,12 +235,47 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun NowPlayingRail(
+    sessions: List<PlaybackSession>,
+    pendingSessionKey: String?,
+    onOpen: (String) -> Unit,
+    onPlaybackToggle: (String) -> Unit,
+) {
+    if (sessions.size == 1) {
+        val session = sessions.single()
+        NowPlayingCard(
+            session = session,
+            pending = pendingSessionKey == session.key,
+            controlsLocked = pendingSessionKey != null,
+            onOpen = { onOpen(session.key) },
+            onPlaybackToggle = { onPlaybackToggle(session.key) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        return
+    }
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        items(sessions, key = PlaybackSession::key) { session ->
+            NowPlayingCard(
+                session = session,
+                pending = pendingSessionKey == session.key,
+                controlsLocked = pendingSessionKey != null,
+                onOpen = { onOpen(session.key) },
+                onPlaybackToggle = { onPlaybackToggle(session.key) },
+                modifier = Modifier.width(316.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun NowPlayingCard(
-    state: ReelstackUiState,
+    session: PlaybackSession,
+    pending: Boolean,
+    controlsLocked: Boolean,
     onOpen: () -> Unit,
     onPlaybackToggle: () -> Unit,
+    modifier: Modifier,
 ) {
-    val session = state.session ?: return
     val animatedProgress by animateFloatAsState(
         targetValue = session.progress,
         animationSpec = spring(stiffness = 100f, dampingRatio = 0.82f),
@@ -220,9 +283,8 @@ private fun NowPlayingCard(
     )
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(320.dp)
+        modifier = modifier
+            .height(306.dp)
             .clip(RoundedCornerShape(topStart = 34.dp, topEnd = 86.dp, bottomEnd = 34.dp, bottomStart = 34.dp))
             .border(
                 1.dp,
@@ -249,9 +311,16 @@ private fun NowPlayingCard(
         )
 
         Column(modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)) {
-            Text("${session.userName} is watching", color = PrimarySoft, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(session.title, color = Color.White, fontSize = 34.sp, lineHeight = 36.sp, letterSpacing = (-1.5).sp)
-            Text(session.subtitle, color = Color(0xFFB2A9C1), fontSize = 17.sp, modifier = Modifier.padding(top = 2.dp))
+            Text(
+                "${session.userName} · ${session.deviceName}",
+                color = PrimarySoft,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(session.title, color = Color.White, fontSize = 29.sp, lineHeight = 31.sp, letterSpacing = (-1.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(session.subtitle, color = Color(0xFFB2A9C1), fontSize = 15.sp, modifier = Modifier.padding(top = 2.dp), maxLines = 1)
             Spacer(Modifier.height(13.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LinearProgressIndicator(
@@ -269,6 +338,7 @@ private fun NowPlayingCard(
                 Spacer(Modifier.weight(1f))
                 Surface(
                     onClick = onPlaybackToggle,
+                    enabled = !controlsLocked,
                     shape = CircleShape,
                     color = Primary,
                     contentColor = Color(0xFF110B19),
@@ -277,7 +347,7 @@ private fun NowPlayingCard(
                     modifier = Modifier.size(52.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        if (state.playbackControlPending) {
+                        if (pending) {
                             CircularProgressIndicator(
                                 color = Color(0xFF110B19),
                                 strokeWidth = 2.dp,
@@ -385,38 +455,60 @@ private fun LibraryCard(media: LibraryMedia, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EmptyNowPlayingCard() {
+private fun UpcomingRail(items: List<UpcomingMedia>) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(items, key = UpcomingMedia::id) { media -> UpcomingCard(media) }
+    }
+}
+
+@Composable
+private fun UpcomingCard(media: UpcomingMedia) {
     Surface(
-        color = SurfaceRaised.copy(alpha = 0.88f),
-        shape = RoundedCornerShape(28.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x32E2D5FF)),
-        modifier = Modifier.fillMaxWidth(),
+        color = SurfaceRaised.copy(alpha = 0.9f),
+        shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x30E2D5FF)),
+        modifier = Modifier.width(268.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(22.dp)) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(50.dp).clip(CircleShape).background(Primary.copy(alpha = 0.15f)),
-            ) {
-                Icon(Icons.Rounded.TvOff, contentDescription = null, tint = PrimarySoft)
-            }
-            Column(Modifier.padding(start = 15.dp)) {
-                Text("Nothing playing right now", color = TextColor, fontWeight = FontWeight.SemiBold)
-                Text("A live session will appear here automatically.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
+        Row(modifier = Modifier.padding(10.dp)) {
+            MediaArtwork(
+                url = media.artworkUrl,
+                fallbackRes = media.artworkRes,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(width = 82.dp, height = 116.dp).clip(RoundedCornerShape(15.dp)),
+            )
+            Column(Modifier.weight(1f).padding(start = 13.dp, top = 5.dp)) {
+                Text(media.dateLabel, color = PrimarySoft, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    media.title,
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 5.dp),
+                )
+                Text(media.subtitle, color = Muted, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+                Text(media.source.displayName, color = PrimarySoft, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
 }
 
 @Composable
-private fun EmptyIncomingCard() {
-    Surface(
-        color = SurfaceRaised.copy(alpha = 0.78f),
-        shape = RoundedCornerShape(20.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x24E2D5FF)),
-        modifier = Modifier.fillMaxWidth(),
+private fun EmptyNowPlayingCard() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
     ) {
-        Text("Your Radarr and Sonarr queues are clear.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(20.dp))
+        Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF625B70)))
+        Text("No active sessions", color = Color(0xFF8E879A), fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
     }
+}
+
+@Composable
+private fun EmptySectionLine(text: String) {
+    Text(text, color = Color(0xFF8E879A), fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
 }
 
 @Composable

@@ -47,6 +47,15 @@ data class RemoteQueueItem(
     val artworkUrl: String?,
 )
 
+data class RemoteUpcomingItem(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val dateTime: String,
+    val source: ServiceKind,
+    val artworkUrl: String?,
+)
+
 data class RemoteDiscoverItem(
     val id: String,
     val remoteId: Int,
@@ -58,6 +67,11 @@ data class RemoteDiscoverItem(
     val requested: Boolean,
 )
 
+data class RemoteMediaDetails(
+    val title: String?,
+    val artworkUrl: String?,
+)
+
 data class RemoteRequest(
     val id: Int,
     val remoteId: Int?,
@@ -65,6 +79,8 @@ data class RemoteRequest(
     val status: Int,
     val requestedBy: String,
     val createdAt: String?,
+    val title: String?,
+    val artworkUrl: String?,
 )
 
 object ServicePayloadParser {
@@ -133,6 +149,54 @@ object ServicePayloadParser {
         return records.mapNotNull { queueItem(it.jsonObject, source) }
     }
 
+    fun upcoming(payload: String, source: ServiceKind): List<RemoteUpcomingItem> {
+        require(source == ServiceKind.RADARR || source == ServiceKind.SONARR)
+        val root = json.parseToJsonElement(payload)
+        val items = when (root) {
+            is JsonArray -> root
+            is JsonObject -> root.array("records")
+            else -> JsonArray(emptyList())
+        }
+        return items.mapNotNull { element ->
+            val item = element.jsonObject
+            if (source == ServiceKind.RADARR) {
+                val id = item.int("id")?.toString() ?: return@mapNotNull null
+                val title = item.string("title") ?: return@mapNotNull null
+                val dateTime = item.string("digitalRelease")
+                    ?: item.string("physicalRelease")
+                    ?: item.string("inCinemas")
+                    ?: return@mapNotNull null
+                val year = item.int("year")
+                RemoteUpcomingItem(
+                    id = id,
+                    title = title,
+                    subtitle = listOfNotNull("Movie", year?.toString()).joinToString(" · "),
+                    dateTime = dateTime,
+                    source = source,
+                    artworkUrl = secureArtwork(item),
+                )
+            } else {
+                val id = item.int("id")?.toString() ?: return@mapNotNull null
+                val series = item.obj("series")
+                val title = series?.string("title") ?: item.string("seriesTitle") ?: return@mapNotNull null
+                val season = item.int("seasonNumber")
+                val episode = item.int("episodeNumber")
+                val episodeTitle = item.string("title")
+                val episodeNumber = if (season != null && episode != null) {
+                    "S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"
+                } else null
+                RemoteUpcomingItem(
+                    id = id,
+                    title = title,
+                    subtitle = listOfNotNull(episodeNumber, episodeTitle).joinToString(" · ").ifBlank { "Episode" },
+                    dateTime = item.string("airDateUtc") ?: item.string("airDate") ?: return@mapNotNull null,
+                    source = source,
+                    artworkUrl = series?.let(::secureArtwork) ?: secureArtwork(item),
+                )
+            }
+        }
+    }
+
     fun discover(payload: String): List<RemoteDiscoverItem> {
         val results = json.parseToJsonElement(payload).jsonObject.array("results")
         return results.mapNotNull { element ->
@@ -171,8 +235,18 @@ object ServicePayloadParser {
                 status = request.int("status") ?: 1,
                 requestedBy = user?.string("displayName") ?: user?.string("username") ?: "Someone",
                 createdAt = request.string("createdAt"),
+                title = media?.string("title") ?: media?.string("name"),
+                artworkUrl = media?.string("posterPath")?.let(::safeTmdbArtwork),
             )
         }
+    }
+
+    fun mediaDetails(payload: String): RemoteMediaDetails {
+        val item = json.parseToJsonElement(payload) as? JsonObject ?: return RemoteMediaDetails(null, null)
+        return RemoteMediaDetails(
+            title = item.string("title") ?: item.string("name"),
+            artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork),
+        )
     }
 
     private fun playbackSession(element: JsonElement): RemotePlayback? {
@@ -237,11 +311,7 @@ object ServicePayloadParser {
             IncomingState.DOWNLOADING -> progress?.let { "Downloading $it%" } ?: "Downloading"
             IncomingState.REQUESTED -> rawStatus.replaceFirstChar(Char::uppercase).ifBlank { "Queued" }
         }
-        val artwork = media?.array("images")
-            ?.mapNotNull { it as? JsonObject }
-            ?.firstOrNull { it.string("coverType") == "poster" }
-            ?.let { it.string("remoteUrl") ?: it.string("url") }
-            ?.takeIf { it.startsWith("https://", ignoreCase = true) }
+        val artwork = media?.let(::secureArtwork)
         return RemoteQueueItem(
             id = "${source.name.lowercase()}-$id",
             title = title,
@@ -267,6 +337,12 @@ object ServicePayloadParser {
         path.startsWith("https://image.tmdb.org/", ignoreCase = true) -> path
         else -> null
     }
+
+    private fun secureArtwork(item: JsonObject): String? = item.array("images")
+        .mapNotNull { it as? JsonObject }
+        .firstOrNull { image -> image.string("coverType") == "poster" || image.string("coverType") == "fanart" }
+        ?.let { image -> image.string("remoteUrl") ?: image.string("url") }
+        ?.takeIf { url -> url.startsWith("https://", ignoreCase = true) }
 
     private const val TICKS_PER_MINUTE = 600_000_000L
 }

@@ -1,8 +1,6 @@
 package app.reelstack.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -29,7 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -52,13 +48,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.data.model.IncomingState
-import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
-import app.reelstack.ui.theme.Success
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Warning
 import app.reelstack.ui.components.MediaArtwork
@@ -69,8 +63,7 @@ fun ReelstackSheets(
     state: ReelstackUiState,
     connectionDraft: ConnectionDraft?,
     onDismiss: () -> Unit,
-    onSelectServer: (ServiceKind) -> Unit,
-    onPlaybackToggle: () -> Unit,
+    onPlaybackToggle: (String) -> Unit,
     onConnectionNameChange: (String) -> Unit,
     onConnectionUrlChange: (String) -> Unit,
     onConnectionTokenChange: (String) -> Unit,
@@ -92,8 +85,7 @@ fun ReelstackSheets(
         },
     ) {
         when (sheet) {
-            AppSheet.ServerPicker -> ServerPickerSheet(state, onSelectServer)
-            AppSheet.SessionDetails -> SessionSheet(state, onPlaybackToggle)
+            is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle)
             is AppSheet.MediaDetails -> MediaDetailsSheet(state, sheet.mediaId)
             is AppSheet.LibraryDetails -> LibraryDetailsSheet(state, sheet.mediaId)
             is AppSheet.ConnectionEditor -> connectionDraft?.let {
@@ -127,60 +119,10 @@ private fun SheetHeader(title: String, description: String, onDismiss: (() -> Un
 }
 
 @Composable
-private fun ServerPickerSheet(state: ReelstackUiState, onSelectServer: (ServiceKind) -> Unit) {
+private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlaybackToggle: (String) -> Unit) {
+    val session = state.sessions.firstOrNull { it.key == sessionKey } ?: return
     Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 34.dp)) {
-        SheetHeader("Choose server", "Switch without losing your place")
-        Spacer(Modifier.height(18.dp))
-        state.connections.filter { it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY }.forEach { connection ->
-            ServerOption(
-                connection = connection,
-                selected = connection.kind == state.selectedServer,
-                onClick = { onSelectServer(connection.kind) },
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-    }
-}
-
-@Composable
-private fun ServerOption(connection: ServiceConnection, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xB82D263C))
-            .border(1.dp, Color(0x25E2D5FF), RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(Primary.copy(alpha = 0.16f)),
-        ) {
-            Icon(Icons.Rounded.Dns, contentDescription = null, tint = PrimarySoft)
-        }
-        Column(Modifier.weight(1f).padding(start = 13.dp)) {
-            Text(connection.name, color = Color.White, fontWeight = FontWeight.SemiBold)
-            Text(
-                "${connection.kind.displayName} · ${connection.detail ?: "Demo data"}",
-                color = Muted,
-                fontSize = 11.sp,
-            )
-        }
-        if (selected) {
-            Icon(Icons.Rounded.CheckCircle, contentDescription = "Selected", tint = Success)
-        } else {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(Success))
-        }
-    }
-}
-
-@Composable
-private fun SessionSheet(state: ReelstackUiState, onPlaybackToggle: () -> Unit) {
-    val session = state.session ?: return
-    Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 34.dp)) {
-        SheetHeader("Live session", "Playback details from ${state.selectedConnection?.kind?.displayName ?: "Jellyfin"}")
+        SheetHeader("Live session", "${session.source?.displayName ?: "Media server"} · ${session.deviceName}")
         MediaArtwork(
             url = session.artworkUrl,
             fallbackRes = R.drawable.session_still,
@@ -193,20 +135,20 @@ private fun SessionSheet(state: ReelstackUiState, onPlaybackToggle: () -> Unit) 
         Text(session.subtitle, color = Muted, fontSize = 12.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
             DetailCell("Stream", session.streamMethod, Modifier.weight(1f))
-            DetailCell("Quality", "${session.quality} HDR", Modifier.weight(1f))
+            DetailCell("Quality", session.quality, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-            DetailCell("Audio", "EAC3 5.1", Modifier.weight(1f))
-            DetailCell("Bitrate", "24.1 Mbps", Modifier.weight(1f))
+            DetailCell("Server", session.source?.displayName ?: "Media server", Modifier.weight(1f))
+            DetailCell("Viewer", session.userName, Modifier.weight(1f))
         }
         Button(
-            onClick = onPlaybackToggle,
-            enabled = !state.playbackControlPending,
+            onClick = { onPlaybackToggle(session.key) },
+            enabled = state.pendingSessionKey == null,
             shape = RoundedCornerShape(17.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color(0xFF160D20)),
             modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(52.dp),
         ) {
-            if (state.playbackControlPending) {
+            if (state.pendingSessionKey == session.key) {
                 CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                 Text("Sending command…", modifier = Modifier.padding(start = 8.dp))
             } else {

@@ -108,6 +108,35 @@ class ServicePayloadParserTest {
     }
 
     @Test
+    fun parsesRadarrCalendarMovie() {
+        val payload = """
+            [{"id":17,"title":"The Odyssey","year":2026,"digitalRelease":"2026-09-08T00:00:00Z",
+              "images":[{"coverType":"poster","remoteUrl":"https://art.example/odyssey.jpg"}]}]
+        """.trimIndent()
+
+        val item = ServicePayloadParser.upcoming(payload, ServiceKind.RADARR).single()
+
+        assertEquals("The Odyssey", item.title)
+        assertEquals("Movie · 2026", item.subtitle)
+        assertEquals("2026-09-08T00:00:00Z", item.dateTime)
+        assertEquals("https://art.example/odyssey.jpg", item.artworkUrl)
+    }
+
+    @Test
+    fun parsesSonarrCalendarEpisode() {
+        val payload = """
+            [{"id":31,"seasonNumber":2,"episodeNumber":7,"title":"Messenger","airDateUtc":"2026-09-09T19:00:00Z",
+              "series":{"title":"Andor","images":[{"coverType":"poster","remoteUrl":"https://art.example/andor.jpg"}]}}]
+        """.trimIndent()
+
+        val item = ServicePayloadParser.upcoming(payload, ServiceKind.SONARR).single()
+
+        assertEquals("Andor", item.title)
+        assertEquals("S02 E07 · Messenger", item.subtitle)
+        assertEquals(ServiceKind.SONARR, item.source)
+    }
+
+    @Test
     fun mapsSeerrAvailabilityAndPosterUrl() {
         val payload = """
             {"results":[
@@ -146,5 +175,15 @@ class ServicePayloadParserTest {
         assertEquals(101, request.remoteId)
         assertEquals(2, request.status)
         assertEquals("Maya", request.requestedBy)
+    }
+
+    @Test
+    fun parsesSeerrMediaDetailsArtwork() {
+        val details = ServicePayloadParser.mediaDetails(
+            """{"title":"The Odyssey","posterPath":"/odyssey.jpg"}""",
+        )
+
+        assertEquals("The Odyssey", details.title)
+        assertEquals("https://image.tmdb.org/t/p/w500/odyssey.jpg", details.artworkUrl)
     }
 }

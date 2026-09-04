@@ -9,7 +9,9 @@ import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.network.MediaServerClient
+import app.reelstack.data.network.QueueServiceFeed
 import app.reelstack.data.network.QueueServiceClient
 import app.reelstack.data.network.RemoteDiscoverItem
 import app.reelstack.data.network.MediaServerFeed
@@ -17,17 +19,24 @@ import app.reelstack.data.network.RemoteLibraryItem
 import app.reelstack.data.network.RemotePlayback
 import app.reelstack.data.network.RemoteQueueItem
 import app.reelstack.data.network.RemoteRequest
+import app.reelstack.data.network.RemoteUpcomingItem
 import app.reelstack.data.network.SeerrFeed
 import app.reelstack.data.network.SeerrServiceClient
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
 
 data class MediaSyncSnapshot(
-    val session: PlaybackSession?,
+    val sessions: List<PlaybackSession>,
     val continueWatching: List<LibraryMedia>,
     val recentlyAdded: List<LibraryMedia>,
+    val upcoming: List<UpcomingMedia>,
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
     val activity: List<ActivityEvent>,
@@ -43,7 +52,6 @@ class MediaSyncRepository(
 ) {
     suspend fun refresh(
         connections: List<ServiceConnection>,
-        selectedServer: ServiceKind,
     ): MediaSyncSnapshot = supervisorScope {
         val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
         val deferred = configured.map { connection ->
@@ -56,31 +64,31 @@ class MediaSyncRepository(
         }.toMap()
 
         val payloads = results.mapNotNull { it.second.getOrNull() }
-        val selectedIsConfigured = configured.any { it.kind == selectedServer }
         val mediaPayloads = payloads.filterIsInstance<ServicePayload.Media>()
-        val selectedMedia = if (selectedIsConfigured) {
-            mediaPayloads.firstOrNull { it.kind == selectedServer }
-        } else {
-            mediaPayloads.firstOrNull()
-        }
-        val queue = payloads.filterIsInstance<ServicePayload.Queue>().flatMap { it.items }
+        val queuePayloads = payloads.filterIsInstance<ServicePayload.Queue>()
+        val queue = queuePayloads.flatMap { it.feed.queue }
+        val upcoming = queuePayloads.flatMap { payload ->
+            payload.feed.upcoming.mapIndexedNotNull { index, item -> upcomingMedia(item, index) }
+        }.sortedBy(UpcomingMedia::airDateEpochMillis)
         val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
         val titleLookup = discover.associateBy { it.remoteId }
         val activity = buildList {
-            seerr?.requests.orEmpty().forEach { add(requestActivity(it, titleLookup[it.remoteId]?.title)) }
+            seerr?.requests.orEmpty().forEach { add(requestActivity(it, titleLookup[it.remoteId])) }
             queue.forEach { add(queueActivity(it)) }
         }.take(30)
-        val selectedMediaKind = selectedMedia?.kind ?: selectedServer
 
         MediaSyncSnapshot(
-            session = selectedMedia?.feed?.sessions?.firstOrNull()?.let { playbackSession(it, selectedMediaKind) },
-            continueWatching = selectedMedia?.feed?.continueWatching.orEmpty().mapIndexed { index, item ->
-                libraryMedia(item, selectedMediaKind, index)
+            sessions = mediaPayloads.flatMap { payload ->
+                payload.feed.sessions.map { playbackSession(it, payload.kind) }
             },
-            recentlyAdded = selectedMedia?.feed?.recentlyAdded.orEmpty().mapIndexed { index, item ->
-                libraryMedia(item, selectedMediaKind, index + 1)
-            },
+            continueWatching = interleave(mediaPayloads.map { payload ->
+                payload.feed.continueWatching.mapIndexed { index, item -> libraryMedia(item, payload.kind, index) }
+            }).take(24),
+            recentlyAdded = interleave(mediaPayloads.map { payload ->
+                payload.feed.recentlyAdded.mapIndexed { index, item -> libraryMedia(item, payload.kind, index + 1) }
+            }).take(24),
+            upcoming = upcoming.take(30),
             incoming = queue.map(::incomingMedia),
             discover = discover,
             activity = activity,
@@ -115,7 +123,7 @@ class MediaSyncRepository(
         )
         ServiceKind.RADARR, ServiceKind.SONARR -> ServicePayload.Queue(
             connection.kind,
-            queueServiceClient.queue(connection),
+            queueServiceClient.feed(connection),
         )
         ServiceKind.SEERR -> ServicePayload.Seerr(connection.kind, seerrServiceClient.feed(connection))
     }
@@ -153,6 +161,24 @@ class MediaSyncRepository(
         artworkUrl = item.artworkUrl,
     )
 
+    private fun upcomingMedia(item: RemoteUpcomingItem, index: Int): UpcomingMedia? {
+        val instant = parseCalendarInstant(item.dateTime) ?: return null
+        return UpcomingMedia(
+            id = "${item.source.name.lowercase()}-${item.id}",
+            title = item.title,
+            subtitle = item.subtitle,
+            dateLabel = calendarLabel(instant, item.source),
+            airDateEpochMillis = instant.toEpochMilli(),
+            artworkRes = if (item.source == ServiceKind.RADARR || index % 2 == 0) {
+                R.drawable.desert_arrival
+            } else {
+                R.drawable.kitchen_request
+            },
+            source = item.source,
+            artworkUrl = item.artworkUrl,
+        )
+    }
+
     private fun discoverMedia(item: RemoteDiscoverItem) = DiscoverMedia(
         id = item.id,
         title = item.title,
@@ -173,11 +199,13 @@ class MediaSyncRepository(
         progress = item.progress,
         complete = item.state == IncomingState.READY,
         source = item.source,
+        artworkRes = if (item.source == ServiceKind.RADARR) R.drawable.desert_arrival else R.drawable.kitchen_request,
+        artworkUrl = item.artworkUrl,
     )
 
-    private fun requestActivity(request: RemoteRequest, discoveredTitle: String?) = ActivityEvent(
+    private fun requestActivity(request: RemoteRequest, discovered: DiscoverMedia?) = ActivityEvent(
         id = "seerr-request-${request.id}",
-        title = discoveredTitle ?: if (request.mediaType == "movie") "Movie request" else "Series request",
+        title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Movie request" else "Series request",
         detail = when (request.status) {
             2 -> "Approved by Seerr for ${request.requestedBy}"
             3 -> "Declined in Seerr"
@@ -186,7 +214,29 @@ class MediaSyncRepository(
         time = relativeTime(request.createdAt),
         complete = request.status == 2,
         source = ServiceKind.SEERR,
+        artworkRes = if (request.mediaType == "movie") R.drawable.desert_arrival else R.drawable.kitchen_request,
+        artworkUrl = discovered?.artworkUrl ?: request.artworkUrl,
     )
+
+    private fun parseCalendarInstant(value: String): Instant? =
+        runCatching { Instant.parse(value) }.getOrNull()
+            ?: runCatching { OffsetDateTime.parse(value).toInstant() }.getOrNull()
+            ?: runCatching {
+                LocalDate.parse(value.take(10)).atStartOfDay(ZoneId.systemDefault()).toInstant()
+            }.getOrNull()
+
+    private fun calendarLabel(instant: Instant, source: ServiceKind): String {
+        val zone = ZoneId.systemDefault()
+        val dateTime = instant.atZone(zone)
+        val today = LocalDate.now(zone)
+        val date = dateTime.toLocalDate()
+        val day = when (date) {
+            today -> "Today"
+            today.plusDays(1) -> "Tomorrow"
+            else -> date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH))
+        }
+        return if (source == ServiceKind.SONARR) "$day · ${dateTime.format(DateTimeFormatter.ofPattern("HH:mm"))}" else day
+    }
 
     private fun relativeTime(createdAt: String?): String {
         val instant = createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return "Recently"
@@ -214,7 +264,14 @@ class MediaSyncRepository(
         val kind: ServiceKind
 
         data class Media(override val kind: ServiceKind, val feed: MediaServerFeed) : ServicePayload
-        data class Queue(override val kind: ServiceKind, val items: List<RemoteQueueItem>) : ServicePayload
+        data class Queue(override val kind: ServiceKind, val feed: QueueServiceFeed) : ServicePayload
         data class Seerr(override val kind: ServiceKind, val feed: SeerrFeed) : ServicePayload
+    }
+}
+
+private fun <T> interleave(groups: List<List<T>>): List<T> = buildList {
+    val maxSize = groups.maxOfOrNull(List<T>::size) ?: 0
+    repeat(maxSize) { index ->
+        groups.forEach { group -> group.getOrNull(index)?.let(::add) }
     }
 }

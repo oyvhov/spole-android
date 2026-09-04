@@ -1,8 +1,8 @@
-# Reelstack product and implementation plan
+# HomeReel product and implementation plan
 
 ## Product promise
 
-One reliable place to answer three questions: **What is playing? What should I request? What is arriving next?** Reelstack should feel like a premium media app, while making the status of a five-service automation stack understandable to people who did not configure it.
+One reliable place to answer three questions: **What is playing? What should I request? What is arriving next?** HomeReel should feel like a premium media app, while making the status of a five-service automation stack understandable to people who did not configure it.
 
 ## Core principles
 
@@ -59,7 +59,8 @@ One reliable place to answer three questions: **What is playing? What should I r
 - [x] Jellyfin and Emby libraries, resume items, and recently added media
 - [x] Seerr trending discovery, request submission, and request-status feeds
 - [x] Radarr and Sonarr queue feeds
-- [ ] Radarr and Sonarr calendar and history feeds
+- [x] Radarr and Sonarr calendar feeds
+- [ ] Radarr and Sonarr history feeds
 - [x] Stable domain mapping, empty states, pull-to-refresh, and partial-service failures
 - [x] Persistent non-secret dashboard cache with last-updated state
 - [ ] Pagination, loading skeletons, and migration to a local Room cache
@@ -71,6 +72,7 @@ Acceptance: replacing demo mode with a valid profile populates every screen from
 - [x] Submit Seerr requests
 - [ ] Cancel Seerr requests
 - [x] Pause and resume active Jellyfin/Emby sessions
+- [x] Aggregate and control multiple simultaneous media-server sessions
 - Pause, resume, and inspect Radarr/Sonarr queue items where permitted
 - Deep-link or cast playback into Jellyfin/Emby clients
 - Quality-profile and monitored-state selection before advanced requests
@@ -81,6 +83,7 @@ Acceptance: every mutation shows pending, success, and actionable failure states
 ### Milestone 4 — Background reliability
 
 - [x] WorkManager refresh with network and optional Wi-Fi constraints
+- [x] Per-section Home visibility preferences
 - Optional notifications for approval, completion, stall, and failure
 - Token-expiry and server-certificate guidance
 - Exponential backoff, rate-limit handling, and per-service diagnostics
@@ -117,6 +120,6 @@ Acceptance: updates are useful without being noisy, stale data is visibly identi
 ## Explicit non-goals for the first release
 
 - Replacing the full administration UI of any connected service
-- Hosting or proxying media through Reelstack
+- Hosting or proxying media through HomeReel
 - Storing server API tokens in a cloud account
 - Silent destructive queue or request changes

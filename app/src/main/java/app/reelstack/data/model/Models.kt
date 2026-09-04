@@ -15,6 +15,14 @@ enum class ConnectionState {
     ERROR,
 }
 
+enum class HomeSection {
+    NOW_PLAYING,
+    CONTINUE_WATCHING,
+    RECENTLY_ADDED,
+    UPCOMING,
+    DOWNLOADS,
+}
+
 data class ServiceConnection(
     val kind: ServiceKind,
     val name: String,
@@ -39,7 +47,10 @@ data class PlaybackSession(
     val artworkUrl: String? = null,
     val sessionId: String? = null,
     val source: ServiceKind? = null,
-)
+) {
+    val key: String
+        get() = "${source?.name ?: "DEMO"}:${sessionId ?: "$userName:$deviceName:$title"}"
+}
 
 data class LibraryMedia(
     val id: String,
@@ -48,6 +59,17 @@ data class LibraryMedia(
     val progress: Float? = null,
     val artworkRes: Int,
     val source: ServiceKind,
+)
+
+data class UpcomingMedia(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val dateLabel: String,
+    val airDateEpochMillis: Long,
+    val artworkRes: Int,
+    val source: ServiceKind,
+    val artworkUrl: String? = null,
 )
 
 enum class IncomingState {
@@ -86,6 +108,8 @@ data class ActivityEvent(
     val progress: Int? = null,
     val complete: Boolean = false,
     val source: ServiceKind? = null,
+    val artworkRes: Int? = null,
+    val artworkUrl: String? = null,
 )
 
 data class ConnectionTestResult(

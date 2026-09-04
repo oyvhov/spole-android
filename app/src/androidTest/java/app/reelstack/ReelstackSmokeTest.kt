@@ -3,8 +3,10 @@ package app.reelstack
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import org.junit.Rule
@@ -16,10 +18,9 @@ class ReelstackSmokeTest {
 
     @Test
     fun homeScreenShowsCoreMediaState() {
-        composeRule.onNodeWithText("Good evening").assertIsDisplayed()
+        composeRule.onNodeWithText("HomeReel").assertIsDisplayed()
         composeRule.onNodeWithText("Preview mode · connect a service when you're ready.").assertIsDisplayed()
-        composeRule.onNodeWithText("Severance").assertIsDisplayed()
-        composeRule.onNodeWithText("Dune: Messiah").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Severance")[0].assertIsDisplayed()
     }
 
     @Test
@@ -38,5 +39,13 @@ class ReelstackSmokeTest {
 
         composeRule.onNodeWithText("Jellyfin library").assertIsDisplayed()
         composeRule.onNodeWithText("42% watched").assertIsDisplayed()
+    }
+
+    @Test
+    fun homeSectionsCanBeEditedInSettings() {
+        composeRule.onNodeWithText("Settings").performClick()
+
+        composeRule.onNodeWithText("Home screen").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Upcoming").performScrollTo().assertIsDisplayed()
     }
 }

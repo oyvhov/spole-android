@@ -24,7 +24,6 @@ class MediaRefreshWorker(
         val snapshot = runCatching {
             container.mediaSyncRepository.refresh(
                 connections = connections,
-                selectedServer = container.preferencesRepository.selectedServer,
             )
         }.getOrElse { return Result.retry() }
 

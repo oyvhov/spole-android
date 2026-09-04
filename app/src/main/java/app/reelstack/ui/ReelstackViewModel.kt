@@ -11,10 +11,12 @@ import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.IncomingMedia
 import app.reelstack.data.model.IncomingState
+import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.network.EndpointValidator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,8 +30,7 @@ import kotlinx.coroutines.withContext
 enum class AppTab { HOME, DISCOVER, ACTIVITY, SETTINGS }
 
 sealed interface AppSheet {
-    data object ServerPicker : AppSheet
-    data object SessionDetails : AppSheet
+    data class SessionDetails(val sessionKey: String) : AppSheet
     data class MediaDetails(val mediaId: String) : AppSheet
     data class LibraryDetails(val mediaId: String) : AppSheet
     data class ConnectionEditor(val kind: ServiceKind) : AppSheet
@@ -48,12 +49,12 @@ data class ConnectionDraft(
 
 data class ReelstackUiState(
     val selectedTab: AppTab = AppTab.HOME,
-    val selectedServer: ServiceKind = ServiceKind.JELLYFIN,
     val activeSheet: AppSheet? = null,
     val connections: List<ServiceConnection> = emptyList(),
-    val session: PlaybackSession? = demoSession(),
+    val sessions: List<PlaybackSession> = demoSessions(),
     val continueWatching: List<LibraryMedia> = demoContinueWatching(),
     val recentlyAdded: List<LibraryMedia> = demoRecentlyAdded(),
+    val upcoming: List<UpcomingMedia> = demoUpcoming(),
     val incoming: List<IncomingMedia> = demoIncoming(),
     val discover: List<DiscoverMedia> = demoDiscover(),
     val activity: List<ActivityEvent> = demoActivity(),
@@ -69,7 +70,8 @@ data class ReelstackUiState(
     val lastUpdatedEpochMillis: Long? = null,
     val failedServices: Set<ServiceKind> = emptySet(),
     val requestingMediaIds: Set<String> = emptySet(),
-    val playbackControlPending: Boolean = false,
+    val pendingSessionKey: String? = null,
+    val homeSections: Set<HomeSection> = HomeSection.entries.toSet(),
     val hasCachedData: Boolean = false,
     val snackbar: String? = null,
 ) {
@@ -77,9 +79,6 @@ data class ReelstackUiState(
         get() = if (searchQuery.isBlank()) discover else discover.filter {
             it.title.contains(searchQuery, ignoreCase = true)
         }
-
-    val selectedConnection: ServiceConnection?
-        get() = connections.firstOrNull { it.kind == selectedServer }
 
     val configuredCount: Int
         get() = connections.count { it.baseUrl.isNotBlank() }
@@ -137,22 +136,20 @@ class ReelstackViewModel(
         connectionDraft.value = null
     }
 
-    fun selectServer(kind: ServiceKind) {
-        container.preferencesRepository.selectedServer = kind
-        _uiState.update { it.copy(selectedServer = kind, activeSheet = null) }
-        refreshLiveData()
-    }
-
-    fun togglePlayback() {
+    fun togglePlayback(sessionKey: String) {
         val state = _uiState.value
-        val session = state.session ?: return
+        val session = state.sessions.firstOrNull { it.key == sessionKey } ?: return
         if (!state.liveSession) {
-            _uiState.update { it.copy(session = session.copy(paused = !session.paused)) }
+            _uiState.update { current ->
+                current.copy(sessions = current.sessions.map { item ->
+                    if (item.key == sessionKey) item.copy(paused = !item.paused) else item
+                })
+            }
             return
         }
-        if (state.playbackControlPending) return
+        if (state.pendingSessionKey != null) return
         val targetPaused = !session.paused
-        _uiState.update { it.copy(playbackControlPending = true) }
+        _uiState.update { it.copy(pendingSessionKey = sessionKey) }
         viewModelScope.launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
@@ -165,8 +162,10 @@ class ReelstackViewModel(
             }
             _uiState.update { current ->
                 current.copy(
-                    session = if (result.isSuccess) current.session?.copy(paused = targetPaused) else current.session,
-                    playbackControlPending = false,
+                    sessions = if (result.isSuccess) {
+                        current.sessions.map { item -> if (item.key == sessionKey) item.copy(paused = targetPaused) else item }
+                    } else current.sessions,
+                    pendingSessionKey = null,
                     snackbar = if (result.isSuccess) {
                         if (targetPaused) "Playback paused" else "Playback resumed"
                     } else {
@@ -211,6 +210,8 @@ class ReelstackViewModel(
                                 detail = "Sent to Seerr",
                                 time = "Just now",
                                 source = ServiceKind.SEERR,
+                                artworkRes = media.artworkRes,
+                                artworkUrl = media.artworkUrl,
                             ),
                         ) + current.activity,
                         requestingMediaIds = current.requestingMediaIds - id,
@@ -233,9 +234,10 @@ class ReelstackViewModel(
         if (configured.isEmpty()) {
             _uiState.update {
                 it.copy(
-                    session = demoSession(),
+                    sessions = demoSessions(),
                     continueWatching = demoContinueWatching(),
                     recentlyAdded = demoRecentlyAdded(),
+                    upcoming = demoUpcoming(),
                     incoming = demoIncoming(),
                     discover = demoDiscover(),
                     activity = demoActivity(),
@@ -258,7 +260,6 @@ class ReelstackViewModel(
             val snapshot = withContext(Dispatchers.IO) {
                 container.mediaSyncRepository.refresh(
                     connections = _uiState.value.connections,
-                    selectedServer = _uiState.value.selectedServer,
                 )
             }
             if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
@@ -275,27 +276,38 @@ class ReelstackViewModel(
                 val anySuccess = snapshot.successfulServices.isNotEmpty()
 
                 current.copy(
-                    session = when {
-                        configuredMedia.isEmpty() -> demoSession()
-                        mediaLive -> snapshot.session
-                        current.liveSession || current.hasCachedData -> current.session
-                        else -> null
+                    sessions = when {
+                        configuredMedia.isEmpty() -> demoSessions()
+                        mediaLive -> snapshot.sessions
+                        current.liveSession || current.hasCachedData -> current.sessions
+                        else -> emptyList()
                     },
                     continueWatching = when {
                         configuredMedia.isEmpty() -> demoContinueWatching()
-                        mediaLive -> snapshot.continueWatching
+                        mediaLive -> (snapshot.continueWatching + current.continueWatching.filter { it.source in snapshot.errors })
+                            .distinctBy(LibraryMedia::id)
                         current.liveLibrary || current.hasCachedData -> current.continueWatching
                         else -> emptyList()
                     },
                     recentlyAdded = when {
                         configuredMedia.isEmpty() -> demoRecentlyAdded()
-                        mediaLive -> snapshot.recentlyAdded
+                        mediaLive -> (snapshot.recentlyAdded + current.recentlyAdded.filter { it.source in snapshot.errors })
+                            .distinctBy(LibraryMedia::id)
                         current.liveLibrary || current.hasCachedData -> current.recentlyAdded
+                        else -> emptyList()
+                    },
+                    upcoming = when {
+                        configuredQueue.isEmpty() -> demoUpcoming()
+                        queueLive -> (snapshot.upcoming + current.upcoming.filter { it.source in snapshot.errors })
+                            .distinctBy(UpcomingMedia::id)
+                            .sortedBy(UpcomingMedia::airDateEpochMillis)
+                        current.liveIncoming || current.hasCachedData -> current.upcoming
                         else -> emptyList()
                     },
                     incoming = when {
                         configuredQueue.isEmpty() -> demoIncoming()
-                        queueLive -> snapshot.incoming
+                        queueLive -> (snapshot.incoming + current.incoming.filter { it.source in snapshot.errors })
+                            .distinctBy(IncomingMedia::id)
                         current.liveIncoming || current.hasCachedData -> current.incoming
                         else -> emptyList()
                     },
@@ -307,7 +319,10 @@ class ReelstackViewModel(
                     },
                     activity = when {
                         configuredQueue.isEmpty() && ServiceKind.SEERR !in configuredKinds -> demoActivity()
-                        activityLive -> snapshot.activity
+                        activityLive -> (snapshot.activity + current.activity.filter { event ->
+                            event.source?.let(snapshot.errors::containsKey) == true
+                        })
+                            .distinctBy(ActivityEvent::id)
                         current.liveActivity || current.hasCachedData -> current.activity
                         else -> emptyList()
                     },
@@ -353,6 +368,14 @@ class ReelstackViewModel(
         container.preferencesRepository.wifiOnly = enabled
         BackgroundRefreshScheduler.schedule(container.appContext, enabled)
         _uiState.update { it.copy(wifiOnly = enabled, snackbar = "Background refresh updated") }
+    }
+
+    fun setHomeSectionVisible(section: HomeSection, visible: Boolean) {
+        _uiState.update { current ->
+            val updated = if (visible) current.homeSections + section else current.homeSections - section
+            container.preferencesRepository.visibleHomeSections = updated
+            current.copy(homeSections = updated)
+        }
     }
 
     fun clearSnackbar() = _uiState.update { it.copy(snackbar = null) }
@@ -465,12 +488,11 @@ private fun initialState(container: AppContainer): ReelstackUiState {
     val cached = if (configuredKinds.isNotEmpty()) container.mediaSnapshotStore.read() else null
 
     return ReelstackUiState(
-        selectedServer = container.preferencesRepository.selectedServer,
         connections = connections,
-        session = when {
-            hasMediaServer && cached != null -> cached.session
-            hasMediaServer -> null
-            else -> demoSession()
+        sessions = when {
+            hasMediaServer && cached != null -> cached.sessions
+            hasMediaServer -> emptyList()
+            else -> demoSessions()
         },
         continueWatching = when {
             hasMediaServer && cached != null -> cached.continueWatching
@@ -481,6 +503,11 @@ private fun initialState(container: AppContainer): ReelstackUiState {
             hasMediaServer && cached != null -> cached.recentlyAdded
             hasMediaServer -> emptyList()
             else -> demoRecentlyAdded()
+        },
+        upcoming = when {
+            hasQueueService && cached != null -> cached.upcoming
+            hasQueueService -> emptyList()
+            else -> demoUpcoming()
         },
         incoming = when {
             hasQueueService && cached != null -> cached.incoming
@@ -499,21 +526,39 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         },
         notificationsEnabled = container.preferencesRepository.notificationsEnabled,
         wifiOnly = container.preferencesRepository.wifiOnly,
+        homeSections = container.preferencesRepository.visibleHomeSections,
         lastUpdatedEpochMillis = cached?.refreshedAtEpochMillis,
         hasCachedData = cached != null,
     )
 }
 
-private fun demoSession() = PlaybackSession(
-    userName = "Maya",
-    deviceName = "Living room TV",
-    title = "Severance",
-    subtitle = "S02  E04",
-    progress = 0.58f,
-    timeLeft = "32 min left",
-    streamMethod = "Direct play",
-    quality = "4K",
-    paused = false,
+private fun demoSessions() = listOf(
+    PlaybackSession(
+        userName = "Maya",
+        deviceName = "Living room TV",
+        title = "Severance",
+        subtitle = "S02  E04",
+        progress = 0.58f,
+        timeLeft = "32 min left",
+        streamMethod = "Direct play",
+        quality = "4K",
+        paused = false,
+        sessionId = "demo-living-room",
+        source = ServiceKind.JELLYFIN,
+    ),
+    PlaybackSession(
+        userName = "Jonas",
+        deviceName = "Pixel Tablet",
+        title = "The Bear",
+        subtitle = "S03  E02",
+        progress = 0.31f,
+        timeLeft = "24 min left",
+        streamMethod = "Direct play",
+        quality = "1080p",
+        paused = true,
+        sessionId = "demo-tablet",
+        source = ServiceKind.EMBY,
+    ),
 )
 
 private fun demoContinueWatching() = listOf(
@@ -552,6 +597,27 @@ private fun demoRecentlyAdded() = listOf(
     ),
 )
 
+private fun demoUpcoming() = listOf(
+    UpcomingMedia(
+        id = "upcoming-andor",
+        title = "Andor",
+        subtitle = "S02 E07 · Messenger",
+        dateLabel = "Tonight · 21:00",
+        airDateEpochMillis = System.currentTimeMillis() + 3_600_000,
+        artworkRes = R.drawable.kitchen_request,
+        source = ServiceKind.SONARR,
+    ),
+    UpcomingMedia(
+        id = "upcoming-odyssey",
+        title = "The Odyssey",
+        subtitle = "Movie · 2026",
+        dateLabel = "Tomorrow",
+        airDateEpochMillis = System.currentTimeMillis() + 86_400_000,
+        artworkRes = R.drawable.desert_arrival,
+        source = ServiceKind.RADARR,
+    ),
+)
+
 private fun demoIncoming() = listOf(
     IncomingMedia(
         id = "dune-messiah",
@@ -577,7 +643,7 @@ private fun demoDiscover() = listOf(
 )
 
 private fun demoActivity() = listOf(
-    ActivityEvent("odyssey", "The Odyssey", "Approved by Seerr", "2 min ago", complete = true, source = ServiceKind.SEERR),
-    ActivityEvent("alien-earth", "Alien: Earth", "Sonarr · Downloading 42%", "8 min ago", progress = 42, source = ServiceKind.SONARR),
-    ActivityEvent("mickey-17", "Mickey 17", "Imported by Radarr", "Yesterday", complete = true, source = ServiceKind.RADARR),
+    ActivityEvent("odyssey", "The Odyssey", "Approved by Seerr", "2 min ago", complete = true, source = ServiceKind.SEERR, artworkRes = R.drawable.desert_arrival),
+    ActivityEvent("alien-earth", "Alien: Earth", "Sonarr · Downloading 42%", "8 min ago", progress = 42, source = ServiceKind.SONARR, artworkRes = R.drawable.kitchen_request),
+    ActivityEvent("mickey-17", "Mickey 17", "Imported by Radarr", "Yesterday", complete = true, source = ServiceKind.RADARR, artworkRes = R.drawable.desert_arrival),
 )
