@@ -1,5 +1,20 @@
 package app.reelstack.ui
 
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import app.reelstack.data.network.EndpointValidator
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
@@ -110,7 +125,7 @@ fun ReelstackSheets(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-        containerColor = Color(0xFF15111F),
+        containerColor = app.reelstack.ui.theme.Surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
         scrimColor = Color(0xB8040308),
         tonalElevation = 0.dp,
@@ -223,9 +238,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         )
         Text(
             details.overview ?: details.subtitle,
-            color = Color(0xFFE8E0EF),
-            fontSize = 14.sp,
-            lineHeight = 22.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 16.sp,
+            lineHeight = 25.sp,
             modifier = Modifier.padding(start = 6.dp, top = 8.dp, end = 6.dp),
         )
         if (details.loading) {
@@ -503,55 +518,20 @@ private fun CinematicTitleHero(
     artworkRes: Int,
     source: ServiceKind?,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(264.dp)
-            .clip(RoundedCornerShape(28.dp)),
-    ) {
+    Column {
         MediaArtwork(
-            url = artworkUrl,
-            fallbackRes = artworkRes,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            source = source,
-            modifier = Modifier.fillMaxSize(),
+            url = artworkUrl, fallbackRes = artworkRes, contentDescription = null,
+            contentScale = ContentScale.Fit, source = source,
+            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(14.dp)).background(Ink),
         )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0f to Color(0x12090711),
-                    0.44f to Color(0x22090711),
-                    1f to Color(0xF20B0812),
-                ),
-            ),
-        )
-        Column(
-            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp, vertical = 19.dp),
-        ) {
-            Text(
-                eyebrow.uppercase(),
-                color = PrimarySoft,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                title,
-                color = Color.White,
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            if (subtitle.isNotBlank()) {
-                Text(
-                    subtitle,
-                    color = Color(0xFFD3CADB),
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    maxLines = 2,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-        }
+        Text(eyebrow.uppercase(), color = PrimarySoft, fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp,
+            modifier = Modifier.padding(top = 20.dp))
+        Text(title, color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 6.dp))
+        if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 14.sp, lineHeight = 20.sp,
+            modifier = Modifier.padding(top = 6.dp))
     }
 }
 
@@ -564,7 +544,7 @@ private fun DetailPill(text: String) {
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF30283F))
+            .background(SurfaceRaised)
             .padding(horizontal = 10.dp, vertical = 7.dp),
     )
 }
@@ -653,7 +633,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
         }
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = Color(0xA5221B30),
+            color = SurfaceRaised,
             modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
         ) {
             Row(
@@ -694,7 +674,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
 @Composable
 private fun SessionMetric(label: String, value: String, modifier: Modifier) {
     Column(modifier.padding(horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label.uppercase(), color = Color(0xFF8E849B), fontSize = 9.sp)
+        Text(label.uppercase(), color = Muted, fontSize = 9.sp)
         Text(
             value,
             color = Color(0xFFF1EBF8),
@@ -801,170 +781,156 @@ private fun ConnectionEditorSheet(
     onTestAndSave: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    var credentialsStep by rememberSaveable(draft.kind) { mutableStateOf(configured) }
+    var advanced by rememberSaveable(draft.kind) { mutableStateOf(false) }
+    var showPassword by remember { mutableStateOf(false) }
+    var addressError by remember { mutableStateOf<String?>(null) }
+    val focus = LocalFocusManager.current
+    val nextStep: () -> Unit = {
+        runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
+            .onSuccess { onUrlChange(it); credentialsStep = true; focus.clearFocus() }
+            .onFailure { addressError = it.message }
+    }
     Column(
-        Modifier.imePadding().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+        Modifier.imePadding().verticalScroll(rememberScrollState())
+            .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
     ) {
-        SheetHeader("Kople til ${draft.kind.displayName}", draft.kind.role, onDismiss)
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = draft.name,
-            onValueChange = onNameChange,
-            label = { Text("Namn på tilkoplinga") },
-            singleLine = true,
-            shape = RoundedCornerShape(17.dp),
-            colors = connectionFieldColors(),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = draft.url,
-            onValueChange = onUrlChange,
-            label = { Text("Tenaradresse") },
-            placeholder = { Text("https://media.example.com") },
-            singleLine = true,
-            shape = RoundedCornerShape(17.dp),
-            colors = connectionFieldColors(),
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-        )
-        if (draft.kind == ServiceKind.JELLYFIN) {
-            Text(
-                "Innlogging",
-                color = PrimarySoft,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 15.dp, bottom = 7.dp),
+        Text(if (configured) "TILKOPLING" else if (credentialsStep) "02 / LOGG INN" else "01 / FINN TENAREN",
+            color = Primary, fontSize = 10.sp, letterSpacing = 1.6.sp,
+            fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        SheetHeader("Kople til ${draft.kind.displayName}",
+            if (credentialsStep) "Vel korleis du vil logge inn." else "Bruk adressa du vanlegvis opnar i nettlesaren.", onDismiss)
+        Spacer(Modifier.height(20.dp))
+        if (!credentialsStep) {
+            OutlinedTextField(
+                value = draft.url, onValueChange = { addressError = null; onUrlChange(it) },
+                label = { Text("Tenaradresse") }, placeholder = { Text("https://media.example.com") },
+                supportingText = { Text(addressError ?: "Ta med port eller undermappe dersom tenaren din brukar det.") },
+                isError = addressError != null,
+                singleLine = true, shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { nextStep() }),
+                modifier = Modifier.fillMaxWidth(),
             )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            ) {
-                FilterChip(
-                    selected = draft.authMode == ConnectionAuthMode.QUICK_CONNECT,
-                    onClick = { onAuthModeChange(ConnectionAuthMode.QUICK_CONNECT) },
-                    label = { Text("Quick Connect") },
-                    colors = connectionChipColors(),
-                )
-                FilterChip(
-                    selected = draft.authMode == ConnectionAuthMode.ACCOUNT,
-                    onClick = { onAuthModeChange(ConnectionAuthMode.ACCOUNT) },
-                    label = { Text("Brukarnamn") },
-                    colors = connectionChipColors(),
-                )
-                FilterChip(
-                    selected = draft.authMode == ConnectionAuthMode.API_KEY,
-                    onClick = { onAuthModeChange(ConnectionAuthMode.API_KEY) },
-                    label = { Text("Tilgangsteikn") },
-                    colors = connectionChipColors(),
-                )
+            Button(onClick = nextStep, enabled = draft.url.isNotBlank(),
+                shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(top = 24.dp).height(54.dp)) {
+                Text("Hald fram", fontWeight = FontWeight.Bold)
+            }
+            return@Column
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(draft.url, color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f),
+                maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            TextButton(onClick = { credentialsStep = false }, enabled = !draft.saving) { Text("Endre") }
+        }
+        if (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                listOf(
+                    ConnectionAuthMode.QUICK_CONNECT to "Quick Connect",
+                    ConnectionAuthMode.ACCOUNT to if (draft.kind == ServiceKind.SEERR) "Jellyfin-konto" else "Brukarnamn",
+                    ConnectionAuthMode.API_KEY to if (draft.kind == ServiceKind.SEERR) "API-nøkkel" else "Tilgangsteikn",
+                ).forEach { (mode, label) ->
+                    FilterChip(selected = draft.authMode == mode, onClick = { onAuthModeChange(mode) },
+                        enabled = !draft.saving, label = { Text(label, fontSize = 12.sp) },
+                        shape = RoundedCornerShape(10.dp), border = null, colors = connectionChipColors())
+                }
             }
         }
-        val usesAccount = draft.kind == ServiceKind.JELLYFIN && draft.authMode == ConnectionAuthMode.ACCOUNT
-        val usesQuickConnect = draft.kind == ServiceKind.JELLYFIN &&
-            draft.authMode == ConnectionAuthMode.QUICK_CONNECT
-        if (usesQuickConnect) {
-            QuickConnectPanel(draft)
-        }
+        val supportsJellyfinLogin = draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR
+        val usesAccount = supportsJellyfinLogin && draft.authMode == ConnectionAuthMode.ACCOUNT
+        val usesQuickConnect = supportsJellyfinLogin && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
+        if (usesQuickConnect) QuickConnectPanel(draft)
         if (usesAccount) {
             OutlinedTextField(
-                value = draft.username,
-                onValueChange = onUsernameChange,
-                label = { Text("Brukarnamn") },
-                singleLine = true,
-                shape = RoundedCornerShape(17.dp),
-                colors = connectionFieldColors(),
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                value = draft.username, onValueChange = onUsernameChange,
+                label = { Text("Brukarnamn") }, enabled = !draft.saving, singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             OutlinedTextField(
-                value = draft.password,
-                onValueChange = onPasswordChange,
-                label = { Text("Passord") },
-                supportingText = { Text("Kan stå tomt for ein konto utan passord.") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                shape = RoundedCornerShape(17.dp),
-                colors = connectionFieldColors(),
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                value = draft.password, onValueChange = onPasswordChange,
+                label = { Text("Passord") }, supportingText = { Text("Kan stå tomt for ein konto utan passord.") },
+                enabled = !draft.saving, singleLine = true,
+                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showPassword = !showPassword }) {
+                        Icon(if (showPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                            if (showPassword) "Skjul passord" else "Vis passord")
+                    }
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (!draft.saving && draft.username.isNotBlank()) { focus.clearFocus(); onTestAndSave() }
+                }),
+                shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
-            Text(
-                "Passordet blir sendt direkte til Jellyfin for innlogging og blir aldri lagra i HomeReel.",
-                color = Muted,
-                fontSize = 10.sp,
-                lineHeight = 15.sp,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-        if (!usesAccount && !usesQuickConnect &&
-            (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY)
-        ) {
-            OutlinedTextField(
-                value = draft.userId,
-                onValueChange = onUserIdChange,
-                label = { Text("Profil-ID (valfri)") },
-                placeholder = { Text("Bruk ein bestemt medieprofil") },
-                supportingText = { Text("La feltet stå tomt for automatisk val av ein profil med alle bibliotek.") },
-                singleLine = true,
-                shape = RoundedCornerShape(17.dp),
-                colors = connectionFieldColors(),
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            )
+            Text(if (draft.kind == ServiceKind.SEERR) "Bruk Jellyfin-kontoen din. Seerr sjekkar innlogginga og brukar dine vanlege rettar. Passordet blir aldri lagra."
+                else "Passordet blir sendt direkte til Jellyfin og blir aldri lagra.",
+                color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp))
         }
         if (!usesAccount && !usesQuickConnect) {
             OutlinedTextField(
-                value = draft.token,
-                onValueChange = onTokenChange,
+                value = draft.token, onValueChange = onTokenChange,
                 label = { Text("API-nøkkel eller tilgangsteikn") },
-                singleLine = true,
+                enabled = !draft.saving, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                shape = RoundedCornerShape(17.dp),
-                colors = connectionFieldColors(),
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (!draft.saving && draft.token.isNotBlank()) { focus.clearFocus(); onTestAndSave() }
+                }),
+                shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
+            Text(when (draft.kind) {
+                ServiceKind.RADARR, ServiceKind.SONARR -> "Du finn API-nøkkelen under Settings → General → Security på tenaren."
+                ServiceKind.SEERR -> "Du finn API-nøkkelen under Settings → General i Seerr."
+                else -> "Du finn API-nøkkelen i kontrollpanelet til tenaren."
+            }, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp))
         }
-
+        TextButton(onClick = { advanced = !advanced }, enabled = !draft.saving) {
+            Text(if (advanced) "Skjul avanserte val" else "Avanserte val", fontSize = 12.sp)
+        }
+        if (advanced) {
+            OutlinedTextField(value = draft.name, onValueChange = onNameChange,
+                label = { Text("Namn på tilkoplinga") }, singleLine = true, enabled = !draft.saving,
+                shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(), modifier = Modifier.fillMaxWidth())
+            if (!usesAccount && !usesQuickConnect && (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY)) {
+                OutlinedTextField(value = draft.userId, onValueChange = onUserIdChange,
+                    label = { Text("Profil-ID (valfri)") }, singleLine = true, enabled = !draft.saving,
+                    supportingText = { Text("Tomt felt vel automatisk ein profil med alle bibliotek.") },
+                    shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+            }
+        }
         draft.warning?.let { MessageCard(it, warning = true) }
         draft.error?.let { MessageCard(it, warning = false) }
-
         Button(
-            onClick = onTestAndSave,
-            enabled = !draft.saving,
-            shape = CircleShape,
+            onClick = { focus.clearFocus(); onTestAndSave() },
+            enabled = !draft.saving && (usesQuickConnect || if (usesAccount) draft.username.isNotBlank() else draft.token.isNotBlank()),
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
             modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(56.dp),
         ) {
-            if (draft.saving) {
-                CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                Text(
-                    when {
-                        usesQuickConnect && draft.quickConnectCode == null -> "Lagar kode…"
-                        usesQuickConnect -> "Koplar til…"
-                        usesAccount -> "Loggar inn…"
-                        else -> "Testar tilkoplinga…"
-                    },
-                    modifier = Modifier.padding(start = 9.dp),
-                )
-            } else {
-                Icon(
-                    if (usesQuickConnect) Icons.Rounded.Devices else Icons.Rounded.CheckCircle,
-                    contentDescription = null,
-                )
-                Text(
-                    when {
-                        usesQuickConnect && draft.quickConnectCode != null -> "Lag ny kode"
-                        usesQuickConnect -> "Start Quick Connect"
-                        usesAccount -> "Logg inn og lagre"
-                        else -> "Test og lagre"
-                    },
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
+            if (draft.saving) CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+            Text(when {
+                draft.saving && usesQuickConnect && draft.quickConnectCode != null -> "Ventar på godkjenning…"
+                draft.saving && usesQuickConnect -> "Lagar kode…"
+                draft.saving -> "Koplar til…"
+                usesQuickConnect && draft.quickConnectCode != null -> "Lag ny kode"
+                usesQuickConnect -> "Start Quick Connect"
+                usesAccount -> "Logg inn"
+                else -> "Kople til"
+            }, modifier = Modifier.padding(start = if (draft.saving) 10.dp else 0.dp))
         }
-
-        if (configured) {
-            TextButton(
-                onClick = onRemove,
-                colors = ButtonDefaults.textButtonColors(contentColor = Warning),
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp),
-            ) {
-                Icon(Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(19.dp))
+        if (draft.saving) {
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Avbryt") }
+        } else if (configured) {
+            TextButton(onClick = onRemove, colors = ButtonDefaults.textButtonColors(contentColor = Warning),
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp)) {
+                Icon(Icons.Rounded.DeleteOutline, null, Modifier.size(18.dp))
                 Text("Fjern tilkoplinga", modifier = Modifier.padding(start = 7.dp))
             }
         }
@@ -981,7 +947,7 @@ private fun QuickConnectPanel(draft: ConnectionDraft) {
     ) { code ->
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = Color(0xFF211A30),
+            color = SurfaceRaised,
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (code == null) {
@@ -1009,7 +975,8 @@ private fun QuickConnectPanel(draft: ConnectionDraft) {
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            "HomeReel lagar ein kort kode som du godkjenner i ein Jellyfin-app der du allereie er innlogga.",
+                            if (draft.kind == ServiceKind.SEERR) "Godkjenn koden i Jellyfin for å logge inn på Seerr. Krev ein Seerr-versjon med Quick Connect."
+                            else "Godkjenn koden i ein Jellyfin-app der du allereie er innlogga.",
                             color = Muted,
                             fontSize = 11.sp,
                             lineHeight = 16.sp,
@@ -1041,7 +1008,7 @@ private fun QuickConnectPanel(draft: ConnectionDraft) {
                         modifier = Modifier.padding(top = 10.dp),
                     )
                     Text(
-                        "Opne Jellyfin på ein annan eining, gå til Innstillingar → Quick Connect, og skriv inn koden.",
+                        "Opne Jellyfin på ei anna eining, gå til Innstillingar → Quick Connect, og skriv inn koden.",
                         color = Muted,
                         fontSize = 11.sp,
                         lineHeight = 17.sp,
@@ -1078,8 +1045,8 @@ private fun MessageCard(text: String, warning: Boolean) {
 @Composable
 private fun connectionFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = Primary.copy(alpha = 0.72f),
-    unfocusedBorderColor = Color(0x35DCCDF9),
-    focusedContainerColor = SurfaceRaised.copy(alpha = 0.9f),
-    unfocusedContainerColor = SurfaceRaised.copy(alpha = 0.75f),
+    unfocusedBorderColor = Color.Transparent,
+    focusedContainerColor = SurfaceRaised,
+    unfocusedContainerColor = SurfaceRaised,
     cursorColor = Primary,
 )

@@ -9,7 +9,9 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 | Pattern | Purpose | Important states |
 | --- | --- | --- |
 | Playback carousel | One card per active Jellyfin or Emby session | playing, paused, command pending, command failed |
-| Media rail | Compact poster browsing across sources | progress, newly added, source badge |
+| Media rail | Separate Jellyfin/Emby poster and episode rows | loading, newly added, source badge |
+| Discovery grid | Adaptive posters with usable type filters and quieter actions | all, movies, series, searching, empty, requested |
+| First-run setup | Select services, authenticate, then open Home | no connections, connection added, explicit demo preview |
 | Upcoming card | Date-first Radarr/Sonarr calendar item | today, tomorrow, later date, missing artwork |
 | Activity row | Request/download history with visual recognition | approved, downloading, imported, failed |
 | Section switch | Controls Home visibility without disabling sync | visible, hidden |
@@ -19,18 +21,26 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 
 ## Tokens and motion
 
-- Near-black `Ink` is the page foundation; raised surfaces use `SurfaceRaised`.
-- Violet is reserved for navigation, progress, source context, and direct actions.
+- Matte charcoal `Ink` is the page foundation; raised surfaces use solid `SurfaceRaised`. No space backdrop, blur, glass panels, or decorative gradients.
+- Warm white carries titles and hierarchy. Lime is reserved for selection, progress and direct actions. Service logos retain their original colours.
 - Green confirms completed or healthy states; coral is reserved for actionable problems.
-- Major cards use 20–34 dp corner radii. Compact media and status elements use 13–20 dp.
-- Home artwork is borderless. Shape, spacing, and a soft shadow provide separation without covering the image with a permanent gradient.
-- Navigation fades use 150–220 ms. Home cards reveal in a short 390–420 ms stagger and respond to touch with a restrained spring scale. Playback progress uses a low-stiffness spring so live changes remain legible.
-- Detail sheets lead with edge-to-edge artwork and gradients; related metadata shares one quiet surface instead of a grid of equal-weight boxes.
+- Playback cards use 20 dp corners; posters use 12 dp and compact surfaces use 10–16 dp. Artwork is borderless, without a decorative shadow or bottom strip.
+- Navigation reserves layout space instead of floating over content. System insets are handled once by the app shell. Each tab retains its scroll state.
+- Navigation fades use 150–220 ms. Home cards reveal in 240 ms with at most 60 ms stagger, once per saved composition identity; touch scales use a restrained spring. Compose motion follows Android's animation scale.
+- Series detail imagery keeps its aspect ratio, with title and subtitle below. Movie details keep a full poster beside the summary. Gradients are used only to make overlaid playback/upcoming text legible.
 - Bottom-sheet height follows its content so short details feel lightweight while long descriptions remain scrollable.
 
 ## Accessibility
 
-- Interactive rows and cards expose button or switch semantics and use at least 44 dp touch targets.
+- Navigation and primary actions use at least 48 dp touch targets. Interactive rows expose button or switch semantics.
 - Status never relies on color alone; labels describe source, state, and progress.
 - Empty states are short factual messages, not decorative cards.
 - Artwork always has a local fallback, while decorative imagery has no spoken description.
+
+## Setup and authentication
+
+- Existing configured users enter Home directly. New users choose a service or explicitly opt into demo data; preview content is cleared when the first service connects.
+- New connections ask for the server address before credentials. Optional connection names and profile IDs live under advanced settings.
+- Jellyfin offers Quick Connect, account login and API tokens. Seerr offers Jellyfin account login, Seerr-mediated Quick Connect and administrator API keys.
+- Seerr stores its own encrypted session cookies, not the password or a forwarded Jellyfin token. Cookie requests carry CSRF protection when supplied by Seerr. Requests run with the signed-in user's server-side permissions.
+- Unsupported Quick Connect, rejected credentials and expired sessions have actionable Nynorsk messages. Cancellation stops pending login work.

@@ -36,22 +36,23 @@ data class QueueServiceFeed(
     val upcoming: List<RemoteUpcomingItem>,
 )
 
-data class JellyfinAuthentication(
+data class ServiceAuthentication(
     val accessToken: String,
     val userId: String,
 )
 
-data class JellyfinQuickConnect(
+data class QuickConnectChallenge(
     val secret: String,
     val code: String,
     val authenticated: Boolean,
+    val cookies: String = "",
 )
 
 class JellyfinAuthenticationClient(
     private val transport: JsonHttpTransport = HttpTransport(),
     private val deviceId: String = "homereel-android",
 ) {
-    fun authenticate(baseUrl: String, username: String, password: String): JellyfinAuthentication {
+    fun authenticate(baseUrl: String, username: String, password: String): ServiceAuthentication {
         val body = buildJsonObject {
             put("Username", username)
             put("Pw", password)
@@ -76,7 +77,7 @@ class JellyfinAuthenticationClient(
         return parseAuthentication(response.body)
     }
 
-    fun initiateQuickConnect(baseUrl: String): JellyfinQuickConnect {
+    fun initiateQuickConnect(baseUrl: String): QuickConnectChallenge {
         val response = transport.post(
             EndpointValidator.resolve(baseUrl, "QuickConnect/Initiate"),
             mapOf("Authorization" to jellyfinAuthorization(deviceId)),
@@ -92,7 +93,7 @@ class JellyfinAuthenticationClient(
         return parseQuickConnect(response.body)
     }
 
-    fun quickConnectState(baseUrl: String, secret: String): JellyfinQuickConnect {
+    fun quickConnectState(baseUrl: String, secret: String): QuickConnectChallenge {
         val response = transport.get(
             EndpointValidator.resolve(baseUrl, "QuickConnect/Connect?secret=${encode(secret)}"),
             mapOf("Authorization" to jellyfinAuthorization(deviceId)),
@@ -106,7 +107,7 @@ class JellyfinAuthenticationClient(
         return parseQuickConnect(response.body)
     }
 
-    fun authenticateWithQuickConnect(baseUrl: String, secret: String): JellyfinAuthentication {
+    fun authenticateWithQuickConnect(baseUrl: String, secret: String): ServiceAuthentication {
         val body = buildJsonObject { put("Secret", secret) }.toString()
         val response = transport.post(
             EndpointValidator.resolve(baseUrl, "Users/AuthenticateWithQuickConnect"),
@@ -122,7 +123,7 @@ class JellyfinAuthenticationClient(
         return parseAuthentication(response.body)
     }
 
-    private fun parseAuthentication(body: String): JellyfinAuthentication {
+    private fun parseAuthentication(body: String): ServiceAuthentication {
         val root = parseObject(body, "Jellyfin sende eit ugyldig innloggingssvar")
         val token = root["AccessToken"]?.jsonPrimitive?.contentOrNull
             ?: root["accessToken"]?.jsonPrimitive?.contentOrNull
@@ -131,10 +132,10 @@ class JellyfinAuthenticationClient(
         val userId = user?.get("Id")?.jsonPrimitive?.contentOrNull
             ?: user?.get("id")?.jsonPrimitive?.contentOrNull
             ?: error("Jellyfin sende ikkje tilbake ein profil-ID")
-        return JellyfinAuthentication(accessToken = token, userId = userId)
+        return ServiceAuthentication(accessToken = token, userId = userId)
     }
 
-    private fun parseQuickConnect(body: String): JellyfinQuickConnect {
+    private fun parseQuickConnect(body: String): QuickConnectChallenge {
         val root = parseObject(body, "Jellyfin sende eit ugyldig Quick Connect-svar")
         val secret = root["Secret"]?.jsonPrimitive?.contentOrNull
             ?: root["secret"]?.jsonPrimitive?.contentOrNull
@@ -145,7 +146,7 @@ class JellyfinAuthenticationClient(
         val authenticated = root["Authenticated"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
             ?: root["authenticated"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
             ?: false
-        return JellyfinQuickConnect(secret = secret, code = code, authenticated = authenticated)
+        return QuickConnectChallenge(secret = secret, code = code, authenticated = authenticated)
     }
 
     private fun parseObject(body: String, message: String) =
@@ -160,7 +161,7 @@ class ServiceConnectionTester(
         val probe = when (connection.kind) {
             ServiceKind.JELLYFIN -> ServiceProbe("System/Info", "Authorization")
             ServiceKind.EMBY -> ServiceProbe("System/Info", "X-Emby-Token")
-            ServiceKind.SEERR -> ServiceProbe("api/v1/request?take=1&skip=0", "X-Api-Key")
+            ServiceKind.SEERR -> ServiceProbe("api/v1/auth/me", "X-Api-Key")
             ServiceKind.RADARR, ServiceKind.SONARR -> ServiceProbe("api/v3/system/status", "X-Api-Key")
         }
         val endpoint = EndpointValidator.resolve(connection.baseUrl, probe.path)
@@ -168,7 +169,7 @@ class ServiceConnectionTester(
         val elapsed = measureTimeMillis {
             response = transport.get(
                 endpoint,
-                if (connection.kind == ServiceKind.JELLYFIN) {
+                if (connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.SEERR) {
                     headers(connection, deviceId)
                 } else {
                     mapOf(probe.headerName to connection.token)
@@ -182,7 +183,7 @@ class ServiceConnectionTester(
                 latencyMs = elapsed,
                 message = extractVersion(response.body)?.let { "Tilkopla · v$it" } ?: "Tilkopla",
             )
-            401, 403 -> ConnectionTestResult(false, elapsed, "API-nøkkelen vart avvist")
+            401, 403 -> ConnectionTestResult(false, elapsed, if (connection.sessionCookie) "Seerr-økta er utgått. Logg inn på nytt." else "API-nøkkelen vart avvist")
             404 -> ConnectionTestResult(false, elapsed, "Fann tenesta, men API-stien var ikkje tilgjengeleg")
             else -> ConnectionTestResult(false, elapsed, "Tenaren svara med status ${response.statusCode}")
         }
@@ -595,7 +596,8 @@ private fun headers(
         "Authorization" to jellyfinAuthorization(jellyfinDeviceId, connection.token),
     )
     ServiceKind.EMBY -> mapOf("X-Emby-Token" to connection.token)
-    ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> mapOf("X-Api-Key" to connection.token)
+    ServiceKind.SEERR -> if (connection.sessionCookie) seerrCookieHeaders(connection.token) else mapOf("X-Api-Key" to connection.token)
+    ServiceKind.RADARR, ServiceKind.SONARR -> mapOf("X-Api-Key" to connection.token)
 }
 
 internal fun jellyfinAuthorization(deviceId: String, token: String? = null): String = buildString {
@@ -619,7 +621,8 @@ private fun encodePathSegment(value: String): String = encode(value).replace("+"
 private fun HttpResponse.requireSuccess(kind: ServiceKind) {
     when (statusCode) {
         in 200..299 -> Unit
-        401, 403 -> error("${kind.displayName} avviste API-nøkkelen")
+        401 -> error(if (kind == ServiceKind.SEERR) "Logg inn på Seerr på nytt i Innstillingar." else "${kind.displayName} avviste API-nøkkelen")
+        403 -> error(if (kind == ServiceKind.SEERR) "Seerr gav ikkje kontoen tilgang til denne handlinga." else "${kind.displayName} avviste API-nøkkelen")
         404 -> error("${kind.displayName} tilbyr ikkje dette API-endepunktet")
         408, 429 -> error("${kind.displayName} er mellombels oppteken")
         in 500..599 -> error("${kind.displayName} er utilgjengeleg no")

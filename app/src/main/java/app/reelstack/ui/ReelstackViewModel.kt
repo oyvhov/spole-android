@@ -59,6 +59,7 @@ data class ConnectionDraft(
 )
 
 data class ReelstackUiState(
+    val showOnboarding: Boolean = false,
     val selectedTab: AppTab = AppTab.HOME,
     val activeSheet: AppSheet? = null,
     val connections: List<ServiceConnection> = emptyList(),
@@ -114,6 +115,7 @@ class ReelstackViewModel(
     private var refreshJob: Job? = null
     private var searchJob: Job? = null
     private var quickConnectJob: Job? = null
+    private var connectionJob: Job? = null
 
     init {
         refreshLiveData()
@@ -121,17 +123,25 @@ class ReelstackViewModel(
 
     fun selectTab(tab: AppTab) = _uiState.update { it.copy(selectedTab = tab, activeSheet = null) }
 
+    fun completeOnboarding() {
+        container.preferencesRepository.onboardingCompleted = true
+        _uiState.update { it.copy(showOnboarding = false, selectedTab = AppTab.HOME) }
+    }
+
     fun openSheet(sheet: AppSheet) {
         if (sheet is AppSheet.ConnectionEditor) {
+            connectionJob?.cancel()
             quickConnectJob?.cancel()
             val existing = _uiState.value.connections.first { it.kind == sheet.kind }
             connectionDraft.value = ConnectionDraft(
                 kind = existing.kind,
                 name = existing.name,
                 url = existing.baseUrl,
-                token = existing.token,
+                token = if (existing.sessionCookie) "" else existing.token,
                 userId = existing.userId,
-                authMode = if (existing.kind == ServiceKind.JELLYFIN && existing.token.isBlank()) {
+                authMode = if (existing.kind == ServiceKind.SEERR && (existing.token.isBlank() || existing.sessionCookie)) {
+                    ConnectionAuthMode.ACCOUNT
+                } else if (existing.kind == ServiceKind.JELLYFIN && existing.token.isBlank()) {
                     ConnectionAuthMode.QUICK_CONNECT
                 } else {
                     ConnectionAuthMode.API_KEY
@@ -145,6 +155,7 @@ class ReelstackViewModel(
     }
 
     fun closeSheet() {
+        connectionJob?.cancel()
         quickConnectJob?.cancel()
         _uiState.update { it.copy(activeSheet = null, contentDetails = null) }
         connectionDraft.value = null
@@ -508,27 +519,27 @@ class ReelstackViewModel(
 
                 current.copy(
                     sessions = when {
-                        configuredMedia.isEmpty() -> demoSessions()
+                        configuredMedia.isEmpty() -> emptyList()
                         mediaLive -> snapshot.sessions
                         current.liveSession || current.hasCachedData -> current.sessions
                         else -> emptyList()
                     },
                     recentMovies = when {
-                        configuredMedia.isEmpty() -> demoRecentMovies()
+                        configuredMedia.isEmpty() -> emptyList()
                         mediaLive -> (snapshot.recentMovies + current.recentMovies.filter { it.source in snapshot.errors })
                             .distinctBy(LibraryMedia::id)
                         current.liveLibrary || current.hasCachedData -> current.recentMovies
                         else -> emptyList()
                     },
                     recentSeries = when {
-                        configuredMedia.isEmpty() -> demoRecentSeries()
+                        configuredMedia.isEmpty() -> emptyList()
                         mediaLive -> (snapshot.recentSeries + current.recentSeries.filter { it.source in snapshot.errors })
                             .distinctBy(LibraryMedia::id)
                         current.liveLibrary || current.hasCachedData -> current.recentSeries
                         else -> emptyList()
                     },
                     upcoming = when {
-                        configuredQueue.isEmpty() -> demoUpcoming()
+                        configuredQueue.isEmpty() -> emptyList()
                         queueLive -> (snapshot.upcoming + current.upcoming.filter { it.source in snapshot.errors })
                             .distinctBy(UpcomingMedia::id)
                             .sortedBy(UpcomingMedia::airDateEpochMillis)
@@ -536,20 +547,20 @@ class ReelstackViewModel(
                         else -> emptyList()
                     },
                     incoming = when {
-                        configuredQueue.isEmpty() -> demoIncoming()
+                        configuredQueue.isEmpty() -> emptyList()
                         queueLive -> (snapshot.incoming + current.incoming.filter { it.source in snapshot.errors })
                             .distinctBy(IncomingMedia::id)
                         current.liveIncoming || current.hasCachedData -> current.incoming
                         else -> emptyList()
                     },
                     discover = when {
-                        ServiceKind.SEERR !in configuredKinds -> demoDiscover()
+                        ServiceKind.SEERR !in configuredKinds -> emptyList()
                         seerrLive -> snapshot.discover
                         current.liveDiscover || current.hasCachedData -> current.discover
                         else -> emptyList()
                     },
                     activity = when {
-                        configuredQueue.isEmpty() && ServiceKind.SEERR !in configuredKinds -> demoActivity()
+                        configuredQueue.isEmpty() && ServiceKind.SEERR !in configuredKinds -> emptyList()
                         activityLive -> (snapshot.activity + current.activity.filter { event ->
                             event.source?.let(snapshot.errors::containsKey) == true
                         })
@@ -657,8 +668,8 @@ class ReelstackViewModel(
                 updateDraft { copy(error = it.message ?: "Skriv inn ei gyldig tenaradresse") }
                 return
             }
-        val useJellyfinAccount = draft.kind == ServiceKind.JELLYFIN && draft.authMode == ConnectionAuthMode.ACCOUNT
-        val useQuickConnect = draft.kind == ServiceKind.JELLYFIN && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
+        val useJellyfinAccount = (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR) && draft.authMode == ConnectionAuthMode.ACCOUNT
+        val useQuickConnect = (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR) && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
         if (useQuickConnect) {
             startQuickConnect(draft, normalizedUrl)
             return
@@ -673,17 +684,21 @@ class ReelstackViewModel(
         }
         updateDraft { copy(url = normalizedUrl, saving = true, error = null) }
 
-        viewModelScope.launch {
+        connectionJob?.cancel()
+        connectionJob = viewModelScope.launch {
             val credentials = if (useJellyfinAccount) {
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        container.jellyfinAuthenticationClient.authenticate(
+                        if (draft.kind == ServiceKind.SEERR) {
+                            container.seerrAuthenticationClient.authenticate(normalizedUrl, draft.username.trim(), draft.password)
+                        } else container.jellyfinAuthenticationClient.authenticate(
                             baseUrl = normalizedUrl,
                             username = draft.username.trim(),
                             password = draft.password,
                         )
                     }
                 }.getOrElse { error ->
+                    if (error is kotlinx.coroutines.CancellationException) throw error
                     updateDraft { copy(saving = false, error = error.message ?: "Jellyfin avviste innlogginga") }
                     return@launch
                 }
@@ -693,6 +708,7 @@ class ReelstackViewModel(
                 name = draft.name.ifBlank { draft.kind.displayName },
                 baseUrl = normalizedUrl,
                 token = credentials?.accessToken ?: draft.token,
+                sessionCookie = draft.kind == ServiceKind.SEERR && credentials != null,
                 userId = credentials?.userId ?: draft.userId,
                 state = ConnectionState.TESTING,
             )
@@ -714,9 +730,11 @@ class ReelstackViewModel(
         quickConnectJob = viewModelScope.launch {
             var quickConnect = runCatching {
                 withContext(Dispatchers.IO) {
-                    container.jellyfinAuthenticationClient.initiateQuickConnect(normalizedUrl)
+                    if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.initiateQuickConnect(normalizedUrl)
+                    else container.jellyfinAuthenticationClient.initiateQuickConnect(normalizedUrl)
                 }
             }.getOrElse { error ->
+                if (error is kotlinx.coroutines.CancellationException) throw error
                 updateDraft {
                     copy(
                         saving = false,
@@ -740,12 +758,14 @@ class ReelstackViewModel(
                     updateDraft { copy(saving = true, quickConnectWaiting = false, error = null) }
                     val credentials = runCatching {
                         withContext(Dispatchers.IO) {
-                            container.jellyfinAuthenticationClient.authenticateWithQuickConnect(
+                            if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.authenticateWithQuickConnect(normalizedUrl, quickConnect)
+                            else container.jellyfinAuthenticationClient.authenticateWithQuickConnect(
                                 normalizedUrl,
                                 quickConnect.secret,
                             )
                         }
                     }.getOrElse { error ->
+                        if (error is kotlinx.coroutines.CancellationException) throw error
                         updateDraft {
                             copy(
                                 saving = false,
@@ -757,8 +777,9 @@ class ReelstackViewModel(
                     }
                     verifyAndSaveConnection(
                         ServiceConnection(
-                            kind = ServiceKind.JELLYFIN,
-                            name = draft.name.ifBlank { ServiceKind.JELLYFIN.displayName },
+                            kind = draft.kind,
+                            name = draft.name.ifBlank { draft.kind.displayName },
+                            sessionCookie = draft.kind == ServiceKind.SEERR,
                             baseUrl = normalizedUrl,
                             token = credentials.accessToken,
                             userId = credentials.userId,
@@ -771,12 +792,14 @@ class ReelstackViewModel(
                 delay(QUICK_CONNECT_POLL_INTERVAL_MS)
                 quickConnect = runCatching {
                     withContext(Dispatchers.IO) {
-                        container.jellyfinAuthenticationClient.quickConnectState(
+                        if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.quickConnectState(normalizedUrl, quickConnect)
+                        else container.jellyfinAuthenticationClient.quickConnectState(
                             normalizedUrl,
                             quickConnect.secret,
                         )
                     }
                 }.getOrElse { error ->
+                    if (error is kotlinx.coroutines.CancellationException) throw error
                     updateDraft {
                         copy(
                             saving = false,
@@ -803,6 +826,7 @@ class ReelstackViewModel(
         val result = runCatching {
             withContext(Dispatchers.IO) { container.connectionTester.test(candidate) }
         }.getOrElse { error ->
+            if (error is kotlinx.coroutines.CancellationException) throw error
             updateDraft {
                 copy(saving = false, error = error.message ?: "Fekk ikkje kontakt med tenesta")
             }
@@ -823,8 +847,17 @@ class ReelstackViewModel(
         _uiState.update { state ->
             state.copy(
                 connections = state.connections.map { if (it.kind == saved.kind) saved else it },
+                sessions = if (state.configuredCount == 0) emptyList() else state.sessions,
+                recentMovies = if (state.configuredCount == 0) emptyList() else state.recentMovies,
+                recentSeries = if (state.configuredCount == 0) emptyList() else state.recentSeries,
+                upcoming = if (state.configuredCount == 0) emptyList() else state.upcoming,
+                incoming = if (state.configuredCount == 0) emptyList() else state.incoming,
+                discover = if (state.configuredCount == 0) emptyList() else state.discover,
+                activity = if (state.configuredCount == 0) emptyList() else state.activity,
+                searchQuery = "",
+                searchResults = emptyList(),
                 activeSheet = null,
-                snackbar = "${saved.kind.displayName} vart kopla til på ${result.latencyMs} ms",
+                snackbar = "${saved.kind.displayName} er klar. Hentar innhaldet ditt…",
             )
         }
         connectionDraft.value = null
@@ -874,41 +907,42 @@ private fun initialState(container: AppContainer): ReelstackUiState {
     val cached = if (configuredKinds.isNotEmpty()) container.mediaSnapshotStore.read() else null
 
     return ReelstackUiState(
+        showOnboarding = configuredKinds.isEmpty() && !container.preferencesRepository.onboardingCompleted,
         connections = connections,
         sessions = when {
             hasMediaServer && cached != null -> cached.sessions
             hasMediaServer -> emptyList()
-            else -> demoSessions()
+            else -> if (configuredKinds.isEmpty()) demoSessions() else emptyList()
         },
         recentMovies = when {
             hasMediaServer && cached != null -> cached.recentMovies
             hasMediaServer -> emptyList()
-            else -> demoRecentMovies()
+            else -> if (configuredKinds.isEmpty()) demoRecentMovies() else emptyList()
         },
         recentSeries = when {
             hasMediaServer && cached != null -> cached.recentSeries
             hasMediaServer -> emptyList()
-            else -> demoRecentSeries()
+            else -> if (configuredKinds.isEmpty()) demoRecentSeries() else emptyList()
         },
         upcoming = when {
             hasQueueService && cached != null -> cached.upcoming
             hasQueueService -> emptyList()
-            else -> demoUpcoming()
+            else -> if (configuredKinds.isEmpty()) demoUpcoming() else emptyList()
         },
         incoming = when {
             hasQueueService && cached != null -> cached.incoming
             hasQueueService -> emptyList()
-            else -> demoIncoming()
+            else -> if (configuredKinds.isEmpty()) demoIncoming() else emptyList()
         },
         discover = when {
             hasSeerr && cached != null -> cached.discover
             hasSeerr -> emptyList()
-            else -> demoDiscover()
+            else -> if (configuredKinds.isEmpty()) demoDiscover() else emptyList()
         },
         activity = when {
             (hasQueueService || hasSeerr) && cached != null -> cached.activity
             hasQueueService || hasSeerr -> emptyList()
-            else -> demoActivity()
+            else -> if (configuredKinds.isEmpty()) demoActivity() else emptyList()
         },
         notificationsEnabled = container.preferencesRepository.notificationsEnabled,
         wifiOnly = container.preferencesRepository.wifiOnly,

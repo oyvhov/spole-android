@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -52,11 +51,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -126,11 +126,11 @@ fun HomeScreen(
         LazyColumn(
             contentPadding = PaddingValues(
                 start = 24.dp,
-                top = 68.dp,
+                top = 32.dp,
                 end = 24.dp,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().testTag("home-feed"),
         ) {
             item {
                 HomeGreeting()
@@ -235,11 +235,11 @@ private fun greeting(): String = when (java.time.LocalTime.now().hour) {
 
 @Composable
 private fun HomeGreeting() {
-    var appeared by remember { mutableStateOf(false) }
+    var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared) 1f else 0f,
-        animationSpec = tween(durationMillis = 480),
+        animationSpec = tween(durationMillis = 220),
         label = "home-greeting-reveal",
     )
     val date = remember {
@@ -260,7 +260,7 @@ private fun HomeGreeting() {
         )
         Text(
             text = date,
-            color = Color(0xFFAAA1B5),
+            color = Muted,
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 7.dp),
         )
@@ -280,7 +280,7 @@ private fun mediaEmptyMessage(state: ReelstackUiState, source: ServiceKind, empt
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        color = PrimarySoft,
+        color = TextColor,
         style = MaterialTheme.typography.titleMedium,
         modifier = modifier,
     )
@@ -296,7 +296,7 @@ private fun MediaSectionTitle(text: String, source: ServiceKind, modifier: Modif
         )
         Text(
             text = "${source.displayName} · $text",
-            color = PrimarySoft,
+            color = TextColor,
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(start = 7.dp),
         )
@@ -358,15 +358,14 @@ private fun NowPlayingCard(
         label = "playback-progress",
     )
 
-    val shape = RoundedCornerShape(topStart = 34.dp, topEnd = 86.dp, bottomEnd = 34.dp, bottomStart = 34.dp)
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = modifier
-            .height(306.dp)
+            .height(292.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            .shadow(14.dp, shape)
             .clip(shape)
             .clickable(
                 interactionSource = interactionSource,
@@ -392,7 +391,7 @@ private fun NowPlayingCard(
             ),
         )
 
-        Column(modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)) {
+        Column(modifier = Modifier.align(Alignment.BottomStart).padding(18.dp)) {
             Text(
                 "${session.userName} · ${session.deviceName}",
                 color = PrimarySoft,
@@ -409,23 +408,22 @@ private fun NowPlayingCard(
                     progress = { animatedProgress },
                     color = Primary,
                     trackColor = Color(0x2BCEBCEB),
-                    modifier = Modifier.weight(1f).height(8.dp).clip(CircleShape),
+                    modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                 )
                 Text(session.timeLeft, color = Color(0xFFD0C8DC), fontSize = 11.sp, modifier = Modifier.padding(start = 12.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
-                Badge(icon = Icons.Rounded.Tv, text = session.streamMethod)
-                Spacer(Modifier.width(8.dp))
-                Badge(text = session.quality)
-                Spacer(Modifier.weight(1f))
+                Column(Modifier.weight(1f).padding(end = 6.dp)) {
+                    Text(session.streamMethod, color = TextColor, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(session.quality, color = app.reelstack.ui.theme.Muted, fontSize = 10.sp)
+                }
                 Surface(
                     onClick = onPlaybackToggle,
                     enabled = !controlsLocked,
                     shape = CircleShape,
                     color = Primary,
                     contentColor = Color(0xFF110B19),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.76f)),
-                    shadowElevation = 10.dp,
+                    shadowElevation = 0.dp,
                     modifier = Modifier.size(52.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -465,7 +463,7 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
             LibraryCard(
                 media = media,
                 wide = wide,
-                revealDelay = (index.coerceAtMost(5) * 45),
+                revealDelay = (index.coerceAtMost(2) * 30),
                 onClick = { onClick(media.id) },
             )
         }
@@ -476,14 +474,14 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
 private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, onClick: () -> Unit) {
     val cardWidth = if (wide) 224.dp else 146.dp
     val artworkHeight = if (wide) 126.dp else 214.dp
-    val artworkShape = RoundedCornerShape(topStart = 20.dp, topEnd = 34.dp, bottomEnd = 20.dp, bottomStart = 20.dp)
+    val artworkShape = RoundedCornerShape(12.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    var appeared by remember(media.id) { mutableStateOf(false) }
+    var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared) 1f else 0f,
-        animationSpec = tween(durationMillis = 390, delayMillis = revealDelay),
+        animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
         label = "library-card-reveal",
     )
     val scale by animateFloatAsState(
@@ -511,7 +509,6 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, on
             modifier = Modifier
                 .fillMaxWidth()
                 .height(artworkHeight)
-                .shadow(10.dp, artworkShape)
                 .clip(artworkShape),
         ) {
             MediaArtwork(
@@ -558,21 +555,21 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, on
 private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
-            UpcomingCard(media, revealDelay = index.coerceAtMost(5) * 45) { onClick(media.id) }
+            UpcomingCard(media, revealDelay = index.coerceAtMost(2) * 30) { onClick(media.id) }
         }
     }
 }
 
 @Composable
 private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(topStart = 24.dp, topEnd = 44.dp, bottomEnd = 24.dp, bottomStart = 24.dp)
+    val shape = RoundedCornerShape(16.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    var appeared by remember(media.id) { mutableStateOf(false) }
+    var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared) 1f else 0f,
-        animationSpec = tween(durationMillis = 420, delayMillis = revealDelay),
+        animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
         label = "upcoming-card-reveal",
     )
     val scale by animateFloatAsState(
@@ -600,7 +597,6 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
             modifier = Modifier
                 .fillMaxWidth()
                 .height(224.dp)
-                .shadow(11.dp, shape)
                 .clip(shape),
         ) {
             MediaArtwork(
@@ -620,7 +616,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
                 ),
             )
             Surface(
-                color = Color(0xD8151020),
+                color = app.reelstack.ui.theme.Ink,
                 shape = CircleShape,
                 modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
             ) {
@@ -639,7 +635,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
                 }
             }
             Surface(
-                color = Color(0xD8151020),
+                color = app.reelstack.ui.theme.Ink,
                 shape = CircleShape,
                 modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
             ) {
@@ -676,7 +672,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
 private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
         Column(Modifier.weight(1f)) {
-            Text("Kjem snart", color = PrimarySoft, style = MaterialTheme.typography.titleMedium)
+            Text("Kjem snart", color = TextColor, style = MaterialTheme.typography.titleMedium)
             Text("Heimeutgjevingar og nye episodar", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
         }
         Surface(
@@ -703,28 +699,13 @@ private fun EmptyNowPlayingCard() {
         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
     ) {
         Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF625B70)))
-        Text("Ingen aktive avspelingar", color = Color(0xFF8E879A), fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
+        Text("Ingen aktive avspelingar", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
     }
 }
 
 @Composable
 private fun EmptySectionLine(text: String) {
-    Text(text, color = Color(0xFF8E879A), fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
-}
-
-@Composable
-private fun Badge(icon: androidx.compose.ui.graphics.vector.ImageVector? = null, text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .border(1.dp, Color(0x42E2D5FF), RoundedCornerShape(10.dp))
-            .background(Color(0x5507070D), RoundedCornerShape(10.dp))
-            .padding(horizontal = 9.dp, vertical = 7.dp),
-    ) {
-        icon?.let { Icon(it, contentDescription = null, tint = Color(0xFFDDD6E7), modifier = Modifier.size(15.dp)) }
-        if (icon != null) Spacer(Modifier.width(5.dp))
-        Text(text, color = Color(0xFFDDD6E7), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-    }
+    Text(text, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
 }
 
 @Composable

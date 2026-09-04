@@ -1,5 +1,20 @@
 package app.reelstack.ui.screens
 
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,14 +101,13 @@ import app.reelstack.ui.theme.Warning
 
 @Composable
 private fun ScreenHeader(kicker: String, title: String, lede: String) {
-    Text(kicker.uppercase(), color = PrimarySoft, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
     Text(title, color = Color.White, style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 6.dp))
-    Text(lede, color = Color(0xFFBBB2CB), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 7.dp))
+    Text(lede, color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 7.dp))
 }
 
 private fun screenPadding(contentPadding: PaddingValues) = PaddingValues(
     start = 24.dp,
-    top = 58.dp,
+    top = 32.dp,
     end = 24.dp,
     bottom = contentPadding.calculateBottomPadding() + 24.dp,
 )
@@ -107,84 +121,84 @@ fun DiscoverScreen(
     onDetails: (String) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
-    LazyColumn(
+    var filter by rememberSaveable { mutableStateOf("Alt") }
+    val visible = state.visibleDiscover.filter { media ->
+        when (filter) {
+            "Filmar" -> media.mediaType.equals("movie", true) || media.metadata.startsWith("Film")
+            "Seriar" -> media.mediaType.equals("tv", true) || media.metadata.startsWith("Serie")
+            else -> true
+        }
+    }
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(145.dp),
         contentPadding = screenPadding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(13.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        item {
-            ScreenHeader(
-                kicker = "Jellyfin + Seerr",
-                title = "Oppdag",
-                lede = "Finn nye filmar og seriar, og legg dei til med eitt trykk.",
-            )
-            OutlinedTextField(
-                value = state.searchQuery,
-                onValueChange = onSearch,
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (state.isSearching) {
-                        CircularProgressIndicator(
-                            color = PrimarySoft,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(18.dp),
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                ScreenHeader("", "Oppdag", "Den neste historia di byrjar her.")
+                OutlinedTextField(
+                    value = state.searchQuery,
+                    onValueChange = onSearch,
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (state.isSearching) {
+                            CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                        } else if (state.searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { onSearch("") }) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Tøm søket")
+                            }
+                        }
+                    },
+                    placeholder = { Text("Søk etter filmar og seriar", fontSize = 14.sp) },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Primary,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = SurfaceRaised,
+                        unfocusedContainerColor = SurfaceRaised,
+                        cursorColor = Primary,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 12.dp)) {
+                    listOf("Alt", "Filmar", "Seriar").forEach { option ->
+                        FilterChip(
+                            selected = filter == option,
+                            onClick = { filter = option },
+                            label = { Text(option) },
+                            shape = RoundedCornerShape(10.dp),
+                            border = null,
+                            colors = filterColors(),
                         )
                     }
-                },
-                placeholder = { Text("Filmar, seriar, personar") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                shape = RoundedCornerShape(21.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary.copy(alpha = 0.72f),
-                    unfocusedBorderColor = Color(0x35DCCDF9),
-                    focusedContainerColor = SurfaceRaised.copy(alpha = 0.95f),
-                    unfocusedContainerColor = SurfaceRaised.copy(alpha = 0.9f),
-                    cursorColor = Primary,
-                    focusedLeadingIconColor = PrimarySoft,
-                    unfocusedLeadingIconColor = PrimarySoft,
-                ),
-                modifier = Modifier.fillMaxWidth().padding(top = 27.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 14.dp, bottom = 8.dp)) {
-                FilterChip(selected = true, onClick = {}, label = { Text("For deg") }, colors = filterColors())
-                FilterChip(selected = false, onClick = {}, label = { Text("Filmar") }, colors = filterColors())
-                FilterChip(selected = false, onClick = {}, label = { Text("Seriar") }, colors = filterColors())
-            }
-        }
-
-        if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank() && state.connections.any {
-                it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank()
-            })) {
-            item { DiscoverSkeleton(Modifier.fillMaxWidth()) }
-        } else if (state.visibleDiscover.isEmpty()) {
-            item {
-                Surface(
-                    shape = RoundedCornerShape(22.dp),
-                    color = SurfaceRaised.copy(alpha = 0.88f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x26E2D5FF)),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        state.searchError ?: if (state.searchQuery.isBlank()) {
-                            "Ingen forslag enno."
-                        } else {
-                            "Ingen treff på «${state.searchQuery.trim()}». Prøv eit anna søk."
-                        },
-                        color = Muted,
-                        modifier = Modifier.padding(30.dp),
-                    )
                 }
             }
-        } else {
-            items(state.visibleDiscover, key = DiscoverMedia::id) { media ->
-                DiscoverCard(
-                    media = media,
-                    requesting = media.id in state.requestingMediaIds,
-                    onRequest = { onRequest(media.id) },
-                    onDetails = { onDetails(media.id) },
+        }
+        if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank()
+                && state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() })) {
+            item(span = { GridItemSpan(maxLineSpan) }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
+        } else if (visible.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    state.searchError ?: when {
+                        state.searchQuery.isNotBlank() -> "Ingen treff på «${state.searchQuery.trim()}». Prøv eit anna søk eller filter."
+                        filter != "Alt" -> "Ingen titlar i dette filteret enno."
+                        else -> "Ingen forslag enno. Kople til Seerr i Innstillingar for å oppdage nye titlar."
+                    },
+                    color = Muted, style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(vertical = 24.dp),
                 )
+            }
+        } else {
+            items(visible, key = DiscoverMedia::id) { media ->
+                DiscoverCard(media, media.id in state.requestingMediaIds,
+                    onRequest = { onRequest(media.id) }, onDetails = { onDetails(media.id) })
             }
         }
     }
@@ -193,71 +207,56 @@ fun DiscoverScreen(
 @Composable
 private fun filterColors() = FilterChipDefaults.filterChipColors(
     selectedContainerColor = Primary,
-    selectedLabelColor = Color(0xFF120B1C),
-    containerColor = SurfaceRaised.copy(alpha = 0.82f),
+    selectedLabelColor = app.reelstack.ui.theme.Ink,
+    containerColor = SurfaceRaised,
     labelColor = Muted,
 )
 
 @Composable
 private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit) {
-    Surface(
-        onClick = onDetails,
-        shape = RoundedCornerShape(25.dp),
-        color = SurfaceRaised.copy(alpha = 0.92f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x22E2D5FF)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(modifier = Modifier.padding(13.dp)) {
-            MediaArtwork(
-                url = media.artworkUrl,
-                fallbackRes = media.artworkRes,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(width = 116.dp, height = 158.dp).clip(RoundedCornerShape(18.dp)),
-            )
-            Column(modifier = Modifier.height(158.dp).weight(1f).padding(start = 17.dp)) {
-                Text(
-                    if (media.inLibrary) "I BIBLIOTEKET DITT" else "KAN LEGGJAST TIL",
-                    color = if (media.inLibrary) Success else PrimarySoft,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
+    Column {
+        Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onDetails)) {
+            Box {
+                MediaArtwork(
+                    url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)),
                 )
-                Text(media.title, color = Color.White, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 7.dp))
-                Text(media.metadata, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
-                Spacer(Modifier.weight(1f))
-                if (media.inLibrary) {
-                    androidx.compose.material3.TextButton(onClick = {}) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Vis detaljar", modifier = Modifier.padding(start = 5.dp))
-                    }
-                } else {
-                    Button(
-                        onClick = onRequest,
-                        enabled = !media.requested && !requesting,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Primary,
-                            contentColor = Color(0xFF110B1A),
-                            disabledContainerColor = Success.copy(alpha = 0.16f),
-                            disabledContentColor = Success,
-                        ),
+                if (media.inLibrary || media.requested) {
+                    Surface(
+                        color = app.reelstack.ui.theme.Ink,
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                     ) {
-                        if (requesting) {
-                            CircularProgressIndicator(color = Color(0xFF110B1A), strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                        } else {
-                            Icon(if (media.requested) Icons.Rounded.Check else Icons.Rounded.Notifications, contentDescription = null, modifier = Modifier.size(18.dp))
-                        }
-                        Text(
-                            when {
-                                requesting -> "Sender…"
-                                media.requested -> "Lagd til"
-                                else -> "Legg til"
-                            },
-                            modifier = Modifier.padding(start = 6.dp),
-                        )
+                        Text(if (media.inLibrary) "I biblioteket" else "Lagd til",
+                            color = Primary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                     }
                 }
             }
+            Text(media.title, color = TextColor, fontSize = 15.sp, lineHeight = 19.sp,
+                fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 10.dp).heightIn(min = 38.dp))
+            Text(media.metadata, color = Muted, fontSize = 11.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+        }
+        TextButton(
+            onClick = if (media.inLibrary || media.requested) onDetails else onRequest,
+            enabled = !requesting,
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+            modifier = Modifier.heightIn(min = 48.dp),
+        ) {
+            if (requesting) {
+                CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+            } else {
+                Icon(if (media.inLibrary || media.requested) Icons.AutoMirrored.Rounded.ArrowForward else Icons.Rounded.Add,
+                    contentDescription = null, modifier = Modifier.size(16.dp))
+            }
+            Text(when {
+                requesting -> "Legg til…"
+                media.inLibrary || media.requested -> "Vis detaljar"
+                else -> "Legg til"
+            }, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
         }
     }
 }
@@ -507,7 +506,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
                     ConnectionState.CONNECTED -> connection.detail ?: "Tilkopla"
                     ConnectionState.TESTING -> "Sjekkar tilkoplinga…"
                     ConnectionState.ERROR -> connection.detail ?: "Må sjekkast · Trykk for å rette"
-                    ConnectionState.DEMO -> "Demodata · Trykk for å kople til"
+                    ConnectionState.DEMO -> "Kople til ${connection.kind.displayName}"
                 },
                 color = when {
                     hasWarning -> Caution

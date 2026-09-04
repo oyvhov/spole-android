@@ -9,10 +9,10 @@ import androidx.compose.ui.unit.sp
 fun reelstackTypography() = Typography(
     displaySmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontSize = 42.sp,
-        lineHeight = 44.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = (-1.8).sp,
+        fontSize = 36.sp,
+        lineHeight = 40.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-1.4).sp,
     ),
     headlineSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -51,4 +51,3 @@ fun reelstackTypography() = Typography(
         fontWeight = FontWeight.SemiBold,
     ),
 )
-

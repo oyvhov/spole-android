@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets
 data class HttpResponse(
     val statusCode: Int,
     val body: String,
+    val setCookies: List<String> = emptyList(),
 )
 
 interface JsonHttpTransport {
@@ -62,7 +63,9 @@ class HttpTransport(
                 }
                 output.toString(StandardCharsets.UTF_8.name())
             }.orEmpty()
-            HttpResponse(statusCode = status, body = body)
+            HttpResponse(statusCode = status, body = body,
+                setCookies = connection.headerFields.entries
+                    .filter { it.key.equals("Set-Cookie", ignoreCase = true) }.flatMap { it.value })
         } finally {
             connection.disconnect()
         }

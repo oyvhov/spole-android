@@ -7,6 +7,10 @@ import app.reelstack.data.model.HomeSection
 class AppPreferencesRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_preferences", Context.MODE_PRIVATE)
 
+    var onboardingCompleted: Boolean
+        get() = preferences.getBoolean("onboarding_completed", false)
+        set(value) = preferences.edit { putBoolean("onboarding_completed", value) }
+
     var notificationsEnabled: Boolean
         get() = preferences.getBoolean(KEY_NOTIFICATIONS, true)
         set(value) = preferences.edit { putBoolean(KEY_NOTIFICATIONS, value) }

@@ -23,6 +23,7 @@ class ConnectionRepository(context: Context) {
             baseUrl = savedUrl.orEmpty(),
             token = tokenFor(kind),
             userId = preferences.getString("$prefix.user_id", null).orEmpty(),
+            sessionCookie = preferences.getBoolean("$prefix.session_cookie", false),
             state = if (savedUrl.isNullOrBlank()) ConnectionState.DEMO else ConnectionState.CONNECTED,
             detail = if (savedUrl.isNullOrBlank()) "Demodata" else "Konfigurert",
         )
@@ -34,6 +35,7 @@ class ConnectionRepository(context: Context) {
             putString("$prefix.name", connection.name.trim())
             putString("$prefix.url", EndpointValidatorFacade.normalize(connection.baseUrl))
             putString("$prefix.user_id", connection.userId.trim())
+            putBoolean("$prefix.session_cookie", connection.sessionCookie)
         }
         tokenStore.put("$prefix.token", connection.token)
         synchronized(tokenCache) {
@@ -47,6 +49,7 @@ class ConnectionRepository(context: Context) {
             remove("$prefix.name")
             remove("$prefix.url")
             remove("$prefix.user_id")
+            remove("$prefix.session_cookie")
         }
         tokenStore.remove("$prefix.token")
         synchronized(tokenCache) {

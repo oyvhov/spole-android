@@ -6,6 +6,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasText
+import org.junit.Before
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
@@ -15,6 +20,14 @@ import org.junit.Test
 class ReelstackSmokeTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun enterExplicitPreviewIfFirstLaunch() {
+        if (composeRule.onAllNodesWithText("Alt du ser.\nÉin stad.").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onRoot().performTouchInput { swipeUp() }
+            composeRule.onNodeWithText("Utforsk med demodata først").performScrollTo().performClick()
+        }
+    }
 
     @Test
     fun homeScreenShowsCoreMediaState() {
@@ -26,8 +39,8 @@ class ReelstackSmokeTest {
 
     @Test
     fun upcomingOpensCalendarAgenda() {
-        repeat(2) { composeRule.onRoot().performTouchInput { swipeUp() } }
-        composeRule.onNodeWithText("Kalender").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("home-feed").performScrollToNode(hasText("Kalender"))
+        composeRule.onNodeWithText("Kalender").performScrollTo().assertIsDisplayed().performClick()
 
         composeRule.onNodeWithText("Komande 28 dagar · heimeutgjevingar og nye episodar")
             .assertIsDisplayed()
@@ -38,7 +51,7 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Oppdag").performClick()
         composeRule.onNodeWithText("Legg til").performClick()
 
-        composeRule.onNodeWithText("Lagd til").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Lagd til")[0].assertIsDisplayed()
         composeRule.onNodeWithText("Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare").assertIsDisplayed()
     }
 
@@ -64,6 +77,9 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Innstillingar").performClick()
         composeRule.onNodeWithText("Jellyfin").performClick()
 
+        composeRule.onNodeWithText("Tenaradresse").performTextInput("https://media.example.com")
+        composeRule.onNodeWithText("Hald fram").performClick()
+
         composeRule.onNodeWithText("Quick Connect").assertIsDisplayed()
         composeRule.onNodeWithText("Start Quick Connect").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Brukarnamn").performClick()
@@ -80,5 +96,18 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Heimskjerm").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Nyleg lagde til filmar").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Nyleg lagde til seriar").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun seerrOffersJellyfinAccountAndQuickConnect() {
+        composeRule.onNodeWithText("Innstillingar").performClick()
+        composeRule.onNodeWithText("Seerr").performClick()
+        composeRule.onNodeWithText("Tenaradresse").performTextInput("https://seerr.example.com")
+        composeRule.onNodeWithText("Hald fram").performClick()
+        composeRule.onNodeWithText("Jellyfin-konto").assertIsDisplayed()
+        composeRule.onNodeWithText("Brukarnamn").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Passord").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Quick Connect").performScrollTo().performClick()
+        composeRule.onNodeWithText("Start Quick Connect").performScrollTo().assertIsDisplayed()
     }
 }

@@ -9,21 +9,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-val Ink = Color(0xFF090812)
-val Surface = Color(0xFF171421)
-val SurfaceRaised = Color(0xFF211C2F)
-val Primary = Color(0xFFAD7CF4)
-val PrimarySoft = Color(0xFFC9ADFF)
-val Text = Color(0xFFF6F0FF)
-val Muted = Color(0xFFAAA2BA)
+val Ink = Color(0xFF101211)
+val Surface = Color(0xFF191C19)
+val SurfaceRaised = Color(0xFF232723)
+val Primary = Color(0xFFD5F478)
+val PrimarySoft = Color(0xFFDCE9BD)
+val Text = Color(0xFFF3F3EC)
+val Muted = Color(0xFFA4ADA3)
 val Success = Color(0xFF56D993)
 val Caution = Color(0xFFFFC66D)
 val Warning = Color(0xFFFF7A7D)
 
 private val ReelstackColors = darkColorScheme(
     primary = Primary,
-    onPrimary = Color(0xFF160D20),
-    primaryContainer = Color(0xFF3B2854),
+    onPrimary = Ink,
+    primaryContainer = Color(0xFF344024),
     onPrimaryContainer = PrimarySoft,
     secondary = PrimarySoft,
     background = Ink,
@@ -32,7 +32,7 @@ private val ReelstackColors = darkColorScheme(
     onSurface = Text,
     surfaceVariant = SurfaceRaised,
     onSurfaceVariant = Muted,
-    outline = Color(0xFF62596E),
+    outline = Color(0xFF51594F),
     error = Warning,
 )
 

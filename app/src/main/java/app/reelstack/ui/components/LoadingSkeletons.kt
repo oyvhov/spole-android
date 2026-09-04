@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +32,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 
-private val SkeletonBase = Color(0xFF211B2C)
-private val SkeletonGlow = Color(0xFF9A70C2)
+private val SkeletonBase = Color(0xFF232723)
+private val SkeletonGlow = Color(0xFF75806D)
 
 @Composable
 private fun ShimmerBlock(
@@ -70,9 +71,9 @@ fun NowPlayingSkeleton(modifier: Modifier = Modifier) {
     ShimmerBlock(
         modifier = modifier
             .fillMaxWidth()
-            .height(306.dp)
+            .height(292.dp)
             .clearAndSetSemantics { contentDescription = "Lastar aktive avspelingar" },
-        shape = RoundedCornerShape(topStart = 34.dp, topEnd = 86.dp, bottomEnd = 34.dp, bottomStart = 34.dp),
+        shape = RoundedCornerShape(20.dp),
     )
 }
 
@@ -147,19 +148,16 @@ fun IncomingSkeleton(modifier: Modifier = Modifier) {
 
 @Composable
 fun DiscoverSkeleton(modifier: Modifier = Modifier) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(13.dp),
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar søkjeresultat" },
     ) {
         repeat(2) {
-            Row(modifier = Modifier.fillMaxWidth().height(184.dp).padding(13.dp)) {
-                ShimmerBlock(Modifier.size(width = 116.dp, height = 158.dp), RoundedCornerShape(18.dp))
-                Column(Modifier.padding(start = 17.dp, top = 4.dp)) {
-                    ShimmerBlock(Modifier.width(84.dp).height(9.dp), RoundedCornerShape(5.dp))
-                    ShimmerBlock(Modifier.padding(top = 12.dp).width(156.dp).height(20.dp), RoundedCornerShape(10.dp))
-                    ShimmerBlock(Modifier.padding(top = 9.dp).width(98.dp).height(10.dp), RoundedCornerShape(5.dp))
-                    ShimmerBlock(Modifier.padding(top = 48.dp).width(104.dp).height(34.dp), RoundedCornerShape(12.dp))
-                }
+            Column(Modifier.weight(1f)) {
+                ShimmerBlock(Modifier.fillMaxWidth().aspectRatio(2f / 3f), RoundedCornerShape(12.dp))
+                ShimmerBlock(Modifier.padding(top = 10.dp).fillMaxWidth(0.85f).height(18.dp))
+                ShimmerBlock(Modifier.padding(top = 8.dp).fillMaxWidth(0.6f).height(12.dp))
+                ShimmerBlock(Modifier.padding(top = 12.dp).width(70.dp).height(20.dp))
             }
         }
     }

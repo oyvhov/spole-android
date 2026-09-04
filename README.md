@@ -2,7 +2,7 @@
 
 HomeReel is a native Android companion for a self-hosted media stack. It brings Jellyfin, Emby, Seerr, Radarr, and Sonarr into one calm, cinematic interface without replacing the servers themselves.
 
-This repository contains the fourth native milestone: an aggregated multi-server Home, four interactive destinations, secure connection profiles, a resilient live-data layer, offline dashboard cache, and background refresh. Curated demo content remains available until a service is connected; configured services then replace their portion of the UI with live data.
+The native app includes an aggregated multi-server Home, four interactive destinations, personal service accounts, a resilient live-data layer, offline dashboard cache, and background refresh. First-run setup offers an explicit demo preview. Once a service is connected, unconfigured services no longer contribute sample content.
 
 ## Download
 
@@ -11,12 +11,15 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 ## Included now
 
 - Native Kotlin and Jetpack Compose UI; no embedded web app
+- Matte charcoal design with warm white type, lime accents, borderless posters and navigation that reserves space for content
+- First-run service checklist, address-first connection setup, preserved tab scroll state and working Discover filters
 - Aggregated Home dashboard with content from every connected server; no server switching required
 - Multiple simultaneous Jellyfin/Emby sessions with independent playback controls
 - Live Seerr search with one-tap “add to media collection” actions
 - Unified activity timeline for Seerr, Sonarr, and Radarr events
 - Settings and connection editors for Jellyfin, Emby, Seerr, Radarr, and Sonarr
 - Native Jellyfin Quick Connect plus username/password and advanced access-token setup
+- Seerr Jellyfin account sign-in and Seerr-mediated Quick Connect with encrypted session cookies and CSRF support
 - Real connectivity/authentication probes for all five services
 - Live Jellyfin/Emby playback sessions
 - Separate Jellyfin/Emby recently-added movie and episode rails across all accessible libraries, with wide Thumb artwork for series
@@ -49,7 +52,9 @@ The debug APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Connecting services
 
-Open **Settings**, choose a service, then enter a display name and base URL. For Jellyfin, Quick Connect is the default: HomeReel displays a temporary code that you approve under **Settings → Quick Connect** in a Jellyfin client where you are already signed in. Username/password and advanced access-token setup are also available. Passwords are never saved, and the returned access token is encrypted on the device. Jellyfin/Emby API keys can use an optional profile ID.
+Choose a service during setup or in **Innstillingar**, enter its address and continue to sign-in. Jellyfin defaults to Quick Connect: approve the temporary code in an already signed-in Jellyfin client. Username/password and access-token setup are also available. Connection names and optional Jellyfin/Emby profile IDs live under advanced settings.
+
+Seerr defaults to **Jellyfin-konto**, using the same username/password as your Jellyfin account through Seerr's own login endpoint. Seerr's server-side permissions apply to requests. Quick Connect is also available when the installed Seerr version supports it; older versions can use account login. Administrator API keys remain an alternative. Passwords are never stored. Tokens and Seerr session cookies are encrypted on the device; expired Seerr sessions ask for sign-in again.
 
 Typical local addresses:
 

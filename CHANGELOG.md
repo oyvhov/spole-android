@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0
+
+- Rebuilt the visual foundation with matte charcoal surfaces, warm white typography and a restrained lime accent; removed the decorative space background and floating navigation overlay.
+- Reserved real screen space for navigation and system bars, preserved tab scroll positions and shortened card reveals and touch feedback.
+- Replaced Discover's oversized boxed rows with an adaptive poster grid, working movie/series filters, clear-search control and functional detail actions.
+- Added a first-run service checklist, explicit demo preview, persistent setup completion and a two-stage address/account login flow with optional advanced settings.
+- Added Seerr sign-in using a Jellyfin username/password or Seerr's native Jellyfin Quick Connect endpoints, with encrypted per-account session cookies and CSRF support. Administrator API keys remain supported.
+- Improved login cancellation, password visibility, keyboard actions, account/permission errors and compatibility guidance for Seerr versions without Quick Connect.
+- Stopped mixing sample feeds into a connected setup; real connections clear preview content before loading.
+- Refined playback controls, borderless artwork, detail typography, uncropped series imagery and matching loading skeletons.
+- Added network and Android UI regression coverage for account sessions, Quick Connect, setup and Discover filters.
+
 ## 0.5.3
 
 - Added more breathing room above the Home greeting and a quiet, localized date line.

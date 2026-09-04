@@ -32,6 +32,7 @@ data class ServiceConnection(
     val state: ConnectionState = ConnectionState.DEMO,
     val latencyMs: Long? = null,
     val detail: String? = null,
+    val sessionCookie: Boolean = false,
 )
 
 data class PlaybackSession(

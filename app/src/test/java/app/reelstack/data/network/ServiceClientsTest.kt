@@ -89,7 +89,7 @@ class ServiceClientsTest {
 
         assertFalse(result.success)
         assertEquals("API-nøkkelen vart avvist", result.message)
-        assertTrue(transport.lastUrl.contains("/api/v1/request?take=1&skip=0"))
+        assertTrue(transport.lastUrl.endsWith("/api/v1/auth/me"))
     }
 
     @Test
