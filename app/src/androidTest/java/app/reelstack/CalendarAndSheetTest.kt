@@ -83,4 +83,38 @@ class CalendarAndSheetTest {
         rule.waitForIdle()
         assertEquals(before, rule.onNodeWithTag("sheet-viewport").fetchSemanticsNode().boundsInRoot)
     }
+
+    @Test fun calendarRetainsDateAndFilterAfterTitleDetailsAndHasExplicitClose() {
+        val state = mutableStateOf(ReelstackUiState(
+            activeSheet = AppSheet.UpcomingCalendar,
+            upcoming = listOf(release("Episode A", ServiceKind.SONARR), release("Episode B", ServiceKind.SONARR, 1), release("Film B", ServiceKind.RADARR, 1)),
+        ))
+        var closed = false
+        rule.setContent {
+            ReelstackTheme {
+                ReelstackSheets(
+                    state = state.value, connectionDraft = null, onDismiss = { closed = true }, onPlaybackToggle = {},
+                    onConnectionNameChange = {}, onConnectionUrlChange = {}, onConnectionTokenChange = {},
+                    onConnectionUserIdChange = {}, onConnectionAuthModeChange = {}, onConnectionUsernameChange = {},
+                    onConnectionPasswordChange = {}, onTestAndSaveConnection = {}, onRemoveConnection = {}, onAddMedia = {},
+                    onUpcomingClick = { id -> state.value = state.value.copy(
+                        activeSheet = AppSheet.TitleDetails(id), returnToCalendar = true,
+                        contentDetails = ContentDetails(id, id, "Sonarr", "S03 E10", artworkRes = R.drawable.media_placeholder, mediaType = "Episode"),
+                    ) },
+                    onBackToCalendar = { state.value = state.value.copy(activeSheet = AppSheet.UpcomingCalendar, returnToCalendar = false) },
+                )
+            }
+        }
+        rule.onNodeWithText("Episodar").performClick()
+        rule.onNodeWithTag("calendar-day-1").performClick()
+        rule.onNodeWithText("Episode B").performClick()
+        rule.onNodeWithText("Om episoden").assertIsDisplayed()
+        rule.onNodeWithText("Kalender").performClick()
+        rule.onNodeWithText("Episode B").assertIsDisplayed()
+        rule.onNodeWithText("Episode A").assertDoesNotExist()
+        rule.onNodeWithText("Film B").assertDoesNotExist()
+        rule.onNodeWithText("Episode B").performClick()
+        rule.onNodeWithContentDescription("Lukk detaljane").performClick()
+        assertEquals(true, closed)
+    }
 }

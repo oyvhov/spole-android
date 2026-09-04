@@ -9,6 +9,10 @@ import app.reelstack.background.BackgroundRefreshScheduler
 import app.reelstack.data.model.ActivityEvent
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.ContentDetails
+import app.reelstack.data.model.canRequest
+import app.reelstack.data.model.resolvedMediaType
+import app.reelstack.data.model.seerrStatusLabel
+import app.reelstack.data.model.seerrStatusDescription
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.IncomingMedia
 import app.reelstack.data.model.IncomingState
@@ -35,8 +39,6 @@ enum class ConnectionAuthMode { QUICK_CONNECT, ACCOUNT, API_KEY }
 
 sealed interface AppSheet {
     data class SessionDetails(val sessionKey: String) : AppSheet
-    data class MediaDetails(val mediaId: String) : AppSheet
-    data class LibraryDetails(val mediaId: String) : AppSheet
     data class TitleDetails(val key: String) : AppSheet
     data object UpcomingCalendar : AppSheet
     data class ConnectionEditor(val kind: ServiceKind) : AppSheet
@@ -91,6 +93,7 @@ data class ReelstackUiState(
     val hasCachedData: Boolean = false,
     val snackbar: String? = null,
     val contentDetails: ContentDetails? = null,
+    val returnToCalendar: Boolean = false,
 ) {
     val visibleDiscover: List<DiscoverMedia>
         get() = if (searchQuery.isBlank()) discover else searchResults
@@ -121,7 +124,7 @@ class ReelstackViewModel(
         refreshLiveData()
     }
 
-    fun selectTab(tab: AppTab) = _uiState.update { it.copy(selectedTab = tab, activeSheet = null) }
+    fun selectTab(tab: AppTab) = _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false) }
 
     fun completeOnboarding() {
         container.preferencesRepository.onboardingCompleted = true
@@ -151,14 +154,18 @@ class ReelstackViewModel(
                 },
             )
         }
-        _uiState.update { it.copy(activeSheet = sheet) }
+        _uiState.update { it.copy(activeSheet = sheet, returnToCalendar = false) }
     }
 
     fun closeSheet() {
         connectionJob?.cancel()
         quickConnectJob?.cancel()
-        _uiState.update { it.copy(activeSheet = null, contentDetails = null) }
+        _uiState.update { it.copy(activeSheet = null, contentDetails = null, returnToCalendar = false) }
         connectionDraft.value = null
+    }
+
+    fun backToCalendar() {
+        _uiState.update { it.copy(activeSheet = AppSheet.UpcomingCalendar, contentDetails = null, returnToCalendar = false) }
     }
 
     fun openLibraryDetails(id: String) {
@@ -182,6 +189,8 @@ class ReelstackViewModel(
                     source = media.source,
                     mediaType = media.mediaType,
                     loading = connection != null && media.remoteId != null,
+                    statusTitle = "I biblioteket",
+                    statusDescription = "Registrert i ${media.source.displayName}.",
                 ),
             )
         }
@@ -237,7 +246,9 @@ class ReelstackViewModel(
                     artworkRes = media.artworkRes,
                     artworkUrl = media.artworkUrl,
                     source = ServiceKind.SEERR,
-                    mediaType = media.mediaType,
+                    mediaType = resolvedMediaType(media.mediaType, media.metadata),
+                    statusTitle = seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested),
+                    statusDescription = seerrStatusDescription(media.seerrStatus, media.inLibrary),
                     loading = connection != null && media.remoteId != null && media.mediaType != null,
                 ),
             )
@@ -254,6 +265,8 @@ class ReelstackViewModel(
                         current.copy(
                             contentDetails = details.copy(
                                 title = remote.title ?: details.title,
+                                statusTitle = remote.seerrStatus?.let { seerrStatusLabel(it) } ?: details.statusTitle,
+                                statusDescription = remote.seerrStatus?.let { seerrStatusDescription(it) } ?: details.statusDescription,
                                 tagline = remote.tagline ?: details.tagline,
                                 overview = remote.overview ?: details.overview,
                                 facts = (remote.facts + details.facts).distinct(),
@@ -261,6 +274,14 @@ class ReelstackViewModel(
                                 artworkUrl = remote.artworkUrl ?: details.artworkUrl,
                                 loading = false,
                             ),
+                            discover = current.discover.map { item ->
+                                if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
+                                    inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
+                            },
+                            searchResults = current.searchResults.map { item ->
+                                if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
+                                    inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
+                            },
                         )
                     },
                     onFailure = {
@@ -273,6 +294,7 @@ class ReelstackViewModel(
 
     fun openUpcomingDetails(id: String) {
         val media = _uiState.value.upcoming.firstOrNull { it.id == id } ?: return
+        val fromCalendar = _uiState.value.activeSheet == AppSheet.UpcomingCalendar
         showLocalDetails(
             ContentDetails(
                 key = media.id,
@@ -286,8 +308,11 @@ class ReelstackViewModel(
                 artworkUrl = media.artworkUrl,
                 source = media.source,
                 mediaType = media.mediaType,
+                statusTitle = "Planlagd utgjeving",
+                statusDescription = "${media.dateLabel} · Datoen er venta, ikkje ei stadfesting på at tittelen er tilgjengeleg.",
             ),
         )
+        _uiState.update { it.copy(returnToCalendar = fromCalendar) }
     }
 
     fun openIncomingDetails(id: String) {
@@ -305,6 +330,8 @@ class ReelstackViewModel(
                 artworkUrl = media.artworkUrl,
                 source = media.source,
                 mediaType = if (media.source == ServiceKind.RADARR) "Movie" else "Episode",
+                statusTitle = media.status,
+                statusDescription = "Siste rapporterte tilstand frå ${media.source.displayName}.",
             ),
         )
     }
@@ -328,7 +355,7 @@ class ReelstackViewModel(
     }
 
     private fun showLocalDetails(details: ContentDetails) {
-        _uiState.update { it.copy(activeSheet = AppSheet.TitleDetails(details.key), contentDetails = details) }
+        _uiState.update { it.copy(activeSheet = AppSheet.TitleDetails(details.key), contentDetails = details, returnToCalendar = false) }
     }
 
     fun togglePlayback(sessionKey: String) {
@@ -421,7 +448,7 @@ class ReelstackViewModel(
     fun requestMedia(id: String) {
         val state = _uiState.value
         val media = state.visibleDiscover.firstOrNull { it.id == id } ?: return
-        if (media.inLibrary || media.requested || id in state.requestingMediaIds) return
+        if (!media.canRequest || id in state.requestingMediaIds) return
         val seerr = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
 
         if (seerr == null || seerr.baseUrl.isBlank() || media.remoteId == null || media.mediaType == null) {
@@ -429,6 +456,9 @@ class ReelstackViewModel(
                 it.copy(
                     discover = it.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
                     searchResults = it.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
+                    contentDetails = it.contentDetails?.let { details ->
+                        if (details.key == id) details.copy(statusTitle = "Lagd til lokalt", statusDescription = "Dette er ei førehandsvising. Ingenting er sendt til Seerr.") else details
+                    },
                     snackbar = "Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare",
                 )
             }
@@ -445,6 +475,9 @@ class ReelstackViewModel(
                     current.copy(
                         discover = current.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         searchResults = current.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
+                        contentDetails = current.contentDetails?.let { details ->
+                            if (details.key == id) details.copy(statusTitle = "Sendt til Seerr", statusDescription = "Tittelen er send. Oppdatert status kjem ved neste synkronisering.") else details
+                        },
                         activity = listOf(
                             ActivityEvent(
                                 id = "seerr-request-${media.id}",
@@ -1040,7 +1073,7 @@ private fun demoIncoming() = listOf(
         id = "the-bear",
         title = "The Bear",
         source = ServiceKind.SONARR,
-        status = "Bestilt",
+        status = "Lagd til",
         state = IncomingState.REQUESTED,
         artworkRes = R.drawable.kitchen_request,
     ),
@@ -1052,7 +1085,7 @@ private fun demoDiscover() = listOf(
 )
 
 private fun demoActivity() = listOf(
-    ActivityEvent("odyssey", "The Odyssey", "Godkjend i Seerr", "For 2 min sidan", complete = true, source = ServiceKind.SEERR, artworkRes = R.drawable.desert_arrival),
+    ActivityEvent("odyssey", "The Odyssey", "Godkjend i Seerr", "For 2 min sidan", complete = false, source = ServiceKind.SEERR, artworkRes = R.drawable.desert_arrival),
     ActivityEvent("alien-earth", "Alien: Earth", "Sonarr · lastar ned 42 %", "For 8 min sidan", progress = 42, source = ServiceKind.SONARR, artworkRes = R.drawable.kitchen_request),
     ActivityEvent("mickey-17", "Mickey 17", "Importert av Radarr", "I går", complete = true, source = ServiceKind.RADARR, artworkRes = R.drawable.desert_arrival),
 )

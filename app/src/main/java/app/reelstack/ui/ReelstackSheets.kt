@@ -8,6 +8,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import app.reelstack.ui.components.ServiceSymbol
+import app.reelstack.data.model.resolvedMediaType
+import app.reelstack.data.model.canRequest
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
@@ -16,6 +21,7 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import app.reelstack.data.network.EndpointValidator
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -41,6 +47,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Devices
@@ -112,10 +119,14 @@ fun ReelstackSheets(
     onRemoveConnection: (ServiceKind) -> Unit,
     onAddMedia: (String) -> Unit,
     onUpcomingClick: (String) -> Unit,
+    onBackToCalendar: () -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetContentStates = rememberSaveableStateHolder()
     ModalBottomSheet(
+        // A dismiss gesture has already hidden the modal. Only the explicit
+        // calendar back control changes its content without closing the surface.
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
@@ -126,20 +137,35 @@ fun ReelstackSheets(
         dragHandle = {
             Box(
                 Modifier.padding(top = 12.dp, bottom = 5.dp).size(width = 36.dp, height = 4.dp)
-                    .background(Color(0xFF81788D), CircleShape),
+                    .background(app.reelstack.ui.theme.Muted, CircleShape),
             )
         },
     ) {
         // One viewport: async metadata and images must not move the sheet's anchor.
-        Box(Modifier.fillMaxHeight(0.90f).fillMaxWidth().testTag("sheet-viewport")) {
+        Column(Modifier.fillMaxHeight(0.90f).fillMaxWidth().testTag("sheet-viewport")) {
+            if (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails) {
+                Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (state.returnToCalendar) {
+                        TextButton(onClick = onBackToCalendar) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, Modifier.size(18.dp))
+                            Text("Kalender", modifier = Modifier.padding(start = 8.dp))
+                        }
+                    } else {
+                        Text(if (sheet is AppSheet.SessionDetails) "Avspeling" else "Detaljar", color = Muted, fontSize = 13.sp)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Lukk detaljane") }
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
             when (sheet) {
                 is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle)
-                is AppSheet.MediaDetails -> MediaDetailsSheet(state, sheet.mediaId)
-                is AppSheet.LibraryDetails -> LibraryDetailsSheet(state, sheet.mediaId)
                 is AppSheet.TitleDetails -> state.contentDetails?.let {
                     RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia)
                 }
-                AppSheet.UpcomingCalendar -> UpcomingCalendarSheet(state.upcoming, onUpcomingClick, onDismiss)
+                AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
+                    UpcomingCalendarSheet(state.upcoming, onUpcomingClick, onDismiss)
+                }
                 is AppSheet.ConnectionEditor -> connectionDraft?.let {
                     ConnectionEditorSheet(
                         draft = it,
@@ -157,6 +183,7 @@ fun ReelstackSheets(
                     )
                 }
             }
+            }
         }
     }
 }
@@ -165,14 +192,15 @@ fun ReelstackSheets(
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit) {
     val details = state.contentDetails ?: return
     val discoverMedia = (state.discover + state.searchResults).firstOrNull { it.id == details.key }
-    val isMovie = details.mediaType.equals("movie", ignoreCase = true) ||
-        details.facts.any { it.equals("Film", ignoreCase = true) }
+    val mediaType = resolvedMediaType(details.mediaType, details.subtitle)
+    val isMovie = mediaType == "Movie"
+    val usePoster = isMovie || details.source == ServiceKind.SEERR
     Column(
         Modifier
             .verticalScroll(rememberScrollState())
             .padding(start = 18.dp, end = 18.dp, bottom = 40.dp),
     ) {
-        if (isMovie) {
+        if (usePoster) {
             MoviePosterSummary(
                 title = details.title,
                 eyebrow = details.eyebrow,
@@ -193,7 +221,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 source = details.source,
             )
         }
-        val remainingFacts = if (isMovie) details.facts.drop(4) else details.facts
+        val remainingFacts = if (usePoster) details.facts.drop(4) else details.facts
         if (remainingFacts.isNotEmpty()) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -211,10 +239,19 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 modifier = Modifier.padding(start = 6.dp, top = 15.dp, end = 6.dp),
             )
         }
-        details.tagline?.takeIf { !isMovie && it.isNotBlank() }?.let { tagline ->
+        details.statusTitle?.let { title ->
+            Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.Top) {
+                details.source?.let { ServiceSymbol(it, Modifier.padding(top = 3.dp).size(20.dp)) }
+                Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                    Text(title, color = PrimarySoft, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
+                }
+            }
+        }
+        details.tagline?.takeIf { !usePoster && it.isNotBlank() }?.let { tagline ->
             Text(
                 tagline,
-                color = Color(0xFFD8CDE2),
+                color = app.reelstack.ui.theme.Muted,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 fontStyle = FontStyle.Italic,
@@ -224,8 +261,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         Text(
             when {
                 isMovie -> "Om filmen"
-                details.mediaType.equals("Episode", ignoreCase = true) -> "Om episoden"
-                else -> "Om serien"
+                mediaType == "Episode" -> "Om episoden"
+                mediaType == "Series" -> "Om serien"
+                else -> "Om tittelen"
             },
             color = Color.White,
             fontSize = 17.sp,
@@ -233,7 +271,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             modifier = Modifier.padding(start = 6.dp, top = 19.dp, end = 6.dp),
         )
         Text(
-            details.overview ?: details.subtitle,
+            details.overview?.takeIf { it.isNotBlank() } ?: if (details.loading) "Hentar omtale…" else "Ingen omtale tilgjengeleg frå tenesta enno.",
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 16.sp,
             lineHeight = 25.sp,
@@ -243,9 +281,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
         }
         details.error?.let {
-            Text(it, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp))
+            Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
-        if (discoverMedia != null && !discoverMedia.inLibrary) {
+        if (discoverMedia != null && discoverMedia.canRequest) {
             val adding = discoverMedia.id in state.requestingMediaIds
             Button(
                 onClick = { onAddMedia(discoverMedia.id) },
@@ -262,7 +300,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 if (adding) {
                     CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(19.dp))
                 } else {
-                    Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(20.dp))
                 }
                 Text(
                     when {
@@ -293,7 +331,7 @@ private fun MoviePosterSummary(
         modifier = Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 2.dp),
     ) {
         Surface(
-            color = Color(0xFF0B0810),
+            color = app.reelstack.ui.theme.Ink,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.width(130.dp).height(195.dp),
         ) {
@@ -310,7 +348,7 @@ private fun MoviePosterSummary(
             Text(
                 eyebrow.uppercase(),
                 color = PrimarySoft,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
             )
@@ -326,7 +364,7 @@ private fun MoviePosterSummary(
             if (supportingText.isNotBlank()) {
                 Text(
                     supportingText,
-                    color = Color(0xFFC8BECE),
+                    color = app.reelstack.ui.theme.Muted,
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                     maxLines = 3,
@@ -337,7 +375,7 @@ private fun MoviePosterSummary(
                 Text(
                     facts.take(4).joinToString(" · "),
                     color = PrimarySoft,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     lineHeight = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 11.dp),
@@ -346,7 +384,7 @@ private fun MoviePosterSummary(
             source?.let {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
                     SourceMark(kind = it, modifier = Modifier.size(13.dp))
-                    Text(it.displayName, color = Muted, fontSize = 10.sp, modifier = Modifier.padding(start = 6.dp))
+                    Text(it.displayName, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
                 }
             }
         }
@@ -356,20 +394,7 @@ private fun MoviePosterSummary(
 
 @Composable
 private fun SourceMark(kind: ServiceKind, modifier: Modifier = Modifier) {
-    when (kind) {
-        ServiceKind.JELLYFIN, ServiceKind.EMBY -> ServiceLogo(
-            kind = kind,
-            contentDescription = null,
-            modifier = modifier,
-        )
-        ServiceKind.SONARR -> Icon(Icons.Rounded.Tv, contentDescription = null, tint = PrimarySoft, modifier = modifier)
-        ServiceKind.RADARR, ServiceKind.SEERR -> Icon(
-            Icons.Rounded.Movie,
-            contentDescription = null,
-            tint = PrimarySoft,
-            modifier = modifier,
-        )
-    }
+    ServiceSymbol(kind, modifier)
 }
 
 @Composable
@@ -388,7 +413,7 @@ private fun CinematicTitleHero(
             modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(14.dp)).background(Ink),
         )
-        Text(eyebrow.uppercase(), color = PrimarySoft, fontSize = 10.sp,
+        Text(eyebrow.uppercase(), color = PrimarySoft, fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp,
             modifier = Modifier.padding(top = 20.dp))
         Text(title, color = MaterialTheme.colorScheme.onSurface,
@@ -403,7 +428,7 @@ private fun DetailPill(text: String) {
     Text(
         text = text,
         color = Color(0xFFE8E0EF),
-        fontSize = 11.sp,
+        fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
@@ -458,14 +483,14 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
-                    .clip(CircleShape).background(Color(0xB5120E1B))
+                    .clip(CircleShape).background(app.reelstack.ui.theme.SurfaceRaised)
                     .padding(horizontal = 11.dp, vertical = 7.dp),
             ) {
                 Box(Modifier.size(7.dp).background(Primary, CircleShape))
                 Text(
                     if (session.paused) "På pause" else "Spelar no",
                     color = Color.White,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 7.dp),
                 )
@@ -476,7 +501,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                 Text(
                     "${session.source?.displayName ?: "Medietenar"} · ${session.userName} · ${session.deviceName}".uppercase(),
                     color = PrimarySoft,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
@@ -485,7 +510,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                Text(session.subtitle, color = Color(0xFFD1C8D8), fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                Text(session.subtitle, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
                 LinearProgressIndicator(
                     progress = { session.progress.coerceIn(0f, 1f) },
                     color = Primary,
@@ -512,7 +537,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
             onClick = { onPlaybackToggle(session.key) },
             enabled = state.pendingSessionKey == null,
             shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color(0xFF160D20)),
+            colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = app.reelstack.ui.theme.Ink),
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(58.dp),
         ) {
             if (state.pendingSessionKey == session.key) {
@@ -537,97 +562,19 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
 @Composable
 private fun SessionMetric(label: String, value: String, modifier: Modifier) {
     Column(modifier.padding(horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label.uppercase(), color = Muted, fontSize = 9.sp)
+        Text(label.uppercase(), color = Muted, fontSize = 11.sp)
         Text(
             value,
-            color = Color(0xFFF1EBF8),
+            color = app.reelstack.ui.theme.Text,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            maxLines = 2,
             modifier = Modifier.padding(top = 3.dp),
         )
     }
 }
 
-@Composable
-private fun MediaDetailsSheet(state: ReelstackUiState, mediaId: String) {
-    val media = state.incoming.firstOrNull { it.id == mediaId } ?: return
-    val downloading = media.state == IncomingState.DOWNLOADING
-    Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
-        SheetHeader(media.title, "${if (downloading) "Film" else "Serie"} · ${media.source.displayName}")
-        Row(modifier = Modifier.padding(top = 18.dp)) {
-            MediaArtwork(
-                url = media.artworkUrl,
-                fallbackRes = media.artworkRes,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(width = 116.dp, height = 164.dp).clip(RoundedCornerShape(20.dp)),
-            )
-            Column(Modifier.weight(1f).padding(start = 18.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clip(CircleShape)
-                        .background((if (downloading) Primary else Warning).copy(alpha = 0.15f))
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
-                ) {
-                    Icon(
-                        if (downloading) Icons.Rounded.Download else Icons.Rounded.Schedule,
-                        contentDescription = null,
-                        tint = if (downloading) PrimarySoft else Warning,
-                        modifier = Modifier.size(17.dp),
-                    )
-                    Text(media.status, color = if (downloading) PrimarySoft else Warning, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
-                }
-                Text(
-                    if (downloading) "Ferdig om om lag 24 minutt" else "Ventar på godkjenning",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-                Text(
-                    if (downloading) "Radarr fann ei 4K-utgjeving og sende henne til nedlastingsklienten." else "Seerr varslar deg når tittelen er godkjend.",
-                    color = Muted,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.padding(top = 7.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun LibraryDetailsSheet(state: ReelstackUiState, mediaId: String) {
-    val media = (state.recentMovies + state.recentSeries).firstOrNull { it.id == mediaId } ?: return
-    Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
-        SheetHeader(media.title, "Bibliotek i ${media.source.displayName}")
-        MediaArtwork(
-            url = media.artworkUrl,
-            fallbackRes = media.artworkRes,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            source = media.source,
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(190.dp).clip(RoundedCornerShape(24.dp)),
-        )
-        Text(media.subtitle, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 15.dp))
-        media.progress?.let { progress ->
-            Text("${(progress * 100).toInt()} % sett", color = PrimarySoft, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp))
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                color = Primary,
-                trackColor = Color(0x2BCEBCEB),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(7.dp).clip(CircleShape),
-            )
-        }
-        Text(
-            "Opne ${media.source.displayName} for å spele av tittelen.",
-            color = Color.White,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 20.dp),
-        )
-    }
-}
 
 @Composable
 private fun ConnectionEditorSheet(
@@ -659,7 +606,7 @@ private fun ConnectionEditorSheet(
             .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
     ) {
         Text(if (configured) "TILKOPLING" else if (credentialsStep) "02 / LOGG INN" else "01 / FINN TENAREN",
-            color = Primary, fontSize = 10.sp, letterSpacing = 1.6.sp,
+            color = Primary, fontSize = 12.sp, letterSpacing = 1.6.sp,
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
         SheetHeader("Kople til ${draft.kind.displayName}",
             if (credentialsStep) "Vel korleis du vil logge inn." else "Bruk adressa du vanlegvis opnar i nettlesaren.", onDismiss)
@@ -732,7 +679,7 @@ private fun ConnectionEditorSheet(
             )
             Text(if (draft.kind == ServiceKind.SEERR) "Bruk Jellyfin-kontoen din. Seerr sjekkar innlogginga og brukar dine vanlege rettar. Passordet blir aldri lagra."
                 else "Passordet blir sendt direkte til Jellyfin og blir aldri lagra.",
-                color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp))
+                color = Muted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp))
         }
         if (!usesAccount && !usesQuickConnect) {
             OutlinedTextField(
@@ -751,7 +698,7 @@ private fun ConnectionEditorSheet(
                 ServiceKind.RADARR, ServiceKind.SONARR -> "Du finn API-nøkkelen under Settings → General → Security på tenaren."
                 ServiceKind.SEERR -> "Du finn API-nøkkelen under Settings → General i Seerr."
                 else -> "Du finn API-nøkkelen i kontrollpanelet til tenaren."
-            }, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp))
+            }, color = Muted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp))
         }
         TextButton(onClick = { advanced = !advanced }, enabled = !draft.saving) {
             Text(if (advanced) "Skjul avanserte val" else "Avanserte val", fontSize = 12.sp)
@@ -804,7 +751,7 @@ private fun ConnectionEditorSheet(
 private fun QuickConnectPanel(draft: ConnectionDraft) {
     AnimatedContent(
         targetState = draft.quickConnectCode,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        transitionSpec = { (fadeIn() togetherWith fadeOut()).using(SizeTransform(clip = false)) },
         label = "quick-connect-code",
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
     ) { code ->
@@ -841,7 +788,7 @@ private fun QuickConnectPanel(draft: ConnectionDraft) {
                             if (draft.kind == ServiceKind.SEERR) "Godkjenn koden i Jellyfin for å logge inn på Seerr. Krev ein Seerr-versjon med Quick Connect."
                             else "Godkjenn koden i ein Jellyfin-app der du allereie er innlogga.",
                             color = Muted,
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             lineHeight = 16.sp,
                             modifier = Modifier.padding(top = 3.dp),
                         )
@@ -857,7 +804,7 @@ private fun QuickConnectPanel(draft: ConnectionDraft) {
                         Text(
                             if (draft.quickConnectWaiting) "Ventar på godkjenning" else "Fullfører innlogginga",
                             color = PrimarySoft,
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(start = 7.dp),
                         )
@@ -873,7 +820,7 @@ private fun QuickConnectPanel(draft: ConnectionDraft) {
                     Text(
                         "Opne Jellyfin på ei anna eining, gå til Innstillingar → Quick Connect, og skriv inn koden.",
                         color = Muted,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         lineHeight = 17.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 10.dp),
@@ -901,7 +848,7 @@ private fun MessageCard(text: String, warning: Boolean) {
         border = androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth().padding(top = 11.dp),
     ) {
-        Text(text, color = accent, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(12.dp))
+        Text(text, color = accent, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(12.dp))
     }
 }
 

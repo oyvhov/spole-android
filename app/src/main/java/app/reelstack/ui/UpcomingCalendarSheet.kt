@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.AppFilterRow
 import app.reelstack.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -66,14 +67,7 @@ internal fun UpcomingCalendarSheet(
             }
             IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Lukk kalenderen") }
         }
-        Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Alt", "Filmar", "Episodar").forEach { label ->
-                FilterChip(
-                    selected = filter == label, onClick = { filter = label }, label = { Text(label) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Primary, selectedLabelColor = Ink),
-                )
-            }
-        }
+        AppFilterRow(listOf("Alt", "Filmar", "Episodar"), filter, { filter = it }, Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         Text(
             "${today.format(DateTimeFormatter.ofPattern("d. MMM", locale))} – ${today.plusDays(27).format(DateTimeFormatter.ofPattern("d. MMM", locale))}",
             color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 24.dp, bottom = 10.dp),
@@ -99,7 +93,7 @@ internal fun UpcomingCalendarSheet(
                         },
                 ) {
                     Column(Modifier.padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(date.format(DateTimeFormatter.ofPattern("EEE", locale)).removeSuffix("."), fontSize = 10.sp)
+                        Text(date.format(DateTimeFormatter.ofPattern("EEE", locale)).removeSuffix("."), fontSize = 12.sp)
                         Text(date.dayOfMonth.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text(if (count > 0) "·" else "", fontSize = 14.sp, lineHeight = 14.sp)
                     }
@@ -165,7 +159,7 @@ private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
                     Icon(if (isMovie) Icons.Rounded.Movie else Icons.Rounded.Tv, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(12.dp))
                     Text(
                         if (!isMovie) "${media.source.displayName} · $time" else if ("Fysisk utgjeving" in media.facts) "Fysisk utgjeving" else "Digital utgjeving",
-                        color = PrimarySoft, fontSize = 11.sp, modifier = Modifier.padding(start = 5.dp),
+                        color = PrimarySoft, fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp),
                     )
                 }
             }

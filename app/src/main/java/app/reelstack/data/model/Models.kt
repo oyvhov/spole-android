@@ -133,7 +133,41 @@ data class DiscoverMedia(
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
+    val seerrStatus: Int? = null,
 )
+
+val DiscoverMedia.canRequest: Boolean
+    get() = !inLibrary && !requested && seerrStatus !in 2..6
+
+fun seerrStatusLabel(status: Int?, inLibrary: Boolean = false, requested: Boolean = false): String = when {
+    status == 6 -> "Blokkert i Seerr"
+    status == 5 || inLibrary -> "Tilgjengeleg"
+    status == 4 -> "Delvis tilgjengeleg"
+    status == 3 -> "Under behandling"
+    status == 2 -> "Ventar på godkjenning"
+    requested -> "Lagd til"
+    status == 7 -> "Fjerna frå biblioteket"
+    else -> "Kan leggjast til"
+}
+
+fun resolvedMediaType(type: String?, subtitle: String): String? = when {
+    type.equals("movie", true) -> "Movie"
+    type.equals("episode", true) -> "Episode"
+    type.equals("tv", true) || type.equals("series", true) -> "Series"
+    subtitle.startsWith("Film") -> "Movie"
+    subtitle.startsWith("Serie") -> "Series"
+    else -> null
+}
+
+fun seerrStatusDescription(status: Int?, inLibrary: Boolean = false): String = when {
+    status == 6 -> "Denne tittelen er blokkert av administratoren i Seerr."
+    status == 5 || inLibrary -> "Seerr melder at tittelen finst i mediebiblioteket."
+    status == 4 -> "Noko av innhaldet er tilgjengeleg, men ikkje alt."
+    status == 3 -> "Seerr behandlar tittelen. Nedlastinga er ikkje nødvendigvis starta."
+    status == 2 -> "Ein administrator må godkjenne tittelen i Seerr."
+    status == 7 -> "Seerr melder at innhaldet er fjerna. Det kan leggjast til på nytt."
+    else -> "Tilgjenge og handlingar blir styrte av Seerr-kontoen din."
+}
 
 data class ContentDetails(
     val key: String,
@@ -150,6 +184,8 @@ data class ContentDetails(
     val mediaType: String? = null,
     val loading: Boolean = false,
     val error: String? = null,
+    val statusTitle: String? = null,
+    val statusDescription: String? = null,
 )
 
 data class ActivityEvent(

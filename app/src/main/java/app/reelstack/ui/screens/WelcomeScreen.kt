@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.ServiceLogo
+import app.reelstack.ui.components.ServiceSymbol
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.Muted
@@ -43,7 +44,7 @@ fun WelcomeScreen(
     ) {
         item {
             Text(if (ready) "02 / KLAR FOR DEG" else "01 / GJER DET TIL DITT", color = Primary,
-                fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
             Text(if (ready) "Din samling.\nDi oversikt." else "Alt du ser.\nÉin stad.",
                 color = TextColor, fontSize = 48.sp, lineHeight = 50.sp, letterSpacing = (-2).sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
@@ -58,15 +59,7 @@ fun WelcomeScreen(
                 Surface(onClick = { onConnect(kind) }, color = SurfaceRaised,
                     shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (kind == ServiceKind.JELLYFIN || kind == ServiceKind.EMBY) {
-                            ServiceLogo(kind, null, Modifier.size(28.dp))
-                        } else {
-                            Icon(when (kind) {
-                                ServiceKind.SEERR -> Icons.Rounded.Search
-                                ServiceKind.RADARR -> Icons.Rounded.Movie
-                                else -> Icons.Rounded.Tv
-                            }, null, tint = PrimarySoft, modifier = Modifier.size(28.dp))
-                        }
+                        ServiceSymbol(kind, Modifier.size(28.dp))
                         Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                             Text(kind.displayName, fontWeight = FontWeight.SemiBold, color = TextColor)
                             Text(if (connected) "Tilkopla · klar til bruk" else when (kind) {
@@ -75,7 +68,7 @@ fun WelcomeScreen(
                                 ServiceKind.SEERR -> "Oppdag · logg inn med Jellyfin-konto"
                                 ServiceKind.RADARR -> "Filmar, utgjevingar og nedlastingar"
                                 ServiceKind.SONARR -> "Episodar, kalender og nedlastingar"
-                            }, color = if (connected) Primary else Muted, fontSize = 11.sp, lineHeight = 16.sp)
+                            }, color = if (connected) Primary else Muted, fontSize = 12.sp, lineHeight = 16.sp)
                         }
                         Icon(if (connected) Icons.Rounded.Check else Icons.Rounded.Add,
                             null, tint = if (connected) Primary else Muted, modifier = Modifier.size(20.dp))
@@ -98,7 +91,7 @@ fun WelcomeScreen(
                 }
             }
             Text("Tilkoplingane blir lagra på denne eininga. Du kan endre dei når som helst i Innstillingar.",
-                color = Muted, fontSize = 11.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 16.dp))
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 16.dp))
         }
     }
 }

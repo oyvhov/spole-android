@@ -18,6 +18,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import app.reelstack.ui.components.AppFilterRow
+import app.reelstack.ui.components.ServiceSymbol
+import app.reelstack.data.model.canRequest
+import app.reelstack.data.model.seerrStatusLabel
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -166,18 +176,7 @@ fun DiscoverScreen(
                     ),
                     modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 12.dp)) {
-                    listOf("Alt", "Filmar", "Seriar").forEach { option ->
-                        FilterChip(
-                            selected = filter == option,
-                            onClick = { filter = option },
-                            label = { Text(option) },
-                            shape = RoundedCornerShape(10.dp),
-                            border = null,
-                            colors = filterColors(),
-                        )
-                    }
-                }
+                AppFilterRow(listOf("Alt", "Filmar", "Seriar"), filter, { filter = it }, Modifier.padding(top = 12.dp))
             }
         }
         if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank()
@@ -205,14 +204,6 @@ fun DiscoverScreen(
 }
 
 @Composable
-private fun filterColors() = FilterChipDefaults.filterChipColors(
-    selectedContainerColor = Primary,
-    selectedLabelColor = app.reelstack.ui.theme.Ink,
-    containerColor = SurfaceRaised,
-    labelColor = Muted,
-)
-
-@Composable
 private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit) {
     Column {
         Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onDetails)) {
@@ -222,14 +213,14 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)),
                 )
-                if (media.inLibrary || media.requested) {
+                if (!media.canRequest) {
                     Surface(
                         color = app.reelstack.ui.theme.Ink,
                         shape = RoundedCornerShape(6.dp),
                         modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                     ) {
-                        Text(if (media.inLibrary) "I biblioteket" else "Lagd til",
-                            color = Primary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                        Text(seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested),
+                            color = Primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                     }
                 }
@@ -237,11 +228,11 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             Text(media.title, color = TextColor, fontSize = 15.sp, lineHeight = 19.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 10.dp).heightIn(min = 38.dp))
-            Text(media.metadata, color = Muted, fontSize = 11.sp, maxLines = 1,
+            Text(media.metadata, color = Muted, fontSize = 12.sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
         }
         TextButton(
-            onClick = if (media.inLibrary || media.requested) onDetails else onRequest,
+            onClick = if (!media.canRequest) onDetails else onRequest,
             enabled = !requesting,
             contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
             modifier = Modifier.heightIn(min = 48.dp),
@@ -249,12 +240,12 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             if (requesting) {
                 CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
             } else {
-                Icon(if (media.inLibrary || media.requested) Icons.AutoMirrored.Rounded.ArrowForward else Icons.Rounded.Add,
+                Icon(if (!media.canRequest) Icons.AutoMirrored.Rounded.ArrowForward else Icons.Rounded.Add,
                     contentDescription = null, modifier = Modifier.size(16.dp))
             }
             Text(when {
                 requesting -> "Legg til…"
-                media.inLibrary || media.requested -> "Vis detaljar"
+                !media.canRequest -> "Vis detaljar"
                 else -> "Legg til"
             }, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
         }
@@ -263,68 +254,40 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
 
 @Composable
 fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit) {
-    val hasIssues = state.failedServices.isNotEmpty()
-    val statusColor = if (hasIssues) Warning else Success
-    LazyColumn(
-        contentPadding = screenPadding(contentPadding),
-        modifier = Modifier.fillMaxSize(),
-    ) {
+    var sourceFilter by rememberSaveable { mutableStateOf("Alt") }
+    val events = state.activity.filter { sourceFilter == "Alt" || it.source?.displayName == sourceFilter }
+    val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
+    LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize()) {
         item {
-            ScreenHeader(
-                kicker = "I heile mediestakken",
-                title = "Aktivitet",
-                lede = "Nye titlar og nedlastingar samla i éi oversikt.",
-            )
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = if (hasIssues) Color(0xB3342920) else Color(0xB31E302B),
-                border = androidx.compose.foundation.BorderStroke(1.dp, statusColor.copy(alpha = 0.2f)),
-                modifier = Modifier.fillMaxWidth().padding(top = 26.dp, bottom = 18.dp),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 17.dp),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Wifi, contentDescription = null, tint = statusColor, modifier = Modifier.size(19.dp))
-                        Text(
-                            when {
-                                state.isRefreshing -> "Oppdaterer tenestene"
-                                state.configuredCount == 0 -> "Førehandsvising"
-                                hasIssues -> "${state.failedServices.size} teneste${if (state.failedServices.size == 1) "" else "r"} må sjekkast"
-                                else -> "Alle tenestene er på nett"
-                            },
-                            color = statusColor,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
-                    Text(
-                        if (state.configuredCount == 0) "Demo" else "${state.onlineCount}/${state.configuredCount} aktive",
-                        color = Color(0xFFDBF9E9),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+            ScreenHeader("", "Aktivitet", "Følg titlane frå lagde til til klare.")
+            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
+                Box(Modifier.padding(top = 6.dp).size(6.dp).clip(CircleShape)
+                    .background(if (hasIssues) Caution else Muted))
+                Column(Modifier.padding(start = 10.dp)) {
+                    Text(when {
+                        state.configuredCount == 0 -> "Førehandsvising med demodata"
+                        state.isRefreshing -> "Oppdaterer…"
+                        hasIssues -> "Noko kunne ikkje oppdaterast. Sjå Innstillingar."
+                        state.lastUpdatedEpochMillis != null -> "Sist oppdatert kl. " + Instant.ofEpochMilli(state.lastUpdatedEpochMillis)
+                            .atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
+                        else -> "Ventar på første oppdatering"
+                    }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp)
                 }
             }
+            AppFilterRow(listOf("Alt", "Seerr", "Radarr", "Sonarr"), sourceFilter, { sourceFilter = it }, Modifier.padding(bottom = 12.dp))
         }
-        if (state.activity.isEmpty() && state.isRefreshing && state.connections.any {
-                it.baseUrl.isNotBlank() && (it.kind == ServiceKind.SEERR || it.kind == ServiceKind.RADARR || it.kind == ServiceKind.SONARR)
-            }) {
+        if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {
             item { ActivitySkeleton(Modifier.fillMaxWidth()) }
-        } else if (state.activity.isEmpty()) {
+        } else if (events.isEmpty()) {
             item {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = SurfaceRaised.copy(alpha = 0.82f),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Ingen ny aktivitet. Alt er roleg.", color = Muted, modifier = Modifier.padding(22.dp))
+                Column(Modifier.padding(vertical = 24.dp)) {
+                    Text("Ingen hendingar her enno", color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (sourceFilter == "Alt") "Nye oppdateringar dukkar opp her." else "Prøv Alt for å sjå dei andre tenestene.",
+                        color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         } else {
-            items(state.activity, key = ActivityEvent::id) { event -> ActivityRow(event) { onDetails(event.id) } }
+            items(events, key = ActivityEvent::id) { event -> ActivityRow(event) { onDetails(event.id) } }
         }
     }
 }
@@ -338,20 +301,20 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
         Box(modifier = Modifier.size(width = 72.dp, height = 96.dp)) {
             MediaArtwork(
                 url = event.artworkUrl,
-                fallbackRes = event.artworkRes ?: R.drawable.session_still,
+                fallbackRes = event.artworkRes ?: R.drawable.media_placeholder,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(15.dp)),
             )
             Surface(
                 color = if (event.complete) Success else Primary,
-                contentColor = Color(0xFF130D1B),
+                contentColor = app.reelstack.ui.theme.Ink,
                 shape = CircleShape,
                 modifier = Modifier.align(Alignment.BottomEnd).size(27.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        if (event.complete) Icons.Rounded.Check else Icons.Rounded.Download,
+                        if (event.complete) Icons.Rounded.Check else if (event.source == ServiceKind.SEERR) Icons.Rounded.CloudDone else Icons.Rounded.Download,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                     )
@@ -359,11 +322,11 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
             }
         }
         Column(modifier = Modifier.weight(1f).padding(start = 16.dp)) {
-            Text(event.time, color = Color(0xFF888093), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text(event.time, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Text(event.title, color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
             Text(event.detail, color = Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
             event.progress?.let { progress ->
-                Box(Modifier.fillMaxWidth().padding(top = 10.dp).height(6.dp).clip(CircleShape).background(Color(0x24C6B1E7))) {
+                Box(Modifier.fillMaxWidth().padding(top = 10.dp).height(6.dp).clip(CircleShape).background(app.reelstack.ui.theme.SurfaceRaised)) {
                     Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).height(6.dp).background(Primary))
                 }
             }
@@ -385,13 +348,12 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            AppIdentity()
             ScreenHeader(
                 kicker = "App og tenester",
                 title = "Innstillingar",
                 lede = "Tilkoplingar, val og personvern.",
             )
-            SettingsSectionTitle("Tilkopla tenester")
+            SettingsSectionTitle("Tenestene dine")
         }
         items(state.connections, key = { it.kind }) { connection ->
             ServiceRow(connection = connection, onClick = { onConnectionClick(connection.kind) })
@@ -413,13 +375,8 @@ fun SettingsScreen(
             HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.Notifications, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.DOWNLOADS, "Nedlastingar", "Aktive køar i Radarr og Sonarr", Icons.Rounded.Download, state, onHomeSectionChange)
             SettingsSectionTitle("Val")
-            PreferenceRow(
-                icon = Icons.Rounded.Notifications,
-                label = "Aktivitetsvarsel",
-                description = "Varsle når nye titlar og nedlastingar endrar seg",
-                checked = state.notificationsEnabled,
-                onCheckedChange = onNotificationsChange,
-            )
+            Text("Varsel", color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+            Text("Ikkje tilgjengeleg enno. Du finn oppdateringar under Aktivitet.", color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
             PreferenceRow(
                 icon = Icons.Rounded.Wifi,
                 label = "Synkroniser berre på Wi-Fi",
@@ -429,18 +386,19 @@ fun SettingsScreen(
             )
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = Color(0xA01E302B),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Success.copy(alpha = 0.18f)),
+                color = SurfaceRaised,
                 modifier = Modifier.fillMaxWidth().padding(top = 26.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(17.dp)) {
                     Icon(Icons.Rounded.Security, contentDescription = null, tint = Success, modifier = Modifier.size(24.dp))
                     Column(Modifier.padding(start = 12.dp)) {
-                        Text("Direkte og privat", color = Color(0xFFE1F8EB), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("API-nøklane er krypterte på denne eininga.", color = Color(0xFFB8CFC2), fontSize = 11.sp)
+                        Text("Direkte og privat", color = app.reelstack.ui.theme.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("API-nøklane er krypterte på denne eininga.", color = app.reelstack.ui.theme.Muted, fontSize = 12.sp)
                     }
                 }
             }
+            SettingsSectionTitle("Om appen")
+            AppIdentity()
         }
     }
 }
@@ -454,14 +412,14 @@ private fun AppIdentity() {
         Image(
             painter = painterResource(R.drawable.ic_launcher),
             contentDescription = "HomeReel-logo",
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)),
         )
         Column(Modifier.padding(start = 13.dp)) {
             Text("HomeReel", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 "Personleg medieoversikt · v${BuildConfig.VERSION_NAME}",
                 color = Muted,
-                fontSize = 10.sp,
+                fontSize = 12.sp,
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
@@ -470,7 +428,7 @@ private fun AppIdentity() {
 
 @Composable
 private fun SettingsSectionTitle(text: String) {
-    Text(text, color = PrimarySoft, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 28.dp, bottom = 10.dp))
+    Text(text, color = TextColor, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 28.dp, bottom = 12.dp))
 }
 
 @Composable
@@ -484,25 +442,12 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Primary.copy(alpha = 0.17f)),
+            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(SurfaceRaised),
         ) {
-            if (connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY) {
-                ServiceLogo(
-                    kind = connection.kind,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-            } else {
-                Icon(
-                    if (connection.kind == ServiceKind.SEERR) Icons.Rounded.CloudDone else Icons.Rounded.Movie,
-                    contentDescription = null,
-                    tint = PrimarySoft,
-                    modifier = Modifier.size(21.dp),
-                )
-            }
+            ServiceSymbol(connection.kind, Modifier.size(20.dp))
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(connection.kind.displayName, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(connection.kind.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 when (connection.state) {
                     ConnectionState.CONNECTED -> connection.detail ?: "Tilkopla"
@@ -516,13 +461,13 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
                     hasError -> Warning
                     else -> Muted
                 },
-                fontSize = 11.sp,
-                maxLines = 1,
+                fontSize = 12.sp,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         Icon(
-            if (connected) Icons.Rounded.CheckCircle else Icons.Rounded.Dns,
+            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
             tint = when {
                 hasWarning -> Caution
@@ -533,7 +478,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             modifier = Modifier.size(22.dp),
         )
     }
-    HorizontalDivider(color = Color(0x20E2D5FF))
+    HorizontalDivider(color = app.reelstack.ui.theme.Divider)
 }
 
 @Composable
@@ -546,30 +491,30 @@ private fun PreferenceRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange).padding(vertical = 14.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Primary.copy(alpha = 0.17f)),
+            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(SurfaceRaised),
         ) {
             Icon(icon, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(21.dp))
         }
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
-            Text(label, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            description?.let { Text(it, color = Muted, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 2.dp)) }
+            Text(label, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            description?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp)) }
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color(0xFF150E1E),
+                checkedThumbColor = app.reelstack.ui.theme.Ink,
                 checkedTrackColor = Primary,
-                uncheckedThumbColor = Color(0xFFBBB4C5),
-                uncheckedTrackColor = Color(0xFF3A3445),
+                uncheckedThumbColor = app.reelstack.ui.theme.Muted,
+                uncheckedTrackColor = app.reelstack.ui.theme.SurfaceRaised,
             ),
         )
     }
-    HorizontalDivider(color = Color(0x20E2D5FF))
+    HorizontalDivider(color = app.reelstack.ui.theme.Divider)
 }
 
 @Composable

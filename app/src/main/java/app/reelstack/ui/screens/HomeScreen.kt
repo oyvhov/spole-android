@@ -405,35 +405,35 @@ private fun NowPlayingCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(session.title, color = Color.White, fontSize = 29.sp, lineHeight = 31.sp, letterSpacing = (-1.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(session.subtitle, color = Color(0xFFB2A9C1), fontSize = 15.sp, modifier = Modifier.padding(top = 2.dp), maxLines = 1)
+            Text(session.subtitle, color = app.reelstack.ui.theme.Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 2.dp), maxLines = 1)
             Spacer(Modifier.height(13.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LinearProgressIndicator(
                     progress = { animatedProgress },
                     color = Primary,
-                    trackColor = Color(0x2BCEBCEB),
+                    trackColor = app.reelstack.ui.theme.SurfaceRaised,
                     modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                 )
-                Text(session.timeLeft, color = Color(0xFFD0C8DC), fontSize = 11.sp, modifier = Modifier.padding(start = 12.dp))
+                Text(session.timeLeft, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
                 Column(Modifier.weight(1f).padding(end = 6.dp)) {
-                    Text(session.streamMethod, color = TextColor, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(session.quality, color = app.reelstack.ui.theme.Muted, fontSize = 10.sp)
+                    Text(session.streamMethod, color = TextColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(session.quality, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp)
                 }
                 Surface(
                     onClick = onPlaybackToggle,
                     enabled = !controlsLocked,
                     shape = CircleShape,
                     color = Primary,
-                    contentColor = Color(0xFF110B19),
+                    contentColor = app.reelstack.ui.theme.Ink,
                     shadowElevation = 0.dp,
                     modifier = Modifier.size(52.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         if (pending) {
                             CircularProgressIndicator(
-                                color = Color(0xFF110B19),
+                                color = app.reelstack.ui.theme.Ink,
                                 strokeWidth = 2.dp,
                                 modifier = Modifier.size(23.dp),
                             )
@@ -524,7 +524,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, on
                 modifier = Modifier.fillMaxSize(),
             )
             Surface(
-                color = Color(0xC4120E1B),
+                color = app.reelstack.ui.theme.SurfaceRaised,
                 shape = CircleShape,
                 modifier = Modifier.align(Alignment.TopEnd).padding(9.dp),
             ) {
@@ -547,7 +547,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, on
         Text(
             media.subtitle,
             color = Muted,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 2.dp),
@@ -608,7 +608,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
                 fallbackRes = media.artworkRes,
                 contentDescription = media.title,
                 contentScale = if (media.mediaType.equals("Movie", true)) ContentScale.Fit else ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().background(Color(0xFF0C0912)),
+                modifier = Modifier.fillMaxSize().background(app.reelstack.ui.theme.Ink),
             )
             Box(
                 Modifier.fillMaxSize().background(
@@ -632,7 +632,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
                     Text(
                         media.dateLabel,
                         color = Color.White,
-                        fontSize = 10.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(start = 5.dp),
                     )
@@ -661,8 +661,8 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
                 )
                 Text(
                     media.subtitle,
-                    color = Color(0xFFD7CEDF),
-                    fontSize = 10.sp,
+                    color = app.reelstack.ui.theme.Muted,
+                    fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 3.dp),
@@ -677,7 +677,7 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
         Column(Modifier.weight(1f)) {
             Text("Kjem snart", color = TextColor, style = MaterialTheme.typography.titleMedium)
-            Text("Heimeutgjevingar og nye episodar", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+            Text("Heimeutgjevingar og nye episodar", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
         }
         Surface(
             onClick = onCalendarClick,
@@ -690,7 +690,7 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
-                Text("Kalender", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
+                Text("Kalender", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
             }
         }
     }
@@ -702,7 +702,7 @@ private fun EmptyNowPlayingCard() {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
     ) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF625B70)))
+        Box(Modifier.size(7.dp).clip(CircleShape).background(app.reelstack.ui.theme.Muted))
         Text("Ingen aktive avspelingar", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
     }
 }
@@ -742,6 +742,6 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
                 Text(media.status, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
             }
         }
-        Icon(Icons.AutoMirrored.Rounded.ArrowForwardIos, contentDescription = null, tint = Color(0xFFB7A8CA), modifier = Modifier.size(17.dp))
+        Icon(Icons.AutoMirrored.Rounded.ArrowForwardIos, contentDescription = null, tint = app.reelstack.ui.theme.Muted, modifier = Modifier.size(17.dp))
     }
 }

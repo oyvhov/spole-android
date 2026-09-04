@@ -93,6 +93,7 @@ data class RemoteDiscoverItem(
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
+    val seerrStatus: Int? = null,
 )
 
 data class RemoteMediaDetails(
@@ -102,6 +103,7 @@ data class RemoteMediaDetails(
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
+    val seerrStatus: Int? = null,
 )
 
 data class RemoteRequest(
@@ -318,6 +320,7 @@ object ServicePayloadParser {
                 artworkUrl = item.string("posterPath")?.let { safeTmdbArtwork(it) },
                 inLibrary = mediaStatus == 5,
                 requested = mediaStatus in 2..4,
+                seerrStatus = mediaStatus,
                 overview = item.string("overview"),
                 facts = discoverFacts(item, mediaType, year),
                 genres = objectNameArray(item, "genres"),
@@ -349,6 +352,7 @@ object ServicePayloadParser {
         val item = json.parseToJsonElement(payload) as? JsonObject ?: return RemoteMediaDetails(null, null)
         return RemoteMediaDetails(
             title = item.string("title") ?: item.string("name"),
+            seerrStatus = item.obj("mediaInfo")?.int("status"),
             artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork),
             tagline = item.string("tagline"),
             overview = item.string("overview") ?: item.string("Overview"),

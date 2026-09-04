@@ -19,6 +19,7 @@ val Muted = Color(0xFFA4ADA3)
 val Success = Color(0xFF56D993)
 val Caution = Color(0xFFFFC66D)
 val Warning = Color(0xFFFF7A7D)
+val Divider = Color(0xFF343A34)
 
 private val ReelstackColors = darkColorScheme(
     primary = Primary,
@@ -26,14 +27,35 @@ private val ReelstackColors = darkColorScheme(
     primaryContainer = Color(0xFF344024),
     onPrimaryContainer = PrimarySoft,
     secondary = PrimarySoft,
+    onSecondary = Ink,
+    secondaryContainer = SurfaceRaised,
+    onSecondaryContainer = PrimarySoft,
+    tertiary = Success,
+    onTertiary = Ink,
+    tertiaryContainer = SurfaceRaised,
+    onTertiaryContainer = Success,
     background = Ink,
     onBackground = Text,
     surface = Surface,
     onSurface = Text,
     surfaceVariant = SurfaceRaised,
     onSurfaceVariant = Muted,
+    surfaceDim = Ink,
+    surfaceBright = SurfaceRaised,
+    surfaceContainerLowest = Ink,
+    surfaceContainerLow = Surface,
+    surfaceContainer = Surface,
+    surfaceContainerHigh = SurfaceRaised,
+    surfaceContainerHighest = SurfaceRaised,
     outline = Color(0xFF51594F),
+    outlineVariant = Divider,
+    inverseSurface = Text,
+    inverseOnSurface = Ink,
+    inversePrimary = Color(0xFF415522),
     error = Warning,
+    onError = Ink,
+    errorContainer = Color(0xFF43282A),
+    onErrorContainer = Color(0xFFFFDADC),
 )
 
 @Composable

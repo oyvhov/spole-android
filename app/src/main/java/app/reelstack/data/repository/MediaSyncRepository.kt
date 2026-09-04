@@ -186,7 +186,7 @@ class MediaSyncRepository(
         source = item.source,
         status = item.status,
         state = item.state,
-        artworkRes = if (item.source == ServiceKind.RADARR) R.drawable.desert_arrival else R.drawable.kitchen_request,
+        artworkRes = R.drawable.media_placeholder,
         artworkUrl = item.artworkUrl,
         overview = item.overview,
         facts = item.facts,
@@ -215,9 +215,10 @@ class MediaSyncRepository(
         id = item.id,
         title = item.title,
         metadata = item.metadata,
-        artworkRes = if (item.mediaType == "movie") R.drawable.desert_arrival else R.drawable.kitchen_request,
+        artworkRes = R.drawable.media_placeholder,
         inLibrary = item.inLibrary,
         requested = item.requested,
+        seerrStatus = item.seerrStatus,
         artworkUrl = item.artworkUrl,
         remoteId = item.remoteId,
         mediaType = item.mediaType,
@@ -234,7 +235,7 @@ class MediaSyncRepository(
         progress = item.progress,
         complete = item.state == IncomingState.READY,
         source = item.source,
-        artworkRes = if (item.source == ServiceKind.RADARR) R.drawable.desert_arrival else R.drawable.kitchen_request,
+        artworkRes = R.drawable.media_placeholder,
         artworkUrl = item.artworkUrl,
     )
 
@@ -244,12 +245,14 @@ class MediaSyncRepository(
         detail = when (request.status) {
             2 -> "Godkjend av Seerr for ${request.requestedBy}"
             3 -> "Avvist i Seerr"
+            4 -> "Kunne ikkje behandlast i Seerr"
+            5 -> "Fullført i Seerr"
             else -> "Lagd til av ${request.requestedBy}"
         },
         time = relativeTime(request.createdAt),
-        complete = request.status == 2,
+        complete = request.status == 5,
         source = ServiceKind.SEERR,
-        artworkRes = if (request.mediaType == "movie") R.drawable.desert_arrival else R.drawable.kitchen_request,
+        artworkRes = R.drawable.media_placeholder,
         artworkUrl = discovered?.artworkUrl ?: request.artworkUrl,
     )
 

@@ -31,6 +31,12 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 - Bottom sheets reserve a stable 90% content viewport from their first frame, plus the drag handle and system insets. The size constraint belongs to the content, not the modal surface, so the sheet keeps its bottom anchor. Remote metadata updates only the scrollable interior; no content-size spring changes the outer anchor. Keyboard insets may resize the usable area deliberately.
 - Calendar keeps title, type filters and a 28-day date strip above a lazy agenda. A selected date filters the list; tapping it again or “Alle dagar” resets it. Empty days remain selectable. Rows have borderless 16:9 episode art or uncropped 2:3 film posters, 48 dp minimum targets, and a readable source/time label. Film dates do not imply an exact release time or availability in the library.
 - Home visibility has four independent library switches: Jellyfin movies/series and Emby movies/series. Older combined preferences migrate without re-enabling hidden rows. Hiding a row does not disconnect the service or disable its other features.
+- Discover, Activity and Calendar share `AppFilterRow`: compact solid filters, no outline, lime selected state and Material's minimum 48 dp interaction area. The visible chip is not inflated to fill its touch target.
+- `ServiceSymbol` shares source identity across setup, settings and details. Jellyfin/Emby use their real logos; TV/movie/search icons describe the other services consistently.
+- Title/playback sheets have explicit close controls. The Calendar back button restores its saved filter, date and agenda position; a swipe, scrim tap or system Back dismisses the sheet. There is no close/reopen animation for the in-sheet Calendar button.
+- Settings presents its page title first and app identity last. A preference row exposes one switch action, not competing row and thumb actions. Unimplemented notifications are labelled unavailable rather than offered as a working toggle.
+- All Material color roles are explicitly assigned; default purple secondary/container colors must not leak into controls. Native startup and app icon use the same charcoal/lime palette.
+- Artwork missing from live data uses the neutral media placeholder, never preview artwork. Seerr status is attributed to Seerr and distinguishes pending, processing, partial, available, blocked and deleted; processing is not proof of a running download. Approval is not import completion.
 
 ## Accessibility
 

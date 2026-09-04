@@ -3,6 +3,8 @@ package app.reelstack
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.reelstack.data.model.LibraryMedia
+import app.reelstack.data.model.DiscoverMedia
+import app.reelstack.data.model.canRequest
 import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceKind
@@ -83,7 +85,7 @@ class MediaSnapshotStoreTest {
             ),
             upcoming = emptyList(),
             incoming = emptyList(),
-            discover = emptyList(),
+            discover = listOf(DiscoverMedia("blocked", "Blokkert film", "Film", R.drawable.desert_arrival, false, seerrStatus = 6)),
             activity = emptyList(),
             successfulServices = setOf(ServiceKind.JELLYFIN),
             errors = emptyMap(),
@@ -99,6 +101,10 @@ class MediaSnapshotStoreTest {
         assertEquals("Direkteavspeling", restored?.sessions?.single()?.streamMethod)
         assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.sessions?.single()?.artworkUrl)
         assertEquals("The Odyssey", restored?.recentMovies?.single()?.title)
+        assertEquals(R.drawable.media_placeholder, restored?.recentMovies?.single()?.artworkRes)
+        assertEquals(6, restored?.discover?.single()?.seerrStatus)
+        assertEquals(false, restored?.discover?.single()?.canRequest)
+        assertEquals(R.drawable.media_placeholder, restored?.discover?.single()?.artworkRes)
         assertEquals("Film · 2026", restored?.recentMovies?.single()?.subtitle)
         assertEquals("Severance", restored?.recentSeries?.single()?.title)
         assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.recentSeries?.single()?.artworkUrl)

@@ -222,7 +222,7 @@ class MediaSnapshotStore(context: Context) {
             source = source,
             status = item.string("status")?.nynorskLegacyText() ?: "I kø",
             state = item.enumValue<IncomingState>("state") ?: IncomingState.REQUESTED,
-            artworkRes = if (source == ServiceKind.RADARR) R.drawable.desert_arrival else R.drawable.kitchen_request,
+            artworkRes = R.drawable.media_placeholder,
             artworkUrl = item.string("artworkUrl"),
             overview = item.string("overview"),
             facts = item.string("facts").orEmpty().split("\u001f").filter(String::isNotBlank),
@@ -238,6 +238,7 @@ class MediaSnapshotStore(context: Context) {
                 put("metadata", item.metadata)
                 put("inLibrary", item.inLibrary)
                 put("requested", item.requested)
+                item.seerrStatus?.let { put("seerrStatus", it) }
                 item.artworkUrl?.let { put("artworkUrl", it) }
                 item.remoteId?.let { put("remoteId", it) }
                 item.mediaType?.let { put("mediaType", it) }
@@ -255,9 +256,10 @@ class MediaSnapshotStore(context: Context) {
             id = item.string("id") ?: return null,
             title = item.string("title") ?: return null,
             metadata = item.string("metadata").orEmpty().nynorskLegacyText(),
-            artworkRes = if (mediaType == "tv") R.drawable.kitchen_request else R.drawable.desert_arrival,
+            artworkRes = R.drawable.media_placeholder,
             inLibrary = item.bool("inLibrary") ?: false,
             requested = item.bool("requested") ?: false,
+            seerrStatus = item.int("seerrStatus"),
             artworkUrl = item.string("artworkUrl"),
             remoteId = item.int("remoteId"),
             mediaType = mediaType,
@@ -292,11 +294,7 @@ class MediaSnapshotStore(context: Context) {
             progress = item.int("progress"),
             complete = item.bool("complete") ?: false,
             source = item.enumValue<ServiceKind>("source"),
-            artworkRes = when (item.enumValue<ServiceKind>("source")) {
-                ServiceKind.RADARR -> R.drawable.desert_arrival
-                ServiceKind.SONARR, ServiceKind.SEERR -> R.drawable.kitchen_request
-                else -> R.drawable.session_still
-            },
+            artworkRes = R.drawable.media_placeholder,
             artworkUrl = item.string("artworkUrl"),
         )
     }
@@ -310,7 +308,8 @@ class MediaSnapshotStore(context: Context) {
         .replace("Tomorrow", "I morgon", ignoreCase = true)
         .replace("Today", "I dag", ignoreCase = true)
         .replace("Downloading", "Lastar ned", ignoreCase = true)
-        .replace("Requested", "Bestilt", ignoreCase = true)
+        .replace("Requested", "Lagd til", ignoreCase = true)
+        .replace("Bestilt", "Lagd til", ignoreCase = true)
         .replace("Approved by Seerr", "Godkjend i Seerr", ignoreCase = true)
         .replace("Imported by Radarr", "Importert av Radarr", ignoreCase = true)
         .replace(Regex("(\\d+) min ago", RegexOption.IGNORE_CASE), "For $1 min sidan")

@@ -90,6 +90,10 @@ Sources: [Seerr request access](https://docs.seerr.dev/api/get-all-requests/), [
 - [x] Native Jellyfin Quick Connect with automatic approval polling and secure token exchange
 - [x] Cinematic, artwork-led detail sheets for playback, library, discovery, and activity
 - [x] Media-aware detail composition: uncropped film poster beside text and wide series/episode artwork
+- [x] Granular Seerr media status and blocked-title action guards, including snapshot persistence
+- [x] Activity source filters, honest sync status and independent Home library switches
+- [x] UI consistency audit with stable detail viewport and preserved Calendar context
+- [ ] Correlated per-title journey across Seerr → Radarr/Sonarr → Jellyfin/Emby using external IDs; do not infer availability from an approved request
 - [ ] Pagination and migration to a local Room cache
 
 Acceptance: replacing demo mode with a valid profile populates every screen from real services; one offline service does not break the others.
@@ -137,11 +141,11 @@ Acceptance: updates are useful without being noisy, stale data is visibly identi
 
 ## Design system direction
 
-- Near-black midnight surfaces with restrained indigo and violet light
+- Matte charcoal surfaces with restrained lime selections and actions; no glass or space background
 - Artwork remains full-color; controls and labels stay neutral and high contrast
 - Rounded, layered cards with shape continuity into detail sheets
 - Motion durations around 180–320 ms, using spring motion only for direct manipulation
-- Bottom navigation stays visually detached and thumb-reachable
+- Bottom navigation reserves its own space and stays thumb-reachable without covering content
 - Phone-first portrait design, then two-pane expansion for larger screens
 
 ## Explicit non-goals for the first release

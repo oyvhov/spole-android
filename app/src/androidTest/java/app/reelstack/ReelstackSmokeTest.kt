@@ -69,7 +69,8 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("The Last Horizon").performClick()
 
         composeRule.onNodeWithText("OPPDAG I SEERR").assertIsDisplayed()
-        composeRule.onNodeWithText("Legg til i mediesamlinga").assertIsDisplayed()
+        composeRule.onNodeWithText("Om filmen").assertIsDisplayed()
+        composeRule.onNodeWithText("Legg til i mediesamlinga").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -92,7 +93,7 @@ class ReelstackSmokeTest {
     fun homeSectionsCanBeEditedInSettings() {
         composeRule.onNodeWithText("Innstillingar").performClick()
 
-        composeRule.onNodeWithText("HomeReel").assertIsDisplayed()
+        composeRule.onNodeWithText("HomeReel").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Heimskjerm").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Emby · Filmar").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Emby · Seriar").performScrollTo().assertIsDisplayed()

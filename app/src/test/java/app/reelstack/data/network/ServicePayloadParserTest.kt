@@ -10,6 +10,17 @@ import java.time.Instant
 
 class ServicePayloadParserTest {
     @Test
+    fun preservesExactSeerrStatusInListsAndDetails() {
+        (1..7).forEach { status ->
+            val item = ServicePayloadParser.discover("""{"results":[{"id":12,"title":"Film","mediaType":"movie","mediaInfo":{"status":$status}}]}""").single()
+            assertEquals(status, item.seerrStatus)
+            val details = ServicePayloadParser.mediaDetails("""{"id":12,"title":"Film","mediaInfo":{"status":$status}}""")
+            assertEquals(status, details.seerrStatus)
+        }
+        assertEquals(null, ServicePayloadParser.mediaDetails("""{"title":"Film"}""").seerrStatus)
+    }
+
+    @Test
     fun parsesJellyfinPlaybackSession() {
         val payload = """
             [{

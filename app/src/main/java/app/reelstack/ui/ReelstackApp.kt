@@ -43,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,6 +76,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val connectionDraft by viewModel.connectionDraft.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
+    BackHandler(enabled = state.activeSheet == null && !state.showOnboarding && state.selectedTab != AppTab.HOME) {
+        viewModel.selectTab(AppTab.HOME)
+    }
 
     LaunchedEffect(state.snackbar) {
         val message = state.snackbar ?: return@LaunchedEffect
@@ -161,6 +165,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onRemoveConnection = viewModel::removeConnection,
         onAddMedia = viewModel::requestMedia,
         onUpcomingClick = viewModel::openUpcomingDetails,
+        onBackToCalendar = viewModel::backToCalendar,
     )
 }
 
