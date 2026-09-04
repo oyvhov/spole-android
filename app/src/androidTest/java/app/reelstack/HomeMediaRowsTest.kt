@@ -39,7 +39,7 @@ class HomeMediaRowsTest {
             incoming = emptyList(),
             discover = emptyList(),
             activity = emptyList(),
-            homeSections = setOf(HomeSection.RECENT_MOVIES),
+            homeSections = setOf(HomeSection.JELLYFIN_MOVIES, HomeSection.EMBY_MOVIES),
         )
 
         composeRule.setContent {
@@ -77,7 +77,7 @@ class HomeMediaRowsTest {
             discover = emptyList(),
             activity = emptyList(),
             isRefreshing = true,
-            homeSections = setOf(HomeSection.RECENT_MOVIES),
+            homeSections = setOf(HomeSection.JELLYFIN_MOVIES),
         )
 
         composeRule.setContent {
@@ -99,6 +99,31 @@ class HomeMediaRowsTest {
             .performScrollTo()
             .assertIsDisplayed()
         composeRule.onNodeWithText("Ingen nyleg lagde til filmar.").assertDoesNotExist()
+    }
+
+    @Test
+    fun everyServiceAndMediaTypeCanBeShownIndependently() {
+        val selected = androidx.compose.runtime.mutableStateOf(HomeSection.EMBY_MOVIES)
+        val labels = mapOf(
+            HomeSection.EMBY_MOVIES to "Emby · Nyleg lagde til filmar",
+            HomeSection.EMBY_SERIES to "Emby · Nyleg lagde til seriar",
+            HomeSection.JELLYFIN_MOVIES to "Jellyfin · Nyleg lagde til filmar",
+            HomeSection.JELLYFIN_SERIES to "Jellyfin · Nyleg lagde til seriar",
+        )
+        composeRule.setContent {
+            ReelstackTheme {
+                HomeScreen(
+                    state = ReelstackUiState(connections = listOf(connection(ServiceKind.EMBY), connection(ServiceKind.JELLYFIN)), homeSections = setOf(selected.value)),
+                    contentPadding = PaddingValues(0.dp), onSessionClick = {}, onPlaybackToggle = {},
+                    onMediaClick = {}, onLibraryClick = {}, onUpcomingClick = {}, onRefresh = {},
+                )
+            }
+        }
+        labels.forEach { (section, label) ->
+            composeRule.runOnIdle { selected.value = section }
+            composeRule.onNodeWithText(label).performScrollTo().assertIsDisplayed()
+            labels.filterKeys { it != section }.values.forEach { hidden -> composeRule.onNodeWithText(hidden).assertDoesNotExist() }
+        }
     }
 
     private fun connection(kind: ServiceKind) = ServiceConnection(

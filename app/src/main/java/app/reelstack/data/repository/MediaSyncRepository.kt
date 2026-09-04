@@ -73,7 +73,7 @@ class MediaSyncRepository(
         val queuePayloads = payloads.filterIsInstance<ServicePayload.Queue>()
         val queue = queuePayloads.flatMap { it.feed.queue }
         val upcoming = queuePayloads.flatMap { payload ->
-            payload.feed.upcoming.mapIndexedNotNull { index, item -> upcomingMedia(item, index) }
+            payload.feed.upcoming.mapNotNull(::upcomingMedia)
         }.sortedBy(UpcomingMedia::airDateEpochMillis)
         val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
@@ -193,7 +193,7 @@ class MediaSyncRepository(
         genres = item.genres,
     )
 
-    private fun upcomingMedia(item: RemoteUpcomingItem, index: Int): UpcomingMedia? {
+    private fun upcomingMedia(item: RemoteUpcomingItem): UpcomingMedia? {
         val instant = parseCalendarInstant(item.dateTime) ?: return null
         return UpcomingMedia(
             id = "${item.source.name.lowercase()}-${item.id}",
@@ -201,11 +201,7 @@ class MediaSyncRepository(
             subtitle = item.subtitle,
             dateLabel = calendarLabel(instant, item.source),
             airDateEpochMillis = instant.toEpochMilli(),
-            artworkRes = if (item.source == ServiceKind.RADARR || index % 2 == 0) {
-                R.drawable.desert_arrival
-            } else {
-                R.drawable.kitchen_request
-            },
+            artworkRes = R.drawable.media_placeholder,
             source = item.source,
             artworkUrl = item.artworkUrl,
             overview = item.overview,

@@ -3,6 +3,7 @@ package app.reelstack.data.repository
 import android.content.Context
 import androidx.core.content.edit
 import app.reelstack.data.model.HomeSection
+import app.reelstack.data.model.decodeHomeSections
 
 class AppPreferencesRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_preferences", Context.MODE_PRIVATE)
@@ -20,18 +21,7 @@ class AppPreferencesRepository(context: Context) {
         set(value) = preferences.edit { putBoolean(KEY_WIFI_ONLY, value) }
 
     var visibleHomeSections: Set<HomeSection>
-        get() {
-            val saved = preferences.getStringSet(KEY_HOME_SECTIONS, null) ?: return HomeSection.entries.toSet()
-            return buildSet {
-                saved.mapNotNullTo(this) { name ->
-                    HomeSection.entries.firstOrNull { it.name == name }
-                }
-                if ("RECENTLY_ADDED" in saved) {
-                    add(HomeSection.RECENT_MOVIES)
-                    add(HomeSection.RECENT_SERIES)
-                }
-            }
-        }
+        get() = decodeHomeSections(preferences.getStringSet(KEY_HOME_SECTIONS, null))
         set(value) = preferences.edit { putStringSet(KEY_HOME_SECTIONS, value.mapTo(mutableSetOf()) { it.name }) }
 
     private companion object {

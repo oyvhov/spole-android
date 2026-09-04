@@ -42,7 +42,7 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithTag("home-feed").performScrollToNode(hasText("Kalender"))
         composeRule.onNodeWithText("Kalender").performScrollTo().assertIsDisplayed().performClick()
 
-        composeRule.onNodeWithText("Komande 28 dagar · heimeutgjevingar og nye episodar")
+        composeRule.onNodeWithText("Neste 28 dagar · filmar heime og nye episodar")
             .assertIsDisplayed()
     }
 
@@ -94,8 +94,8 @@ class ReelstackSmokeTest {
 
         composeRule.onNodeWithText("HomeReel").assertIsDisplayed()
         composeRule.onNodeWithText("Heimskjerm").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Nyleg lagde til filmar").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Nyleg lagde til seriar").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Emby · Filmar").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Emby · Seriar").performScrollTo().assertIsDisplayed()
     }
 
     @Test

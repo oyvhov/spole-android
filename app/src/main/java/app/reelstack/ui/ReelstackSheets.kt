@@ -16,8 +16,6 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import app.reelstack.data.network.EndpointValidator
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -32,8 +30,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,7 +41,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Devices
@@ -95,10 +93,6 @@ import app.reelstack.ui.theme.Warning
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.DetailTextSkeleton
 import app.reelstack.ui.components.ServiceLogo
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -136,29 +130,32 @@ fun ReelstackSheets(
             )
         },
     ) {
-        when (sheet) {
-            is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle)
-            is AppSheet.MediaDetails -> MediaDetailsSheet(state, sheet.mediaId)
-            is AppSheet.LibraryDetails -> LibraryDetailsSheet(state, sheet.mediaId)
-            is AppSheet.TitleDetails -> state.contentDetails?.let {
-                RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia)
-            }
-            AppSheet.UpcomingCalendar -> UpcomingCalendarSheet(state.upcoming, onUpcomingClick)
-            is AppSheet.ConnectionEditor -> connectionDraft?.let {
-                ConnectionEditorSheet(
-                    draft = it,
-                    configured = state.connections.firstOrNull { item -> item.kind == it.kind }?.baseUrl?.isNotBlank() == true,
-                    onDismiss = onDismiss,
-                    onNameChange = onConnectionNameChange,
-                    onUrlChange = onConnectionUrlChange,
-                    onTokenChange = onConnectionTokenChange,
-                    onUserIdChange = onConnectionUserIdChange,
-                    onAuthModeChange = onConnectionAuthModeChange,
-                    onUsernameChange = onConnectionUsernameChange,
-                    onPasswordChange = onConnectionPasswordChange,
-                    onTestAndSave = onTestAndSaveConnection,
-                    onRemove = { onRemoveConnection(it.kind) },
-                )
+        // One viewport: async metadata and images must not move the sheet's anchor.
+        Box(Modifier.fillMaxHeight(0.90f).fillMaxWidth().testTag("sheet-viewport")) {
+            when (sheet) {
+                is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle)
+                is AppSheet.MediaDetails -> MediaDetailsSheet(state, sheet.mediaId)
+                is AppSheet.LibraryDetails -> LibraryDetailsSheet(state, sheet.mediaId)
+                is AppSheet.TitleDetails -> state.contentDetails?.let {
+                    RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia)
+                }
+                AppSheet.UpcomingCalendar -> UpcomingCalendarSheet(state.upcoming, onUpcomingClick, onDismiss)
+                is AppSheet.ConnectionEditor -> connectionDraft?.let {
+                    ConnectionEditorSheet(
+                        draft = it,
+                        configured = state.connections.firstOrNull { item -> item.kind == it.kind }?.baseUrl?.isNotBlank() == true,
+                        onDismiss = onDismiss,
+                        onNameChange = onConnectionNameChange,
+                        onUrlChange = onConnectionUrlChange,
+                        onTokenChange = onConnectionTokenChange,
+                        onUserIdChange = onConnectionUserIdChange,
+                        onAuthModeChange = onConnectionAuthModeChange,
+                        onUsernameChange = onConnectionUsernameChange,
+                        onPasswordChange = onConnectionPasswordChange,
+                        onTestAndSave = onTestAndSaveConnection,
+                        onRemove = { onRemoveConnection(it.kind) },
+                    )
+                }
             }
         }
     }
@@ -173,7 +170,6 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     Column(
         Modifier
             .verticalScroll(rememberScrollState())
-            .animateContentSize(animationSpec = spring())
             .padding(start = 18.dp, end = 18.dp, bottom = 40.dp),
     ) {
         if (isMovie) {
@@ -298,9 +294,7 @@ private fun MoviePosterSummary(
     ) {
         Surface(
             color = Color(0xFF0B0810),
-            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 34.dp, bottomEnd = 22.dp, bottomStart = 22.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x38E2D5FF)),
-            shadowElevation = 12.dp,
+            shape = RoundedCornerShape(12.dp),
             modifier = Modifier.width(130.dp).height(195.dp),
         ) {
             MediaArtwork(
@@ -359,137 +353,6 @@ private fun MoviePosterSummary(
     }
 }
 
-@Composable
-private fun UpcomingCalendarSheet(items: List<UpcomingMedia>, onUpcomingClick: (String) -> Unit) {
-    val zone = ZoneId.systemDefault()
-    val grouped = items
-        .sortedBy(UpcomingMedia::airDateEpochMillis)
-        .groupBy { Instant.ofEpochMilli(it.airDateEpochMillis).atZone(zone).toLocalDate() }
-    val weekday = DateTimeFormatter.ofPattern("EEE", Locale.forLanguageTag("nn-NO"))
-    val month = DateTimeFormatter.ofPattern("MMMM", Locale.forLanguageTag("nn-NO"))
-    Column(
-        Modifier
-            .heightIn(max = 760.dp)
-            .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, bottom = 40.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Surface(color = Primary.copy(alpha = 0.2f), shape = CircleShape) {
-                Icon(
-                    Icons.Rounded.CalendarMonth,
-                    contentDescription = null,
-                    tint = PrimarySoft,
-                    modifier = Modifier.padding(10.dp).size(22.dp),
-                )
-            }
-            Column(Modifier.padding(start = 13.dp)) {
-                Text("Kalender", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                Text("Komande 28 dagar · heimeutgjevingar og nye episodar", color = Muted, fontSize = 11.sp)
-            }
-        }
-        if (grouped.isEmpty()) {
-            Text(
-                "Ingen digitale filmutgjevingar eller nye episodar er planlagde enno.",
-                color = Muted,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 28.dp, bottom = 12.dp),
-            )
-        } else {
-            grouped.forEach { (date, dayItems) ->
-                Row(
-                    verticalAlignment = Alignment.Top,
-                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(48.dp)) {
-                        Text(
-                            date.format(weekday).removeSuffix(".").uppercase(),
-                            color = PrimarySoft,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Surface(
-                            color = Primary.copy(alpha = 0.18f),
-                            shape = CircleShape,
-                            modifier = Modifier.padding(top = 6.dp).size(42.dp),
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    date.dayOfMonth.toString(),
-                                    color = Color.White,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                        }
-                        Text(date.format(month).take(3), color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
-                    }
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f).padding(start = 13.dp),
-                    ) {
-                        dayItems.forEach { media -> UpcomingCalendarRow(media, onUpcomingClick) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun UpcomingCalendarRow(media: UpcomingMedia, onUpcomingClick: (String) -> Unit) {
-    val isMovie = media.mediaType.equals("Movie", ignoreCase = true)
-    Surface(
-        onClick = { onUpcomingClick(media.id) },
-        color = SurfaceRaised.copy(alpha = 0.82f),
-        shape = RoundedCornerShape(20.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x24E2D5FF)),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(9.dp)) {
-            MediaArtwork(
-                url = media.artworkUrl,
-                fallbackRes = media.artworkRes,
-                contentDescription = null,
-                contentScale = if (isMovie) ContentScale.Fit else ContentScale.Crop,
-                modifier = Modifier
-                    .size(width = if (isMovie) 56.dp else 86.dp, height = 78.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0xFF0B0810)),
-            )
-            Column(Modifier.weight(1f).padding(start = 12.dp, end = 5.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SourceMark(kind = media.source, modifier = Modifier.size(11.dp))
-                    Text(
-                        when {
-                            media.source == ServiceKind.SONARR -> "NY EPISODE"
-                            media.facts.any { it == "Fysisk utgjeving" } -> "FYSISK UTGJEVING"
-                            else -> "DIGITAL UTGJEVING"
-                        },
-                        color = PrimarySoft,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 5.dp),
-                    )
-                }
-                Text(
-                    media.title,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    modifier = Modifier.padding(top = 5.dp),
-                )
-                Text(
-                    media.subtitle,
-                    color = Muted,
-                    fontSize = 10.sp,
-                    maxLines = 2,
-                    modifier = Modifier.padding(top = 3.dp),
-                )
-                Text(media.dateLabel, color = Color(0xFFD9D0E2), fontSize = 10.sp, modifier = Modifier.padding(top = 5.dp))
-            }
-        }
-    }
-}
 
 @Composable
 private fun SourceMark(kind: ServiceKind, modifier: Modifier = Modifier) {

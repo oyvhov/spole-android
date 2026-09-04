@@ -72,7 +72,7 @@ class MediaSnapshotStore(context: Context) {
             } else {
                 legacyRecentlyAdded.filter(::looksLikeSeries)
             },
-            upcoming = root.array("upcoming").mapIndexedNotNull(::upcomingItem),
+            upcoming = root.array("upcoming").mapNotNull(::upcomingItem),
             incoming = root.array("incoming").mapNotNull(::incomingItem),
             discover = root.array("discover").mapNotNull(::discoverItem),
             activity = root.array("activity").mapNotNull(::activityItem),
@@ -178,7 +178,7 @@ class MediaSnapshotStore(context: Context) {
         }
     }
 
-    private fun upcomingItem(index: Int, element: kotlinx.serialization.json.JsonElement): UpcomingMedia? {
+    private fun upcomingItem(element: kotlinx.serialization.json.JsonElement): UpcomingMedia? {
         val item = element as? JsonObject ?: return null
         val source = item.enumValue<ServiceKind>("source") ?: return null
         return UpcomingMedia(
@@ -187,7 +187,7 @@ class MediaSnapshotStore(context: Context) {
             subtitle = item.string("subtitle").orEmpty().nynorskLegacyText(),
             dateLabel = item.string("dateLabel")?.nynorskLegacyText() ?: "Kjem snart",
             airDateEpochMillis = item.long("airDate") ?: return null,
-            artworkRes = if (source == ServiceKind.RADARR || index % 2 == 0) R.drawable.desert_arrival else R.drawable.kitchen_request,
+            artworkRes = R.drawable.media_placeholder,
             source = source,
             artworkUrl = item.string("artworkUrl"),
             overview = item.string("overview"),

@@ -154,8 +154,10 @@ fun HomeScreen(
                     }
                 }
             }
-            if (HomeSection.RECENT_MOVIES in state.homeSections) {
+            run {
                 mediaSources.forEach { source ->
+                    val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_MOVIES else HomeSection.JELLYFIN_MOVIES
+                    if (section !in state.homeSections) return@forEach
                     item(key = "recent-movies-${source.name}") {
                         MediaSectionTitle("Nyleg lagde til filmar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
                         val items = state.recentMovies.filter { it.source == source }
@@ -171,8 +173,10 @@ fun HomeScreen(
                     }
                 }
             }
-            if (HomeSection.RECENT_SERIES in state.homeSections) {
+            run {
                 mediaSources.forEach { source ->
+                    val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_SERIES else HomeSection.JELLYFIN_SERIES
+                    if (section !in state.homeSections) return@forEach
                     item(key = "recent-series-${source.name}") {
                         MediaSectionTitle("Nyleg lagde til seriar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
                         val items = state.recentSeries.filter { it.source == source }

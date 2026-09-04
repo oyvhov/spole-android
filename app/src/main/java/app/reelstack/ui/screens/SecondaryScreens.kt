@@ -406,8 +406,10 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             HomeSectionRow(HomeSection.NOW_PLAYING, "Spelar no", "Aktive avspelingar frå Jellyfin og Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECENT_MOVIES, "Nyleg lagde til filmar", "Eigne filmrader for Jellyfin og Emby", Icons.Rounded.Movie, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECENT_SERIES, "Nyleg lagde til seriar", "Eigne serierader for Jellyfin og Emby", Icons.Rounded.Tv, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.JELLYFIN_MOVIES, "Jellyfin · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.JELLYFIN_SERIES, "Jellyfin · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.EMBY_MOVIES, "Emby · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.EMBY_SERIES, "Emby · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.Notifications, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.DOWNLOADS, "Nedlastingar", "Aktive køar i Radarr og Sonarr", Icons.Rounded.Download, state, onHomeSectionChange)
             SettingsSectionTitle("Val")

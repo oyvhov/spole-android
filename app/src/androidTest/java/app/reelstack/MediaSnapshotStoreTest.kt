@@ -25,18 +25,18 @@ class MediaSnapshotStoreTest {
 
         val visible = AppPreferencesRepository(context).visibleHomeSections
 
-        assertEquals(setOf(HomeSection.NOW_PLAYING, HomeSection.RECENT_MOVIES, HomeSection.RECENT_SERIES), visible)
+        assertEquals(setOf(HomeSection.NOW_PLAYING, HomeSection.JELLYFIN_MOVIES, HomeSection.EMBY_MOVIES, HomeSection.JELLYFIN_SERIES, HomeSection.EMBY_SERIES), visible)
         AppPreferencesRepository(context).visibleHomeSections = HomeSection.entries.toSet()
     }
 
     @Test
     fun persistsVisibleHomeSections() {
         val repository = AppPreferencesRepository(ApplicationProvider.getApplicationContext())
-        val selected = setOf(HomeSection.NOW_PLAYING, HomeSection.UPCOMING)
+        val selected = setOf(HomeSection.EMBY_MOVIES, HomeSection.JELLYFIN_SERIES, HomeSection.UPCOMING)
 
         repository.visibleHomeSections = selected
 
-        assertEquals(selected, repository.visibleHomeSections)
+        assertEquals(selected, AppPreferencesRepository(ApplicationProvider.getApplicationContext()).visibleHomeSections)
         repository.visibleHomeSections = HomeSection.entries.toSet()
     }
 

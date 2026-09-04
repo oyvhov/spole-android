@@ -17,10 +17,28 @@ enum class ConnectionState {
 
 enum class HomeSection {
     NOW_PLAYING,
-    RECENT_MOVIES,
-    RECENT_SERIES,
+    JELLYFIN_MOVIES,
+    JELLYFIN_SERIES,
+    EMBY_MOVIES,
+    EMBY_SERIES,
     UPCOMING,
     DOWNLOADS,
+}
+
+/** Preserve older combined switches when upgrading to per-service rows. */
+fun decodeHomeSections(saved: Set<String>?): Set<HomeSection> {
+    if (saved == null) return HomeSection.entries.toSet()
+    return buildSet {
+        saved.mapNotNullTo(this) { name -> HomeSection.entries.firstOrNull { it.name == name } }
+        if ("RECENT_MOVIES" in saved || "RECENTLY_ADDED" in saved) {
+            add(HomeSection.JELLYFIN_MOVIES)
+            add(HomeSection.EMBY_MOVIES)
+        }
+        if ("RECENT_SERIES" in saved || "RECENTLY_ADDED" in saved) {
+            add(HomeSection.JELLYFIN_SERIES)
+            add(HomeSection.EMBY_SERIES)
+        }
+    }
 }
 
 data class ServiceConnection(

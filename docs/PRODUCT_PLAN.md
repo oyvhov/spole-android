@@ -4,6 +4,24 @@
 
 One reliable place to answer three questions: **What is playing? What was just added? What is arriving next?** HomeReel should feel like a premium media app, while making the status of a five-service automation stack understandable to people who did not configure it.
 
+## Next integration depth — prioritised after v0.6.1
+
+These are proposed follow-ups, not shipped features:
+
+1. **One truthful title status:** combine Seerr approval/request status with Radarr/Sonarr queue/import state and actual Jellyfin/Emby availability. Match provider IDs, never just titles. Distinguish unavailable, waiting, downloading, importing and playable; show the last successful refresh when stale.
+2. **Choose seasons:** use Seerr's partial-series requests and existing season availability, with the signed-in user's quota and permissions. Do not silently request every season.
+3. **Useful download diagnostics:** show remaining size/time, quality and the actual queue/import warning. Follow with explicit, permission-gated retry/search actions and confirmation for destructive operations.
+4. **Administrator tools:** approve requests and choose quality profiles only when supported by the user's Seerr permissions. Keep direct Radarr/Sonarr administrator keys out of ordinary-user setup.
+5. **Optional ready alerts:** notify when imported media is actually available, with deduplication and opt-in settings; a calendar date alone must never trigger a “ready” claim.
+
+Sources: [Seerr request access](https://docs.seerr.dev/api/get-all-requests/), [partial-series settings](https://docs.seerr.dev/using-seerr/settings/general/), [Seerr service profiles](https://docs.seerr.dev/using-seerr/settings/services/), [Radarr](https://radarr.video/), [Sonarr](https://sonarr.tv/).
+
+### v0.6.1 delivered scope
+
+- Four independent Home library switches, preserving old saved visibility choices.
+- Calendar type/date filters, selectable empty days, local episode times, no artificial midnight movie times, lazy borderless agenda and explicit close action.
+- Fixed sheet viewport, removing content-size spring/anchor feedback when metadata arrives.
+
 ## Core principles
 
 1. **Media first.** Artwork and titles lead; server mechanics stay contextual.
