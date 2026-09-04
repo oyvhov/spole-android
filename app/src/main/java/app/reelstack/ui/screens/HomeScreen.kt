@@ -3,9 +3,13 @@ package app.reelstack.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,12 +48,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -78,6 +89,9 @@ import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,18 +126,14 @@ fun HomeScreen(
         LazyColumn(
             contentPadding = PaddingValues(
                 start = 24.dp,
-                top = 54.dp,
+                top = 68.dp,
                 end = 24.dp,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
             modifier = Modifier.fillMaxSize(),
         ) {
             item {
-                Text(
-                    text = greeting(),
-                    color = TextColor,
-                    style = MaterialTheme.typography.displaySmall,
-                )
+                HomeGreeting()
             }
             if (HomeSection.NOW_PLAYING in state.homeSections) {
                 item {
@@ -223,6 +233,40 @@ private fun greeting(): String = when (java.time.LocalTime.now().hour) {
     else -> "God kveld"
 }
 
+@Composable
+private fun HomeGreeting() {
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appeared = true }
+    val reveal by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = tween(durationMillis = 480),
+        label = "home-greeting-reveal",
+    )
+    val date = remember {
+        LocalDate.now().format(
+            DateTimeFormatter.ofPattern("EEEE d. MMMM", Locale.forLanguageTag("nn-NO")),
+        ).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.forLanguageTag("nn-NO")) else it.toString() }
+    }
+    Column(
+        modifier = Modifier.graphicsLayer {
+            alpha = reveal
+            translationY = (1f - reveal) * 24f
+        },
+    ) {
+        Text(
+            text = greeting(),
+            color = TextColor,
+            style = MaterialTheme.typography.displaySmall,
+        )
+        Text(
+            text = date,
+            color = Color(0xFFAAA1B5),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 7.dp),
+        )
+    }
+}
+
 private fun mediaEmptyMessage(state: ReelstackUiState, source: ServiceKind, emptyMessage: String): String =
     if (source in state.failedServices) {
         "Fekk ikkje oppdatert ${source.displayName}. Sjekk tilkoplinga i Innstillingar."
@@ -301,22 +345,34 @@ private fun NowPlayingCard(
     onPlaybackToggle: () -> Unit,
     modifier: Modifier,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.985f else 1f,
+        animationSpec = spring(stiffness = 420f, dampingRatio = 0.72f),
+        label = "now-playing-press",
+    )
     val animatedProgress by animateFloatAsState(
         targetValue = session.progress,
         animationSpec = spring(stiffness = 100f, dampingRatio = 0.82f),
         label = "playback-progress",
     )
 
+    val shape = RoundedCornerShape(topStart = 34.dp, topEnd = 86.dp, bottomEnd = 34.dp, bottomStart = 34.dp)
     Box(
         modifier = modifier
             .height(306.dp)
-            .clip(RoundedCornerShape(topStart = 34.dp, topEnd = 86.dp, bottomEnd = 34.dp, bottomStart = 34.dp))
-            .border(
-                1.dp,
-                Color(0x40E2D5FF),
-                RoundedCornerShape(topStart = 34.dp, topEnd = 86.dp, bottomEnd = 34.dp, bottomStart = 34.dp),
-            )
-            .clickable(onClick = onOpen),
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .shadow(14.dp, shape)
+            .clip(shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onOpen,
+            ),
     ) {
         MediaArtwork(
             url = session.artworkUrl,
@@ -405,28 +461,58 @@ private fun NowPlayingCard(
 @Composable
 private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(items, key = LibraryMedia::id) { media ->
-            LibraryCard(media = media, wide = wide, onClick = { onClick(media.id) })
+        itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
+            LibraryCard(
+                media = media,
+                wide = wide,
+                revealDelay = (index.coerceAtMost(5) * 45),
+                onClick = { onClick(media.id) },
+            )
         }
     }
 }
 
 @Composable
-private fun LibraryCard(media: LibraryMedia, wide: Boolean, onClick: () -> Unit) {
+private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, onClick: () -> Unit) {
     val cardWidth = if (wide) 224.dp else 146.dp
-    val artworkHeight = if (wide) 126.dp else 192.dp
+    val artworkHeight = if (wide) 126.dp else 214.dp
+    val artworkShape = RoundedCornerShape(topStart = 20.dp, topEnd = 34.dp, bottomEnd = 20.dp, bottomStart = 20.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    var appeared by remember(media.id) { mutableStateOf(false) }
+    LaunchedEffect(media.id) { appeared = true }
+    val reveal by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = tween(durationMillis = 390, delayMillis = revealDelay),
+        label = "library-card-reveal",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
+        label = "library-card-press",
+    )
     Column(
         modifier = Modifier
             .width(cardWidth)
-            .clickable(onClick = onClick)
+            .graphicsLayer {
+                alpha = reveal
+                translationY = (1f - reveal) * 30f
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
             .semantics { role = Role.Button },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(artworkHeight)
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, Color(0x35E2D5FF), RoundedCornerShape(20.dp)),
+                .shadow(10.dp, artworkShape)
+                .clip(artworkShape),
         ) {
             MediaArtwork(
                 url = media.artworkUrl,
@@ -435,11 +521,6 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, onClick: () -> Unit)
                 contentScale = ContentScale.Crop,
                 source = media.source,
                 modifier = Modifier.fillMaxSize(),
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color(0xE0080710)),
-                ),
             )
             Surface(
                 color = Color(0xC4120E1B),
@@ -476,28 +557,51 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, onClick: () -> Unit)
 @Composable
 private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(items, key = UpcomingMedia::id) { media -> UpcomingCard(media) { onClick(media.id) } }
+        itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
+            UpcomingCard(media, revealDelay = index.coerceAtMost(5) * 45) { onClick(media.id) }
+        }
     }
 }
 
 @Composable
-private fun UpcomingCard(media: UpcomingMedia, onClick: () -> Unit) {
+private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(topStart = 24.dp, topEnd = 44.dp, bottomEnd = 24.dp, bottomStart = 24.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    var appeared by remember(media.id) { mutableStateOf(false) }
+    LaunchedEffect(media.id) { appeared = true }
+    val reveal by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = tween(durationMillis = 420, delayMillis = revealDelay),
+        label = "upcoming-card-reveal",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
+        label = "upcoming-card-press",
+    )
     Column(
         modifier = Modifier
             .width(178.dp)
-            .clickable(onClick = onClick)
+            .graphicsLayer {
+                alpha = reveal
+                translationY = (1f - reveal) * 30f
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
             .semantics { role = Role.Button },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(224.dp)
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 44.dp, bottomEnd = 24.dp, bottomStart = 24.dp))
-                .border(
-                    1.dp,
-                    Color(0x38E2D5FF),
-                    RoundedCornerShape(topStart = 24.dp, topEnd = 44.dp, bottomEnd = 24.dp, bottomStart = 24.dp),
-                ),
+                .shadow(11.dp, shape)
+                .clip(shape),
         ) {
             MediaArtwork(
                 url = media.artworkUrl,

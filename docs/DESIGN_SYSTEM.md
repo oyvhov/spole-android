@@ -2,7 +2,7 @@
 
 ## Product hierarchy
 
-Home is a service-agnostic media feed. Service names explain provenance, but never become primary navigation. The default order follows immediacy: active playback, resume, new library items, future releases, then active downloads.
+Home is a service-agnostic media feed. Service names explain provenance, but never become primary navigation. The default order follows immediacy: active playback, new library items, future releases, then active downloads.
 
 ## Core patterns
 
@@ -23,7 +23,8 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 - Violet is reserved for navigation, progress, source context, and direct actions.
 - Green confirms completed or healthy states; coral is reserved for actionable problems.
 - Major cards use 20–34 dp corner radii. Compact media and status elements use 13–20 dp.
-- Navigation fades use 150–220 ms. Playback progress uses a low-stiffness spring so live changes remain legible.
+- Home artwork is borderless. Shape, spacing, and a soft shadow provide separation without covering the image with a permanent gradient.
+- Navigation fades use 150–220 ms. Home cards reveal in a short 390–420 ms stagger and respond to touch with a restrained spring scale. Playback progress uses a low-stiffness spring so live changes remain legible.
 - Detail sheets lead with edge-to-edge artwork and gradients; related metadata shares one quiet surface instead of a grid of equal-weight boxes.
 - Bottom-sheet height follows its content so short details feel lightweight while long descriptions remain scrollable.
 

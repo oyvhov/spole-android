@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3
+
+- Added more breathing room above the Home greeting and a quiet, localized date line.
+- Removed hard outlines and the dark bottom veil from Home artwork so posters and thumbnails keep their natural color and edge.
+- Refined media cards with soft depth, asymmetric corners, and taller movie-poster proportions.
+- Added brief staggered reveal motion to Home rails and responsive spring feedback when cards are pressed.
+- Kept loading skeletons aligned with the updated card proportions to prevent layout jumps.
+
 ## 0.5.2
 
 - Redesigned «Kjem snart» as artwork-led cards with calm date chips and a dedicated 28-day agenda calendar.

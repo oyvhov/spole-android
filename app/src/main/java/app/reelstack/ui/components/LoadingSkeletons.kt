@@ -85,7 +85,7 @@ fun LibraryRailSkeleton(description: String, wide: Boolean = false, modifier: Mo
     ) {
         items(3) { index ->
             val cardWidth = if (wide) 224.dp else 146.dp
-            val artworkHeight = if (wide) 126.dp else 192.dp
+            val artworkHeight = if (wide) 126.dp else 214.dp
             Column(Modifier.width(cardWidth)) {
                 ShimmerBlock(
                     modifier = Modifier.fillMaxWidth().height(artworkHeight),
