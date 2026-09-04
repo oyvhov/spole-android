@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+- Fixed Jellyfin library loading by using the current `/UserItems/Resume` and `/Items/Latest` routes with legacy fallbacks.
+- Fixed Emby library loading by using its user-scoped resume and latest-media routes.
+- Added automatic media-profile discovery for API-key connections without a configured profile ID.
+- Added visible, actionable Home states when media-library refresh fails or returns no items.
+
 ## 0.4.0
 
 - Renamed the app to HomeReel and introduced a new home-and-play launcher icon.

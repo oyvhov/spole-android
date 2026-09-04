@@ -131,16 +131,24 @@ fun HomeScreen(
                     }
                 }
             }
-            if (HomeSection.CONTINUE_WATCHING in state.homeSections && state.continueWatching.isNotEmpty()) {
+            if (HomeSection.CONTINUE_WATCHING in state.homeSections) {
                 item {
                     SectionTitle("Continue watching", Modifier.padding(top = 25.dp, bottom = 13.dp))
-                    LibraryRail(state.continueWatching, onLibraryClick)
+                    if (state.continueWatching.isEmpty()) {
+                        EmptySectionLine(mediaEmptyMessage(state, "No unfinished videos from connected media servers."))
+                    } else {
+                        LibraryRail(state.continueWatching, onLibraryClick)
+                    }
                 }
             }
-            if (HomeSection.RECENTLY_ADDED in state.homeSections && state.recentlyAdded.isNotEmpty()) {
+            if (HomeSection.RECENTLY_ADDED in state.homeSections) {
                 item {
                     SectionTitle("Recently added", Modifier.padding(top = 25.dp, bottom = 13.dp))
-                    LibraryRail(state.recentlyAdded, onLibraryClick)
+                    if (state.recentlyAdded.isEmpty()) {
+                        EmptySectionLine(mediaEmptyMessage(state, "No recently added videos from connected media servers."))
+                    } else {
+                        LibraryRail(state.recentlyAdded, onLibraryClick)
+                    }
                 }
             }
             if (HomeSection.UPCOMING in state.homeSections) {
@@ -223,6 +231,13 @@ private fun greeting(): String = when (java.time.LocalTime.now().hour) {
     in 12..17 -> "Good afternoon"
     else -> "Good evening"
 }
+
+private fun mediaEmptyMessage(state: ReelstackUiState, emptyMessage: String): String =
+    if (state.failedServices.any { it == app.reelstack.data.model.ServiceKind.JELLYFIN || it == app.reelstack.data.model.ServiceKind.EMBY }) {
+        "A media server could not refresh. Check its connection in Settings."
+    } else {
+        emptyMessage
+    }
 
 @Composable
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {

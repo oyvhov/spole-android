@@ -79,19 +79,36 @@ class MediaServerClient(
     fun feed(connection: ServiceConnection): MediaServerFeed {
         val sessions = sessions(connection)
         val userId = connection.userId.takeIf { it.isNotBlank() }
-            ?: sessions.firstOrNull()?.userId
             ?: currentUserId(connection)
-        if (userId == null) {
-            return MediaServerFeed(sessions, emptyList(), emptyList())
-        }
-        val encodedUserId = java.net.URLEncoder.encode(userId, Charsets.UTF_8.name())
-        val resume = getOptionalItems(
+            ?: sessions.firstOrNull()?.userId
+            ?: firstAvailableUserId(connection)
+            ?: error("${connection.kind.displayName} has no available media profile. Add a Profile ID in Settings.")
+        val encodedUserId = encodePathSegment(userId)
+        val resume = getItems(
             connection,
-            "Items/Resume?UserId=$encodedUserId&Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&MediaTypes=Video",
+            when (connection.kind) {
+                ServiceKind.JELLYFIN -> listOf(
+                    "UserItems/Resume?userId=$encodedUserId&limit=12&fields=ProductionYear,SeriesName,RunTimeTicks&mediaTypes=Video&enableUserData=true",
+                    "Users/$encodedUserId/Items/Resume?Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&MediaTypes=Video&EnableUserData=true",
+                )
+                ServiceKind.EMBY -> listOf(
+                    "Users/$encodedUserId/Items/Resume?Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&MediaTypes=Video&EnableUserData=true",
+                )
+                ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> error("Unsupported media server")
+            },
         )
-        val latest = getOptionalItems(
+        val latest = getItems(
             connection,
-            "Items/Latest?UserId=$encodedUserId&Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&EnableUserData=true",
+            when (connection.kind) {
+                ServiceKind.JELLYFIN -> listOf(
+                    "Items/Latest?userId=$encodedUserId&limit=12&fields=ProductionYear,SeriesName,RunTimeTicks&enableUserData=true&groupItems=true",
+                    "Users/$encodedUserId/Items/Latest?Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&EnableUserData=true&GroupItems=true",
+                )
+                ServiceKind.EMBY -> listOf(
+                    "Users/$encodedUserId/Items/Latest?Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&EnableUserData=true&GroupItems=true",
+                )
+                ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> error("Unsupported media server")
+            },
         )
         return MediaServerFeed(sessions, resume, latest)
     }
@@ -116,13 +133,29 @@ class MediaServerClient(
         return if (response.statusCode in 200..299) ServicePayloadParser.currentUserId(response.body) else null
     }
 
-    private fun getOptionalItems(connection: ServiceConnection, path: String): List<RemoteLibraryItem> {
-        val response = transport.get(EndpointValidator.resolve(connection.baseUrl, path), headers(connection))
+    private fun firstAvailableUserId(connection: ServiceConnection): String? {
+        val response = transport.get(
+            EndpointValidator.resolve(connection.baseUrl, "Users"),
+            headers(connection),
+        )
         return if (response.statusCode in 200..299) {
-            ServicePayloadParser.libraryItems(response.body)
-        } else {
-            emptyList()
+            ServicePayloadParser.availableUserIds(response.body).firstOrNull()
+        } else null
+    }
+
+    private fun getItems(connection: ServiceConnection, paths: List<String>): List<RemoteLibraryItem> {
+        var lastResponse: HttpResponse? = null
+        paths.forEach { path ->
+            val response = transport.get(EndpointValidator.resolve(connection.baseUrl, path), headers(connection))
+            lastResponse = response
+            when (response.statusCode) {
+                in 200..299 -> return ServicePayloadParser.libraryItems(response.body)
+                400, 404 -> Unit // Try a legacy route when this server version needs one.
+                else -> response.requireSuccess(connection.kind)
+            }
         }
+        lastResponse?.requireSuccess(connection.kind)
+        return emptyList()
     }
 }
 
@@ -237,6 +270,8 @@ private fun headers(connection: ServiceConnection): Map<String, String> = when (
 }
 
 private fun encode(value: String): String = java.net.URLEncoder.encode(value, Charsets.UTF_8.name())
+
+private fun encodePathSegment(value: String): String = encode(value).replace("+", "%20")
 
 private fun HttpResponse.requireSuccess(kind: ServiceKind) {
     when (statusCode) {

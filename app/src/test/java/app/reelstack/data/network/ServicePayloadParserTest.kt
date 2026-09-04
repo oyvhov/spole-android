@@ -63,6 +63,18 @@ class ServicePayloadParserTest {
     }
 
     @Test
+    fun readsAvailableMediaProfilesAndSkipsDisabledUsers() {
+        val users = ServicePayloadParser.availableUserIds(
+            """[
+                {"Id":"active-user","Policy":{"IsDisabled":false}},
+                {"Id":"disabled-user","Policy":{"IsDisabled":true}}
+            ]""",
+        )
+
+        assertEquals(listOf("active-user"), users)
+    }
+
+    @Test
     fun ignoresMediaServerSessionsWithoutPlayback() {
         val sessions = ServicePayloadParser.playbackSessions("""[{"Id":"idle-session","UserName":"Maya"}]""")
 

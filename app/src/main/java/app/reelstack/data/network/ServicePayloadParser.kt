@@ -97,6 +97,21 @@ object ServicePayloadParser {
         (json.parseToJsonElement(payload) as? JsonObject)?.string("Id")
             ?: (json.parseToJsonElement(payload) as? JsonObject)?.string("id")
 
+    fun availableUserIds(payload: String): List<String> {
+        val root = json.parseToJsonElement(payload)
+        val users = when (root) {
+            is JsonArray -> root
+            is JsonObject -> root.array("Items").takeIf { it.isNotEmpty() } ?: root.array("items")
+            else -> JsonArray(emptyList())
+        }
+        return users.mapNotNull { element ->
+            val user = element as? JsonObject ?: return@mapNotNull null
+            val policy = user.obj("Policy") ?: user.obj("policy")
+            if (policy?.bool("IsDisabled") == true || policy?.bool("isDisabled") == true) return@mapNotNull null
+            user.string("Id") ?: user.string("id")
+        }
+    }
+
     fun libraryItems(payload: String): List<RemoteLibraryItem> {
         val root = json.parseToJsonElement(payload)
         val items = when (root) {

@@ -283,8 +283,9 @@ private fun ConnectionEditorSheet(
             OutlinedTextField(
                 value = draft.userId,
                 onValueChange = onUserIdChange,
-                label = { Text("User ID (optional)") },
-                placeholder = { Text("Needed by some API keys") },
+                label = { Text("Profile ID (optional)") },
+                placeholder = { Text("Use a specific media profile") },
+                supportingText = { Text("Leave blank to detect a profile automatically.") },
                 singleLine = true,
                 shape = RoundedCornerShape(17.dp),
                 colors = connectionFieldColors(),

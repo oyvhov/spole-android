@@ -33,7 +33,7 @@ class ServiceClientsTest {
     }
 
     @Test
-    fun mediaFeedLoadsResumeAndLatestForConfiguredUser() {
+    fun jellyfinFeedUsesCurrentResumeAndLatestRoutes() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
@@ -47,9 +47,69 @@ class ServiceClientsTest {
 
         assertEquals("Foundation", feed.continueWatching.single().title)
         assertEquals("The Odyssey", feed.recentlyAdded.single().title)
-        assertTrue(transport.urls[1].contains("Items/Resume?UserId=user+9"))
-        assertTrue(transport.urls[2].contains("Items/Latest?UserId=user+9"))
+        assertTrue(transport.urls[1].contains("UserItems/Resume?userId=user%209"))
+        assertTrue(transport.urls[2].contains("Items/Latest?userId=user%209"))
         assertTrue(transport.headers.all { it["X-Emby-Token"] == "secret" })
+    }
+
+    @Test
+    fun embyFeedUsesUserScopedResumeAndLatestRoutes() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(200, "[]"),
+                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
+                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+            ),
+        )
+        val connection = connection(ServiceKind.EMBY, "secret").copy(userId = "emby-user")
+
+        val feed = MediaServerClient(transport).feed(connection)
+
+        assertEquals("Foundation", feed.continueWatching.single().title)
+        assertEquals("The Odyssey", feed.recentlyAdded.single().title)
+        assertTrue(transport.urls[1].contains("Users/emby-user/Items/Resume?"))
+        assertTrue(transport.urls[2].contains("Users/emby-user/Items/Latest?"))
+    }
+
+    @Test
+    fun mediaFeedDetectsFirstAvailableProfileForApiKey() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(200, "[]"),
+                HttpResponse(401, "{}"),
+                HttpResponse(200, """[{"Id":"detected-user","Policy":{"IsDisabled":false}}]"""),
+                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
+                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+            ),
+        )
+
+        val feed = MediaServerClient(transport).feed(connection(ServiceKind.JELLYFIN, "server-api-key"))
+
+        assertEquals("Foundation", feed.continueWatching.single().title)
+        assertTrue(transport.urls[1].endsWith("/Users/Me"))
+        assertTrue(transport.urls[2].endsWith("/Users"))
+        assertTrue(transport.urls[3].contains("userId=detected-user"))
+    }
+
+    @Test
+    fun jellyfinFeedFallsBackToLegacyUserRoutes() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(200, "[]"),
+                HttpResponse(404, "{}"),
+                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
+                HttpResponse(404, "{}"),
+                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+            ),
+        )
+        val connection = connection(ServiceKind.JELLYFIN, "secret").copy(userId = "legacy-user")
+
+        val feed = MediaServerClient(transport).feed(connection)
+
+        assertEquals("Foundation", feed.continueWatching.single().title)
+        assertEquals("The Odyssey", feed.recentlyAdded.single().title)
+        assertTrue(transport.urls[2].contains("Users/legacy-user/Items/Resume?"))
+        assertTrue(transport.urls[4].contains("Users/legacy-user/Items/Latest?"))
     }
 
     @Test

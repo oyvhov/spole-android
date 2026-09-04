@@ -255,6 +255,7 @@ class MediaSyncRepository(
         return when {
             message.contains("rejected", ignoreCase = true) -> "API key rejected"
             message.contains("endpoint", ignoreCase = true) -> "API endpoint unavailable"
+            message.contains("profile", ignoreCase = true) -> "No media profile found — add a Profile ID"
             message.contains("too large", ignoreCase = true) -> "Response exceeded the safety limit"
             else -> "Could not refresh ${kind.displayName}"
         }
