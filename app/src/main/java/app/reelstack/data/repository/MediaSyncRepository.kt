@@ -14,6 +14,7 @@ import app.reelstack.data.network.MediaServerClient
 import app.reelstack.data.network.QueueServiceFeed
 import app.reelstack.data.network.QueueServiceClient
 import app.reelstack.data.network.RemoteDiscoverItem
+import app.reelstack.data.network.RemoteMediaDetails
 import app.reelstack.data.network.MediaServerFeed
 import app.reelstack.data.network.RemoteLibraryItem
 import app.reelstack.data.network.RemotePlayback
@@ -109,6 +110,22 @@ class MediaSyncRepository(
         seerrServiceClient.request(connection, mediaType, remoteId)
     }
 
+    fun search(connection: ServiceConnection, query: String): List<DiscoverMedia> =
+        seerrServiceClient.search(connection, query).map(::discoverMedia)
+
+    fun details(connection: ServiceConnection, media: DiscoverMedia): RemoteMediaDetails =
+        seerrServiceClient.details(
+            connection,
+            requireNotNull(media.mediaType) { "Medietypen manglar" },
+            requireNotNull(media.remoteId) { "Medie-ID-en manglar" },
+        )
+
+    fun details(connection: ServiceConnection, media: LibraryMedia): RemoteMediaDetails =
+        mediaServerClient.details(
+            connection,
+            requireNotNull(media.remoteId) { "Medie-ID-en manglar" },
+        )
+
     fun setPlaybackPaused(
         connections: List<ServiceConnection>,
         session: PlaybackSession,
@@ -156,6 +173,10 @@ class MediaSyncRepository(
         artworkRes = R.drawable.media_placeholder,
         source = source,
         artworkUrl = item.artworkUrl,
+        remoteId = item.id,
+        overview = item.overview,
+        facts = item.facts,
+        genres = item.genres,
     )
 
     private fun incomingMedia(item: RemoteQueueItem) = IncomingMedia(
@@ -166,6 +187,9 @@ class MediaSyncRepository(
         state = item.state,
         artworkRes = if (item.source == ServiceKind.RADARR) R.drawable.desert_arrival else R.drawable.kitchen_request,
         artworkUrl = item.artworkUrl,
+        overview = item.overview,
+        facts = item.facts,
+        genres = item.genres,
     )
 
     private fun upcomingMedia(item: RemoteUpcomingItem, index: Int): UpcomingMedia? {
@@ -183,6 +207,9 @@ class MediaSyncRepository(
             },
             source = item.source,
             artworkUrl = item.artworkUrl,
+            overview = item.overview,
+            facts = item.facts,
+            genres = item.genres,
         )
     }
 
@@ -196,6 +223,9 @@ class MediaSyncRepository(
         artworkUrl = item.artworkUrl,
         remoteId = item.remoteId,
         mediaType = item.mediaType,
+        overview = item.overview,
+        facts = item.facts,
+        genres = item.genres,
     )
 
     private fun queueActivity(item: RemoteQueueItem) = ActivityEvent(
@@ -212,11 +242,11 @@ class MediaSyncRepository(
 
     private fun requestActivity(request: RemoteRequest, discovered: DiscoverMedia?) = ActivityEvent(
         id = "seerr-request-${request.id}",
-        title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Filmbestilling" else "Seriebestilling",
+        title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Ny film" else "Ny serie",
         detail = when (request.status) {
             2 -> "Godkjend av Seerr for ${request.requestedBy}"
             3 -> "Avvist i Seerr"
-            else -> "Bestilt av ${request.requestedBy}"
+            else -> "Lagd til av ${request.requestedBy}"
         },
         time = relativeTime(request.createdAt),
         complete = request.status == 2,

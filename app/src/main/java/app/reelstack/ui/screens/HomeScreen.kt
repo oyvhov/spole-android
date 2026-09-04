@@ -66,7 +66,11 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.IncomingSkeleton
+import app.reelstack.ui.components.LibraryRailSkeleton
+import app.reelstack.ui.components.NowPlayingSkeleton
 import app.reelstack.ui.components.ServiceLogo
+import app.reelstack.ui.components.UpcomingSkeleton
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
@@ -83,6 +87,7 @@ fun HomeScreen(
     onPlaybackToggle: (String) -> Unit,
     onMediaClick: (String) -> Unit,
     onLibraryClick: (String) -> Unit,
+    onUpcomingClick: (String) -> Unit,
     onRefresh: () -> Unit,
 ) {
     val configuredMediaSources = state.connections
@@ -93,6 +98,9 @@ fun HomeScreen(
         .map { it.kind }
     val mediaSources = configuredMediaSources.ifEmpty {
         (state.recentMovies + state.recentSeries).map(LibraryMedia::source).distinct()
+    }
+    val hasQueueConnection = state.connections.any {
+        it.baseUrl.isNotBlank() && (it.kind == ServiceKind.RADARR || it.kind == ServiceKind.SONARR)
     }
     PullToRefreshBox(
         isRefreshing = state.isRefreshing,
@@ -121,7 +129,11 @@ fun HomeScreen(
                 item {
                     SectionTitle("Spelar no", Modifier.padding(top = 28.dp, bottom = 15.dp))
                     if (state.sessions.isEmpty()) {
-                        EmptyNowPlayingCard()
+                        if (state.isRefreshing && configuredMediaSources.isNotEmpty()) {
+                            NowPlayingSkeleton()
+                        } else {
+                            EmptyNowPlayingCard()
+                        }
                     } else {
                         NowPlayingRail(
                             sessions = state.sessions,
@@ -138,7 +150,11 @@ fun HomeScreen(
                         MediaSectionTitle("Nyleg lagde til filmar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
                         val items = state.recentMovies.filter { it.source == source }
                         if (items.isEmpty()) {
-                            EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til filmar."))
+                            if (state.isRefreshing) {
+                                LibraryRailSkeleton("Lastar nyleg lagde til filmar frå ${source.displayName}")
+                            } else {
+                                EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til filmar."))
+                            }
                         } else {
                             LibraryRail(items, onLibraryClick)
                         }
@@ -151,7 +167,11 @@ fun HomeScreen(
                         MediaSectionTitle("Nyleg lagde til seriar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
                         val items = state.recentSeries.filter { it.source == source }
                         if (items.isEmpty()) {
-                            EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til episodar."))
+                            if (state.isRefreshing) {
+                                LibraryRailSkeleton("Lastar nyleg lagde til seriar frå ${source.displayName}")
+                            } else {
+                                EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til episodar."))
+                            }
                         } else {
                             LibraryRail(items, onLibraryClick)
                         }
@@ -162,9 +182,13 @@ fun HomeScreen(
                 item {
                     SectionTitle("Kjem snart", Modifier.padding(top = 25.dp, bottom = 13.dp))
                     if (state.upcoming.isEmpty()) {
-                        EmptySectionLine("Ingen overvaka utgjevingar dei neste 28 dagane.")
+                        if (state.isRefreshing && hasQueueConnection) {
+                            UpcomingSkeleton()
+                        } else {
+                            EmptySectionLine("Ingen overvaka utgjevingar dei neste 28 dagane.")
+                        }
                     } else {
-                        UpcomingRail(state.upcoming)
+                        UpcomingRail(state.upcoming, onUpcomingClick)
                     }
                 }
             }
@@ -172,7 +196,11 @@ fun HomeScreen(
                 item {
                     SectionTitle("Nedlastingar", Modifier.padding(top = 26.dp, bottom = 10.dp))
                     if (state.incoming.isEmpty()) {
-                        EmptySectionLine("Køane i Radarr og Sonarr er tomme.")
+                        if (state.isRefreshing && hasQueueConnection) {
+                            IncomingSkeleton()
+                        } else {
+                            EmptySectionLine("Køane i Radarr og Sonarr er tomme.")
+                        }
                     }
                 }
                 items(state.incoming, key = IncomingMedia::id) { media ->
@@ -471,15 +499,16 @@ private fun LibraryCard(media: LibraryMedia, onClick: () -> Unit) {
 }
 
 @Composable
-private fun UpcomingRail(items: List<UpcomingMedia>) {
+private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(items, key = UpcomingMedia::id) { media -> UpcomingCard(media) }
+        items(items, key = UpcomingMedia::id) { media -> UpcomingCard(media) { onClick(media.id) } }
     }
 }
 
 @Composable
-private fun UpcomingCard(media: UpcomingMedia) {
+private fun UpcomingCard(media: UpcomingMedia, onClick: () -> Unit) {
     Surface(
+        onClick = onClick,
         color = SurfaceRaised.copy(alpha = 0.9f),
         shape = RoundedCornerShape(22.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x30E2D5FF)),

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.ConnectionState
@@ -50,6 +51,7 @@ class HomeMediaRowsTest {
                     onPlaybackToggle = {},
                     onMediaClick = {},
                     onLibraryClick = {},
+                    onUpcomingClick = {},
                     onRefresh = {},
                 )
             }
@@ -61,6 +63,42 @@ class HomeMediaRowsTest {
         composeRule.onNodeWithText("Emby · Nyleg lagde til filmar")
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyConnectedLibraryUsesSkeletonWhileRefreshing() {
+        val state = ReelstackUiState(
+            connections = listOf(connection(ServiceKind.JELLYFIN)),
+            sessions = emptyList(),
+            recentMovies = emptyList(),
+            recentSeries = emptyList(),
+            upcoming = emptyList(),
+            incoming = emptyList(),
+            discover = emptyList(),
+            activity = emptyList(),
+            isRefreshing = true,
+            homeSections = setOf(HomeSection.RECENT_MOVIES),
+        )
+
+        composeRule.setContent {
+            ReelstackTheme {
+                HomeScreen(
+                    state = state,
+                    contentPadding = PaddingValues(0.dp),
+                    onSessionClick = {},
+                    onPlaybackToggle = {},
+                    onMediaClick = {},
+                    onLibraryClick = {},
+                    onUpcomingClick = {},
+                    onRefresh = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Lastar nyleg lagde til filmar frå Jellyfin")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Ingen nyleg lagde til filmar.").assertDoesNotExist()
     }
 
     private fun connection(kind: ServiceKind) = ServiceConnection(

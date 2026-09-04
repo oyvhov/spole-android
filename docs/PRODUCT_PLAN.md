@@ -2,7 +2,7 @@
 
 ## Product promise
 
-One reliable place to answer three questions: **What is playing? What should I request? What is arriving next?** HomeReel should feel like a premium media app, while making the status of a five-service automation stack understandable to people who did not configure it.
+One reliable place to answer three questions: **What is playing? What was just added? What is arriving next?** HomeReel should feel like a premium media app, while making the status of a five-service automation stack understandable to people who did not configure it.
 
 ## Core principles
 
@@ -16,18 +16,19 @@ One reliable place to answer three questions: **What is playing? What should I r
 
 ### Home
 
-- Server/profile selector
+- All connected servers at once, with no server/profile switcher
 - Current playback with seek progress and transport controls
-- Continue watching and recently added sections
+- Separate recently-added movie and series rows for each Jellyfin and Emby server
 - Compact incoming movie and episode status
 - Tap any item for a detail sheet instead of losing dashboard context
 
 ### Discover
 
-- Unified title search
+- Live Seerr title search
 - Movie/series, service, availability, and genre filters
 - Clear availability badge: already available, requestable, or in progress
-- Seerr request with confirmation, optimistic state, and recoverable failure feedback
+- Add-to-library action through Seerr with optimistic state and recoverable failure feedback
+- Rich title details with overview, year, runtime, rating, genre, availability, and source status
 
 ### Activity
 
@@ -40,6 +41,7 @@ One reliable place to answer three questions: **What is playing? What should I r
 
 - Multiple named connection profiles, including home and remote endpoints
 - Test-before-save feedback with latency and server version
+- Jellyfin account sign-in plus advanced API-key setup; passwords are never persisted
 - Library, quality profile, root folder, and notification preferences
 - Diagnostics export that excludes credentials
 
@@ -56,14 +58,16 @@ One reliable place to answer three questions: **What is playing? What should I r
 ### Milestone 2 — Live read model
 
 - [x] Jellyfin and Emby active playback sessions
-- [x] Jellyfin and Emby libraries, resume items, and recently added media
+- [x] Jellyfin and Emby recently added movies and series across all accessible libraries
 - [x] Seerr trending discovery, request submission, and request-status feeds
 - [x] Radarr and Sonarr queue feeds
 - [x] Radarr and Sonarr calendar feeds
 - [ ] Radarr and Sonarr history feeds
 - [x] Stable domain mapping, empty states, pull-to-refresh, and partial-service failures
 - [x] Persistent non-secret dashboard cache with last-updated state
-- [ ] Pagination, loading skeletons, and migration to a local Room cache
+- [x] Section-shaped loading skeletons that preserve cached content during refresh
+- [x] Live Seerr title search and service-enriched title detail sheets
+- [ ] Pagination and migration to a local Room cache
 
 Acceptance: replacing demo mode with a valid profile populates every screen from real services; one offline service does not break the others.
 

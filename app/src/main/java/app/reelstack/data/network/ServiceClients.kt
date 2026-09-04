@@ -1,9 +1,14 @@
 package app.reelstack.data.network
 
+import app.reelstack.BuildConfig
 import app.reelstack.data.model.ConnectionTestResult
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -30,6 +35,52 @@ data class QueueServiceFeed(
     val queue: List<RemoteQueueItem>,
     val upcoming: List<RemoteUpcomingItem>,
 )
+
+data class JellyfinAuthentication(
+    val accessToken: String,
+    val userId: String,
+)
+
+class JellyfinAuthenticationClient(
+    private val transport: JsonHttpTransport = HttpTransport(),
+    private val deviceId: String = "homereel-android",
+) {
+    fun authenticate(baseUrl: String, username: String, password: String): JellyfinAuthentication {
+        val body = buildJsonObject {
+            put("Username", username)
+            put("Pw", password)
+        }.toString()
+        val authorization = "MediaBrowser Client=\"HomeReel\", Device=\"Android\", " +
+            "DeviceId=\"$deviceId\", Version=\"${BuildConfig.VERSION_NAME}\""
+        val response = transport.post(
+            EndpointValidator.resolve(baseUrl, "Users/AuthenticateByName"),
+            mapOf(
+                "Authorization" to authorization,
+                "X-Emby-Authorization" to authorization,
+            ),
+            body,
+        )
+
+        when (response.statusCode) {
+            401, 403 -> error("Feil brukarnamn eller passord")
+            404 -> error("Fann Jellyfin, men innlogging med brukarkonto er ikkje tilgjengeleg")
+            in 200..299 -> Unit
+            in 500..599 -> error("Jellyfin er utilgjengeleg no")
+            else -> error("Jellyfin svara med status ${response.statusCode}")
+        }
+
+        val root = runCatching { Json.parseToJsonElement(response.body).jsonObject }
+            .getOrElse { error("Jellyfin sende eit ugyldig innloggingssvar") }
+        val token = root["AccessToken"]?.jsonPrimitive?.contentOrNull
+            ?: root["accessToken"]?.jsonPrimitive?.contentOrNull
+            ?: error("Jellyfin sende ikkje tilbake eit tilgangsteikn")
+        val user = root["User"]?.jsonObject ?: root["user"]?.jsonObject
+        val userId = user?.get("Id")?.jsonPrimitive?.contentOrNull
+            ?: user?.get("id")?.jsonPrimitive?.contentOrNull
+            ?: error("Jellyfin sende ikkje tilbake ein profil-ID")
+        return JellyfinAuthentication(accessToken = token, userId = userId)
+    }
+}
 
 class ServiceConnectionTester(
     private val transport: JsonHttpTransport = HttpTransport(),
@@ -149,6 +200,26 @@ class MediaServerClient(
         response.requireSuccess(connection.kind)
     }
 
+    fun details(connection: ServiceConnection, itemId: String): RemoteMediaDetails {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val encodedItemId = encodePathSegment(itemId)
+        val userId = connection.userId.takeIf(String::isNotBlank)
+            ?: runCatching { currentUserId(connection) }.getOrNull()
+            ?: runCatching { preferredAvailableUserId(connection) }.getOrNull()
+        val paths = buildList {
+            userId?.let { add("Users/${encodePathSegment(it)}/Items/$encodedItemId") }
+            add("Items/$encodedItemId")
+        }
+        var lastResponse: HttpResponse? = null
+        paths.forEach { path ->
+            val response = transport.get(EndpointValidator.resolve(connection.baseUrl, path), headers(connection))
+            lastResponse = response
+            if (response.statusCode in 200..299) return ServicePayloadParser.libraryDetails(response.body)
+        }
+        lastResponse?.requireSuccess(connection.kind)
+        error("Fekk ikkje henta detaljar frå ${connection.kind.displayName}")
+    }
+
     private fun currentUserId(connection: ServiceConnection): String? {
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "Users/Me"),
@@ -238,7 +309,7 @@ class MediaServerClient(
         groupItems: Boolean,
         parentId: String? = null,
     ): List<String> {
-        val query = "Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks" +
+        val query = "Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks,Overview,Genres,CommunityRating,OfficialRating" +
             "&IncludeItemTypes=$itemType&GroupItems=$groupItems" +
             parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty()
         return when (kind) {
@@ -333,6 +404,28 @@ class QueueServiceClient(
 class SeerrServiceClient(
     private val transport: JsonHttpTransport = HttpTransport(),
 ) {
+    fun search(connection: ServiceConnection, query: String): List<RemoteDiscoverItem> {
+        require(connection.kind == ServiceKind.SEERR)
+        val encodedQuery = encode(query).replace("+", "%20")
+        val response = transport.get(
+            EndpointValidator.resolve(connection.baseUrl, "api/v1/search?query=$encodedQuery&page=1&language=nb"),
+            headers(connection),
+        )
+        response.requireSuccess(connection.kind)
+        return ServicePayloadParser.discover(response.body)
+    }
+
+    fun details(connection: ServiceConnection, mediaType: String, remoteId: Int): RemoteMediaDetails {
+        require(connection.kind == ServiceKind.SEERR)
+        require(mediaType == "movie" || mediaType == "tv")
+        val response = transport.get(
+            EndpointValidator.resolve(connection.baseUrl, "api/v1/$mediaType/$remoteId"),
+            headers(connection),
+        )
+        response.requireSuccess(connection.kind)
+        return ServicePayloadParser.mediaDetails(response.body)
+    }
+
     fun feed(connection: ServiceConnection): SeerrFeed {
         require(connection.kind == ServiceKind.SEERR)
         val requestHeaders = headers(connection)

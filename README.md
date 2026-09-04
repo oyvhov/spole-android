@@ -13,12 +13,12 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Native Kotlin and Jetpack Compose UI; no embedded web app
 - Aggregated Home dashboard with content from every connected server; no server switching required
 - Multiple simultaneous Jellyfin/Emby sessions with independent playback controls
-- Discover search and a working Seerr request interaction
+- Live Seerr search with one-tap “add to media collection” actions
 - Unified activity timeline for Seerr, Sonarr, and Radarr events
 - Settings and connection editors for Jellyfin, Emby, Seerr, Radarr, and Sonarr
 - Real connectivity/authentication probes for all five services
 - Live Jellyfin/Emby playback sessions
-- Live Jellyfin/Emby continue-watching and recently-added rails
+- Separate Jellyfin/Emby recently-added movie and series rails across all accessible libraries
 - Real Jellyfin/Emby remote pause and resume commands with pending/error feedback
 - Live Radarr/Sonarr download queues with normalized progress
 - 28-day Radarr/Sonarr upcoming calendar with movie and episode artwork
@@ -29,7 +29,7 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Remote artwork with local fallbacks and HTTPS-only external image filtering
 - Android Keystore-backed AES/GCM encryption for API tokens
 - HTTPS by default; plain HTTP accepted only for localhost and private-LAN hosts
-- Animated navigation, bottom sheets, progress states, feedback, and large touch targets
+- Section-shaped shimmer loading, animated navigation, rich detail sheets, progress states, feedback, and large touch targets
 - Unit, lint, and on-device Compose smoke-test coverage
 
 ## Run it
@@ -48,7 +48,7 @@ The debug APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Connecting services
 
-Open **Settings**, choose a service, then enter a display name, base URL, and API token. **Test and save** checks the server before persisting the profile. Jellyfin and Emby also accept an optional user ID for server API keys that are not tied to a user; access tokens and active sessions are resolved automatically when possible.
+Open **Settings**, choose a service, then enter a display name and base URL. Jellyfin can sign in with the same username and password used by first-party clients; the password is used only for that sign-in request and is never saved. The returned access token is encrypted on the device. API-key setup remains available, and Jellyfin/Emby API keys can use an optional profile ID.
 
 Typical local addresses:
 

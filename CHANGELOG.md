@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+- Added subtle, section-shaped shimmer skeletons for initial Home, Discover, and Activity loading without replacing useful cached content during background refreshes.
+- Added Jellyfin username/password sign-in as the default setup path; only the returned access token and profile ID are stored, and the password is never persisted.
+- Replaced local-only Discover filtering with debounced, authenticated Seerr search for new movies and series.
+- Added richer title sheets across library cards, Discover, upcoming releases, downloads, and Activity, with live Jellyfin/Emby or Seerr detail enrichment where available.
+- Added overview, runtime, year, rating, certification, genre, source, date, and status metadata to supported title details and the offline cache.
+- Reworked user-facing request language from “order” terminology to the calmer “add to the media collection” flow.
+- Expanded network, parser, security, loading-state, and on-device UI regression coverage.
+
 ## 0.4.6
 
 - Fixed automatic profile detection so active child sessions or the first returned user can no longer select a restricted child profile for Home.

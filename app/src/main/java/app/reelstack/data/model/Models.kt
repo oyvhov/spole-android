@@ -3,7 +3,7 @@ package app.reelstack.data.model
 enum class ServiceKind(val displayName: String, val role: String) {
     JELLYFIN("Jellyfin", "Medietenar"),
     EMBY("Emby", "Medietenar"),
-    SEERR("Seerr", "Bestillingar"),
+    SEERR("Seerr", "Legg til innhald"),
     RADARR("Radarr", "Filmar"),
     SONARR("Sonarr", "Seriar"),
 }
@@ -60,6 +60,10 @@ data class LibraryMedia(
     val artworkRes: Int,
     val source: ServiceKind,
     val artworkUrl: String? = null,
+    val remoteId: String? = null,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
 )
 
 data class UpcomingMedia(
@@ -71,6 +75,9 @@ data class UpcomingMedia(
     val artworkRes: Int,
     val source: ServiceKind,
     val artworkUrl: String? = null,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
 )
 
 enum class IncomingState {
@@ -87,6 +94,9 @@ data class IncomingMedia(
     val state: IncomingState,
     val artworkRes: Int,
     val artworkUrl: String? = null,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
 )
 
 data class DiscoverMedia(
@@ -99,6 +109,24 @@ data class DiscoverMedia(
     val artworkUrl: String? = null,
     val remoteId: Int? = null,
     val mediaType: String? = null,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
+)
+
+data class ContentDetails(
+    val key: String,
+    val title: String,
+    val eyebrow: String,
+    val subtitle: String,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
+    val artworkRes: Int,
+    val artworkUrl: String? = null,
+    val source: ServiceKind? = null,
+    val loading: Boolean = false,
+    val error: String? = null,
 )
 
 data class ActivityEvent(

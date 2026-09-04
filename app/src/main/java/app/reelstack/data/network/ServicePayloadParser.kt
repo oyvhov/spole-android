@@ -39,6 +39,9 @@ data class RemoteLibraryItem(
     val mediaType: String,
     val artworkItemId: String?,
     val artworkUrl: String? = null,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
 )
 
 data class RemoteLibraryView(
@@ -55,6 +58,9 @@ data class RemoteQueueItem(
     val state: IncomingState,
     val progress: Int?,
     val artworkUrl: String?,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
 )
 
 data class RemoteUpcomingItem(
@@ -64,6 +70,9 @@ data class RemoteUpcomingItem(
     val dateTime: String,
     val source: ServiceKind,
     val artworkUrl: String?,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
 )
 
 data class RemoteDiscoverItem(
@@ -75,11 +84,17 @@ data class RemoteDiscoverItem(
     val artworkUrl: String?,
     val inLibrary: Boolean,
     val requested: Boolean,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
 )
 
 data class RemoteMediaDetails(
     val title: String?,
     val artworkUrl: String?,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
 )
 
 data class RemoteRequest(
@@ -191,6 +206,9 @@ object ServicePayloadParser {
                 artworkItemId = item.string("SeriesId") ?: item.string("seriesId")
                     ?: item.string("PrimaryImageItemId") ?: item.string("primaryImageItemId")
                     ?: id,
+                overview = item.string("Overview") ?: item.string("overview"),
+                facts = libraryFacts(item, mediaType, runtime),
+                genres = stringArray(item, "Genres", "genres"),
             )
         }
     }
@@ -231,6 +249,9 @@ object ServicePayloadParser {
                     dateTime = dateTime,
                     source = source,
                     artworkUrl = secureArtwork(item),
+                    overview = item.string("overview"),
+                    facts = listOfNotNull("Film", year?.toString(), item.int("runtime")?.let { "$it min" }),
+                    genres = stringArray(item, "genres"),
                 )
             } else {
                 val id = item.int("id")?.toString() ?: return@mapNotNull null
@@ -249,6 +270,14 @@ object ServicePayloadParser {
                     dateTime = item.string("airDateUtc") ?: item.string("airDate") ?: return@mapNotNull null,
                     source = source,
                     artworkUrl = series?.let(::secureArtwork) ?: secureArtwork(item),
+                    overview = series?.string("overview") ?: item.string("overview"),
+                    facts = listOfNotNull(
+                        "Serie",
+                        series?.int("year")?.toString(),
+                        series?.int("runtime")?.let { "$it min" },
+                        series?.string("network"),
+                    ),
+                    genres = series?.let { stringArray(it, "genres") }.orEmpty(),
                 )
             }
         }
@@ -274,6 +303,9 @@ object ServicePayloadParser {
                 artworkUrl = item.string("posterPath")?.let { safeTmdbArtwork(it) },
                 inLibrary = mediaStatus == 5,
                 requested = mediaStatus in 2..4,
+                overview = item.string("overview"),
+                facts = discoverFacts(item, mediaType, year),
+                genres = objectNameArray(item, "genres"),
             )
         }
     }
@@ -303,6 +335,26 @@ object ServicePayloadParser {
         return RemoteMediaDetails(
             title = item.string("title") ?: item.string("name"),
             artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork),
+            overview = item.string("overview") ?: item.string("Overview"),
+            facts = discoverFacts(
+                item = item,
+                mediaType = if (item.string("title") != null) "movie" else "tv",
+                year = (item.string("releaseDate") ?: item.string("firstAirDate") ?: item.string("PremiereDate"))?.take(4),
+            ),
+            genres = objectNameArray(item, "genres").ifEmpty { stringArray(item, "Genres", "genres") },
+        )
+    }
+
+    fun libraryDetails(payload: String): RemoteMediaDetails {
+        val item = json.parseToJsonElement(payload) as? JsonObject ?: return RemoteMediaDetails(null, null)
+        val runtime = item.long("RunTimeTicks") ?: item.long("runTimeTicks")
+        val mediaType = item.string("Type") ?: item.string("type") ?: "Video"
+        return RemoteMediaDetails(
+            title = item.string("Name") ?: item.string("name"),
+            artworkUrl = null,
+            overview = item.string("Overview") ?: item.string("overview"),
+            facts = libraryFacts(item, mediaType, runtime),
+            genres = stringArray(item, "Genres", "genres"),
         )
     }
 
@@ -380,6 +432,13 @@ object ServicePayloadParser {
             state = state,
             progress = progress,
             artworkUrl = artwork,
+            overview = media?.string("overview"),
+            facts = listOfNotNull(
+                if (source == ServiceKind.RADARR) "Film" else "Serie",
+                media?.int("year")?.toString(),
+                progress?.let { "$it %" },
+            ),
+            genres = media?.let { stringArray(it, "genres") }.orEmpty(),
         )
     }
 
@@ -391,6 +450,37 @@ object ServicePayloadParser {
     private fun JsonObject.bool(key: String): Boolean? = this[key]?.jsonPrimitive?.booleanOrNull
     private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
     private fun JsonObject.array(key: String): JsonArray = this[key] as? JsonArray ?: JsonArray(emptyList())
+
+    private fun stringArray(item: JsonObject, vararg keys: String): List<String> = keys.firstNotNullOfOrNull { key ->
+        (item[key] as? JsonArray)?.mapNotNull { value -> value.jsonPrimitive.contentOrNull }?.takeIf(List<String>::isNotEmpty)
+    }.orEmpty()
+
+    private fun objectNameArray(item: JsonObject, key: String): List<String> = item.array(key)
+        .mapNotNull { value -> (value as? JsonObject)?.string("name") }
+
+    private fun libraryFacts(item: JsonObject, mediaType: String, runtimeTicks: Long?): List<String> = buildList {
+        add(
+            when (mediaType.lowercase()) {
+                "movie" -> "Film"
+                "series" -> "Serie"
+                "episode" -> "Episode"
+                else -> mediaType
+            },
+        )
+        (item.int("ProductionYear") ?: item.int("productionYear"))?.let { add(it.toString()) }
+        runtimeTicks?.takeIf { it > 0 }?.let { add("${it / TICKS_PER_MINUTE} min") }
+        (item.string("OfficialRating") ?: item.string("officialRating"))?.let(::add)
+        (item.double("CommunityRating") ?: item.double("communityRating"))?.let { add("★ ${"%.1f".format(it)}") }
+    }
+
+    private fun discoverFacts(item: JsonObject, mediaType: String, year: String?): List<String> = buildList {
+        add(if (mediaType == "movie") "Film" else "Serie")
+        year?.takeIf { it.length == 4 && it.all(Char::isDigit) }?.let(::add)
+        val runtime = item.int("runtime") ?: item.array("episodeRunTime").firstOrNull()?.jsonPrimitive?.intOrNull
+        runtime?.takeIf { it > 0 }?.let { add("$it min") }
+        item.double("voteAverage")?.takeIf { it > 0 }?.let { add("★ ${"%.1f".format(it)}") }
+        item.string("status")?.let(::add)
+    }
 
     private fun safeTmdbArtwork(path: String): String? = when {
         path.startsWith("/", ignoreCase = true) -> "https://image.tmdb.org/t/p/w500$path"

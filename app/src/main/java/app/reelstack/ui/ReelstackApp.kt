@@ -115,8 +115,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         contentPadding = paddingValues,
                         onSessionClick = { viewModel.openSheet(AppSheet.SessionDetails(it)) },
                         onPlaybackToggle = viewModel::togglePlayback,
-                        onMediaClick = { viewModel.openSheet(AppSheet.MediaDetails(it)) },
-                        onLibraryClick = { viewModel.openSheet(AppSheet.LibraryDetails(it)) },
+                        onMediaClick = viewModel::openIncomingDetails,
+                        onLibraryClick = viewModel::openLibraryDetails,
+                        onUpcomingClick = viewModel::openUpcomingDetails,
                         onRefresh = { viewModel.refreshLiveData(userInitiated = true) },
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
@@ -124,8 +125,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         contentPadding = paddingValues,
                         onSearch = viewModel::setSearchQuery,
                         onRequest = viewModel::requestMedia,
+                        onDetails = viewModel::openDiscoverDetails,
                     )
-                    AppTab.ACTIVITY -> ActivityScreen(state, paddingValues)
+                    AppTab.ACTIVITY -> ActivityScreen(state, paddingValues, viewModel::openActivityDetails)
                     AppTab.SETTINGS -> SettingsScreen(
                         state = state,
                         contentPadding = paddingValues,
@@ -148,8 +150,12 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onConnectionUrlChange = viewModel::updateConnectionUrl,
         onConnectionTokenChange = viewModel::updateConnectionToken,
         onConnectionUserIdChange = viewModel::updateConnectionUserId,
+        onConnectionAuthModeChange = viewModel::updateConnectionAuthMode,
+        onConnectionUsernameChange = viewModel::updateConnectionUsername,
+        onConnectionPasswordChange = viewModel::updateConnectionPassword,
         onTestAndSaveConnection = viewModel::testAndSaveConnection,
         onRemoveConnection = viewModel::removeConnection,
+        onAddMedia = viewModel::requestMedia,
     )
 }
 

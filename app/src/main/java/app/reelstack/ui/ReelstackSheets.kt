@@ -1,6 +1,8 @@
 package app.reelstack.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,8 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,6 +61,7 @@ import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Warning
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.DetailTextSkeleton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,12 +74,18 @@ fun ReelstackSheets(
     onConnectionUrlChange: (String) -> Unit,
     onConnectionTokenChange: (String) -> Unit,
     onConnectionUserIdChange: (String) -> Unit,
+    onConnectionAuthModeChange: (ConnectionAuthMode) -> Unit,
+    onConnectionUsernameChange: (String) -> Unit,
+    onConnectionPasswordChange: (String) -> Unit,
     onTestAndSaveConnection: () -> Unit,
     onRemoveConnection: (ServiceKind) -> Unit,
+    onAddMedia: (String) -> Unit,
 ) {
     val sheet = state.activeSheet ?: return
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = Color(0xFF1B1726),
         contentColor = MaterialTheme.colorScheme.onSurface,
         scrimColor = Color(0xB8040308),
@@ -88,6 +100,9 @@ fun ReelstackSheets(
             is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle)
             is AppSheet.MediaDetails -> MediaDetailsSheet(state, sheet.mediaId)
             is AppSheet.LibraryDetails -> LibraryDetailsSheet(state, sheet.mediaId)
+            is AppSheet.TitleDetails -> state.contentDetails?.let {
+                RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia)
+            }
             is AppSheet.ConnectionEditor -> connectionDraft?.let {
                 ConnectionEditorSheet(
                     draft = it,
@@ -97,12 +112,105 @@ fun ReelstackSheets(
                     onUrlChange = onConnectionUrlChange,
                     onTokenChange = onConnectionTokenChange,
                     onUserIdChange = onConnectionUserIdChange,
+                    onAuthModeChange = onConnectionAuthModeChange,
+                    onUsernameChange = onConnectionUsernameChange,
+                    onPasswordChange = onConnectionPasswordChange,
                     onTestAndSave = onTestAndSaveConnection,
                     onRemove = { onRemoveConnection(it.kind) },
                 )
             }
         }
     }
+}
+
+@Composable
+private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit) {
+    val details = state.contentDetails ?: return
+    val discoverMedia = (state.discover + state.searchResults).firstOrNull { it.id == details.key }
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
+        SheetHeader(details.title, details.eyebrow)
+        MediaArtwork(
+            url = details.artworkUrl,
+            fallbackRes = details.artworkRes,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            source = details.source,
+            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(220.dp).clip(RoundedCornerShape(25.dp)),
+        )
+        if (details.facts.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 15.dp),
+            ) {
+                details.facts.take(3).forEach { fact -> DetailPill(fact) }
+            }
+        }
+        if (details.genres.isNotEmpty()) {
+            Text(
+                details.genres.take(4).joinToString(" · "),
+                color = PrimarySoft,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 13.dp),
+            )
+        }
+        Text(
+            details.overview ?: details.subtitle,
+            color = Color(0xFFE8E0EF),
+            fontSize = 14.sp,
+            lineHeight = 21.sp,
+            modifier = Modifier.padding(top = 14.dp),
+        )
+        if (details.loading) {
+            DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
+        }
+        details.error?.let {
+            Text(it, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 12.dp))
+        }
+        if (discoverMedia != null && !discoverMedia.inLibrary) {
+            val adding = discoverMedia.id in state.requestingMediaIds
+            Button(
+                onClick = { onAddMedia(discoverMedia.id) },
+                enabled = !discoverMedia.requested && !adding,
+                shape = RoundedCornerShape(17.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Primary,
+                    contentColor = Ink,
+                    disabledContainerColor = Color(0xFF2A473B),
+                    disabledContentColor = Color(0xFFC9F4DB),
+                ),
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp),
+            ) {
+                if (adding) {
+                    CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(19.dp))
+                } else {
+                    Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                }
+                Text(
+                    when {
+                        adding -> "Legg til…"
+                        discoverMedia.requested -> "Lagd til"
+                        else -> "Legg til i mediesamlinga"
+                    },
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailPill(text: String) {
+    Text(
+        text = text,
+        color = Color(0xFFE8E0EF),
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF30283F))
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+    )
 }
 
 @Composable
@@ -204,7 +312,7 @@ private fun MediaDetailsSheet(state: ReelstackUiState, mediaId: String) {
                     modifier = Modifier.padding(top = 16.dp),
                 )
                 Text(
-                    if (downloading) "Radarr fann ei 4K-utgjeving og sende henne til nedlastingsklienten." else "Seerr varslar deg når bestillinga er godkjend.",
+                    if (downloading) "Radarr fann ei 4K-utgjeving og sende henne til nedlastingsklienten." else "Seerr varslar deg når tittelen er godkjend.",
                     color = Muted,
                     fontSize = 12.sp,
                     lineHeight = 18.sp,
@@ -256,10 +364,15 @@ private fun ConnectionEditorSheet(
     onUrlChange: (String) -> Unit,
     onTokenChange: (String) -> Unit,
     onUserIdChange: (String) -> Unit,
+    onAuthModeChange: (ConnectionAuthMode) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
     onTestAndSave: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    Column(Modifier.imePadding().padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
+    Column(
+        Modifier.imePadding().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+    ) {
         SheetHeader("Kople til ${draft.kind.displayName}", draft.kind.role, onDismiss)
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
@@ -281,7 +394,60 @@ private fun ConnectionEditorSheet(
             colors = connectionFieldColors(),
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
         )
-        if (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY) {
+        if (draft.kind == ServiceKind.JELLYFIN) {
+            Text(
+                "Innlogging",
+                color = PrimarySoft,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 15.dp, bottom = 7.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                FilterChip(
+                    selected = draft.authMode == ConnectionAuthMode.ACCOUNT,
+                    onClick = { onAuthModeChange(ConnectionAuthMode.ACCOUNT) },
+                    label = { Text("Brukarkonto") },
+                    colors = connectionChipColors(),
+                )
+                FilterChip(
+                    selected = draft.authMode == ConnectionAuthMode.API_KEY,
+                    onClick = { onAuthModeChange(ConnectionAuthMode.API_KEY) },
+                    label = { Text("API-nøkkel") },
+                    colors = connectionChipColors(),
+                )
+            }
+        }
+        val usesAccount = draft.kind == ServiceKind.JELLYFIN && draft.authMode == ConnectionAuthMode.ACCOUNT
+        if (usesAccount) {
+            OutlinedTextField(
+                value = draft.username,
+                onValueChange = onUsernameChange,
+                label = { Text("Brukarnamn") },
+                singleLine = true,
+                shape = RoundedCornerShape(17.dp),
+                colors = connectionFieldColors(),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            )
+            OutlinedTextField(
+                value = draft.password,
+                onValueChange = onPasswordChange,
+                label = { Text("Passord") },
+                supportingText = { Text("Kan stå tomt for ein konto utan passord.") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                shape = RoundedCornerShape(17.dp),
+                colors = connectionFieldColors(),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            )
+            Text(
+                "Passordet blir sendt direkte til Jellyfin for innlogging og blir aldri lagra i HomeReel.",
+                color = Muted,
+                fontSize = 10.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+        if (!usesAccount && (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY)) {
             OutlinedTextField(
                 value = draft.userId,
                 onValueChange = onUserIdChange,
@@ -294,16 +460,18 @@ private fun ConnectionEditorSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             )
         }
-        OutlinedTextField(
-            value = draft.token,
-            onValueChange = onTokenChange,
-            label = { Text("API-nøkkel eller tilgangsteikn") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            shape = RoundedCornerShape(17.dp),
-            colors = connectionFieldColors(),
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-        )
+        if (!usesAccount) {
+            OutlinedTextField(
+                value = draft.token,
+                onValueChange = onTokenChange,
+                label = { Text("API-nøkkel eller tilgangsteikn") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                shape = RoundedCornerShape(17.dp),
+                colors = connectionFieldColors(),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            )
+        }
 
         draft.warning?.let { MessageCard(it, warning = true) }
         draft.error?.let { MessageCard(it, warning = false) }
@@ -317,10 +485,10 @@ private fun ConnectionEditorSheet(
         ) {
             if (draft.saving) {
                 CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                Text("Testar tilkoplinga…", modifier = Modifier.padding(start = 9.dp))
+                Text(if (usesAccount) "Loggar inn…" else "Testar tilkoplinga…", modifier = Modifier.padding(start = 9.dp))
             } else {
                 Icon(Icons.Rounded.CheckCircle, contentDescription = null)
-                Text("Test og lagre", modifier = Modifier.padding(start = 8.dp))
+                Text(if (usesAccount) "Logg inn og lagre" else "Test og lagre", modifier = Modifier.padding(start = 8.dp))
             }
         }
 
@@ -336,6 +504,14 @@ private fun ConnectionEditorSheet(
         }
     }
 }
+
+@Composable
+private fun connectionChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = Primary,
+    selectedLabelColor = Ink,
+    containerColor = SurfaceRaised.copy(alpha = 0.78f),
+    labelColor = Muted,
+)
 
 @Composable
 private fun MessageCard(text: String, warning: Boolean) {

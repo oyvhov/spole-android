@@ -8,6 +8,7 @@ import app.reelstack.R
 import app.reelstack.background.BackgroundRefreshScheduler
 import app.reelstack.data.model.ActivityEvent
 import app.reelstack.data.model.ConnectionState
+import app.reelstack.data.model.ContentDetails
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.IncomingMedia
 import app.reelstack.data.model.IncomingState
@@ -20,6 +21,7 @@ import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.network.EndpointValidator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,10 +31,13 @@ import kotlinx.coroutines.withContext
 
 enum class AppTab { HOME, DISCOVER, ACTIVITY, SETTINGS }
 
+enum class ConnectionAuthMode { ACCOUNT, API_KEY }
+
 sealed interface AppSheet {
     data class SessionDetails(val sessionKey: String) : AppSheet
     data class MediaDetails(val mediaId: String) : AppSheet
     data class LibraryDetails(val mediaId: String) : AppSheet
+    data class TitleDetails(val key: String) : AppSheet
     data class ConnectionEditor(val kind: ServiceKind) : AppSheet
 }
 
@@ -42,6 +47,9 @@ data class ConnectionDraft(
     val url: String,
     val token: String,
     val userId: String = "",
+    val authMode: ConnectionAuthMode = ConnectionAuthMode.API_KEY,
+    val username: String = "",
+    val password: String = "",
     val saving: Boolean = false,
     val error: String? = null,
     val warning: String? = null,
@@ -57,8 +65,11 @@ data class ReelstackUiState(
     val upcoming: List<UpcomingMedia> = demoUpcoming(),
     val incoming: List<IncomingMedia> = demoIncoming(),
     val discover: List<DiscoverMedia> = demoDiscover(),
+    val searchResults: List<DiscoverMedia> = emptyList(),
     val activity: List<ActivityEvent> = demoActivity(),
     val searchQuery: String = "",
+    val isSearching: Boolean = false,
+    val searchError: String? = null,
     val notificationsEnabled: Boolean = true,
     val wifiOnly: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -75,11 +86,10 @@ data class ReelstackUiState(
     val homeSections: Set<HomeSection> = HomeSection.entries.toSet(),
     val hasCachedData: Boolean = false,
     val snackbar: String? = null,
+    val contentDetails: ContentDetails? = null,
 ) {
     val visibleDiscover: List<DiscoverMedia>
-        get() = if (searchQuery.isBlank()) discover else discover.filter {
-            it.title.contains(searchQuery, ignoreCase = true)
-        }
+        get() = if (searchQuery.isBlank()) discover else searchResults
 
     val configuredCount: Int
         get() = connections.count { it.baseUrl.isNotBlank() }
@@ -99,6 +109,7 @@ class ReelstackViewModel(
         private set
 
     private var refreshJob: Job? = null
+    private var searchJob: Job? = null
 
     init {
         refreshLiveData()
@@ -115,6 +126,11 @@ class ReelstackViewModel(
                 url = existing.baseUrl,
                 token = existing.token,
                 userId = existing.userId,
+                authMode = if (existing.kind == ServiceKind.JELLYFIN && existing.token.isBlank()) {
+                    ConnectionAuthMode.ACCOUNT
+                } else {
+                    ConnectionAuthMode.API_KEY
+                },
                 warning = existing.baseUrl.takeIf(String::isNotBlank)?.let {
                     if (EndpointValidator.isCleartext(it)) "HTTP er ukryptert. Bruk helst HTTPS utanfor det trygge lokalnettet ditt." else null
                 },
@@ -124,8 +140,167 @@ class ReelstackViewModel(
     }
 
     fun closeSheet() {
-        _uiState.update { it.copy(activeSheet = null) }
+        _uiState.update { it.copy(activeSheet = null, contentDetails = null) }
         connectionDraft.value = null
+    }
+
+    fun openLibraryDetails(id: String) {
+        val media = (_uiState.value.recentMovies + _uiState.value.recentSeries).firstOrNull { it.id == id } ?: return
+        val connection = _uiState.value.connections.firstOrNull {
+            it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        }
+        _uiState.update {
+            it.copy(
+                activeSheet = AppSheet.TitleDetails(media.id),
+                contentDetails = ContentDetails(
+                    key = media.id,
+                    title = media.title,
+                    eyebrow = "Bibliotek i ${media.source.displayName}",
+                    subtitle = media.subtitle,
+                    overview = media.overview,
+                    facts = media.facts,
+                    genres = media.genres,
+                    artworkRes = media.artworkRes,
+                    artworkUrl = media.artworkUrl,
+                    source = media.source,
+                    loading = connection != null && media.remoteId != null,
+                ),
+            )
+        }
+        if (connection == null || media.remoteId == null) return
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
+            }
+            _uiState.update { current ->
+                val details = current.contentDetails?.takeIf { it.key == media.id } ?: return@update current
+                result.fold(
+                    onSuccess = { remote ->
+                        current.copy(
+                            contentDetails = details.copy(
+                                title = remote.title ?: details.title,
+                                overview = remote.overview ?: details.overview,
+                                facts = (remote.facts + details.facts).distinct(),
+                                genres = (remote.genres + details.genres).distinct(),
+                                artworkUrl = remote.artworkUrl ?: details.artworkUrl,
+                                loading = false,
+                            ),
+                        )
+                    },
+                    onFailure = {
+                        current.copy(contentDetails = details.copy(loading = false, error = "Fekk ikkje henta alle detaljane"))
+                    },
+                )
+            }
+        }
+    }
+
+    fun openDiscoverDetails(id: String) {
+        val media = _uiState.value.visibleDiscover.firstOrNull { it.id == id } ?: return
+        val connection = _uiState.value.connections.firstOrNull {
+            it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        }
+        _uiState.update {
+            it.copy(
+                activeSheet = AppSheet.TitleDetails(media.id),
+                contentDetails = ContentDetails(
+                    key = media.id,
+                    title = media.title,
+                    eyebrow = if (media.inLibrary) "I biblioteket ditt" else "Oppdag i Seerr",
+                    subtitle = media.metadata,
+                    overview = media.overview,
+                    facts = media.facts,
+                    genres = media.genres,
+                    artworkRes = media.artworkRes,
+                    artworkUrl = media.artworkUrl,
+                    source = ServiceKind.SEERR,
+                    loading = connection != null && media.remoteId != null && media.mediaType != null,
+                ),
+            )
+        }
+        if (connection == null || media.remoteId == null || media.mediaType == null) return
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
+            }
+            _uiState.update { current ->
+                val details = current.contentDetails?.takeIf { it.key == media.id } ?: return@update current
+                result.fold(
+                    onSuccess = { remote ->
+                        current.copy(
+                            contentDetails = details.copy(
+                                title = remote.title ?: details.title,
+                                overview = remote.overview ?: details.overview,
+                                facts = (remote.facts + details.facts).distinct(),
+                                genres = (remote.genres + details.genres).distinct(),
+                                artworkUrl = remote.artworkUrl ?: details.artworkUrl,
+                                loading = false,
+                            ),
+                        )
+                    },
+                    onFailure = {
+                        current.copy(contentDetails = details.copy(loading = false, error = "Fekk ikkje henta alle detaljane"))
+                    },
+                )
+            }
+        }
+    }
+
+    fun openUpcomingDetails(id: String) {
+        val media = _uiState.value.upcoming.firstOrNull { it.id == id } ?: return
+        showLocalDetails(
+            ContentDetails(
+                key = media.id,
+                title = media.title,
+                eyebrow = "Kjem snart · ${media.source.displayName}",
+                subtitle = media.subtitle,
+                overview = media.overview ?: "Denne tittelen er overvaka og planlagd i ${media.source.displayName}.",
+                facts = (media.facts + media.dateLabel + media.source.displayName).distinct(),
+                genres = media.genres,
+                artworkRes = media.artworkRes,
+                artworkUrl = media.artworkUrl,
+                source = media.source,
+            ),
+        )
+    }
+
+    fun openIncomingDetails(id: String) {
+        val media = _uiState.value.incoming.firstOrNull { it.id == id } ?: return
+        showLocalDetails(
+            ContentDetails(
+                key = media.id,
+                title = media.title,
+                eyebrow = "Nedlasting · ${media.source.displayName}",
+                subtitle = media.status,
+                overview = media.overview ?: "Sjå framdrift og kjelde for denne tittelen.",
+                facts = (media.facts + media.source.displayName + media.status).distinct(),
+                genres = media.genres,
+                artworkRes = media.artworkRes,
+                artworkUrl = media.artworkUrl,
+                source = media.source,
+            ),
+        )
+    }
+
+    fun openActivityDetails(id: String) {
+        val event = _uiState.value.activity.firstOrNull { it.id == id } ?: return
+        showLocalDetails(
+            ContentDetails(
+                key = event.id,
+                title = event.title,
+                eyebrow = "Aktivitet${event.source?.let { " · ${it.displayName}" }.orEmpty()}",
+                subtitle = event.detail,
+                overview = "Denne hendinga vart registrert ${event.time.lowercase()}.",
+                facts = listOfNotNull(event.source?.displayName, event.progress?.let { "$it %" }, event.time),
+                artworkRes = event.artworkRes ?: R.drawable.media_placeholder,
+                artworkUrl = event.artworkUrl,
+                source = event.source,
+            ),
+        )
+    }
+
+    private fun showLocalDetails(details: ContentDetails) {
+        _uiState.update { it.copy(activeSheet = AppSheet.TitleDetails(details.key), contentDetails = details) }
     }
 
     fun togglePlayback(sessionKey: String) {
@@ -168,11 +343,56 @@ class ReelstackViewModel(
         }
     }
 
-    fun setSearchQuery(value: String) = _uiState.update { it.copy(searchQuery = value) }
+    fun setSearchQuery(value: String) {
+        searchJob?.cancel()
+        val query = value.trim()
+        val state = _uiState.value
+        val seerr = state.connections.firstOrNull {
+            it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        }
+        if (query.isBlank()) {
+            _uiState.update {
+                it.copy(searchQuery = value, searchResults = emptyList(), isSearching = false, searchError = null)
+            }
+            return
+        }
+        if (seerr == null) {
+            _uiState.update {
+                it.copy(
+                    searchQuery = value,
+                    searchResults = it.discover.filter { media -> media.title.contains(query, ignoreCase = true) },
+                    isSearching = false,
+                    searchError = null,
+                )
+            }
+            return
+        }
+        _uiState.update {
+            it.copy(searchQuery = value, searchResults = emptyList(), isSearching = true, searchError = null)
+        }
+        searchJob = viewModelScope.launch {
+            delay(350)
+            val result = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query) }
+            }
+            if (_uiState.value.searchQuery.trim() != query) return@launch
+            _uiState.update {
+                if (result.isSuccess) {
+                    it.copy(searchResults = result.getOrThrow(), isSearching = false, searchError = null)
+                } else {
+                    it.copy(
+                        searchResults = emptyList(),
+                        isSearching = false,
+                        searchError = "Fekk ikkje søkt i Seerr. Sjekk tilkoplinga og prøv igjen.",
+                    )
+                }
+            }
+        }
+    }
 
     fun requestMedia(id: String) {
         val state = _uiState.value
-        val media = state.discover.firstOrNull { it.id == id } ?: return
+        val media = state.visibleDiscover.firstOrNull { it.id == id } ?: return
         if (media.inLibrary || media.requested || id in state.requestingMediaIds) return
         val seerr = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
 
@@ -180,7 +400,8 @@ class ReelstackViewModel(
             _uiState.update {
                 it.copy(
                     discover = it.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
-                    snackbar = "Demobestillinga er lagra lokalt · kople til Seerr for å sende henne",
+                    searchResults = it.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
+                    snackbar = "Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare",
                 )
             }
             return
@@ -195,6 +416,7 @@ class ReelstackViewModel(
                 if (result.isSuccess) {
                     current.copy(
                         discover = current.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
+                        searchResults = current.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         activity = listOf(
                             ActivityEvent(
                                 id = "seerr-request-${media.id}",
@@ -207,12 +429,12 @@ class ReelstackViewModel(
                             ),
                         ) + current.activity,
                         requestingMediaIds = current.requestingMediaIds - id,
-                        snackbar = "Bestillinga er send til Seerr",
+                        snackbar = "Tittelen er lagd til via Seerr",
                     )
                 } else {
                     current.copy(
                         requestingMediaIds = current.requestingMediaIds - id,
-                        snackbar = "Seerr kunne ikkje ta imot bestillinga",
+                        snackbar = "Seerr kunne ikkje leggje til tittelen",
                     )
                 }
             }
@@ -391,6 +613,11 @@ class ReelstackViewModel(
     }
     fun updateConnectionToken(value: String) = updateDraft { copy(token = value, error = null) }
     fun updateConnectionUserId(value: String) = updateDraft { copy(userId = value, error = null) }
+    fun updateConnectionAuthMode(value: ConnectionAuthMode) = updateDraft {
+        copy(authMode = value, error = null)
+    }
+    fun updateConnectionUsername(value: String) = updateDraft { copy(username = value, error = null) }
+    fun updateConnectionPassword(value: String) = updateDraft { copy(password = value, error = null) }
 
     fun testAndSaveConnection() {
         val draft = connectionDraft.value ?: return
@@ -399,22 +626,40 @@ class ReelstackViewModel(
                 updateDraft { copy(error = it.message ?: "Skriv inn ei gyldig tenaradresse") }
                 return
             }
-        if (draft.token.isBlank()) {
+        val useJellyfinAccount = draft.kind == ServiceKind.JELLYFIN && draft.authMode == ConnectionAuthMode.ACCOUNT
+        if (useJellyfinAccount && draft.username.isBlank()) {
+            updateDraft { copy(error = "Skriv inn Jellyfin-brukarnamnet") }
+            return
+        }
+        if (!useJellyfinAccount && draft.token.isBlank()) {
             updateDraft { copy(error = "Skriv inn ein API-nøkkel eller eit tilgangsteikn") }
             return
         }
-
-        val candidate = ServiceConnection(
-            kind = draft.kind,
-            name = draft.name.ifBlank { draft.kind.displayName },
-            baseUrl = normalizedUrl,
-            token = draft.token,
-            userId = draft.userId,
-            state = ConnectionState.TESTING,
-        )
         updateDraft { copy(url = normalizedUrl, saving = true, error = null) }
 
         viewModelScope.launch {
+            val credentials = if (useJellyfinAccount) {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        container.jellyfinAuthenticationClient.authenticate(
+                            baseUrl = normalizedUrl,
+                            username = draft.username.trim(),
+                            password = draft.password,
+                        )
+                    }
+                }.getOrElse { error ->
+                    updateDraft { copy(saving = false, error = error.message ?: "Jellyfin avviste innlogginga") }
+                    return@launch
+                }
+            } else null
+            val candidate = ServiceConnection(
+                kind = draft.kind,
+                name = draft.name.ifBlank { draft.kind.displayName },
+                baseUrl = normalizedUrl,
+                token = credentials?.accessToken ?: draft.token,
+                userId = credentials?.userId ?: draft.userId,
+                state = ConnectionState.TESTING,
+            )
             val result = runCatching {
                 withContext(Dispatchers.IO) { container.connectionTester.test(candidate) }
             }.getOrElse { error ->
@@ -526,6 +771,7 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         homeSections = container.preferencesRepository.visibleHomeSections,
         lastUpdatedEpochMillis = cached?.refreshedAtEpochMillis,
         hasCachedData = cached != null,
+        isRefreshing = configuredKinds.isNotEmpty(),
     )
 }
 

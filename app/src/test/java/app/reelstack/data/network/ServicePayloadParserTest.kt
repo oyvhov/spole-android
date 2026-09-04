@@ -212,10 +212,13 @@ class ServicePayloadParserTest {
     @Test
     fun parsesSeerrMediaDetailsArtwork() {
         val details = ServicePayloadParser.mediaDetails(
-            """{"title":"The Odyssey","posterPath":"/odyssey.jpg"}""",
+            """{"title":"The Odyssey","posterPath":"/odyssey.jpg","overview":"Ei lang reise.","releaseDate":"2026-07-17","runtime":149,"voteAverage":8.4,"genres":[{"name":"Eventyr"}]}""",
         )
 
         assertEquals("The Odyssey", details.title)
         assertEquals("https://image.tmdb.org/t/p/w500/odyssey.jpg", details.artworkUrl)
+        assertEquals("Ei lang reise.", details.overview)
+        assertEquals(listOf("Film", "2026", "149 min", "★ 8.4"), details.facts)
+        assertEquals(listOf("Eventyr"), details.genres)
     }
 }

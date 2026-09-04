@@ -69,6 +69,8 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.R
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.ActivitySkeleton
+import app.reelstack.ui.components.DiscoverSkeleton
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.theme.Caution
 import app.reelstack.ui.theme.Muted
@@ -99,6 +101,7 @@ fun DiscoverScreen(
     contentPadding: PaddingValues,
     onSearch: (String) -> Unit,
     onRequest: (String) -> Unit,
+    onDetails: (String) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     LazyColumn(
@@ -110,13 +113,22 @@ fun DiscoverScreen(
             ScreenHeader(
                 kicker = "Jellyfin + Seerr",
                 title = "Oppdag",
-                lede = "Søk i biblioteket og bestill det som manglar.",
+                lede = "Finn nye filmar og seriar, og legg dei til med eitt trykk.",
             )
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = onSearch,
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (state.isSearching) {
+                        CircularProgressIndicator(
+                            color = PrimarySoft,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                },
                 placeholder = { Text("Filmar, seriar, personar") },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
@@ -139,7 +151,11 @@ fun DiscoverScreen(
             }
         }
 
-        if (state.visibleDiscover.isEmpty()) {
+        if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank() && state.connections.any {
+                it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank()
+            })) {
+            item { DiscoverSkeleton(Modifier.fillMaxWidth()) }
+        } else if (state.visibleDiscover.isEmpty()) {
             item {
                 Surface(
                     shape = RoundedCornerShape(22.dp),
@@ -147,7 +163,15 @@ fun DiscoverScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x26E2D5FF)),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Ingen treff enno. Prøv eit breiare søk.", color = Muted, modifier = Modifier.padding(30.dp))
+                    Text(
+                        state.searchError ?: if (state.searchQuery.isBlank()) {
+                            "Ingen forslag enno."
+                        } else {
+                            "Ingen treff på «${state.searchQuery.trim()}». Prøv eit anna søk."
+                        },
+                        color = Muted,
+                        modifier = Modifier.padding(30.dp),
+                    )
                 }
             }
         } else {
@@ -156,6 +180,7 @@ fun DiscoverScreen(
                     media = media,
                     requesting = media.id in state.requestingMediaIds,
                     onRequest = { onRequest(media.id) },
+                    onDetails = { onDetails(media.id) },
                 )
             }
         }
@@ -171,8 +196,9 @@ private fun filterColors() = FilterChipDefaults.filterChipColors(
 )
 
 @Composable
-private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit) {
+private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit) {
     Surface(
+        onClick = onDetails,
         shape = RoundedCornerShape(25.dp),
         color = SurfaceRaised.copy(alpha = 0.92f),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x22E2D5FF)),
@@ -188,7 +214,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             )
             Column(modifier = Modifier.height(158.dp).weight(1f).padding(start = 17.dp)) {
                 Text(
-                    if (media.inLibrary) "I BIBLIOTEKET DITT" else "KAN BESTILLAST",
+                    if (media.inLibrary) "I BIBLIOTEKET DITT" else "KAN LEGGJAST TIL",
                     color = if (media.inLibrary) Success else PrimarySoft,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -199,7 +225,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                 if (media.inLibrary) {
                     androidx.compose.material3.TextButton(onClick = {}) {
                         Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Spel av", modifier = Modifier.padding(start = 5.dp))
+                        Text("Vis detaljar", modifier = Modifier.padding(start = 5.dp))
                     }
                 } else {
                     Button(
@@ -221,8 +247,8 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                         Text(
                             when {
                                 requesting -> "Sender…"
-                                media.requested -> "Bestilt"
-                                else -> "Bestill"
+                                media.requested -> "Lagd til"
+                                else -> "Legg til"
                             },
                             modifier = Modifier.padding(start = 6.dp),
                         )
@@ -234,7 +260,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
 }
 
 @Composable
-fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
+fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit) {
     val hasIssues = state.failedServices.isNotEmpty()
     val statusColor = if (hasIssues) Warning else Success
     LazyColumn(
@@ -245,7 +271,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
             ScreenHeader(
                 kicker = "I heile mediestakken",
                 title = "Aktivitet",
-                lede = "Bestillingar og nedlastingar samla i éi oversikt.",
+                lede = "Nye titlar og nedlastingar samla i éi oversikt.",
             )
             Surface(
                 shape = RoundedCornerShape(20.dp),
@@ -281,7 +307,11 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
                 }
             }
         }
-        if (state.activity.isEmpty()) {
+        if (state.activity.isEmpty() && state.isRefreshing && state.connections.any {
+                it.baseUrl.isNotBlank() && (it.kind == ServiceKind.SEERR || it.kind == ServiceKind.RADARR || it.kind == ServiceKind.SONARR)
+            }) {
+            item { ActivitySkeleton(Modifier.fillMaxWidth()) }
+        } else if (state.activity.isEmpty()) {
             item {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
@@ -292,14 +322,17 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
                 }
             }
         } else {
-            items(state.activity, key = ActivityEvent::id) { event -> ActivityRow(event) }
+            items(state.activity, key = ActivityEvent::id) { event -> ActivityRow(event) { onDetails(event.id) } }
         }
     }
 }
 
 @Composable
-private fun ActivityRow(event: ActivityEvent) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
+    ) {
         Box(modifier = Modifier.size(width = 72.dp, height = 96.dp)) {
             MediaArtwork(
                 url = event.artworkUrl,
@@ -378,7 +411,7 @@ fun SettingsScreen(
             PreferenceRow(
                 icon = Icons.Rounded.Notifications,
                 label = "Aktivitetsvarsel",
-                description = "Varsle når bestillingar og nedlastingar endrar seg",
+                description = "Varsle når nye titlar og nedlastingar endrar seg",
                 checked = state.notificationsEnabled,
                 onCheckedChange = onNotificationsChange,
             )

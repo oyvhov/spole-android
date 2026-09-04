@@ -27,10 +27,10 @@ class ReelstackSmokeTest {
     @Test
     fun demoRequestIsClearlyKeptLocal() {
         composeRule.onNodeWithText("Oppdag").performClick()
-        composeRule.onNodeWithText("Bestill").performClick()
+        composeRule.onNodeWithText("Legg til").performClick()
 
-        composeRule.onNodeWithText("Bestilt").assertIsDisplayed()
-        composeRule.onNodeWithText("Demobestillinga er lagra lokalt · kople til Seerr for å sende henne").assertIsDisplayed()
+        composeRule.onNodeWithText("Lagd til").assertIsDisplayed()
+        composeRule.onNodeWithText("Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare").assertIsDisplayed()
     }
 
     @Test
@@ -39,7 +39,26 @@ class ReelstackSmokeTest {
         composeRule.onAllNodesWithText("The Odyssey")[0].assertIsDisplayed().performClick()
 
         composeRule.onNodeWithText("Bibliotek i Jellyfin").assertIsDisplayed()
-        composeRule.onNodeWithText("Opne Jellyfin for å spele av tittelen.").assertIsDisplayed()
+    }
+
+    @Test
+    fun discoverCardOpensRichDetailsWithAddLanguage() {
+        composeRule.onNodeWithText("Oppdag").performClick()
+        composeRule.onNodeWithText("The Last Horizon").performClick()
+
+        composeRule.onNodeWithText("Oppdag i Seerr").assertIsDisplayed()
+        composeRule.onNodeWithText("Legg til i mediesamlinga").assertIsDisplayed()
+    }
+
+    @Test
+    fun jellyfinEditorOffersAccountLogin() {
+        composeRule.onNodeWithText("Innstillingar").performClick()
+        composeRule.onNodeWithText("Jellyfin").performClick()
+
+        composeRule.onNodeWithText("Brukarkonto").assertIsDisplayed()
+        composeRule.onNodeWithText("API-nøkkel").assertIsDisplayed()
+        composeRule.onNodeWithText("Brukarnamn").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Passord").performScrollTo().assertIsDisplayed()
     }
 
     @Test

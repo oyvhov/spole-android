@@ -127,6 +127,10 @@ class MediaSnapshotStore(context: Context) {
                 item.progress?.let { put("progress", it) }
                 put("source", item.source.name)
                 item.artworkUrl?.let { put("artworkUrl", it) }
+                item.remoteId?.let { put("remoteId", it) }
+                item.overview?.let { put("overview", it) }
+                put("facts", item.facts.joinToString("\u001f"))
+                put("genres", item.genres.joinToString("\u001f"))
             })
         }
     }
@@ -141,6 +145,10 @@ class MediaSnapshotStore(context: Context) {
             artworkRes = R.drawable.media_placeholder,
             source = item.enumValue<ServiceKind>("source") ?: return null,
             artworkUrl = item.string("artworkUrl"),
+            remoteId = item.string("remoteId"),
+            overview = item.string("overview"),
+            facts = item.string("facts").orEmpty().split("\u001f").filter(String::isNotBlank),
+            genres = item.string("genres").orEmpty().split("\u001f").filter(String::isNotBlank),
         )
     }
 
@@ -160,6 +168,9 @@ class MediaSnapshotStore(context: Context) {
                 put("airDate", item.airDateEpochMillis)
                 put("source", item.source.name)
                 item.artworkUrl?.let { put("artworkUrl", it) }
+                item.overview?.let { put("overview", it) }
+                put("facts", item.facts.joinToString("\u001f"))
+                put("genres", item.genres.joinToString("\u001f"))
             })
         }
     }
@@ -176,6 +187,9 @@ class MediaSnapshotStore(context: Context) {
             artworkRes = if (source == ServiceKind.RADARR || index % 2 == 0) R.drawable.desert_arrival else R.drawable.kitchen_request,
             source = source,
             artworkUrl = item.string("artworkUrl"),
+            overview = item.string("overview"),
+            facts = item.string("facts").orEmpty().split("\u001f").filter(String::isNotBlank),
+            genres = item.string("genres").orEmpty().split("\u001f").filter(String::isNotBlank),
         )
     }
 
@@ -188,6 +202,9 @@ class MediaSnapshotStore(context: Context) {
                 put("status", item.status)
                 put("state", item.state.name)
                 item.artworkUrl?.let { put("artworkUrl", it) }
+                item.overview?.let { put("overview", it) }
+                put("facts", item.facts.joinToString("\u001f"))
+                put("genres", item.genres.joinToString("\u001f"))
             })
         }
     }
@@ -203,6 +220,9 @@ class MediaSnapshotStore(context: Context) {
             state = item.enumValue<IncomingState>("state") ?: IncomingState.REQUESTED,
             artworkRes = if (source == ServiceKind.RADARR) R.drawable.desert_arrival else R.drawable.kitchen_request,
             artworkUrl = item.string("artworkUrl"),
+            overview = item.string("overview"),
+            facts = item.string("facts").orEmpty().split("\u001f").filter(String::isNotBlank),
+            genres = item.string("genres").orEmpty().split("\u001f").filter(String::isNotBlank),
         )
     }
 
@@ -217,6 +237,9 @@ class MediaSnapshotStore(context: Context) {
                 item.artworkUrl?.let { put("artworkUrl", it) }
                 item.remoteId?.let { put("remoteId", it) }
                 item.mediaType?.let { put("mediaType", it) }
+                item.overview?.let { put("overview", it) }
+                put("facts", item.facts.joinToString("\u001f"))
+                put("genres", item.genres.joinToString("\u001f"))
             })
         }
     }
@@ -234,6 +257,9 @@ class MediaSnapshotStore(context: Context) {
             artworkUrl = item.string("artworkUrl"),
             remoteId = item.int("remoteId"),
             mediaType = mediaType,
+            overview = item.string("overview"),
+            facts = item.string("facts").orEmpty().split("\u001f").filter(String::isNotBlank),
+            genres = item.string("genres").orEmpty().split("\u001f").filter(String::isNotBlank),
         )
     }
 

@@ -10,6 +10,38 @@ import org.junit.Test
 
 class ServiceClientsTest {
     @Test
+    fun jellyfinAccountLoginReturnsTokenAndProfileWithoutLeakingPassword() {
+        val transport = RecordingTransport(
+            postResponse = HttpResponse(
+                200,
+                """{"User":{"Id":"profile-7"},"AccessToken":"fresh-token"}""",
+            ),
+        )
+
+        val login = JellyfinAuthenticationClient(transport, deviceId = "android-42")
+            .authenticate("https://media.example.com", "ø yvind", "p@ss\"word")
+
+        assertEquals("fresh-token", login.accessToken)
+        assertEquals("profile-7", login.userId)
+        assertTrue(transport.lastUrl.endsWith("/Users/AuthenticateByName"))
+        assertTrue(transport.lastHeaders["Authorization"].orEmpty().contains("DeviceId=\"android-42\""))
+        assertFalse(transport.lastHeaders.values.any { it.contains("p@ss") })
+        assertFalse(transport.lastUrl.contains("p@ss"))
+        assertEquals("{\"Username\":\"ø yvind\",\"Pw\":\"p@ss\\\"word\"}", transport.lastBody)
+    }
+
+    @Test
+    fun jellyfinAccountLoginExplainsRejectedCredentials() {
+        val transport = RecordingTransport(postResponse = HttpResponse(401, "{}"))
+
+        val error = runCatching {
+            JellyfinAuthenticationClient(transport).authenticate("https://media.example.com", "wrong", "wrong")
+        }.exceptionOrNull()
+
+        assertEquals("Feil brukarnamn eller passord", error?.message)
+    }
+
+    @Test
     fun seerrConnectionProbeUsesAuthenticatedEndpoint() {
         val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(401, "{}")))
 
@@ -288,6 +320,21 @@ class ServiceClientsTest {
         assertEquals("The Odyssey", feed.requests.single().title)
         assertEquals("https://image.tmdb.org/t/p/w500/odyssey.jpg", feed.requests.single().artworkUrl)
         assertTrue(transport.lastUrl.endsWith("/api/v1/movie/101"))
+    }
+
+    @Test
+    fun seerrSearchUsesRemoteSearchEndpointAndEncodesSpaces() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(200, """{"results":[{"id":101,"mediaType":"movie","title":"Dune"}]}"""),
+            ),
+        )
+
+        val results = SeerrServiceClient(transport).search(connection(ServiceKind.SEERR, "seerr-secret"), "Dune Part Two")
+
+        assertEquals("Dune", results.single().title)
+        assertTrue(transport.lastUrl.contains("/api/v1/search?query=Dune%20Part%20Two"))
+        assertEquals("seerr-secret", transport.lastHeaders["X-Api-Key"])
     }
 
     private fun connection(kind: ServiceKind, token: String) = ServiceConnection(
