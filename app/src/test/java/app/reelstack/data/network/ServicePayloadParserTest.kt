@@ -18,6 +18,8 @@ class ServicePayloadParserTest {
               "DeviceName": "Living room TV",
               "PlayState": {"PositionTicks": 18000000000, "IsPaused": false, "PlayMethod": "DirectPlay"},
               "NowPlayingItem": {
+                "Id": "episode-4",
+                "SeriesId": "series-1",
                 "Name": "Woe's Hollow",
                 "SeriesName": "Severance",
                 "ParentIndexNumber": 2,
@@ -34,6 +36,7 @@ class ServicePayloadParserTest {
         assertEquals("session-1", session.sessionId)
         assertEquals("user-9", session.userId)
         assertEquals("S02 E04 · Woe's Hollow", session.subtitle)
+        assertEquals("series-1", session.artworkItemId)
         assertEquals(0.5f, session.progress, 0.001f)
         assertEquals("4K", session.quality)
         assertFalse(session.paused)
@@ -54,6 +57,7 @@ class ServicePayloadParserTest {
         assertEquals("episode-4", item.id)
         assertEquals("Severance", item.title)
         assertEquals("S02 E04 · Woe's Hollow", item.subtitle)
+        assertEquals("episode-4", item.artworkItemId)
         assertEquals(0.5f, item.progress ?: 0f, 0.001f)
     }
 

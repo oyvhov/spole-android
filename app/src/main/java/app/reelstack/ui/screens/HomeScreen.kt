@@ -235,6 +235,8 @@ private fun greeting(): String = when (java.time.LocalTime.now().hour) {
 private fun mediaEmptyMessage(state: ReelstackUiState, emptyMessage: String): String =
     if (state.failedServices.any { it == app.reelstack.data.model.ServiceKind.JELLYFIN || it == app.reelstack.data.model.ServiceKind.EMBY }) {
         "A media server could not refresh. Check its connection in Settings."
+    } else if (state.serviceWarnings.keys.any { it == app.reelstack.data.model.ServiceKind.JELLYFIN || it == app.reelstack.data.model.ServiceKind.EMBY }) {
+        "The server is connected, but this section needs attention. Check Profile ID in Settings."
     } else {
         emptyMessage
     }
@@ -310,9 +312,10 @@ private fun NowPlayingCard(
     ) {
         MediaArtwork(
             url = session.artworkUrl,
-            fallbackRes = R.drawable.session_still,
+            fallbackRes = if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder,
             contentDescription = "${session.userName} watching ${session.title}",
             contentScale = ContentScale.Crop,
+            source = session.source,
             modifier = Modifier.fillMaxSize(),
         )
         Box(
@@ -416,10 +419,11 @@ private fun LibraryCard(media: LibraryMedia, onClick: () -> Unit) {
                 .border(1.dp, Color(0x35E2D5FF), RoundedCornerShape(20.dp)),
         ) {
             MediaArtwork(
-                url = null,
+                url = media.artworkUrl,
                 fallbackRes = media.artworkRes,
                 contentDescription = media.title,
                 contentScale = ContentScale.Crop,
+                source = media.source,
                 modifier = Modifier.fillMaxSize(),
             )
             Box(

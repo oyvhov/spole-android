@@ -47,6 +47,11 @@ class ServiceClientsTest {
 
         assertEquals("Foundation", feed.continueWatching.single().title)
         assertEquals("The Odyssey", feed.recentlyAdded.single().title)
+        assertEquals(
+            "https://media.example.com/Items/resume-1/Images/Primary?maxHeight=720&quality=90",
+            feed.continueWatching.single().artworkUrl,
+        )
+        assertFalse(feed.continueWatching.single().artworkUrl.orEmpty().contains("secret"))
         assertTrue(transport.urls[1].contains("UserItems/Resume?userId=user%209"))
         assertTrue(transport.urls[2].contains("Items/Latest?userId=user%209"))
         assertTrue(transport.headers.all { it["X-Emby-Token"] == "secret" })
@@ -67,6 +72,10 @@ class ServiceClientsTest {
 
         assertEquals("Foundation", feed.continueWatching.single().title)
         assertEquals("The Odyssey", feed.recentlyAdded.single().title)
+        assertEquals(
+            "https://media.example.com/Items/latest-1/Images/Primary?maxHeight=720&quality=90",
+            feed.recentlyAdded.single().artworkUrl,
+        )
         assertTrue(transport.urls[1].contains("Users/emby-user/Items/Resume?"))
         assertTrue(transport.urls[2].contains("Users/emby-user/Items/Latest?"))
     }
@@ -110,6 +119,64 @@ class ServiceClientsTest {
         assertEquals("The Odyssey", feed.recentlyAdded.single().title)
         assertTrue(transport.urls[2].contains("Users/legacy-user/Items/Resume?"))
         assertTrue(transport.urls[4].contains("Users/legacy-user/Items/Latest?"))
+    }
+
+    @Test
+    fun jellyfinStaysUsableWithoutDetectedProfile() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(200, "[]"),
+                HttpResponse(401, "{}"),
+                HttpResponse(403, "{}"),
+                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+            ),
+        )
+
+        val feed = MediaServerClient(transport).feed(connection(ServiceKind.JELLYFIN, "server-api-key"))
+
+        assertTrue(feed.continueWatching.isEmpty())
+        assertEquals("The Odyssey", feed.recentlyAdded.single().title)
+        assertTrue(feed.warning.orEmpty().contains("Profile ID"))
+        assertTrue(transport.urls.last().contains("Items/Latest?limit=12"))
+    }
+
+    @Test
+    fun mediaLibraryStillLoadsWhenPlaybackSessionsAreForbidden() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(403, "{}"),
+                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
+                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+            ),
+        )
+        val connection = connection(ServiceKind.EMBY, "personal-token").copy(userId = "emby-user")
+
+        val feed = MediaServerClient(transport).feed(connection)
+
+        assertTrue(feed.sessions.isEmpty())
+        assertEquals("Foundation", feed.continueWatching.single().title)
+        assertTrue(feed.warning.orEmpty().contains("Playback sessions unavailable"))
+    }
+
+    @Test
+    fun validServerRemainsConnectedWhenPersonalFeedsAreForbidden() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(403, "{}"),
+                HttpResponse(403, "{}"),
+                HttpResponse(403, "{}"),
+                HttpResponse(200, """{"Version":"10.11.0"}"""),
+            ),
+        )
+        val connection = connection(ServiceKind.EMBY, "limited-api-key").copy(userId = "limited-user")
+
+        val feed = MediaServerClient(transport).feed(connection)
+
+        assertTrue(feed.sessions.isEmpty())
+        assertTrue(feed.continueWatching.isEmpty())
+        assertTrue(feed.recentlyAdded.isEmpty())
+        assertTrue(feed.warning.orEmpty().contains("Media sections unavailable"))
+        assertTrue(transport.urls.last().endsWith("/System/Info"))
     }
 
     @Test

@@ -59,6 +59,7 @@ data class LibraryMedia(
     val progress: Float? = null,
     val artworkRes: Int,
     val source: ServiceKind,
+    val artworkUrl: String? = null,
 )
 
 data class UpcomingMedia(

@@ -60,8 +60,8 @@ class MediaSnapshotStore(context: Context) {
         CachedMediaSnapshot(
             sessions = root.array("sessions").mapNotNull { (it as? JsonObject)?.let(::session) }
                 .ifEmpty { listOfNotNull(root.obj("session")?.let(::session)) },
-            continueWatching = root.array("continueWatching").mapIndexedNotNull(::libraryItem),
-            recentlyAdded = root.array("recentlyAdded").mapIndexedNotNull(::libraryItem),
+            continueWatching = root.array("continueWatching").mapNotNull(::libraryItem),
+            recentlyAdded = root.array("recentlyAdded").mapNotNull(::libraryItem),
             upcoming = root.array("upcoming").mapIndexedNotNull(::upcomingItem),
             incoming = root.array("incoming").mapNotNull(::incomingItem),
             discover = root.array("discover").mapNotNull(::discoverItem),
@@ -84,6 +84,7 @@ class MediaSnapshotStore(context: Context) {
         put("streamMethod", item.streamMethod)
         put("quality", item.quality)
         put("paused", item.paused)
+        item.artworkUrl?.let { put("artworkUrl", it) }
         item.sessionId?.let { put("sessionId", it) }
         item.source?.let { put("source", it.name) }
     }
@@ -101,6 +102,7 @@ class MediaSnapshotStore(context: Context) {
             streamMethod = item.string("streamMethod") ?: "Auto",
             quality = item.string("quality") ?: "Auto",
             paused = item.bool("paused") ?: false,
+            artworkUrl = item.string("artworkUrl"),
             sessionId = item.string("sessionId"),
             source = item.enumValue<ServiceKind>("source"),
         )
@@ -114,19 +116,21 @@ class MediaSnapshotStore(context: Context) {
                 put("subtitle", item.subtitle)
                 item.progress?.let { put("progress", it) }
                 put("source", item.source.name)
+                item.artworkUrl?.let { put("artworkUrl", it) }
             })
         }
     }
 
-    private fun libraryItem(index: Int, element: kotlinx.serialization.json.JsonElement): LibraryMedia? {
+    private fun libraryItem(element: kotlinx.serialization.json.JsonElement): LibraryMedia? {
         val item = element as? JsonObject ?: return null
         return LibraryMedia(
             id = item.string("id") ?: return null,
             title = item.string("title") ?: return null,
             subtitle = item.string("subtitle").orEmpty(),
             progress = item.float("progress"),
-            artworkRes = if (index % 2 == 0) R.drawable.session_still else R.drawable.kitchen_request,
+            artworkRes = R.drawable.media_placeholder,
             source = item.enumValue<ServiceKind>("source") ?: return null,
+            artworkUrl = item.string("artworkUrl"),
         )
     }
 

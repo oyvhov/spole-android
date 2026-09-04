@@ -11,10 +11,12 @@ class ConnectionRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_connections", Context.MODE_PRIVATE)
     private val tokenStore = EncryptedTokenStore(context)
 
-    fun list(): List<ServiceConnection> = ServiceKind.entries.map { kind ->
+    fun list(): List<ServiceConnection> = ServiceKind.entries.map(::get)
+
+    fun get(kind: ServiceKind): ServiceConnection {
         val prefix = kind.name.lowercase()
         val savedUrl = preferences.getString("$prefix.url", null)
-        ServiceConnection(
+        return ServiceConnection(
             kind = kind,
             name = preferences.getString("$prefix.name", null) ?: defaultName(kind),
             baseUrl = savedUrl.orEmpty(),

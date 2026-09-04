@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2
+
+- Kept Jellyfin and Emby marked as connected when only a personal feed or playback-session call is unavailable.
+- Added partial media-server refreshes so Recently Added can still load when Continue Watching needs a Profile ID.
+- Added a global Jellyfin Recently Added fallback when no media profile can be detected.
+- Distinguished connected-with-limited-data warnings from actual connection failures throughout Home and Settings.
+- Replaced demo artwork on Jellyfin and Emby library/session cards with authenticated server artwork while keeping tokens out of image URLs.
+- Added a neutral HomeReel placeholder for media that genuinely has no server artwork instead of showing an unrelated demo poster.
+
 ## 0.4.1
 
 - Fixed Jellyfin library loading by using the current `/UserItems/Resume` and `/Items/Latest` routes with legacy fallbacks.

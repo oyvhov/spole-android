@@ -69,6 +69,7 @@ data class ReelstackUiState(
     val liveActivity: Boolean = false,
     val lastUpdatedEpochMillis: Long? = null,
     val failedServices: Set<ServiceKind> = emptySet(),
+    val serviceWarnings: Map<ServiceKind, String> = emptyMap(),
     val requestingMediaIds: Set<String> = emptySet(),
     val pendingSessionKey: String? = null,
     val homeSections: Set<HomeSection> = HomeSection.entries.toSet(),
@@ -93,6 +94,7 @@ data class ReelstackUiState(
             onlineCount == 0 && hasCachedData -> "Services need attention · showing cached data."
             onlineCount == 0 -> "Your services need attention."
             failedServices.isNotEmpty() -> "$onlineCount live · ${failedServices.size} need attention."
+            serviceWarnings.isNotEmpty() -> "$onlineCount connected · some sections need attention."
             else -> "Live data · updated just now."
         }
 }
@@ -335,7 +337,8 @@ class ReelstackViewModel(
                             )
                             connection.kind in snapshot.successfulServices -> connection.copy(
                                 state = ConnectionState.CONNECTED,
-                                detail = "Live · updated just now",
+                                detail = snapshot.warnings[connection.kind]?.let { "Connected · $it" }
+                                    ?: "Live · updated just now",
                             )
                             else -> connection
                         }
@@ -350,9 +353,13 @@ class ReelstackViewModel(
                     lastUpdatedEpochMillis = if (anySuccess) snapshot.refreshedAt.toEpochMilli() else current.lastUpdatedEpochMillis,
                     hasCachedData = !anySuccess && current.hasCachedData,
                     failedServices = snapshot.errors.keys,
+                    serviceWarnings = snapshot.warnings,
                     snackbar = if (userInitiated) {
-                        if (snapshot.errors.isEmpty()) "Everything is up to date"
-                        else "Updated with ${snapshot.errors.size} service issue${if (snapshot.errors.size == 1) "" else "s"}"
+                        when {
+                            snapshot.errors.isNotEmpty() -> "Updated with ${snapshot.errors.size} service issue${if (snapshot.errors.size == 1) "" else "s"}"
+                            snapshot.warnings.isNotEmpty() -> "Connected, but some sections need attention"
+                            else -> "Everything is up to date"
+                        }
                     } else current.snackbar,
                 )
             }

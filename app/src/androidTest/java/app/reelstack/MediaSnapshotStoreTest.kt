@@ -40,11 +40,20 @@ class MediaSnapshotStoreTest {
                 streamMethod = "Direct play",
                 quality = "4K",
                 paused = false,
+                artworkUrl = "https://media.example/Items/series-1/Images/Primary",
                 sessionId = "session-1",
                 source = ServiceKind.JELLYFIN,
             )),
             continueWatching = listOf(
-                LibraryMedia("episode-4", "Severance", "S02 E04", 0.5f, R.drawable.session_still, ServiceKind.JELLYFIN),
+                LibraryMedia(
+                    "episode-4",
+                    "Severance",
+                    "S02 E04",
+                    0.5f,
+                    R.drawable.session_still,
+                    ServiceKind.JELLYFIN,
+                    "https://media.example/Items/series-1/Images/Primary",
+                ),
             ),
             recentlyAdded = emptyList(),
             upcoming = emptyList(),
@@ -61,7 +70,9 @@ class MediaSnapshotStoreTest {
 
         assertEquals("Severance", restored?.sessions?.single()?.title)
         assertEquals("session-1", restored?.sessions?.single()?.sessionId)
+        assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.sessions?.single()?.artworkUrl)
         assertEquals(0.5f, restored?.continueWatching?.single()?.progress ?: 0f, 0.001f)
+        assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.continueWatching?.single()?.artworkUrl)
         assertEquals(Instant.parse("2026-09-04T08:00:00Z").toEpochMilli(), restored?.refreshedAtEpochMillis)
 
         store.clear()

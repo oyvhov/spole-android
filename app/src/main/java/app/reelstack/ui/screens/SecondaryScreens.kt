@@ -414,6 +414,7 @@ private fun SettingsSectionTitle(text: String) {
 private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
     val connected = connection.state == ConnectionState.CONNECTED
     val hasError = connection.state == ConnectionState.ERROR
+    val hasWarning = connected && connection.detail?.startsWith("Connected ·") == true
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
@@ -443,6 +444,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
                     ConnectionState.DEMO -> "Demo data · Tap to connect"
                 },
                 color = when {
+                    hasWarning -> Warning
                     connected -> Success
                     hasError -> Warning
                     else -> Muted
@@ -456,6 +458,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             if (connected) Icons.Rounded.CheckCircle else Icons.Rounded.Dns,
             contentDescription = null,
             tint = when {
+                hasWarning -> Warning
                 connected -> Success
                 hasError -> Warning
                 else -> PrimarySoft

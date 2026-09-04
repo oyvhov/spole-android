@@ -27,6 +27,8 @@ data class RemotePlayback(
     val streamMethod: String,
     val quality: String,
     val paused: Boolean,
+    val artworkItemId: String?,
+    val artworkUrl: String? = null,
 )
 
 data class RemoteLibraryItem(
@@ -35,6 +37,8 @@ data class RemoteLibraryItem(
     val subtitle: String,
     val progress: Float?,
     val mediaType: String,
+    val artworkItemId: String?,
+    val artworkUrl: String? = null,
 )
 
 data class RemoteQueueItem(
@@ -149,6 +153,9 @@ object ServicePayloadParser {
                     .ifBlank { mediaType },
                 progress = progress,
                 mediaType = mediaType,
+                artworkItemId = item.string("SeriesId") ?: item.string("seriesId")
+                    ?: item.string("PrimaryImageItemId") ?: item.string("primaryImageItemId")
+                    ?: id,
             )
         }
     }
@@ -304,6 +311,9 @@ object ServicePayloadParser {
                 else -> "Auto"
             },
             paused = playState.bool("IsPaused") ?: false,
+            artworkItemId = item.string("SeriesId") ?: item.string("seriesId")
+                ?: item.string("PrimaryImageItemId") ?: item.string("primaryImageItemId")
+                ?: item.string("Id") ?: item.string("id"),
         )
     }
 

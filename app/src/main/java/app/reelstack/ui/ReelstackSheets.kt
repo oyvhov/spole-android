@@ -125,9 +125,10 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
         SheetHeader("Live session", "${session.source?.displayName ?: "Media server"} · ${session.deviceName}")
         MediaArtwork(
             url = session.artworkUrl,
-            fallbackRes = R.drawable.session_still,
+            fallbackRes = if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder,
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            source = session.source,
             modifier = Modifier.fillMaxWidth().padding(top = 17.dp).height(132.dp).clip(RoundedCornerShape(22.dp)),
         )
         Text("${session.userName} · ${session.deviceName}".uppercase(), color = PrimarySoft, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
@@ -220,10 +221,11 @@ private fun LibraryDetailsSheet(state: ReelstackUiState, mediaId: String) {
     Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
         SheetHeader(media.title, "${media.source.displayName} library")
         MediaArtwork(
-            url = null,
+            url = media.artworkUrl,
             fallbackRes = media.artworkRes,
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            source = media.source,
             modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(190.dp).clip(RoundedCornerShape(24.dp)),
         )
         Text(media.subtitle, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 15.dp))

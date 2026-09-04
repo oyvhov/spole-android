@@ -43,6 +43,7 @@ data class MediaSyncSnapshot(
     val successfulServices: Set<ServiceKind>,
     val errors: Map<ServiceKind, String>,
     val refreshedAt: Instant,
+    val warnings: Map<ServiceKind, String> = emptyMap(),
 )
 
 class MediaSyncRepository(
@@ -65,6 +66,9 @@ class MediaSyncRepository(
 
         val payloads = results.mapNotNull { it.second.getOrNull() }
         val mediaPayloads = payloads.filterIsInstance<ServicePayload.Media>()
+        val warnings = mediaPayloads.mapNotNull { payload ->
+            payload.feed.warning?.let { payload.kind to it }
+        }.toMap()
         val queuePayloads = payloads.filterIsInstance<ServicePayload.Queue>()
         val queue = queuePayloads.flatMap { it.feed.queue }
         val upcoming = queuePayloads.flatMap { payload ->
@@ -83,10 +87,10 @@ class MediaSyncRepository(
                 payload.feed.sessions.map { playbackSession(it, payload.kind) }
             },
             continueWatching = interleave(mediaPayloads.map { payload ->
-                payload.feed.continueWatching.mapIndexed { index, item -> libraryMedia(item, payload.kind, index) }
+                payload.feed.continueWatching.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
             recentlyAdded = interleave(mediaPayloads.map { payload ->
-                payload.feed.recentlyAdded.mapIndexed { index, item -> libraryMedia(item, payload.kind, index + 1) }
+                payload.feed.recentlyAdded.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
             upcoming = upcoming.take(30),
             incoming = queue.map(::incomingMedia),
@@ -95,6 +99,7 @@ class MediaSyncRepository(
             successfulServices = successful,
             errors = errors,
             refreshedAt = Instant.now(),
+            warnings = warnings,
         )
     }
 
@@ -138,17 +143,19 @@ class MediaSyncRepository(
         streamMethod = item.streamMethod,
         quality = item.quality,
         paused = item.paused,
+        artworkUrl = item.artworkUrl,
         sessionId = item.sessionId,
         source = source,
     )
 
-    private fun libraryMedia(item: RemoteLibraryItem, source: ServiceKind, index: Int) = LibraryMedia(
+    private fun libraryMedia(item: RemoteLibraryItem, source: ServiceKind) = LibraryMedia(
         id = "${source.name.lowercase()}-${item.id}",
         title = item.title,
         subtitle = item.subtitle,
         progress = item.progress,
-        artworkRes = if (index % 2 == 0) R.drawable.session_still else R.drawable.kitchen_request,
+        artworkRes = R.drawable.media_placeholder,
         source = source,
+        artworkUrl = item.artworkUrl,
     )
 
     private fun incomingMedia(item: RemoteQueueItem) = IncomingMedia(
