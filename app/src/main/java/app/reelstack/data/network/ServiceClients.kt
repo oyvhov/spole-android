@@ -21,8 +21,8 @@ data class SeerrFeed(
 
 data class MediaServerFeed(
     val sessions: List<RemotePlayback>,
-    val continueWatching: List<RemoteLibraryItem>,
-    val recentlyAdded: List<RemoteLibraryItem>,
+    val recentMovies: List<RemoteLibraryItem>,
+    val recentSeries: List<RemoteLibraryItem>,
     val warning: String? = null,
 )
 
@@ -87,36 +87,42 @@ class MediaServerClient(
             emptyList()
         }
         val userId = connection.userId.takeIf { it.isNotBlank() }
-            ?: runCatching { currentUserId(connection) }.getOrNull()
             ?: sessions.firstOrNull()?.userId
-            ?: runCatching { firstAvailableUserId(connection) }.getOrNull()
+            ?: if (connection.kind == ServiceKind.EMBY) {
+                runCatching { currentUserId(connection) }.getOrNull()
+                    ?: runCatching { firstAvailableUserId(connection) }.getOrNull()
+            } else {
+                null
+            }
 
-        val resumeResult = userId?.let { resolvedUserId ->
-            runCatching { getItems(connection, resumePaths(connection.kind, encodePathSegment(resolvedUserId))) }
+        val encodedUserId = userId?.let(::encodePathSegment)
+        val moviesResult = runCatching {
+            getItems(connection, latestPaths(connection.kind, encodedUserId, itemType = "Movie", groupItems = false))
         }
-        val resume = resumeResult?.getOrElse {
-            warnings += "Continue watching could not refresh"
-            emptyList()
-        }.orEmpty()
-
-        val latestResult = runCatching {
-            getItems(connection, latestPaths(connection.kind, userId?.let(::encodePathSegment)))
-        }
-        val latest = latestResult.getOrElse {
-            warnings += "Recently added could not refresh"
+        val movies = moviesResult.getOrElse {
+            warnings += "Recently added movies unavailable"
             emptyList()
         }
+        val seriesResult = runCatching {
+            getItems(connection, latestPaths(connection.kind, encodedUserId, itemType = "Episode", groupItems = true))
+        }
+        val series = seriesResult.getOrElse {
+            warnings += "Recently added series unavailable"
+            emptyList()
+        }
 
-        if (userId == null) warnings += "Add a Profile ID for personal media"
-        val anyFeedCallSucceeded = sessionsResult.isSuccess || resumeResult?.isSuccess == true || latestResult.isSuccess
+        if (userId == null && connection.kind == ServiceKind.EMBY) {
+            warnings += "Add a Profile ID for Emby library rows"
+        }
+        val anyFeedCallSucceeded = sessionsResult.isSuccess || moviesResult.isSuccess || seriesResult.isSuccess
         if (!anyFeedCallSucceeded) {
             verifyConnection(connection)
             warnings += "Media sections unavailable"
         }
         return MediaServerFeed(
             sessions = sessions,
-            continueWatching = resume,
-            recentlyAdded = latest,
+            recentMovies = movies,
+            recentSeries = series,
             warning = warnings.distinct().takeIf { it.isNotEmpty() }?.joinToString(" · "),
         )
     }
@@ -170,29 +176,27 @@ class MediaServerClient(
         return emptyList()
     }
 
-    private fun resumePaths(kind: ServiceKind, userId: String): List<String> = when (kind) {
-        ServiceKind.JELLYFIN -> listOf(
-            "UserItems/Resume?userId=$userId&limit=12&fields=ProductionYear,SeriesName,RunTimeTicks&mediaTypes=Video&enableUserData=true",
-            "Users/$userId/Items/Resume?Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&MediaTypes=Video&EnableUserData=true",
-        )
-        ServiceKind.EMBY -> listOf(
-            "Users/$userId/Items/Resume?Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&MediaTypes=Video&EnableUserData=true",
-        )
-        ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> error("Unsupported media server")
-    }
-
-    private fun latestPaths(kind: ServiceKind, userId: String?): List<String> = when (kind) {
-        ServiceKind.JELLYFIN -> buildList {
-            userId?.let {
-                add("Items/Latest?userId=$it&limit=12&fields=ProductionYear,SeriesName,RunTimeTicks&enableUserData=true&groupItems=true")
-                add("Users/$it/Items/Latest?Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&EnableUserData=true&GroupItems=true")
+    private fun latestPaths(
+        kind: ServiceKind,
+        userId: String?,
+        itemType: String,
+        groupItems: Boolean,
+    ): List<String> {
+        val query = "Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks" +
+            "&IncludeItemTypes=$itemType&GroupItems=$groupItems"
+        return when (kind) {
+            ServiceKind.JELLYFIN -> buildList {
+                userId?.let {
+                    add("Items/Latest?UserId=$it&$query&EnableUserData=true")
+                    add("Users/$it/Items/Latest?$query&EnableUserData=true")
+                }
+                add("Items/Latest?$query")
             }
-            add("Items/Latest?limit=12&fields=ProductionYear,SeriesName,RunTimeTicks&groupItems=true")
+            ServiceKind.EMBY -> userId?.let {
+                listOf("Users/$it/Items/Latest?$query&EnableUserData=true")
+            }.orEmpty()
+            ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> error("Unsupported media server")
         }
-        ServiceKind.EMBY -> userId?.let {
-            listOf("Users/$it/Items/Latest?Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks&EnableUserData=true&GroupItems=true")
-        }.orEmpty()
-        ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> error("Unsupported media server")
     }
 
     private fun artworkUrl(connection: ServiceConnection, itemId: String): String =

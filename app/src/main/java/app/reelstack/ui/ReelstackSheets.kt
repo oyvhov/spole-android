@@ -217,7 +217,7 @@ private fun MediaDetailsSheet(state: ReelstackUiState, mediaId: String) {
 
 @Composable
 private fun LibraryDetailsSheet(state: ReelstackUiState, mediaId: String) {
-    val media = (state.continueWatching + state.recentlyAdded).firstOrNull { it.id == mediaId } ?: return
+    val media = (state.recentMovies + state.recentSeries).firstOrNull { it.id == mediaId } ?: return
     Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
         SheetHeader(media.title, "${media.source.displayName} library")
         MediaArtwork(

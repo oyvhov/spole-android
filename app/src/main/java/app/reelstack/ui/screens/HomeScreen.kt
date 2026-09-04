@@ -131,23 +131,23 @@ fun HomeScreen(
                     }
                 }
             }
-            if (HomeSection.CONTINUE_WATCHING in state.homeSections) {
+            if (HomeSection.RECENT_MOVIES in state.homeSections) {
                 item {
-                    SectionTitle("Continue watching", Modifier.padding(top = 25.dp, bottom = 13.dp))
-                    if (state.continueWatching.isEmpty()) {
-                        EmptySectionLine(mediaEmptyMessage(state, "No unfinished videos from connected media servers."))
+                    SectionTitle("Recently added movies", Modifier.padding(top = 25.dp, bottom = 13.dp))
+                    if (state.recentMovies.isEmpty()) {
+                        EmptySectionLine(mediaEmptyMessage(state, "No recently added movies from connected media servers."))
                     } else {
-                        LibraryRail(state.continueWatching, onLibraryClick)
+                        LibraryRail(state.recentMovies, onLibraryClick)
                     }
                 }
             }
-            if (HomeSection.RECENTLY_ADDED in state.homeSections) {
+            if (HomeSection.RECENT_SERIES in state.homeSections) {
                 item {
-                    SectionTitle("Recently added", Modifier.padding(top = 25.dp, bottom = 13.dp))
-                    if (state.recentlyAdded.isEmpty()) {
-                        EmptySectionLine(mediaEmptyMessage(state, "No recently added videos from connected media servers."))
+                    SectionTitle("Recently added series", Modifier.padding(top = 25.dp, bottom = 13.dp))
+                    if (state.recentSeries.isEmpty()) {
+                        EmptySectionLine(mediaEmptyMessage(state, "No recently added episodes from connected media servers."))
                     } else {
-                        LibraryRail(state.recentlyAdded, onLibraryClick)
+                        LibraryRail(state.recentSeries, onLibraryClick)
                     }
                 }
             }

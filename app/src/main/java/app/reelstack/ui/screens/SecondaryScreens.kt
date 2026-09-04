@@ -69,6 +69,7 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.R
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.theme.Caution
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
@@ -368,8 +369,8 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             HomeSectionRow(HomeSection.NOW_PLAYING, "Now playing", "Active sessions from Jellyfin and Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.CONTINUE_WATCHING, "Continue watching", "Resume items from both media servers", Icons.Rounded.Tv, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECENTLY_ADDED, "Recently added", "New library items from Jellyfin and Emby", Icons.Rounded.Movie, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECENT_MOVIES, "Recently added movies", "Latest movies from Jellyfin and Emby", Icons.Rounded.Movie, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECENT_SERIES, "Recently added series", "Latest series and episodes from both media servers", Icons.Rounded.Tv, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.UPCOMING, "Upcoming", "Monitored releases from Radarr and Sonarr", Icons.Rounded.Notifications, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.DOWNLOADS, "Downloads", "Current Radarr and Sonarr queues", Icons.Rounded.Download, state, onHomeSectionChange)
             SettingsSectionTitle("Preferences")
@@ -444,7 +445,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
                     ConnectionState.DEMO -> "Demo data · Tap to connect"
                 },
                 color = when {
-                    hasWarning -> Warning
+                    hasWarning -> Caution
                     connected -> Success
                     hasError -> Warning
                     else -> Muted
@@ -458,7 +459,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             if (connected) Icons.Rounded.CheckCircle else Icons.Rounded.Dns,
             contentDescription = null,
             tint = when {
-                hasWarning -> Warning
+                hasWarning -> Caution
                 connected -> Success
                 hasError -> Warning
                 else -> PrimarySoft

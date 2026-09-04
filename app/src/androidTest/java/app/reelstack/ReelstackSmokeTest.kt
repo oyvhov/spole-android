@@ -35,10 +35,10 @@ class ReelstackSmokeTest {
     @Test
     fun libraryRailOpensTitleDetails() {
         composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithText("Foundation").assertIsDisplayed().performClick()
+        composeRule.onAllNodesWithText("The Odyssey")[0].assertIsDisplayed().performClick()
 
         composeRule.onNodeWithText("Jellyfin library").assertIsDisplayed()
-        composeRule.onNodeWithText("42% watched").assertIsDisplayed()
+        composeRule.onNodeWithText("Open Jellyfin to play this title.").assertIsDisplayed()
     }
 
     @Test
@@ -46,6 +46,7 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Settings").performClick()
 
         composeRule.onNodeWithText("Home screen").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Upcoming").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Recently added movies").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Recently added series").performScrollTo().assertIsDisplayed()
     }
 }

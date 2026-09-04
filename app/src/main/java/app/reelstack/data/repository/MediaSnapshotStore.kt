@@ -27,8 +27,8 @@ import kotlinx.serialization.json.put
 
 data class CachedMediaSnapshot(
     val sessions: List<PlaybackSession>,
-    val continueWatching: List<LibraryMedia>,
-    val recentlyAdded: List<LibraryMedia>,
+    val recentMovies: List<LibraryMedia>,
+    val recentSeries: List<LibraryMedia>,
     val upcoming: List<UpcomingMedia>,
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
@@ -44,8 +44,8 @@ class MediaSnapshotStore(context: Context) {
         val payload = buildJsonObject {
             put("refreshedAt", snapshot.refreshedAt.toEpochMilli())
             put("sessions", buildJsonArray { snapshot.sessions.forEach { add(sessionJson(it)) } })
-            put("continueWatching", libraryJson(snapshot.continueWatching))
-            put("recentlyAdded", libraryJson(snapshot.recentlyAdded))
+            put("recentMovies", libraryJson(snapshot.recentMovies))
+            put("recentSeries", libraryJson(snapshot.recentSeries))
             put("upcoming", upcomingJson(snapshot.upcoming))
             put("incoming", incomingJson(snapshot.incoming))
             put("discover", discoverJson(snapshot.discover))
@@ -57,11 +57,21 @@ class MediaSnapshotStore(context: Context) {
     fun read(): CachedMediaSnapshot? = runCatching {
         val payload = preferences.getString(CACHE_KEY, null) ?: return null
         val root = json.parseToJsonElement(payload) as? JsonObject ?: return null
+        val legacyRecentlyAdded = root.array("recentlyAdded").mapNotNull(::libraryItem)
+        val hasSplitRecentRows = "recentMovies" in root || "recentSeries" in root
         CachedMediaSnapshot(
             sessions = root.array("sessions").mapNotNull { (it as? JsonObject)?.let(::session) }
                 .ifEmpty { listOfNotNull(root.obj("session")?.let(::session)) },
-            continueWatching = root.array("continueWatching").mapNotNull(::libraryItem),
-            recentlyAdded = root.array("recentlyAdded").mapNotNull(::libraryItem),
+            recentMovies = if (hasSplitRecentRows) {
+                root.array("recentMovies").mapNotNull(::libraryItem)
+            } else {
+                legacyRecentlyAdded.filterNot(::looksLikeSeries)
+            },
+            recentSeries = if (hasSplitRecentRows) {
+                root.array("recentSeries").mapNotNull(::libraryItem)
+            } else {
+                legacyRecentlyAdded.filter(::looksLikeSeries)
+            },
             upcoming = root.array("upcoming").mapIndexedNotNull(::upcomingItem),
             incoming = root.array("incoming").mapNotNull(::incomingItem),
             discover = root.array("discover").mapNotNull(::discoverItem),
@@ -133,6 +143,11 @@ class MediaSnapshotStore(context: Context) {
             artworkUrl = item.string("artworkUrl"),
         )
     }
+
+    private fun looksLikeSeries(item: LibraryMedia): Boolean =
+        item.subtitle.startsWith("S", ignoreCase = true) ||
+            item.subtitle.contains("Series", ignoreCase = true) ||
+            item.subtitle.contains("Episode", ignoreCase = true)
 
     private fun upcomingJson(items: List<UpcomingMedia>) = buildJsonArray {
         items.take(CACHE_ITEM_LIMIT).forEach { item ->

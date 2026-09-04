@@ -17,6 +17,7 @@ val PrimarySoft = Color(0xFFC9ADFF)
 val Text = Color(0xFFF6F0FF)
 val Muted = Color(0xFFAAA2BA)
 val Success = Color(0xFF56D993)
+val Caution = Color(0xFFFFC66D)
 val Warning = Color(0xFFFF7A7D)
 
 private val ReelstackColors = darkColorScheme(

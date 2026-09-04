@@ -18,8 +18,14 @@ class AppPreferencesRepository(context: Context) {
     var visibleHomeSections: Set<HomeSection>
         get() {
             val saved = preferences.getStringSet(KEY_HOME_SECTIONS, null) ?: return HomeSection.entries.toSet()
-            return saved.mapNotNullTo(mutableSetOf()) { name ->
-                HomeSection.entries.firstOrNull { it.name == name }
+            return buildSet {
+                saved.mapNotNullTo(this) { name ->
+                    HomeSection.entries.firstOrNull { it.name == name }
+                }
+                if ("RECENTLY_ADDED" in saved) {
+                    add(HomeSection.RECENT_MOVIES)
+                    add(HomeSection.RECENT_SERIES)
+                }
             }
         }
         set(value) = preferences.edit { putStringSet(KEY_HOME_SECTIONS, value.mapTo(mutableSetOf()) { it.name }) }

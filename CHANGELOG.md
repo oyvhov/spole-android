@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.4
+
+- Removed Continue Watching from Home, Settings, syncing, and cached dashboard data.
+- Split recently added media into dedicated movie and series rows sourced from both Jellyfin and Emby.
+- Switched Jellyfin to direct, type-filtered Latest Media calls that do not require a Profile ID.
+- Kept the current and legacy user-scoped routes as fallbacks for Jellyfin and Emby compatibility.
+- Migrated existing Home-section preferences automatically and made partial-service warnings amber instead of error red.
+
 ## 0.4.3
 
 - Fixed the launch crash caused by an unsupported live-media placeholder drawable.

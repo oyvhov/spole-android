@@ -17,8 +17,8 @@ enum class ConnectionState {
 
 enum class HomeSection {
     NOW_PLAYING,
-    CONTINUE_WATCHING,
-    RECENTLY_ADDED,
+    RECENT_MOVIES,
+    RECENT_SERIES,
     UPCOMING,
     DOWNLOADS,
 }

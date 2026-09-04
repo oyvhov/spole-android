@@ -1,5 +1,6 @@
 package app.reelstack
 
+import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.HomeSection
@@ -14,6 +15,20 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MediaSnapshotStoreTest {
+    @Test
+    fun migratesTheOldRecentlyAddedSettingToBothNewRows() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val preferences = context.getSharedPreferences("reelstack_preferences", Context.MODE_PRIVATE)
+        preferences.edit()
+            .putStringSet("home_sections", setOf("NOW_PLAYING", "RECENTLY_ADDED"))
+            .commit()
+
+        val visible = AppPreferencesRepository(context).visibleHomeSections
+
+        assertEquals(setOf(HomeSection.NOW_PLAYING, HomeSection.RECENT_MOVIES, HomeSection.RECENT_SERIES), visible)
+        AppPreferencesRepository(context).visibleHomeSections = HomeSection.entries.toSet()
+    }
+
     @Test
     fun persistsVisibleHomeSections() {
         val repository = AppPreferencesRepository(ApplicationProvider.getApplicationContext())
@@ -44,18 +59,28 @@ class MediaSnapshotStoreTest {
                 sessionId = "session-1",
                 source = ServiceKind.JELLYFIN,
             )),
-            continueWatching = listOf(
+            recentMovies = listOf(
                 LibraryMedia(
-                    "episode-4",
+                    "movie-1",
+                    "The Odyssey",
+                    "Movie · 2026",
+                    null,
+                    R.drawable.desert_arrival,
+                    ServiceKind.JELLYFIN,
+                    "https://media.example/Items/movie-1/Images/Primary",
+                ),
+            ),
+            recentSeries = listOf(
+                LibraryMedia(
+                    "series-1",
                     "Severance",
-                    "S02 E04",
-                    0.5f,
+                    "S02 E04 · Woe's Hollow",
+                    null,
                     R.drawable.session_still,
                     ServiceKind.JELLYFIN,
                     "https://media.example/Items/series-1/Images/Primary",
                 ),
             ),
-            recentlyAdded = emptyList(),
             upcoming = emptyList(),
             incoming = emptyList(),
             discover = emptyList(),
@@ -71,8 +96,9 @@ class MediaSnapshotStoreTest {
         assertEquals("Severance", restored?.sessions?.single()?.title)
         assertEquals("session-1", restored?.sessions?.single()?.sessionId)
         assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.sessions?.single()?.artworkUrl)
-        assertEquals(0.5f, restored?.continueWatching?.single()?.progress ?: 0f, 0.001f)
-        assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.continueWatching?.single()?.artworkUrl)
+        assertEquals("The Odyssey", restored?.recentMovies?.single()?.title)
+        assertEquals("Severance", restored?.recentSeries?.single()?.title)
+        assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.recentSeries?.single()?.artworkUrl)
         assertEquals(Instant.parse("2026-09-04T08:00:00Z").toEpochMilli(), restored?.refreshedAtEpochMillis)
 
         store.clear()

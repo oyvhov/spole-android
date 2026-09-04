@@ -52,8 +52,8 @@ data class ReelstackUiState(
     val activeSheet: AppSheet? = null,
     val connections: List<ServiceConnection> = emptyList(),
     val sessions: List<PlaybackSession> = demoSessions(),
-    val continueWatching: List<LibraryMedia> = demoContinueWatching(),
-    val recentlyAdded: List<LibraryMedia> = demoRecentlyAdded(),
+    val recentMovies: List<LibraryMedia> = demoRecentMovies(),
+    val recentSeries: List<LibraryMedia> = demoRecentSeries(),
     val upcoming: List<UpcomingMedia> = demoUpcoming(),
     val incoming: List<IncomingMedia> = demoIncoming(),
     val discover: List<DiscoverMedia> = demoDiscover(),
@@ -237,8 +237,8 @@ class ReelstackViewModel(
             _uiState.update {
                 it.copy(
                     sessions = demoSessions(),
-                    continueWatching = demoContinueWatching(),
-                    recentlyAdded = demoRecentlyAdded(),
+                    recentMovies = demoRecentMovies(),
+                    recentSeries = demoRecentSeries(),
                     upcoming = demoUpcoming(),
                     incoming = demoIncoming(),
                     discover = demoDiscover(),
@@ -284,18 +284,18 @@ class ReelstackViewModel(
                         current.liveSession || current.hasCachedData -> current.sessions
                         else -> emptyList()
                     },
-                    continueWatching = when {
-                        configuredMedia.isEmpty() -> demoContinueWatching()
-                        mediaLive -> (snapshot.continueWatching + current.continueWatching.filter { it.source in snapshot.errors })
+                    recentMovies = when {
+                        configuredMedia.isEmpty() -> demoRecentMovies()
+                        mediaLive -> (snapshot.recentMovies + current.recentMovies.filter { it.source in snapshot.errors })
                             .distinctBy(LibraryMedia::id)
-                        current.liveLibrary || current.hasCachedData -> current.continueWatching
+                        current.liveLibrary || current.hasCachedData -> current.recentMovies
                         else -> emptyList()
                     },
-                    recentlyAdded = when {
-                        configuredMedia.isEmpty() -> demoRecentlyAdded()
-                        mediaLive -> (snapshot.recentlyAdded + current.recentlyAdded.filter { it.source in snapshot.errors })
+                    recentSeries = when {
+                        configuredMedia.isEmpty() -> demoRecentSeries()
+                        mediaLive -> (snapshot.recentSeries + current.recentSeries.filter { it.source in snapshot.errors })
                             .distinctBy(LibraryMedia::id)
-                        current.liveLibrary || current.hasCachedData -> current.recentlyAdded
+                        current.liveLibrary || current.hasCachedData -> current.recentSeries
                         else -> emptyList()
                     },
                     upcoming = when {
@@ -501,15 +501,15 @@ private fun initialState(container: AppContainer): ReelstackUiState {
             hasMediaServer -> emptyList()
             else -> demoSessions()
         },
-        continueWatching = when {
-            hasMediaServer && cached != null -> cached.continueWatching
+        recentMovies = when {
+            hasMediaServer && cached != null -> cached.recentMovies
             hasMediaServer -> emptyList()
-            else -> demoContinueWatching()
+            else -> demoRecentMovies()
         },
-        recentlyAdded = when {
-            hasMediaServer && cached != null -> cached.recentlyAdded
+        recentSeries = when {
+            hasMediaServer && cached != null -> cached.recentSeries
             hasMediaServer -> emptyList()
-            else -> demoRecentlyAdded()
+            else -> demoRecentSeries()
         },
         upcoming = when {
             hasQueueService && cached != null -> cached.upcoming
@@ -568,26 +568,7 @@ private fun demoSessions() = listOf(
     ),
 )
 
-private fun demoContinueWatching() = listOf(
-    LibraryMedia(
-        id = "continue-foundation",
-        title = "Foundation",
-        subtitle = "S03 · E02",
-        progress = 0.42f,
-        artworkRes = R.drawable.session_still,
-        source = ServiceKind.JELLYFIN,
-    ),
-    LibraryMedia(
-        id = "continue-shogun",
-        title = "Shōgun",
-        subtitle = "S01 · E07",
-        progress = 0.71f,
-        artworkRes = R.drawable.kitchen_request,
-        source = ServiceKind.JELLYFIN,
-    ),
-)
-
-private fun demoRecentlyAdded() = listOf(
+private fun demoRecentMovies() = listOf(
     LibraryMedia(
         id = "recent-odyssey",
         title = "The Odyssey",
@@ -595,6 +576,9 @@ private fun demoRecentlyAdded() = listOf(
         artworkRes = R.drawable.desert_arrival,
         source = ServiceKind.JELLYFIN,
     ),
+)
+
+private fun demoRecentSeries() = listOf(
     LibraryMedia(
         id = "recent-severance",
         title = "Severance",

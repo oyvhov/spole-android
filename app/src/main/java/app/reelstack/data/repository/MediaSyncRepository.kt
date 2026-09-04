@@ -34,8 +34,8 @@ import kotlinx.coroutines.supervisorScope
 
 data class MediaSyncSnapshot(
     val sessions: List<PlaybackSession>,
-    val continueWatching: List<LibraryMedia>,
-    val recentlyAdded: List<LibraryMedia>,
+    val recentMovies: List<LibraryMedia>,
+    val recentSeries: List<LibraryMedia>,
     val upcoming: List<UpcomingMedia>,
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
@@ -86,11 +86,11 @@ class MediaSyncRepository(
             sessions = mediaPayloads.flatMap { payload ->
                 payload.feed.sessions.map { playbackSession(it, payload.kind) }
             },
-            continueWatching = interleave(mediaPayloads.map { payload ->
-                payload.feed.continueWatching.map { item -> libraryMedia(item, payload.kind) }
+            recentMovies = interleave(mediaPayloads.map { payload ->
+                payload.feed.recentMovies.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
-            recentlyAdded = interleave(mediaPayloads.map { payload ->
-                payload.feed.recentlyAdded.map { item -> libraryMedia(item, payload.kind) }
+            recentSeries = interleave(mediaPayloads.map { payload ->
+                payload.feed.recentSeries.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
             upcoming = upcoming.take(30),
             incoming = queue.map(::incomingMedia),

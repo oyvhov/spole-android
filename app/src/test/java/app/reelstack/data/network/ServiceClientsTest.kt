@@ -33,71 +33,74 @@ class ServiceClientsTest {
     }
 
     @Test
-    fun jellyfinFeedUsesCurrentResumeAndLatestRoutes() {
+    fun jellyfinFeedLoadsSeparateMovieAndSeriesRows() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
-                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
-                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+                HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
+                HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
         )
         val connection = connection(ServiceKind.JELLYFIN, "secret").copy(userId = "user 9")
 
         val feed = MediaServerClient(transport).feed(connection)
 
-        assertEquals("Foundation", feed.continueWatching.single().title)
-        assertEquals("The Odyssey", feed.recentlyAdded.single().title)
+        assertEquals("The Odyssey", feed.recentMovies.single().title)
+        assertEquals("Foundation", feed.recentSeries.single().title)
         assertEquals(
-            "https://media.example.com/Items/resume-1/Images/Primary?maxHeight=720&quality=90",
-            feed.continueWatching.single().artworkUrl,
+            "https://media.example.com/Items/movie-1/Images/Primary?maxHeight=720&quality=90",
+            feed.recentMovies.single().artworkUrl,
         )
-        assertFalse(feed.continueWatching.single().artworkUrl.orEmpty().contains("secret"))
-        assertTrue(transport.urls[1].contains("UserItems/Resume?userId=user%209"))
-        assertTrue(transport.urls[2].contains("Items/Latest?userId=user%209"))
+        assertFalse(feed.recentMovies.single().artworkUrl.orEmpty().contains("secret"))
+        assertTrue(transport.urls[1].contains("Items/Latest?UserId=user%209"))
+        assertTrue(transport.urls[1].contains("IncludeItemTypes=Movie"))
+        assertTrue(transport.urls[2].contains("IncludeItemTypes=Episode"))
+        assertTrue(transport.urls[2].contains("GroupItems=true"))
         assertTrue(transport.headers.all { it["X-Emby-Token"] == "secret" })
     }
 
     @Test
-    fun embyFeedUsesUserScopedResumeAndLatestRoutes() {
+    fun embyFeedUsesUserScopedMovieAndSeriesRoutes() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
-                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
-                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+                HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
+                HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
         )
         val connection = connection(ServiceKind.EMBY, "secret").copy(userId = "emby-user")
 
         val feed = MediaServerClient(transport).feed(connection)
 
-        assertEquals("Foundation", feed.continueWatching.single().title)
-        assertEquals("The Odyssey", feed.recentlyAdded.single().title)
+        assertEquals("The Odyssey", feed.recentMovies.single().title)
+        assertEquals("Foundation", feed.recentSeries.single().title)
         assertEquals(
-            "https://media.example.com/Items/latest-1/Images/Primary?maxHeight=720&quality=90",
-            feed.recentlyAdded.single().artworkUrl,
+            "https://media.example.com/Items/movie-1/Images/Primary?maxHeight=720&quality=90",
+            feed.recentMovies.single().artworkUrl,
         )
-        assertTrue(transport.urls[1].contains("Users/emby-user/Items/Resume?"))
-        assertTrue(transport.urls[2].contains("Users/emby-user/Items/Latest?"))
+        assertTrue(transport.urls[1].contains("Users/emby-user/Items/Latest?"))
+        assertTrue(transport.urls[1].contains("IncludeItemTypes=Movie"))
+        assertTrue(transport.urls[2].contains("IncludeItemTypes=Episode"))
     }
 
     @Test
-    fun mediaFeedDetectsFirstAvailableProfileForApiKey() {
+    fun embyFeedDetectsFirstAvailableProfileForApiKey() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
                 HttpResponse(401, "{}"),
                 HttpResponse(200, """[{"Id":"detected-user","Policy":{"IsDisabled":false}}]"""),
-                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
-                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+                HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
+                HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
         )
 
-        val feed = MediaServerClient(transport).feed(connection(ServiceKind.JELLYFIN, "server-api-key"))
+        val feed = MediaServerClient(transport).feed(connection(ServiceKind.EMBY, "server-api-key"))
 
-        assertEquals("Foundation", feed.continueWatching.single().title)
+        assertEquals("Foundation", feed.recentSeries.single().title)
         assertTrue(transport.urls[1].endsWith("/Users/Me"))
         assertTrue(transport.urls[2].endsWith("/Users"))
-        assertTrue(transport.urls[3].contains("userId=detected-user"))
+        assertTrue(transport.urls[3].contains("Users/detected-user/Items/Latest"))
     }
 
     @Test
@@ -106,38 +109,38 @@ class ServiceClientsTest {
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
                 HttpResponse(404, "{}"),
-                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
+                HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(404, "{}"),
-                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+                HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
         )
         val connection = connection(ServiceKind.JELLYFIN, "secret").copy(userId = "legacy-user")
 
         val feed = MediaServerClient(transport).feed(connection)
 
-        assertEquals("Foundation", feed.continueWatching.single().title)
-        assertEquals("The Odyssey", feed.recentlyAdded.single().title)
-        assertTrue(transport.urls[2].contains("Users/legacy-user/Items/Resume?"))
+        assertEquals("The Odyssey", feed.recentMovies.single().title)
+        assertEquals("Foundation", feed.recentSeries.single().title)
+        assertTrue(transport.urls[2].contains("Users/legacy-user/Items/Latest?"))
         assertTrue(transport.urls[4].contains("Users/legacy-user/Items/Latest?"))
     }
 
     @Test
-    fun jellyfinStaysUsableWithoutDetectedProfile() {
+    fun jellyfinLoadsLatestRowsWithoutAProfileId() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
-                HttpResponse(401, "{}"),
-                HttpResponse(403, "{}"),
-                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+                HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
+                HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
         )
 
         val feed = MediaServerClient(transport).feed(connection(ServiceKind.JELLYFIN, "server-api-key"))
 
-        assertTrue(feed.continueWatching.isEmpty())
-        assertEquals("The Odyssey", feed.recentlyAdded.single().title)
-        assertTrue(feed.warning.orEmpty().contains("Profile ID"))
-        assertTrue(transport.urls.last().contains("Items/Latest?limit=12"))
+        assertEquals("The Odyssey", feed.recentMovies.single().title)
+        assertEquals("Foundation", feed.recentSeries.single().title)
+        assertTrue(feed.warning == null)
+        assertTrue(transport.urls[1].contains("Items/Latest?Limit=12"))
+        assertTrue(transport.urls.none { it.endsWith("/Users/Me") || it.endsWith("/Users") })
     }
 
     @Test
@@ -145,8 +148,8 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(403, "{}"),
-                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
-                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+                HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
+                HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
         )
         val connection = connection(ServiceKind.EMBY, "personal-token").copy(userId = "emby-user")
@@ -154,7 +157,8 @@ class ServiceClientsTest {
         val feed = MediaServerClient(transport).feed(connection)
 
         assertTrue(feed.sessions.isEmpty())
-        assertEquals("Foundation", feed.continueWatching.single().title)
+        assertEquals("The Odyssey", feed.recentMovies.single().title)
+        assertEquals("Foundation", feed.recentSeries.single().title)
         assertTrue(feed.warning.orEmpty().contains("Playback sessions unavailable"))
     }
 
@@ -173,8 +177,8 @@ class ServiceClientsTest {
         val feed = MediaServerClient(transport).feed(connection)
 
         assertTrue(feed.sessions.isEmpty())
-        assertTrue(feed.continueWatching.isEmpty())
-        assertTrue(feed.recentlyAdded.isEmpty())
+        assertTrue(feed.recentMovies.isEmpty())
+        assertTrue(feed.recentSeries.isEmpty())
         assertTrue(feed.warning.orEmpty().contains("Media sections unavailable"))
         assertTrue(transport.urls.last().endsWith("/System/Info"))
     }
