@@ -95,8 +95,11 @@ class MediaSnapshotStoreTest {
 
         assertEquals("Severance", restored?.sessions?.single()?.title)
         assertEquals("session-1", restored?.sessions?.single()?.sessionId)
+        assertEquals("30 min att", restored?.sessions?.single()?.timeLeft)
+        assertEquals("Direkteavspeling", restored?.sessions?.single()?.streamMethod)
         assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.sessions?.single()?.artworkUrl)
         assertEquals("The Odyssey", restored?.recentMovies?.single()?.title)
+        assertEquals("Film · 2026", restored?.recentMovies?.single()?.subtitle)
         assertEquals("Severance", restored?.recentSeries?.single()?.title)
         assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.recentSeries?.single()?.artworkUrl)
         assertEquals(Instant.parse("2026-09-04T08:00:00Z").toEpochMilli(), restored?.refreshedAtEpochMillis)

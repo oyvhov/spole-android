@@ -160,10 +160,10 @@ private data class TabItem(
 )
 
 private val tabs = listOf(
-    TabItem(AppTab.HOME, "Home", Icons.Rounded.Home),
-    TabItem(AppTab.DISCOVER, "Discover", Icons.Rounded.Explore),
-    TabItem(AppTab.ACTIVITY, "Activity", Icons.AutoMirrored.Rounded.ViewList),
-    TabItem(AppTab.SETTINGS, "Settings", Icons.Rounded.Settings),
+    TabItem(AppTab.HOME, "Heim", Icons.Rounded.Home),
+    TabItem(AppTab.DISCOVER, "Oppdag", Icons.Rounded.Explore),
+    TabItem(AppTab.ACTIVITY, "Aktivitet", Icons.AutoMirrored.Rounded.ViewList),
+    TabItem(AppTab.SETTINGS, "Innstillingar", Icons.Rounded.Settings),
 )
 
 @Composable

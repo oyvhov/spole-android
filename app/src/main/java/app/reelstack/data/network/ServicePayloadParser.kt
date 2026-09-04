@@ -150,7 +150,14 @@ object ServicePayloadParser {
                 subtitle = listOfNotNull(episodeLabel, name.takeIf { series != null }, year?.toString().takeIf { series == null })
                     .distinct()
                     .joinToString(" · ")
-                    .ifBlank { mediaType },
+                    .ifBlank {
+                        when (mediaType.lowercase()) {
+                            "movie" -> "Film"
+                            "series" -> "Serie"
+                            "episode" -> "Episode"
+                            else -> "Video"
+                        }
+                    },
                 progress = progress,
                 mediaType = mediaType,
                 artworkItemId = item.string("SeriesId") ?: item.string("seriesId")
@@ -192,7 +199,7 @@ object ServicePayloadParser {
                 RemoteUpcomingItem(
                     id = id,
                     title = title,
-                    subtitle = listOfNotNull("Movie", year?.toString()).joinToString(" · "),
+                    subtitle = listOfNotNull("Film", year?.toString()).joinToString(" · "),
                     dateTime = dateTime,
                     source = source,
                     artworkUrl = secureArtwork(item),
@@ -235,7 +242,7 @@ object ServicePayloadParser {
                 remoteId = remoteId,
                 mediaType = mediaType,
                 title = title,
-                metadata = "${if (mediaType == "movie") "Movie" else "Series"}${year?.let { " · $it" }.orEmpty()}",
+                metadata = "${if (mediaType == "movie") "Film" else "Serie"}${year?.let { " · $it" }.orEmpty()}",
                 artworkUrl = item.string("posterPath")?.let { safeTmdbArtwork(it) },
                 inLibrary = mediaStatus == 5,
                 requested = mediaStatus in 2..4,
@@ -255,7 +262,7 @@ object ServicePayloadParser {
                 remoteId = media?.int("tmdbId"),
                 mediaType = media?.string("mediaType") ?: "movie",
                 status = request.int("status") ?: 1,
-                requestedBy = user?.string("displayName") ?: user?.string("username") ?: "Someone",
+                requestedBy = user?.string("displayName") ?: user?.string("username") ?: "Nokon",
                 createdAt = request.string("createdAt"),
                 title = media?.string("title") ?: media?.string("name"),
                 artworkUrl = media?.string("posterPath")?.let(::safeTmdbArtwork),
@@ -282,7 +289,7 @@ object ServicePayloadParser {
         val index = if (season != null && episode != null) {
             "S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"
         } else {
-            item.string("Type") ?: "Now playing"
+            item.string("Type") ?: "Spelar no"
         }
         val subtitle = listOfNotNull(index, episodeName).distinct().joinToString(" · ")
         val position = playState.long("PositionTicks") ?: 0L
@@ -293,16 +300,16 @@ object ServicePayloadParser {
         return RemotePlayback(
             sessionId = session.string("Id") ?: session.string("id") ?: return null,
             userId = session.string("UserId") ?: session.string("userId"),
-            userName = session.string("UserName") ?: "Someone",
-            deviceName = session.string("DeviceName") ?: session.string("Client") ?: "Unknown device",
+            userName = session.string("UserName") ?: "Nokon",
+            deviceName = session.string("DeviceName") ?: session.string("Client") ?: "Ukjend eining",
             title = title,
             subtitle = subtitle,
             progress = if (runtime > 0L) (position.toDouble() / runtime).toFloat().coerceIn(0f, 1f) else 0f,
-            timeLeft = if (remainingMinutes > 0) "$remainingMinutes min left" else "Ending soon",
+            timeLeft = if (remainingMinutes > 0) "$remainingMinutes min att" else "Snart ferdig",
             streamMethod = when {
-                session.obj("TranscodingInfo") != null -> "Transcoding"
-                playMethod.equals("Transcode", ignoreCase = true) -> "Transcoding"
-                else -> "Direct play"
+                session.obj("TranscodingInfo") != null -> "Omkoding"
+                playMethod.equals("Transcode", ignoreCase = true) -> "Omkoding"
+                else -> "Direkteavspeling"
             },
             quality = when {
                 width >= 3_840 -> "4K"
@@ -332,9 +339,9 @@ object ServicePayloadParser {
             else -> IncomingState.REQUESTED
         }
         val status = when (state) {
-            IncomingState.READY -> "Ready to import"
-            IncomingState.DOWNLOADING -> progress?.let { "Downloading $it%" } ?: "Downloading"
-            IncomingState.REQUESTED -> rawStatus.replaceFirstChar(Char::uppercase).ifBlank { "Queued" }
+            IncomingState.READY -> "Klar for import"
+            IncomingState.DOWNLOADING -> progress?.let { "Lastar ned $it %" } ?: "Lastar ned"
+            IncomingState.REQUESTED -> "Ventar i kø"
         }
         val artwork = media?.let(::secureArtwork)
         return RemoteQueueItem(

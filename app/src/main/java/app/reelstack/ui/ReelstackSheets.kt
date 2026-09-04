@@ -113,7 +113,7 @@ private fun SheetHeader(title: String, description: String, onDismiss: (() -> Un
             Text(description, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
         }
         onDismiss?.let {
-            IconButton(onClick = it) { Icon(Icons.Rounded.Close, contentDescription = "Close") }
+            IconButton(onClick = it) { Icon(Icons.Rounded.Close, contentDescription = "Lukk") }
         }
     }
 }
@@ -122,7 +122,7 @@ private fun SheetHeader(title: String, description: String, onDismiss: (() -> Un
 private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlaybackToggle: (String) -> Unit) {
     val session = state.sessions.firstOrNull { it.key == sessionKey } ?: return
     Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 34.dp)) {
-        SheetHeader("Live session", "${session.source?.displayName ?: "Media server"} · ${session.deviceName}")
+        SheetHeader("Aktiv avspeling", "${session.source?.displayName ?: "Medietenar"} · ${session.deviceName}")
         MediaArtwork(
             url = session.artworkUrl,
             fallbackRes = if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder,
@@ -135,12 +135,12 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
         Text(session.title, color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 3.dp))
         Text(session.subtitle, color = Muted, fontSize = 12.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-            DetailCell("Stream", session.streamMethod, Modifier.weight(1f))
-            DetailCell("Quality", session.quality, Modifier.weight(1f))
+            DetailCell("Straum", session.streamMethod, Modifier.weight(1f))
+            DetailCell("Kvalitet", session.quality, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-            DetailCell("Server", session.source?.displayName ?: "Media server", Modifier.weight(1f))
-            DetailCell("Viewer", session.userName, Modifier.weight(1f))
+            DetailCell("Tenar", session.source?.displayName ?: "Medietenar", Modifier.weight(1f))
+            DetailCell("Sjåar", session.userName, Modifier.weight(1f))
         }
         Button(
             onClick = { onPlaybackToggle(session.key) },
@@ -151,10 +151,10 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
         ) {
             if (state.pendingSessionKey == session.key) {
                 CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                Text("Sending command…", modifier = Modifier.padding(start = 8.dp))
+                Text("Sender kommando…", modifier = Modifier.padding(start = 8.dp))
             } else {
                 Icon(if (session.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, contentDescription = null)
-                Text(if (session.paused) "Resume playback" else "Pause playback", modifier = Modifier.padding(start = 8.dp))
+                Text(if (session.paused) "Hald fram avspelinga" else "Set på pause", modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
@@ -173,7 +173,7 @@ private fun MediaDetailsSheet(state: ReelstackUiState, mediaId: String) {
     val media = state.incoming.firstOrNull { it.id == mediaId } ?: return
     val downloading = media.state == IncomingState.DOWNLOADING
     Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
-        SheetHeader(media.title, "${if (downloading) "Movie" else "Series"} · ${media.source.displayName}")
+        SheetHeader(media.title, "${if (downloading) "Film" else "Serie"} · ${media.source.displayName}")
         Row(modifier = Modifier.padding(top = 18.dp)) {
             MediaArtwork(
                 url = media.artworkUrl,
@@ -198,13 +198,13 @@ private fun MediaDetailsSheet(state: ReelstackUiState, mediaId: String) {
                     Text(media.status, color = if (downloading) PrimarySoft else Warning, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
                 }
                 Text(
-                    if (downloading) "Arriving in about 24 minutes" else "Waiting for approval",
+                    if (downloading) "Ferdig om om lag 24 minutt" else "Ventar på godkjenning",
                     color = Color.White,
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(top = 16.dp),
                 )
                 Text(
-                    if (downloading) "Radarr found a 4K release and sent it to your download client." else "Seerr will notify you when the request is approved.",
+                    if (downloading) "Radarr fann ei 4K-utgjeving og sende henne til nedlastingsklienten." else "Seerr varslar deg når bestillinga er godkjend.",
                     color = Muted,
                     fontSize = 12.sp,
                     lineHeight = 18.sp,
@@ -219,7 +219,7 @@ private fun MediaDetailsSheet(state: ReelstackUiState, mediaId: String) {
 private fun LibraryDetailsSheet(state: ReelstackUiState, mediaId: String) {
     val media = (state.recentMovies + state.recentSeries).firstOrNull { it.id == mediaId } ?: return
     Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
-        SheetHeader(media.title, "${media.source.displayName} library")
+        SheetHeader(media.title, "Bibliotek i ${media.source.displayName}")
         MediaArtwork(
             url = media.artworkUrl,
             fallbackRes = media.artworkRes,
@@ -230,7 +230,7 @@ private fun LibraryDetailsSheet(state: ReelstackUiState, mediaId: String) {
         )
         Text(media.subtitle, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 15.dp))
         media.progress?.let { progress ->
-            Text("${(progress * 100).toInt()}% watched", color = PrimarySoft, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp))
+            Text("${(progress * 100).toInt()} % sett", color = PrimarySoft, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp))
             LinearProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
                 color = Primary,
@@ -239,7 +239,7 @@ private fun LibraryDetailsSheet(state: ReelstackUiState, mediaId: String) {
             )
         }
         Text(
-            "Open ${media.source.displayName} to play this title.",
+            "Opne ${media.source.displayName} for å spele av tittelen.",
             color = Color.White,
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 20.dp),
@@ -260,12 +260,12 @@ private fun ConnectionEditorSheet(
     onRemove: () -> Unit,
 ) {
     Column(Modifier.imePadding().padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
-        SheetHeader("Connect ${draft.kind.displayName}", draft.kind.role, onDismiss)
+        SheetHeader("Kople til ${draft.kind.displayName}", draft.kind.role, onDismiss)
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = draft.name,
             onValueChange = onNameChange,
-            label = { Text("Connection name") },
+            label = { Text("Namn på tilkoplinga") },
             singleLine = true,
             shape = RoundedCornerShape(17.dp),
             colors = connectionFieldColors(),
@@ -274,7 +274,7 @@ private fun ConnectionEditorSheet(
         OutlinedTextField(
             value = draft.url,
             onValueChange = onUrlChange,
-            label = { Text("Server address") },
+            label = { Text("Tenaradresse") },
             placeholder = { Text("https://media.example.com") },
             singleLine = true,
             shape = RoundedCornerShape(17.dp),
@@ -285,9 +285,9 @@ private fun ConnectionEditorSheet(
             OutlinedTextField(
                 value = draft.userId,
                 onValueChange = onUserIdChange,
-                label = { Text("Profile ID (optional)") },
-                placeholder = { Text("Use a specific media profile") },
-                supportingText = { Text("Leave blank to detect a profile automatically.") },
+                label = { Text("Profil-ID (valfri)") },
+                placeholder = { Text("Bruk ein bestemt medieprofil") },
+                supportingText = { Text("La feltet stå tomt for automatisk val.") },
                 singleLine = true,
                 shape = RoundedCornerShape(17.dp),
                 colors = connectionFieldColors(),
@@ -297,7 +297,7 @@ private fun ConnectionEditorSheet(
         OutlinedTextField(
             value = draft.token,
             onValueChange = onTokenChange,
-            label = { Text("API key or access token") },
+            label = { Text("API-nøkkel eller tilgangsteikn") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             shape = RoundedCornerShape(17.dp),
@@ -317,10 +317,10 @@ private fun ConnectionEditorSheet(
         ) {
             if (draft.saving) {
                 CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                Text("Testing connection…", modifier = Modifier.padding(start = 9.dp))
+                Text("Testar tilkoplinga…", modifier = Modifier.padding(start = 9.dp))
             } else {
                 Icon(Icons.Rounded.CheckCircle, contentDescription = null)
-                Text("Test and save", modifier = Modifier.padding(start = 8.dp))
+                Text("Test og lagre", modifier = Modifier.padding(start = 8.dp))
             }
         }
 
@@ -331,7 +331,7 @@ private fun ConnectionEditorSheet(
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp),
             ) {
                 Icon(Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(19.dp))
-                Text("Remove connection", modifier = Modifier.padding(start = 7.dp))
+                Text("Fjern tilkoplinga", modifier = Modifier.padding(start = 7.dp))
             }
         }
     }

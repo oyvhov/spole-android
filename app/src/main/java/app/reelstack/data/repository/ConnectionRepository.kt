@@ -24,7 +24,7 @@ class ConnectionRepository(context: Context) {
             token = tokenFor(kind),
             userId = preferences.getString("$prefix.user_id", null).orEmpty(),
             state = if (savedUrl.isNullOrBlank()) ConnectionState.DEMO else ConnectionState.CONNECTED,
-            detail = if (savedUrl.isNullOrBlank()) "Demo data" else "Configured",
+            detail = if (savedUrl.isNullOrBlank()) "Demodata" else "Konfigurert",
         )
     }
 
@@ -61,8 +61,8 @@ class ConnectionRepository(context: Context) {
     }
 
     private fun defaultName(kind: ServiceKind): String = when (kind) {
-        ServiceKind.JELLYFIN -> "Home server"
-        ServiceKind.EMBY -> "Cabin server"
+        ServiceKind.JELLYFIN -> "Heimetenar"
+        ServiceKind.EMBY -> "Hyttetenar"
         else -> kind.displayName
     }
 }

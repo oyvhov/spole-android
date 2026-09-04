@@ -19,17 +19,18 @@ class ReelstackSmokeTest {
     @Test
     fun homeScreenShowsCoreMediaState() {
         composeRule.onNodeWithText("HomeReel").assertIsDisplayed()
-        composeRule.onNodeWithText("Preview mode · connect a service when you're ready.").assertIsDisplayed()
+        composeRule.onNodeWithText("Spelar no").assertIsDisplayed()
+        composeRule.onNodeWithText("Førehandsvising").assertDoesNotExist()
         composeRule.onAllNodesWithText("Severance")[0].assertIsDisplayed()
     }
 
     @Test
     fun demoRequestIsClearlyKeptLocal() {
-        composeRule.onNodeWithText("Discover").performClick()
-        composeRule.onNodeWithText("Request").performClick()
+        composeRule.onNodeWithText("Oppdag").performClick()
+        composeRule.onNodeWithText("Bestill").performClick()
 
-        composeRule.onNodeWithText("Requested").assertIsDisplayed()
-        composeRule.onNodeWithText("Demo request saved locally · connect Seerr to send it").assertIsDisplayed()
+        composeRule.onNodeWithText("Bestilt").assertIsDisplayed()
+        composeRule.onNodeWithText("Demobestillinga er lagra lokalt · kople til Seerr for å sende henne").assertIsDisplayed()
     }
 
     @Test
@@ -37,16 +38,16 @@ class ReelstackSmokeTest {
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onAllNodesWithText("The Odyssey")[0].assertIsDisplayed().performClick()
 
-        composeRule.onNodeWithText("Jellyfin library").assertIsDisplayed()
-        composeRule.onNodeWithText("Open Jellyfin to play this title.").assertIsDisplayed()
+        composeRule.onNodeWithText("Bibliotek i Jellyfin").assertIsDisplayed()
+        composeRule.onNodeWithText("Opne Jellyfin for å spele av tittelen.").assertIsDisplayed()
     }
 
     @Test
     fun homeSectionsCanBeEditedInSettings() {
-        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNodeWithText("Innstillingar").performClick()
 
-        composeRule.onNodeWithText("Home screen").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Recently added movies").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Recently added series").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Heimskjerm").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Nyleg lagde til filmar").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Nyleg lagde til seriar").performScrollTo().assertIsDisplayed()
     }
 }

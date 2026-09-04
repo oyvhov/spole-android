@@ -104,8 +104,8 @@ class MediaSyncRepository(
     }
 
     fun request(connection: ServiceConnection, media: DiscoverMedia) {
-        val remoteId = requireNotNull(media.remoteId) { "This title has no Seerr media ID" }
-        val mediaType = requireNotNull(media.mediaType) { "This title has no Seerr media type" }
+        val remoteId = requireNotNull(media.remoteId) { "Tittelen manglar medie-ID frå Seerr" }
+        val mediaType = requireNotNull(media.mediaType) { "Tittelen manglar medietype frå Seerr" }
         seerrServiceClient.request(connection, mediaType, remoteId)
     }
 
@@ -114,10 +114,10 @@ class MediaSyncRepository(
         session: PlaybackSession,
         paused: Boolean,
     ) {
-        val source = requireNotNull(session.source) { "The playback source is unavailable" }
-        val sessionId = requireNotNull(session.sessionId) { "The playback session is unavailable" }
+        val source = requireNotNull(session.source) { "Avspelingskjelda er ikkje tilgjengeleg" }
+        val sessionId = requireNotNull(session.sessionId) { "Avspelingsøkta er ikkje tilgjengeleg" }
         val connection = connections.firstOrNull { it.kind == source && it.baseUrl.isNotBlank() }
-            ?: error("The ${source.displayName} connection is unavailable")
+            ?: error("Tilkoplinga til ${source.displayName} er ikkje tilgjengeleg")
         mediaServerClient.setPaused(connection, sessionId, paused)
     }
 
@@ -202,7 +202,7 @@ class MediaSyncRepository(
         id = "activity-${item.id}",
         title = item.title,
         detail = "${item.source.displayName} · ${item.status}",
-        time = "Now",
+        time = "No",
         progress = item.progress,
         complete = item.state == IncomingState.READY,
         source = item.source,
@@ -212,11 +212,11 @@ class MediaSyncRepository(
 
     private fun requestActivity(request: RemoteRequest, discovered: DiscoverMedia?) = ActivityEvent(
         id = "seerr-request-${request.id}",
-        title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Movie request" else "Series request",
+        title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Filmbestilling" else "Seriebestilling",
         detail = when (request.status) {
-            2 -> "Approved by Seerr for ${request.requestedBy}"
-            3 -> "Declined in Seerr"
-            else -> "Requested by ${request.requestedBy}"
+            2 -> "Godkjend av Seerr for ${request.requestedBy}"
+            3 -> "Avvist i Seerr"
+            else -> "Bestilt av ${request.requestedBy}"
         },
         time = relativeTime(request.createdAt),
         complete = request.status == 2,
@@ -238,33 +238,37 @@ class MediaSyncRepository(
         val today = LocalDate.now(zone)
         val date = dateTime.toLocalDate()
         val day = when (date) {
-            today -> "Today"
-            today.plusDays(1) -> "Tomorrow"
-            else -> date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH))
+            today -> "I dag"
+            today.plusDays(1) -> "I morgon"
+            else -> date.format(DateTimeFormatter.ofPattern("EEE d. MMM", Locale.forLanguageTag("nn-NO")))
         }
         return if (source == ServiceKind.SONARR) "$day · ${dateTime.format(DateTimeFormatter.ofPattern("HH:mm"))}" else day
     }
 
     private fun relativeTime(createdAt: String?): String {
-        val instant = createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return "Recently"
+        val instant = createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return "Nyleg"
         val duration = Duration.between(instant, Instant.now()).coerceAtLeast(Duration.ZERO)
         return when {
-            duration.toMinutes() < 1 -> "Just now"
-            duration.toHours() < 1 -> "${duration.toMinutes()} min ago"
-            duration.toDays() < 1 -> "${duration.toHours()} hr ago"
-            duration.toDays() == 1L -> "Yesterday"
-            else -> "${duration.toDays()} days ago"
+            duration.toMinutes() < 1 -> "Akkurat no"
+            duration.toHours() < 1 -> "For ${duration.toMinutes()} min sidan"
+            duration.toDays() < 1 -> "For ${duration.toHours()} t sidan"
+            duration.toDays() == 1L -> "I går"
+            else -> "For ${duration.toDays()} dagar sidan"
         }
     }
 
     private fun friendlyError(kind: ServiceKind, error: Throwable): String {
         val message = error.message.orEmpty()
         return when {
-            message.contains("rejected", ignoreCase = true) -> "API key rejected"
-            message.contains("endpoint", ignoreCase = true) -> "API endpoint unavailable"
-            message.contains("profile", ignoreCase = true) -> "No media profile found — add a Profile ID"
-            message.contains("too large", ignoreCase = true) -> "Response exceeded the safety limit"
-            else -> "Could not refresh ${kind.displayName}"
+            message.contains("avviste", ignoreCase = true) || message.contains("rejected", ignoreCase = true) ->
+                "API-nøkkelen vart avvist"
+            message.contains("endepunkt", ignoreCase = true) || message.contains("endpoint", ignoreCase = true) ->
+                "API-endepunktet er utilgjengeleg"
+            message.contains("profil", ignoreCase = true) || message.contains("profile", ignoreCase = true) ->
+                "Fann ingen medieprofil — legg til profil-ID"
+            message.contains("for stort", ignoreCase = true) || message.contains("too large", ignoreCase = true) ->
+                "Svaret var større enn tryggleiksgrensa"
+            else -> "Fekk ikkje oppdatert ${kind.displayName}"
         }
     }
 

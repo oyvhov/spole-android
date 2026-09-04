@@ -1,11 +1,11 @@
 package app.reelstack.data.model
 
 enum class ServiceKind(val displayName: String, val role: String) {
-    JELLYFIN("Jellyfin", "Media server"),
-    EMBY("Emby", "Media server"),
-    SEERR("Seerr", "Requests"),
-    RADARR("Radarr", "Movies"),
-    SONARR("Sonarr", "Series"),
+    JELLYFIN("Jellyfin", "Medietenar"),
+    EMBY("Emby", "Medietenar"),
+    SEERR("Seerr", "Bestillingar"),
+    RADARR("Radarr", "Filmar"),
+    SONARR("Sonarr", "Seriar"),
 }
 
 enum class ConnectionState {

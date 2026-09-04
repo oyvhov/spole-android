@@ -16,7 +16,7 @@ class ServiceClientsTest {
         val result = ServiceConnectionTester(transport).test(connection(ServiceKind.SEERR, "bad-key"))
 
         assertFalse(result.success)
-        assertEquals("The API key was rejected", result.message)
+        assertEquals("API-nøkkelen vart avvist", result.message)
         assertTrue(transport.lastUrl.contains("/api/v1/request?take=1&skip=0"))
     }
 
@@ -159,7 +159,7 @@ class ServiceClientsTest {
         assertTrue(feed.sessions.isEmpty())
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
-        assertTrue(feed.warning.orEmpty().contains("Playback sessions unavailable"))
+        assertTrue(feed.warning.orEmpty().contains("Avspelingsøkter er utilgjengelege"))
     }
 
     @Test
@@ -179,7 +179,7 @@ class ServiceClientsTest {
         assertTrue(feed.sessions.isEmpty())
         assertTrue(feed.recentMovies.isEmpty())
         assertTrue(feed.recentSeries.isEmpty())
-        assertTrue(feed.warning.orEmpty().contains("Media sections unavailable"))
+        assertTrue(feed.warning.orEmpty().contains("Mediedelane er utilgjengelege"))
         assertTrue(transport.urls.last().endsWith("/System/Info"))
     }
 

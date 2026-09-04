@@ -62,13 +62,14 @@ import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.PlaybackSession
+import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
-import app.reelstack.ui.theme.Success
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
@@ -84,6 +85,15 @@ fun HomeScreen(
     onLibraryClick: (String) -> Unit,
     onRefresh: () -> Unit,
 ) {
+    val configuredMediaSources = state.connections
+        .filter { connection ->
+            connection.baseUrl.isNotBlank() &&
+                (connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        }
+        .map { it.kind }
+    val mediaSources = configuredMediaSources.ifEmpty {
+        (state.recentMovies + state.recentSeries).map(LibraryMedia::source).distinct()
+    }
     PullToRefreshBox(
         isRefreshing = state.isRefreshing,
         onRefresh = onRefresh,
@@ -99,26 +109,17 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             item {
-                Header(
-                    configuredCount = state.configuredCount,
-                    onlineCount = state.onlineCount,
-                )
+                Header()
                 Spacer(Modifier.height(28.dp))
                 Text(
                     text = greeting(),
                     color = TextColor,
                     style = MaterialTheme.typography.displaySmall,
                 )
-                Text(
-                    text = state.syncSummary,
-                    color = Color(0xFFBBB2CB),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
             }
             if (HomeSection.NOW_PLAYING in state.homeSections) {
                 item {
-                    SectionTitle("Now playing", Modifier.padding(top = 28.dp, bottom = 15.dp))
+                    SectionTitle("Spelar no", Modifier.padding(top = 28.dp, bottom = 15.dp))
                     if (state.sessions.isEmpty()) {
                         EmptyNowPlayingCard()
                     } else {
@@ -132,30 +133,36 @@ fun HomeScreen(
                 }
             }
             if (HomeSection.RECENT_MOVIES in state.homeSections) {
-                item {
-                    SectionTitle("Recently added movies", Modifier.padding(top = 25.dp, bottom = 13.dp))
-                    if (state.recentMovies.isEmpty()) {
-                        EmptySectionLine(mediaEmptyMessage(state, "No recently added movies from connected media servers."))
-                    } else {
-                        LibraryRail(state.recentMovies, onLibraryClick)
+                mediaSources.forEach { source ->
+                    item(key = "recent-movies-${source.name}") {
+                        MediaSectionTitle("Nyleg lagde til filmar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
+                        val items = state.recentMovies.filter { it.source == source }
+                        if (items.isEmpty()) {
+                            EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til filmar."))
+                        } else {
+                            LibraryRail(items, onLibraryClick)
+                        }
                     }
                 }
             }
             if (HomeSection.RECENT_SERIES in state.homeSections) {
-                item {
-                    SectionTitle("Recently added series", Modifier.padding(top = 25.dp, bottom = 13.dp))
-                    if (state.recentSeries.isEmpty()) {
-                        EmptySectionLine(mediaEmptyMessage(state, "No recently added episodes from connected media servers."))
-                    } else {
-                        LibraryRail(state.recentSeries, onLibraryClick)
+                mediaSources.forEach { source ->
+                    item(key = "recent-series-${source.name}") {
+                        MediaSectionTitle("Nyleg lagde til seriar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
+                        val items = state.recentSeries.filter { it.source == source }
+                        if (items.isEmpty()) {
+                            EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til episodar."))
+                        } else {
+                            LibraryRail(items, onLibraryClick)
+                        }
                     }
                 }
             }
             if (HomeSection.UPCOMING in state.homeSections) {
                 item {
-                    SectionTitle("Upcoming", Modifier.padding(top = 25.dp, bottom = 13.dp))
+                    SectionTitle("Kjem snart", Modifier.padding(top = 25.dp, bottom = 13.dp))
                     if (state.upcoming.isEmpty()) {
-                        EmptySectionLine("No monitored releases in the next 28 days.")
+                        EmptySectionLine("Ingen overvaka utgjevingar dei neste 28 dagane.")
                     } else {
                         UpcomingRail(state.upcoming)
                     }
@@ -163,9 +170,9 @@ fun HomeScreen(
             }
             if (HomeSection.DOWNLOADS in state.homeSections) {
                 item {
-                    SectionTitle("Downloads", Modifier.padding(top = 26.dp, bottom = 10.dp))
+                    SectionTitle("Nedlastingar", Modifier.padding(top = 26.dp, bottom = 10.dp))
                     if (state.incoming.isEmpty()) {
-                        EmptySectionLine("Radarr and Sonarr queues are clear.")
+                        EmptySectionLine("Køane i Radarr og Sonarr er tomme.")
                     }
                 }
                 items(state.incoming, key = IncomingMedia::id) { media ->
@@ -177,10 +184,9 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Header(configuredCount: Int, onlineCount: Int) {
+private fun Header() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -199,44 +205,20 @@ private fun Header(configuredCount: Int, onlineCount: Int) {
             )
         }
 
-        Surface(
-            color = Color(0xDD14111D),
-            contentColor = TextColor,
-            shape = RoundedCornerShape(50),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x47E0D5FF)),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
-            ) {
-                Text(
-                    when {
-                        configuredCount == 0 -> "Preview"
-                        onlineCount == 0 -> "Offline"
-                        else -> "$onlineCount connected"
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 12.sp,
-                )
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.size(9.dp).clip(CircleShape).background(if (onlineCount > 0) Success else Primary))
-            }
-        }
     }
 }
 
 private fun greeting(): String = when (java.time.LocalTime.now().hour) {
-    in 5..11 -> "Good morning"
-    in 12..17 -> "Good afternoon"
-    else -> "Good evening"
+    in 5..11 -> "God morgon"
+    in 12..17 -> "God ettermiddag"
+    else -> "God kveld"
 }
 
-private fun mediaEmptyMessage(state: ReelstackUiState, emptyMessage: String): String =
-    if (state.failedServices.any { it == app.reelstack.data.model.ServiceKind.JELLYFIN || it == app.reelstack.data.model.ServiceKind.EMBY }) {
-        "A media server could not refresh. Check its connection in Settings."
-    } else if (state.serviceWarnings.keys.any { it == app.reelstack.data.model.ServiceKind.JELLYFIN || it == app.reelstack.data.model.ServiceKind.EMBY }) {
-        "The server is connected, but this section needs attention. Check Profile ID in Settings."
+private fun mediaEmptyMessage(state: ReelstackUiState, source: ServiceKind, emptyMessage: String): String =
+    if (source in state.failedServices) {
+        "Fekk ikkje oppdatert ${source.displayName}. Sjekk tilkoplinga i Innstillingar."
+    } else if (source in state.serviceWarnings) {
+        "${source.displayName} er tilkopla, men denne rada vart ikkje oppdatert."
     } else {
         emptyMessage
     }
@@ -249,6 +231,23 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.titleMedium,
         modifier = modifier,
     )
+}
+
+@Composable
+private fun MediaSectionTitle(text: String, source: ServiceKind, modifier: Modifier = Modifier) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        ServiceLogo(
+            kind = source,
+            contentDescription = null,
+            modifier = Modifier.size(13.dp),
+        )
+        Text(
+            text = "${source.displayName} · $text",
+            color = PrimarySoft,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(start = 7.dp),
+        )
+    }
 }
 
 @Composable
@@ -313,7 +312,7 @@ private fun NowPlayingCard(
         MediaArtwork(
             url = session.artworkUrl,
             fallbackRes = if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder,
-            contentDescription = "${session.userName} watching ${session.title}",
+            contentDescription = "${session.userName} ser på ${session.title}",
             contentScale = ContentScale.Crop,
             source = session.source,
             modifier = Modifier.fillMaxSize(),
@@ -375,7 +374,7 @@ private fun NowPlayingCard(
                             AnimatedContent(session.paused, label = "play-pause") { paused ->
                                 Icon(
                                     if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
-                                    contentDescription = if (paused) "Resume playback" else "Pause playback",
+                                    contentDescription = if (paused) "Hald fram avspelinga" else "Set avspelinga på pause",
                                     modifier = Modifier.size(26.dp),
                                 )
                             }
@@ -387,7 +386,7 @@ private fun NowPlayingCard(
                     onClick = onOpen,
                     modifier = Modifier.size(52.dp).background(SurfaceRaised.copy(alpha = 0.92f), CircleShape),
                 ) {
-                    Icon(Icons.Rounded.Tune, contentDescription = "Playback details", tint = TextColor)
+                    Icon(Icons.Rounded.Tune, contentDescription = "Avspelingsdetaljar", tint = TextColor)
                 }
             }
         }
@@ -444,12 +443,10 @@ private fun LibraryCard(media: LibraryMedia, onClick: () -> Unit) {
                 shape = CircleShape,
                 modifier = Modifier.align(Alignment.TopEnd).padding(9.dp),
             ) {
-                Text(
-                    media.source.displayName.take(1),
-                    color = PrimarySoft,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                ServiceLogo(
+                    kind = media.source,
+                    contentDescription = media.source.displayName,
+                    modifier = Modifier.padding(6.dp).size(13.dp),
                 )
             }
         }
@@ -521,7 +518,7 @@ private fun EmptyNowPlayingCard() {
         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
     ) {
         Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF625B70)))
-        Text("No active sessions", color = Color(0xFF8E879A), fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
+        Text("Ingen aktive avspelingar", color = Color(0xFF8E879A), fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
     }
 }
 

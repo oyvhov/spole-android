@@ -50,11 +50,11 @@ class ServiceConnectionTester(
             in 200..299 -> ConnectionTestResult(
                 success = true,
                 latencyMs = elapsed,
-                message = extractVersion(response.body)?.let { "Connected · v$it" } ?: "Connected",
+                message = extractVersion(response.body)?.let { "Tilkopla · v$it" } ?: "Tilkopla",
             )
-            401, 403 -> ConnectionTestResult(false, elapsed, "The API key was rejected")
-            404 -> ConnectionTestResult(false, elapsed, "Service found, but its API path was not available")
-            else -> ConnectionTestResult(false, elapsed, "Server returned ${response.statusCode}")
+            401, 403 -> ConnectionTestResult(false, elapsed, "API-nøkkelen vart avvist")
+            404 -> ConnectionTestResult(false, elapsed, "Fann tenesta, men API-stien var ikkje tilgjengeleg")
+            else -> ConnectionTestResult(false, elapsed, "Tenaren svara med status ${response.statusCode}")
         }
     }
 
@@ -83,7 +83,7 @@ class MediaServerClient(
         val warnings = mutableListOf<String>()
         val sessionsResult = runCatching { sessions(connection) }
         val sessions = sessionsResult.getOrElse {
-            warnings += "Playback sessions unavailable"
+            warnings += "Avspelingsøkter er utilgjengelege"
             emptyList()
         }
         val userId = connection.userId.takeIf { it.isNotBlank() }
@@ -100,24 +100,24 @@ class MediaServerClient(
             getItems(connection, latestPaths(connection.kind, encodedUserId, itemType = "Movie", groupItems = false))
         }
         val movies = moviesResult.getOrElse {
-            warnings += "Recently added movies unavailable"
+            warnings += "Nyleg lagde til filmar er utilgjengelege"
             emptyList()
         }
         val seriesResult = runCatching {
             getItems(connection, latestPaths(connection.kind, encodedUserId, itemType = "Episode", groupItems = true))
         }
         val series = seriesResult.getOrElse {
-            warnings += "Recently added series unavailable"
+            warnings += "Nyleg lagde til seriar er utilgjengelege"
             emptyList()
         }
 
         if (userId == null && connection.kind == ServiceKind.EMBY) {
-            warnings += "Add a Profile ID for Emby library rows"
+            warnings += "Legg til profil-ID for bibliotekradene frå Emby"
         }
         val anyFeedCallSucceeded = sessionsResult.isSuccess || moviesResult.isSuccess || seriesResult.isSuccess
         if (!anyFeedCallSucceeded) {
             verifyConnection(connection)
-            warnings += "Media sections unavailable"
+            warnings += "Mediedelane er utilgjengelege"
         }
         return MediaServerFeed(
             sessions = sessions,
@@ -158,7 +158,7 @@ class MediaServerClient(
     }
 
     private fun getItems(connection: ServiceConnection, paths: List<String>): List<RemoteLibraryItem> {
-        require(paths.isNotEmpty()) { "A Profile ID is required for this library" }
+        require(paths.isNotEmpty()) { "Dette biblioteket krev ein profil-ID" }
         var lastResponse: HttpResponse? = null
         var authenticationFailure: HttpResponse? = null
         paths.forEach { path ->
@@ -195,7 +195,7 @@ class MediaServerClient(
             ServiceKind.EMBY -> userId?.let {
                 listOf("Users/$it/Items/Latest?$query&EnableUserData=true")
             }.orEmpty()
-            ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> error("Unsupported media server")
+            ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> error("Medietenaren er ikkje støtta")
         }
     }
 
@@ -331,10 +331,10 @@ private fun encodePathSegment(value: String): String = encode(value).replace("+"
 private fun HttpResponse.requireSuccess(kind: ServiceKind) {
     when (statusCode) {
         in 200..299 -> Unit
-        401, 403 -> error("${kind.displayName} rejected its API key")
-        404 -> error("${kind.displayName} does not provide this API endpoint")
-        408, 429 -> error("${kind.displayName} is temporarily busy")
-        in 500..599 -> error("${kind.displayName} is currently unavailable")
-        else -> error("${kind.displayName} returned status $statusCode")
+        401, 403 -> error("${kind.displayName} avviste API-nøkkelen")
+        404 -> error("${kind.displayName} tilbyr ikkje dette API-endepunktet")
+        408, 429 -> error("${kind.displayName} er mellombels oppteken")
+        in 500..599 -> error("${kind.displayName} er utilgjengeleg no")
+        else -> error("${kind.displayName} svara med status $statusCode")
     }
 }

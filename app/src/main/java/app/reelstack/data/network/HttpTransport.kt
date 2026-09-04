@@ -57,7 +57,7 @@ class HttpTransport(
                     val count = input.read(buffer)
                     if (count < 0) break
                     total += count
-                    require(total <= MAX_RESPONSE_BYTES) { "Server response was too large" }
+                    require(total <= MAX_RESPONSE_BYTES) { "Svaret frå tenaren var for stort" }
                     output.write(buffer, 0, count)
                 }
                 output.toString(StandardCharsets.UTF_8.name())

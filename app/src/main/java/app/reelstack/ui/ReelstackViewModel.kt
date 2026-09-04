@@ -87,16 +87,6 @@ data class ReelstackUiState(
     val onlineCount: Int
         get() = connections.count { it.state == ConnectionState.CONNECTED }
 
-    val syncSummary: String
-        get() = when {
-            isRefreshing -> "Refreshing your media stack…"
-            configuredCount == 0 -> "Preview mode · connect a service when you're ready."
-            onlineCount == 0 && hasCachedData -> "Services need attention · showing cached data."
-            onlineCount == 0 -> "Your services need attention."
-            failedServices.isNotEmpty() -> "$onlineCount live · ${failedServices.size} need attention."
-            serviceWarnings.isNotEmpty() -> "$onlineCount connected · some sections need attention."
-            else -> "Live data · updated just now."
-        }
 }
 
 class ReelstackViewModel(
@@ -126,7 +116,7 @@ class ReelstackViewModel(
                 token = existing.token,
                 userId = existing.userId,
                 warning = existing.baseUrl.takeIf(String::isNotBlank)?.let {
-                    if (EndpointValidator.isCleartext(it)) "HTTP is unencrypted. Prefer HTTPS outside your trusted LAN." else null
+                    if (EndpointValidator.isCleartext(it)) "HTTP er ukryptert. Bruk helst HTTPS utanfor det trygge lokalnettet ditt." else null
                 },
             )
         }
@@ -169,9 +159,9 @@ class ReelstackViewModel(
                     } else current.sessions,
                     pendingSessionKey = null,
                     snackbar = if (result.isSuccess) {
-                        if (targetPaused) "Playback paused" else "Playback resumed"
+                        if (targetPaused) "Avspelinga er sett på pause" else "Avspelinga held fram"
                     } else {
-                        "The media server could not change playback"
+                        "Medietenaren klarte ikkje å endre avspelinga"
                     },
                 )
             }
@@ -190,7 +180,7 @@ class ReelstackViewModel(
             _uiState.update {
                 it.copy(
                     discover = it.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
-                    snackbar = "Demo request saved locally · connect Seerr to send it",
+                    snackbar = "Demobestillinga er lagra lokalt · kople til Seerr for å sende henne",
                 )
             }
             return
@@ -209,20 +199,20 @@ class ReelstackViewModel(
                             ActivityEvent(
                                 id = "seerr-request-${media.id}",
                                 title = media.title,
-                                detail = "Sent to Seerr",
-                                time = "Just now",
+                                detail = "Sendt til Seerr",
+                                time = "No nettopp",
                                 source = ServiceKind.SEERR,
                                 artworkRes = media.artworkRes,
                                 artworkUrl = media.artworkUrl,
                             ),
                         ) + current.activity,
                         requestingMediaIds = current.requestingMediaIds - id,
-                        snackbar = "Request sent to Seerr",
+                        snackbar = "Bestillinga er send til Seerr",
                     )
                 } else {
                     current.copy(
                         requestingMediaIds = current.requestingMediaIds - id,
-                        snackbar = "Seerr could not accept this request",
+                        snackbar = "Seerr kunne ikkje ta imot bestillinga",
                     )
                 }
             }
@@ -251,7 +241,7 @@ class ReelstackViewModel(
                     liveActivity = false,
                     failedServices = emptySet(),
                     hasCachedData = false,
-                    snackbar = if (userInitiated) "Connect a service to start live sync" else it.snackbar,
+                    snackbar = if (userInitiated) "Kople til ei teneste for å starte synkronisering" else it.snackbar,
                 )
             }
             return
@@ -330,15 +320,15 @@ class ReelstackViewModel(
                     },
                     connections = current.connections.map { connection ->
                         when {
-                            connection.baseUrl.isBlank() -> connection.copy(state = ConnectionState.DEMO, detail = "Demo data")
+                            connection.baseUrl.isBlank() -> connection.copy(state = ConnectionState.DEMO, detail = "Demodata")
                             connection.kind in snapshot.errors -> connection.copy(
                                 state = ConnectionState.ERROR,
                                 detail = snapshot.errors.getValue(connection.kind),
                             )
                             connection.kind in snapshot.successfulServices -> connection.copy(
                                 state = ConnectionState.CONNECTED,
-                                detail = snapshot.warnings[connection.kind]?.let { "Connected · $it" }
-                                    ?: "Live · updated just now",
+                                detail = snapshot.warnings[connection.kind]?.let { "Tilkopla · $it" }
+                                    ?: "Aktiv · oppdatert no",
                             )
                             else -> connection
                         }
@@ -356,9 +346,9 @@ class ReelstackViewModel(
                     serviceWarnings = snapshot.warnings,
                     snackbar = if (userInitiated) {
                         when {
-                            snapshot.errors.isNotEmpty() -> "Updated with ${snapshot.errors.size} service issue${if (snapshot.errors.size == 1) "" else "s"}"
-                            snapshot.warnings.isNotEmpty() -> "Connected, but some sections need attention"
-                            else -> "Everything is up to date"
+                            snapshot.errors.isNotEmpty() -> "Oppdatert · ${snapshot.errors.size} teneste${if (snapshot.errors.size == 1) "" else "r"} må sjekkast"
+                            snapshot.warnings.isNotEmpty() -> "Tilkopla, men nokre delar må sjekkast"
+                            else -> "Alt er oppdatert"
                         }
                     } else current.snackbar,
                 )
@@ -374,7 +364,7 @@ class ReelstackViewModel(
     fun setWifiOnly(enabled: Boolean) {
         container.preferencesRepository.wifiOnly = enabled
         BackgroundRefreshScheduler.schedule(container.appContext, enabled)
-        _uiState.update { it.copy(wifiOnly = enabled, snackbar = "Background refresh updated") }
+        _uiState.update { it.copy(wifiOnly = enabled, snackbar = "Bakgrunnsoppdateringa er endra") }
     }
 
     fun setHomeSectionVisible(section: HomeSection, visible: Boolean) {
@@ -394,7 +384,7 @@ class ReelstackViewModel(
             error = null,
             warning = runCatching {
                 if (value.isNotBlank() && EndpointValidator.isCleartext(value)) {
-                    "HTTP is unencrypted. Prefer HTTPS outside your trusted LAN."
+                    "HTTP er ukryptert. Bruk helst HTTPS utanfor det trygge lokalnettet ditt."
                 } else null
             }.getOrNull(),
         )
@@ -406,11 +396,11 @@ class ReelstackViewModel(
         val draft = connectionDraft.value ?: return
         val normalizedUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
             .getOrElse {
-                updateDraft { copy(error = it.message ?: "Enter a valid server address") }
+                updateDraft { copy(error = it.message ?: "Skriv inn ei gyldig tenaradresse") }
                 return
             }
         if (draft.token.isBlank()) {
-            updateDraft { copy(error = "Enter an API key or access token") }
+            updateDraft { copy(error = "Skriv inn ein API-nøkkel eller eit tilgangsteikn") }
             return
         }
 
@@ -429,7 +419,7 @@ class ReelstackViewModel(
                 withContext(Dispatchers.IO) { container.connectionTester.test(candidate) }
             }.getOrElse { error ->
                 updateDraft {
-                    copy(saving = false, error = error.message ?: "Could not reach this service")
+                    copy(saving = false, error = error.message ?: "Fekk ikkje kontakt med tenesta")
                 }
                 return@launch
             }
@@ -449,7 +439,7 @@ class ReelstackViewModel(
                 state.copy(
                     connections = state.connections.map { if (it.kind == saved.kind) saved else it },
                     activeSheet = null,
-                    snackbar = "${saved.kind.displayName} connected in ${result.latencyMs} ms",
+                    snackbar = "${saved.kind.displayName} vart kopla til på ${result.latencyMs} ms",
                 )
             }
             connectionDraft.value = null
@@ -466,7 +456,7 @@ class ReelstackViewModel(
                 connections = remaining,
                 activeSheet = null,
                 failedServices = it.failedServices - kind,
-                snackbar = "${kind.displayName} connection removed",
+                snackbar = "Tilkoplinga til ${kind.displayName} er fjerna",
             )
         }
         connectionDraft.value = null
@@ -542,12 +532,12 @@ private fun initialState(container: AppContainer): ReelstackUiState {
 private fun demoSessions() = listOf(
     PlaybackSession(
         userName = "Maya",
-        deviceName = "Living room TV",
+        deviceName = "TV i stova",
         title = "Severance",
         subtitle = "S02  E04",
         progress = 0.58f,
-        timeLeft = "32 min left",
-        streamMethod = "Direct play",
+        timeLeft = "32 min att",
+        streamMethod = "Direkteavspeling",
         quality = "4K",
         paused = false,
         sessionId = "demo-living-room",
@@ -555,12 +545,12 @@ private fun demoSessions() = listOf(
     ),
     PlaybackSession(
         userName = "Jonas",
-        deviceName = "Pixel Tablet",
+        deviceName = "Pixel-nettbrett",
         title = "The Bear",
         subtitle = "S03  E02",
         progress = 0.31f,
-        timeLeft = "24 min left",
-        streamMethod = "Direct play",
+        timeLeft = "24 min att",
+        streamMethod = "Direkteavspeling",
         quality = "1080p",
         paused = true,
         sessionId = "demo-tablet",
@@ -572,7 +562,7 @@ private fun demoRecentMovies() = listOf(
     LibraryMedia(
         id = "recent-odyssey",
         title = "The Odyssey",
-        subtitle = "Movie · 2026",
+        subtitle = "Film · 2026",
         artworkRes = R.drawable.desert_arrival,
         source = ServiceKind.JELLYFIN,
     ),
@@ -582,7 +572,7 @@ private fun demoRecentSeries() = listOf(
     LibraryMedia(
         id = "recent-severance",
         title = "Severance",
-        subtitle = "Series · 2 seasons",
+        subtitle = "Serie · 2 sesongar",
         artworkRes = R.drawable.session_still,
         source = ServiceKind.JELLYFIN,
     ),
@@ -593,7 +583,7 @@ private fun demoUpcoming() = listOf(
         id = "upcoming-andor",
         title = "Andor",
         subtitle = "S02 E07 · Messenger",
-        dateLabel = "Tonight · 21:00",
+        dateLabel = "I kveld · 21:00",
         airDateEpochMillis = System.currentTimeMillis() + 3_600_000,
         artworkRes = R.drawable.kitchen_request,
         source = ServiceKind.SONARR,
@@ -601,8 +591,8 @@ private fun demoUpcoming() = listOf(
     UpcomingMedia(
         id = "upcoming-odyssey",
         title = "The Odyssey",
-        subtitle = "Movie · 2026",
-        dateLabel = "Tomorrow",
+        subtitle = "Film · 2026",
+        dateLabel = "I morgon",
         airDateEpochMillis = System.currentTimeMillis() + 86_400_000,
         artworkRes = R.drawable.desert_arrival,
         source = ServiceKind.RADARR,
@@ -614,7 +604,7 @@ private fun demoIncoming() = listOf(
         id = "dune-messiah",
         title = "Dune: Messiah",
         source = ServiceKind.RADARR,
-        status = "Downloading 68%",
+        status = "Lastar ned 68 %",
         state = IncomingState.DOWNLOADING,
         artworkRes = R.drawable.desert_arrival,
     ),
@@ -622,19 +612,19 @@ private fun demoIncoming() = listOf(
         id = "the-bear",
         title = "The Bear",
         source = ServiceKind.SONARR,
-        status = "Requested",
+        status = "Bestilt",
         state = IncomingState.REQUESTED,
         artworkRes = R.drawable.kitchen_request,
     ),
 )
 
 private fun demoDiscover() = listOf(
-    DiscoverMedia("last-horizon", "The Last Horizon", "Movie · 2026", R.drawable.desert_arrival, false),
-    DiscoverMedia("service", "Service", "Series · 3 seasons", R.drawable.kitchen_request, true),
+    DiscoverMedia("last-horizon", "The Last Horizon", "Film · 2026", R.drawable.desert_arrival, false),
+    DiscoverMedia("service", "Service", "Serie · 3 sesongar", R.drawable.kitchen_request, true),
 )
 
 private fun demoActivity() = listOf(
-    ActivityEvent("odyssey", "The Odyssey", "Approved by Seerr", "2 min ago", complete = true, source = ServiceKind.SEERR, artworkRes = R.drawable.desert_arrival),
-    ActivityEvent("alien-earth", "Alien: Earth", "Sonarr · Downloading 42%", "8 min ago", progress = 42, source = ServiceKind.SONARR, artworkRes = R.drawable.kitchen_request),
-    ActivityEvent("mickey-17", "Mickey 17", "Imported by Radarr", "Yesterday", complete = true, source = ServiceKind.RADARR, artworkRes = R.drawable.desert_arrival),
+    ActivityEvent("odyssey", "The Odyssey", "Godkjend i Seerr", "For 2 min sidan", complete = true, source = ServiceKind.SEERR, artworkRes = R.drawable.desert_arrival),
+    ActivityEvent("alien-earth", "Alien: Earth", "Sonarr · lastar ned 42 %", "For 8 min sidan", progress = 42, source = ServiceKind.SONARR, artworkRes = R.drawable.kitchen_request),
+    ActivityEvent("mickey-17", "Mickey 17", "Importert av Radarr", "I går", complete = true, source = ServiceKind.RADARR, artworkRes = R.drawable.desert_arrival),
 )

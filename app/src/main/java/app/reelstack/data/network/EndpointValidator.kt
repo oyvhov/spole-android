@@ -8,15 +8,15 @@ object EndpointValidator {
             if (it.contains("://")) it else "https://$it"
         }
         val uri = runCatching { URI(candidate) }
-            .getOrElse { throw IllegalArgumentException("Enter a valid server address") }
+            .getOrElse { throw IllegalArgumentException("Skriv inn ei gyldig tenaradresse") }
 
         require(uri.scheme == "http" || uri.scheme == "https") {
-            "Only HTTP and HTTPS addresses are supported"
+            "Berre HTTP- og HTTPS-adresser er støtta"
         }
-        require(!uri.host.isNullOrBlank()) { "Enter a complete server address" }
-        require(uri.userInfo == null) { "Do not put credentials in the server address" }
+        require(!uri.host.isNullOrBlank()) { "Skriv inn ei fullstendig tenaradresse" }
+        require(uri.userInfo == null) { "Ikkje legg inn påloggingsdata i tenaradressa" }
         require(uri.scheme != "http" || isTrustedLanHost(uri.host)) {
-            "Plain HTTP is only allowed for localhost or private LAN addresses"
+            "Vanleg HTTP er berre tillate for localhost eller private lokalnettadresser"
         }
 
         val path = (uri.path ?: "").trimEnd('/')

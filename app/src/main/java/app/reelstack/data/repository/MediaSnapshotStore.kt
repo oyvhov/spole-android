@@ -104,12 +104,12 @@ class MediaSnapshotStore(context: Context) {
         val title = item.string("title") ?: return null
         return PlaybackSession(
             userName = userName,
-            deviceName = item.string("deviceName") ?: "Unknown device",
+            deviceName = item.string("deviceName") ?: "Ukjend eining",
             title = title,
             subtitle = item.string("subtitle").orEmpty(),
             progress = item.float("progress") ?: 0f,
-            timeLeft = item.string("timeLeft") ?: "",
-            streamMethod = item.string("streamMethod") ?: "Auto",
+            timeLeft = item.string("timeLeft")?.nynorskLegacyText() ?: "",
+            streamMethod = item.string("streamMethod")?.nynorskLegacyText() ?: "Auto",
             quality = item.string("quality") ?: "Auto",
             paused = item.bool("paused") ?: false,
             artworkUrl = item.string("artworkUrl"),
@@ -136,7 +136,7 @@ class MediaSnapshotStore(context: Context) {
         return LibraryMedia(
             id = item.string("id") ?: return null,
             title = item.string("title") ?: return null,
-            subtitle = item.string("subtitle").orEmpty(),
+            subtitle = item.string("subtitle").orEmpty().nynorskLegacyText(),
             progress = item.float("progress"),
             artworkRes = R.drawable.media_placeholder,
             source = item.enumValue<ServiceKind>("source") ?: return null,
@@ -147,6 +147,7 @@ class MediaSnapshotStore(context: Context) {
     private fun looksLikeSeries(item: LibraryMedia): Boolean =
         item.subtitle.startsWith("S", ignoreCase = true) ||
             item.subtitle.contains("Series", ignoreCase = true) ||
+            item.subtitle.contains("Serie", ignoreCase = true) ||
             item.subtitle.contains("Episode", ignoreCase = true)
 
     private fun upcomingJson(items: List<UpcomingMedia>) = buildJsonArray {
@@ -169,8 +170,8 @@ class MediaSnapshotStore(context: Context) {
         return UpcomingMedia(
             id = item.string("id") ?: return null,
             title = item.string("title") ?: return null,
-            subtitle = item.string("subtitle").orEmpty(),
-            dateLabel = item.string("dateLabel") ?: "Upcoming",
+            subtitle = item.string("subtitle").orEmpty().nynorskLegacyText(),
+            dateLabel = item.string("dateLabel")?.nynorskLegacyText() ?: "Kjem snart",
             airDateEpochMillis = item.long("airDate") ?: return null,
             artworkRes = if (source == ServiceKind.RADARR || index % 2 == 0) R.drawable.desert_arrival else R.drawable.kitchen_request,
             source = source,
@@ -198,7 +199,7 @@ class MediaSnapshotStore(context: Context) {
             id = item.string("id") ?: return null,
             title = item.string("title") ?: return null,
             source = source,
-            status = item.string("status") ?: "Queued",
+            status = item.string("status")?.nynorskLegacyText() ?: "I kø",
             state = item.enumValue<IncomingState>("state") ?: IncomingState.REQUESTED,
             artworkRes = if (source == ServiceKind.RADARR) R.drawable.desert_arrival else R.drawable.kitchen_request,
             artworkUrl = item.string("artworkUrl"),
@@ -226,7 +227,7 @@ class MediaSnapshotStore(context: Context) {
         return DiscoverMedia(
             id = item.string("id") ?: return null,
             title = item.string("title") ?: return null,
-            metadata = item.string("metadata").orEmpty(),
+            metadata = item.string("metadata").orEmpty().nynorskLegacyText(),
             artworkRes = if (mediaType == "tv") R.drawable.kitchen_request else R.drawable.desert_arrival,
             inLibrary = item.bool("inLibrary") ?: false,
             requested = item.bool("requested") ?: false,
@@ -256,8 +257,8 @@ class MediaSnapshotStore(context: Context) {
         return ActivityEvent(
             id = item.string("id") ?: return null,
             title = item.string("title") ?: return null,
-            detail = item.string("detail").orEmpty(),
-            time = item.string("time") ?: "Recently",
+            detail = item.string("detail").orEmpty().nynorskLegacyText(),
+            time = item.string("time")?.nynorskLegacyText() ?: "Nyleg",
             progress = item.int("progress"),
             complete = item.bool("complete") ?: false,
             source = item.enumValue<ServiceKind>("source"),
@@ -269,6 +270,21 @@ class MediaSnapshotStore(context: Context) {
             artworkUrl = item.string("artworkUrl"),
         )
     }
+
+    private fun String.nynorskLegacyText(): String = this
+        .replace("Direct play", "Direkteavspeling", ignoreCase = true)
+        .replace(" min left", " min att", ignoreCase = true)
+        .replace("Movie ·", "Film ·", ignoreCase = true)
+        .replace("Series ·", "Serie ·", ignoreCase = true)
+        .replace("Tonight", "I kveld", ignoreCase = true)
+        .replace("Tomorrow", "I morgon", ignoreCase = true)
+        .replace("Today", "I dag", ignoreCase = true)
+        .replace("Downloading", "Lastar ned", ignoreCase = true)
+        .replace("Requested", "Bestilt", ignoreCase = true)
+        .replace("Approved by Seerr", "Godkjend i Seerr", ignoreCase = true)
+        .replace("Imported by Radarr", "Importert av Radarr", ignoreCase = true)
+        .replace(Regex("(\\d+) min ago", RegexOption.IGNORE_CASE), "For $1 min sidan")
+        .replace("Yesterday", "I går", ignoreCase = true)
 
     private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
     private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull

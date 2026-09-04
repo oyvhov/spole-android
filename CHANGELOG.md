@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.5
+
+- Gave Jellyfin and Emby separate recently-added movie and series rows instead of mixing their libraries.
+- Replaced letter badges with tiny service logos on media cards and row headings.
+- Added Jellyfin and Emby brand marks to their Settings connection rows.
+- Removed the connection count and sync warning from the Home header.
+- Localized navigation, controls, states, empty messages, and errors into Nynorsk.
+- Added an Android regression test that verifies both servers render as separate Home rows.
+
 ## 0.4.4
 
 - Removed Continue Watching from Home, Settings, syncing, and cached dashboard data.

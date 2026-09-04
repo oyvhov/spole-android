@@ -104,7 +104,7 @@ class ServicePayloadParserTest {
         val item = ServicePayloadParser.queue(payload, ServiceKind.RADARR).single()
 
         assertEquals("Dune: Messiah", item.title)
-        assertEquals("Downloading 75%", item.status)
+        assertEquals("Lastar ned 75 %", item.status)
         assertEquals(75, item.progress)
         assertEquals(IncomingState.DOWNLOADING, item.state)
         assertEquals("https://art.example/poster.jpg", item.artworkUrl)
@@ -133,7 +133,7 @@ class ServicePayloadParserTest {
         val item = ServicePayloadParser.upcoming(payload, ServiceKind.RADARR).single()
 
         assertEquals("The Odyssey", item.title)
-        assertEquals("Movie · 2026", item.subtitle)
+        assertEquals("Film · 2026", item.subtitle)
         assertEquals("2026-09-08T00:00:00Z", item.dateTime)
         assertEquals("https://art.example/odyssey.jpg", item.artworkUrl)
     }
@@ -164,10 +164,10 @@ class ServicePayloadParserTest {
         val items = ServicePayloadParser.discover(payload)
 
         assertTrue(items[0].inLibrary)
-        assertEquals("Movie · 2026", items[0].metadata)
+        assertEquals("Film · 2026", items[0].metadata)
         assertEquals("https://image.tmdb.org/t/p/w500/horizon.jpg", items[0].artworkUrl)
         assertTrue(items[1].requested)
-        assertEquals("Series · 2025", items[1].metadata)
+        assertEquals("Serie · 2025", items[1].metadata)
     }
 
     @Test

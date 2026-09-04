@@ -69,6 +69,7 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.R
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.theme.Caution
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
@@ -108,15 +109,15 @@ fun DiscoverScreen(
         item {
             ScreenHeader(
                 kicker = "Jellyfin + Seerr",
-                title = "Discover",
-                lede = "Search your library and request what is missing.",
+                title = "Oppdag",
+                lede = "Søk i biblioteket og bestill det som manglar.",
             )
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = onSearch,
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                placeholder = { Text("Movies, shows, people") },
+                placeholder = { Text("Filmar, seriar, personar") },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 shape = RoundedCornerShape(21.dp),
@@ -132,9 +133,9 @@ fun DiscoverScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 27.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 14.dp, bottom = 8.dp)) {
-                FilterChip(selected = true, onClick = {}, label = { Text("For you") }, colors = filterColors())
-                FilterChip(selected = false, onClick = {}, label = { Text("Movies") }, colors = filterColors())
-                FilterChip(selected = false, onClick = {}, label = { Text("Series") }, colors = filterColors())
+                FilterChip(selected = true, onClick = {}, label = { Text("For deg") }, colors = filterColors())
+                FilterChip(selected = false, onClick = {}, label = { Text("Filmar") }, colors = filterColors())
+                FilterChip(selected = false, onClick = {}, label = { Text("Seriar") }, colors = filterColors())
             }
         }
 
@@ -146,7 +147,7 @@ fun DiscoverScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x26E2D5FF)),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("No matches yet. Try a broader title.", color = Muted, modifier = Modifier.padding(30.dp))
+                    Text("Ingen treff enno. Prøv eit breiare søk.", color = Muted, modifier = Modifier.padding(30.dp))
                 }
             }
         } else {
@@ -187,7 +188,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             )
             Column(modifier = Modifier.height(158.dp).weight(1f).padding(start = 17.dp)) {
                 Text(
-                    if (media.inLibrary) "IN YOUR LIBRARY" else "AVAILABLE TO REQUEST",
+                    if (media.inLibrary) "I BIBLIOTEKET DITT" else "KAN BESTILLAST",
                     color = if (media.inLibrary) Success else PrimarySoft,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -198,7 +199,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                 if (media.inLibrary) {
                     androidx.compose.material3.TextButton(onClick = {}) {
                         Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Play", modifier = Modifier.padding(start = 5.dp))
+                        Text("Spel av", modifier = Modifier.padding(start = 5.dp))
                     }
                 } else {
                     Button(
@@ -219,9 +220,9 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                         }
                         Text(
                             when {
-                                requesting -> "Sending…"
-                                media.requested -> "Requested"
-                                else -> "Request"
+                                requesting -> "Sender…"
+                                media.requested -> "Bestilt"
+                                else -> "Bestill"
                             },
                             modifier = Modifier.padding(start = 6.dp),
                         )
@@ -242,9 +243,9 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
     ) {
         item {
             ScreenHeader(
-                kicker = "Across your stack",
-                title = "Activity",
-                lede = "Requests and downloads, translated into one clear flow.",
+                kicker = "I heile mediestakken",
+                title = "Aktivitet",
+                lede = "Bestillingar og nedlastingar samla i éi oversikt.",
             )
             Surface(
                 shape = RoundedCornerShape(20.dp),
@@ -261,10 +262,10 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
                         Icon(Icons.Rounded.Wifi, contentDescription = null, tint = statusColor, modifier = Modifier.size(19.dp))
                         Text(
                             when {
-                                state.isRefreshing -> "Refreshing services"
-                                state.configuredCount == 0 -> "Preview activity"
-                                hasIssues -> "${state.failedServices.size} service${if (state.failedServices.size == 1) "" else "s"} need attention"
-                                else -> "All services online"
+                                state.isRefreshing -> "Oppdaterer tenestene"
+                                state.configuredCount == 0 -> "Førehandsvising"
+                                hasIssues -> "${state.failedServices.size} teneste${if (state.failedServices.size == 1) "" else "r"} må sjekkast"
+                                else -> "Alle tenestene er på nett"
                             },
                             color = statusColor,
                             fontSize = 13.sp,
@@ -272,7 +273,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
                         )
                     }
                     Text(
-                        if (state.configuredCount == 0) "Demo" else "${state.onlineCount}/${state.configuredCount} live",
+                        if (state.configuredCount == 0) "Demo" else "${state.onlineCount}/${state.configuredCount} aktive",
                         color = Color(0xFFDBF9E9),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -287,7 +288,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues) {
                     color = SurfaceRaised.copy(alpha = 0.82f),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("No recent activity. Your stack is quiet.", color = Muted, modifier = Modifier.padding(22.dp))
+                    Text("Ingen ny aktivitet. Alt er roleg.", color = Muted, modifier = Modifier.padding(22.dp))
                 }
             }
         } else {
@@ -351,40 +352,40 @@ fun SettingsScreen(
         item {
             ScreenHeader(
                 kicker = "HomeReel",
-                title = "Settings",
-                lede = "Connections, preferences, and privacy.",
+                title = "Innstillingar",
+                lede = "Tilkoplingar, val og personvern.",
             )
-            SettingsSectionTitle("Connected services")
+            SettingsSectionTitle("Tilkopla tenester")
         }
         items(state.connections, key = { it.kind }) { connection ->
             ServiceRow(connection = connection, onClick = { onConnectionClick(connection.kind) })
         }
         item {
-            SettingsSectionTitle("Home screen")
+            SettingsSectionTitle("Heimskjerm")
             Text(
-                "Every connected service contributes automatically. Choose which sections stay on Home.",
+                "Kvar teneste får sine eigne delar. Vel kva som skal visast på Heim.",
                 color = Muted,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
-            HomeSectionRow(HomeSection.NOW_PLAYING, "Now playing", "Active sessions from Jellyfin and Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECENT_MOVIES, "Recently added movies", "Latest movies from Jellyfin and Emby", Icons.Rounded.Movie, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECENT_SERIES, "Recently added series", "Latest series and episodes from both media servers", Icons.Rounded.Tv, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.UPCOMING, "Upcoming", "Monitored releases from Radarr and Sonarr", Icons.Rounded.Notifications, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.DOWNLOADS, "Downloads", "Current Radarr and Sonarr queues", Icons.Rounded.Download, state, onHomeSectionChange)
-            SettingsSectionTitle("Preferences")
+            HomeSectionRow(HomeSection.NOW_PLAYING, "Spelar no", "Aktive avspelingar frå Jellyfin og Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECENT_MOVIES, "Nyleg lagde til filmar", "Eigne filmrader for Jellyfin og Emby", Icons.Rounded.Movie, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECENT_SERIES, "Nyleg lagde til seriar", "Eigne serierader for Jellyfin og Emby", Icons.Rounded.Tv, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.Notifications, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.DOWNLOADS, "Nedlastingar", "Aktive køar i Radarr og Sonarr", Icons.Rounded.Download, state, onHomeSectionChange)
+            SettingsSectionTitle("Val")
             PreferenceRow(
                 icon = Icons.Rounded.Notifications,
-                label = "Activity notifications",
-                description = "Notify when requests and downloads change",
+                label = "Aktivitetsvarsel",
+                description = "Varsle når bestillingar og nedlastingar endrar seg",
                 checked = state.notificationsEnabled,
                 onCheckedChange = onNotificationsChange,
             )
             PreferenceRow(
                 icon = Icons.Rounded.Wifi,
-                label = "Sync on Wi-Fi only",
-                description = "Limit background refresh to unmetered networks",
+                label = "Synkroniser berre på Wi-Fi",
+                description = "Avgrens bakgrunnsoppdatering til nett utan datakostnad",
                 checked = state.wifiOnly,
                 onCheckedChange = onWifiOnlyChange,
             )
@@ -397,8 +398,8 @@ fun SettingsScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(17.dp)) {
                     Icon(Icons.Rounded.Security, contentDescription = null, tint = Success, modifier = Modifier.size(24.dp))
                     Column(Modifier.padding(start = 12.dp)) {
-                        Text("Direct and private", color = Color(0xFFE1F8EB), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("API credentials are encrypted on this device.", color = Color(0xFFB8CFC2), fontSize = 11.sp)
+                        Text("Direkte og privat", color = Color(0xFFE1F8EB), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("API-nøklane er krypterte på denne eininga.", color = Color(0xFFB8CFC2), fontSize = 11.sp)
                     }
                 }
             }
@@ -415,7 +416,7 @@ private fun SettingsSectionTitle(text: String) {
 private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
     val connected = connection.state == ConnectionState.CONNECTED
     val hasError = connection.state == ConnectionState.ERROR
-    val hasWarning = connected && connection.detail?.startsWith("Connected ·") == true
+    val hasWarning = connected && connection.detail?.startsWith("Tilkopla ·") == true
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
@@ -424,25 +425,29 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             contentAlignment = Alignment.Center,
             modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Primary.copy(alpha = 0.17f)),
         ) {
-            Icon(
-                when (connection.kind) {
-                    ServiceKind.JELLYFIN, ServiceKind.EMBY -> Icons.Rounded.Tv
-                    ServiceKind.SEERR -> Icons.Rounded.CloudDone
-                    ServiceKind.RADARR, ServiceKind.SONARR -> Icons.Rounded.Movie
-                },
-                contentDescription = null,
-                tint = PrimarySoft,
-                modifier = Modifier.size(21.dp),
-            )
+            if (connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY) {
+                ServiceLogo(
+                    kind = connection.kind,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+            } else {
+                Icon(
+                    if (connection.kind == ServiceKind.SEERR) Icons.Rounded.CloudDone else Icons.Rounded.Movie,
+                    contentDescription = null,
+                    tint = PrimarySoft,
+                    modifier = Modifier.size(21.dp),
+                )
+            }
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(connection.kind.displayName, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 when (connection.state) {
-                    ConnectionState.CONNECTED -> connection.detail ?: "Connected"
-                    ConnectionState.TESTING -> "Checking connection…"
-                    ConnectionState.ERROR -> connection.detail ?: "Needs attention · Tap to fix"
-                    ConnectionState.DEMO -> "Demo data · Tap to connect"
+                    ConnectionState.CONNECTED -> connection.detail ?: "Tilkopla"
+                    ConnectionState.TESTING -> "Sjekkar tilkoplinga…"
+                    ConnectionState.ERROR -> connection.detail ?: "Må sjekkast · Trykk for å rette"
+                    ConnectionState.DEMO -> "Demodata · Trykk for å kople til"
                 },
                 color = when {
                     hasWarning -> Caution
