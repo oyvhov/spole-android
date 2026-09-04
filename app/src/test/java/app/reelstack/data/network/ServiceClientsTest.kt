@@ -1,0 +1,126 @@
+package app.reelstack.data.network
+
+import app.reelstack.data.model.ConnectionState
+import app.reelstack.data.model.ServiceConnection
+import app.reelstack.data.model.ServiceKind
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ServiceClientsTest {
+    @Test
+    fun seerrConnectionProbeUsesAuthenticatedEndpoint() {
+        val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(401, "{}")))
+
+        val result = ServiceConnectionTester(transport).test(connection(ServiceKind.SEERR, "bad-key"))
+
+        assertFalse(result.success)
+        assertEquals("The API key was rejected", result.message)
+        assertTrue(transport.lastUrl.contains("/api/v1/request?take=1&skip=0"))
+    }
+
+    @Test
+    fun mediaServerTokenStaysInHeader() {
+        val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, "[]")))
+        val connection = connection(ServiceKind.JELLYFIN, "very-secret-token")
+
+        MediaServerClient(transport).sessions(connection)
+
+        assertEquals("very-secret-token", transport.lastHeaders["X-Emby-Token"])
+        assertFalse(transport.lastUrl.contains("very-secret-token"))
+        assertTrue(transport.lastUrl.endsWith("/Sessions"))
+    }
+
+    @Test
+    fun mediaFeedLoadsResumeAndLatestForConfiguredUser() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(200, "[]"),
+                HttpResponse(200, """{"Items":[{"Id":"resume-1","Name":"Foundation"}]}"""),
+                HttpResponse(200, """[{"Id":"latest-1","Name":"The Odyssey"}]"""),
+            ),
+        )
+        val connection = connection(ServiceKind.JELLYFIN, "secret").copy(userId = "user 9")
+
+        val feed = MediaServerClient(transport).feed(connection)
+
+        assertEquals("Foundation", feed.continueWatching.single().title)
+        assertEquals("The Odyssey", feed.recentlyAdded.single().title)
+        assertTrue(transport.urls[1].contains("Items/Resume?UserId=user+9"))
+        assertTrue(transport.urls[2].contains("Items/Latest?UserId=user+9"))
+        assertTrue(transport.headers.all { it["X-Emby-Token"] == "secret" })
+    }
+
+    @Test
+    fun playbackPauseUsesAuthenticatedSessionCommand() {
+        val transport = RecordingTransport(postResponse = HttpResponse(204, ""))
+        val connection = connection(ServiceKind.EMBY, "emby-secret")
+
+        MediaServerClient(transport).setPaused(connection, sessionId = "session 1", paused = true)
+
+        assertTrue(transport.lastUrl.endsWith("/Sessions/session+1/Playing/Pause"))
+        assertEquals("emby-secret", transport.lastHeaders["X-Emby-Token"])
+        assertEquals("{}", transport.lastBody)
+    }
+
+    @Test
+    fun radarrTokenStaysInHeader() {
+        val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, "{\"records\":[]}")))
+        val connection = connection(ServiceKind.RADARR, "arr-secret")
+
+        QueueServiceClient(transport).queue(connection)
+
+        assertEquals("arr-secret", transport.lastHeaders["X-Api-Key"])
+        assertFalse(transport.lastUrl.contains("arr-secret"))
+        assertTrue(transport.lastUrl.contains("/api/v3/queue?"))
+    }
+
+    @Test
+    fun televisionRequestIncludesAllSeasons() {
+        val transport = RecordingTransport(postResponse = HttpResponse(201, "{}"))
+        val connection = connection(ServiceKind.SEERR, "seerr-secret")
+
+        SeerrServiceClient(transport).request(connection, mediaType = "tv", remoteId = 202)
+
+        assertEquals("seerr-secret", transport.lastHeaders["X-Api-Key"])
+        assertEquals("{\"mediaType\":\"tv\",\"mediaId\":202,\"seasons\":\"all\"}", transport.lastBody)
+        assertFalse(transport.lastUrl.contains("seerr-secret"))
+    }
+
+    private fun connection(kind: ServiceKind, token: String) = ServiceConnection(
+        kind = kind,
+        name = kind.displayName,
+        baseUrl = "https://media.example.com",
+        token = token,
+        state = ConnectionState.CONNECTED,
+    )
+
+    private class RecordingTransport(
+        private val getResponses: MutableList<HttpResponse> = mutableListOf(),
+        private val postResponse: HttpResponse = HttpResponse(200, "{}"),
+    ) : JsonHttpTransport {
+        var lastUrl: String = ""
+        var lastHeaders: Map<String, String> = emptyMap()
+        var lastBody: String = ""
+        val urls = mutableListOf<String>()
+        val headers = mutableListOf<Map<String, String>>()
+
+        override fun get(url: String, headers: Map<String, String>): HttpResponse {
+            lastUrl = url
+            lastHeaders = headers
+            urls += url
+            this.headers += headers
+            return getResponses.removeAt(0)
+        }
+
+        override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse {
+            lastUrl = url
+            lastHeaders = headers
+            lastBody = jsonBody
+            urls += url
+            this.headers += headers
+            return postResponse
+        }
+    }
+}

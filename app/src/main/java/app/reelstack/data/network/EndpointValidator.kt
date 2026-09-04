@@ -1,0 +1,43 @@
+package app.reelstack.data.network
+
+import java.net.URI
+
+object EndpointValidator {
+    fun normalizeBaseUrl(value: String): String {
+        val candidate = value.trim().let {
+            if (it.contains("://")) it else "https://$it"
+        }
+        val uri = runCatching { URI(candidate) }
+            .getOrElse { throw IllegalArgumentException("Enter a valid server address") }
+
+        require(uri.scheme == "http" || uri.scheme == "https") {
+            "Only HTTP and HTTPS addresses are supported"
+        }
+        require(!uri.host.isNullOrBlank()) { "Enter a complete server address" }
+        require(uri.userInfo == null) { "Do not put credentials in the server address" }
+        require(uri.scheme != "http" || isTrustedLanHost(uri.host)) {
+            "Plain HTTP is only allowed for localhost or private LAN addresses"
+        }
+
+        val path = (uri.path ?: "").trimEnd('/')
+        return URI(uri.scheme, null, uri.host, uri.port, path.ifEmpty { null }, null, null).toString()
+    }
+
+    fun resolve(baseUrl: String, path: String): String =
+        "${normalizeBaseUrl(baseUrl)}/${path.trimStart('/')}"
+
+    fun isCleartext(baseUrl: String): Boolean =
+        runCatching { URI(normalizeBaseUrl(baseUrl)).scheme == "http" }.getOrDefault(false)
+
+    private fun isTrustedLanHost(host: String): Boolean {
+        val normalized = host.lowercase().trim('[', ']')
+        if (normalized == "localhost" || normalized == "::1" || normalized.endsWith(".local")) return true
+        if (normalized.startsWith("127.") || normalized.startsWith("10.") || normalized.startsWith("192.168.")) return true
+        val octets = normalized.split('.')
+        if (octets.size == 4 && octets[0] == "172") {
+            val second = octets[1].toIntOrNull()
+            if (second != null && second in 16..31) return true
+        }
+        return normalized.startsWith("fc") || normalized.startsWith("fd") || normalized.startsWith("fe80:")
+    }
+}

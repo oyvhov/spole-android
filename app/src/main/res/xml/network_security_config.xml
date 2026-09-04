@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Self-hosted media servers frequently use HTTP on a trusted LAN. The UI
+         surfaces a warning for these profiles; HTTPS remains recommended. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
+
