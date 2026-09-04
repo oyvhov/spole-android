@@ -18,7 +18,8 @@ One reliable place to answer three questions: **What is playing? What was just a
 
 - All connected servers at once, with no server/profile switcher
 - Current playback with seek progress and transport controls
-- Separate recently-added movie and series rows for each Jellyfin and Emby server
+- Separate recently-added movie and episode rows for each Jellyfin and Emby server, using poster and wide Thumb artwork respectively
+- Artwork-led upcoming rail plus a 28-day agenda for Radarr home releases and Sonarr episodes
 - Compact incoming movie and episode status
 - Tap any item for a detail sheet instead of losing dashboard context
 
@@ -62,6 +63,7 @@ One reliable place to answer three questions: **What is playing? What was just a
 - [x] Seerr trending discovery, request submission, and request-status feeds
 - [x] Radarr and Sonarr queue feeds
 - [x] Radarr and Sonarr calendar feeds
+- [x] Home-release filtering that excludes cinema-only Radarr dates
 - [ ] Radarr and Sonarr history feeds
 - [x] Stable domain mapping, empty states, pull-to-refresh, and partial-service failures
 - [x] Persistent non-secret dashboard cache with last-updated state
@@ -69,6 +71,7 @@ One reliable place to answer three questions: **What is playing? What was just a
 - [x] Live Seerr title search and service-enriched title detail sheets
 - [x] Native Jellyfin Quick Connect with automatic approval polling and secure token exchange
 - [x] Cinematic, artwork-led detail sheets for playback, library, discovery, and activity
+- [x] Media-aware detail composition: uncropped film poster beside text and wide series/episode artwork
 - [ ] Pagination and migration to a local Room cache
 
 Acceptance: replacing demo mode with a valid profile populates every screen from real services; one offline service does not break the others.

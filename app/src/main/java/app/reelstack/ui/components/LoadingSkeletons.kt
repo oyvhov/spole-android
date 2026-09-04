@@ -77,16 +77,18 @@ fun NowPlayingSkeleton(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun LibraryRailSkeleton(description: String, modifier: Modifier = Modifier) {
+fun LibraryRailSkeleton(description: String, wide: Boolean = false, modifier: Modifier = Modifier) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         userScrollEnabled = false,
         modifier = modifier.clearAndSetSemantics { contentDescription = description },
     ) {
         items(3) { index ->
-            Column(Modifier.width(146.dp)) {
+            val cardWidth = if (wide) 224.dp else 146.dp
+            val artworkHeight = if (wide) 126.dp else 192.dp
+            Column(Modifier.width(cardWidth)) {
                 ShimmerBlock(
-                    modifier = Modifier.fillMaxWidth().height(192.dp),
+                    modifier = Modifier.fillMaxWidth().height(artworkHeight),
                     shape = RoundedCornerShape(20.dp),
                 )
                 ShimmerBlock(
@@ -112,17 +114,14 @@ fun UpcomingSkeleton(modifier: Modifier = Modifier) {
         userScrollEnabled = false,
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar komande utgjevingar" },
     ) {
-        items(2) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.width(268.dp).height(136.dp).padding(10.dp),
-            ) {
-                ShimmerBlock(Modifier.size(width = 82.dp, height = 116.dp), RoundedCornerShape(15.dp))
-                Column(Modifier.padding(start = 13.dp)) {
-                    ShimmerBlock(Modifier.width(76.dp).height(10.dp), RoundedCornerShape(5.dp))
-                    ShimmerBlock(Modifier.padding(top = 12.dp).width(138.dp).height(17.dp), RoundedCornerShape(8.dp))
-                    ShimmerBlock(Modifier.padding(top = 8.dp).width(106.dp).height(10.dp), RoundedCornerShape(5.dp))
-                }
+        items(3) { index ->
+            Column(Modifier.width(178.dp)) {
+                ShimmerBlock(Modifier.fillMaxWidth().height(224.dp), RoundedCornerShape(24.dp))
+                ShimmerBlock(
+                    Modifier.padding(top = 10.dp).width(if (index == 1) 118.dp else 150.dp).height(15.dp),
+                    RoundedCornerShape(8.dp),
+                )
+                ShimmerBlock(Modifier.padding(top = 7.dp).width(96.dp).height(9.dp), RoundedCornerShape(5.dp))
             }
         }
     }

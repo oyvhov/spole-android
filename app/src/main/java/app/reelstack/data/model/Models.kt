@@ -64,6 +64,7 @@ data class LibraryMedia(
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
+    val mediaType: String = "Video",
 )
 
 data class UpcomingMedia(
@@ -78,6 +79,7 @@ data class UpcomingMedia(
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
+    val mediaType: String = "Video",
 )
 
 enum class IncomingState {
@@ -119,12 +121,14 @@ data class ContentDetails(
     val title: String,
     val eyebrow: String,
     val subtitle: String,
+    val tagline: String? = null,
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val artworkRes: Int,
     val artworkUrl: String? = null,
     val source: ServiceKind? = null,
+    val mediaType: String? = null,
     val loading: Boolean = false,
     val error: String? = null,
 )

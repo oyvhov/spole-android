@@ -18,10 +18,19 @@ class ReelstackSmokeTest {
 
     @Test
     fun homeScreenShowsCoreMediaState() {
-        composeRule.onNodeWithText("HomeReel").assertIsDisplayed()
+        composeRule.onNodeWithText("HomeReel").assertDoesNotExist()
         composeRule.onNodeWithText("Spelar no").assertIsDisplayed()
         composeRule.onNodeWithText("Førehandsvising").assertDoesNotExist()
         composeRule.onAllNodesWithText("Severance")[0].assertIsDisplayed()
+    }
+
+    @Test
+    fun upcomingOpensCalendarAgenda() {
+        repeat(2) { composeRule.onRoot().performTouchInput { swipeUp() } }
+        composeRule.onNodeWithText("Kalender").assertIsDisplayed().performClick()
+
+        composeRule.onNodeWithText("Komande 28 dagar · heimeutgjevingar og nye episodar")
+            .assertIsDisplayed()
     }
 
     @Test
@@ -38,7 +47,7 @@ class ReelstackSmokeTest {
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onAllNodesWithText("The Odyssey")[0].assertIsDisplayed().performClick()
 
-        composeRule.onNodeWithText("BIBLIOTEK I JELLYFIN").assertIsDisplayed()
+        composeRule.onNodeWithText("Om filmen").assertIsDisplayed()
     }
 
     @Test
@@ -67,6 +76,7 @@ class ReelstackSmokeTest {
     fun homeSectionsCanBeEditedInSettings() {
         composeRule.onNodeWithText("Innstillingar").performClick()
 
+        composeRule.onNodeWithText("HomeReel").assertIsDisplayed()
         composeRule.onNodeWithText("Heimskjerm").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Nyleg lagde til filmar").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Nyleg lagde til seriar").performScrollTo().assertIsDisplayed()

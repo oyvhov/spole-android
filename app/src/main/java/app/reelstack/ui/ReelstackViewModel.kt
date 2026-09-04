@@ -38,6 +38,7 @@ sealed interface AppSheet {
     data class MediaDetails(val mediaId: String) : AppSheet
     data class LibraryDetails(val mediaId: String) : AppSheet
     data class TitleDetails(val key: String) : AppSheet
+    data object UpcomingCalendar : AppSheet
     data class ConnectionEditor(val kind: ServiceKind) : AppSheet
 }
 
@@ -168,6 +169,7 @@ class ReelstackViewModel(
                     artworkRes = media.artworkRes,
                     artworkUrl = media.artworkUrl,
                     source = media.source,
+                    mediaType = media.mediaType,
                     loading = connection != null && media.remoteId != null,
                 ),
             )
@@ -183,7 +185,12 @@ class ReelstackViewModel(
                     onSuccess = { remote ->
                         current.copy(
                             contentDetails = details.copy(
-                                title = remote.title ?: details.title,
+                                title = if (media.mediaType.equals("Episode", true) || media.mediaType.equals("Series", true)) {
+                                    details.title
+                                } else {
+                                    remote.title ?: details.title
+                                },
+                                tagline = remote.tagline ?: details.tagline,
                                 overview = remote.overview ?: details.overview,
                                 facts = (remote.facts + details.facts).distinct(),
                                 genres = (remote.genres + details.genres).distinct(),
@@ -219,6 +226,7 @@ class ReelstackViewModel(
                     artworkRes = media.artworkRes,
                     artworkUrl = media.artworkUrl,
                     source = ServiceKind.SEERR,
+                    mediaType = media.mediaType,
                     loading = connection != null && media.remoteId != null && media.mediaType != null,
                 ),
             )
@@ -235,6 +243,7 @@ class ReelstackViewModel(
                         current.copy(
                             contentDetails = details.copy(
                                 title = remote.title ?: details.title,
+                                tagline = remote.tagline ?: details.tagline,
                                 overview = remote.overview ?: details.overview,
                                 facts = (remote.facts + details.facts).distinct(),
                                 genres = (remote.genres + details.genres).distinct(),
@@ -265,6 +274,7 @@ class ReelstackViewModel(
                 artworkRes = media.artworkRes,
                 artworkUrl = media.artworkUrl,
                 source = media.source,
+                mediaType = media.mediaType,
             ),
         )
     }
@@ -283,6 +293,7 @@ class ReelstackViewModel(
                 artworkRes = media.artworkRes,
                 artworkUrl = media.artworkUrl,
                 source = media.source,
+                mediaType = if (media.source == ServiceKind.RADARR) "Movie" else "Episode",
             ),
         )
     }
@@ -300,6 +311,7 @@ class ReelstackViewModel(
                 artworkRes = event.artworkRes ?: R.drawable.media_placeholder,
                 artworkUrl = event.artworkUrl,
                 source = event.source,
+                mediaType = if (event.source == ServiceKind.RADARR) "Movie" else null,
             ),
         )
     }
@@ -943,6 +955,7 @@ private fun demoRecentMovies() = listOf(
         subtitle = "Film · 2026",
         artworkRes = R.drawable.desert_arrival,
         source = ServiceKind.JELLYFIN,
+        mediaType = "Movie",
     ),
 )
 
@@ -953,6 +966,7 @@ private fun demoRecentSeries() = listOf(
         subtitle = "Serie · 2 sesongar",
         artworkRes = R.drawable.session_still,
         source = ServiceKind.JELLYFIN,
+        mediaType = "Series",
     ),
 )
 
@@ -965,6 +979,7 @@ private fun demoUpcoming() = listOf(
         airDateEpochMillis = System.currentTimeMillis() + 3_600_000,
         artworkRes = R.drawable.kitchen_request,
         source = ServiceKind.SONARR,
+        mediaType = "Episode",
     ),
     UpcomingMedia(
         id = "upcoming-odyssey",
@@ -974,6 +989,7 @@ private fun demoUpcoming() = listOf(
         airDateEpochMillis = System.currentTimeMillis() + 86_400_000,
         artworkRes = R.drawable.desert_arrival,
         source = ServiceKind.RADARR,
+        mediaType = "Movie",
     ),
 )
 

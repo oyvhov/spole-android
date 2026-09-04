@@ -13,6 +13,10 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import java.time.Instant
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import kotlin.math.roundToInt
 
 data class RemotePlayback(
@@ -38,6 +42,7 @@ data class RemoteLibraryItem(
     val progress: Float?,
     val mediaType: String,
     val artworkItemId: String?,
+    val artworkImageType: String = "Primary",
     val artworkUrl: String? = null,
     val overview: String? = null,
     val facts: List<String> = emptyList(),
@@ -70,6 +75,7 @@ data class RemoteUpcomingItem(
     val dateTime: String,
     val source: ServiceKind,
     val artworkUrl: String?,
+    val mediaType: String,
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
@@ -92,6 +98,7 @@ data class RemoteDiscoverItem(
 data class RemoteMediaDetails(
     val title: String?,
     val artworkUrl: String?,
+    val tagline: String? = null,
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
@@ -187,6 +194,7 @@ object ServicePayloadParser {
                 "S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"
             } else null
             val year = item.int("ProductionYear") ?: item.int("productionYear")
+            val artwork = libraryArtwork(item, id, mediaType)
             RemoteLibraryItem(
                 id = id,
                 title = series ?: name,
@@ -203,9 +211,8 @@ object ServicePayloadParser {
                     },
                 progress = progress,
                 mediaType = mediaType,
-                artworkItemId = item.string("SeriesId") ?: item.string("seriesId")
-                    ?: item.string("PrimaryImageItemId") ?: item.string("primaryImageItemId")
-                    ?: id,
+                artworkItemId = artwork.itemId,
+                artworkImageType = artwork.imageType,
                 overview = item.string("Overview") ?: item.string("overview"),
                 facts = libraryFacts(item, mediaType, runtime),
                 genres = stringArray(item, "Genres", "genres"),
@@ -224,7 +231,7 @@ object ServicePayloadParser {
         return records.mapNotNull { queueItem(it.jsonObject, source) }
     }
 
-    fun upcoming(payload: String, source: ServiceKind): List<RemoteUpcomingItem> {
+    fun upcoming(payload: String, source: ServiceKind, notBefore: Instant? = null): List<RemoteUpcomingItem> {
         require(source == ServiceKind.RADARR || source == ServiceKind.SONARR)
         val root = json.parseToJsonElement(payload)
         val items = when (root) {
@@ -237,10 +244,15 @@ object ServicePayloadParser {
             if (source == ServiceKind.RADARR) {
                 val id = item.int("id")?.toString() ?: return@mapNotNull null
                 val title = item.string("title") ?: return@mapNotNull null
-                val dateTime = item.string("digitalRelease")
-                    ?: item.string("physicalRelease")
-                    ?: item.string("inCinemas")
-                    ?: return@mapNotNull null
+                val digitalRelease = item.string("digitalRelease")
+                val physicalRelease = item.string("physicalRelease")
+                val release = listOfNotNull(
+                    digitalRelease?.let { it to "Digital utgjeving" },
+                    physicalRelease?.let { it to "Fysisk utgjeving" },
+                ).firstOrNull { (date, _) ->
+                    notBefore == null || parseUpcomingInstant(date)?.let { !it.isBefore(notBefore) } == true
+                } ?: return@mapNotNull null
+                val (dateTime, availability) = release
                 val year = item.int("year")
                 RemoteUpcomingItem(
                     id = id,
@@ -248,9 +260,10 @@ object ServicePayloadParser {
                     subtitle = listOfNotNull("Film", year?.toString()).joinToString(" · "),
                     dateTime = dateTime,
                     source = source,
-                    artworkUrl = secureArtwork(item),
+                    artworkUrl = secureArtwork(item, "poster"),
+                    mediaType = "Movie",
                     overview = item.string("overview"),
-                    facts = listOfNotNull("Film", year?.toString(), item.int("runtime")?.let { "$it min" }),
+                    facts = listOfNotNull("Film", year?.toString(), item.int("runtime")?.let { "$it min" }, availability),
                     genres = stringArray(item, "genres"),
                 )
             } else {
@@ -269,7 +282,9 @@ object ServicePayloadParser {
                     subtitle = listOfNotNull(episodeNumber, episodeTitle).joinToString(" · ").ifBlank { "Episode" },
                     dateTime = item.string("airDateUtc") ?: item.string("airDate") ?: return@mapNotNull null,
                     source = source,
-                    artworkUrl = series?.let(::secureArtwork) ?: secureArtwork(item),
+                    artworkUrl = series?.let { secureArtwork(it, "fanart") }
+                        ?: secureArtwork(item, "fanart"),
+                    mediaType = "Episode",
                     overview = series?.string("overview") ?: item.string("overview"),
                     facts = listOfNotNull(
                         "Serie",
@@ -335,6 +350,7 @@ object ServicePayloadParser {
         return RemoteMediaDetails(
             title = item.string("title") ?: item.string("name"),
             artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork),
+            tagline = item.string("tagline"),
             overview = item.string("overview") ?: item.string("Overview"),
             facts = discoverFacts(
                 item = item,
@@ -352,6 +368,8 @@ object ServicePayloadParser {
         return RemoteMediaDetails(
             title = item.string("Name") ?: item.string("name"),
             artworkUrl = null,
+            tagline = item.string("Tagline") ?: item.string("tagline")
+                ?: item.array("Taglines").firstOrNull()?.jsonPrimitive?.contentOrNull,
             overview = item.string("Overview") ?: item.string("overview"),
             facts = libraryFacts(item, mediaType, runtime),
             genres = stringArray(item, "Genres", "genres"),
@@ -467,10 +485,23 @@ object ServicePayloadParser {
                 else -> mediaType
             },
         )
+        if (mediaType.equals("episode", ignoreCase = true)) {
+            val season = item.int("ParentIndexNumber") ?: item.int("parentIndexNumber")
+            val episode = item.int("IndexNumber") ?: item.int("indexNumber")
+            if (season != null && episode != null) {
+                add("S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}")
+            }
+        }
         (item.int("ProductionYear") ?: item.int("productionYear"))?.let { add(it.toString()) }
         runtimeTicks?.takeIf { it > 0 }?.let { add("${it / TICKS_PER_MINUTE} min") }
         (item.string("OfficialRating") ?: item.string("officialRating"))?.let(::add)
         (item.double("CommunityRating") ?: item.double("communityRating"))?.let { add("★ ${"%.1f".format(it)}") }
+        (item.string("Status") ?: item.string("status"))?.let(::add)
+        val studios = (item.array("Studios").takeIf { it.isNotEmpty() } ?: item.array("studios"))
+            .mapNotNull { studio ->
+                (studio as? JsonObject)?.let { it.string("Name") ?: it.string("name") }
+            }
+        studios.take(2).takeIf { it.isNotEmpty() }?.joinToString(" · ")?.let(::add)
     }
 
     private fun discoverFacts(item: JsonObject, mediaType: String, year: String?): List<String> = buildList {
@@ -488,11 +519,48 @@ object ServicePayloadParser {
         else -> null
     }
 
-    private fun secureArtwork(item: JsonObject): String? = item.array("images")
-        .mapNotNull { it as? JsonObject }
-        .firstOrNull { image -> image.string("coverType") == "poster" || image.string("coverType") == "fanart" }
-        ?.let { image -> image.string("remoteUrl") ?: image.string("url") }
-        ?.takeIf { url -> url.startsWith("https://", ignoreCase = true) }
+    private fun parseUpcomingInstant(value: String): Instant? =
+        runCatching { Instant.parse(value) }.getOrNull()
+            ?: runCatching { OffsetDateTime.parse(value).toInstant() }.getOrNull()
+            ?: runCatching {
+                LocalDate.parse(value.take(10)).atStartOfDay(ZoneId.systemDefault()).toInstant()
+            }.getOrNull()
+
+    private fun secureArtwork(item: JsonObject, preferredType: String = "poster"): String? {
+        val images = item.array("images").mapNotNull { it as? JsonObject }
+        val image = images.firstOrNull { it.string("coverType").equals(preferredType, ignoreCase = true) }
+            ?: images.firstOrNull { candidate ->
+                candidate.string("coverType") == "poster" || candidate.string("coverType") == "fanart"
+            }
+        return image
+            ?.let { it.string("remoteUrl") ?: it.string("url") }
+            ?.takeIf { url -> url.startsWith("https://", ignoreCase = true) }
+    }
+
+    private fun libraryArtwork(item: JsonObject, id: String, mediaType: String): LibraryArtwork {
+        val imageTags = item.obj("ImageTags") ?: item.obj("imageTags")
+        val hasOwnThumb = imageTags?.keys?.any { it.equals("Thumb", ignoreCase = true) } == true
+        val isSeriesArtwork = mediaType.equals("episode", ignoreCase = true) ||
+            mediaType.equals("series", ignoreCase = true)
+        if (isSeriesArtwork) {
+            if (hasOwnThumb) return LibraryArtwork(id, "Thumb")
+            (item.string("ParentThumbItemId") ?: item.string("parentThumbItemId"))?.let {
+                return LibraryArtwork(it, "Thumb")
+            }
+            val seriesId = item.string("SeriesId") ?: item.string("seriesId")
+            val hasSeriesThumb = item.string("SeriesThumbImageTag") != null ||
+                item.string("seriesThumbImageTag") != null ||
+                item.string("ParentThumbImageTag") != null ||
+                item.string("parentThumbImageTag") != null
+            if (seriesId != null && hasSeriesThumb) return LibraryArtwork(seriesId, "Thumb")
+        }
+        return LibraryArtwork(
+            itemId = item.string("SeriesId") ?: item.string("seriesId")
+                ?: item.string("PrimaryImageItemId") ?: item.string("primaryImageItemId")
+                ?: id,
+            imageType = "Primary",
+        )
+    }
 
     private const val TICKS_PER_MINUTE = 600_000_000L
 
@@ -501,4 +569,6 @@ object ServicePayloadParser {
         val accessScore: Int,
         val originalIndex: Int,
     )
+
+    private data class LibraryArtwork(val itemId: String, val imageType: String)
 }

@@ -19,10 +19,10 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Native Jellyfin Quick Connect plus username/password and advanced access-token setup
 - Real connectivity/authentication probes for all five services
 - Live Jellyfin/Emby playback sessions
-- Separate Jellyfin/Emby recently-added movie and series rails across all accessible libraries
+- Separate Jellyfin/Emby recently-added movie and episode rails across all accessible libraries, with wide Thumb artwork for series
 - Real Jellyfin/Emby remote pause and resume commands with pending/error feedback
 - Live Radarr/Sonarr download queues with normalized progress
-- 28-day Radarr/Sonarr upcoming calendar with movie and episode artwork
+- Artwork-led Upcoming section and a 28-day agenda calendar: Radarr home releases (not cinema-only dates) plus Sonarr episodes
 - Live Seerr trending discovery, request activity, and request submission
 - Independent per-service refresh errors, stale-data retention, empty states, and pull-to-refresh
 - Persistent non-secret dashboard cache and 30-minute WorkManager refresh with an optional Wi-Fi-only constraint
@@ -30,7 +30,7 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Remote artwork with local fallbacks and HTTPS-only external image filtering
 - Android Keystore-backed AES/GCM encryption for API tokens
 - HTTPS by default; plain HTTP accepted only for localhost and private-LAN hosts
-- Section-shaped shimmer loading, animated navigation, cinematic artwork-led detail sheets, progress states, feedback, and large touch targets
+- Section-shaped shimmer loading, animated navigation, uncropped film posters, wide series art, rich title sheets, feedback, and large touch targets
 - Unit, lint, and on-device Compose smoke-test coverage
 
 ## Run it

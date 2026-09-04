@@ -3,6 +3,7 @@ package app.reelstack.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,6 +69,7 @@ import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.R
+import app.reelstack.BuildConfig
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.ActivitySkeleton
@@ -383,8 +386,9 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
+            AppIdentity()
             ScreenHeader(
-                kicker = "HomeReel",
+                kicker = "App og tenester",
                 title = "Innstillingar",
                 lede = "Tilkoplingar, val og personvern.",
             )
@@ -436,6 +440,29 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AppIdentity() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 26.dp),
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_launcher),
+            contentDescription = "HomeReel-logo",
+            modifier = Modifier.size(48.dp),
+        )
+        Column(Modifier.padding(start = 13.dp)) {
+            Text("HomeReel", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Personleg medieoversikt · v${BuildConfig.VERSION_NAME}",
+                color = Muted,
+                fontSize = 10.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
     }
 }

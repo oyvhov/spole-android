@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
@@ -48,7 +50,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -88,6 +89,7 @@ fun HomeScreen(
     onMediaClick: (String) -> Unit,
     onLibraryClick: (String) -> Unit,
     onUpcomingClick: (String) -> Unit,
+    onCalendarClick: () -> Unit = {},
     onRefresh: () -> Unit,
 ) {
     val configuredMediaSources = state.connections
@@ -117,8 +119,6 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             item {
-                Header()
-                Spacer(Modifier.height(28.dp))
                 Text(
                     text = greeting(),
                     color = TextColor,
@@ -156,7 +156,7 @@ fun HomeScreen(
                                 EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til filmar."))
                             }
                         } else {
-                            LibraryRail(items, onLibraryClick)
+                            LibraryRail(items, onLibraryClick, wide = false)
                         }
                     }
                 }
@@ -168,19 +168,25 @@ fun HomeScreen(
                         val items = state.recentSeries.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
-                                LibraryRailSkeleton("Lastar nyleg lagde til seriar frå ${source.displayName}")
+                                LibraryRailSkeleton(
+                                    "Lastar nyleg lagde til seriar frå ${source.displayName}",
+                                    wide = true,
+                                )
                             } else {
                                 EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til episodar."))
                             }
                         } else {
-                            LibraryRail(items, onLibraryClick)
+                            LibraryRail(items, onLibraryClick, wide = true)
                         }
                     }
                 }
             }
             if (HomeSection.UPCOMING in state.homeSections) {
                 item {
-                    SectionTitle("Kjem snart", Modifier.padding(top = 25.dp, bottom = 13.dp))
+                    UpcomingSectionTitle(
+                        onCalendarClick = onCalendarClick,
+                        modifier = Modifier.padding(top = 25.dp, bottom = 13.dp),
+                    )
                     if (state.upcoming.isEmpty()) {
                         if (state.isRefreshing && hasQueueConnection) {
                             UpcomingSkeleton()
@@ -208,31 +214,6 @@ fun HomeScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Header() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.foundation.Image(
-                painter = painterResource(R.drawable.ic_launcher),
-                contentDescription = null,
-                modifier = Modifier.size(36.dp),
-            )
-            Text(
-                text = "HomeReel",
-                color = TextColor,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = (-1).sp,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
-
     }
 }
 
@@ -422,26 +403,28 @@ private fun NowPlayingCard(
 }
 
 @Composable
-private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit) {
+private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(items, key = LibraryMedia::id) { media ->
-            LibraryCard(media = media, onClick = { onClick(media.id) })
+            LibraryCard(media = media, wide = wide, onClick = { onClick(media.id) })
         }
     }
 }
 
 @Composable
-private fun LibraryCard(media: LibraryMedia, onClick: () -> Unit) {
+private fun LibraryCard(media: LibraryMedia, wide: Boolean, onClick: () -> Unit) {
+    val cardWidth = if (wide) 224.dp else 146.dp
+    val artworkHeight = if (wide) 126.dp else 192.dp
     Column(
         modifier = Modifier
-            .width(146.dp)
+            .width(cardWidth)
             .clickable(onClick = onClick)
             .semantics { role = Role.Button },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(192.dp)
+                .height(artworkHeight)
                 .clip(RoundedCornerShape(20.dp))
                 .border(1.dp, Color(0x35E2D5FF), RoundedCornerShape(20.dp)),
         ) {
@@ -458,14 +441,6 @@ private fun LibraryCard(media: LibraryMedia, onClick: () -> Unit) {
                     Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color(0xE0080710)),
                 ),
             )
-            media.progress?.let { progress ->
-                LinearProgressIndicator(
-                    progress = { progress.coerceIn(0f, 1f) },
-                    color = Primary,
-                    trackColor = Color(0x55FFFFFF),
-                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(6.dp),
-                )
-            }
             Surface(
                 color = Color(0xC4120E1B),
                 shape = CircleShape,
@@ -507,34 +482,111 @@ private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) 
 
 @Composable
 private fun UpcomingCard(media: UpcomingMedia, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        color = SurfaceRaised.copy(alpha = 0.9f),
-        shape = RoundedCornerShape(22.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x30E2D5FF)),
-        modifier = Modifier.width(268.dp),
+    Column(
+        modifier = Modifier
+            .width(178.dp)
+            .clickable(onClick = onClick)
+            .semantics { role = Role.Button },
     ) {
-        Row(modifier = Modifier.padding(10.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(224.dp)
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 44.dp, bottomEnd = 24.dp, bottomStart = 24.dp))
+                .border(
+                    1.dp,
+                    Color(0x38E2D5FF),
+                    RoundedCornerShape(topStart = 24.dp, topEnd = 44.dp, bottomEnd = 24.dp, bottomStart = 24.dp),
+                ),
+        ) {
             MediaArtwork(
                 url = media.artworkUrl,
                 fallbackRes = media.artworkRes,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(width = 82.dp, height = 116.dp).clip(RoundedCornerShape(15.dp)),
+                contentDescription = media.title,
+                contentScale = if (media.mediaType.equals("Movie", true)) ContentScale.Fit else ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().background(Color(0xFF0C0912)),
             )
-            Column(Modifier.weight(1f).padding(start = 13.dp, top = 5.dp)) {
-                Text(media.dateLabel, color = PrimarySoft, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to Color(0x1808060E),
+                        0.5f to Color.Transparent,
+                        1f to Color(0xF3090710),
+                    ),
+                ),
+            )
+            Surface(
+                color = Color(0xD8151020),
+                shape = CircleShape,
+                modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                ) {
+                    Icon(Icons.Rounded.Schedule, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(13.dp))
+                    Text(
+                        media.dateLabel,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 5.dp),
+                    )
+                }
+            }
+            Surface(
+                color = Color(0xD8151020),
+                shape = CircleShape,
+                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+            ) {
+                Icon(
+                    if (media.source == ServiceKind.RADARR) Icons.Rounded.Movie else Icons.Rounded.Tv,
+                    contentDescription = media.source.displayName,
+                    tint = PrimarySoft,
+                    modifier = Modifier.padding(7.dp).size(13.dp),
+                )
+            }
+            Column(Modifier.align(Alignment.BottomStart).padding(15.dp)) {
                 Text(
                     media.title,
                     color = Color.White,
-                    fontSize = 17.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 5.dp),
                 )
-                Text(media.subtitle, color = Muted, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
-                Text(media.source.displayName, color = PrimarySoft, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    media.subtitle,
+                    color = Color(0xFFD7CEDF),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 3.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
+        Column(Modifier.weight(1f)) {
+            Text("Kjem snart", color = PrimarySoft, style = MaterialTheme.typography.titleMedium)
+            Text("Heimeutgjevingar og nye episodar", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+        Surface(
+            onClick = onCalendarClick,
+            color = Primary.copy(alpha = 0.18f),
+            contentColor = PrimarySoft,
+            shape = CircleShape,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text("Kalender", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
             }
         }
     }

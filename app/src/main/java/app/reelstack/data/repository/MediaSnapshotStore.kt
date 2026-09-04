@@ -129,6 +129,7 @@ class MediaSnapshotStore(context: Context) {
                 item.artworkUrl?.let { put("artworkUrl", it) }
                 item.remoteId?.let { put("remoteId", it) }
                 item.overview?.let { put("overview", it) }
+                put("mediaType", item.mediaType)
                 put("facts", item.facts.joinToString("\u001f"))
                 put("genres", item.genres.joinToString("\u001f"))
             })
@@ -149,6 +150,7 @@ class MediaSnapshotStore(context: Context) {
             overview = item.string("overview"),
             facts = item.string("facts").orEmpty().split("\u001f").filter(String::isNotBlank),
             genres = item.string("genres").orEmpty().split("\u001f").filter(String::isNotBlank),
+            mediaType = item.string("mediaType") ?: "Video",
         )
     }
 
@@ -169,6 +171,7 @@ class MediaSnapshotStore(context: Context) {
                 put("source", item.source.name)
                 item.artworkUrl?.let { put("artworkUrl", it) }
                 item.overview?.let { put("overview", it) }
+                put("mediaType", item.mediaType)
                 put("facts", item.facts.joinToString("\u001f"))
                 put("genres", item.genres.joinToString("\u001f"))
             })
@@ -190,6 +193,7 @@ class MediaSnapshotStore(context: Context) {
             overview = item.string("overview"),
             facts = item.string("facts").orEmpty().split("\u001f").filter(String::isNotBlank),
             genres = item.string("genres").orEmpty().split("\u001f").filter(String::isNotBlank),
+            mediaType = item.string("mediaType") ?: if (source == ServiceKind.RADARR) "Movie" else "Episode",
         )
     }
 

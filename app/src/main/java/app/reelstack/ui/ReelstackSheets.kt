@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,13 +27,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +62,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -65,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
@@ -73,6 +79,11 @@ import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Warning
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.DetailTextSkeleton
+import app.reelstack.ui.components.ServiceLogo
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +102,7 @@ fun ReelstackSheets(
     onTestAndSaveConnection: () -> Unit,
     onRemoveConnection: (ServiceKind) -> Unit,
     onAddMedia: (String) -> Unit,
+    onUpcomingClick: (String) -> Unit,
 ) {
     val sheet = state.activeSheet ?: return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -116,6 +128,7 @@ fun ReelstackSheets(
             is AppSheet.TitleDetails -> state.contentDetails?.let {
                 RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia)
             }
+            AppSheet.UpcomingCalendar -> UpcomingCalendarSheet(state.upcoming, onUpcomingClick)
             is AppSheet.ConnectionEditor -> connectionDraft?.let {
                 ConnectionEditorSheet(
                     draft = it,
@@ -140,25 +153,42 @@ fun ReelstackSheets(
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit) {
     val details = state.contentDetails ?: return
     val discoverMedia = (state.discover + state.searchResults).firstOrNull { it.id == details.key }
+    val isMovie = details.mediaType.equals("movie", ignoreCase = true) ||
+        details.facts.any { it.equals("Film", ignoreCase = true) }
     Column(
         Modifier
             .verticalScroll(rememberScrollState())
             .animateContentSize(animationSpec = spring())
             .padding(start = 18.dp, end = 18.dp, bottom = 40.dp),
     ) {
-        CinematicTitleHero(
-            title = details.title,
-            eyebrow = details.eyebrow,
-            artworkUrl = details.artworkUrl,
-            artworkRes = details.artworkRes,
-            source = details.source,
-        )
-        if (details.facts.isNotEmpty()) {
+        if (isMovie) {
+            MoviePosterSummary(
+                title = details.title,
+                eyebrow = details.eyebrow,
+                subtitle = details.subtitle,
+                tagline = details.tagline,
+                facts = details.facts,
+                artworkUrl = details.artworkUrl,
+                artworkRes = details.artworkRes,
+                source = details.source,
+            )
+        } else {
+            CinematicTitleHero(
+                title = details.title,
+                eyebrow = details.eyebrow,
+                subtitle = details.subtitle,
+                artworkUrl = details.artworkUrl,
+                artworkRes = details.artworkRes,
+                source = details.source,
+            )
+        }
+        val remainingFacts = if (isMovie) details.facts.drop(4) else details.facts
+        if (remainingFacts.isNotEmpty()) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 16.dp),
             ) {
-                details.facts.take(5).forEach { fact -> DetailPill(fact) }
+                remainingFacts.take(5).forEach { fact -> DetailPill(fact) }
             }
         }
         if (details.genres.isNotEmpty()) {
@@ -170,12 +200,33 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 modifier = Modifier.padding(start = 6.dp, top = 15.dp, end = 6.dp),
             )
         }
+        details.tagline?.takeIf { !isMovie && it.isNotBlank() }?.let { tagline ->
+            Text(
+                tagline,
+                color = Color(0xFFD8CDE2),
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(start = 6.dp, top = 17.dp, end = 6.dp),
+            )
+        }
+        Text(
+            when {
+                isMovie -> "Om filmen"
+                details.mediaType.equals("Episode", ignoreCase = true) -> "Om episoden"
+                else -> "Om serien"
+            },
+            color = Color.White,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 6.dp, top = 19.dp, end = 6.dp),
+        )
         Text(
             details.overview ?: details.subtitle,
             color = Color(0xFFE8E0EF),
             fontSize = 14.sp,
-            lineHeight = 21.sp,
-            modifier = Modifier.padding(start = 6.dp, top = 14.dp, end = 6.dp),
+            lineHeight = 22.sp,
+            modifier = Modifier.padding(start = 6.dp, top = 8.dp, end = 6.dp),
         )
         if (details.loading) {
             DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
@@ -216,9 +267,238 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
 }
 
 @Composable
+private fun MoviePosterSummary(
+    title: String,
+    eyebrow: String,
+    subtitle: String,
+    tagline: String?,
+    facts: List<String>,
+    artworkUrl: String?,
+    artworkRes: Int,
+    source: ServiceKind?,
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 2.dp),
+    ) {
+        Surface(
+            color = Color(0xFF0B0810),
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 34.dp, bottomEnd = 22.dp, bottomStart = 22.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x38E2D5FF)),
+            shadowElevation = 12.dp,
+            modifier = Modifier.width(130.dp).height(195.dp),
+        ) {
+            MediaArtwork(
+                url = artworkUrl,
+                fallbackRes = artworkRes,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                source = source,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        Column(Modifier.weight(1f).padding(start = 17.dp, top = 7.dp)) {
+            Text(
+                eyebrow.uppercase(),
+                color = PrimarySoft,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+            )
+            Text(
+                title,
+                color = Color.White,
+                fontSize = 25.sp,
+                lineHeight = 27.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 7.dp),
+            )
+            val supportingText = tagline?.takeIf(String::isNotBlank) ?: subtitle
+            if (supportingText.isNotBlank()) {
+                Text(
+                    supportingText,
+                    color = Color(0xFFC8BECE),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    maxLines = 3,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            if (facts.isNotEmpty()) {
+                Text(
+                    facts.take(4).joinToString(" · "),
+                    color = PrimarySoft,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 11.dp),
+                )
+            }
+            source?.let {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
+                    SourceMark(kind = it, modifier = Modifier.size(13.dp))
+                    Text(it.displayName, color = Muted, fontSize = 10.sp, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpcomingCalendarSheet(items: List<UpcomingMedia>, onUpcomingClick: (String) -> Unit) {
+    val zone = ZoneId.systemDefault()
+    val grouped = items
+        .sortedBy(UpcomingMedia::airDateEpochMillis)
+        .groupBy { Instant.ofEpochMilli(it.airDateEpochMillis).atZone(zone).toLocalDate() }
+    val weekday = DateTimeFormatter.ofPattern("EEE", Locale.forLanguageTag("nn-NO"))
+    val month = DateTimeFormatter.ofPattern("MMMM", Locale.forLanguageTag("nn-NO"))
+    Column(
+        Modifier
+            .heightIn(max = 760.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(start = 20.dp, end = 20.dp, bottom = 40.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Surface(color = Primary.copy(alpha = 0.2f), shape = CircleShape) {
+                Icon(
+                    Icons.Rounded.CalendarMonth,
+                    contentDescription = null,
+                    tint = PrimarySoft,
+                    modifier = Modifier.padding(10.dp).size(22.dp),
+                )
+            }
+            Column(Modifier.padding(start = 13.dp)) {
+                Text("Kalender", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                Text("Komande 28 dagar · heimeutgjevingar og nye episodar", color = Muted, fontSize = 11.sp)
+            }
+        }
+        if (grouped.isEmpty()) {
+            Text(
+                "Ingen digitale filmutgjevingar eller nye episodar er planlagde enno.",
+                color = Muted,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 28.dp, bottom = 12.dp),
+            )
+        } else {
+            grouped.forEach { (date, dayItems) ->
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(48.dp)) {
+                        Text(
+                            date.format(weekday).removeSuffix(".").uppercase(),
+                            color = PrimarySoft,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Surface(
+                            color = Primary.copy(alpha = 0.18f),
+                            shape = CircleShape,
+                            modifier = Modifier.padding(top = 6.dp).size(42.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    date.dayOfMonth.toString(),
+                                    color = Color.White,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                        Text(date.format(month).take(3), color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
+                    }
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f).padding(start = 13.dp),
+                    ) {
+                        dayItems.forEach { media -> UpcomingCalendarRow(media, onUpcomingClick) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpcomingCalendarRow(media: UpcomingMedia, onUpcomingClick: (String) -> Unit) {
+    val isMovie = media.mediaType.equals("Movie", ignoreCase = true)
+    Surface(
+        onClick = { onUpcomingClick(media.id) },
+        color = SurfaceRaised.copy(alpha = 0.82f),
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x24E2D5FF)),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(9.dp)) {
+            MediaArtwork(
+                url = media.artworkUrl,
+                fallbackRes = media.artworkRes,
+                contentDescription = null,
+                contentScale = if (isMovie) ContentScale.Fit else ContentScale.Crop,
+                modifier = Modifier
+                    .size(width = if (isMovie) 56.dp else 86.dp, height = 78.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF0B0810)),
+            )
+            Column(Modifier.weight(1f).padding(start = 12.dp, end = 5.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SourceMark(kind = media.source, modifier = Modifier.size(11.dp))
+                    Text(
+                        when {
+                            media.source == ServiceKind.SONARR -> "NY EPISODE"
+                            media.facts.any { it == "Fysisk utgjeving" } -> "FYSISK UTGJEVING"
+                            else -> "DIGITAL UTGJEVING"
+                        },
+                        color = PrimarySoft,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 5.dp),
+                    )
+                }
+                Text(
+                    media.title,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    modifier = Modifier.padding(top = 5.dp),
+                )
+                Text(
+                    media.subtitle,
+                    color = Muted,
+                    fontSize = 10.sp,
+                    maxLines = 2,
+                    modifier = Modifier.padding(top = 3.dp),
+                )
+                Text(media.dateLabel, color = Color(0xFFD9D0E2), fontSize = 10.sp, modifier = Modifier.padding(top = 5.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SourceMark(kind: ServiceKind, modifier: Modifier = Modifier) {
+    when (kind) {
+        ServiceKind.JELLYFIN, ServiceKind.EMBY -> ServiceLogo(
+            kind = kind,
+            contentDescription = null,
+            modifier = modifier,
+        )
+        ServiceKind.SONARR -> Icon(Icons.Rounded.Tv, contentDescription = null, tint = PrimarySoft, modifier = modifier)
+        ServiceKind.RADARR, ServiceKind.SEERR -> Icon(
+            Icons.Rounded.Movie,
+            contentDescription = null,
+            tint = PrimarySoft,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
 private fun CinematicTitleHero(
     title: String,
     eyebrow: String,
+    subtitle: String,
     artworkUrl: String?,
     artworkRes: Int,
     source: ServiceKind?,
@@ -261,6 +541,16 @@ private fun CinematicTitleHero(
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            if (subtitle.isNotBlank()) {
+                Text(
+                    subtitle,
+                    color = Color(0xFFD3CADB),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    maxLines = 2,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
         }
     }
 }

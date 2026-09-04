@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2
+
+- Redesigned «Kjem snart» as artwork-led cards with calm date chips and a dedicated 28-day agenda calendar.
+- Radarr now excludes cinema-only dates and shows only digital or physical home releases; Sonarr continues to show upcoming episodes.
+- Added full-poster movie detail layouts with the poster on the left and title information on the right, without cropping the artwork.
+- Switched recently added series to wide Jellyfin/Emby Thumb artwork and exact ungrouped episode results with season, episode number, and title.
+- Removed the leftover playback-progress strip from recently added cards.
+- Added clearer «Om filmen», «Om serien», and «Om episoden» sections, taglines, richer metadata, and studio/status details when supplied by a service.
+- Removed the HomeReel name and logo from Home and moved the app identity and version into Settings.
+- Updated loading skeletons to match the new portrait, landscape, and upcoming card shapes.
+
 ## 0.5.1
 
 - Fixed Jellyfin account sign-in on servers that disable deprecated Emby authorization headers.

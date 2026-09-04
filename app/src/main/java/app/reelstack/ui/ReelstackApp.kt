@@ -118,6 +118,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onMediaClick = viewModel::openIncomingDetails,
                         onLibraryClick = viewModel::openLibraryDetails,
                         onUpcomingClick = viewModel::openUpcomingDetails,
+                        onCalendarClick = { viewModel.openSheet(AppSheet.UpcomingCalendar) },
                         onRefresh = { viewModel.refreshLiveData(userInitiated = true) },
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
@@ -156,6 +157,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onTestAndSaveConnection = viewModel::testAndSaveConnection,
         onRemoveConnection = viewModel::removeConnection,
         onAddMedia = viewModel::requestMedia,
+        onUpcomingClick = viewModel::openUpcomingDetails,
     )
 }
 

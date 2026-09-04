@@ -243,7 +243,7 @@ class MediaServerClient(
                 connection = connection,
                 userId = encodedUserId,
                 itemType = "Episode",
-                groupItems = true,
+                groupItems = false,
                 views = views,
             )
         }
@@ -381,7 +381,11 @@ class MediaServerClient(
             lastResponse = response
             when (response.statusCode) {
                 in 200..299 -> return ServicePayloadParser.libraryItems(response.body).map { item ->
-                    item.copy(artworkUrl = item.artworkItemId?.let { artworkUrl(connection, it) })
+                    item.copy(
+                        artworkUrl = item.artworkItemId?.let {
+                            artworkUrl(connection, it, item.artworkImageType)
+                        },
+                    )
                 }
                 401, 403 -> authenticationFailure = authenticationFailure ?: response
                 else -> Unit // Try another route when this server version or profile needs one.
@@ -398,7 +402,8 @@ class MediaServerClient(
         groupItems: Boolean,
         parentId: String? = null,
     ): List<String> {
-        val query = "Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks,Overview,Genres,CommunityRating,OfficialRating" +
+        val query = "Limit=12&Fields=Overview,Genres,PrimaryImageAspectRatio,Studios,Taglines" +
+            "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb" +
             "&IncludeItemTypes=$itemType&GroupItems=$groupItems" +
             parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty()
         return when (kind) {
@@ -416,10 +421,14 @@ class MediaServerClient(
         }
     }
 
-    private fun artworkUrl(connection: ServiceConnection, itemId: String): String =
+    private fun artworkUrl(connection: ServiceConnection, itemId: String, imageType: String = "Primary"): String =
         EndpointValidator.resolve(
             connection.baseUrl,
-            "Items/${encodePathSegment(itemId)}/Images/Primary?maxHeight=720&quality=90",
+            if (imageType.equals("Thumb", ignoreCase = true)) {
+                "Items/${encodePathSegment(itemId)}/Images/Thumb?maxWidth=960&quality=90"
+            } else {
+                "Items/${encodePathSegment(itemId)}/Images/Primary?maxHeight=720&quality=90"
+            },
         )
 
     private fun verifyConnection(connection: ServiceConnection) {
@@ -468,7 +477,8 @@ class QueueServiceClient(
 
     fun feed(connection: ServiceConnection): QueueServiceFeed {
         val queue = queue(connection)
-        val start = encode(Instant.now().minus(1, ChronoUnit.DAYS).toString())
+        val windowStart = Instant.now().minus(1, ChronoUnit.DAYS)
+        val start = encode(windowStart.toString())
         val end = encode(Instant.now().plus(28, ChronoUnit.DAYS).toString())
         val options = if (connection.kind == ServiceKind.SONARR) {
             "&includeSeries=true&includeEpisodeImages=true"
@@ -485,7 +495,7 @@ class QueueServiceClient(
         response.requireSuccess(connection.kind)
         return QueueServiceFeed(
             queue = queue,
-            upcoming = ServicePayloadParser.upcoming(response.body, connection.kind),
+            upcoming = ServicePayloadParser.upcoming(response.body, connection.kind, windowStart),
         )
     }
 }

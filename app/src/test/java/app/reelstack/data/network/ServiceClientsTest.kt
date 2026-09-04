@@ -137,7 +137,7 @@ class ServiceClientsTest {
                 }]"""),
                 HttpResponse(200, """{"Items":[]}"""),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
-                HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
+                HttpResponse(200, """[{"Id":"episode-1","Name":"The Signal","SeriesName":"Foundation","Type":"Episode","ImageTags":{"Thumb":"wide-tag"}}]"""),
             ),
         )
         val connection = connection(ServiceKind.JELLYFIN, "secret").copy(userId = "user 9")
@@ -155,7 +155,11 @@ class ServiceClientsTest {
         assertTrue(transport.urls[2].contains("Items/Latest?UserId=user%209"))
         assertTrue(transport.urls[2].contains("IncludeItemTypes=Movie"))
         assertTrue(transport.urls[3].contains("IncludeItemTypes=Episode"))
-        assertTrue(transport.urls[3].contains("GroupItems=true"))
+        assertTrue(transport.urls[3].contains("GroupItems=false"))
+        assertEquals(
+            "https://media.example.com/Items/episode-1/Images/Thumb?maxWidth=960&quality=90",
+            feed.recentSeries.single().artworkUrl,
+        )
         assertTrue(transport.headers.all { it["Authorization"].orEmpty().contains("Token=\"secret\"") })
     }
 

@@ -177,6 +177,7 @@ class MediaSyncRepository(
         overview = item.overview,
         facts = item.facts,
         genres = item.genres,
+        mediaType = item.mediaType,
     )
 
     private fun incomingMedia(item: RemoteQueueItem) = IncomingMedia(
@@ -210,6 +211,7 @@ class MediaSyncRepository(
             overview = item.overview,
             facts = item.facts,
             genres = item.genres,
+            mediaType = item.mediaType,
         )
     }
 

@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 class ServicePayloadParserTest {
     @Test
@@ -59,6 +60,23 @@ class ServicePayloadParserTest {
         assertEquals("S02 E04 · Woe's Hollow", item.subtitle)
         assertEquals("episode-4", item.artworkItemId)
         assertEquals(0.5f, item.progress ?: 0f, 0.001f)
+    }
+
+    @Test
+    fun prefersWideThumbForRecentEpisode() {
+        val payload = """
+            {"Items":[{
+              "Id":"episode-8","Name":"The Signal","SeriesName":"Foundation","Type":"Episode",
+              "ParentIndexNumber":3,"IndexNumber":8,"ImageTags":{"Primary":"p","Thumb":"t"}
+            }]}
+        """.trimIndent()
+
+        val item = ServicePayloadParser.libraryItems(payload).single()
+
+        assertEquals("Foundation", item.title)
+        assertEquals("S03 E08 · The Signal", item.subtitle)
+        assertEquals("episode-8", item.artworkItemId)
+        assertEquals("Thumb", item.artworkImageType)
     }
 
     @Test
@@ -152,6 +170,38 @@ class ServicePayloadParserTest {
         assertEquals("Film · 2026", item.subtitle)
         assertEquals("2026-09-08T00:00:00Z", item.dateTime)
         assertEquals("https://art.example/odyssey.jpg", item.artworkUrl)
+    }
+
+    @Test
+    fun radarrCalendarExcludesCinemaOnlyMovies() {
+        val payload = """
+            [
+              {"id":17,"title":"Digital film","digitalRelease":"2026-09-08T00:00:00Z"},
+              {"id":18,"title":"Cinema film","inCinemas":"2026-09-09T00:00:00Z"}
+            ]
+        """.trimIndent()
+
+        val items = ServicePayloadParser.upcoming(payload, ServiceKind.RADARR)
+
+        assertEquals(listOf("Digital film"), items.map { it.title })
+        assertTrue(items.single().facts.contains("Digital utgjeving"))
+    }
+
+    @Test
+    fun radarrCalendarUsesPhysicalReleaseWhenDigitalDateHasPassed() {
+        val payload = """
+            [{"id":19,"title":"Home release","digitalRelease":"2026-08-01T00:00:00Z",
+              "physicalRelease":"2026-09-12T00:00:00Z"}]
+        """.trimIndent()
+
+        val item = ServicePayloadParser.upcoming(
+            payload,
+            ServiceKind.RADARR,
+            notBefore = Instant.parse("2026-09-03T00:00:00Z"),
+        ).single()
+
+        assertEquals("2026-09-12T00:00:00Z", item.dateTime)
+        assertTrue(item.facts.contains("Fysisk utgjeving"))
     }
 
     @Test
