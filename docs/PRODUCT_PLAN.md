@@ -41,7 +41,7 @@ One reliable place to answer three questions: **What is playing? What was just a
 
 - Multiple named connection profiles, including home and remote endpoints
 - Test-before-save feedback with latency and server version
-- Jellyfin account sign-in plus advanced API-key setup; passwords are never persisted
+- Jellyfin Quick Connect, account sign-in, and advanced API-key setup; passwords are never persisted
 - Library, quality profile, root folder, and notification preferences
 - Diagnostics export that excludes credentials
 
@@ -67,6 +67,8 @@ One reliable place to answer three questions: **What is playing? What was just a
 - [x] Persistent non-secret dashboard cache with last-updated state
 - [x] Section-shaped loading skeletons that preserve cached content during refresh
 - [x] Live Seerr title search and service-enriched title detail sheets
+- [x] Native Jellyfin Quick Connect with automatic approval polling and secure token exchange
+- [x] Cinematic, artwork-led detail sheets for playback, library, discovery, and activity
 - [ ] Pagination and migration to a local Room cache
 
 Acceptance: replacing demo mode with a valid profile populates every screen from real services; one offline service does not break the others.

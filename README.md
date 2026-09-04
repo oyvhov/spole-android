@@ -16,6 +16,7 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Live Seerr search with one-tap “add to media collection” actions
 - Unified activity timeline for Seerr, Sonarr, and Radarr events
 - Settings and connection editors for Jellyfin, Emby, Seerr, Radarr, and Sonarr
+- Native Jellyfin Quick Connect plus username/password and advanced access-token setup
 - Real connectivity/authentication probes for all five services
 - Live Jellyfin/Emby playback sessions
 - Separate Jellyfin/Emby recently-added movie and series rails across all accessible libraries
@@ -29,7 +30,7 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Remote artwork with local fallbacks and HTTPS-only external image filtering
 - Android Keystore-backed AES/GCM encryption for API tokens
 - HTTPS by default; plain HTTP accepted only for localhost and private-LAN hosts
-- Section-shaped shimmer loading, animated navigation, rich detail sheets, progress states, feedback, and large touch targets
+- Section-shaped shimmer loading, animated navigation, cinematic artwork-led detail sheets, progress states, feedback, and large touch targets
 - Unit, lint, and on-device Compose smoke-test coverage
 
 ## Run it
@@ -48,7 +49,7 @@ The debug APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Connecting services
 
-Open **Settings**, choose a service, then enter a display name and base URL. Jellyfin can sign in with the same username and password used by first-party clients; the password is used only for that sign-in request and is never saved. The returned access token is encrypted on the device. API-key setup remains available, and Jellyfin/Emby API keys can use an optional profile ID.
+Open **Settings**, choose a service, then enter a display name and base URL. For Jellyfin, Quick Connect is the default: HomeReel displays a temporary code that you approve under **Settings → Quick Connect** in a Jellyfin client where you are already signed in. Username/password and advanced access-token setup are also available. Passwords are never saved, and the returned access token is encrypted on the device. Jellyfin/Emby API keys can use an optional profile ID.
 
 Typical local addresses:
 

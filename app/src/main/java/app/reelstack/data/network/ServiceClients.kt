@@ -41,6 +41,12 @@ data class JellyfinAuthentication(
     val userId: String,
 )
 
+data class JellyfinQuickConnect(
+    val secret: String,
+    val code: String,
+    val authenticated: Boolean,
+)
+
 class JellyfinAuthenticationClient(
     private val transport: JsonHttpTransport = HttpTransport(),
     private val deviceId: String = "homereel-android",
@@ -50,14 +56,10 @@ class JellyfinAuthenticationClient(
             put("Username", username)
             put("Pw", password)
         }.toString()
-        val authorization = "MediaBrowser Client=\"HomeReel\", Device=\"Android\", " +
-            "DeviceId=\"$deviceId\", Version=\"${BuildConfig.VERSION_NAME}\""
+        val authorization = jellyfinAuthorization(deviceId)
         val response = transport.post(
             EndpointValidator.resolve(baseUrl, "Users/AuthenticateByName"),
-            mapOf(
-                "Authorization" to authorization,
-                "X-Emby-Authorization" to authorization,
-            ),
+            mapOf("Authorization" to authorization),
             body,
         )
 
@@ -65,12 +67,63 @@ class JellyfinAuthenticationClient(
             401, 403 -> error("Feil brukarnamn eller passord")
             404 -> error("Fann Jellyfin, men innlogging med brukarkonto er ikkje tilgjengeleg")
             in 200..299 -> Unit
-            in 500..599 -> error("Jellyfin er utilgjengeleg no")
+            in 500..599 -> error(
+                "Jellyfin klarte ikkje å opprette innloggingsøkta (tenarfeil ${response.statusCode})",
+            )
             else -> error("Jellyfin svara med status ${response.statusCode}")
         }
 
-        val root = runCatching { Json.parseToJsonElement(response.body).jsonObject }
-            .getOrElse { error("Jellyfin sende eit ugyldig innloggingssvar") }
+        return parseAuthentication(response.body)
+    }
+
+    fun initiateQuickConnect(baseUrl: String): JellyfinQuickConnect {
+        val response = transport.post(
+            EndpointValidator.resolve(baseUrl, "QuickConnect/Initiate"),
+            mapOf("Authorization" to jellyfinAuthorization(deviceId)),
+            "{}",
+        )
+        when (response.statusCode) {
+            in 200..299 -> Unit
+            404 -> error("Denne Jellyfin-tenaren støttar ikkje Quick Connect")
+            401, 403 -> error("Quick Connect er ikkje slått på i Jellyfin")
+            in 500..599 -> error("Quick Connect er ikkje slått på, eller Jellyfin klarte ikkje å lage ein kode")
+            else -> error("Jellyfin svara med status ${response.statusCode}")
+        }
+        return parseQuickConnect(response.body)
+    }
+
+    fun quickConnectState(baseUrl: String, secret: String): JellyfinQuickConnect {
+        val response = transport.get(
+            EndpointValidator.resolve(baseUrl, "QuickConnect/Connect?secret=${encode(secret)}"),
+            mapOf("Authorization" to jellyfinAuthorization(deviceId)),
+        )
+        when (response.statusCode) {
+            in 200..299 -> Unit
+            404 -> error("Quick Connect-koden er ikkje lenger gyldig")
+            401, 403 -> error("Jellyfin avviste Quick Connect-førespurnaden")
+            else -> error("Jellyfin svara med status ${response.statusCode}")
+        }
+        return parseQuickConnect(response.body)
+    }
+
+    fun authenticateWithQuickConnect(baseUrl: String, secret: String): JellyfinAuthentication {
+        val body = buildJsonObject { put("Secret", secret) }.toString()
+        val response = transport.post(
+            EndpointValidator.resolve(baseUrl, "Users/AuthenticateWithQuickConnect"),
+            mapOf("Authorization" to jellyfinAuthorization(deviceId)),
+            body,
+        )
+        when (response.statusCode) {
+            in 200..299 -> Unit
+            401, 403 -> error("Quick Connect-koden vart ikkje godkjend")
+            404 -> error("Quick Connect-koden er ikkje lenger gyldig")
+            else -> error("Jellyfin svara med status ${response.statusCode}")
+        }
+        return parseAuthentication(response.body)
+    }
+
+    private fun parseAuthentication(body: String): JellyfinAuthentication {
+        val root = parseObject(body, "Jellyfin sende eit ugyldig innloggingssvar")
         val token = root["AccessToken"]?.jsonPrimitive?.contentOrNull
             ?: root["accessToken"]?.jsonPrimitive?.contentOrNull
             ?: error("Jellyfin sende ikkje tilbake eit tilgangsteikn")
@@ -80,21 +133,47 @@ class JellyfinAuthenticationClient(
             ?: error("Jellyfin sende ikkje tilbake ein profil-ID")
         return JellyfinAuthentication(accessToken = token, userId = userId)
     }
+
+    private fun parseQuickConnect(body: String): JellyfinQuickConnect {
+        val root = parseObject(body, "Jellyfin sende eit ugyldig Quick Connect-svar")
+        val secret = root["Secret"]?.jsonPrimitive?.contentOrNull
+            ?: root["secret"]?.jsonPrimitive?.contentOrNull
+            ?: error("Jellyfin sende ikkje tilbake ein Quick Connect-hemmelegheit")
+        val code = root["Code"]?.jsonPrimitive?.contentOrNull
+            ?: root["code"]?.jsonPrimitive?.contentOrNull
+            ?: error("Jellyfin sende ikkje tilbake ein Quick Connect-kode")
+        val authenticated = root["Authenticated"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
+            ?: root["authenticated"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
+            ?: false
+        return JellyfinQuickConnect(secret = secret, code = code, authenticated = authenticated)
+    }
+
+    private fun parseObject(body: String, message: String) =
+        runCatching { Json.parseToJsonElement(body).jsonObject }.getOrElse { error(message) }
 }
 
 class ServiceConnectionTester(
     private val transport: JsonHttpTransport = HttpTransport(),
+    private val deviceId: String = "homereel-android",
 ) {
     fun test(connection: ServiceConnection): ConnectionTestResult {
         val probe = when (connection.kind) {
-            ServiceKind.JELLYFIN, ServiceKind.EMBY -> ServiceProbe("System/Info", "X-Emby-Token")
+            ServiceKind.JELLYFIN -> ServiceProbe("System/Info", "Authorization")
+            ServiceKind.EMBY -> ServiceProbe("System/Info", "X-Emby-Token")
             ServiceKind.SEERR -> ServiceProbe("api/v1/request?take=1&skip=0", "X-Api-Key")
             ServiceKind.RADARR, ServiceKind.SONARR -> ServiceProbe("api/v3/system/status", "X-Api-Key")
         }
         val endpoint = EndpointValidator.resolve(connection.baseUrl, probe.path)
         lateinit var response: HttpResponse
         val elapsed = measureTimeMillis {
-            response = transport.get(endpoint, mapOf(probe.headerName to connection.token))
+            response = transport.get(
+                endpoint,
+                if (connection.kind == ServiceKind.JELLYFIN) {
+                    headers(connection, deviceId)
+                } else {
+                    mapOf(probe.headerName to connection.token)
+                },
+            )
         }
 
         return when (response.statusCode) {
@@ -117,12 +196,13 @@ class ServiceConnectionTester(
 
 class MediaServerClient(
     private val transport: JsonHttpTransport = HttpTransport(),
+    private val deviceId: String = "homereel-android",
 ) {
     fun sessions(connection: ServiceConnection): List<RemotePlayback> {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "Sessions"),
-            headers(connection),
+            headers(connection, deviceId),
         )
         response.requireSuccess(connection.kind)
         return ServicePayloadParser.playbackSessions(response.body).map { item ->
@@ -194,7 +274,7 @@ class MediaServerClient(
         val command = if (paused) "Pause" else "Unpause"
         val response = transport.post(
             EndpointValidator.resolve(connection.baseUrl, "Sessions/$encodedSessionId/Playing/$command"),
-            headers(connection),
+            headers(connection, deviceId),
             "{}",
         )
         response.requireSuccess(connection.kind)
@@ -212,7 +292,10 @@ class MediaServerClient(
         }
         var lastResponse: HttpResponse? = null
         paths.forEach { path ->
-            val response = transport.get(EndpointValidator.resolve(connection.baseUrl, path), headers(connection))
+            val response = transport.get(
+                EndpointValidator.resolve(connection.baseUrl, path),
+                headers(connection, deviceId),
+            )
             lastResponse = response
             if (response.statusCode in 200..299) return ServicePayloadParser.libraryDetails(response.body)
         }
@@ -223,7 +306,7 @@ class MediaServerClient(
     private fun currentUserId(connection: ServiceConnection): String? {
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "Users/Me"),
-            headers(connection),
+            headers(connection, deviceId),
         )
         return if (response.statusCode in 200..299) ServicePayloadParser.currentUserId(response.body) else null
     }
@@ -231,7 +314,7 @@ class MediaServerClient(
     private fun preferredAvailableUserId(connection: ServiceConnection): String? {
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "Users"),
-            headers(connection),
+            headers(connection, deviceId),
         )
         return if (response.statusCode in 200..299) {
             ServicePayloadParser.availableUserIds(response.body).firstOrNull()
@@ -249,7 +332,10 @@ class MediaServerClient(
         }
         var lastResponse: HttpResponse? = null
         paths.forEach { path ->
-            val response = transport.get(EndpointValidator.resolve(connection.baseUrl, path), headers(connection))
+            val response = transport.get(
+                EndpointValidator.resolve(connection.baseUrl, path),
+                headers(connection, deviceId),
+            )
             lastResponse = response
             if (response.statusCode in 200..299) return ServicePayloadParser.libraryViews(response.body)
         }
@@ -288,7 +374,10 @@ class MediaServerClient(
         var lastResponse: HttpResponse? = null
         var authenticationFailure: HttpResponse? = null
         paths.forEach { path ->
-            val response = transport.get(EndpointValidator.resolve(connection.baseUrl, path), headers(connection))
+            val response = transport.get(
+                EndpointValidator.resolve(connection.baseUrl, path),
+                headers(connection, deviceId),
+            )
             lastResponse = response
             when (response.statusCode) {
                 in 200..299 -> return ServicePayloadParser.libraryItems(response.body).map { item ->
@@ -336,7 +425,7 @@ class MediaServerClient(
     private fun verifyConnection(connection: ServiceConnection) {
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "System/Info"),
-            headers(connection),
+            headers(connection, deviceId),
         )
         response.requireSuccess(connection.kind)
     }
@@ -488,9 +577,29 @@ class SeerrServiceClient(
     }
 }
 
-private fun headers(connection: ServiceConnection): Map<String, String> = when (connection.kind) {
-    ServiceKind.JELLYFIN, ServiceKind.EMBY -> mapOf("X-Emby-Token" to connection.token)
+private fun headers(
+    connection: ServiceConnection,
+    jellyfinDeviceId: String = "homereel-android",
+): Map<String, String> = when (connection.kind) {
+    ServiceKind.JELLYFIN -> mapOf(
+        "Authorization" to jellyfinAuthorization(jellyfinDeviceId, connection.token),
+    )
+    ServiceKind.EMBY -> mapOf("X-Emby-Token" to connection.token)
     ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> mapOf("X-Api-Key" to connection.token)
+}
+
+internal fun jellyfinAuthorization(deviceId: String, token: String? = null): String = buildString {
+    append("MediaBrowser Client=\"HomeReel\", Device=\"Android\", ")
+    append("DeviceId=\"")
+    append(deviceId)
+    append("\", Version=\"")
+    append(BuildConfig.VERSION_NAME)
+    append('"')
+    token?.let {
+        append(", Token=\"")
+        append(it)
+        append('"')
+    }
 }
 
 private fun encode(value: String): String = java.net.URLEncoder.encode(value, Charsets.UTF_8.name())

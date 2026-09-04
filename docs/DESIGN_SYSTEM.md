@@ -14,6 +14,8 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 | Activity row | Request/download history with visual recognition | approved, downloading, imported, failed |
 | Section switch | Controls Home visibility without disabling sync | visible, hidden |
 | Quiet empty line | Confirms a valid empty state without competing with content | no sessions, no releases, empty queue |
+| Cinematic detail sheet | Keeps context while revealing depth | artwork hero, layered title, metadata rail, primary action |
+| Quick Connect panel | Passwordless Jellyfin sign-in | ready, creating code, awaiting approval, connecting, expired |
 
 ## Tokens and motion
 
@@ -22,6 +24,8 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 - Green confirms completed or healthy states; coral is reserved for actionable problems.
 - Major cards use 20–34 dp corner radii. Compact media and status elements use 13–20 dp.
 - Navigation fades use 150–220 ms. Playback progress uses a low-stiffness spring so live changes remain legible.
+- Detail sheets lead with edge-to-edge artwork and gradients; related metadata shares one quiet surface instead of a grid of equal-weight boxes.
+- Bottom-sheet height follows its content so short details feel lightweight while long descriptions remain scrollable.
 
 ## Accessibility
 

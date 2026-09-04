@@ -1,6 +1,13 @@
 package app.reelstack.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -20,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -45,10 +54,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.reelstack.R
@@ -86,13 +97,15 @@ fun ReelstackSheets(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF1B1726),
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        containerColor = Color(0xFF15111F),
         contentColor = MaterialTheme.colorScheme.onSurface,
         scrimColor = Color(0xB8040308),
+        tonalElevation = 0.dp,
         dragHandle = {
             Box(
-                Modifier.padding(top = 11.dp, bottom = 6.dp).size(width = 40.dp, height = 4.dp)
-                    .background(Color(0xFF696174), CircleShape),
+                Modifier.padding(top = 12.dp, bottom = 5.dp).size(width = 36.dp, height = 4.dp)
+                    .background(Color(0xFF81788D), CircleShape),
             )
         },
     ) {
@@ -127,22 +140,25 @@ fun ReelstackSheets(
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit) {
     val details = state.contentDetails ?: return
     val discoverMedia = (state.discover + state.searchResults).firstOrNull { it.id == details.key }
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
-        SheetHeader(details.title, details.eyebrow)
-        MediaArtwork(
-            url = details.artworkUrl,
-            fallbackRes = details.artworkRes,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+    Column(
+        Modifier
+            .verticalScroll(rememberScrollState())
+            .animateContentSize(animationSpec = spring())
+            .padding(start = 18.dp, end = 18.dp, bottom = 40.dp),
+    ) {
+        CinematicTitleHero(
+            title = details.title,
+            eyebrow = details.eyebrow,
+            artworkUrl = details.artworkUrl,
+            artworkRes = details.artworkRes,
             source = details.source,
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(220.dp).clip(RoundedCornerShape(25.dp)),
         )
         if (details.facts.isNotEmpty()) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(top = 15.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 16.dp),
             ) {
-                details.facts.take(3).forEach { fact -> DetailPill(fact) }
+                details.facts.take(5).forEach { fact -> DetailPill(fact) }
             }
         }
         if (details.genres.isNotEmpty()) {
@@ -151,7 +167,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 color = PrimarySoft,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 13.dp),
+                modifier = Modifier.padding(start = 6.dp, top = 15.dp, end = 6.dp),
             )
         }
         Text(
@@ -159,7 +175,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             color = Color(0xFFE8E0EF),
             fontSize = 14.sp,
             lineHeight = 21.sp,
-            modifier = Modifier.padding(top = 14.dp),
+            modifier = Modifier.padding(start = 6.dp, top = 14.dp, end = 6.dp),
         )
         if (details.loading) {
             DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
@@ -172,14 +188,14 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             Button(
                 onClick = { onAddMedia(discoverMedia.id) },
                 enabled = !discoverMedia.requested && !adding,
-                shape = RoundedCornerShape(17.dp),
+                shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Primary,
                     contentColor = Ink,
                     disabledContainerColor = Color(0xFF2A473B),
                     disabledContentColor = Color(0xFFC9F4DB),
                 ),
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 22.dp).height(56.dp),
             ) {
                 if (adding) {
                     CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(19.dp))
@@ -195,6 +211,56 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                     modifier = Modifier.padding(start = 8.dp),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CinematicTitleHero(
+    title: String,
+    eyebrow: String,
+    artworkUrl: String?,
+    artworkRes: Int,
+    source: ServiceKind?,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(264.dp)
+            .clip(RoundedCornerShape(28.dp)),
+    ) {
+        MediaArtwork(
+            url = artworkUrl,
+            fallbackRes = artworkRes,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            source = source,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color(0x12090711),
+                    0.44f to Color(0x22090711),
+                    1f to Color(0xF20B0812),
+                ),
+            ),
+        )
+        Column(
+            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp, vertical = 19.dp),
+        ) {
+            Text(
+                eyebrow.uppercase(),
+                color = PrimarySoft,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                title,
+                color = Color.White,
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
     }
 }
@@ -229,50 +295,125 @@ private fun SheetHeader(title: String, description: String, onDismiss: (() -> Un
 @Composable
 private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlaybackToggle: (String) -> Unit) {
     val session = state.sessions.firstOrNull { it.key == sessionKey } ?: return
-    Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 34.dp)) {
-        SheetHeader("Aktiv avspeling", "${session.source?.displayName ?: "Medietenar"} · ${session.deviceName}")
-        MediaArtwork(
-            url = session.artworkUrl,
-            fallbackRes = if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            source = session.source,
-            modifier = Modifier.fillMaxWidth().padding(top = 17.dp).height(132.dp).clip(RoundedCornerShape(22.dp)),
-        )
-        Text("${session.userName} · ${session.deviceName}".uppercase(), color = PrimarySoft, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
-        Text(session.title, color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 3.dp))
-        Text(session.subtitle, color = Muted, fontSize = 12.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-            DetailCell("Straum", session.streamMethod, Modifier.weight(1f))
-            DetailCell("Kvalitet", session.quality, Modifier.weight(1f))
+    Column(
+        Modifier.verticalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp, bottom = 34.dp),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth().height(286.dp).clip(RoundedCornerShape(28.dp)),
+        ) {
+            MediaArtwork(
+                url = session.artworkUrl,
+                fallbackRes = if (session.sessionId?.startsWith("demo-") == true) {
+                    R.drawable.session_still
+                } else {
+                    R.drawable.media_placeholder
+                },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                source = session.source,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to Color(0x26090711),
+                        0.48f to Color(0x18090711),
+                        1f to Color(0xF20A0711),
+                    ),
+                ),
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
+                    .clip(CircleShape).background(Color(0xB5120E1B))
+                    .padding(horizontal = 11.dp, vertical = 7.dp),
+            ) {
+                Box(Modifier.size(7.dp).background(Primary, CircleShape))
+                Text(
+                    if (session.paused) "På pause" else "Spelar no",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(start = 7.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp, vertical = 18.dp),
+            ) {
+                Text(
+                    "${session.source?.displayName ?: "Medietenar"} · ${session.userName} · ${session.deviceName}".uppercase(),
+                    color = PrimarySoft,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    session.title,
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(session.subtitle, color = Color(0xFFD1C8D8), fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                LinearProgressIndicator(
+                    progress = { session.progress.coerceIn(0f, 1f) },
+                    color = Primary,
+                    trackColor = Color(0x45FFFFFF),
+                    modifier = Modifier.fillMaxWidth().padding(top = 13.dp).height(4.dp).clip(CircleShape),
+                )
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-            DetailCell("Tenar", session.source?.displayName ?: "Medietenar", Modifier.weight(1f))
-            DetailCell("Sjåar", session.userName, Modifier.weight(1f))
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xA5221B30),
+            modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 14.dp),
+            ) {
+                SessionMetric("Straum", session.streamMethod, Modifier.weight(1f))
+                SessionMetric("Kvalitet", session.quality, Modifier.weight(1f))
+                SessionMetric("Att", session.timeLeft, Modifier.weight(1f))
+            }
         }
         Button(
             onClick = { onPlaybackToggle(session.key) },
             enabled = state.pendingSessionKey == null,
-            shape = RoundedCornerShape(17.dp),
+            shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color(0xFF160D20)),
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(52.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(58.dp),
         ) {
             if (state.pendingSessionKey == session.key) {
                 CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                 Text("Sender kommando…", modifier = Modifier.padding(start = 8.dp))
             } else {
-                Icon(if (session.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, contentDescription = null)
-                Text(if (session.paused) "Hald fram avspelinga" else "Set på pause", modifier = Modifier.padding(start = 8.dp))
+                AnimatedContent(
+                    targetState = session.paused,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "playback-action",
+                ) { paused ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, contentDescription = null)
+                        Text(if (paused) "Hald fram" else "Set på pause", modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DetailCell(label: String, value: String, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(15.dp)).background(Color(0xB82F283E)).padding(12.dp)) {
+private fun SessionMetric(label: String, value: String, modifier: Modifier) {
+    Column(modifier.padding(horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label.uppercase(), color = Color(0xFF8E849B), fontSize = 9.sp)
-        Text(value, color = Color(0xFFF1EBF8), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
+        Text(
+            value,
+            color = Color(0xFFF1EBF8),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 3.dp),
+        )
     }
 }
 
@@ -402,22 +543,36 @@ private fun ConnectionEditorSheet(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 15.dp, bottom = 7.dp),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            ) {
+                FilterChip(
+                    selected = draft.authMode == ConnectionAuthMode.QUICK_CONNECT,
+                    onClick = { onAuthModeChange(ConnectionAuthMode.QUICK_CONNECT) },
+                    label = { Text("Quick Connect") },
+                    colors = connectionChipColors(),
+                )
                 FilterChip(
                     selected = draft.authMode == ConnectionAuthMode.ACCOUNT,
                     onClick = { onAuthModeChange(ConnectionAuthMode.ACCOUNT) },
-                    label = { Text("Brukarkonto") },
+                    label = { Text("Brukarnamn") },
                     colors = connectionChipColors(),
                 )
                 FilterChip(
                     selected = draft.authMode == ConnectionAuthMode.API_KEY,
                     onClick = { onAuthModeChange(ConnectionAuthMode.API_KEY) },
-                    label = { Text("API-nøkkel") },
+                    label = { Text("Tilgangsteikn") },
                     colors = connectionChipColors(),
                 )
             }
         }
         val usesAccount = draft.kind == ServiceKind.JELLYFIN && draft.authMode == ConnectionAuthMode.ACCOUNT
+        val usesQuickConnect = draft.kind == ServiceKind.JELLYFIN &&
+            draft.authMode == ConnectionAuthMode.QUICK_CONNECT
+        if (usesQuickConnect) {
+            QuickConnectPanel(draft)
+        }
         if (usesAccount) {
             OutlinedTextField(
                 value = draft.username,
@@ -447,7 +602,9 @@ private fun ConnectionEditorSheet(
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
-        if (!usesAccount && (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY)) {
+        if (!usesAccount && !usesQuickConnect &&
+            (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY)
+        ) {
             OutlinedTextField(
                 value = draft.userId,
                 onValueChange = onUserIdChange,
@@ -460,7 +617,7 @@ private fun ConnectionEditorSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             )
         }
-        if (!usesAccount) {
+        if (!usesAccount && !usesQuickConnect) {
             OutlinedTextField(
                 value = draft.token,
                 onValueChange = onTokenChange,
@@ -479,16 +636,35 @@ private fun ConnectionEditorSheet(
         Button(
             onClick = onTestAndSave,
             enabled = !draft.saving,
-            shape = RoundedCornerShape(17.dp),
+            shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(52.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(56.dp),
         ) {
             if (draft.saving) {
                 CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                Text(if (usesAccount) "Loggar inn…" else "Testar tilkoplinga…", modifier = Modifier.padding(start = 9.dp))
+                Text(
+                    when {
+                        usesQuickConnect && draft.quickConnectCode == null -> "Lagar kode…"
+                        usesQuickConnect -> "Koplar til…"
+                        usesAccount -> "Loggar inn…"
+                        else -> "Testar tilkoplinga…"
+                    },
+                    modifier = Modifier.padding(start = 9.dp),
+                )
             } else {
-                Icon(Icons.Rounded.CheckCircle, contentDescription = null)
-                Text(if (usesAccount) "Logg inn og lagre" else "Test og lagre", modifier = Modifier.padding(start = 8.dp))
+                Icon(
+                    if (usesQuickConnect) Icons.Rounded.Devices else Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                )
+                Text(
+                    when {
+                        usesQuickConnect && draft.quickConnectCode != null -> "Lag ny kode"
+                        usesQuickConnect -> "Start Quick Connect"
+                        usesAccount -> "Logg inn og lagre"
+                        else -> "Test og lagre"
+                    },
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
         }
 
@@ -500,6 +676,89 @@ private fun ConnectionEditorSheet(
             ) {
                 Icon(Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(19.dp))
                 Text("Fjern tilkoplinga", modifier = Modifier.padding(start = 7.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickConnectPanel(draft: ConnectionDraft) {
+    AnimatedContent(
+        targetState = draft.quickConnectCode,
+        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        label = "quick-connect-code",
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    ) { code ->
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF211A30),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (code == null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 17.dp),
+                ) {
+                    Box(
+                        modifier = Modifier.size(44.dp).clip(CircleShape)
+                            .background(Primary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.Devices,
+                            contentDescription = null,
+                            tint = PrimarySoft,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    Column(Modifier.padding(start = 14.dp)) {
+                        Text(
+                            "Logg inn utan passord",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "HomeReel lagar ein kort kode som du godkjenner i ein Jellyfin-app der du allereie er innlogga.",
+                            color = Muted,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp,
+                            modifier = Modifier.padding(top = 3.dp),
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(7.dp).background(Primary, CircleShape))
+                        Text(
+                            if (draft.quickConnectWaiting) "Ventar på godkjenning" else "Fullfører innlogginga",
+                            color = PrimarySoft,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 7.dp),
+                        )
+                    }
+                    Text(
+                        code.chunked(3).joinToString("  "),
+                        color = Color.White,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 3.sp,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                    Text(
+                        "Opne Jellyfin på ein annan eining, gå til Innstillingar → Quick Connect, og skriv inn koden.",
+                        color = Muted,
+                        fontSize = 11.sp,
+                        lineHeight = 17.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
             }
         }
     }

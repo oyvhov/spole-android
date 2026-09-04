@@ -31,7 +31,7 @@ import kotlinx.coroutines.withContext
 
 enum class AppTab { HOME, DISCOVER, ACTIVITY, SETTINGS }
 
-enum class ConnectionAuthMode { ACCOUNT, API_KEY }
+enum class ConnectionAuthMode { QUICK_CONNECT, ACCOUNT, API_KEY }
 
 sealed interface AppSheet {
     data class SessionDetails(val sessionKey: String) : AppSheet
@@ -51,6 +51,8 @@ data class ConnectionDraft(
     val username: String = "",
     val password: String = "",
     val saving: Boolean = false,
+    val quickConnectCode: String? = null,
+    val quickConnectWaiting: Boolean = false,
     val error: String? = null,
     val warning: String? = null,
 )
@@ -110,6 +112,7 @@ class ReelstackViewModel(
 
     private var refreshJob: Job? = null
     private var searchJob: Job? = null
+    private var quickConnectJob: Job? = null
 
     init {
         refreshLiveData()
@@ -119,6 +122,7 @@ class ReelstackViewModel(
 
     fun openSheet(sheet: AppSheet) {
         if (sheet is AppSheet.ConnectionEditor) {
+            quickConnectJob?.cancel()
             val existing = _uiState.value.connections.first { it.kind == sheet.kind }
             connectionDraft.value = ConnectionDraft(
                 kind = existing.kind,
@@ -127,7 +131,7 @@ class ReelstackViewModel(
                 token = existing.token,
                 userId = existing.userId,
                 authMode = if (existing.kind == ServiceKind.JELLYFIN && existing.token.isBlank()) {
-                    ConnectionAuthMode.ACCOUNT
+                    ConnectionAuthMode.QUICK_CONNECT
                 } else {
                     ConnectionAuthMode.API_KEY
                 },
@@ -140,6 +144,7 @@ class ReelstackViewModel(
     }
 
     fun closeSheet() {
+        quickConnectJob?.cancel()
         _uiState.update { it.copy(activeSheet = null, contentDetails = null) }
         connectionDraft.value = null
     }
@@ -600,21 +605,35 @@ class ReelstackViewModel(
     fun clearSnackbar() = _uiState.update { it.copy(snackbar = null) }
 
     fun updateConnectionName(value: String) = updateDraft { copy(name = value, error = null) }
-    fun updateConnectionUrl(value: String) = updateDraft {
-        copy(
-            url = value,
-            error = null,
-            warning = runCatching {
-                if (value.isNotBlank() && EndpointValidator.isCleartext(value)) {
-                    "HTTP er ukryptert. Bruk helst HTTPS utanfor det trygge lokalnettet ditt."
-                } else null
-            }.getOrNull(),
-        )
+    fun updateConnectionUrl(value: String) {
+        quickConnectJob?.cancel()
+        updateDraft {
+            copy(
+                url = value,
+                quickConnectCode = null,
+                quickConnectWaiting = false,
+                error = null,
+                warning = runCatching {
+                    if (value.isNotBlank() && EndpointValidator.isCleartext(value)) {
+                        "HTTP er ukryptert. Bruk helst HTTPS utanfor det trygge lokalnettet ditt."
+                    } else null
+                }.getOrNull(),
+            )
+        }
     }
     fun updateConnectionToken(value: String) = updateDraft { copy(token = value, error = null) }
     fun updateConnectionUserId(value: String) = updateDraft { copy(userId = value, error = null) }
-    fun updateConnectionAuthMode(value: ConnectionAuthMode) = updateDraft {
-        copy(authMode = value, error = null)
+    fun updateConnectionAuthMode(value: ConnectionAuthMode) {
+        quickConnectJob?.cancel()
+        updateDraft {
+            copy(
+                authMode = value,
+                saving = false,
+                quickConnectCode = null,
+                quickConnectWaiting = false,
+                error = null,
+            )
+        }
     }
     fun updateConnectionUsername(value: String) = updateDraft { copy(username = value, error = null) }
     fun updateConnectionPassword(value: String) = updateDraft { copy(password = value, error = null) }
@@ -627,6 +646,11 @@ class ReelstackViewModel(
                 return
             }
         val useJellyfinAccount = draft.kind == ServiceKind.JELLYFIN && draft.authMode == ConnectionAuthMode.ACCOUNT
+        val useQuickConnect = draft.kind == ServiceKind.JELLYFIN && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
+        if (useQuickConnect) {
+            startQuickConnect(draft, normalizedUrl)
+            return
+        }
         if (useJellyfinAccount && draft.username.isBlank()) {
             updateDraft { copy(error = "Skriv inn Jellyfin-brukarnamnet") }
             return
@@ -660,36 +684,139 @@ class ReelstackViewModel(
                 userId = credentials?.userId ?: draft.userId,
                 state = ConnectionState.TESTING,
             )
-            val result = runCatching {
-                withContext(Dispatchers.IO) { container.connectionTester.test(candidate) }
+            verifyAndSaveConnection(candidate)
+        }
+    }
+
+    private fun startQuickConnect(draft: ConnectionDraft, normalizedUrl: String) {
+        quickConnectJob?.cancel()
+        updateDraft {
+            copy(
+                url = normalizedUrl,
+                saving = true,
+                quickConnectCode = null,
+                quickConnectWaiting = false,
+                error = null,
+            )
+        }
+        quickConnectJob = viewModelScope.launch {
+            var quickConnect = runCatching {
+                withContext(Dispatchers.IO) {
+                    container.jellyfinAuthenticationClient.initiateQuickConnect(normalizedUrl)
+                }
             }.getOrElse { error ->
                 updateDraft {
-                    copy(saving = false, error = error.message ?: "Fekk ikkje kontakt med tenesta")
+                    copy(
+                        saving = false,
+                        quickConnectWaiting = false,
+                        error = error.message ?: "Fekk ikkje starta Quick Connect",
+                    )
                 }
                 return@launch
             }
-
-            if (!result.success) {
-                updateDraft { copy(saving = false, error = result.message) }
-                return@launch
-            }
-
-            withContext(Dispatchers.IO) { container.connectionRepository.save(candidate) }
-            val saved = candidate.copy(
-                state = ConnectionState.CONNECTED,
-                latencyMs = result.latencyMs,
-                detail = result.message,
-            )
-            _uiState.update { state ->
-                state.copy(
-                    connections = state.connections.map { if (it.kind == saved.kind) saved else it },
-                    activeSheet = null,
-                    snackbar = "${saved.kind.displayName} vart kopla til på ${result.latencyMs} ms",
+            updateDraft {
+                copy(
+                    saving = false,
+                    quickConnectCode = quickConnect.code,
+                    quickConnectWaiting = true,
+                    error = null,
                 )
             }
-            connectionDraft.value = null
-            refreshLiveData()
+
+            repeat(QUICK_CONNECT_MAX_POLLS) {
+                if (quickConnect.authenticated) {
+                    updateDraft { copy(saving = true, quickConnectWaiting = false, error = null) }
+                    val credentials = runCatching {
+                        withContext(Dispatchers.IO) {
+                            container.jellyfinAuthenticationClient.authenticateWithQuickConnect(
+                                normalizedUrl,
+                                quickConnect.secret,
+                            )
+                        }
+                    }.getOrElse { error ->
+                        updateDraft {
+                            copy(
+                                saving = false,
+                                quickConnectWaiting = false,
+                                error = error.message ?: "Quick Connect vart ikkje fullført",
+                            )
+                        }
+                        return@launch
+                    }
+                    verifyAndSaveConnection(
+                        ServiceConnection(
+                            kind = ServiceKind.JELLYFIN,
+                            name = draft.name.ifBlank { ServiceKind.JELLYFIN.displayName },
+                            baseUrl = normalizedUrl,
+                            token = credentials.accessToken,
+                            userId = credentials.userId,
+                            state = ConnectionState.TESTING,
+                        ),
+                    )
+                    return@launch
+                }
+
+                delay(QUICK_CONNECT_POLL_INTERVAL_MS)
+                quickConnect = runCatching {
+                    withContext(Dispatchers.IO) {
+                        container.jellyfinAuthenticationClient.quickConnectState(
+                            normalizedUrl,
+                            quickConnect.secret,
+                        )
+                    }
+                }.getOrElse { error ->
+                    updateDraft {
+                        copy(
+                            saving = false,
+                            quickConnectWaiting = false,
+                            error = error.message ?: "Mista kontakten med Quick Connect",
+                        )
+                    }
+                    return@launch
+                }
+                updateDraft { copy(quickConnectCode = quickConnect.code) }
+            }
+
+            updateDraft {
+                copy(
+                    saving = false,
+                    quickConnectWaiting = false,
+                    error = "Quick Connect-koden gjekk ut. Lag ein ny kode og prøv igjen.",
+                )
+            }
         }
+    }
+
+    private suspend fun verifyAndSaveConnection(candidate: ServiceConnection) {
+        val result = runCatching {
+            withContext(Dispatchers.IO) { container.connectionTester.test(candidate) }
+        }.getOrElse { error ->
+            updateDraft {
+                copy(saving = false, error = error.message ?: "Fekk ikkje kontakt med tenesta")
+            }
+            return
+        }
+
+        if (!result.success) {
+            updateDraft { copy(saving = false, error = result.message) }
+            return
+        }
+
+        withContext(Dispatchers.IO) { container.connectionRepository.save(candidate) }
+        val saved = candidate.copy(
+            state = ConnectionState.CONNECTED,
+            latencyMs = result.latencyMs,
+            detail = result.message,
+        )
+        _uiState.update { state ->
+            state.copy(
+                connections = state.connections.map { if (it.kind == saved.kind) saved else it },
+                activeSheet = null,
+                snackbar = "${saved.kind.displayName} vart kopla til på ${result.latencyMs} ms",
+            )
+        }
+        connectionDraft.value = null
+        refreshLiveData()
     }
 
     fun removeConnection(kind: ServiceKind) {
@@ -718,6 +845,11 @@ class ReelstackViewModel(
             require(modelClass.isAssignableFrom(ReelstackViewModel::class.java))
             return ReelstackViewModel(container) as T
         }
+    }
+
+    private companion object {
+        const val QUICK_CONNECT_POLL_INTERVAL_MS = 3_000L
+        const val QUICK_CONNECT_MAX_POLLS = 60
     }
 }
 

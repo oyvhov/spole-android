@@ -25,6 +25,7 @@ class ServiceClientsTest {
         assertEquals("profile-7", login.userId)
         assertTrue(transport.lastUrl.endsWith("/Users/AuthenticateByName"))
         assertTrue(transport.lastHeaders["Authorization"].orEmpty().contains("DeviceId=\"android-42\""))
+        assertFalse(transport.lastHeaders.containsKey("X-Emby-Authorization"))
         assertFalse(transport.lastHeaders.values.any { it.contains("p@ss") })
         assertFalse(transport.lastUrl.contains("p@ss"))
         assertEquals("{\"Username\":\"ø yvind\",\"Pw\":\"p@ss\\\"word\"}", transport.lastBody)
@@ -42,6 +43,45 @@ class ServiceClientsTest {
     }
 
     @Test
+    fun jellyfinQuickConnectUsesNativeThreeStepFlow() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(
+                HttpResponse(
+                    200,
+                    """{"Secret":"secret-123","Code":"ABC123","Authenticated":true}""",
+                ),
+            ),
+            postResponses = mutableListOf(
+                HttpResponse(
+                    200,
+                    """{"Secret":"secret-123","Code":"ABC123","Authenticated":false}""",
+                ),
+                HttpResponse(
+                    200,
+                    """{"User":{"Id":"profile-7"},"AccessToken":"quick-token"}""",
+                ),
+            ),
+        )
+        val client = JellyfinAuthenticationClient(transport, deviceId = "android-42")
+
+        val initiated = client.initiateQuickConnect("https://media.example.com")
+        val approved = client.quickConnectState("https://media.example.com", initiated.secret)
+        val login = client.authenticateWithQuickConnect("https://media.example.com", approved.secret)
+
+        assertEquals("ABC123", initiated.code)
+        assertFalse(initiated.authenticated)
+        assertTrue(approved.authenticated)
+        assertEquals("quick-token", login.accessToken)
+        assertEquals("profile-7", login.userId)
+        assertTrue(transport.urls[0].endsWith("/QuickConnect/Initiate"))
+        assertTrue(transport.urls[1].endsWith("/QuickConnect/Connect?secret=secret-123"))
+        assertTrue(transport.urls[2].endsWith("/Users/AuthenticateWithQuickConnect"))
+        assertTrue(transport.headers.all { "Authorization" in it })
+        assertTrue(transport.headers.none { "X-Emby-Authorization" in it })
+        assertEquals("{\"Secret\":\"secret-123\"}", transport.lastBody)
+    }
+
+    @Test
     fun seerrConnectionProbeUsesAuthenticatedEndpoint() {
         val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(401, "{}")))
 
@@ -53,15 +93,37 @@ class ServiceClientsTest {
     }
 
     @Test
-    fun mediaServerTokenStaysInHeader() {
+    fun jellyfinTokenUsesModernAuthorizationHeader() {
         val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, "[]")))
         val connection = connection(ServiceKind.JELLYFIN, "very-secret-token")
 
-        MediaServerClient(transport).sessions(connection)
+        MediaServerClient(transport, deviceId = "android-42").sessions(connection)
 
-        assertEquals("very-secret-token", transport.lastHeaders["X-Emby-Token"])
+        assertTrue(
+            transport.lastHeaders["Authorization"].orEmpty()
+                .contains("Token=\"very-secret-token\""),
+        )
+        assertTrue(
+            transport.lastHeaders["Authorization"].orEmpty()
+                .contains("DeviceId=\"android-42\""),
+        )
+        assertFalse(transport.lastHeaders.containsKey("X-Emby-Token"))
         assertFalse(transport.lastUrl.contains("very-secret-token"))
         assertTrue(transport.lastUrl.endsWith("/Sessions"))
+    }
+
+    @Test
+    fun jellyfinConnectionProbeUsesModernAuthorizationHeader() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(HttpResponse(200, "{\"Version\":\"10.11.11\"}")),
+        )
+
+        val result = ServiceConnectionTester(transport, deviceId = "android-42")
+            .test(connection(ServiceKind.JELLYFIN, "fresh-token"))
+
+        assertTrue(result.success)
+        assertTrue(transport.lastHeaders["Authorization"].orEmpty().contains("Token=\"fresh-token\""))
+        assertFalse(transport.lastHeaders.containsKey("X-Emby-Token"))
     }
 
     @Test
@@ -94,7 +156,7 @@ class ServiceClientsTest {
         assertTrue(transport.urls[2].contains("IncludeItemTypes=Movie"))
         assertTrue(transport.urls[3].contains("IncludeItemTypes=Episode"))
         assertTrue(transport.urls[3].contains("GroupItems=true"))
-        assertTrue(transport.headers.all { it["X-Emby-Token"] == "secret" })
+        assertTrue(transport.headers.all { it["Authorization"].orEmpty().contains("Token=\"secret\"") })
     }
 
     @Test
@@ -348,6 +410,7 @@ class ServiceClientsTest {
     private class RecordingTransport(
         private val getResponses: MutableList<HttpResponse> = mutableListOf(),
         private val postResponse: HttpResponse = HttpResponse(200, "{}"),
+        private val postResponses: MutableList<HttpResponse> = mutableListOf(),
     ) : JsonHttpTransport {
         var lastUrl: String = ""
         var lastHeaders: Map<String, String> = emptyMap()
@@ -369,7 +432,7 @@ class ServiceClientsTest {
             lastBody = jsonBody
             urls += url
             this.headers += headers
-            return postResponse
+            return if (postResponses.isNotEmpty()) postResponses.removeAt(0) else postResponse
         }
     }
 }

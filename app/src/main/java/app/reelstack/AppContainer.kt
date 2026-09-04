@@ -11,13 +11,18 @@ import app.reelstack.data.repository.AppPreferencesRepository
 
 class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
+    private val deviceId = Settings.Secure.getString(
+        appContext.contentResolver,
+        Settings.Secure.ANDROID_ID,
+    ) ?: "homereel-android"
     val connectionRepository = ConnectionRepository(appContext)
-    val connectionTester = ServiceConnectionTester()
+    val connectionTester = ServiceConnectionTester(deviceId = deviceId)
     val jellyfinAuthenticationClient = JellyfinAuthenticationClient(
-        deviceId = Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID)
-            ?: "homereel-android",
+        deviceId = deviceId,
     )
-    val mediaSyncRepository = MediaSyncRepository()
+    val mediaSyncRepository = MediaSyncRepository(
+        mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId),
+    )
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
     val preferencesRepository = AppPreferencesRepository(appContext)
 }

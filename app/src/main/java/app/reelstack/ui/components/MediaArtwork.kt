@@ -1,5 +1,6 @@
 package app.reelstack.ui.components
 
+import android.provider.Settings
 import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -14,6 +15,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import app.reelstack.ReelstackApplication
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.network.jellyfinAuthorization
 
 @Composable
 fun MediaArtwork(
@@ -39,11 +41,20 @@ fun MediaArtwork(
                 if (connection != null && connection.token.isNotBlank() &&
                     url.startsWith("${connection.baseUrl.trimEnd('/')}/")
                 ) {
-                    builder.httpHeaders(
-                        NetworkHeaders.Builder()
-                            .set("X-Emby-Token", connection.token)
-                            .build(),
-                    )
+                    val headers = NetworkHeaders.Builder()
+                    if (source == ServiceKind.JELLYFIN) {
+                        val deviceId = Settings.Secure.getString(
+                            context.contentResolver,
+                            Settings.Secure.ANDROID_ID,
+                        ) ?: "homereel-android"
+                        headers.set(
+                            "Authorization",
+                            jellyfinAuthorization(deviceId, connection.token),
+                        )
+                    } else {
+                        headers.set("X-Emby-Token", connection.token)
+                    }
+                    builder.httpHeaders(headers.build())
                 }
             }
             builder.build()

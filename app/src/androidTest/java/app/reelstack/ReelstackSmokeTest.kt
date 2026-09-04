@@ -38,7 +38,7 @@ class ReelstackSmokeTest {
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onAllNodesWithText("The Odyssey")[0].assertIsDisplayed().performClick()
 
-        composeRule.onNodeWithText("Bibliotek i Jellyfin").assertIsDisplayed()
+        composeRule.onNodeWithText("BIBLIOTEK I JELLYFIN").assertIsDisplayed()
     }
 
     @Test
@@ -46,18 +46,20 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Oppdag").performClick()
         composeRule.onNodeWithText("The Last Horizon").performClick()
 
-        composeRule.onNodeWithText("Oppdag i Seerr").assertIsDisplayed()
+        composeRule.onNodeWithText("OPPDAG I SEERR").assertIsDisplayed()
         composeRule.onNodeWithText("Legg til i mediesamlinga").assertIsDisplayed()
     }
 
     @Test
-    fun jellyfinEditorOffersAccountLogin() {
+    fun jellyfinEditorOffersQuickConnectAndAccountLogin() {
         composeRule.onNodeWithText("Innstillingar").performClick()
         composeRule.onNodeWithText("Jellyfin").performClick()
 
-        composeRule.onNodeWithText("Brukarkonto").assertIsDisplayed()
-        composeRule.onNodeWithText("API-nøkkel").assertIsDisplayed()
-        composeRule.onNodeWithText("Brukarnamn").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Quick Connect").assertIsDisplayed()
+        composeRule.onNodeWithText("Start Quick Connect").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Brukarnamn").performClick()
+        composeRule.onNodeWithText("Tilgangsteikn").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Brukarnamn")[1].performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Passord").performScrollTo().assertIsDisplayed()
     }
 

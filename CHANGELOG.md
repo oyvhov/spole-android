@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1
+
+- Fixed Jellyfin account sign-in on servers that disable deprecated Emby authorization headers.
+- Send exactly one standards-based Jellyfin authorization header during sign-in, avoiding ambiguous duplicate credentials that could surface as a server error only for valid passwords.
+- Use the same modern Jellyfin authorization scheme for connection checks, library loading, authenticated artwork, details, and playback sessions after sign-in.
+- Added Jellyfin Quick Connect with a native six-character code, automatic approval checking, and secure token exchange without entering a password in HomeReel.
+- Redesigned playback and title sheets around cinematic artwork, layered information, smoother content changes, lighter metadata, and pill-shaped actions instead of a grid of heavy boxes.
+- Refined every bottom sheet with a softer floating shape, quieter surface, and more consistent spacing.
+- Keep Emby on its compatible token header and added regression coverage for the two distinct authorization paths.
+
 ## 0.5.0
 
 - Added subtle, section-shaped shimmer skeletons for initial Home, Discover, and Activity loading without replacing useful cached content during background refreshes.
