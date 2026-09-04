@@ -10,6 +10,7 @@ import app.reelstack.data.security.EncryptedTokenStore
 class ConnectionRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_connections", Context.MODE_PRIVATE)
     private val tokenStore = EncryptedTokenStore(context)
+    private val tokenCache = mutableMapOf<ServiceKind, String>()
 
     fun list(): List<ServiceConnection> = ServiceKind.entries.map(::get)
 
@@ -20,7 +21,7 @@ class ConnectionRepository(context: Context) {
             kind = kind,
             name = preferences.getString("$prefix.name", null) ?: defaultName(kind),
             baseUrl = savedUrl.orEmpty(),
-            token = tokenStore.get("$prefix.token").orEmpty(),
+            token = tokenFor(kind),
             userId = preferences.getString("$prefix.user_id", null).orEmpty(),
             state = if (savedUrl.isNullOrBlank()) ConnectionState.DEMO else ConnectionState.CONNECTED,
             detail = if (savedUrl.isNullOrBlank()) "Demo data" else "Configured",
@@ -35,6 +36,9 @@ class ConnectionRepository(context: Context) {
             putString("$prefix.user_id", connection.userId.trim())
         }
         tokenStore.put("$prefix.token", connection.token)
+        synchronized(tokenCache) {
+            tokenCache[connection.kind] = connection.token
+        }
     }
 
     fun delete(kind: ServiceKind) {
@@ -45,6 +49,15 @@ class ConnectionRepository(context: Context) {
             remove("$prefix.user_id")
         }
         tokenStore.remove("$prefix.token")
+        synchronized(tokenCache) {
+            tokenCache.remove(kind)
+        }
+    }
+
+    private fun tokenFor(kind: ServiceKind): String = synchronized(tokenCache) {
+        tokenCache.getOrPut(kind) {
+            tokenStore.get("${kind.name.lowercase()}.token").orEmpty()
+        }
     }
 
     private fun defaultName(kind: ServiceKind): String = when (kind) {

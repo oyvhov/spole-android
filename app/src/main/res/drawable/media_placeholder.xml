@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <gradient
-                android:angle="315"
-                android:centerColor="#241B31"
-                android:endColor="#100D16"
-                android:startColor="#342247" />
-        </shape>
-    </item>
-    <item
-        android:width="58dp"
-        android:height="58dp"
-        android:drawable="@drawable/ic_launcher"
-        android:gravity="center" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="150dp"
+    android:viewportWidth="100"
+    android:viewportHeight="150">
+    <path
+        android:fillColor="#100D16"
+        android:pathData="M0,0h100v150h-100z" />
+    <path
+        android:fillColor="#241B31"
+        android:pathData="M0,104L100,45V150H0z" />
+    <path
+        android:fillColor="#342247"
+        android:pathData="M0,128L100,85V150H0z" />
+    <path
+        android:fillColor="#B982FF"
+        android:pathData="M30,66L50,49L70,66V86H57V74H43V86H30z" />
+    <path
+        android:fillColor="#130D1B"
+        android:pathData="M45,62L60,70L45,78z" />
+</vector>

@@ -27,25 +27,31 @@ fun MediaArtwork(
     val context = LocalContext.current
     val fallback = painterResource(fallbackRes)
     val model = remember(url, fallbackRes, source) {
-        val builder = ImageRequest.Builder(context)
-            .data(url ?: fallbackRes)
-            .crossfade(260)
-        if (url != null && (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY)) {
-            val connection = (context.applicationContext as? ReelstackApplication)
-                ?.container
-                ?.connectionRepository
-                ?.get(source)
-            if (connection != null && connection.token.isNotBlank() &&
-                url.startsWith("${connection.baseUrl.trimEnd('/')}/")
-            ) {
-                builder.httpHeaders(
-                    NetworkHeaders.Builder()
-                        .set("X-Emby-Token", connection.token)
-                        .build(),
-                )
+        runCatching {
+            val builder = ImageRequest.Builder(context)
+                .data(url ?: fallbackRes)
+                .crossfade(260)
+            if (url != null && (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY)) {
+                val connection = (context.applicationContext as? ReelstackApplication)
+                    ?.container
+                    ?.connectionRepository
+                    ?.get(source)
+                if (connection != null && connection.token.isNotBlank() &&
+                    url.startsWith("${connection.baseUrl.trimEnd('/')}/")
+                ) {
+                    builder.httpHeaders(
+                        NetworkHeaders.Builder()
+                            .set("X-Emby-Token", connection.token)
+                            .build(),
+                    )
+                }
             }
+            builder.build()
+        }.getOrElse {
+            ImageRequest.Builder(context)
+                .data(fallbackRes)
+                .build()
         }
-        builder.build()
     }
     AsyncImage(
         model = model,

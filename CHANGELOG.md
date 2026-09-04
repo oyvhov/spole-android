@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3
+
+- Fixed the launch crash caused by an unsupported live-media placeholder drawable.
+- Prevented authenticated Emby and Jellyfin artwork from repeatedly opening Android's secure key store while the home screen is rendered.
+- Added a crash-safe artwork fallback so a malformed or rejected image request cannot close the app.
+- Added an Android regression test for authenticated artwork failures.
+
 ## 0.4.2
 
 - Kept Jellyfin and Emby marked as connected when only a personal feed or playback-session call is unavailable.
