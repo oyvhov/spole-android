@@ -67,15 +67,31 @@ class ServicePayloadParserTest {
     }
 
     @Test
-    fun readsAvailableMediaProfilesAndSkipsDisabledUsers() {
+    fun prefersAdministratorMediaProfileAndSkipsDisabledUsers() {
         val users = ServicePayloadParser.availableUserIds(
             """[
-                {"Id":"active-user","Policy":{"IsDisabled":false}},
+                {"Id":"child-user","Policy":{"IsDisabled":false,"EnableAllFolders":false}},
+                {"Id":"full-user","Policy":{"IsDisabled":false,"EnableAllFolders":true}},
+                {"Id":"admin-user","Policy":{"IsDisabled":false,"IsAdministrator":true}},
                 {"Id":"disabled-user","Policy":{"IsDisabled":true}}
             ]""",
         )
 
-        assertEquals(listOf("active-user"), users)
+        assertEquals(listOf("admin-user", "full-user", "child-user"), users)
+    }
+
+    @Test
+    fun readsMovieAndSeriesLibraryViews() {
+        val views = ServicePayloadParser.libraryViews(
+            """{"Items":[
+                {"Id":"movies-main","Name":"Filmar","CollectionType":"movies","IsFolder":true},
+                {"Id":"series-main","Name":"Seriar","CollectionType":"tvshows","IsFolder":true},
+                {"Id":"not-a-view","Name":"A film","Type":"Movie","IsFolder":false}
+            ]}""",
+        )
+
+        assertEquals(listOf("movies-main", "series-main"), views.map { it.id })
+        assertEquals(listOf("movies", "tvshows"), views.map { it.collectionType })
     }
 
     @Test

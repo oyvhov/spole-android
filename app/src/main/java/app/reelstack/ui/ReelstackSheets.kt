@@ -287,7 +287,7 @@ private fun ConnectionEditorSheet(
                 onValueChange = onUserIdChange,
                 label = { Text("Profil-ID (valfri)") },
                 placeholder = { Text("Bruk ein bestemt medieprofil") },
-                supportingText = { Text("La feltet stå tomt for automatisk val.") },
+                supportingText = { Text("La feltet stå tomt for automatisk val av ein profil med alle bibliotek.") },
                 singleLine = true,
                 shape = RoundedCornerShape(17.dp),
                 colors = connectionFieldColors(),

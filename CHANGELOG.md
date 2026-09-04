@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.6
+
+- Fixed automatic profile detection so active child sessions or the first returned user can no longer select a restricted child profile for Home.
+- Prefer an enabled administrator or full-library profile when a Jellyfin or Emby API key is not tied to a user.
+- Read the available movie and series library views and interleave their newest items, preventing one busy library from filling an entire row.
+- Added regression coverage for restricted child profiles and multiple movie and series libraries.
+
 ## 0.4.5
 
 - Gave Jellyfin and Emby separate recently-added movie and series rows instead of mixing their libraries.

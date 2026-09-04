@@ -41,6 +41,12 @@ data class RemoteLibraryItem(
     val artworkUrl: String? = null,
 )
 
+data class RemoteLibraryView(
+    val id: String,
+    val name: String,
+    val collectionType: String?,
+)
+
 data class RemoteQueueItem(
     val id: String,
     val title: String,
@@ -108,11 +114,33 @@ object ServicePayloadParser {
             is JsonObject -> root.array("Items").takeIf { it.isNotEmpty() } ?: root.array("items")
             else -> JsonArray(emptyList())
         }
-        return users.mapNotNull { element ->
-            val user = element as? JsonObject ?: return@mapNotNull null
+        return users.mapIndexedNotNull { index, element ->
+            val user = element as? JsonObject ?: return@mapIndexedNotNull null
             val policy = user.obj("Policy") ?: user.obj("policy")
-            if (policy?.bool("IsDisabled") == true || policy?.bool("isDisabled") == true) return@mapNotNull null
-            user.string("Id") ?: user.string("id")
+            if (policy?.bool("IsDisabled") == true || policy?.bool("isDisabled") == true) return@mapIndexedNotNull null
+            val id = user.string("Id") ?: user.string("id") ?: return@mapIndexedNotNull null
+            val isAdministrator = policy?.bool("IsAdministrator") == true || policy?.bool("isAdministrator") == true
+            val hasAllFolders = policy?.bool("EnableAllFolders") == true || policy?.bool("enableAllFolders") == true
+            PreferredUser(id, if (isAdministrator) 2 else if (hasAllFolders) 1 else 0, index)
+        }.sortedWith(compareByDescending<PreferredUser> { it.accessScore }.thenBy { it.originalIndex })
+            .map(PreferredUser::id)
+    }
+
+    fun libraryViews(payload: String): List<RemoteLibraryView> {
+        val root = json.parseToJsonElement(payload)
+        val views = when (root) {
+            is JsonArray -> root
+            is JsonObject -> root.array("Items").takeIf { it.isNotEmpty() } ?: root.array("items")
+            else -> JsonArray(emptyList())
+        }
+        return views.mapNotNull { element ->
+            val view = element as? JsonObject ?: return@mapNotNull null
+            val id = view.string("Id") ?: view.string("id") ?: return@mapNotNull null
+            val name = view.string("Name") ?: view.string("name") ?: return@mapNotNull null
+            val collectionType = view.string("CollectionType") ?: view.string("collectionType")
+            val isFolder = view.bool("IsFolder") ?: view.bool("isFolder") ?: (collectionType != null)
+            if (!isFolder) return@mapNotNull null
+            RemoteLibraryView(id, name, collectionType?.lowercase())
         }
     }
 
@@ -377,4 +405,10 @@ object ServicePayloadParser {
         ?.takeIf { url -> url.startsWith("https://", ignoreCase = true) }
 
     private const val TICKS_PER_MINUTE = 600_000_000L
+
+    private data class PreferredUser(
+        val id: String,
+        val accessScore: Int,
+        val originalIndex: Int,
+    )
 }

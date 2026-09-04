@@ -36,7 +36,12 @@ class ServiceClientsTest {
     fun jellyfinFeedLoadsSeparateMovieAndSeriesRows() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
-                HttpResponse(200, "[]"),
+                HttpResponse(200, """[{
+                    "Id":"child-session","UserId":"child-user","UserName":"Barn","DeviceName":"TV",
+                    "NowPlayingItem":{"Id":"episode-bluey","Name":"Bluey","SeriesName":"Bluey"},
+                    "PlayState":{}
+                }]"""),
+                HttpResponse(200, """{"Items":[]}"""),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
@@ -52,10 +57,11 @@ class ServiceClientsTest {
             feed.recentMovies.single().artworkUrl,
         )
         assertFalse(feed.recentMovies.single().artworkUrl.orEmpty().contains("secret"))
-        assertTrue(transport.urls[1].contains("Items/Latest?UserId=user%209"))
-        assertTrue(transport.urls[1].contains("IncludeItemTypes=Movie"))
-        assertTrue(transport.urls[2].contains("IncludeItemTypes=Episode"))
-        assertTrue(transport.urls[2].contains("GroupItems=true"))
+        assertTrue(transport.urls[1].contains("UserViews?userId=user%209"))
+        assertTrue(transport.urls[2].contains("Items/Latest?UserId=user%209"))
+        assertTrue(transport.urls[2].contains("IncludeItemTypes=Movie"))
+        assertTrue(transport.urls[3].contains("IncludeItemTypes=Episode"))
+        assertTrue(transport.urls[3].contains("GroupItems=true"))
         assertTrue(transport.headers.all { it["X-Emby-Token"] == "secret" })
     }
 
@@ -64,6 +70,7 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
+                HttpResponse(200, """{"Items":[]}"""),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
@@ -78,29 +85,52 @@ class ServiceClientsTest {
             "https://media.example.com/Items/movie-1/Images/Primary?maxHeight=720&quality=90",
             feed.recentMovies.single().artworkUrl,
         )
-        assertTrue(transport.urls[1].contains("Users/emby-user/Items/Latest?"))
-        assertTrue(transport.urls[1].contains("IncludeItemTypes=Movie"))
-        assertTrue(transport.urls[2].contains("IncludeItemTypes=Episode"))
+        assertTrue(transport.urls[1].contains("Users/emby-user/Views?"))
+        assertTrue(transport.urls[2].contains("Users/emby-user/Items/Latest?"))
+        assertTrue(transport.urls[2].contains("IncludeItemTypes=Movie"))
+        assertTrue(transport.urls[3].contains("IncludeItemTypes=Episode"))
     }
 
     @Test
-    fun embyFeedDetectsFirstAvailableProfileForApiKey() {
+    fun embyFeedPrefersFullAccessProfileAndBalancesLibraries() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
-                HttpResponse(200, "[]"),
+                HttpResponse(200, """[{
+                    "Id":"child-session","UserId":"child-user","UserName":"Barn","DeviceName":"TV",
+                    "NowPlayingItem":{"Id":"episode-bluey","Name":"Bluey","SeriesName":"Bluey"},
+                    "PlayState":{}
+                }]"""),
                 HttpResponse(401, "{}"),
-                HttpResponse(200, """[{"Id":"detected-user","Policy":{"IsDisabled":false}}]"""),
-                HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
-                HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
+                HttpResponse(200, """[
+                    {"Id":"child-user","Policy":{"IsDisabled":false,"EnableAllFolders":false}},
+                    {"Id":"admin-user","Policy":{"IsDisabled":false,"IsAdministrator":true}}
+                ]"""),
+                HttpResponse(200, """{"Items":[
+                    {"Id":"movies-main","Name":"Filmar","CollectionType":"movies","IsFolder":true},
+                    {"Id":"movies-kids","Name":"Barnefilmar","CollectionType":"movies","IsFolder":true},
+                    {"Id":"series-main","Name":"Seriar","CollectionType":"tvshows","IsFolder":true},
+                    {"Id":"series-kids","Name":"Barneseriar","CollectionType":"tvshows","IsFolder":true}
+                ]}"""),
+                HttpResponse(200, """[
+                    {"Id":"movie-main-1","Name":"The Odyssey","Type":"Movie"},
+                    {"Id":"movie-main-2","Name":"Mickey 17","Type":"Movie"}
+                ]"""),
+                HttpResponse(200, """[{"Id":"movie-kids-1","Name":"Curious George","Type":"Movie"}]"""),
+                HttpResponse(200, """[{"Id":"series-main-1","Name":"Foundation","Type":"Series"}]"""),
+                HttpResponse(200, """[{"Id":"series-kids-1","Name":"Bluey","Type":"Series"}]"""),
             ),
         )
 
         val feed = MediaServerClient(transport).feed(connection(ServiceKind.EMBY, "server-api-key"))
 
-        assertEquals("Foundation", feed.recentSeries.single().title)
+        assertEquals(listOf("The Odyssey", "Curious George", "Mickey 17"), feed.recentMovies.map { it.title })
+        assertEquals(listOf("Foundation", "Bluey"), feed.recentSeries.map { it.title })
         assertTrue(transport.urls[1].endsWith("/Users/Me"))
         assertTrue(transport.urls[2].endsWith("/Users"))
-        assertTrue(transport.urls[3].contains("Users/detected-user/Items/Latest"))
+        assertTrue(transport.urls[3].contains("Users/admin-user/Views"))
+        assertTrue(transport.urls[4].contains("Users/admin-user/Items/Latest"))
+        assertTrue(transport.urls[4].contains("ParentId=movies-main"))
+        assertTrue(transport.urls[5].contains("ParentId=movies-kids"))
     }
 
     @Test
@@ -108,6 +138,7 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
+                HttpResponse(200, """{"Items":[]}"""),
                 HttpResponse(404, "{}"),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(404, "{}"),
@@ -120,8 +151,8 @@ class ServiceClientsTest {
 
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
-        assertTrue(transport.urls[2].contains("Users/legacy-user/Items/Latest?"))
-        assertTrue(transport.urls[4].contains("Users/legacy-user/Items/Latest?"))
+        assertTrue(transport.urls[3].contains("Users/legacy-user/Items/Latest?"))
+        assertTrue(transport.urls[5].contains("Users/legacy-user/Items/Latest?"))
     }
 
     @Test
@@ -129,6 +160,8 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
+                HttpResponse(401, "{}"),
+                HttpResponse(403, "{}"),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
@@ -139,8 +172,9 @@ class ServiceClientsTest {
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
         assertTrue(feed.warning == null)
-        assertTrue(transport.urls[1].contains("Items/Latest?Limit=12"))
-        assertTrue(transport.urls.none { it.endsWith("/Users/Me") || it.endsWith("/Users") })
+        assertTrue(transport.urls[1].endsWith("/Users/Me"))
+        assertTrue(transport.urls[2].endsWith("/Users"))
+        assertTrue(transport.urls[3].contains("Items/Latest?Limit=12"))
     }
 
     @Test
@@ -148,6 +182,7 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(403, "{}"),
+                HttpResponse(200, """{"Items":[]}"""),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
@@ -166,6 +201,7 @@ class ServiceClientsTest {
     fun validServerRemainsConnectedWhenPersonalFeedsAreForbidden() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
+                HttpResponse(403, "{}"),
                 HttpResponse(403, "{}"),
                 HttpResponse(403, "{}"),
                 HttpResponse(403, "{}"),

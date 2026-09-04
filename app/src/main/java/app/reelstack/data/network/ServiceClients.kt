@@ -87,24 +87,34 @@ class MediaServerClient(
             emptyList()
         }
         val userId = connection.userId.takeIf { it.isNotBlank() }
-            ?: sessions.firstOrNull()?.userId
-            ?: if (connection.kind == ServiceKind.EMBY) {
-                runCatching { currentUserId(connection) }.getOrNull()
-                    ?: runCatching { firstAvailableUserId(connection) }.getOrNull()
-            } else {
-                null
-            }
+            ?: runCatching { currentUserId(connection) }.getOrNull()
+            ?: runCatching { preferredAvailableUserId(connection) }.getOrNull()
 
         val encodedUserId = userId?.let(::encodePathSegment)
+        val views = encodedUserId?.let { encodedId ->
+            runCatching { libraryViews(connection, encodedId) }.getOrDefault(emptyList())
+        }.orEmpty()
         val moviesResult = runCatching {
-            getItems(connection, latestPaths(connection.kind, encodedUserId, itemType = "Movie", groupItems = false))
+            latestAcrossLibraries(
+                connection = connection,
+                userId = encodedUserId,
+                itemType = "Movie",
+                groupItems = false,
+                views = views,
+            )
         }
         val movies = moviesResult.getOrElse {
             warnings += "Nyleg lagde til filmar er utilgjengelege"
             emptyList()
         }
         val seriesResult = runCatching {
-            getItems(connection, latestPaths(connection.kind, encodedUserId, itemType = "Episode", groupItems = true))
+            latestAcrossLibraries(
+                connection = connection,
+                userId = encodedUserId,
+                itemType = "Episode",
+                groupItems = true,
+                views = views,
+            )
         }
         val series = seriesResult.getOrElse {
             warnings += "Nyleg lagde til seriar er utilgjengelege"
@@ -147,7 +157,7 @@ class MediaServerClient(
         return if (response.statusCode in 200..299) ServicePayloadParser.currentUserId(response.body) else null
     }
 
-    private fun firstAvailableUserId(connection: ServiceConnection): String? {
+    private fun preferredAvailableUserId(connection: ServiceConnection): String? {
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "Users"),
             headers(connection),
@@ -155,6 +165,51 @@ class MediaServerClient(
         return if (response.statusCode in 200..299) {
             ServicePayloadParser.availableUserIds(response.body).firstOrNull()
         } else null
+    }
+
+    private fun libraryViews(connection: ServiceConnection, userId: String): List<RemoteLibraryView> {
+        val paths = when (connection.kind) {
+            ServiceKind.JELLYFIN -> listOf(
+                "UserViews?userId=$userId&includeExternalContent=false&includeHidden=false",
+                "Users/$userId/Views?IncludeExternalContent=false",
+            )
+            ServiceKind.EMBY -> listOf("Users/$userId/Views?IncludeExternalContent=false")
+            else -> emptyList()
+        }
+        var lastResponse: HttpResponse? = null
+        paths.forEach { path ->
+            val response = transport.get(EndpointValidator.resolve(connection.baseUrl, path), headers(connection))
+            lastResponse = response
+            if (response.statusCode in 200..299) return ServicePayloadParser.libraryViews(response.body)
+        }
+        lastResponse?.requireSuccess(connection.kind)
+        return emptyList()
+    }
+
+    private fun latestAcrossLibraries(
+        connection: ServiceConnection,
+        userId: String?,
+        itemType: String,
+        groupItems: Boolean,
+        views: List<RemoteLibraryView>,
+    ): List<RemoteLibraryItem> {
+        val relevantViews = views.filter { it.supports(itemType) }.take(MAX_LIBRARY_VIEWS)
+        if (relevantViews.isNotEmpty()) {
+            val successfulGroups = relevantViews.mapNotNull { view ->
+                runCatching {
+                    getItems(
+                        connection,
+                        latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id),
+                    )
+                }.getOrNull()
+            }
+            if (successfulGroups.isNotEmpty()) {
+                return interleave(successfulGroups).distinctBy(RemoteLibraryItem::id).take(LATEST_ITEM_LIMIT)
+            }
+        }
+        return getItems(connection, latestPaths(connection.kind, userId, itemType, groupItems))
+            .distinctBy(RemoteLibraryItem::id)
+            .take(LATEST_ITEM_LIMIT)
     }
 
     private fun getItems(connection: ServiceConnection, paths: List<String>): List<RemoteLibraryItem> {
@@ -181,9 +236,11 @@ class MediaServerClient(
         userId: String?,
         itemType: String,
         groupItems: Boolean,
+        parentId: String? = null,
     ): List<String> {
         val query = "Limit=12&Fields=ProductionYear,SeriesName,RunTimeTicks" +
-            "&IncludeItemTypes=$itemType&GroupItems=$groupItems"
+            "&IncludeItemTypes=$itemType&GroupItems=$groupItems" +
+            parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty()
         return when (kind) {
             ServiceKind.JELLYFIN -> buildList {
                 userId?.let {
@@ -211,6 +268,25 @@ class MediaServerClient(
             headers(connection),
         )
         response.requireSuccess(connection.kind)
+    }
+
+    private fun RemoteLibraryView.supports(itemType: String): Boolean = when (collectionType) {
+        null, "", "mixed" -> true
+        "movies" -> itemType == "Movie"
+        "tvshows", "tv" -> itemType == "Episode"
+        else -> false
+    }
+
+    private fun <T> interleave(groups: List<List<T>>): List<T> = buildList {
+        val largestGroup = groups.maxOfOrNull(List<T>::size) ?: 0
+        repeat(largestGroup) { index ->
+            groups.forEach { group -> group.getOrNull(index)?.let(::add) }
+        }
+    }
+
+    private companion object {
+        const val LATEST_ITEM_LIMIT = 12
+        const val MAX_LIBRARY_VIEWS = 12
     }
 }
 
