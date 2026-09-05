@@ -355,7 +355,8 @@ object ServicePayloadParser {
             seerrStatus = item.obj("mediaInfo")?.int("status"),
             artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork),
             tagline = item.string("tagline"),
-            overview = item.string("overview") ?: item.string("Overview"),
+            overview = item.string("overview")?.takeIf { it.isNotBlank() }
+                ?: item.string("Overview")?.takeIf { it.isNotBlank() },
             facts = discoverFacts(
                 item = item,
                 mediaType = if (item.string("title") != null) "movie" else "tv",
@@ -514,7 +515,30 @@ object ServicePayloadParser {
         val runtime = item.int("runtime") ?: item.array("episodeRunTime").firstOrNull()?.jsonPrimitive?.intOrNull
         runtime?.takeIf { it > 0 }?.let { add("$it min") }
         item.double("voteAverage")?.takeIf { it > 0 }?.let { add("★ ${"%.1f".format(it)}") }
-        item.string("status")?.let(::add)
+        item.string("status")?.trim()?.takeIf { it.isNotEmpty() }?.let { add(seerrProductionStatus(it)) }
+        if (mediaType == "tv") {
+            (item.int("numberOfSeasons") ?: item.int("numberOfSeason"))?.takeIf { it > 0 }?.let {
+                add(if (it == 1) "1 sesong" else "$it sesongar")
+            }
+            item.int("numberOfEpisodes")?.takeIf { it > 0 }?.let {
+                add(if (it == 1) "1 episode" else "$it episodar")
+            }
+            objectNameArray(item, "networks").map(String::trim).filter(String::isNotEmpty)
+                .distinct().takeIf { it.isNotEmpty() }?.joinToString(" · ")?.let(::add)
+        }
+    }
+
+    private fun seerrProductionStatus(status: String): String = when (status.lowercase()) {
+        "returning series" -> "Held fram"
+        "ended" -> "Avslutta"
+        "canceled", "cancelled" -> "Kansellert"
+        "in production" -> "Under produksjon"
+        "post production" -> "Etterarbeid"
+        "planned" -> "Planlagd"
+        "pilot" -> "Pilotepisode"
+        "released" -> "Utgjeven"
+        "rumored", "rumoured" -> "Ryktast"
+        else -> status
     }
 
     private fun safeTmdbArtwork(path: String): String? = when {

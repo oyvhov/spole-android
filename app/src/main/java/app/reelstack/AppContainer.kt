@@ -16,6 +16,7 @@ class AppContainer(context: Context) {
         Settings.Secure.ANDROID_ID,
     ) ?: "homereel-android"
     val connectionRepository = ConnectionRepository(appContext)
+    val accountProfileClient = app.reelstack.data.network.AccountProfileClient(deviceId = deviceId)
     val connectionTester = ServiceConnectionTester(deviceId = deviceId)
     val seerrAuthenticationClient = app.reelstack.data.network.SeerrAuthenticationClient()
     val jellyfinAuthenticationClient = JellyfinAuthenticationClient(

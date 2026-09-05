@@ -132,6 +132,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onSearch = viewModel::setSearchQuery,
                         onRequest = viewModel::requestMedia,
                         onDetails = viewModel::openDiscoverDetails,
+                        onAccountClick = viewModel::openSeerrAccount,
                     )
                     AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails)
                     AppTab.SETTINGS -> SettingsScreen(
@@ -141,6 +142,10 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onNotificationsChange = viewModel::setNotifications,
                         onWifiOnlyChange = viewModel::setWifiOnly,
                         onHomeSectionChange = viewModel::setHomeSectionVisible,
+                        onAccountClick = { kind ->
+                            if (kind == app.reelstack.data.model.ServiceKind.SEERR) viewModel.openSeerrAccount()
+                            else viewModel.openSheet(AppSheet.ConnectionEditor(kind))
+                        },
                     )
                 }
                 }
@@ -166,6 +171,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onAddMedia = viewModel::requestMedia,
         onUpcomingClick = viewModel::openUpcomingDetails,
         onBackToCalendar = viewModel::backToCalendar,
+        onSeerrAccount = viewModel::openSeerrAccount,
     )
 }
 

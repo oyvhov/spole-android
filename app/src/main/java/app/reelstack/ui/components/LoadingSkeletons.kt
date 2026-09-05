@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import app.reelstack.ui.theme.ReelLayout
 
 private val SkeletonBase = Color(0xFF232723)
 private val SkeletonGlow = Color(0xFF75806D)
@@ -85,12 +86,12 @@ fun LibraryRailSkeleton(description: String, wide: Boolean = false, modifier: Mo
         modifier = modifier.clearAndSetSemantics { contentDescription = description },
     ) {
         items(3) { index ->
-            val cardWidth = if (wide) 224.dp else 146.dp
-            val artworkHeight = if (wide) 126.dp else 214.dp
+            val cardWidth = if (wide) ReelLayout.EpisodeWidth else ReelLayout.PosterWidth
+            val artworkHeight = if (wide) ReelLayout.EpisodeHeight else ReelLayout.PosterHeight
             Column(Modifier.width(cardWidth)) {
                 ShimmerBlock(
                     modifier = Modifier.fillMaxWidth().height(artworkHeight),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(ReelLayout.ArtworkCorner),
                 )
                 ShimmerBlock(
                     modifier = Modifier
@@ -116,8 +117,9 @@ fun UpcomingSkeleton(modifier: Modifier = Modifier) {
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar komande utgjevingar" },
     ) {
         items(3) { index ->
-            Column(Modifier.width(178.dp)) {
-                ShimmerBlock(Modifier.fillMaxWidth().height(224.dp), RoundedCornerShape(24.dp))
+            Column(Modifier.width(264.dp)) {
+                ShimmerBlock(Modifier.width(110.dp).height(17.dp), RoundedCornerShape(6.dp))
+                ShimmerBlock(Modifier.padding(top = 10.dp).fillMaxWidth().height(120.dp), RoundedCornerShape(16.dp))
                 ShimmerBlock(
                     Modifier.padding(top = 10.dp).width(if (index == 1) 118.dp else 150.dp).height(15.dp),
                     RoundedCornerShape(8.dp),

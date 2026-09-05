@@ -104,10 +104,10 @@ class MediaSyncRepository(
         )
     }
 
-    fun request(connection: ServiceConnection, media: DiscoverMedia) {
+    fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId) {
         val remoteId = requireNotNull(media.remoteId) { "Tittelen manglar medie-ID frå Seerr" }
         val mediaType = requireNotNull(media.mediaType) { "Tittelen manglar medietype frå Seerr" }
-        seerrServiceClient.request(connection, mediaType, remoteId)
+        seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId)
     }
 
     fun search(connection: ServiceConnection, query: String): List<DiscoverMedia> =

@@ -10,6 +10,9 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import org.junit.Before
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
@@ -42,7 +45,7 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithTag("home-feed").performScrollToNode(hasText("Kalender"))
         composeRule.onNodeWithText("Kalender").performScrollTo().assertIsDisplayed().performClick()
 
-        composeRule.onNodeWithText("Neste 28 dagar · filmar heime og nye episodar")
+        composeRule.onNodeWithText("Filmar heime og nye episodar")
             .assertIsDisplayed()
     }
 
@@ -68,7 +71,8 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Oppdag").performClick()
         composeRule.onNodeWithText("The Last Horizon").performClick()
 
-        composeRule.onNodeWithText("OPPDAG I SEERR").assertIsDisplayed()
+        composeRule.onNode(hasText("Seerr") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
+        composeRule.onNode(hasText("The Last Horizon") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
         composeRule.onNodeWithText("Om filmen").assertIsDisplayed()
         composeRule.onNodeWithText("Legg til i mediesamlinga").performScrollTo().assertIsDisplayed()
     }
@@ -76,7 +80,7 @@ class ReelstackSmokeTest {
     @Test
     fun jellyfinEditorOffersQuickConnectAndAccountLogin() {
         composeRule.onNodeWithText("Innstillingar").performClick()
-        composeRule.onNodeWithText("Jellyfin").performClick()
+        composeRule.onNode(hasText("Jellyfin") and hasClickAction()).performScrollTo().performClick()
 
         composeRule.onNodeWithText("Tenaradresse").performTextInput("https://media.example.com")
         composeRule.onNodeWithText("Hald fram").performClick()
@@ -93,16 +97,20 @@ class ReelstackSmokeTest {
     fun homeSectionsCanBeEditedInSettings() {
         composeRule.onNodeWithText("Innstillingar").performClick()
 
-        composeRule.onNodeWithText("HomeReel").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Heimskjerm").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Emby · Filmar").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Emby · Seriar").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("HomeReel"))
+        composeRule.onNodeWithText("HomeReel").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Heimskjerm"))
+        composeRule.onNodeWithText("Heimskjerm").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Emby · Filmar"))
+        composeRule.onNodeWithText("Emby · Filmar").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Emby · Seriar"))
+        composeRule.onNodeWithText("Emby · Seriar").assertIsDisplayed()
     }
 
     @Test
     fun seerrOffersJellyfinAccountAndQuickConnect() {
         composeRule.onNodeWithText("Innstillingar").performClick()
-        composeRule.onNodeWithText("Seerr").performClick()
+        composeRule.onNode(hasText("Seerr") and hasClickAction()).performScrollTo().performClick()
         composeRule.onNodeWithText("Tenaradresse").performTextInput("https://seerr.example.com")
         composeRule.onNodeWithText("Hald fram").performClick()
         composeRule.onNodeWithText("Jellyfin-konto").assertIsDisplayed()

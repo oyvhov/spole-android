@@ -15,11 +15,12 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - First-run service checklist, address-first connection setup, preserved tab scroll state and working Discover filters
 - Aggregated Home dashboard with content from every connected server; no server switching required
 - Multiple simultaneous Jellyfin/Emby sessions with independent playback controls
-- Live Seerr search with one-tap “add to media collection” actions
+- Live Seerr search with personal “add to media collection” actions and a visible verified account identity
 - Unified activity timeline for Seerr, Sonarr, and Radarr events
 - Settings and connection editors for Jellyfin, Emby, Seerr, Radarr, and Sonarr
 - Native Jellyfin Quick Connect plus username/password and advanced access-token setup
 - Seerr Jellyfin account sign-in and Seerr-mediated Quick Connect with encrypted session cookies and CSRF support
+- Real Jellyfin/Seerr profile pictures and names; Seerr rechecks the acting user before each request, and administrator keys are read-only for requests
 - Real connectivity/authentication probes for all five services
 - Live Jellyfin/Emby playback sessions
 - Separate Jellyfin/Emby recently-added movie and episode rails across all accessible libraries, with wide Thumb artwork for series

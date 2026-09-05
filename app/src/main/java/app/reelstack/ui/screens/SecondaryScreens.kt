@@ -81,6 +81,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -99,9 +100,12 @@ import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.ActivitySkeleton
 import app.reelstack.ui.components.DiscoverSkeleton
+import app.reelstack.ui.components.RequestIdentity
+import app.reelstack.ui.components.SettingsAccounts
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.theme.Caution
 import app.reelstack.ui.theme.Muted
+import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.Success
@@ -111,14 +115,14 @@ import app.reelstack.ui.theme.Warning
 
 @Composable
 private fun ScreenHeader(kicker: String, title: String, lede: String) {
-    Text(title, color = Color.White, style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 6.dp))
-    Text(lede, color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 7.dp))
+    Text(title, color = TextColor, style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 6.dp))
+    Text(lede, color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
 }
 
 private fun screenPadding(contentPadding: PaddingValues) = PaddingValues(
-    start = 24.dp,
-    top = 32.dp,
-    end = 24.dp,
+    start = ReelLayout.Gutter,
+    top = ReelLayout.PageTop,
+    end = ReelLayout.Gutter,
     bottom = contentPadding.calculateBottomPadding() + 24.dp,
 )
 
@@ -129,6 +133,7 @@ fun DiscoverScreen(
     onSearch: (String) -> Unit,
     onRequest: (String) -> Unit,
     onDetails: (String) -> Unit,
+    onAccountClick: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     var filter by rememberSaveable { mutableStateOf("Alt") }
@@ -144,7 +149,7 @@ fun DiscoverScreen(
         contentPadding = screenPadding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().testTag("discover-grid"),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
@@ -174,9 +179,10 @@ fun DiscoverScreen(
                         unfocusedContainerColor = SurfaceRaised,
                         cursorColor = Primary,
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 )
                 AppFilterRow(listOf("Alt", "Filmar", "Seriar"), filter, { filter = it }, Modifier.padding(top = 12.dp))
+                RequestIdentity(state, onSignIn = onAccountClick)
             }
         }
         if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank()
@@ -207,35 +213,29 @@ fun DiscoverScreen(
 private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit) {
     Column {
         Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onDetails)) {
-            Box {
-                MediaArtwork(
-                    url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)),
-                )
-                if (!media.canRequest) {
-                    Surface(
-                        color = app.reelstack.ui.theme.Ink,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
-                    ) {
-                        Text(seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested),
-                            color = Primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
-                    }
-                }
-            }
+            MediaArtwork(
+                url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)),
+            )
             Text(media.title, color = TextColor, fontSize = 15.sp, lineHeight = 19.sp,
-                fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 10.dp).heightIn(min = 38.dp))
+                fontWeight = FontWeight.SemiBold, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 10.dp))
             Text(media.metadata, color = Muted, fontSize = 12.sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+            if (!media.canRequest) {
+                Text(
+                    seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested),
+                    color = Primary, fontSize = 12.sp, lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 5.dp),
+                )
+            }
         }
         TextButton(
             onClick = if (!media.canRequest) onDetails else onRequest,
             enabled = !requesting,
             contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
-            modifier = Modifier.heightIn(min = 48.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         ) {
             if (requesting) {
                 CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
@@ -257,7 +257,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     var sourceFilter by rememberSaveable { mutableStateOf("Alt") }
     val events = state.activity.filter { sourceFilter == "Alt" || it.source?.displayName == sourceFilter }
     val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
-    LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize()) {
+    LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
         item {
             ScreenHeader("", "Aktivitet", "Følg titlane frå lagde til til klare.")
             Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
@@ -296,35 +296,32 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
 private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
     ) {
-        Box(modifier = Modifier.size(width = 72.dp, height = 96.dp)) {
-            MediaArtwork(
-                url = event.artworkUrl,
-                fallbackRes = event.artworkRes ?: R.drawable.media_placeholder,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(15.dp)),
-            )
-            Surface(
-                color = if (event.complete) Success else Primary,
-                contentColor = app.reelstack.ui.theme.Ink,
-                shape = CircleShape,
-                modifier = Modifier.align(Alignment.BottomEnd).size(27.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        if (event.complete) Icons.Rounded.Check else if (event.source == ServiceKind.SEERR) Icons.Rounded.CloudDone else Icons.Rounded.Download,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-        }
+        MediaArtwork(
+            url = event.artworkUrl,
+            fallbackRes = event.artworkRes ?: R.drawable.media_placeholder,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(width = 64.dp, height = 96.dp).clip(RoundedCornerShape(10.dp)),
+        )
         Column(modifier = Modifier.weight(1f).padding(start = 16.dp)) {
-            Text(event.time, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Text(event.title, color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-            Text(event.detail, color = Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+            Text(event.title, color = TextColor, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 4.dp)) {
+                Icon(
+                    if (event.complete) Icons.Rounded.Check else if (event.source == ServiceKind.SEERR) Icons.Rounded.CloudDone else Icons.Rounded.Download,
+                    contentDescription = null,
+                    tint = if (event.complete) Success else Primary,
+                    modifier = Modifier.padding(top = 1.dp).size(14.dp),
+                )
+                Text(event.detail, color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                    modifier = Modifier.weight(1f).padding(start = 6.dp))
+            }
+            Text(
+                listOfNotNull(event.time.takeIf { it.isNotBlank() }, event.source?.displayName).joinToString(" · "),
+                color = Muted, fontSize = 11.sp, lineHeight = 16.sp,
+                modifier = Modifier.padding(top = 5.dp),
+            )
             event.progress?.let { progress ->
                 Box(Modifier.fillMaxWidth().padding(top = 10.dp).height(6.dp).clip(CircleShape).background(app.reelstack.ui.theme.SurfaceRaised)) {
                     Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).height(6.dp).background(Primary))
@@ -342,10 +339,11 @@ fun SettingsScreen(
     onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
     onHomeSectionChange: (HomeSection, Boolean) -> Unit,
+    onAccountClick: (ServiceKind) -> Unit = onConnectionClick,
 ) {
     LazyColumn(
         contentPadding = screenPadding(contentPadding),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().testTag("settings-feed"),
     ) {
         item {
             ScreenHeader(
@@ -353,6 +351,7 @@ fun SettingsScreen(
                 title = "Innstillingar",
                 lede = "Tilkoplingar, val og personvern.",
             )
+            SettingsAccounts(state, onAccountClick)
             SettingsSectionTitle("Tenestene dine")
         }
         items(state.connections, key = { it.kind }) { connection ->
@@ -361,7 +360,7 @@ fun SettingsScreen(
         item {
             SettingsSectionTitle("Heimskjerm")
             Text(
-                "Kvar teneste får sine eigne delar. Vel kva som skal visast på Heim.",
+                "Vel kva som skal visast på Heim.",
                 color = Muted,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
@@ -376,11 +375,11 @@ fun SettingsScreen(
             HomeSectionRow(HomeSection.DOWNLOADS, "Nedlastingar", "Aktive køar i Radarr og Sonarr", Icons.Rounded.Download, state, onHomeSectionChange)
             SettingsSectionTitle("Val")
             Text("Varsel", color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
-            Text("Ikkje tilgjengeleg enno. Du finn oppdateringar under Aktivitet.", color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+            Text("Kjem seinare. Sjå oppdateringar under Aktivitet.", color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
             PreferenceRow(
                 icon = Icons.Rounded.Wifi,
                 label = "Synkroniser berre på Wi-Fi",
-                description = "Avgrens bakgrunnsoppdatering til nett utan datakostnad",
+                description = "Bakgrunnsoppdatering på Wi-Fi",
                 checked = state.wifiOnly,
                 onCheckedChange = onWifiOnlyChange,
             )
@@ -415,7 +414,7 @@ private fun AppIdentity() {
             modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)),
         )
         Column(Modifier.padding(start = 13.dp)) {
-            Text("HomeReel", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text("HomeReel", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 "Personleg medieoversikt · v${BuildConfig.VERSION_NAME}",
                 color = Muted,
@@ -428,7 +427,7 @@ private fun AppIdentity() {
 
 @Composable
 private fun SettingsSectionTitle(text: String) {
-    Text(text, color = TextColor, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 28.dp, bottom = 12.dp))
+    Text(text, color = TextColor, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 28.dp, bottom = 12.dp))
 }
 
 @Composable

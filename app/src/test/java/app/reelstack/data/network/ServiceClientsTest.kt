@@ -361,12 +361,13 @@ class ServiceClientsTest {
 
     @Test
     fun televisionRequestIncludesAllSeasons() {
-        val transport = RecordingTransport(postResponse = HttpResponse(201, "{}"))
-        val connection = connection(ServiceKind.SEERR, "seerr-secret")
+        val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, """{"id":7,"displayName":"Maya"}""")), postResponse = HttpResponse(201, "{}"))
+        val connection = connection(ServiceKind.SEERR, "connect.sid=seerr-secret").copy(sessionCookie = true, userId = "7")
 
         SeerrServiceClient(transport).request(connection, mediaType = "tv", remoteId = 202)
 
-        assertEquals("seerr-secret", transport.lastHeaders["X-Api-Key"])
+        assertEquals("connect.sid=seerr-secret", transport.lastHeaders["Cookie"])
+        assertFalse(transport.lastHeaders.containsKey("X-Api-Key"))
         assertEquals("{\"mediaType\":\"tv\",\"mediaId\":202,\"seasons\":\"all\"}", transport.lastBody)
         assertFalse(transport.lastUrl.contains("seerr-secret"))
     }

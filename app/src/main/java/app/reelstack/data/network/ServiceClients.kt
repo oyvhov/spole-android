@@ -10,8 +10,10 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.Base64
 import kotlin.system.measureTimeMillis
 
 private data class ServiceProbe(
@@ -503,7 +505,11 @@ class QueueServiceClient(
 
 class SeerrServiceClient(
     private val transport: JsonHttpTransport = HttpTransport(),
+    private val nanoTime: () -> Long = System::nanoTime,
 ) {
+    // Cache only display metadata; request and availability status always come from fresh feed responses.
+    private val requestMetadataCache = LinkedHashMap<RequestMetadataKey, CachedRequestMetadata>(16, 0.75f, true)
+
     fun search(connection: ServiceConnection, query: String): List<RemoteDiscoverItem> {
         require(connection.kind == ServiceKind.SEERR)
         val encodedQuery = encode(query).replace("+", "%20")
@@ -515,15 +521,37 @@ class SeerrServiceClient(
         return ServicePayloadParser.discover(response.body)
     }
 
-    fun details(connection: ServiceConnection, mediaType: String, remoteId: Int): RemoteMediaDetails {
+    fun details(
+        connection: ServiceConnection,
+        mediaType: String,
+        remoteId: Int,
+        language: String = "nb",
+    ): RemoteMediaDetails {
         require(connection.kind == ServiceKind.SEERR)
         require(mediaType == "movie" || mediaType == "tv")
-        val response = transport.get(
-            EndpointValidator.resolve(connection.baseUrl, "api/v1/$mediaType/$remoteId"),
-            headers(connection),
-        )
-        response.requireSuccess(connection.kind)
-        return ServicePayloadParser.mediaDetails(response.body)
+        val requestedLanguage = language.trim().ifBlank { "nb" }
+        val requestHeaders = headers(connection)
+        fun fetch(detailLanguage: String): RemoteMediaDetails {
+            val response = transport.get(
+                EndpointValidator.resolve(
+                    connection.baseUrl,
+                    "api/v1/$mediaType/$remoteId?language=${encode(detailLanguage)}",
+                ),
+                requestHeaders,
+            )
+            response.requireSuccess(connection.kind)
+            return ServicePayloadParser.mediaDetails(response.body)
+        }
+
+        val details = fetch(requestedLanguage)
+        if (!details.overview.isNullOrBlank() || requestedLanguage.substringBefore('-').equals("en", ignoreCase = true)) {
+            return details
+        }
+
+        // Translation enrichment is optional; keep the primary metadata and availability even if it fails.
+        val englishOverview = runCatching { fetch("en").overview }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+        return if (englishOverview != null) details.copy(overview = englishOverview) else details
     }
 
     fun feed(connection: ServiceConnection): SeerrFeed {
@@ -540,36 +568,71 @@ class SeerrServiceClient(
             requestHeaders,
         )
         requestsResponse.requireSuccess(connection.kind)
-        val requests = ServicePayloadParser.requests(requestsResponse.body).mapIndexed { index, request ->
-            if (index >= REQUEST_DETAIL_LIMIT || request.remoteId == null ||
-                (request.title != null && request.artworkUrl != null)
-            ) {
-                request
-            } else {
-                val detailsResponse = transport.get(
-                    EndpointValidator.resolve(connection.baseUrl, "api/v1/${request.mediaType}/${request.remoteId}"),
-                    requestHeaders,
-                )
-                if (detailsResponse.statusCode in 200..299) {
-                    val details = ServicePayloadParser.mediaDetails(detailsResponse.body)
-                    request.copy(
-                        title = request.title ?: details.title,
-                        artworkUrl = request.artworkUrl ?: details.artworkUrl,
-                    )
-                } else {
-                    request
+        val discover = ServicePayloadParser.discover(discoverResponse.body)
+        val discoveredByMedia = discover.associateBy { it.mediaType to it.remoteId }
+        val scope = RequestMetadataScope(
+            endpoint = EndpointValidator.normalizeBaseUrl(connection.baseUrl),
+            authFingerprint = Base64.getEncoder().encodeToString(
+                MessageDigest.getInstance("SHA-256").digest(connection.token.toByteArray(Charsets.UTF_8)),
+            ),
+            sessionCookie = connection.sessionCookie,
+            userId = connection.userId,
+        )
+        // Failures are deduplicated only within this refresh, so the next refresh can retry.
+        val detailCache = mutableMapOf<Pair<String, Int>, RequestMetadata?>()
+        var detailLookups = 0
+        val requests = ServicePayloadParser.requests(requestsResponse.body).map { request ->
+            val remoteId = request.remoteId ?: return@map request
+            val key = request.mediaType to remoteId
+            val discovered = discoveredByMedia[key]
+            val enriched = request.copy(
+                title = request.title?.takeIf { it.isNotBlank() } ?: discovered?.title,
+                artworkUrl = request.artworkUrl ?: discovered?.artworkUrl,
+            )
+            if ((!enriched.title.isNullOrBlank() && enriched.artworkUrl != null) ||
+                request.mediaType !in setOf("movie", "tv")
+            ) return@map enriched
+
+            if (key !in detailCache) {
+                val cacheKey = RequestMetadataKey(scope, request.mediaType, remoteId)
+                val cached = cachedRequestMetadata(cacheKey)
+                if (cached != null) {
+                    detailCache[key] = cached
+                } else if (detailLookups < REQUEST_DETAIL_LIMIT) {
+                    detailLookups++
+                    detailCache[key] = runCatching {
+                        val response = transport.get(
+                            EndpointValidator.resolve(connection.baseUrl, "api/v1/${request.mediaType}/$remoteId"),
+                            requestHeaders,
+                        )
+                        response.requireSuccess(connection.kind)
+                        val details = ServicePayloadParser.mediaDetails(response.body)
+                        RequestMetadata(details.title?.takeIf { it.isNotBlank() }, details.artworkUrl)
+                            .takeIf { it.title != null || it.artworkUrl != null }
+                            ?.also { cacheRequestMetadata(cacheKey, it) }
+                    }.getOrNull()
                 }
             }
+            val details = detailCache[key]
+            enriched.copy(
+                title = enriched.title?.takeIf { it.isNotBlank() } ?: details?.title,
+                artworkUrl = enriched.artworkUrl ?: details?.artworkUrl,
+            )
         }
         return SeerrFeed(
-            discover = ServicePayloadParser.discover(discoverResponse.body),
+            discover = discover,
             requests = requests,
         )
     }
 
-    fun request(connection: ServiceConnection, mediaType: String, remoteId: Int) {
+    fun request(connection: ServiceConnection, mediaType: String, remoteId: Int, expectedUserId: String = connection.userId) {
         require(connection.kind == ServiceKind.SEERR)
         require(mediaType == "movie" || mediaType == "tv")
+        require(connection.sessionCookie && expectedUserId.isNotBlank()) {
+            "Logg inn personleg i Seerr. Ein administratornøkkel kan ikkje sende førespurnader som deg."
+        }
+        val actor = AccountProfileClient(transport = transport).load(connection)
+        check(actor.isPersonal && actor.id == expectedUserId) { "Seerr-kontoen er endra. Sjekk innlogginga før du sender." }
         val body = buildJsonObject {
             put("mediaType", mediaType)
             put("mediaId", remoteId)
@@ -583,8 +646,40 @@ class SeerrServiceClient(
         response.requireSuccess(connection.kind)
     }
 
+    private fun cachedRequestMetadata(key: RequestMetadataKey): RequestMetadata? = synchronized(requestMetadataCache) {
+        val cached = requestMetadataCache[key] ?: return@synchronized null
+        if (nanoTime() - cached.createdAtNanos >= REQUEST_METADATA_TTL_NANOS) {
+            requestMetadataCache.remove(key)
+            null
+        } else {
+            cached.metadata
+        }
+    }
+
+    private fun cacheRequestMetadata(key: RequestMetadataKey, metadata: RequestMetadata) = synchronized(requestMetadataCache) {
+        val now = nanoTime()
+        requestMetadataCache.entries.removeAll { now - it.value.createdAtNanos >= REQUEST_METADATA_TTL_NANOS }
+        requestMetadataCache[key] = CachedRequestMetadata(metadata, now)
+        while (requestMetadataCache.size > REQUEST_METADATA_CACHE_LIMIT) {
+            requestMetadataCache.entries.iterator().run { next(); remove() }
+        }
+    }
+
+    private data class RequestMetadataScope(
+        val endpoint: String,
+        val authFingerprint: String,
+        val sessionCookie: Boolean,
+        val userId: String,
+    )
+
+    private data class RequestMetadataKey(val scope: RequestMetadataScope, val mediaType: String, val remoteId: Int)
+    private data class RequestMetadata(val title: String?, val artworkUrl: String?)
+    private data class CachedRequestMetadata(val metadata: RequestMetadata, val createdAtNanos: Long)
+
     private companion object {
-        const val REQUEST_DETAIL_LIMIT = 4
+        const val REQUEST_DETAIL_LIMIT = 20
+        const val REQUEST_METADATA_CACHE_LIMIT = 64
+        const val REQUEST_METADATA_TTL_NANOS = 600_000_000_000L
     }
 }
 

@@ -30,6 +30,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -99,6 +100,7 @@ import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Warning
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.DetailTextSkeleton
+import app.reelstack.ui.components.RequestIdentity
 import app.reelstack.ui.components.ServiceLogo
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,6 +122,7 @@ fun ReelstackSheets(
     onAddMedia: (String) -> Unit,
     onUpcomingClick: (String) -> Unit,
     onBackToCalendar: () -> Unit = {},
+    onSeerrAccount: () -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -161,7 +164,7 @@ fun ReelstackSheets(
             when (sheet) {
                 is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle)
                 is AppSheet.TitleDetails -> state.contentDetails?.let {
-                    RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia)
+                    RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia, onSeerrAccount = onSeerrAccount)
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
                     UpcomingCalendarSheet(state.upcoming, onUpcomingClick, onDismiss)
@@ -189,16 +192,17 @@ fun ReelstackSheets(
 }
 
 @Composable
-private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit) {
+private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit) {
     val details = state.contentDetails ?: return
     val discoverMedia = (state.discover + state.searchResults).firstOrNull { it.id == details.key }
     val mediaType = resolvedMediaType(details.mediaType, details.subtitle)
     val isMovie = mediaType == "Movie"
     val usePoster = isMovie || details.source == ServiceKind.SEERR
+    val visibleFacts = details.facts.filterNot { it == details.source?.displayName }.distinct()
     Column(
         Modifier
             .verticalScroll(rememberScrollState())
-            .padding(start = 18.dp, end = 18.dp, bottom = 40.dp),
+            .padding(start = 24.dp, end = 24.dp, bottom = 40.dp),
     ) {
         if (usePoster) {
             MoviePosterSummary(
@@ -206,7 +210,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 eyebrow = details.eyebrow,
                 subtitle = details.subtitle,
                 tagline = details.tagline,
-                facts = details.facts,
+                facts = visibleFacts,
                 artworkUrl = details.artworkUrl,
                 artworkRes = details.artworkRes,
                 source = details.source,
@@ -221,13 +225,14 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 source = details.source,
             )
         }
-        val remainingFacts = if (usePoster) details.facts.drop(4) else details.facts
+        val remainingFacts = if (usePoster) visibleFacts.drop(4) else visibleFacts
         if (remainingFacts.isNotEmpty()) {
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
             ) {
-                remainingFacts.take(5).forEach { fact -> DetailPill(fact) }
+                remainingFacts.distinct().forEach { fact -> DetailPill(fact) }
             }
         }
         if (details.genres.isNotEmpty()) {
@@ -238,15 +243,6 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 6.dp, top = 15.dp, end = 6.dp),
             )
-        }
-        details.statusTitle?.let { title ->
-            Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.Top) {
-                details.source?.let { ServiceSymbol(it, Modifier.padding(top = 3.dp).size(20.dp)) }
-                Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                    Text(title, color = PrimarySoft, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
-                }
-            }
         }
         details.tagline?.takeIf { !usePoster && it.isNotBlank() }?.let { tagline ->
             Text(
@@ -280,13 +276,26 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (details.loading) {
             DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
         }
+        details.statusTitle?.let { title ->
+            Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
+                .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
+                details.source?.let { ServiceSymbol(it, Modifier.padding(top = 3.dp).size(18.dp)) }
+                Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                    Text(title, color = PrimarySoft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
+                }
+            }
+        }
         details.error?.let {
             Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
         if (discoverMedia != null && discoverMedia.canRequest) {
             val adding = discoverMedia.id in state.requestingMediaIds
+            val connectedSeerr = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() }
+            val needsAccount = connectedSeerr && state.accounts[ServiceKind.SEERR]?.isPersonal != true
+            RequestIdentity(state, onSeerrAccount)
             Button(
-                onClick = { onAddMedia(discoverMedia.id) },
+                onClick = { if (needsAccount) onSeerrAccount() else onAddMedia(discoverMedia.id) },
                 enabled = !discoverMedia.requested && !adding,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
@@ -305,6 +314,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 Text(
                     when {
                         adding -> "Legg til…"
+                        needsAccount -> "Logg inn for å leggje til"
                         discoverMedia.requested -> "Lagd til"
                         else -> "Legg til i mediesamlinga"
                     },
@@ -333,7 +343,7 @@ private fun MoviePosterSummary(
         Surface(
             color = app.reelstack.ui.theme.Ink,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.width(130.dp).height(195.dp),
+            modifier = Modifier.width(116.dp).height(174.dp),
         ) {
             MediaArtwork(
                 url = artworkUrl,
@@ -345,13 +355,12 @@ private fun MoviePosterSummary(
             )
         }
         Column(Modifier.weight(1f).padding(start = 17.dp, top = 7.dp)) {
-            Text(
-                eyebrow.uppercase(),
-                color = PrimarySoft,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-            )
+            source?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SourceMark(kind = it, modifier = Modifier.size(12.dp))
+                    Text(it.displayName, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
             Text(
                 title,
                 color = Color.White,
@@ -360,7 +369,8 @@ private fun MoviePosterSummary(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 7.dp),
             )
-            val supportingText = tagline?.takeIf(String::isNotBlank) ?: subtitle
+            // Type/year already live in the facts: avoid saying them twice.
+            val supportingText = tagline?.takeIf(String::isNotBlank) ?: subtitle.takeIf { facts.isEmpty() }.orEmpty()
             if (supportingText.isNotBlank()) {
                 Text(
                     supportingText,
@@ -380,12 +390,6 @@ private fun MoviePosterSummary(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 11.dp),
                 )
-            }
-            source?.let {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
-                    SourceMark(kind = it, modifier = Modifier.size(13.dp))
-                    Text(it.displayName, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
-                }
             }
         }
     }
@@ -413,9 +417,12 @@ private fun CinematicTitleHero(
             modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(14.dp)).background(Ink),
         )
-        Text(eyebrow.uppercase(), color = PrimarySoft, fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp,
-            modifier = Modifier.padding(top = 20.dp))
+        source?.let {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp)) {
+                SourceMark(it, Modifier.size(12.dp))
+                Text(it.displayName, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
+            }
+        }
         Text(title, color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 6.dp))
         if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 14.sp, lineHeight = 20.sp,
@@ -427,11 +434,11 @@ private fun CinematicTitleHero(
 private fun DetailPill(text: String) {
     Text(
         text = text,
-        color = Color(0xFFE8E0EF),
+        color = MaterialTheme.colorScheme.onSurface,
         fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(SurfaceRaised)
             .padding(horizontal = 10.dp, vertical = 7.dp),
     )

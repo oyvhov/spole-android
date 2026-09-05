@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+- Added authenticated Jellyfin/Seerr account panels with server-provided names and profile pictures, and a visible request identity in Discover and title details.
+- Personal requests now require a Seerr session and recheck its actual user ID immediately before posting. Administrator API keys remain read-only for requests; no impersonation field is sent.
+- Profile pictures use origin-scoped credentials and do not follow redirects; missing pictures use an initial rather than demo artwork.
+
+- Refined the complete native layout against authenticated service data: shorter source-labelled Home headings, clean poster art, room for longer titles and episode subtitles, and a calendar shortcut beside the greeting.
+- Kept inactive playback compact during refresh, with matched artwork dimensions for skeletons and loaded cards.
+- Moved Discover availability below posters and Activity status beside text; improved hierarchy across all four tabs.
+- Reworked upcoming cards around readable dates and artwork; added daily calendar counts and predictable filter scrolling.
+- Prioritized synopsis in detail sheets, removed repeated type/year information and made extra facts wrap without changing the sheet height.
+- Added Norwegian/English synopsis fallback, richer Seerr series facts, translated statuses and bounded account-scoped request-metadata caching.
+- Preserved separate Jellyfin/Emby film and episode controls, existing account sessions and the established APK upgrade identity.
+
 ## 0.6.0
 
 - Rebuilt the visual foundation with matte charcoal surfaces, warm white typography and a restrained lime accent; removed the decorative space background and floating navigation overlay.

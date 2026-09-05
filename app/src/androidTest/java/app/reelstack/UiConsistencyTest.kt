@@ -50,6 +50,6 @@ class UiConsistencyTest {
         rule.onNodeWithText("Emby · Filmar").performScrollTo().performClick()
         assertEquals(1, changes)
         assertEquals(HomeSection.EMBY_MOVIES, changedSection)
-        rule.onNodeWithText("Ikkje tilgjengeleg enno. Du finn oppdateringar under Aktivitet.").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Kjem seinare. Sjå oppdateringar under Aktivitet.").performScrollTo().assertIsDisplayed()
     }
 }

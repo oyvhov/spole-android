@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -64,6 +65,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,6 +88,7 @@ import app.reelstack.ui.components.NowPlayingSkeleton
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.UpcomingSkeleton
 import app.reelstack.ui.theme.Muted
+import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.SurfaceRaised
@@ -125,26 +130,28 @@ fun HomeScreen(
     ) {
         LazyColumn(
             contentPadding = PaddingValues(
-                start = 24.dp,
-                top = 32.dp,
-                end = 24.dp,
+                start = ReelLayout.Gutter,
+                top = ReelLayout.PageTop,
+                end = ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
             modifier = Modifier.fillMaxSize().testTag("home-feed"),
         ) {
             item {
-                HomeGreeting()
+                HomeGreeting(onCalendarClick)
             }
             if (HomeSection.NOW_PLAYING in state.homeSections) {
                 item {
-                    SectionTitle("Spelar no", Modifier.padding(top = 28.dp, bottom = 15.dp))
                     if (state.sessions.isEmpty()) {
-                        if (state.isRefreshing && configuredMediaSources.isNotEmpty()) {
-                            NowPlayingSkeleton()
-                        } else {
-                            EmptyNowPlayingCard()
+                        // A refresh must not insert a large hero and push every library row down.
+                        Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (state.isRefreshing && configuredMediaSources.isNotEmpty()) {
+                                CircularProgressIndicator(Modifier.size(10.dp), color = Muted, strokeWidth = 1.dp)
+                                Text("Sjekkar avspelingar…", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
+                            } else EmptyNowPlayingCard()
                         }
                     } else {
+                        SectionTitle("Spelar no", Modifier.padding(top = 24.dp, bottom = 12.dp))
                         NowPlayingRail(
                             sessions = state.sessions,
                             pendingSessionKey = state.pendingSessionKey,
@@ -238,7 +245,7 @@ private fun greeting(): String = when (java.time.LocalTime.now().hour) {
 }
 
 @Composable
-private fun HomeGreeting() {
+private fun HomeGreeting(onCalendarClick: () -> Unit) {
     var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
@@ -251,23 +258,20 @@ private fun HomeGreeting() {
             DateTimeFormatter.ofPattern("EEEE d. MMMM", Locale.forLanguageTag("nn-NO")),
         ).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.forLanguageTag("nn-NO")) else it.toString() }
     }
-    Column(
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.graphicsLayer {
             alpha = reveal
             translationY = (1f - reveal) * 24f
         },
     ) {
-        Text(
-            text = greeting(),
-            color = TextColor,
-            style = MaterialTheme.typography.displaySmall,
-        )
-        Text(
-            text = date,
-            color = Muted,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 7.dp),
-        )
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(text = date, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
+            Text(text = greeting(), color = TextColor, style = MaterialTheme.typography.displaySmall)
+        }
+        IconButton(onClick = onCalendarClick, modifier = Modifier.size(48.dp).background(SurfaceRaised, CircleShape)) {
+            Icon(Icons.Rounded.CalendarMonth, contentDescription = "Opne kalenderen", tint = Primary, modifier = Modifier.size(22.dp))
+        }
     }
 }
 
@@ -292,16 +296,27 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MediaSectionTitle(text: String, source: ServiceKind, modifier: Modifier = Modifier) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth().clearAndSetSemantics {
+        heading()
+        contentDescription = "${source.displayName} · $text"
+    }) {
+        Text(
+            text = if (text.endsWith("filmar")) "Nye filmar" else "Nye episodar",
+            color = TextColor,
+            fontSize = 21.sp,
+            lineHeight = 25.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f).padding(end = 12.dp),
+        )
         ServiceLogo(
             kind = source,
             contentDescription = null,
             modifier = Modifier.size(13.dp),
         )
         Text(
-            text = "${source.displayName} · $text",
-            color = TextColor,
-            style = MaterialTheme.typography.titleMedium,
+            text = source.displayName,
+            color = Muted,
+            fontSize = 12.sp,
             modifier = Modifier.padding(start = 7.dp),
         )
     }
@@ -476,9 +491,9 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
 
 @Composable
 private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, onClick: () -> Unit) {
-    val cardWidth = if (wide) 224.dp else 146.dp
-    val artworkHeight = if (wide) 126.dp else 214.dp
-    val artworkShape = RoundedCornerShape(12.dp)
+    val cardWidth = if (wide) ReelLayout.EpisodeWidth else ReelLayout.PosterWidth
+    val artworkHeight = if (wide) ReelLayout.EpisodeHeight else ReelLayout.PosterHeight
+    val artworkShape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
@@ -523,32 +538,24 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, on
                 source = media.source,
                 modifier = Modifier.fillMaxSize(),
             )
-            Surface(
-                color = app.reelstack.ui.theme.SurfaceRaised,
-                shape = CircleShape,
-                modifier = Modifier.align(Alignment.TopEnd).padding(9.dp),
-            ) {
-                ServiceLogo(
-                    kind = media.source,
-                    contentDescription = media.source.displayName,
-                    modifier = Modifier.padding(6.dp).size(13.dp),
-                )
-            }
         }
         Text(
             media.title,
             color = Color.White,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
-            maxLines = 1,
+            lineHeight = 19.sp,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            minLines = if (wide) 1 else 2,
             modifier = Modifier.padding(top = 9.dp),
         )
         Text(
             media.subtitle,
             color = Muted,
             fontSize = 12.sp,
-            maxLines = 1,
+            maxLines = if (wide) 2 else 1,
+            lineHeight = 17.sp,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 2.dp),
         )
@@ -583,7 +590,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
     )
     Column(
         modifier = Modifier
-            .width(178.dp)
+            .width(264.dp)
             .graphicsLayer {
                 alpha = reveal
                 translationY = (1f - reveal) * 30f
@@ -597,73 +604,38 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
             )
             .semantics { role = Role.Button },
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(224.dp)
-                .clip(shape),
-        ) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Schedule, contentDescription = null, tint = Primary, modifier = Modifier.size(14.dp))
+            Text(media.dateLabel, color = Primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f).padding(start = 6.dp))
+            Icon(if (media.source == ServiceKind.RADARR) Icons.Rounded.Movie else Icons.Rounded.Tv,
+                contentDescription = media.source.displayName, tint = Muted, modifier = Modifier.size(14.dp))
+        }
+        Row(Modifier.fillMaxWidth().clip(shape).background(SurfaceRaised).padding(12.dp).heightIn(min = 96.dp), verticalAlignment = Alignment.CenterVertically) {
+            val movie = media.source == ServiceKind.RADARR
             MediaArtwork(
                 url = media.artworkUrl,
                 fallbackRes = media.artworkRes,
                 contentDescription = media.title,
-                contentScale = if (media.mediaType.equals("Movie", true)) ContentScale.Fit else ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().background(app.reelstack.ui.theme.Ink),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(if (movie) 64.dp else 88.dp, if (movie) 96.dp else 49.5.dp).clip(RoundedCornerShape(8.dp)),
             )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        0f to Color(0x1808060E),
-                        0.5f to Color.Transparent,
-                        1f to Color(0xF3090710),
-                    ),
-                ),
-            )
-            Surface(
-                color = app.reelstack.ui.theme.Ink,
-                shape = CircleShape,
-                modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                ) {
-                    Icon(Icons.Rounded.Schedule, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(13.dp))
-                    Text(
-                        media.dateLabel,
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 5.dp),
-                    )
-                }
-            }
-            Surface(
-                color = app.reelstack.ui.theme.Ink,
-                shape = CircleShape,
-                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-            ) {
-                Icon(
-                    if (media.source == ServiceKind.RADARR) Icons.Rounded.Movie else Icons.Rounded.Tv,
-                    contentDescription = media.source.displayName,
-                    tint = PrimarySoft,
-                    modifier = Modifier.padding(7.dp).size(13.dp),
-                )
-            }
-            Column(Modifier.align(Alignment.BottomStart).padding(15.dp)) {
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(
                     media.title,
                     color = Color.White,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
+                    lineHeight = 21.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    media.subtitle,
+                    media.subtitle.replace(" · TBA", ""),
                     color = app.reelstack.ui.theme.Muted,
                     fontSize = 12.sp,
-                    maxLines = 1,
+                    maxLines = 2,
+                    lineHeight = 17.sp,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 3.dp),
                 )
@@ -676,7 +648,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
 private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
         Column(Modifier.weight(1f)) {
-            Text("Kjem snart", color = TextColor, style = MaterialTheme.typography.titleMedium)
+            Text("Kjem snart", color = TextColor, fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
             Text("Heimeutgjevingar og nye episodar", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
         }
         Surface(

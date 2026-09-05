@@ -133,8 +133,8 @@ Acceptance: updates are useful without being noisy, stale data is visibly identi
 
 | Service | Primary role | First live reads | First live actions |
 | --- | --- | --- | --- |
-| Jellyfin | Playback and library | sessions, resume, recent items | playback handoff/control |
-| Emby | Playback and library | sessions, resume, recent items | playback handoff/control |
+| Jellyfin | Playback and library | sessions, recent films and episodes across libraries | playback handoff/control |
+| Emby | Playback and library | sessions, recent films and episodes across libraries | playback handoff/control |
 | Seerr | Discovery and requests | discover, request status | create/cancel request |
 | Radarr | Movie acquisition | calendar, queue, history | queue retry/remove |
 | Sonarr | Series acquisition | calendar, queue, history | queue retry/remove |

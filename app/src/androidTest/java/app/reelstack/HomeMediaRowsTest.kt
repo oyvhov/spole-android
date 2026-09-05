@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.HomeSection
@@ -21,6 +22,27 @@ import org.junit.Test
 class HomeMediaRowsTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun calendarIsReachableWithoutScrollingAndEmptyPlaybackStaysQuiet() {
+        var opened = false
+        composeRule.setContent {
+            ReelstackTheme {
+                HomeScreen(
+                    state = ReelstackUiState(connections = emptyList(), sessions = emptyList(),
+                        homeSections = setOf(HomeSection.NOW_PLAYING)),
+                    contentPadding = PaddingValues(0.dp), onSessionClick = {}, onPlaybackToggle = {},
+                    onMediaClick = {}, onLibraryClick = {}, onUpcomingClick = {},
+                    onCalendarClick = { opened = true }, onRefresh = {},
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("Opne kalenderen").assertIsDisplayed().performClick()
+        org.junit.Assert.assertTrue(opened)
+        composeRule.onNodeWithText("Ingen aktive avspelingar").assertIsDisplayed()
+        composeRule.onNodeWithText("Spelar no").assertDoesNotExist()
+        composeRule.onNodeWithText("HomeReel").assertDoesNotExist()
+    }
 
     @Test
     fun jellyfinAndEmbyRenderAsSeparateLibraryRows() {
@@ -57,10 +79,10 @@ class HomeMediaRowsTest {
             }
         }
 
-        composeRule.onNodeWithText("Jellyfin · Nyleg lagde til filmar")
+        composeRule.onNodeWithContentDescription("Jellyfin · Nyleg lagde til filmar")
             .performScrollTo()
             .assertIsDisplayed()
-        composeRule.onNodeWithText("Emby · Nyleg lagde til filmar")
+        composeRule.onNodeWithContentDescription("Emby · Nyleg lagde til filmar")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -121,8 +143,8 @@ class HomeMediaRowsTest {
         }
         labels.forEach { (section, label) ->
             composeRule.runOnIdle { selected.value = section }
-            composeRule.onNodeWithText(label).performScrollTo().assertIsDisplayed()
-            labels.filterKeys { it != section }.values.forEach { hidden -> composeRule.onNodeWithText(hidden).assertDoesNotExist() }
+            composeRule.onNodeWithContentDescription(label).performScrollTo().assertIsDisplayed()
+            labels.filterKeys { it != section }.values.forEach { hidden -> composeRule.onNodeWithContentDescription(hidden).assertDoesNotExist() }
         }
     }
 

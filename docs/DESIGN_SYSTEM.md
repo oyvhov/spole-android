@@ -9,7 +9,7 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 | Pattern | Purpose | Important states |
 | --- | --- | --- |
 | Playback carousel | One card per active Jellyfin or Emby session | playing, paused, command pending, command failed |
-| Media rail | Separate Jellyfin/Emby poster and episode rows | loading, newly added, source badge |
+| Media rail | Separate Jellyfin/Emby poster and episode rows | loading, newly added, small source mark in heading |
 | Discovery grid | Adaptive posters with usable type filters and quieter actions | all, movies, series, searching, empty, requested |
 | First-run setup | Select services, authenticate, then open Home | no connections, connection added, explicit demo preview |
 | Upcoming card | Date-first Radarr/Sonarr calendar item | today, tomorrow, later date, missing artwork |
@@ -27,7 +27,8 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 - Playback cards use 20 dp corners; posters use 12 dp and compact surfaces use 10–16 dp. Artwork is borderless, without a decorative shadow or bottom strip.
 - Navigation reserves layout space instead of floating over content. System insets are handled once by the app shell. Each tab retains its scroll state.
 - Navigation fades use 150–220 ms. Home cards reveal in 240 ms with at most 60 ms stagger, once per saved composition identity; touch scales use a restrained spring. Compose motion follows Android's animation scale.
-- Series detail imagery keeps its aspect ratio, with title and subtitle below. Movie details keep a full poster beside the summary. Gradients are used only to make overlaid playback/upcoming text legible.
+- Series detail imagery keeps its aspect ratio, with title and subtitle below. Movie details keep a full poster beside the summary. Gradients are used only to make overlaid playback text legible; upcoming dates and summaries sit outside artwork.
+- Shared dimensions live in `ReelLayout`; see [the layout specification](LAYOUT.md) for each screen's hierarchy. Poster/status overlays are avoided throughout Home, Discover and Activity. Empty playback stays compact during refresh.
 - Bottom sheets reserve a stable 90% content viewport from their first frame, plus the drag handle and system insets. The size constraint belongs to the content, not the modal surface, so the sheet keeps its bottom anchor. Remote metadata updates only the scrollable interior; no content-size spring changes the outer anchor. Keyboard insets may resize the usable area deliberately.
 - Calendar keeps title, type filters and a 28-day date strip above a lazy agenda. A selected date filters the list; tapping it again or “Alle dagar” resets it. Empty days remain selectable. Rows have borderless 16:9 episode art or uncropped 2:3 film posters, 48 dp minimum targets, and a readable source/time label. Film dates do not imply an exact release time or availability in the library.
 - Home visibility has four independent library switches: Jellyfin movies/series and Emby movies/series. Older combined preferences migrate without re-enabling hidden rows. Hiding a row does not disconnect the service or disable its other features.

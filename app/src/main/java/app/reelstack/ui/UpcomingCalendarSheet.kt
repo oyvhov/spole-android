@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -59,11 +60,13 @@ internal fun UpcomingCalendarSheet(
             .filterKeys { !it.isBefore(today) && it.isBefore(today.plusDays(28)) }
     }
     val shown = grouped.filterKeys { selectedDay == null || it.toString() == selectedDay }
+    val agendaState = rememberLazyListState()
+    LaunchedEffect(filter, selectedDay) { agendaState.scrollToItem(0) }
     Column(Modifier.fillMaxSize().testTag("calendar")) {
         Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Kalender", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text("Neste 28 dagar · filmar heime og nye episodar", color = Muted, fontSize = 12.sp)
+                Text("Filmar heime og nye episodar", color = Muted, fontSize = 13.sp)
             }
             IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Lukk kalenderen") }
         }
@@ -95,7 +98,8 @@ internal fun UpcomingCalendarSheet(
                     Column(Modifier.padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(date.format(DateTimeFormatter.ofPattern("EEE", locale)).removeSuffix("."), fontSize = 12.sp)
                         Text(date.dayOfMonth.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(if (count > 0) "·" else "", fontSize = 14.sp, lineHeight = 14.sp)
+                        Text(if (count > 0) count.toString() else "–", fontSize = 10.sp, lineHeight = 14.sp,
+                            color = if (isSelected) Ink else if (count > 0) Primary else Muted)
                     }
                 }
             }
@@ -109,6 +113,7 @@ internal fun UpcomingCalendarSheet(
         }
         // Only visible rows are composed, even for large calendars.
         LazyColumn(
+            state = agendaState,
             modifier = Modifier.weight(1f).testTag("calendar-agenda"),
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 28.dp),
         ) {
@@ -144,11 +149,11 @@ private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
         .format(DateTimeFormatter.ofPattern("HH:mm"))
     Surface(onClick = { onOpen(media.id) }, color = androidx.compose.ui.graphics.Color.Transparent) {
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(88.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.width(88.dp), contentAlignment = Alignment.CenterStart) {
                 MediaArtwork(
                     url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
                     contentScale = if (isMovie) ContentScale.Fit else ContentScale.Crop,
-                    modifier = Modifier.size(if (isMovie) 52.dp else 88.dp, if (isMovie) 78.dp else 54.dp)
+                    modifier = Modifier.size(if (isMovie) 60.dp else 88.dp, if (isMovie) 90.dp else 54.dp)
                         .clip(RoundedCornerShape(10.dp)).background(SurfaceRaised),
                 )
             }

@@ -20,6 +20,7 @@ import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceConnection
+import app.reelstack.data.model.ServiceAccount
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.network.EndpointValidator
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 enum class AppTab { HOME, DISCOVER, ACTIVITY, SETTINGS }
@@ -65,6 +67,9 @@ data class ReelstackUiState(
     val selectedTab: AppTab = AppTab.HOME,
     val activeSheet: AppSheet? = null,
     val connections: List<ServiceConnection> = emptyList(),
+    val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
+    val accountErrors: Map<ServiceKind, String> = emptyMap(),
+    val loadingAccounts: Set<ServiceKind> = emptySet(),
     val sessions: List<PlaybackSession> = demoSessions(),
     val recentMovies: List<LibraryMedia> = demoRecentMovies(),
     val recentSeries: List<LibraryMedia> = demoRecentSeries(),
@@ -119,6 +124,7 @@ class ReelstackViewModel(
     private var searchJob: Job? = null
     private var quickConnectJob: Job? = null
     private var connectionJob: Job? = null
+    private var accountsJob: Job? = null
 
     init {
         refreshLiveData()
@@ -131,8 +137,19 @@ class ReelstackViewModel(
         _uiState.update { it.copy(showOnboarding = false, selectedTab = AppTab.HOME) }
     }
 
+    fun openSeerrAccount() {
+        openSheet(AppSheet.ConnectionEditor(ServiceKind.SEERR))
+        if (_uiState.value.activeSheet == AppSheet.ConnectionEditor(ServiceKind.SEERR)) {
+            updateConnectionAuthMode(ConnectionAuthMode.ACCOUNT)
+        }
+    }
+
     fun openSheet(sheet: AppSheet) {
         if (sheet is AppSheet.ConnectionEditor) {
+            if (_uiState.value.requestingMediaIds.isNotEmpty()) {
+                _uiState.update { it.copy(snackbar = "Vent til førespurnaden er ferdig før du byter konto.") }
+                return
+            }
             connectionJob?.cancel()
             quickConnectJob?.cancel()
             val existing = _uiState.value.connections.first { it.kind == sheet.kind }
@@ -451,6 +468,11 @@ class ReelstackViewModel(
         if (!media.canRequest || id in state.requestingMediaIds) return
         val seerr = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
 
+        if (state.configuredCount > 0 && (seerr == null || seerr.baseUrl.isBlank() || media.remoteId == null || media.mediaType == null)) {
+            _uiState.update { it.copy(snackbar = "Fekk ikkje sendt. Kople til Seerr og opne tittelen på nytt.") }
+            return
+        }
+
         if (seerr == null || seerr.baseUrl.isBlank() || media.remoteId == null || media.mediaType == null) {
             _uiState.update {
                 it.copy(
@@ -465,10 +487,19 @@ class ReelstackViewModel(
             return
         }
 
+        val account = state.accounts[ServiceKind.SEERR]
+        if (!seerr.sessionCookie || account?.isPersonal != true) {
+            openSeerrAccount()
+            _uiState.update { it.copy(snackbar = "Logg inn med Jellyfin-kontoen din i Seerr for å sende som deg sjølv.") }
+            return
+        }
         _uiState.update { it.copy(requestingMediaIds = it.requestingMediaIds + id) }
         viewModelScope.launch {
             val result = runCatching {
-                withContext(Dispatchers.IO) { container.mediaSyncRepository.request(seerr, media) }
+                withContext(Dispatchers.IO) {
+                    // Reconfirm the exact identity shown in the UI before any write.
+                    container.mediaSyncRepository.request(seerr, media, expectedUserId = account.id)
+                }
             }
             _uiState.update { current ->
                 if (result.isSuccess) {
@@ -476,13 +507,13 @@ class ReelstackViewModel(
                         discover = current.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         searchResults = current.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         contentDetails = current.contentDetails?.let { details ->
-                            if (details.key == id) details.copy(statusTitle = "Sendt til Seerr", statusDescription = "Tittelen er send. Oppdatert status kjem ved neste synkronisering.") else details
+                            if (details.key == id) details.copy(statusTitle = "Sendt som ${account.displayName}", statusDescription = "Førespurnaden er registrert på Seerr-kontoen din. Oppdatert status kjem ved neste synkronisering.") else details
                         },
                         activity = listOf(
                             ActivityEvent(
                                 id = "seerr-request-${media.id}",
                                 title = media.title,
-                                detail = "Sendt til Seerr",
+                                detail = "Sendt som ${account.displayName}",
                                 time = "No nettopp",
                                 source = ServiceKind.SEERR,
                                 artworkRes = media.artworkRes,
@@ -490,12 +521,12 @@ class ReelstackViewModel(
                             ),
                         ) + current.activity,
                         requestingMediaIds = current.requestingMediaIds - id,
-                        snackbar = "Tittelen er lagd til via Seerr",
+                        snackbar = "Sendt til Seerr som ${account.displayName}",
                     )
                 } else {
                     current.copy(
                         requestingMediaIds = current.requestingMediaIds - id,
-                        snackbar = "Seerr kunne ikkje leggje til tittelen",
+                        snackbar = "Fekk ikkje sendt som ${account.displayName}. Sjekk Seerr-kontoen og tilgangen din.",
                     )
                 }
             }
@@ -503,6 +534,7 @@ class ReelstackViewModel(
     }
 
     fun refreshLiveData(userInitiated: Boolean = false) {
+        refreshAccounts()
         if (refreshJob?.isActive == true) return
         val state = _uiState.value
         val configured = state.connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
@@ -642,6 +674,35 @@ class ReelstackViewModel(
     fun setNotifications(enabled: Boolean) {
         container.preferencesRepository.notificationsEnabled = enabled
         _uiState.update { it.copy(notificationsEnabled = enabled) }
+    }
+
+    private fun refreshAccounts() {
+        accountsJob?.cancel()
+        val targets = _uiState.value.connections.filter {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        }
+        val kinds = targets.map { it.kind }.toSet()
+        _uiState.update { it.copy(accounts = it.accounts.filterKeys(kinds::contains),
+            accountErrors = it.accountErrors.filterKeys(kinds::contains), loadingAccounts = kinds) }
+        accountsJob = viewModelScope.launch {
+            targets.forEach { connection ->
+                launch profile@ {
+                    val result = runCatching { withContext(Dispatchers.IO) { container.accountProfileClient.load(connection) } }
+                    if (!isActive) return@profile
+                    _uiState.update { current ->
+                        val configured = current.connections.firstOrNull { it.kind == connection.kind }
+                        if (configured == null || configured.baseUrl != connection.baseUrl || configured.token != connection.token ||
+                            configured.userId != connection.userId || configured.sessionCookie != connection.sessionCookie) current
+                        else current.copy(
+                            accounts = if (result.isSuccess) current.accounts + (connection.kind to result.getOrThrow()) else current.accounts - connection.kind,
+                            accountErrors = if (result.isSuccess) current.accountErrors - connection.kind else current.accountErrors +
+                                (connection.kind to "Fekk ikkje stadfesta kontoen. Sjekk innlogginga eller prøv å oppdatere igjen."),
+                            loadingAccounts = current.loadingAccounts - connection.kind,
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun setWifiOnly(enabled: Boolean) {
@@ -880,6 +941,8 @@ class ReelstackViewModel(
         _uiState.update { state ->
             state.copy(
                 connections = state.connections.map { if (it.kind == saved.kind) saved else it },
+                accounts = state.accounts - saved.kind,
+                accountErrors = state.accountErrors - saved.kind,
                 sessions = if (state.configuredCount == 0) emptyList() else state.sessions,
                 recentMovies = if (state.configuredCount == 0) emptyList() else state.recentMovies,
                 recentSeries = if (state.configuredCount == 0) emptyList() else state.recentSeries,
@@ -898,12 +961,15 @@ class ReelstackViewModel(
     }
 
     fun removeConnection(kind: ServiceKind) {
+        if (_uiState.value.requestingMediaIds.isNotEmpty()) return
         container.connectionRepository.delete(kind)
         val remaining = container.connectionRepository.list()
         if (remaining.none { it.baseUrl.isNotBlank() }) container.mediaSnapshotStore.clear()
         _uiState.update {
             it.copy(
                 connections = remaining,
+                accounts = it.accounts - kind,
+                accountErrors = it.accountErrors - kind,
                 activeSheet = null,
                 failedServices = it.failedServices - kind,
                 snackbar = "Tilkoplinga til ${kind.displayName} er fjerna",
