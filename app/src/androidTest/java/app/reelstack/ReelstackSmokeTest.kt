@@ -56,7 +56,7 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Legg til").performClick()
         composeRule.onNodeWithTag("confirm-request").performClick()
 
-        composeRule.onNodeWithContentDescription("Lagd til").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Lagd til").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare").assertIsDisplayed()
     }
 

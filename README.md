@@ -6,7 +6,7 @@ The native app includes a multi-server Home, four interactive destinations, pers
 
 ## Download
 
-Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstack-android/releases/latest). The current early-access build is debug-signed and intended for direct testing, not Play Store distribution.
+This repository is private. Releases are published to [GitHub Releases](https://github.com/oyvhov/reelstack-android/releases/latest), and downloading one requires being signed in with access to the repository — the link is not a public download. The current early-access build is debug-signed and intended for direct testing, not Play Store distribution.
 
 ## Included now
 
@@ -36,6 +36,9 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Android Keystore-backed AES/GCM encryption for API tokens
 - HTTPS by default; plain HTTP accepted only for localhost and private-LAN hosts
 - Section-shaped shimmer loading, animated navigation, uncropped film posters, wide series art, rich title sheets, feedback, and large touch targets
+- One centred content column with a navigation rail on tablets, foldables and landscape; no control has a fixed height, so nothing clips or drops a line at a 2.0x font scale
+- Accent colour reserved for actions and progress; every control that needs an identifiable edge has one at 3:1 contrast
+- Address setup shows a working example address for each service and fills the field from it
 - Unit, lint, and on-device Compose smoke-test coverage
 
 ## Run it

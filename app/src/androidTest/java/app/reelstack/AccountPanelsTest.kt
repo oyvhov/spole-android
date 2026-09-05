@@ -35,7 +35,10 @@ class AccountPanelsTest {
 
     // In-memory fixtures only: no stored accounts, credentials or remote avatar URLs.
     private fun accountState() = ReelstackUiState(
-        connections = listOf(ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", sessionCookie = true)),
+        connections = listOf(
+            ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", sessionCookie = true),
+            ServiceConnection(ServiceKind.JELLYFIN, "Jellyfin", "https://jellyfin.example"),
+        ),
         accounts = mapOf(ServiceKind.SEERR to seerr, ServiceKind.JELLYFIN to jellyfin),
     )
 
@@ -78,7 +81,7 @@ class AccountPanelsTest {
         rule.onNodeWithText(seerr.displayName).assertIsDisplayed()
         rule.onNodeWithText("Administratornøkkel · berre oversikt").assertIsDisplayed()
         rule.onNodeWithText("Førespurnader som deg").assertDoesNotExist()
-        rule.onNodeWithText("Logg inn med Jellyfin").performClick()
+        rule.onNodeWithContentDescription("Logg inn på Seerr").performClick()
         assertEquals(ServiceKind.SEERR, selected)
     }
 

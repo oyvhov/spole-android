@@ -20,6 +20,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import app.reelstack.ui.components.AppFilterRow
 import app.reelstack.ui.components.ServiceSymbol
 import app.reelstack.data.model.canRequest
@@ -49,6 +54,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudDone
@@ -93,6 +99,7 @@ import app.reelstack.data.model.ActivityEvent
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.HomeSection
+import app.reelstack.data.model.isSeries
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.R
@@ -108,6 +115,7 @@ import app.reelstack.ui.theme.Caution
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.ReelLayout
+import app.reelstack.ui.theme.ReelPage
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.Success
@@ -141,11 +149,12 @@ fun DiscoverScreen(
     var filter by rememberSaveable { mutableStateOf("Alt") }
     val visible = state.visibleDiscover.filter { media ->
         when (filter) {
-            "Filmar" -> media.mediaType.equals("movie", true) || media.metadata.startsWith("Film")
-            "Seriar" -> media.mediaType.equals("tv", true) || media.metadata.startsWith("Serie")
+            "Filmar" -> !media.isSeries
+            "Seriar" -> media.isSeries
             else -> true
         }
     }
+    ReelPage {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(145.dp),
         contentPadding = screenPadding(contentPadding),
@@ -205,44 +214,69 @@ fun DiscoverScreen(
         } else {
             items(visible, key = DiscoverMedia::id) { media ->
                 DiscoverCard(media, media.id in state.requestingMediaIds,
-                    allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(media.mediaType ?: "movie") } == true,
+                    allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(if (media.isSeries) "tv" else "movie") } == true,
                     onRequest = { onRequest(media.id) }, onDetails = { onDetails(media.id) })
             }
         }
+    }
     }
 }
 
 @Composable
 private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
     val actionable = media.canRequest && allowed
+    val statusLabel = seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested)
     Box(Modifier.fillMaxWidth().heightIn(min = 300.dp).clip(RoundedCornerShape(18.dp)).background(SurfaceRaised)
-        .clickable(onClick = onDetails).testTag("discover-cover-${media.id}")) {
+        // The card's own action is named so a screen reader can tell it apart from the request
+        // button inside it. It must not merge its descendants: that would swallow the button.
+        .clickable(onClickLabel = "Vis detaljar for ${media.title}", onClick = onDetails)
+        .testTag("discover-cover-${media.id}")) {
         MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)
         Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
             0f to Color.Transparent, .35f to Color.Transparent, .68f to Color.Black.copy(alpha = .64f), 1f to Color.Black.copy(alpha = .96f))))
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (media.mediaType == "tv") "SERIE" else "FILM", color = Ink, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.background(Primary, CircleShape).padding(horizontal = 9.dp, vertical = 5.dp))
-                Spacer(Modifier.weight(1f))
-                if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
-                    Icon(if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.CloudDone,
-                        seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested), tint = Primary,
-                        modifier = Modifier.background(Color.Black.copy(alpha = .75f), CircleShape).padding(7.dp).size(19.dp))
-                }
+        // Badge at the top, text block anchored to the bottom. Alignment rather than a fixed
+        // spacer, so the card grows with the font scale instead of clipping or leaving a gap.
+        Row(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            // A type badge classifies, it does not act, so it stays off the accent colour.
+            Text(if (media.isSeries) "SERIE" else "FILM", color = Color.White, fontSize = 10.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, maxLines = 1,
+                modifier = Modifier.background(Color.Black.copy(alpha = .68f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp))
+            Spacer(Modifier.weight(1f))
+            if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
+                Icon(if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.CloudDone,
+                    // Labelled only when no status line follows below, so it is never read twice.
+                    contentDescription = if (actionable) statusLabel else null,
+                    tint = Primary,
+                    modifier = Modifier.background(Color.Black.copy(alpha = .75f), CircleShape).padding(7.dp).size(19.dp))
             }
-            Spacer(Modifier.height(120.dp))
+        }
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(12.dp)) {
             Text(media.metadata, color = Color.White.copy(alpha = .82f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
                 minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-            Button(onClick = if (actionable) onRequest else onDetails, enabled = !requesting,
-                shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
-                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)) {
-                if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
-                else Icon(if (actionable) Icons.Rounded.Add else Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(14.dp))
-                Text(when { requesting -> "Sender…"; !actionable -> "Vis detaljar"; media.mediaType == "tv" -> "Vel sesongar"; else -> "Legg til" },
-                    fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp))
+            if (actionable) {
+                Button(onClick = onRequest, enabled = !requesting,
+                    shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)
+                        .semantics {
+                            contentDescription = if (media.isSeries) "Vel sesongar av ${media.title}" else "Legg til ${media.title}"
+                        }) {
+                    if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
+                    else Icon(Icons.Rounded.Add, null, Modifier.size(14.dp))
+                    Text(when { requesting -> "Sender…"; media.isSeries -> "Vel sesongar"; else -> "Legg til" },
+                        fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp))
+                }
+            } else {
+                // Nothing to do here beyond opening the card, so this is a status line, not a button.
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(top = 8.dp)) {
+                    Icon(Icons.Rounded.CheckCircle, null, tint = PrimarySoft, modifier = Modifier.size(13.dp))
+                    Text(statusLabel, color = Color.White.copy(alpha = .82f), fontSize = 12.sp, maxLines = 2,
+                        lineHeight = 16.sp, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
+                }
             }
         }
     }
@@ -255,22 +289,22 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     val sourceFilter = if (state.adminView || state.configuredCount == 0) savedSourceFilter else "Mine"
     val events = state.activity.filter { sourceFilter == "Alt" || it.source?.displayName == sourceFilter }
     val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
+    ReelPage {
     LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
         item {
             ScreenHeader("", "Aktivitet", "Følg titlane frå lagde til til klare.")
-            if (state.adminView || state.configuredCount == 0) Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
-                Box(Modifier.padding(top = 6.dp).size(6.dp).clip(CircleShape)
+            if (state.adminView || state.configuredCount == 0) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
+                Box(Modifier.size(7.dp).clip(CircleShape)
                     .background(if (hasIssues) Caution else Muted))
-                Column(Modifier.padding(start = 10.dp)) {
-                    Text(when {
-                        state.configuredCount == 0 -> "Førehandsvising med demodata"
-                        state.isRefreshing -> "Oppdaterer…"
-                        hasIssues -> "Noko kunne ikkje oppdaterast. Sjå Innstillingar."
-                        state.lastUpdatedEpochMillis != null -> "Sist oppdatert kl. " + Instant.ofEpochMilli(state.lastUpdatedEpochMillis)
-                            .atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
-                        else -> "Ventar på første oppdatering"
-                    }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp)
-                }
+                Text(when {
+                    state.configuredCount == 0 -> "Førehandsvising med demodata"
+                    state.isRefreshing -> "Oppdaterer…"
+                    hasIssues -> "Noko kunne ikkje oppdaterast. Sjå Innstillingar."
+                    state.lastUpdatedEpochMillis != null -> "Sist oppdatert kl. " + Instant.ofEpochMilli(state.lastUpdatedEpochMillis)
+                        .atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
+                    else -> "Ventar på første oppdatering"
+                }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp,
+                    modifier = Modifier.padding(start = 10.dp))
             }
             if (state.adminView || state.configuredCount == 0) AppFilterRow(listOf("Mine", "Alt", "Seerr", "Radarr", "Sonarr"), sourceFilter, { savedSourceFilter = it }, Modifier.padding(bottom = 12.dp))
         }
@@ -307,13 +341,39 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 }
             }
         } else {
-            items(events, key = ActivityEvent::id) { event -> ActivityRow(event) { onDetails(event.id) } }
+            // Group by day so a long feed can be skimmed instead of read as one undifferentiated list.
+            var lastGroup: String? = null
+            events.forEach { event ->
+                val group = activityDayGroup(event.time)
+                if (group != lastGroup) {
+                    lastGroup = group
+                    item(key = "group-${event.id}") {
+                        Text(group, color = Muted, fontSize = 11.sp, letterSpacing = 1.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 20.dp, bottom = 2.dp).semantics { heading() })
+                    }
+                }
+                item(key = event.id) { ActivityRow(event) { onDetails(event.id) } }
+            }
         }
     }
+    }
+}
+
+/** Buckets the human time string the services already produce; no extra parsing of raw dates. */
+private fun activityDayGroup(time: String): String = when {
+    time.isBlank() -> "TIDLEGARE"
+    time.startsWith("For ", ignoreCase = true) || time.equals("No", ignoreCase = true) -> "I DAG"
+    time.startsWith("I dag", ignoreCase = true) -> "I DAG"
+    time.startsWith("I går", ignoreCase = true) -> "I GÅR"
+    else -> "TIDLEGARE"
 }
 
 @Composable
 private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
+    // Episodes carry 16:9 stills and films carry 2:3 posters. A constant frame width keeps every
+    // title on the same left edge while each format keeps its own shape and stays uncropped.
+    val wide = event.mediaType?.equals("Episode", ignoreCase = true) == true
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
@@ -323,7 +383,8 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
             fallbackRes = event.artworkRes ?: R.drawable.media_placeholder,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.size(width = 64.dp, height = 96.dp).clip(RoundedCornerShape(10.dp)),
+            modifier = Modifier.width(96.dp).aspectRatio(if (wide) 16f / 9f else 2f / 3f)
+                .clip(RoundedCornerShape(10.dp)),
         )
         Column(modifier = Modifier.weight(1f).padding(start = 16.dp)) {
             Text(event.title, color = TextColor, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -337,11 +398,10 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
                 Text(event.detail, color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.weight(1f).padding(start = 6.dp))
             }
-            Text(
-                listOfNotNull(event.time.takeIf { it.isNotBlank() }, event.source?.displayName).joinToString(" · "),
-                color = Muted, fontSize = 11.sp, lineHeight = 16.sp,
-                modifier = Modifier.padding(top = 5.dp),
-            )
+            // The detail line already names the service, so the meta line carries only the time.
+            event.time.takeIf { it.isNotBlank() }?.let {
+                Text(it, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 5.dp))
+            }
             event.progress?.let { progress ->
                 Box(Modifier.fillMaxWidth().padding(top = 10.dp).height(6.dp).clip(CircleShape).background(app.reelstack.ui.theme.SurfaceRaised)) {
                     Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).height(6.dp).background(Primary))
@@ -361,6 +421,12 @@ fun SettingsScreen(
     onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit = onConnectionClick,
 ) {
+    // A visibility switch for a service that is not connected controls content that cannot exist,
+    // so the row only appears once that service has an address.
+    val connected = { kind: ServiceKind ->
+        state.configuredCount == 0 || state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() }
+    }
+    ReelPage {
     LazyColumn(
         contentPadding = screenPadding(contentPadding),
         modifier = Modifier.fillMaxSize().testTag("settings-feed"),
@@ -373,6 +439,11 @@ fun SettingsScreen(
             )
             SettingsAccounts(state, onAccountClick)
             SettingsSectionTitle("Tenestene dine")
+            Text(
+                "Tenaradresse og innlogging for kvar teneste.",
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
         }
         items(state.connections.filter { state.canEditConnection(it.kind) }, key = { it.kind }) { connection ->
             ServiceRow(connection = connection, onClick = { onConnectionClick(connection.kind) })
@@ -387,11 +458,15 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             HomeSectionRow(HomeSection.NOW_PLAYING, "Spelar no", "Aktive avspelingar frå Jellyfin og Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.JELLYFIN_MOVIES, "Jellyfin · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.JELLYFIN_SERIES, "Jellyfin · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.EMBY_MOVIES, "Emby · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.EMBY_SERIES, "Emby · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.Notifications, state, onHomeSectionChange)
+            if (connected(ServiceKind.JELLYFIN)) {
+                HomeSectionRow(HomeSection.JELLYFIN_MOVIES, "Jellyfin · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.JELLYFIN_SERIES, "Jellyfin · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
+            }
+            if (connected(ServiceKind.EMBY)) {
+                HomeSectionRow(HomeSection.EMBY_MOVIES, "Emby · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.EMBY_SERIES, "Emby · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
+            }
+            HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.CalendarMonth, state, onHomeSectionChange)
             if (state.adminView || state.configuredCount == 0) HomeSectionRow(HomeSection.DOWNLOADS, "Nedlastingar", "Aktive køar i Radarr og Sonarr", Icons.Rounded.Download, state, onHomeSectionChange)
             SettingsSectionTitle("Val")
             PreferenceRow(Icons.Rounded.Notifications, "Bibliotekvarsel", "For førespurnader du har valt å følgje",
@@ -403,21 +478,44 @@ fun SettingsScreen(
                 checked = state.wifiOnly,
                 onCheckedChange = onWifiOnlyChange,
             )
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = SurfaceRaised,
-                modifier = Modifier.fillMaxWidth().padding(top = 26.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(17.dp)) {
-                    Icon(Icons.Rounded.Security, contentDescription = null, tint = Success, modifier = Modifier.size(24.dp))
-                    Column(Modifier.padding(start = 12.dp)) {
-                        Text("Direkte og privat", color = app.reelstack.ui.theme.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("API-nøklane er krypterte på denne eininga.", color = app.reelstack.ui.theme.Muted, fontSize = 12.sp)
-                    }
-                }
-            }
+            PrivacyCard(state)
             SettingsSectionTitle("Om appen")
             AppIdentity()
+        }
+    }
+    }
+}
+
+/**
+ * Says what is actually true about this device's connections instead of only asserting that
+ * secrets are encrypted.
+ */
+@Composable
+private fun PrivacyCard(state: ReelstackUiState) {
+    val configured = state.connections.filter { it.baseUrl.isNotBlank() }
+    val cleartext = configured.filter { it.baseUrl.startsWith("http://", ignoreCase = true) }
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = SurfaceRaised,
+        modifier = Modifier.fillMaxWidth().padding(top = 26.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(17.dp)) {
+            Icon(Icons.Rounded.Security, contentDescription = null, tint = Success,
+                modifier = Modifier.padding(top = 1.dp).size(24.dp))
+            Column(Modifier.padding(start = 12.dp)) {
+                Text("Direkte og privat", color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Tilgangsteikn er krypterte på denne eininga og blir aldri sende vidare.",
+                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
+                if (configured.isNotEmpty()) Text(
+                    when {
+                        cleartext.isEmpty() -> "Alle ${configured.size} tilkoplingane går over HTTPS."
+                        else -> "${cleartext.size} av ${configured.size} tilkoplingar går over HTTP: " +
+                            cleartext.joinToString(", ") { it.kind.displayName } + ". Det er greitt på eige nett."
+                    },
+                    color = if (cleartext.isEmpty()) Muted else Caution,
+                    fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
+                )
+            }
         }
     }
 }
@@ -447,7 +545,8 @@ private fun AppIdentity() {
 
 @Composable
 private fun SettingsSectionTitle(text: String) {
-    Text(text, color = TextColor, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 28.dp, bottom = 12.dp))
+    Text(text, color = TextColor, style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(top = 28.dp, bottom = 12.dp).semantics { heading() })
 }
 
 @Composable
@@ -509,27 +608,33 @@ private fun PreferenceRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
+        // Top-aligned: centring an icon against a block that can wrap to three lines leaves the
+        // icon floating in the middle of the text instead of next to its label.
+        verticalAlignment = Alignment.Top,
         modifier = Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange).padding(vertical = 14.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(SurfaceRaised),
         ) {
-            Icon(icon, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(21.dp))
+            Icon(icon, contentDescription = null, tint = Muted, modifier = Modifier.size(21.dp))
         }
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
-            Text(label, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(label, color = TextColor, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
             description?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp)) }
         }
         Switch(
             checked = checked,
             onCheckedChange = null,
+            // Lime marks the thumb, not the whole track: a list of switches should not read as
+            // the loudest surface in the app when none of them is an action.
             colors = SwitchDefaults.colors(
-                checkedThumbColor = app.reelstack.ui.theme.Ink,
-                checkedTrackColor = Primary,
+                checkedThumbColor = Primary,
+                checkedTrackColor = app.reelstack.ui.theme.SwitchTrackOn,
+                checkedBorderColor = app.reelstack.ui.theme.SwitchTrackOn,
                 uncheckedThumbColor = app.reelstack.ui.theme.Muted,
                 uncheckedTrackColor = app.reelstack.ui.theme.SurfaceRaised,
+                uncheckedBorderColor = app.reelstack.ui.theme.ControlOutline,
             ),
         )
     }

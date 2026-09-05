@@ -205,6 +205,7 @@ class MediaSyncRepository(
         overview = item.overview,
         facts = item.facts,
         genres = item.genres,
+        progress = item.progress,
     )
 
     private fun upcomingMedia(item: RemoteUpcomingItem): UpcomingMedia? {
@@ -251,6 +252,7 @@ class MediaSyncRepository(
         source = item.source,
         artworkRes = R.drawable.media_placeholder,
         artworkUrl = item.artworkUrl,
+        mediaType = if (item.source == ServiceKind.SONARR) "Episode" else "Movie",
     )
 
     private fun requestActivity(request: RemoteRequest, discovered: DiscoverMedia?) = ActivityEvent(
@@ -264,6 +266,8 @@ class MediaSyncRepository(
         source = ServiceKind.SEERR,
         artworkRes = R.drawable.media_placeholder,
         artworkUrl = discovered?.artworkUrl ?: request.artworkUrl,
+        // Seerr requests are shown with their poster, the same as everywhere else in the app.
+        mediaType = "Movie",
     )
 
     private fun parseCalendarInstant(value: String): Instant? =

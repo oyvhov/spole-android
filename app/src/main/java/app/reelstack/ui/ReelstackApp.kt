@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -19,10 +20,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import app.reelstack.ui.screens.WelcomeScreen
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,8 +59,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -69,6 +79,7 @@ import app.reelstack.ui.screens.SettingsScreen
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
+import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.SurfaceRaised
 
 @Composable
@@ -96,23 +107,37 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         viewModel.clearSnackbar()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Ink)) {
+    // A wide window moves navigation to a side rail so the bottom bar does not stretch four
+    // icons across a tablet, and so the content column keeps its own width. Measured from the
+    // window, not the device configuration, so split-screen is handled correctly.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Ink)) {
+    val wideWindow = maxWidth >= ReelLayout.RailBreakpoint
+    val showRail = !state.showOnboarding && wideWindow
+    Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets.safeDrawing,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
-                if (!state.showOnboarding) ReelstackBottomBar(
+                if (!state.showOnboarding && !wideWindow) ReelstackBottomBar(
                     selectedTab = state.selectedTab,
                     onSelect = viewModel::selectTab,
                 )
             },
         ) { paddingValues ->
+            Row(Modifier.fillMaxSize().padding(paddingValues)) {
+            if (showRail) {
+                ReelstackNavigationRail(
+                    selectedTab = state.selectedTab,
+                    onSelect = viewModel::selectTab,
+                )
+            }
+            Box(Modifier.weight(1f).fillMaxSize()) {
             if (state.showOnboarding) {
                 WelcomeScreen(
                     state = state,
-                    modifier = Modifier.padding(paddingValues),
+                    modifier = Modifier,
                     onConnect = { viewModel.openSheet(AppSheet.ConnectionEditor(it)) },
                     onContinue = viewModel::completeOnboarding,
                 )
@@ -121,7 +146,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 targetState = state.selectedTab,
                 transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(150)) },
                 label = "primary-navigation",
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                modifier = Modifier.fillMaxSize(),
             ) { tab ->
                 tabStates.SaveableStateProvider(tab) {
                 when (tab) {
@@ -163,7 +188,10 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 }
             }
             }
+            }
+            }
         }
+    }
     }
 
     ReelstackSheets(
@@ -209,18 +237,28 @@ private fun ReelstackBottomBar(
     selectedTab: AppTab,
     onSelect: (AppTab) -> Unit,
 ) {
+    // No fixed height: at a large font scale a locked bar clips the icons and breaks the label
+    // mid-word. The minimum keeps the bar at its usual size when the text is small.
     NavigationBar(
         containerColor = Ink,
         tonalElevation = 0.dp,
         windowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = Modifier.navigationBarsPadding().height(76.dp),
+        modifier = Modifier.navigationBarsPadding().heightIn(min = 76.dp),
     ) {
             tabs.forEach { item ->
                 NavigationBarItem(
                     selected = item.tab == selectedTab,
                     onClick = { onSelect(item.tab) },
                     icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
-                    label = { Text(item.label, fontSize = 10.sp) },
+                    label = {
+                        Text(
+                            item.label,
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                        )
+                    },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Primary,
                         selectedTextColor = Primary,
@@ -230,5 +268,35 @@ private fun ReelstackBottomBar(
                     ),
                 )
             }
+    }
+}
+
+@Composable
+private fun ReelstackNavigationRail(
+    selectedTab: AppTab,
+    onSelect: (AppTab) -> Unit,
+) {
+    NavigationRail(
+        containerColor = Ink,
+        windowInsets = WindowInsets(0, 0, 0, 0),
+        modifier = Modifier.fillMaxHeight(),
+    ) {
+        Spacer(Modifier.weight(1f))
+        tabs.forEach { item ->
+            NavigationRailItem(
+                selected = item.tab == selectedTab,
+                onClick = { onSelect(item.tab) },
+                icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
+                label = { Text(item.label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor = Primary,
+                    selectedTextColor = Primary,
+                    indicatorColor = SurfaceRaised,
+                    unselectedIconColor = app.reelstack.ui.theme.Muted,
+                    unselectedTextColor = app.reelstack.ui.theme.Muted,
+                ),
+            )
+        }
+        Spacer(Modifier.weight(1f))
     }
 }

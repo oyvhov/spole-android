@@ -20,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,18 +36,29 @@ import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 
+/**
+ * Shows who you are signed in as. It deliberately does not appear before anything is configured:
+ * with no connections every row here duplicated the "Tenestene dine" list below it, and the two
+ * looked like different things that led to the same sheet.
+ */
 @Composable
 fun SettingsAccounts(state: ReelstackUiState, onConnectionClick: (ServiceKind) -> Unit) {
-    Surface(color = SurfaceRaised, shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth().padding(top = 20.dp).testTag("settings-accounts"),
-    ) {
-      Column {
-        SettingsAccountPanel(state, ServiceKind.SEERR, onClick = { onConnectionClick(ServiceKind.SEERR) })
-        SettingsAccountPanel(state, ServiceKind.JELLYFIN, compact = true, onClick = { onConnectionClick(ServiceKind.JELLYFIN) })
-        if (state.connections.any { it.kind == ServiceKind.EMBY && it.baseUrl.isNotBlank() }) {
-            SettingsAccountPanel(state, ServiceKind.EMBY, compact = true, onClick = { onConnectionClick(ServiceKind.EMBY) })
+    val configured = listOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY)
+        .filter { kind -> state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() } }
+    if (configured.isEmpty()) return
+    Column(Modifier.padding(top = 20.dp)) {
+        Text("Kontoen din", color = TextColor,
+            fontSize = 21.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold)
+        Surface(color = SurfaceRaised, shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).testTag("settings-accounts"),
+        ) {
+          Column {
+            configured.forEach { kind ->
+                SettingsAccountPanel(state, kind, compact = kind != ServiceKind.SEERR,
+                    onClick = { onConnectionClick(kind) })
+            }
+          }
         }
-      }
     }
 }
 
@@ -69,10 +82,10 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                     ServiceSymbol(source, Modifier.size(24.dp))
                     Column(Modifier.weight(1f)) {
                         Text(source.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text(if (loading) "Hentar kontoen…" else if (hasError) "Logg inn på nytt" else "Bruk kontoen din",
+                        Text(if (loading) "Hentar kontoen…" else if (hasError) "Logg inn på nytt" else "Ikkje innlogga",
                             color = Muted, fontSize = 12.sp)
                     }
-                    if (!loading) TextButton(onClick = onClick) { Text("Logg inn") }
+                    if (!loading) AccountAction(onClick, "Logg inn", source)
                 }
                 return@Column
             }
@@ -100,6 +113,7 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                     }
                 }
             } else {
+                // Every row in this card puts its action in the same place: trailing, on the row.
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (loading) {
                         CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
@@ -112,39 +126,44 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                             when {
                                 loading -> "Hentar kontoen…"
                                 hasError -> "Kunne ikkje stadfeste kontoen."
-                                overviewOnly -> "Ingen personleg konto stadfesta."
-                                else -> "Logg inn med kontoen din."
+                                overviewOnly -> "Administratornøkkel · berre oversikt"
+                                else -> "Ikkje innlogga"
                             },
                             color = if (hasError && !loading) Caution else Muted,
                             fontSize = 13.sp, lineHeight = 19.sp,
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
+                    if (!loading) {
+                        AccountAction(onClick, if (hasError) "Prøv igjen" else "Logg inn", source)
+                    }
                 }
             }
 
-            if (overviewOnly) {
-                Text("Administratornøkkel · berre oversikt", color = Muted, fontSize = 12.sp, lineHeight = 18.sp,
-                    modifier = Modifier.padding(top = 12.dp))
-            }
-
-            if (!loading && (account == null || overviewOnly)) {
-                if (hasError) {
-                    Text("Opne innlogginga for å prøve igjen.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp,
-                        modifier = Modifier.padding(top = 8.dp))
-                }
-                TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(
-                        when {
-                            isSeerr -> "Logg inn med Jellyfin"
-                            hasError -> "Prøv igjen"
-                            else -> "Logg inn på ${source.displayName}"
-                        },
-                        fontSize = 13.sp,
-                    )
+            if (overviewOnly && account != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
+                    Text("Administratornøkkel · berre oversikt", color = Muted, fontSize = 12.sp,
+                        lineHeight = 18.sp, modifier = Modifier.weight(1f))
+                    if (!loading) AccountAction(onClick, "Logg inn", source)
                 }
             }
         }
+    }
+}
+
+/**
+ * Several rows in this card carry the same visible label, so the spoken label names the service
+ * the button actually belongs to.
+ */
+@Composable
+private fun AccountAction(onClick: () -> Unit, label: String, source: ServiceKind) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.heightIn(min = 48.dp).semantics {
+            contentDescription = "$label på ${source.displayName}"
+        },
+    ) {
+        Text(label, fontSize = 13.sp)
     }
 }
 

@@ -3,6 +3,15 @@ package app.reelstack.ui
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.core.net.toUri
+import app.reelstack.data.model.ContentDetails
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +36,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
@@ -152,8 +162,25 @@ fun ReelstackSheets(
             )
         },
     ) {
-        // One viewport: async metadata and images must not move the sheet's anchor.
-        Column(Modifier.fillMaxHeight(0.90f).fillMaxWidth().testTag("sheet-viewport")) {
+        // A stable anchor matters only where remote metadata arrives into the layout. Sheets whose
+        // content is already known are sized by that content, capped at the same 90 %, so a
+        // one-field form does not reserve most of the screen and leave it black.
+        val windowHeight = with(LocalDensity.current) {
+            androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toDp()
+        }
+        val maxSheetHeight = windowHeight * 0.90f
+        val fillsViewport = when (sheet) {
+            is AppSheet.TitleDetails, AppSheet.UpcomingCalendar, AppSheet.RequestComposer -> true
+            else -> false
+        }
+        val viewport = if (fillsViewport) {
+            Modifier.fillMaxHeight(0.90f)
+        } else {
+            Modifier.heightIn(max = maxSheetHeight).wrapContentHeight(Alignment.Top)
+        }
+        // Hoisted so the header can tell whether the hero is still on screen.
+        val detailScroll = rememberScrollState()
+        Column(viewport.fillMaxWidth().testTag("sheet-viewport")) {
             if (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails) {
                 Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (state.returnToCalendar) {
@@ -162,19 +189,34 @@ fun ReelstackSheets(
                             Text("Kalender", modifier = Modifier.padding(start = 8.dp))
                         }
                     } else {
-                        Text(if (sheet is AppSheet.SessionDetails) "Avspeling" else "Detaljar", color = Muted, fontSize = 13.sp)
+                        // Once the hero has scrolled away the bar carries the real title, so the
+                        // reader keeps context. While the hero is visible it would only repeat it.
+                        val scrolledPastHero by remember { derivedStateOf { detailScroll.value > 220 } }
+                        val heading = when (sheet) {
+                            is AppSheet.SessionDetails -> state.sessions.firstOrNull { it.key == sheet.sessionKey }?.title
+                            else -> state.contentDetails?.title
+                        }
+                        Text(
+                            if (scrolledPastHero && heading != null) heading
+                            else if (sheet is AppSheet.SessionDetails) "Avspeling" else "Detaljar",
+                            color = Muted, fontSize = 13.sp, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp),
+                        )
                     }
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Lukk detaljane") }
                 }
             }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            Box(
+                if (fillsViewport) Modifier.weight(1f).fillMaxWidth() else Modifier.fillMaxWidth(),
+            ) {
             when (sheet) {
                 AppSheet.RequestComposer -> RequestComposer(state, onRequestSeason, onRequestNotification,
                     onConfirmRequest, onDismiss, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount)
-                is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle)
+                is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle, detailScroll)
                 is AppSheet.TitleDetails -> state.contentDetails?.let {
-                    RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia, onSeerrAccount = onSeerrAccount)
+                    RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia, onSeerrAccount = onSeerrAccount, scroll = detailScroll)
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
                     UpcomingCalendarSheet(state.upcoming, onUpcomingClick, onDismiss)
@@ -203,7 +245,7 @@ fun ReelstackSheets(
 }
 
 @Composable
-private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit) {
+private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit, scroll: ScrollState) {
     val details = state.contentDetails ?: return
     val discoverMedia = (state.discover + state.searchResults).firstOrNull { it.id == details.key }
     val mediaType = resolvedMediaType(details.mediaType, details.subtitle)
@@ -212,7 +254,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val visibleFacts = details.facts.filterNot { it == details.source?.displayName }.distinct()
     Column(
         Modifier
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(start = 24.dp, end = 24.dp, bottom = 40.dp),
     ) {
         if (usePoster) {
@@ -265,25 +307,30 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 modifier = Modifier.padding(start = 6.dp, top = 17.dp, end = 6.dp),
             )
         }
-        Text(
-            when {
-                isMovie -> "Om filmen"
-                mediaType == "Episode" -> "Om episoden"
-                mediaType == "Series" -> "Om serien"
-                else -> "Om tittelen"
-            },
-            color = Color.White,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(start = 6.dp, top = 19.dp, end = 6.dp),
-        )
-        Text(
-            details.overview?.takeIf { it.isNotBlank() } ?: if (details.loading) "Hentar omtale…" else "Ingen omtale tilgjengeleg frå tenesta enno.",
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 16.sp,
-            lineHeight = 25.sp,
-            modifier = Modifier.padding(start = 6.dp, top = 8.dp, end = 6.dp),
-        )
+        // Only promise an overview when there is one. A heading over a one-line status sentence
+        // reads as a missing synopsis rather than as the status it actually is.
+        val overview = details.overview?.takeIf { it.isNotBlank() }
+        if (overview != null || details.loading) {
+            Text(
+                when {
+                    isMovie -> "Om filmen"
+                    mediaType == "Episode" -> "Om episoden"
+                    mediaType == "Series" -> "Om serien"
+                    else -> "Om tittelen"
+                },
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 6.dp, top = 19.dp, end = 6.dp),
+            )
+            Text(
+                overview ?: "Hentar omtale…",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 16.sp,
+                lineHeight = 25.sp,
+                modifier = Modifier.padding(start = 6.dp, top = 8.dp, end = 6.dp),
+            )
+        }
         if (details.loading) {
             DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
         }
@@ -301,6 +348,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         details.error?.let {
             Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
+        OpenInServerButton(state, details)
         if (discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
             state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
             val adding = discoverMedia.id in state.requestingMediaIds
@@ -414,6 +462,80 @@ private fun SourceMark(kind: ServiceKind, modifier: Modifier = Modifier) {
     ServiceSymbol(kind, modifier)
 }
 
+/**
+ * Hands a library title over to the server's own client, which is the one place that can actually
+ * play it. Library ids are stored as "<source>-<serverId>", so the server id is recoverable.
+ */
+@Composable
+private fun OpenInServerButton(state: ReelstackUiState, details: ContentDetails) {
+    val source = details.source ?: return
+    if (source != ServiceKind.JELLYFIN && source != ServiceKind.EMBY) return
+    val itemId = details.key.removePrefix("${source.name.lowercase()}-").takeIf { it.isNotBlank() && it != details.key }
+        ?: return
+    val baseUrl = state.connections.firstOrNull { it.kind == source }?.baseUrl?.trimEnd('/')?.takeIf { it.isNotBlank() }
+        ?: return
+    val path = if (source == ServiceKind.JELLYFIN) "details" else "item"
+    val context = LocalContext.current
+    OutlinedButton(
+        onClick = {
+            runCatching {
+                context.startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        "$baseUrl/web/index.html#!/$path?id=$itemId".toUri(),
+                    ),
+                )
+            }
+        },
+        shape = RoundedCornerShape(14.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, app.reelstack.ui.theme.ControlOutline),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimarySoft),
+        modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 52.dp).testTag("open-in-server"),
+    ) {
+        Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text("Opne i ${source.displayName}", modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
+/** Default port per service, matching the addresses documented in the README. */
+private fun exampleAddress(kind: ServiceKind): String = when (kind) {
+    ServiceKind.JELLYFIN, ServiceKind.EMBY -> "http://192.168.1.20:8096"
+    ServiceKind.SEERR -> "http://192.168.1.20:5055"
+    ServiceKind.RADARR -> "http://192.168.1.20:7878"
+    ServiceKind.SONARR -> "http://192.168.1.20:8989"
+}
+
+/**
+ * The address step is where people who did not set up the stack themselves get stuck, so it
+ * shows a working example and says where to find the real one.
+ */
+@Composable
+private fun AddressExamples(kind: ServiceKind, enabled: Boolean, onUse: (String) -> Unit) {
+    val example = exampleAddress(kind)
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Text("Slik ser ei adresse ut", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Surface(
+            onClick = { onUse(example) },
+            enabled = enabled,
+            color = SurfaceRaised,
+            contentColor = PrimarySoft,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.padding(top = 8.dp).testTag("address-example"),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(example, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("Bruk", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp))
+            }
+        }
+        Text(
+            "Det er den same adressa du opnar ${kind.displayName} med i nettlesaren, på same nett som tenaren. " +
+                "Utanfrå treng du ei HTTPS-adresse gjennom din eigen proxy.",
+            color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 10.dp),
+        )
+    }
+}
+
 @Composable
 private fun CinematicTitleHero(
     title: String,
@@ -423,11 +545,20 @@ private fun CinematicTitleHero(
     artworkRes: Int,
     source: ServiceKind?,
 ) {
+    // Sonarr often has no still for an episode that has not aired, and answers with the series
+    // poster instead. A locked 16:9 frame then draws grey bars either side, so the frame follows
+    // the image that actually arrived: wide art fills a 16:9 crop, portrait art keeps its shape.
+    var aspect by remember(artworkUrl) { mutableStateOf<Float?>(null) }
+    val wideArt = (aspect ?: 16f / 9f) >= 1.2f
     Column {
         MediaArtwork(
             url = artworkUrl, fallbackRes = artworkRes, contentDescription = null,
-            contentScale = ContentScale.Fit, source = source,
-            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+            contentScale = if (wideArt) ContentScale.Crop else ContentScale.Fit,
+            source = source,
+            onAspectRatio = { aspect = it },
+            modifier = Modifier
+                .then(if (wideArt) Modifier.fillMaxWidth() else Modifier.width(190.dp))
+                .aspectRatio(if (wideArt) 16f / 9f else 2f / 3f)
                 .clip(RoundedCornerShape(14.dp)).background(Ink),
         )
         source?.let {
@@ -471,10 +602,10 @@ private fun SheetHeader(title: String, description: String, onDismiss: (() -> Un
 }
 
 @Composable
-private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlaybackToggle: (String) -> Unit) {
+private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlaybackToggle: (String) -> Unit, scroll: ScrollState) {
     val session = state.sessions.firstOrNull { it.key == sessionKey } ?: return
     Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp, bottom = 34.dp),
+        Modifier.verticalScroll(scroll).padding(start = 18.dp, end = 18.dp, bottom = 34.dp),
     ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(286.dp).clip(RoundedCornerShape(28.dp)),
@@ -535,6 +666,10 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                     progress = { session.progress.coerceIn(0f, 1f) },
                     color = Primary,
                     trackColor = Color(0x45FFFFFF),
+                    // Material draws a dot at the far end by default, which reads as a second
+                    // position marker on a bar that already shows where playback is.
+                    drawStopIndicator = {},
+                    gapSize = 0.dp,
                     modifier = Modifier.fillMaxWidth().padding(top = 13.dp).height(4.dp).clip(CircleShape),
                 )
             }
@@ -548,9 +683,10 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 14.dp),
             ) {
-                SessionMetric("Straum", session.streamMethod, Modifier.weight(1f))
+                SessionMetric("Avspeling", session.streamMethod, Modifier.weight(1f))
                 SessionMetric("Kvalitet", session.quality, Modifier.weight(1f))
-                SessionMetric("Att", session.timeLeft, Modifier.weight(1f))
+                // The value already ends in "att"; repeating it in the label read as "att att".
+                SessionMetric("Tid igjen", session.timeLeft.removeSuffix(" att"), Modifier.weight(1f))
             }
         }
         Button(
@@ -627,8 +763,9 @@ internal fun ConnectionEditorSheet(
         Modifier.imePadding().verticalScroll(rememberScrollState())
             .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
     ) {
-        Text(if (configured) "TILKOPLING" else if (credentialsStep) "02 / LOGG INN" else "01 / FINN TENAREN",
-            color = Primary, fontSize = 12.sp, letterSpacing = 1.6.sp,
+        // A step marker only helps when it says how many steps there are.
+        Text(if (configured) "TILKOPLING" else if (credentialsStep) "STEG 2 AV 2 · LOGG INN" else "STEG 1 AV 2 · FINN TENAREN",
+            color = Muted, fontSize = 11.sp, letterSpacing = 1.4.sp,
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
         SheetHeader("Logg inn på ${draft.kind.displayName}",
             if (credentialsStep) "Bruk kontoen din. Vi tek vare på resten." else "Bruk adressa du vanlegvis opnar i nettlesaren.", onDismiss)
@@ -649,16 +786,28 @@ internal fun ConnectionEditorSheet(
         if (!credentialsStep) {
             OutlinedTextField(
                 value = draft.url, onValueChange = { addressError = null; onUrlChange(it) },
-                label = { Text("Tenaradresse") }, placeholder = { Text("https://media.example.com") },
+                label = { Text("Tenaradresse") }, placeholder = { Text(exampleAddress(draft.kind)) },
                 supportingText = { Text(addressError ?: "Ta med port eller undermappe dersom tenaren din brukar det.") },
                 isError = addressError != null,
                 singleLine = true, shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(onNext = { nextStep() }),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("connection-url"),
             )
+            // Material hides the placeholder until the field has focus, so the example that
+            // people actually need has to live outside the field. Tapping it fills the field.
+            AddressExamples(draft.kind, enabled = !draft.saving) { addressError = null; onUrlChange(it) }
             Button(onClick = nextStep, enabled = draft.url.isNotBlank(),
-                shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(top = 24.dp).height(54.dp)) {
+                shape = RoundedCornerShape(14.dp),
+                // Material's default disabled fill is 12 % of onSurface, which on this page is
+                // indistinguishable from a container. An outline keeps it readable as a button
+                // that is waiting for input.
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = SurfaceRaised,
+                    disabledContentColor = Muted,
+                ),
+                border = if (draft.url.isBlank()) androidx.compose.foundation.BorderStroke(1.dp, app.reelstack.ui.theme.ControlOutline) else null,
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 54.dp)) {
                 Text("Hald fram", fontWeight = FontWeight.Bold)
             }
             return@Column
@@ -898,8 +1047,8 @@ private fun Modifier.toggleableLogin(enabled: Boolean, checked: Boolean, onChang
 private fun connectionChipColors() = FilterChipDefaults.filterChipColors(
     selectedContainerColor = Primary,
     selectedLabelColor = Ink,
-    containerColor = SurfaceRaised.copy(alpha = 0.78f),
-    labelColor = Muted,
+    containerColor = SurfaceRaised,
+    labelColor = app.reelstack.ui.theme.Text,
 )
 
 @Composable
@@ -916,10 +1065,14 @@ private fun MessageCard(text: String, warning: Boolean) {
 }
 
 @Composable
+// A transparent border leaves the field at 1.24:1 against the page, which is not enough to
+// identify it as a control. ControlOutline is 3.5:1 against Ink and satisfies WCAG 1.4.11.
 private fun connectionFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = Primary.copy(alpha = 0.72f),
-    unfocusedBorderColor = Color.Transparent,
+    unfocusedBorderColor = app.reelstack.ui.theme.ControlOutline,
+    disabledBorderColor = app.reelstack.ui.theme.ControlOutline.copy(alpha = 0.6f),
     focusedContainerColor = SurfaceRaised,
     unfocusedContainerColor = SurfaceRaised,
+    disabledContainerColor = SurfaceRaised,
     cursorColor = Primary,
 )

@@ -91,6 +91,10 @@ import app.reelstack.ui.components.UpcomingSkeleton
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.ReelLayout
+import app.reelstack.ui.theme.ReelPage
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.SurfaceRaised
@@ -128,6 +132,7 @@ fun HomeScreen(
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
     ) {
+      ReelPage {
         LazyColumn(
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
@@ -142,11 +147,11 @@ fun HomeScreen(
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
                 item {
-                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
                             SectionTitle("Spelar no", Modifier.weight(1f))
-                            if (state.sessions.size > 1) Text("${state.sessions.size} avspelingar", color = Ink,
-                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.background(Primary, CircleShape).padding(horizontal = 12.dp, vertical = 7.dp))
+                            // A count is status, not an action, so it stays out of the accent colour.
+                            if (state.sessions.size > 1) Text("${state.sessions.size} avspelingar",
+                                color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 12.dp, bottom = 2.dp))
                         }
                         NowPlayingRail(
                             sessions = state.sessions,
@@ -161,7 +166,7 @@ fun HomeScreen(
                     val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_MOVIES else HomeSection.JELLYFIN_MOVIES
                     if (section !in state.homeSections) return@forEach
                     item(key = "recent-movies-${source.name}") {
-                        MediaSectionTitle("Nyleg lagde til filmar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
+                        MediaSectionTitle("Nye filmar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
                         val items = state.recentMovies.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
@@ -180,7 +185,7 @@ fun HomeScreen(
                     val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_SERIES else HomeSection.JELLYFIN_SERIES
                     if (section !in state.homeSections) return@forEach
                     item(key = "recent-series-${source.name}") {
-                        MediaSectionTitle("Nyleg lagde til seriar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
+                        MediaSectionTitle("Nye episodar", source, Modifier.padding(top = 25.dp, bottom = 13.dp))
                         val items = state.recentSeries.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
@@ -229,8 +234,32 @@ fun HomeScreen(
                     IncomingRow(media = media, onClick = { onMediaClick(media.id) })
                 }
             }
+            item { HomeFreshness(state) }
         }
+      }
     }
+}
+
+/**
+ * Says how old the feed is. Without it a cache from yesterday is indistinguishable from live data.
+ */
+@Composable
+private fun HomeFreshness(state: ReelstackUiState) {
+    if (state.configuredCount == 0) return
+    val text = when {
+        state.isRefreshing -> "Oppdaterer…"
+        state.lastUpdatedEpochMillis != null -> "Sist oppdatert kl. " + Instant
+            .ofEpochMilli(state.lastUpdatedEpochMillis)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("HH:mm"))
+        else -> "Ventar på første oppdatering"
+    }
+    Text(
+        text,
+        color = Muted,
+        fontSize = 12.sp,
+        modifier = Modifier.fillMaxWidth().padding(top = 28.dp),
+    )
 }
 
 @Composable
@@ -275,41 +304,44 @@ private fun mediaEmptyMessage(state: ReelstackUiState, source: ServiceKind, empt
         emptyMessage
     }
 
+/** One size for every section heading on Home. */
 @Composable
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         color = TextColor,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.titleLarge,
         modifier = modifier,
     )
 }
 
 @Composable
-private fun MediaSectionTitle(text: String, source: ServiceKind, modifier: Modifier = Modifier) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth().clearAndSetSemantics {
+private fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modifier = Modifier) {
+    Row(verticalAlignment = Alignment.Bottom, modifier = modifier.fillMaxWidth().clearAndSetSemantics {
         heading()
-        contentDescription = "${source.displayName} · $text"
+        contentDescription = "$title · ${source.displayName}"
     }) {
         Text(
-            text = if (text.endsWith("filmar")) "Nye filmar" else "Nye episodar",
+            text = title,
             color = TextColor,
-            fontSize = 21.sp,
-            lineHeight = 25.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.weight(1f).padding(end = 12.dp),
         )
-        ServiceLogo(
-            kind = source,
-            contentDescription = null,
-            modifier = Modifier.size(13.dp),
-        )
-        Text(
-            text = source.displayName,
-            color = Muted,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(start = 7.dp),
-        )
+        // Mark and label stay centred on each other; the pair sits on the heading's baseline.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
+            ServiceLogo(
+                kind = source,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+            )
+            Text(
+                text = source.displayName,
+                color = Muted,
+                fontSize = 12.sp,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 7.dp),
+            )
+        }
     }
 }
 
@@ -370,8 +402,9 @@ private fun NowPlayingCard(
 
     val shape = RoundedCornerShape(20.dp)
     Box(
+        // Minimum, not fixed: a locked height drops the quality line at a large font scale.
         modifier = modifier
-            .height(292.dp)
+            .heightIn(min = 292.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -383,16 +416,18 @@ private fun NowPlayingCard(
                 onClick = onOpen,
             ),
     ) {
+        // matchParentSize keeps artwork and scrim out of the height measurement, so the text
+        // column below decides how tall the card is once the font scale grows.
         MediaArtwork(
             url = session.artworkUrl,
             fallbackRes = if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder,
             contentDescription = "${session.userName} ser på ${session.title}",
             contentScale = ContentScale.Crop,
             source = session.source,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.matchParentSize(),
         )
         Box(
-            Modifier.fillMaxSize().background(
+            Modifier.matchParentSize().background(
                 Brush.verticalGradient(
                     0f to Color(0x5204050A),
                     0.44f to Color(0x7704050A),
@@ -401,7 +436,7 @@ private fun NowPlayingCard(
             ),
         )
 
-        Column(modifier = Modifier.align(Alignment.BottomStart).padding(18.dp)) {
+        Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp)) {
             Text(
                 "${session.userName} · ${session.deviceName}",
                 color = PrimarySoft,
@@ -418,6 +453,8 @@ private fun NowPlayingCard(
                     progress = { animatedProgress },
                     color = Primary,
                     trackColor = app.reelstack.ui.theme.SurfaceRaised,
+                    drawStopIndicator = {},
+                    gapSize = 0.dp,
                     modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                 )
                 Text(session.timeLeft, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp))
@@ -468,11 +505,15 @@ private fun NowPlayingCard(
 
 @Composable
 private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean) {
+    // Every card in a rail reserves the same number of title lines, so a rail where each title
+    // fits on one line does not leave an empty second line under every card.
+    val titleLines = if (items.any { it.title.length > if (wide) 26 else 15 }) 2 else 1
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             LibraryCard(
                 media = media,
                 wide = wide,
+                titleLines = titleLines,
                 revealDelay = (index.coerceAtMost(2) * 30),
                 onClick = { onClick(media.id) },
             )
@@ -481,7 +522,7 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
 }
 
 @Composable
-private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, onClick: () -> Unit) {
+private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, revealDelay: Int, onClick: () -> Unit) {
     val cardWidth = if (wide) ReelLayout.EpisodeWidth else ReelLayout.PosterWidth
     val artworkHeight = if (wide) ReelLayout.EpisodeHeight else ReelLayout.PosterHeight
     val artworkShape = RoundedCornerShape(ReelLayout.ArtworkCorner)
@@ -536,9 +577,9 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, revealDelay: Int, on
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             lineHeight = 19.sp,
-            maxLines = 2,
+            maxLines = titleLines,
             overflow = TextOverflow.Ellipsis,
-            minLines = if (wide) 1 else 2,
+            minLines = titleLines,
             modifier = Modifier.padding(top = 9.dp),
         )
         Text(
@@ -605,27 +646,37 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
     }
 }
 
+/**
+ * Title and calendar shortcut sit on one line; the explanatory line runs full width underneath so
+ * it is not squeezed into a half-width column that wraps at the default font size.
+ */
 @Composable
 private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.weight(1f)) {
-            Text("Kjem snart", color = TextColor, fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
-            Text("Heimeutgjevingar og nye episodar", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
-        }
-        Surface(
-            onClick = onCalendarClick,
-            color = Primary.copy(alpha = 0.18f),
-            contentColor = PrimarySoft,
-            shape = CircleShape,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+    Column(modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            SectionTitle("Kjem snart", Modifier.weight(1f).padding(end = 12.dp))
+            Surface(
+                onClick = onCalendarClick,
+                color = Primary.copy(alpha = 0.18f),
+                contentColor = PrimarySoft,
+                shape = CircleShape,
             ) {
-                Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
-                Text("Kalender", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 8.dp),
+                ) {
+                    Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Text("Kalender", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
+                }
             }
         }
+        Text(
+            "Heimeutgjevingar og nye episodar",
+            color = Muted,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 
@@ -653,15 +704,22 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
         )
         Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
             Text(media.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-            Text(media.source.displayName, color = PrimarySoft, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+            // Source is provenance, not an action, so it stays neutral.
+            Text(media.source.displayName, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
                 Icon(
                     if (media.state == IncomingState.DOWNLOADING) Icons.Rounded.Download else Icons.Rounded.Schedule,
                     contentDescription = null,
-                    tint = if (media.state == IncomingState.DOWNLOADING) Primary else Warning,
+                    // Waiting in a queue is a normal state, not a problem the user must act on.
+                    tint = if (media.state == IncomingState.DOWNLOADING) Primary else Muted,
                     modifier = Modifier.size(18.dp),
                 )
                 Text(media.status, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
+            }
+            media.progress?.let { progress ->
+                Box(Modifier.fillMaxWidth().padding(top = 8.dp).height(4.dp).clip(CircleShape).background(SurfaceRaised)) {
+                    Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).height(4.dp).background(Primary))
+                }
             }
         }
         Icon(Icons.AutoMirrored.Rounded.ArrowForwardIos, contentDescription = null, tint = app.reelstack.ui.theme.Muted, modifier = Modifier.size(17.dp))

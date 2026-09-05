@@ -11,7 +11,7 @@ import androidx.core.view.WindowCompat
 
 val Ink = Color(0xFF101211)
 val Surface = Color(0xFF191C19)
-val SurfaceRaised = Color(0xFF232723)
+val SurfaceRaised = Color(0xFF2E332E)
 val Primary = Color(0xFFD5F478)
 val PrimarySoft = Color(0xFFDCE9BD)
 val Text = Color(0xFFF3F3EC)
@@ -19,7 +19,18 @@ val Muted = Color(0xFFA4ADA3)
 val Success = Color(0xFF56D993)
 val Caution = Color(0xFFFFC66D)
 val Warning = Color(0xFFFF7A7D)
-val Divider = Color(0xFF343A34)
+val Divider = Color(0xFF3D443C)
+
+/**
+ * Boundary colour for controls whose fill is too close to the page to identify them on its own.
+ * 3.54:1 against [Ink], so a 1 dp edge satisfies WCAG 1.4.11 without lifting the matte surfaces
+ * to a light grey. Use it on fields, unselected chips and disabled buttons — not on plain cards,
+ * which are containers rather than controls.
+ */
+val ControlOutline = Color(0xFF646E63)
+
+/** Checked switch track. Lime stays in the thumb so a settings list is not a wall of accent. */
+val SwitchTrackOn = Color(0xFF3C4A28)
 
 private val ReelstackColors = darkColorScheme(
     primary = Primary,
@@ -47,7 +58,7 @@ private val ReelstackColors = darkColorScheme(
     surfaceContainer = Surface,
     surfaceContainerHigh = SurfaceRaised,
     surfaceContainerHighest = SurfaceRaised,
-    outline = Color(0xFF51594F),
+    outline = ControlOutline,
     outlineVariant = Divider,
     inverseSurface = Text,
     inverseOnSurface = Ink,

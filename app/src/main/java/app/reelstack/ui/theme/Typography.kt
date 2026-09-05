@@ -22,9 +22,10 @@ fun reelstackTypography() = Typography(
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontSize = 20.sp,
-        lineHeight = 24.sp,
+        fontSize = 21.sp,
+        lineHeight = 25.sp,
         fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.2).sp,
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,

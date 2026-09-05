@@ -209,6 +209,7 @@ class MediaSnapshotStore(context: Context) {
                 item.overview?.let { put("overview", it) }
                 put("facts", item.facts.joinToString("\u001f"))
                 put("genres", item.genres.joinToString("\u001f"))
+                item.progress?.let { put("progress", it) }
             })
         }
     }
@@ -225,6 +226,7 @@ class MediaSnapshotStore(context: Context) {
             artworkRes = R.drawable.media_placeholder,
             artworkUrl = item.string("artworkUrl"),
             overview = item.string("overview"),
+            progress = item.int("progress"),
             facts = item.string("facts").orEmpty().split("\u001f").filter(String::isNotBlank),
             genres = item.string("genres").orEmpty().split("\u001f").filter(String::isNotBlank),
         )
@@ -280,6 +282,7 @@ class MediaSnapshotStore(context: Context) {
                 put("complete", item.complete)
                 item.source?.let { put("source", it.name) }
                 item.artworkUrl?.let { put("artworkUrl", it) }
+                item.mediaType?.let { put("mediaType", it) }
             })
         }
     }
@@ -296,6 +299,7 @@ class MediaSnapshotStore(context: Context) {
             source = item.enumValue<ServiceKind>("source"),
             artworkRes = R.drawable.media_placeholder,
             artworkUrl = item.string("artworkUrl"),
+            mediaType = item.string("mediaType"),
         )
     }
 

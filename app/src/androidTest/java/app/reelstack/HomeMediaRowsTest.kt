@@ -81,10 +81,10 @@ class HomeMediaRowsTest {
             }
         }
 
-        composeRule.onNodeWithContentDescription("Jellyfin · Nyleg lagde til filmar")
+        composeRule.onNodeWithContentDescription("Nye filmar · Jellyfin")
             .performScrollTo()
             .assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Emby · Nyleg lagde til filmar")
+        composeRule.onNodeWithContentDescription("Nye filmar · Emby")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -129,10 +129,10 @@ class HomeMediaRowsTest {
     fun everyServiceAndMediaTypeCanBeShownIndependently() {
         val selected = androidx.compose.runtime.mutableStateOf(HomeSection.EMBY_MOVIES)
         val labels = mapOf(
-            HomeSection.EMBY_MOVIES to "Emby · Nyleg lagde til filmar",
-            HomeSection.EMBY_SERIES to "Emby · Nyleg lagde til seriar",
-            HomeSection.JELLYFIN_MOVIES to "Jellyfin · Nyleg lagde til filmar",
-            HomeSection.JELLYFIN_SERIES to "Jellyfin · Nyleg lagde til seriar",
+            HomeSection.EMBY_MOVIES to "Nye filmar · Emby",
+            HomeSection.EMBY_SERIES to "Nye episodar · Emby",
+            HomeSection.JELLYFIN_MOVIES to "Nye filmar · Jellyfin",
+            HomeSection.JELLYFIN_SERIES to "Nye episodar · Jellyfin",
         )
         composeRule.setContent {
             ReelstackTheme {

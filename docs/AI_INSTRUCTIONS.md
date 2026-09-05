@@ -11,6 +11,11 @@ Følg desse føringane i alle endringar:
 - Bruk nynorsk i brukargrensesnitt, feilmeldingar, tomtilstandar og dokumentasjon.
 - Bevar Spole-namnet, logoen og den matte, mørke, filmatiske profilen.
 - Hald uttrykket moderne og elegant, men unngå generisk glassmorfisme, tunge rammer og pynt utan funksjon.
+- Lime er handlingsfargen. Han skal aldri brukast på tal, typemerke, kjeldenamn eller annan passiv status.
+- Ingen kontroll skal ha fast høgd som teksten må passe inni. Test alltid på skriftstorleik 2.0, ikkje 1.5:
+  Android skalerer store storleikar mindre, så 1.5 skjuler brot som 2.0 viser.
+- Alt innhald skal ligge i éin lesbar kolonne (`ReelPage`). Breie vindauge får sidenavigasjon, ikkje ein
+  botnbar strekt over heile breidda.
 - Bruk ekte data når tenesta er kopla til. Demo-data skal berre visast i eksplisitt demo-modus.
 - Heimesida skal kunne vise innhald frå alle kopla tenester utan at brukaren må byte server.
 - Jellyfin og Emby skal ha eigne rader for filmar og seriar; dei skal aldri blandast til éi rad.
@@ -89,6 +94,15 @@ Det finst to ulike emulatorroller. Bland dei aldri.
 | emulator-5560 | Vanleg review-emulator med ekte brukardata | Installer med -r; slett aldri data; køyr aldri testpakka her |
 | emulator-5562 | Isolert instrumenteringsemulator | Kan nullstillast av testane; bruk denne for heile Android-testpakken |
 
+Review-emulatoren (5560) er ikkje sett opp på denne maskina no: `~/.android/avd` er tom, og berre den
+isolerte `HomeReel_Instrumentation` under `app/build/test-avds` finst. Fram til nokon lagar 5560 på nytt
+må visuell review gjerast med demodata på 5562, og det skal seiast tydeleg i verifiseringa at ingen ekte
+konto er brukt.
+
+Emulatoren må startast i same kommando som du brukar han. Startar du han i ein eigen bakgrunnsjobb, blir
+prosessen teken ned når det skallet avsluttar, og neste ADB-kommando finn ingen einingar. Bruk `-gpu
+swiftshader`; `swiftshader_indirect` segfaultar på denne maskina.
+
 Start testemulatoren frå prosjektet:
 
 ~~~powershell
@@ -124,6 +138,8 @@ wsl.exe -u root -e bash -lc '/home/oyvhov/Android/Sdk/platform-tools/adb -s emul
 Kontroller visuelt:
 
 - toppmargen, statuslinje og botnavigasjon overlappar ikkje innhald
+- ved skriftstorleik 2.0 blir ingen ikon klipt, ingen tekstlinje forsvinn og ingen etikett bryt midt i eit ord
+- på brei skjerm står innhaldet i éin kolonne, og navigasjonen er ei sideliste
 - profilikon og tenestemerke viser riktig innlogga identitet
 - ekte posters og thumbnails er skarpe og ikkje kutta feil
 - eigne Jellyfin- og Emby-rader er separate
@@ -228,6 +244,9 @@ Kontroller at berre relevante filer er med. Bruk ein forklarande commit, til dø
 git add <relevante filer>
 git commit -m "Fix Emby account login verification"
 ~~~
+
+GitHub-repoet `oyvhov/reelstack-android` er privat. Release-lenkjer krev difor innlogging som eigar, og
+kan ikkje delast som ei open nedlastingslenkje. Ikkje vis til releasen som «offentleg tilgjengeleg».
 
 ### Ny app-release
 

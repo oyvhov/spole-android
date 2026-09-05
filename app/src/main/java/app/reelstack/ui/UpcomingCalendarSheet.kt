@@ -1,7 +1,9 @@
 package app.reelstack.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -84,19 +86,35 @@ internal fun UpcomingCalendarSheet(
                 val date = today.plusDays(offset.toLong())
                 val count = grouped[date]?.size ?: 0
                 val isSelected = selectedDay == date.toString()
+                val isToday = date == today
+                // The strip crosses a month boundary, so the first day of a new month says which
+                // month it belongs to instead of reading as another day of the current one.
+                val newMonth = offset > 0 && date.dayOfMonth == 1
                 Surface(
                     onClick = { selectedDay = if (isSelected) null else date.toString() },
                     shape = RoundedCornerShape(16.dp),
                     color = if (isSelected) Primary else SurfaceRaised,
                     contentColor = if (isSelected) Ink else MaterialTheme.colorScheme.onSurface,
+                    // Today keeps a visible ring when it is not the selected day, so "now" is
+                    // always locatable in the strip.
+                    border = if (isToday && !isSelected) BorderStroke(1.5.dp, Primary) else null,
                     modifier = Modifier.width(52.dp).testTag("calendar-day-$offset")
                         .semantics {
                             selected = isSelected
-                            contentDescription = "${date.format(DateTimeFormatter.ofPattern("d. MMMM", locale))}, $count utgjevingar"
+                            contentDescription = buildString {
+                                if (isToday) append("I dag, ")
+                                append(date.format(DateTimeFormatter.ofPattern("d. MMMM", locale)))
+                                append(", $count utgjevingar")
+                            }
                         },
                 ) {
                     Column(Modifier.padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(date.format(DateTimeFormatter.ofPattern("EEE", locale)).removeSuffix("."), fontSize = 12.sp)
+                        Text(
+                            if (newMonth) date.format(DateTimeFormatter.ofPattern("MMM", locale)).removeSuffix(".")
+                            else date.format(DateTimeFormatter.ofPattern("EEE", locale)).removeSuffix("."),
+                            fontSize = 12.sp,
+                            fontWeight = if (newMonth) FontWeight.SemiBold else FontWeight.Normal,
+                        )
                         Text(date.dayOfMonth.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text(if (count > 0) count.toString() else "–", fontSize = 10.sp, lineHeight = 14.sp,
                             color = if (isSelected) Ink else if (count > 0) Primary else Muted)
@@ -109,7 +127,20 @@ internal fun UpcomingCalendarSheet(
                 if (selectedDay == null) "${grouped.values.sumOf { it.size }} utgjevingar" else "${shown.values.sumOf { it.size }} denne dagen",
                 color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = { selectedDay = null }, enabled = selectedDay != null) { Text("Alle dagar") }
+            // A reset control that looks like the label beside it is not findable, so it becomes
+            // a chip once there is actually something to reset.
+            if (selectedDay != null) {
+                Surface(
+                    onClick = { selectedDay = null },
+                    shape = CircleShape,
+                    color = SurfaceRaised,
+                    contentColor = PrimarySoft,
+                    border = BorderStroke(1.dp, ControlOutline),
+                ) {
+                    Text("Alle dagar", fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 11.dp))
+                }
+            }
         }
         // Only visible rows are composed, even for large calendars.
         LazyColumn(

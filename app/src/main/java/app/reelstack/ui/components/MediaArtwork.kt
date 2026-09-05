@@ -25,6 +25,12 @@ fun MediaArtwork(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     source: ServiceKind? = null,
+    /**
+     * Reports width / height once the image is decoded. A caller that has to pick between a wide
+     * and a portrait frame cannot know which it has been given until then — services return a
+     * poster whenever no still exists.
+     */
+    onAspectRatio: ((Float) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val fallback = painterResource(fallbackRes)
@@ -71,6 +77,14 @@ fun MediaArtwork(
         error = fallback,
         fallback = fallback,
         contentScale = contentScale,
+        onSuccess = onAspectRatio?.let { report ->
+            { state ->
+                val image = state.result.image
+                if (image.width > 0 && image.height > 0) {
+                    report(image.width.toFloat() / image.height.toFloat())
+                }
+            }
+        },
         modifier = modifier,
     )
 }

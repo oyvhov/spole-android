@@ -108,7 +108,7 @@ class CalendarAndSheetTest {
         rule.onNodeWithText("Episodar").performClick()
         rule.onNodeWithTag("calendar-day-1").performClick()
         rule.onNodeWithText("Episode B").performClick()
-        rule.onNodeWithText("Om episoden").assertIsDisplayed()
+        rule.onNodeWithText("S03 E10").assertIsDisplayed()
         rule.onNodeWithText("Kalender").performClick()
         rule.onNodeWithText("Episode B").assertIsDisplayed()
         rule.onNodeWithText("Episode A").assertDoesNotExist()

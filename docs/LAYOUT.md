@@ -5,9 +5,18 @@
 Four persistent destinations: **Heim**, **Oppdag**, **Aktivitet**, **Innstillingar**. The navigation owns space rather than covering the feed. Each tab retains its scroll position. App identity belongs in Settings, not in every page header.
 
 - **Heim:** date and greeting, an always-reachable calendar shortcut, quiet playback status (or active session cards), separate recently-added movie/episode rails for each library service, upcoming releases, download queues. No continue-watching feed and no connection-count banner.
-- **Oppdag:** search, media-type filter, adaptive poster grid. Availability is text below artwork, never an overlay obscuring a face. The card opens details; the explicit action either opens details or adds a title through Seerr.
-- **Aktivitet:** title first, status second, time/source third. Posters remain unobstructed. Source filters keep request and download activity easy to isolate.
-- **Innstillingar:** personal accounts first, then connections and independent service/media-type Home switches, preferences and local app identity last.
+- **Oppdag:** search, media-type filter, adaptive poster grid. Availability is text below artwork, never an overlay
+  obscuring a face. The card opens details. A second, loud button that also opens details is not an action, so a
+  title that cannot be requested shows its status as a line instead; only a requestable title gets a filled button.
+  One classification (`DiscoverMedia.isSeries`) drives the type filter, the type badge and the request wording.
+- **Aktivitet:** grouped by day, then title first, status second, time third. The status line already names the
+  service, so the meta line does not repeat it. Every thumbnail has the same width; films keep 2:3 and episodes
+  16:9, so titles share a left edge without either format being cropped. Source filters keep request and
+  download activity easy to isolate.
+- **Innstillingar:** «Kontoen din» says who you are signed in as and appears only once something is configured;
+  «Tenestene dine» is the single place to add an address or sign out. Every row in the account card puts its
+  action in the same trailing position, and names the service in its spoken label. Home switches appear only for
+  services that actually have a connection. Preferences and local app identity last.
 - **Konto:** authenticated Jellyfin and Seerr portraits/names lead Settings. Discover and the final add action show the Seerr actor. Administrator API keys are visibly read-only; personal Seerr sessions are reverified before writing. A Jellyfin profile alone does not imply a Seerr login.
 - **Kalender:** type filter, dated strip with release counts, chronological agenda. Selection resets the agenda to its beginning. Opening details and explicitly returning preserves the date/filter; closing actually closes the sheet. Film dates are digital/physical home releases, not cinema premieres.
 - **Detaljar:** full portrait poster beside title/facts for films and Seerr; wide artwork and episode subtitle for library episodes. Synopsis precedes the availability explanation. Additional facts wrap instead of being hidden offscreen.
@@ -16,7 +25,9 @@ Four persistent destinations: **Heim**, **Oppdag**, **Aktivitet**, **Innstilling
 
 Use the existing matte charcoal palette, warm text and restrained lime action color. No glass blur, decorative space background, borders around posters or permanent artwork badges. The source logo/name in each Home heading identifies its rail.
 
-`ReelLayout` is the shared source for page gutters, top spacing, artwork corner radius and Home movie/episode dimensions. Skeletons use the same artwork dimensions. Text may grow with font scaling; do not force titles into fixed pixel-height containers.
+`ReelLayout` is the shared source for page gutters, top spacing, artwork corner radius, Home movie/episode
+dimensions, the maximum content width and the navigation-rail breakpoint. Every screen wraps its scrolling
+container in `ReelPage`, so a wide window centres one column rather than stretching every row to the edges. Skeletons use the same artwork dimensions. Text may grow with font scaling; do not force titles into fixed pixel-height containers.
 
 ## Motion and changing data
 

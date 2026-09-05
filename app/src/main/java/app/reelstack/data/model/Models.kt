@@ -118,6 +118,8 @@ data class IncomingMedia(
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
+    /** Percent complete when the queue reports it, so Home and Activity can show the same bar. */
+    val progress: Int? = null,
 )
 
 data class DiscoverMedia(
@@ -136,8 +138,16 @@ data class DiscoverMedia(
     val seerrStatus: Int? = null,
 )
 
+/**
+ * One classification for the type filter, the type badge and the request wording. Seerr normally
+ * supplies [mediaType]; the metadata line is the fallback so a missing field cannot silently
+ * turn every title into a film.
+ */
+val DiscoverMedia.isSeries: Boolean
+    get() = mediaType?.equals("tv", ignoreCase = true) ?: metadata.startsWith("Serie", ignoreCase = true)
+
 val DiscoverMedia.canRequest: Boolean
-    get() = if (mediaType == "tv") seerrStatus != 6 else !inLibrary && !requested && seerrStatus !in 2..6
+    get() = if (isSeries) seerrStatus != 6 else !inLibrary && !requested && seerrStatus !in 2..6
 
 fun seerrStatusLabel(status: Int?, inLibrary: Boolean = false, requested: Boolean = false): String = when {
     status == 6 -> "Blokkert i Seerr"
@@ -199,6 +209,8 @@ data class ActivityEvent(
     val source: ServiceKind? = null,
     val artworkRes: Int? = null,
     val artworkUrl: String? = null,
+    /** "Episode" or "Movie" when known, so the row can pick the right artwork frame. */
+    val mediaType: String? = null,
 )
 
 data class ConnectionTestResult(

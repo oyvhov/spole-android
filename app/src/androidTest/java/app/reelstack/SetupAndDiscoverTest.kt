@@ -59,7 +59,7 @@ class SetupAndDiscoverTest {
         }
         rule.onNodeWithText("Filmar").performClick()
         rule.onNodeWithText("Testserien").assertDoesNotExist()
-        rule.onNodeWithText("Vis detaljar").performScrollTo().performClick()
+        rule.onNodeWithTag("discover-cover-film").performScrollTo().performClick()
         assertEquals("film", opened)
         rule.onNodeWithText("Seriar").performClick()
         rule.onNodeWithText("Testfilmen").assertDoesNotExist()

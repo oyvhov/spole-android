@@ -1268,6 +1268,8 @@ private fun demoSessions() = listOf(
     ),
 )
 
+// Demo carries the same fields a real service would, including an omtale: the detail sheet only
+// shows its synopsis section when there is one, so a demo without omtale looks half-built.
 private fun demoRecentMovies() = listOf(
     LibraryMedia(
         id = "recent-odyssey",
@@ -1276,6 +1278,10 @@ private fun demoRecentMovies() = listOf(
         artworkRes = R.drawable.desert_arrival,
         source = ServiceKind.JELLYFIN,
         mediaType = "Movie",
+        overview = "Ein soldat legg ut på ei lang heimreise gjennom ukjende landskap, og oppdagar " +
+            "at vegen heim krev meir av han enn krigen gjorde.",
+        facts = listOf("2026", "2 t 45 min", "Eventyr"),
+        genres = listOf("Eventyr", "Drama"),
     ),
 )
 
@@ -1287,31 +1293,43 @@ private fun demoRecentSeries() = listOf(
         artworkRes = R.drawable.session_still,
         source = ServiceKind.JELLYFIN,
         mediaType = "Series",
+        overview = "Tilsette ved eit kontor har delt minna sine i to: eitt for arbeid og eitt for " +
+            "livet utanfor. Så byrjar dei to sidene å lekke over i kvarandre.",
+        facts = listOf("2 sesongar", "Mystikk"),
+        genres = listOf("Mystikk", "Thriller"),
     ),
 )
 
-private fun demoUpcoming() = listOf(
-    UpcomingMedia(
-        id = "upcoming-andor",
-        title = "Andor",
-        subtitle = "S02 E07 · Messenger",
-        dateLabel = "I kveld · 21:00",
-        airDateEpochMillis = System.currentTimeMillis() + 3_600_000,
-        artworkRes = R.drawable.kitchen_request,
-        source = ServiceKind.SONARR,
-        mediaType = "Episode",
-    ),
-    UpcomingMedia(
-        id = "upcoming-odyssey",
-        title = "The Odyssey",
-        subtitle = "Film · 2026",
-        dateLabel = "I morgon",
-        airDateEpochMillis = System.currentTimeMillis() + 86_400_000,
-        artworkRes = R.drawable.desert_arrival,
-        source = ServiceKind.RADARR,
-        mediaType = "Movie",
-    ),
-)
+// The label and the timestamp are the same moment. They used to disagree, so Home said 21:00
+// while the calendar computed a different time from the timestamp for the same episode.
+private fun demoUpcoming(): List<UpcomingMedia> {
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    val tonight = today.atTime(21, 0).atZone(zone).toInstant().toEpochMilli()
+    val tomorrow = today.plusDays(1).atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+    return listOf(
+        UpcomingMedia(
+            id = "upcoming-andor",
+            title = "Andor",
+            subtitle = "S02 E07 · Messenger",
+            dateLabel = "I kveld · 21:00",
+            airDateEpochMillis = tonight,
+            artworkRes = R.drawable.kitchen_request,
+            source = ServiceKind.SONARR,
+            mediaType = "Episode",
+        ),
+        UpcomingMedia(
+            id = "upcoming-odyssey",
+            title = "The Odyssey",
+            subtitle = "Film · 2026",
+            dateLabel = "I morgon",
+            airDateEpochMillis = tomorrow,
+            artworkRes = R.drawable.desert_arrival,
+            source = ServiceKind.RADARR,
+            mediaType = "Movie",
+        ),
+    )
+}
 
 private fun demoIncoming() = listOf(
     IncomingMedia(
@@ -1321,6 +1339,7 @@ private fun demoIncoming() = listOf(
         status = "Lastar ned 68 %",
         state = IncomingState.DOWNLOADING,
         artworkRes = R.drawable.desert_arrival,
+        progress = 68,
     ),
     IncomingMedia(
         id = "the-bear",
@@ -1332,13 +1351,23 @@ private fun demoIncoming() = listOf(
     ),
 )
 
+// Demo is the showroom, so every field has to agree with every other one: a title marked as a
+// series must carry mediaType "tv", and a labelled time must match its own timestamp.
 private fun demoDiscover() = listOf(
-    DiscoverMedia("last-horizon", "The Last Horizon", "Film · 2026", R.drawable.desert_arrival, false),
-    DiscoverMedia("service", "Service", "Serie · 3 sesongar", R.drawable.kitchen_request, true),
+    DiscoverMedia("last-horizon", "The Last Horizon", "Film · 2026", R.drawable.desert_arrival, false,
+        mediaType = "movie",
+        overview = "Eit mannskap følgjer eit signal ut til kanten av det kjende rommet, og finn " +
+            "noko som har venta på dei mykje lenger enn dei har levd.",
+        facts = listOf("2026", "1 t 58 min"), genres = listOf("Science fiction")),
+    DiscoverMedia("service", "Service", "Serie · 3 sesongar", R.drawable.kitchen_request, true,
+        mediaType = "tv",
+        overview = "Ein kokk tek over restauranten til familien og oppdagar at kaoset på kjøkenet " +
+            "er lettare å styre enn folka rundt han.",
+        facts = listOf("3 sesongar"), genres = listOf("Drama", "Komedie")),
 )
 
 private fun demoActivity() = listOf(
-    ActivityEvent("odyssey", "The Odyssey", "Godkjend i Seerr", "For 2 min sidan", complete = false, source = ServiceKind.SEERR, artworkRes = R.drawable.desert_arrival),
-    ActivityEvent("alien-earth", "Alien: Earth", "Sonarr · lastar ned 42 %", "For 8 min sidan", progress = 42, source = ServiceKind.SONARR, artworkRes = R.drawable.kitchen_request),
-    ActivityEvent("mickey-17", "Mickey 17", "Importert av Radarr", "I går", complete = true, source = ServiceKind.RADARR, artworkRes = R.drawable.desert_arrival),
+    ActivityEvent("odyssey", "The Odyssey", "Godkjend i Seerr", "For 2 min sidan", complete = false, source = ServiceKind.SEERR, artworkRes = R.drawable.desert_arrival, mediaType = "Movie"),
+    ActivityEvent("alien-earth", "Alien: Earth", "Sonarr · lastar ned 42 %", "For 8 min sidan", progress = 42, source = ServiceKind.SONARR, artworkRes = R.drawable.kitchen_request, mediaType = "Episode"),
+    ActivityEvent("mickey-17", "Mickey 17", "Importert av Radarr", "I går", complete = true, source = ServiceKind.RADARR, artworkRes = R.drawable.desert_arrival, mediaType = "Movie"),
 )
