@@ -40,7 +40,7 @@ class HttpTransport(
             connection.readTimeout = readTimeoutMs
             connection.instanceFollowRedirects = false
             connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("User-Agent", "HomeReel/${BuildConfig.VERSION_NAME} Android")
+            connection.setRequestProperty("User-Agent", "Spole/${BuildConfig.VERSION_NAME} Android")
             headers.forEach(connection::setRequestProperty)
             if (jsonBody != null) {
                 connection.doOutput = true

@@ -35,6 +35,7 @@ class LinkedLoginTest {
                     val body = when {
                         path.endsWith("Users/AuthenticateByName") -> """{"AccessToken":"jellyfin-personal","User":{"Id":"media-user"}}"""
                         path.endsWith("Users/Me") -> """{"Id":"media-user","Name":"Test User","Policy":{"IsAdministrator":false}}"""
+                        path.endsWith("Users/media-user") -> """{"Id":"media-user","Name":"Test User","Policy":{"IsAdministrator":false}}"""
                         path.endsWith("api/v1/status") -> "{}"
                         path.endsWith("api/v1/auth/jellyfin") -> {
                             if (rejectSeerr) { status = 401; "{}" }
@@ -58,16 +59,22 @@ class LinkedLoginTest {
                 store.put("test", model)
                 model.openSheet(AppSheet.ConnectionEditor(primary))
                 model.updateConnectionAuthMode(ConnectionAuthMode.ACCOUNT)
-                model.updateConnectionUrl("http://127.0.0.1:${server.localPort}/${if (primary == ServiceKind.SEERR) "seerr" else "jellyfin"}")
+                model.updateConnectionUrl("http://127.0.0.1:${server.localPort}/${primary.name.lowercase()}")
                 model.updateConnectionUsername("fixture-user")
                 model.updateConnectionPassword("fixture-password")
-                model.updateCompanionLogin(true, "http://127.0.0.1:${server.localPort}/${if (primary == ServiceKind.SEERR) "jellyfin" else "seerr"}")
+                if (primary != ServiceKind.EMBY) model.updateCompanionLogin(true,
+                    "http://127.0.0.1:${server.localPort}/${if (primary == ServiceKind.SEERR) "jellyfin" else "seerr"}")
                 model.testAndSaveConnection()
             }
             val end = System.currentTimeMillis() + 15000
             while (model.connectionDraft.value?.saving == true && System.currentTimeMillis() < end) Thread.sleep(25)
             assertFalse("Login must finish", model.connectionDraft.value?.saving == true)
-            if (rejectSeerr || mismatchedId) {
+            if (primary == ServiceKind.EMBY) {
+                assertNull(model.connectionDraft.value)
+                assertEquals("jellyfin-personal", container.connectionRepository.get(ServiceKind.EMBY).token)
+                assertEquals("media-user", container.connectionRepository.get(ServiceKind.EMBY).userId)
+                assertEquals("Test User", model.uiState.value.accounts[ServiceKind.EMBY]?.displayName)
+            } else if (rejectSeerr || mismatchedId) {
                 assertNotNull(model.connectionDraft.value?.error)
                 assertEquals("", model.connectionDraft.value?.password)
                 assertEquals("", container.connectionRepository.get(ServiceKind.SEERR).token)
@@ -94,4 +101,5 @@ class LinkedLoginTest {
     @Test fun seerrFirstAlsoConnectsJellyfin() = exercise(primary = ServiceKind.SEERR)
     @Test fun secondLoginFailureDoesNotSaveHalfALogin() = exercise(rejectSeerr = true)
     @Test fun sameDisplayNameDoesNotLinkDifferentAccounts() = exercise(mismatchedId = true)
+    @Test fun embyLoginVerifiesTheReturnedUserIdWithoutCallingUsersMe() = exercise(primary = ServiceKind.EMBY)
 }

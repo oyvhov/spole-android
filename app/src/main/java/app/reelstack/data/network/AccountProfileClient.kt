@@ -20,7 +20,12 @@ class AccountProfileClient(
 ) {
     fun load(connection: ServiceConnection): ServiceAccount {
         val path = when (connection.kind) {
-            ServiceKind.JELLYFIN, ServiceKind.EMBY -> "Users/Me"
+            ServiceKind.JELLYFIN -> "Users/Me"
+            // Emby has no Jellyfin-style /Users/Me endpoint. The successful login response
+            // supplies the authenticated user's id, which Emby exposes at /Users/{Id}.
+            ServiceKind.EMBY -> connection.userId.takeIf { it.isNotBlank() }
+                ?.let { "Users/${encode(it)}" }
+                ?: error("Logg inn med Emby-kontoen din for å stadfeste profilen.")
             ServiceKind.SEERR -> "api/v1/auth/me"
             else -> error("Kontovisning er berre støtta for Jellyfin og Seerr.")
         }
@@ -45,7 +50,7 @@ class AccountProfileClient(
         return when (connection.kind) {
             ServiceKind.JELLYFIN, ServiceKind.EMBY -> jellyfinAccount(connection, root)
             ServiceKind.SEERR -> seerrAccount(connection, root)
-            else -> error("Kontotypen er ikkje støtta.")
+            ServiceKind.RADARR, ServiceKind.SONARR -> error("Kontotypen er ikkje støtta.")
         }
     }
 
@@ -64,8 +69,9 @@ class AccountProfileClient(
     }
 
     private fun jellyfinAccount(connection: ServiceConnection, root: JsonObject): ServiceAccount {
-        val id = root.text("Id") ?: root.text("id") ?: error("Jellyfin sende ingen konto-ID.")
-        val name = root.text("Name") ?: root.text("name") ?: error("Jellyfin sende ikkje noko brukarnamn.")
+        val service = connection.kind.displayName
+        val id = root.text("Id") ?: root.text("id") ?: error("$service sende ingen konto-ID.")
+        val name = root.text("Name") ?: root.text("name") ?: error("$service sende ikkje noko brukarnamn.")
         val imageTag = root.text("PrimaryImageTag") ?: root.text("primaryImageTag")
         return ServiceAccount(
             source = connection.kind,

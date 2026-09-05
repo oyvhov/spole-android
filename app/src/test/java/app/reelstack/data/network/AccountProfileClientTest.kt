@@ -17,6 +17,10 @@ class AccountProfileClientTest {
         kind = ServiceKind.SEERR, name = "Manually entered label", baseUrl = "https://media.example.com/seerr",
         token = "connect.sid=test-session; XSRF-TOKEN=test%20csrf", userId = "99", sessionCookie = true,
     )
+    private val emby = ServiceConnection(
+        kind = ServiceKind.EMBY, name = "Emby", baseUrl = "https://emby.example.com",
+        token = "personal-emby-token", userId = "emby-user-42",
+    )
 
     @Test
     fun jellyfinIdentityComesFromTokenUserAndAvatarUsesServerIdAndImageTag() {
@@ -46,6 +50,32 @@ class AccountProfileClientTest {
 
             assertEquals(null, AccountProfileClient(transport = transport).load(jellyfin).avatarUrl)
         }
+    }
+
+    @Test
+    fun embyLoadsTheAuthenticatedUserByIdInsteadOfJellyfinUsersMe() {
+        val transport = RecordingTransport(HttpResponse(200,
+            """{"Id":"emby-user-42","Name":"Øyvind","PrimaryImageTag":"portrait"}"""))
+
+        val account = AccountProfileClient(deviceId = "test-device", transport = transport).load(emby)
+
+        assertEquals(ServiceKind.EMBY, account.source)
+        assertEquals("emby-user-42", account.id)
+        assertEquals("Øyvind", account.displayName)
+        assertEquals(listOf("https://emby.example.com/Users/emby-user-42"), transport.urls)
+        assertEquals(mapOf("X-Emby-Token" to "personal-emby-token"), transport.headers.single())
+        assertFalse(transport.urls.single().endsWith("/Users/Me"))
+        assertEquals("https://emby.example.com/Users/emby-user-42/Images/Primary?tag=portrait", account.avatarUrl)
+    }
+
+    @Test
+    fun embyWithoutAuthenticatedUserIdDoesNotProbeAFalseIdentity() {
+        val transport = RecordingTransport(HttpResponse(200, "{}"))
+        val error = runCatching { AccountProfileClient(transport = transport).load(emby.copy(userId = "")) }
+            .exceptionOrNull()
+
+        assertEquals("Logg inn med Emby-kontoen din for å stadfeste profilen.", error?.message)
+        assertTrue(transport.urls.isEmpty())
     }
 
     @Test

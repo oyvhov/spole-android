@@ -1,6 +1,7 @@
 package app.reelstack.data.network
 
 import app.reelstack.data.model.*
+import java.io.IOException
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -37,6 +38,25 @@ class EmbyAuthenticationTest {
         listOf("{}", """{"AccessToken":"","User":{"Id":"me"}}""", """{"AccessToken":"token","User":{"Id":""}}""").forEach {
             assertTrue(runCatching { EmbyAuthenticationClient(Fake(HttpResponse(200, it))).authenticate("https://e.example", "me", "") }.isFailure)
         }
+    }
+    @Test fun serverFailureKeepsTheUsefulStatusCode() {
+        val error = runCatching {
+            EmbyAuthenticationClient(Fake(HttpResponse(500, "private server trace")))
+                .authenticate("https://e.example", "me", "secret")
+        }.exceptionOrNull()
+        assertEquals("Emby fekk ein tenarfeil under innlogginga (status 500).", error?.message)
+        assertFalse(error?.message.orEmpty().contains("private server trace"))
+    }
+
+    @Test fun networkFailureHasAnActionableSafeMessage() {
+        val transport = object : JsonHttpTransport {
+            override fun get(url: String, headers: Map<String, String>) = error("unused")
+            override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse =
+                throw IOException("private host detail")
+        }
+        val error = runCatching { EmbyAuthenticationClient(transport).authenticate("https://e.example", "me", "secret") }
+            .exceptionOrNull()
+        assertEquals("Fekk ikkje kontakt med Emby. Sjekk tenaradressa og nettet.", error?.message)
     }
     @Test fun linkedAccountRequiresPersonalSeerrIdentityAndMatchingMediaId() {
         val account = ServiceAccount(ServiceKind.SEERR, "7", "Same name", mediaUserId = "abc-def")
