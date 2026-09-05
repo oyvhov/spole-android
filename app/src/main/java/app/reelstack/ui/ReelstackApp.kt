@@ -135,6 +135,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onUpcomingClick = viewModel::openUpcomingDetails,
                         onCalendarClick = { viewModel.openSheet(AppSheet.UpcomingCalendar) },
                         onRefresh = { viewModel.refreshLiveData(userInitiated = true) },
+                        onAccountClick = { viewModel.selectTab(AppTab.SETTINGS) },
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
                         state = state,

@@ -205,5 +205,12 @@ private fun ReelstackUiState.verifiedPanelAccount(source: ServiceKind): ServiceA
         source !in accountErrors && it.source == source && it.displayName.isNotBlank()
     }
 
+/** Prefer a verified personal identity, never the owner represented by a shared API key. */
+fun ReelstackUiState.preferredHomeAccount(): ServiceAccount? =
+    listOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY).firstNotNullOfOrNull { source ->
+        val connection = connections.firstOrNull { it.kind == source && it.baseUrl.isNotBlank() && it.token.isNotBlank() }
+        verifiedPanelAccount(source)?.takeIf { it.isPersonal && connection != null && !connection.isSeerrApiKey() }
+    }
+
 private fun ServiceConnection?.isSeerrApiKey(): Boolean =
     this != null && kind == ServiceKind.SEERR && baseUrl.isNotBlank() && token.isNotBlank() && !sessionCookie

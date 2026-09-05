@@ -39,7 +39,8 @@ class HomeMediaRowsTest {
         }
         composeRule.onNodeWithContentDescription("Opne kalenderen").assertIsDisplayed().performClick()
         org.junit.Assert.assertTrue(opened)
-        composeRule.onNodeWithText("Ingen aktive avspelingar").assertIsDisplayed()
+        composeRule.onNodeWithText("Ingen aktive avspelingar").assertDoesNotExist()
+        composeRule.onNodeWithText("Sjekkar avspelingar…").assertDoesNotExist()
         composeRule.onNodeWithText("Spelar no").assertDoesNotExist()
         composeRule.onNodeWithText("Reelune").assertIsDisplayed()
     }

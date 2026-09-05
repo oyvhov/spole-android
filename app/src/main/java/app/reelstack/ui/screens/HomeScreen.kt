@@ -84,7 +84,8 @@ import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.IncomingSkeleton
 import app.reelstack.ui.components.LibraryRailSkeleton
-import app.reelstack.ui.components.NowPlayingSkeleton
+import app.reelstack.ui.components.AccountAvatar
+import app.reelstack.ui.components.preferredHomeAccount
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.UpcomingSkeleton
 import app.reelstack.ui.theme.Muted
@@ -95,9 +96,6 @@ import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +109,7 @@ fun HomeScreen(
     onUpcomingClick: (String) -> Unit,
     onCalendarClick: () -> Unit = {},
     onRefresh: () -> Unit,
+    onAccountClick: () -> Unit = {},
 ) {
     val configuredMediaSources = state.connections
         .filter { connection ->
@@ -139,19 +138,10 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize().testTag("home-feed"),
         ) {
             item {
-                HomeGreeting(onCalendarClick)
+                HomeHeader(state, onCalendarClick, onAccountClick)
             }
-            if (HomeSection.NOW_PLAYING in state.homeSections) {
+            if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
                 item {
-                    if (state.sessions.isEmpty()) {
-                        // A refresh must not insert a large hero and push every library row down.
-                        Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (state.isRefreshing && configuredMediaSources.isNotEmpty()) {
-                                CircularProgressIndicator(Modifier.size(10.dp), color = Muted, strokeWidth = 1.dp)
-                                Text("Sjekkar avspelingar…", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
-                            } else EmptyNowPlayingCard()
-                        }
-                    } else {
                         Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             SectionTitle("Spelar no", Modifier.weight(1f))
                             if (state.sessions.size > 1) Text("${state.sessions.size} avspelingar", color = Ink,
@@ -164,7 +154,6 @@ fun HomeScreen(
                             onOpen = onSessionClick,
                             onPlaybackToggle = onPlaybackToggle,
                         )
-                    }
                 }
             }
             run {
@@ -244,45 +233,38 @@ fun HomeScreen(
     }
 }
 
-private fun greeting(): String = when (java.time.LocalTime.now().hour) {
-    in 5..11 -> "God morgon"
-    in 12..17 -> "God ettermiddag"
-    else -> "God kveld"
-}
-
 @Composable
-private fun HomeGreeting(onCalendarClick: () -> Unit) {
+private fun HomeHeader(state: ReelstackUiState, onCalendarClick: () -> Unit, onAccountClick: () -> Unit) {
     var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared) 1f else 0f,
         animationSpec = tween(durationMillis = 220),
-        label = "home-greeting-reveal",
+        label = "home-header-reveal",
     )
-    val date = remember {
-        LocalDate.now().format(
-            DateTimeFormatter.ofPattern("EEEE d. MMMM", Locale.forLanguageTag("nn-NO")),
-        ).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.forLanguageTag("nn-NO")) else it.toString() }
-    }
+    val account = state.preferredHomeAccount()
+    val connection = state.connections.firstOrNull { it.kind == account?.source }
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.graphicsLayer {
+        modifier = Modifier.fillMaxWidth().testTag("home-header").graphicsLayer {
             alpha = reveal
             translationY = (1f - reveal) * 24f
         },
     ) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.reelune_mark), "Reelune-logo",
                     modifier = Modifier.size(34.dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Primary))
                 Text("Reelune", color = TextColor, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
             }
-            Text(text = date, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
-            Text(text = greeting(), color = TextColor, style = MaterialTheme.typography.displaySmall)
-        }
-        IconButton(onClick = onCalendarClick, modifier = Modifier.size(48.dp).background(SurfaceRaised, CircleShape)) {
+        IconButton(onClick = onCalendarClick, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Rounded.CalendarMonth, contentDescription = "Opne kalenderen", tint = Primary, modifier = Modifier.size(22.dp))
+        }
+        IconButton(onClick = onAccountClick, modifier = Modifier.size(48.dp).testTag("home-account").semantics {
+            contentDescription = account?.let { "Opne kontoen til ${it.displayName} · ${it.source.displayName}" }
+                ?: "Opne kontoinnstillingar"
+        }) {
+            AccountAvatar(account, connection, Modifier.size(40.dp))
         }
     }
 }
@@ -647,17 +629,6 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
                 Text("Kalender", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
             }
         }
-    }
-}
-
-@Composable
-private fun EmptyNowPlayingCard() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-    ) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(app.reelstack.ui.theme.Muted))
-        Text("Ingen aktive avspelingar", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 9.dp))
     }
 }
 

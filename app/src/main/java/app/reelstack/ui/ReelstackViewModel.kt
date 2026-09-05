@@ -777,7 +777,7 @@ class ReelstackViewModel(
     private fun refreshAccounts() {
         accountsJob?.cancel()
         val targets = _uiState.value.connections.filter {
-            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
         val kinds = targets.map { it.kind }.toSet()
         _uiState.update { it.copy(accounts = it.accounts.filterKeys(kinds::contains),

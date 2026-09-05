@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1
+
+- Removed the Home greeting and date. The compact brand header now includes a personal profile picture that opens account settings.
+- Prefer the verified personal Seerr account, then Jellyfin, then Emby. Missing pictures use that person's initial; shared API keys are never presented as personal accounts.
+- Hide the entire Now Playing section when there are no active sessions, including during refresh. The multi-session count is preserved when playback exists.
+- Added native regression coverage for profile priority/fallback, profile navigation, no greeting/date and silent empty playback.
+
 ## 0.10.0
 
 - Renamed the app to Reelune, with a new film-ribbon R mark, adaptive launcher icon and restrained Home header. Existing app ID and update signature are preserved.
