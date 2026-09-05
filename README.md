@@ -1,8 +1,8 @@
-# HomeReel Android
+# Reelune Android
 
-HomeReel is a native Android companion for a self-hosted media stack. It brings Jellyfin, Emby, Seerr, Radarr, and Sonarr into one calm, cinematic interface without replacing the servers themselves.
+Reelune (previously HomeReel) is a native Android companion for a self-hosted media stack. It brings Jellyfin, Emby, Seerr, Radarr, and Sonarr into one calm, cinematic interface without replacing the servers themselves.
 
-The native app includes an aggregated multi-server Home, four interactive destinations, personal service accounts, a resilient live-data layer, offline dashboard cache, and background refresh. First-run setup offers an explicit demo preview. Once a service is connected, unconfigured services no longer contribute sample content.
+The native app includes a multi-server Home, four interactive destinations, personal service accounts, a live-data layer, and background refresh. First-run setup offers an explicit demo preview. Once a service is connected, unconfigured services no longer contribute sample content. Personal views are rebuilt from verified accounts rather than restoring a previous user's dashboard.
 
 ## Download
 
@@ -16,20 +16,20 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Aggregated Home dashboard with content from every connected server; no server switching required
 - Multiple simultaneous Jellyfin/Emby sessions with independent playback controls
 - Live Seerr search with personal “add to media collection” actions and a visible verified account identity
-- Unified activity timeline for Seerr, Sonarr, and Radarr events
+- Personal Activity for ordinary users; verified Seerr administrators also have Seerr/Radarr/Sonarr overview filters
 - Settings and connection editors for Jellyfin, Emby, Seerr, Radarr, and Sonarr
 - Native Jellyfin Quick Connect plus username/password and advanced access-token setup
 - Seerr Jellyfin account sign-in and Seerr-mediated Quick Connect with encrypted session cookies and CSRF support
 - Real Jellyfin/Seerr profile pictures and names; Seerr rechecks the acting user before each request, and administrator keys are read-only for requests
 - Real connectivity/authentication probes for all five services
 - Live Jellyfin/Emby playback sessions
-- Separate Jellyfin/Emby recently-added movie and episode rails across all accessible libraries, with wide Thumb artwork for series
+- Separate Jellyfin/Emby recently-added movie and episode rails, with wide Thumb artwork for series and the requested children's TV libraries excluded
 - Real Jellyfin/Emby remote pause and resume commands with pending/error feedback
-- Live Radarr/Sonarr download queues with normalized progress
+- Administrator-only live Radarr/Sonarr shared download queues with normalized progress
 - Artwork-led Upcoming section and a 28-day agenda calendar: Radarr home releases (not cinema-only dates) plus Sonarr episodes
 - Live Seerr trending discovery, request activity, and request submission
-- Independent per-service refresh errors, stale-data retention, empty states, and pull-to-refresh
-- Persistent non-secret dashboard cache and 30-minute WorkManager refresh with an optional Wi-Fi-only constraint
+- Independent per-service refresh errors, empty states, and pull-to-refresh; playback, activity and library access fail closed rather than retaining an unverified previous scope
+- 30-minute WorkManager refresh with an optional Wi-Fi-only constraint; shared sessions and activity are never written to the dashboard cache
 - Per-section Home visibility controls in Settings
 - Remote artwork with local fallbacks and HTTPS-only external image filtering
 - Android Keystore-backed AES/GCM encryption for API tokens
@@ -68,6 +68,8 @@ Typical local addresses:
 Use HTTPS through a trusted reverse proxy when the services are reachable outside your home network. API tokens are never placed in URLs, logs, or the dashboard cache, and are encrypted at rest. Android backups are disabled for the app's local connection data.
 
 ## Architecture
+
+See [viewer access rules](docs/VIEWER_ACCESS.md) for the administrator/personal boundary, identity matching, and server-side limitations, and [Reelune branding](docs/REELUNE_BRAND.md) for the new image asset and generation brief. The app ID and signing identity remain unchanged so existing installations update in place.
 
 - `ui/`: Compose navigation, screens, sheets, state, and theme
 - `data/model/`: shared service and activity models

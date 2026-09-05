@@ -117,15 +117,7 @@ fun UpcomingSkeleton(modifier: Modifier = Modifier) {
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar komande utgjevingar" },
     ) {
         items(3) { index ->
-            Column(Modifier.width(264.dp)) {
-                ShimmerBlock(Modifier.width(110.dp).height(17.dp), RoundedCornerShape(6.dp))
-                ShimmerBlock(Modifier.padding(top = 10.dp).fillMaxWidth().height(120.dp), RoundedCornerShape(16.dp))
-                ShimmerBlock(
-                    Modifier.padding(top = 10.dp).width(if (index == 1) 118.dp else 150.dp).height(15.dp),
-                    RoundedCornerShape(8.dp),
-                )
-                ShimmerBlock(Modifier.padding(top = 7.dp).width(96.dp).height(9.dp), RoundedCornerShape(5.dp))
-            }
+            ShimmerBlock(Modifier.width(280.dp).height(226.dp), RoundedCornerShape(16.dp))
         }
     }
 }
@@ -155,12 +147,7 @@ fun DiscoverSkeleton(modifier: Modifier = Modifier) {
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar søkjeresultat" },
     ) {
         repeat(2) {
-            Column(Modifier.weight(1f)) {
-                ShimmerBlock(Modifier.fillMaxWidth().aspectRatio(2f / 3f), RoundedCornerShape(12.dp))
-                ShimmerBlock(Modifier.padding(top = 10.dp).fillMaxWidth(0.85f).height(18.dp))
-                ShimmerBlock(Modifier.padding(top = 8.dp).fillMaxWidth(0.6f).height(12.dp))
-                ShimmerBlock(Modifier.padding(top = 12.dp).width(70.dp).height(20.dp))
-            }
+            ShimmerBlock(Modifier.weight(1f).height(316.dp), RoundedCornerShape(18.dp))
         }
     }
 }

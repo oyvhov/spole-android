@@ -75,6 +75,8 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, o
                         )
                         Text(account.source.displayName, color = Muted, fontSize = 12.sp,
                             modifier = Modifier.padding(top = 3.dp))
+                        if (account.isAdmin) Text("Administrator", color = Primary, fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 5.dp))
                     }
                     if (!isSeerr || (account.isPersonal && !overviewOnly)) {
                         AccountEditButton(onClick, "Endre ${source.displayName}-konto")
@@ -106,9 +108,6 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, o
 
             if (overviewOnly) {
                 Text("Administratornøkkel · berre oversikt", color = Muted, fontSize = 12.sp, lineHeight = 18.sp,
-                    modifier = Modifier.padding(top = 12.dp))
-            } else if (isSeerr && account?.isPersonal == true) {
-                Text("Førespurnader som deg", color = Primary, fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(top = 12.dp))
             }
 

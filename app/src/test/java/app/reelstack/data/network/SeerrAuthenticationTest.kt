@@ -10,7 +10,7 @@ class SeerrAuthenticationTest {
         val transport = FakeTransport(mutableListOf(
             HttpResponse(200, "{}", listOf("_csrf=secret; HttpOnly", "XSRF-TOKEN=csrf%2Btoken; Secure")),
             HttpResponse(200, "{\"id\":7}", listOf("connect.sid=s%3Asession; Path=/; HttpOnly")),
-            HttpResponse(200, "{\"id\":7,\"displayName\":\"Maya\"}"),
+            HttpResponse(200, "{\"id\":7,\"displayName\":\"Maya\",\"permissions\":32}"),
             HttpResponse(201, "{}"),
         ))
         val login = SeerrAuthenticationClient(transport).authenticate("https://seerr.example.com/base", "ø yvind", "p@ss\"word")

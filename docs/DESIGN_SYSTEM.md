@@ -1,4 +1,4 @@
-# HomeReel design system
+# Reelune design system
 
 ## Product hierarchy
 
@@ -27,15 +27,15 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 - Playback cards use 20 dp corners; posters use 12 dp and compact surfaces use 10–16 dp. Artwork is borderless, without a decorative shadow or bottom strip.
 - Navigation reserves layout space instead of floating over content. System insets are handled once by the app shell. Each tab retains its scroll state.
 - Navigation fades use 150–220 ms. Home cards reveal in 240 ms with at most 60 ms stagger, once per saved composition identity; touch scales use a restrained spring. Compose motion follows Android's animation scale.
-- Series detail imagery keeps its aspect ratio, with title and subtitle below. Movie details keep a full poster beside the summary. Gradients are used only to make overlaid playback text legible; upcoming dates and summaries sit outside artwork.
-- Shared dimensions live in `ReelLayout`; see [the layout specification](LAYOUT.md) for each screen's hierarchy. Poster/status overlays are avoided throughout Home, Discover and Activity. Empty playback stays compact during refresh.
+- Series detail imagery keeps its aspect ratio, with title and subtitle below. Movie details keep a full poster beside the summary. Playback, Upcoming and Discover use dark image scrims solely for text legibility, not decorative glass effects.
+- Shared dimensions live in `ReelLayout`; see [the layout specification](LAYOUT.md) for each screen's hierarchy. Upcoming uses 280 × 226 dp full-bleed cards, with date above and title below. Discover uses adaptive full-bleed posters, a top type/status strip and bottom action; content can grow with font size. Empty playback stays compact during refresh, while multiple sessions show an explicit count.
 - Bottom sheets reserve a stable 90% content viewport from their first frame, plus the drag handle and system insets. The size constraint belongs to the content, not the modal surface, so the sheet keeps its bottom anchor. Remote metadata updates only the scrollable interior; no content-size spring changes the outer anchor. Keyboard insets may resize the usable area deliberately.
 - Calendar keeps title, type filters and a 28-day date strip above a lazy agenda. A selected date filters the list; tapping it again or “Alle dagar” resets it. Empty days remain selectable. Rows have borderless 16:9 episode art or uncropped 2:3 film posters, 48 dp minimum targets, and a readable source/time label. Film dates do not imply an exact release time or availability in the library.
 - Home visibility has four independent library switches: Jellyfin movies/series and Emby movies/series. Older combined preferences migrate without re-enabling hidden rows. Hiding a row does not disconnect the service or disable its other features.
 - Discover, Activity and Calendar share `AppFilterRow`: compact solid filters, no outline, lime selected state and Material's minimum 48 dp interaction area. The visible chip is not inflated to fill its touch target.
 - `ServiceSymbol` shares source identity across setup, settings and details. Jellyfin/Emby use their real logos; TV/movie/search icons describe the other services consistently.
 - Title/playback sheets have explicit close controls. The Calendar back button restores its saved filter, date and agenda position; a swipe, scrim tap or system Back dismisses the sheet. There is no close/reopen animation for the in-sheet Calendar button.
-- Settings presents its page title first and app identity last. A preference row exposes one switch action, not competing row and thumb actions. Unimplemented notifications are labelled unavailable rather than offered as a working toggle.
+- Home starts with the compact Reelune mark and wordmark above the greeting. Settings retains version/identity at its bottom. A preference row exposes one switch action, not competing row and thumb actions. Library notifications have an actual working master switch alongside each followed request's choice.
 - All Material color roles are explicitly assigned; default purple secondary/container colors must not leak into controls. Native startup and app icon use the same charcoal/lime palette.
 - Artwork missing from live data uses the neutral media placeholder, never preview artwork. Seerr status is attributed to Seerr and distinguishes pending, processing, partial, available, blocked and deleted; processing is not proof of a running download. Approval is not import completion.
 
@@ -47,6 +47,8 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 - Artwork always has a local fallback, while decorative imagery has no spoken description.
 
 ## Setup and authentication
+
+- Ordinary users have a personal experience, without role-limit banners or administrator overview filters. Only verified Seerr administrators see the administrator role label, shared queue and cross-user Activity filters. Permissions are enforced before data becomes UI state, not only by hiding controls.
 
 - Existing configured users enter Home directly. New users choose a service or explicitly opt into demo data; preview content is cleared when the first service connects.
 - New connections ask for the server address before credentials. Optional connection names and profile IDs live under advanced settings.

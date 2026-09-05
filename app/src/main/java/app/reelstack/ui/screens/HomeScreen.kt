@@ -88,6 +88,7 @@ import app.reelstack.ui.components.NowPlayingSkeleton
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.UpcomingSkeleton
 import app.reelstack.ui.theme.Muted
+import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
@@ -151,7 +152,12 @@ fun HomeScreen(
                             } else EmptyNowPlayingCard()
                         }
                     } else {
-                        SectionTitle("Spelar no", Modifier.padding(top = 24.dp, bottom = 12.dp))
+                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            SectionTitle("Spelar no", Modifier.weight(1f))
+                            if (state.sessions.size > 1) Text("${state.sessions.size} avspelingar", color = Ink,
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.background(Primary, CircleShape).padding(horizontal = 12.dp, vertical = 7.dp))
+                        }
                         NowPlayingRail(
                             sessions = state.sessions,
                             pendingSessionKey = state.pendingSessionKey,
@@ -219,7 +225,7 @@ fun HomeScreen(
                     }
                 }
             }
-            if (HomeSection.DOWNLOADS in state.homeSections) {
+            if (HomeSection.DOWNLOADS in state.homeSections && (state.adminView || state.configuredCount == 0)) {
                 item {
                     SectionTitle("Nedlastingar", Modifier.padding(top = 26.dp, bottom = 10.dp))
                     if (state.incoming.isEmpty()) {
@@ -266,6 +272,12 @@ private fun HomeGreeting(onCalendarClick: () -> Unit) {
         },
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 14.dp)) {
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.reelune_mark), "Reelune-logo",
+                    modifier = Modifier.size(34.dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Primary))
+                Text("Reelune", color = TextColor, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
+            }
             Text(text = date, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
             Text(text = greeting(), color = TextColor, style = MaterialTheme.typography.displaySmall)
         }
@@ -588,58 +600,28 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, onClick: () -> 
         animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
         label = "upcoming-card-press",
     )
-    Column(
-        modifier = Modifier
-            .width(264.dp)
-            .graphicsLayer {
-                alpha = reveal
-                translationY = (1f - reveal) * 30f
-                scaleX = scale
-                scaleY = scale
-            }
-            .clickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick,
-            )
-            .semantics { role = Role.Button },
-    ) {
-        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Schedule, contentDescription = null, tint = Primary, modifier = Modifier.size(14.dp))
-            Text(media.dateLabel, color = Primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f).padding(start = 6.dp))
-            Icon(if (media.source == ServiceKind.RADARR) Icons.Rounded.Movie else Icons.Rounded.Tv,
-                contentDescription = media.source.displayName, tint = Muted, modifier = Modifier.size(14.dp))
+    Box(Modifier.width(280.dp).height(226.dp).graphicsLayer {
+        alpha = reveal; translationY = (1f - reveal) * 18f; scaleX = scale; scaleY = scale
+    }.clip(shape).background(SurfaceRaised)
+        .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
+        .semantics { role = Role.Button }.testTag("upcoming-cover-${media.id}")) {
+        MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+            0f to Color.Black.copy(alpha = .12f), .35f to Color.Transparent,
+            .7f to Color.Black.copy(alpha = .62f), 1f to Color.Black.copy(alpha = .94f))))
+        Row(Modifier.align(Alignment.TopStart).padding(14.dp).background(Color.Black.copy(alpha = .76f), CircleShape)
+            .padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Schedule, null, tint = Primary, modifier = Modifier.size(14.dp))
+            Text(media.dateLabel, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 6.dp))
         }
-        Row(Modifier.fillMaxWidth().clip(shape).background(SurfaceRaised).padding(12.dp).heightIn(min = 96.dp), verticalAlignment = Alignment.CenterVertically) {
-            val movie = media.source == ServiceKind.RADARR
-            MediaArtwork(
-                url = media.artworkUrl,
-                fallbackRes = media.artworkRes,
-                contentDescription = media.title,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(if (movie) 64.dp else 88.dp, if (movie) 96.dp else 49.5.dp).clip(RoundedCornerShape(8.dp)),
-            )
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(
-                    media.title,
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    lineHeight = 21.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    media.subtitle.replace(" · TBA", ""),
-                    color = app.reelstack.ui.theme.Muted,
-                    fontSize = 12.sp,
-                    maxLines = 2,
-                    lineHeight = 17.sp,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 3.dp),
-                )
-            }
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp)) {
+            Text(if (media.source == ServiceKind.RADARR) "HEIMEUTGJEVING" else "NY EPISODE",
+                color = Primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(media.title, color = Color.White, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
+            Text(media.subtitle.replace(" · TBA", ""), color = Color.White.copy(alpha = .85f),
+                fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
         }
     }
 }

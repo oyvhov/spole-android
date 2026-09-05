@@ -93,6 +93,7 @@ import app.reelstack.R
 import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
+import app.reelstack.data.model.canRequestType
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
@@ -297,7 +298,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         details.error?.let {
             Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
-        if (discoverMedia != null && discoverMedia.canRequest) {
+        if (discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
+            state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
             val adding = discoverMedia.id in state.requestingMediaIds
             val connectedSeerr = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() }
             val needsAccount = connectedSeerr && state.accounts[ServiceKind.SEERR]?.isPersonal != true

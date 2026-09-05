@@ -4,6 +4,10 @@ import app.reelstack.BuildConfig
 import app.reelstack.data.model.ConnectionTestResult
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.ViewerAccess
+import app.reelstack.data.model.ServiceAccount
+import app.reelstack.data.model.canRequestType
+import app.reelstack.data.model.isExcludedHomeLibrary
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
@@ -201,40 +205,47 @@ class MediaServerClient(
     private val transport: JsonHttpTransport = HttpTransport(),
     private val deviceId: String = "homereel-android",
 ) {
-    fun sessions(connection: ServiceConnection): List<RemotePlayback> {
+    fun sessions(connection: ServiceConnection, access: ViewerAccess = localAccess(connection)): List<RemotePlayback> {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val all = access.canSeeAllSessions(connection.kind) || (access.isAdmin && access.accounts[connection.kind] == null)
+        val ownId = access.ownMediaUser(connection.kind)
+        if (!all && ownId == null) return emptyList()
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "Sessions"),
             headers(connection, deviceId),
         )
         response.requireSuccess(connection.kind)
-        return ServicePayloadParser.playbackSessions(response.body).map { item ->
+        return ServicePayloadParser.playbackSessions(response.body).filter { all || it.userId == ownId }.map { item ->
             item.copy(artworkUrl = item.artworkItemId?.let { artworkUrl(connection, it) })
         }
     }
 
-    fun feed(connection: ServiceConnection): MediaServerFeed {
+    private fun localAccess(connection: ServiceConnection) = ViewerAccess(false,
+        runCatching { AccountProfileClient(deviceId, transport).load(connection) }.getOrNull()
+            ?.let { mapOf(connection.kind to it) }.orEmpty())
+
+    fun feed(connection: ServiceConnection, access: ViewerAccess = localAccess(connection)): MediaServerFeed {
         val warnings = mutableListOf<String>()
-        val sessionsResult = runCatching { sessions(connection) }
+        val sessionsResult = runCatching { sessions(connection, access) }
         val sessions = sessionsResult.getOrElse {
             warnings += "Avspelingsøkter er utilgjengelege"
             emptyList()
         }
-        val userId = connection.userId.takeIf { it.isNotBlank() }
+        val allowFallback = !access.seerrConfigured || access.isAdmin
+        val userId = access.ownMediaUser(connection.kind) ?: if (allowFallback) connection.userId.takeIf { it.isNotBlank() }
             ?: runCatching { currentUserId(connection) }.getOrNull()
-            ?: runCatching { preferredAvailableUserId(connection) }.getOrNull()
+            ?: runCatching { preferredAvailableUserId(connection) }.getOrNull() else null
+        if (userId == null && !allowFallback) return MediaServerFeed(sessions, emptyList(), emptyList(), null)
 
         val encodedUserId = userId?.let(::encodePathSegment)
-        val views = encodedUserId?.let { encodedId ->
-            runCatching { libraryViews(connection, encodedId) }.getOrDefault(emptyList())
-        }.orEmpty()
+        val viewsResult = runCatching { libraryViews(connection, requireNotNull(encodedUserId) { "Profil-ID manglar" }) }
         val moviesResult = runCatching {
             latestAcrossLibraries(
                 connection = connection,
                 userId = encodedUserId,
                 itemType = "Movie",
                 groupItems = false,
-                views = views,
+                views = viewsResult.getOrThrow(),
             )
         }
         val movies = moviesResult.getOrElse {
@@ -247,7 +258,7 @@ class MediaServerClient(
                 userId = encodedUserId,
                 itemType = "Episode",
                 groupItems = false,
-                views = views,
+                views = viewsResult.getOrThrow(),
             )
         }
         val series = seriesResult.getOrElse {
@@ -353,23 +364,17 @@ class MediaServerClient(
         groupItems: Boolean,
         views: List<RemoteLibraryView>,
     ): List<RemoteLibraryItem> {
-        val relevantViews = views.filter { it.supports(itemType) }.take(MAX_LIBRARY_VIEWS)
-        if (relevantViews.isNotEmpty()) {
-            val successfulGroups = relevantViews.mapNotNull { view ->
-                runCatching {
-                    getItems(
-                        connection,
-                        latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id),
-                    )
-                }.getOrNull()
-            }
-            if (successfulGroups.isNotEmpty()) {
-                return interleave(successfulGroups).distinctBy(RemoteLibraryItem::id).take(LATEST_ITEM_LIMIT)
-            }
+        if (views.isEmpty()) return emptyList()
+        val relevantViews = views.filter { it.supports(itemType) && !isExcludedHomeLibrary(it.name) }.take(MAX_LIBRARY_VIEWS)
+        // Never fall back to an unscoped query that could reintroduce excluded libraries.
+        if (relevantViews.isEmpty()) return emptyList()
+        val successfulGroups = relevantViews.mapNotNull { view ->
+            runCatching {
+                getItems(connection, latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id))
+            }.getOrNull()
         }
-        return getItems(connection, latestPaths(connection.kind, userId, itemType, groupItems))
-            .distinctBy(RemoteLibraryItem::id)
-            .take(LATEST_ITEM_LIMIT)
+        if (successfulGroups.isEmpty()) error("Fekk ikkje oppdatert dei valde biblioteka")
+        return interleave(successfulGroups).distinctBy(RemoteLibraryItem::id).take(LATEST_ITEM_LIMIT)
     }
 
     private fun getItems(connection: ServiceConnection, paths: List<String>): List<RemoteLibraryItem> {
@@ -478,8 +483,8 @@ class QueueServiceClient(
         return ServicePayloadParser.queue(response.body, connection.kind)
     }
 
-    fun feed(connection: ServiceConnection): QueueServiceFeed {
-        val queue = queue(connection)
+    fun feed(connection: ServiceConnection, includeQueue: Boolean = true): QueueServiceFeed {
+        val queue = if (includeQueue) queue(connection) else emptyList()
         val windowStart = Instant.now().minus(1, ChronoUnit.DAYS)
         val start = encode(windowStart.toString())
         val end = encode(Instant.now().plus(28, ChronoUnit.DAYS).toString())
@@ -555,7 +560,7 @@ class SeerrServiceClient(
         return if (englishOverview != null) details.copy(overview = englishOverview) else details
     }
 
-    fun feed(connection: ServiceConnection): SeerrFeed {
+    fun feed(connection: ServiceConnection, actor: ServiceAccount = AccountProfileClient(transport = transport).load(connection)): SeerrFeed {
         require(connection.kind == ServiceKind.SEERR)
         val requestHeaders = headers(connection)
         val discoverResponse = transport.get(
@@ -565,7 +570,7 @@ class SeerrServiceClient(
         discoverResponse.requireSuccess(connection.kind)
 
         val requestsResponse = transport.get(
-            EndpointValidator.resolve(connection.baseUrl, "api/v1/request?take=20&skip=0&sort=added"),
+            EndpointValidator.resolve(connection.baseUrl, "api/v1/request?take=20&skip=0&sort=added" + if (actor.isAdmin) "" else "&requestedBy=${encode(actor.id)}"),
             requestHeaders,
         )
         requestsResponse.requireSuccess(connection.kind)
@@ -582,7 +587,7 @@ class SeerrServiceClient(
         // Failures are deduplicated only within this refresh, so the next refresh can retry.
         val detailCache = mutableMapOf<Pair<String, Int>, RequestMetadata?>()
         var detailLookups = 0
-        val requests = ServicePayloadParser.requests(requestsResponse.body).map { request ->
+        val requests = ServicePayloadParser.requests(requestsResponse.body).filter { actor.isAdmin || it.ownerId == actor.id }.map { request ->
             val remoteId = request.remoteId ?: return@map request
             val key = request.mediaType to remoteId
             val discovered = discoveredByMedia[key]
@@ -641,6 +646,7 @@ class SeerrServiceClient(
         }
         val actor = AccountProfileClient(transport = transport).load(connection)
         check(actor.isPersonal && actor.id == expectedUserId) { "Seerr-kontoen er endra. Sjekk innlogginga før du sender." }
+        check(actor.canRequestType(mediaType)) { "Seerr-kontoen kan ikkje leggje til denne medietypen." }
         if (mediaType == "tv") {
             require(seasons.isNotEmpty() && seasons.all { it >= 0 }) { "Vel minst éin sesong." }
             val fresh = details(connection, mediaType, remoteId)

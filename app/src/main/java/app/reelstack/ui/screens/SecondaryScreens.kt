@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.Role
 import app.reelstack.ui.components.AppFilterRow
 import app.reelstack.ui.components.ServiceSymbol
 import app.reelstack.data.model.canRequest
+import app.reelstack.data.model.canRequestType
 import app.reelstack.data.model.seerrStatusLabel
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import java.time.Instant
@@ -105,6 +106,7 @@ import app.reelstack.ui.components.SettingsAccounts
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.theme.Caution
 import app.reelstack.ui.theme.Muted
+import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
@@ -203,6 +205,7 @@ fun DiscoverScreen(
         } else {
             items(visible, key = DiscoverMedia::id) { media ->
                 DiscoverCard(media, media.id in state.requestingMediaIds,
+                    allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(media.mediaType ?: "movie") } == true,
                     onRequest = { onRequest(media.id) }, onDetails = { onDetails(media.id) })
             }
         }
@@ -210,60 +213,52 @@ fun DiscoverScreen(
 }
 
 @Composable
-private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit) {
-    Column {
-        Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onDetails)) {
-            MediaArtwork(
-                url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)),
-            )
-            Text(media.title, color = TextColor, fontSize = 15.sp, lineHeight = 19.sp,
-                fontWeight = FontWeight.SemiBold, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 10.dp))
-            Text(media.metadata, color = Muted, fontSize = 12.sp, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
-            if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
-                Text(
-                    seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested),
-                    color = Primary, fontSize = 12.sp, lineHeight = 17.sp,
-                    modifier = Modifier.padding(top = 5.dp),
-                )
+private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
+    val actionable = media.canRequest && allowed
+    Box(Modifier.fillMaxWidth().heightIn(min = 300.dp).clip(RoundedCornerShape(18.dp)).background(SurfaceRaised)
+        .clickable(onClick = onDetails).testTag("discover-cover-${media.id}")) {
+        MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)
+        Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+            0f to Color.Transparent, .35f to Color.Transparent, .68f to Color.Black.copy(alpha = .64f), 1f to Color.Black.copy(alpha = .96f))))
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (media.mediaType == "tv") "SERIE" else "FILM", color = Ink, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.background(Primary, CircleShape).padding(horizontal = 9.dp, vertical = 5.dp))
+                Spacer(Modifier.weight(1f))
+                if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
+                    Icon(if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.CloudDone,
+                        seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested), tint = Primary,
+                        modifier = Modifier.background(Color.Black.copy(alpha = .75f), CircleShape).padding(7.dp).size(19.dp))
+                }
             }
-        }
-        TextButton(
-            onClick = if (!media.canRequest) onDetails else onRequest,
-            enabled = !requesting,
-            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-        ) {
-            if (requesting) {
-                CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-            } else {
-                Icon(if (!media.canRequest) Icons.AutoMirrored.Rounded.ArrowForward else Icons.Rounded.Add,
-                    contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.height(120.dp))
+            Text(media.metadata, color = Color.White.copy(alpha = .82f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
+                minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            Button(onClick = if (actionable) onRequest else onDetails, enabled = !requesting,
+                shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
+                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)) {
+                if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
+                else Icon(if (actionable) Icons.Rounded.Add else Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(14.dp))
+                Text(when { requesting -> "Sender…"; !actionable -> "Vis detaljar"; media.mediaType == "tv" -> "Vel sesongar"; else -> "Legg til" },
+                    fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp))
             }
-            Text(when {
-                requesting -> "Legg til…"
-                !media.canRequest -> "Vis detaljar"
-                media.mediaType == "tv" -> "Vel sesongar"
-                else -> "Legg til"
-            }, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
         }
     }
 }
-
 @Composable
 fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit,
                    onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var sourceFilter by rememberSaveable { mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) "Mine" else "Alt") }
+    var savedSourceFilter by rememberSaveable { mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) "Mine" else "Alt") }
+    val sourceFilter = if (state.adminView || state.configuredCount == 0) savedSourceFilter else "Mine"
     val events = state.activity.filter { sourceFilter == "Alt" || it.source?.displayName == sourceFilter }
     val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
     LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
         item {
             ScreenHeader("", "Aktivitet", "Følg titlane frå lagde til til klare.")
-            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
+            if (state.adminView || state.configuredCount == 0) Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
                 Box(Modifier.padding(top = 6.dp).size(6.dp).clip(CircleShape)
                     .background(if (hasIssues) Caution else Muted))
                 Column(Modifier.padding(start = 10.dp)) {
@@ -277,7 +272,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp)
                 }
             }
-            AppFilterRow(listOf("Mine", "Alt", "Seerr", "Radarr", "Sonarr"), sourceFilter, { sourceFilter = it }, Modifier.padding(bottom = 12.dp))
+            if (state.adminView || state.configuredCount == 0) AppFilterRow(listOf("Mine", "Alt", "Seerr", "Radarr", "Sonarr"), sourceFilter, { savedSourceFilter = it }, Modifier.padding(bottom = 12.dp))
         }
         if (sourceFilter == "Mine") {
             item {
@@ -379,7 +374,7 @@ fun SettingsScreen(
             SettingsAccounts(state, onAccountClick)
             SettingsSectionTitle("Tenestene dine")
         }
-        items(state.connections, key = { it.kind }) { connection ->
+        items(state.connections.filter { state.canEditConnection(it.kind) }, key = { it.kind }) { connection ->
             ServiceRow(connection = connection, onClick = { onConnectionClick(connection.kind) })
         }
         item {
@@ -397,10 +392,10 @@ fun SettingsScreen(
             HomeSectionRow(HomeSection.EMBY_MOVIES, "Emby · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.EMBY_SERIES, "Emby · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.Notifications, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.DOWNLOADS, "Nedlastingar", "Aktive køar i Radarr og Sonarr", Icons.Rounded.Download, state, onHomeSectionChange)
+            if (state.adminView || state.configuredCount == 0) HomeSectionRow(HomeSection.DOWNLOADS, "Nedlastingar", "Aktive køar i Radarr og Sonarr", Icons.Rounded.Download, state, onHomeSectionChange)
             SettingsSectionTitle("Val")
-            Text("Varsel", color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
-            Text("Kjem seinare. Sjå oppdateringar under Aktivitet.", color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+            PreferenceRow(Icons.Rounded.Notifications, "Bibliotekvarsel", "For førespurnader du har valt å følgje",
+                state.notificationsEnabled, onNotificationsChange)
             PreferenceRow(
                 icon = Icons.Rounded.Wifi,
                 label = "Synkroniser berre på Wi-Fi",
@@ -434,12 +429,12 @@ private fun AppIdentity() {
         modifier = Modifier.fillMaxWidth().padding(bottom = 26.dp),
     ) {
         Image(
-            painter = painterResource(R.drawable.ic_launcher),
-            contentDescription = "HomeReel-logo",
+            painter = painterResource(R.drawable.reelune_mark),
+            contentDescription = "Reelune-logo",
             modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)),
         )
         Column(Modifier.padding(start = 13.dp)) {
-            Text("HomeReel", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text("Reelune", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 "Personleg medieoversikt · v${BuildConfig.VERSION_NAME}",
                 color = Muted,

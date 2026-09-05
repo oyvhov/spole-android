@@ -245,6 +245,7 @@ class SeerrFeedEnrichmentTest {
         var detailResponse: HttpResponse? = null
 
         override fun get(url: String, headers: Map<String, String>): HttpResponse {
+            if (url.endsWith("/auth/me")) return HttpResponse(200, """{"id":1,"displayName":"Admin","permissions":2}""")
             if (url.contains("/discover/trending?")) {
                 feedCalls++
                 return HttpResponse(200, discover)

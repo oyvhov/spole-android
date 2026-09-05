@@ -8,4 +8,10 @@ data class ServiceAccount(
     val username: String? = null,
     val avatarUrl: String? = null,
     val isPersonal: Boolean = true,
+    val isAdmin: Boolean = false,
+    val permissions: Long = 0,
+    val mediaUserId: String? = null,
 )
+
+fun ServiceAccount.canRequestType(type: String): Boolean = isPersonal &&
+    (isAdmin || permissions and 32L != 0L || permissions and (if (type == "tv") 524288L else 262144L) != 0L)

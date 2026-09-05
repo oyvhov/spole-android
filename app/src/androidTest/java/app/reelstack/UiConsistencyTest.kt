@@ -36,7 +36,7 @@ class UiConsistencyTest {
         rule.onNodeWithText("Film A").assertIsDisplayed()
     }
 
-    @Test fun settingsToggleHasOneActionAndDoesNotPromiseUnbuiltNotifications() {
+    @Test fun settingsToggleHasOneActionAndShowsLibraryNotifications() {
         var changes = 0
         var changedSection: HomeSection? = null
         rule.setContent {
@@ -50,6 +50,6 @@ class UiConsistencyTest {
         rule.onNodeWithText("Emby · Filmar").performScrollTo().performClick()
         assertEquals(1, changes)
         assertEquals(HomeSection.EMBY_MOVIES, changedSection)
-        rule.onNodeWithText("Kjem seinare. Sjå oppdateringar under Aktivitet.").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Bibliotekvarsel").performScrollTo().assertIsDisplayed()
     }
 }

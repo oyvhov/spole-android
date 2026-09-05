@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.0
+
+- Renamed the app to Reelune, with a new film-ribbon R mark, adaptive launcher icon and restrained Home header. Existing app ID and update signature are preserved.
+- Added a server-verified Seerr administrator boundary: ordinary users see only their own playback and personal request Activity, without administrator filters or explanatory restriction banners.
+- Applied session filtering by actual media user ID, owner filtering to Seerr requests, fresh permission checks before requests/playback commands, and administrator-only shared Radarr/Sonarr queues.
+- Removed persisted shared activity/sessions and stale personal-library fallback. Account changes cancel old refresh work and clear the previous account's feed.
+- Excluded Barneserier/Barneseriar, Jellyfin's Barne-TV and Emby's Barne-Tv Serier libraries from recent media queries. Other libraries, including children's films, remain untouched.
+- Redesigned Upcoming as full-bleed image cards with readable bottom overlays, and Discover as poster cards with type/status tags and embedded actions. Multiple active playback sessions now have an explicit count.
+- Added role, owner, library-selection and native UI regressions; aligned loading placeholders and notification settings with the actual experience.
+
 ## 0.9.0
 
 - Added a personal Seerr request sheet with explicit missing-season selection, fresh availability checks and visible account identity before submission.

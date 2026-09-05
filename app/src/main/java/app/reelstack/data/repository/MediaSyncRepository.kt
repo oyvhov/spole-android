@@ -10,6 +10,8 @@ import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
+import app.reelstack.data.model.ViewerAccess
+import app.reelstack.data.network.AccountProfileClient
 import app.reelstack.data.network.MediaServerClient
 import app.reelstack.data.network.QueueServiceFeed
 import app.reelstack.data.network.QueueServiceClient
@@ -45,19 +47,25 @@ data class MediaSyncSnapshot(
     val errors: Map<ServiceKind, String>,
     val refreshedAt: Instant,
     val warnings: Map<ServiceKind, String> = emptyMap(),
+    val adminView: Boolean = false,
 )
 
 class MediaSyncRepository(
     private val mediaServerClient: MediaServerClient = MediaServerClient(),
     private val queueServiceClient: QueueServiceClient = QueueServiceClient(),
     private val seerrServiceClient: SeerrServiceClient = SeerrServiceClient(),
+    private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
 ) {
     suspend fun refresh(
         connections: List<ServiceConnection>,
     ): MediaSyncSnapshot = supervisorScope {
         val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
+        val identities = configured.filter { it.kind in setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY) }
+            .map { connection -> async { runCatching { accountProfileClient.load(connection) }.getOrNull()?.let { connection.kind to it } } }
+            .mapNotNull { it.await() }.toMap()
+        val access = ViewerAccess(configured.any { it.kind == ServiceKind.SEERR }, identities)
         val deferred = configured.map { connection ->
-            async { connection.kind to runCatching { fetch(connection) } }
+            async { connection.kind to runCatching { fetch(connection, access) } }
         }
         val results = deferred.map { it.await() }
         val successful = results.filter { it.second.isSuccess }.mapTo(mutableSetOf()) { it.first }
@@ -80,7 +88,7 @@ class MediaSyncRepository(
         val titleLookup = discover.associateBy { it.remoteId }
         val activity = buildList {
             seerr?.requests.orEmpty().forEach { add(requestActivity(it, titleLookup[it.remoteId])) }
-            queue.forEach { add(queueActivity(it)) }
+            if (access.isAdmin) queue.forEach { add(queueActivity(it)) }
         }.take(30)
 
         MediaSyncSnapshot(
@@ -94,13 +102,14 @@ class MediaSyncRepository(
                 payload.feed.recentSeries.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
             upcoming = upcoming.take(30),
-            incoming = queue.map(::incomingMedia),
+            incoming = if (access.isAdmin) queue.map(::incomingMedia) else emptyList(),
             discover = discover,
             activity = activity,
             successfulServices = successful,
             errors = errors,
             refreshedAt = Instant.now(),
             warnings = warnings,
+            adminView = access.isAdmin,
         )
     }
 
@@ -135,19 +144,24 @@ class MediaSyncRepository(
         val sessionId = requireNotNull(session.sessionId) { "Avspelingsøkta er ikkje tilgjengeleg" }
         val connection = connections.firstOrNull { it.kind == source && it.baseUrl.isNotBlank() }
             ?: error("Tilkoplinga til ${source.displayName} er ikkje tilgjengeleg")
+        val accounts = connections.filter { it.kind == source || it.kind == ServiceKind.SEERR }
+            .mapNotNull { c -> runCatching { accountProfileClient.load(c) }.getOrNull()?.let { c.kind to it } }.toMap()
+        val access = ViewerAccess(connections.any { it.kind == ServiceKind.SEERR && it.token.isNotBlank() }, accounts)
+        check(mediaServerClient.sessions(connection, access).any { it.sessionId == sessionId }) { "Avspelingsøkta er ikkje tilgjengeleg" }
         mediaServerClient.setPaused(connection, sessionId, paused)
     }
 
-    private fun fetch(connection: ServiceConnection): ServicePayload = when (connection.kind) {
+    private fun fetch(connection: ServiceConnection, access: ViewerAccess): ServicePayload = when (connection.kind) {
         ServiceKind.JELLYFIN, ServiceKind.EMBY -> ServicePayload.Media(
             connection.kind,
-            mediaServerClient.feed(connection),
+            mediaServerClient.feed(connection, access),
         )
         ServiceKind.RADARR, ServiceKind.SONARR -> ServicePayload.Queue(
             connection.kind,
-            queueServiceClient.feed(connection),
+            queueServiceClient.feed(connection, includeQueue = access.isAdmin),
         )
-        ServiceKind.SEERR -> ServicePayload.Seerr(connection.kind, seerrServiceClient.feed(connection))
+        ServiceKind.SEERR -> ServicePayload.Seerr(connection.kind, seerrServiceClient.feed(connection,
+            requireNotNull(access.accounts[ServiceKind.SEERR]) { "Fekk ikkje stadfesta Seerr-kontoen" }))
     }
 
     private fun playbackSession(item: RemotePlayback, source: ServiceKind) = PlaybackSession(

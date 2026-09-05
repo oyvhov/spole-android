@@ -7,7 +7,7 @@ import org.junit.Test
 
 class PersonalRequestTest {
     private val connection = ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "connect.sid=personal", "7", sessionCookie = true)
-    private class Transport(private val actor: HttpResponse = HttpResponse(200, """{"id":7,"displayName":"Maya"}""")) : JsonHttpTransport {
+    private class Transport(private val actor: HttpResponse = HttpResponse(200, """{"id":7,"displayName":"Maya","permissions":32}""")) : JsonHttpTransport {
         var writes = 0
         var body = ""
         var headers = emptyMap<String, String>()

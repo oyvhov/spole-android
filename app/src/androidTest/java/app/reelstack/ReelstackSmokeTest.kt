@@ -3,6 +3,7 @@ package app.reelstack
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -34,7 +35,7 @@ class ReelstackSmokeTest {
 
     @Test
     fun homeScreenShowsCoreMediaState() {
-        composeRule.onNodeWithText("HomeReel").assertDoesNotExist()
+        composeRule.onNodeWithText("Reelune").assertIsDisplayed()
         composeRule.onNodeWithText("Spelar no").assertIsDisplayed()
         composeRule.onNodeWithText("Førehandsvising").assertDoesNotExist()
         composeRule.onAllNodesWithText("Severance")[0].assertIsDisplayed()
@@ -55,7 +56,7 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Legg til").performClick()
         composeRule.onNodeWithTag("confirm-request").performClick()
 
-        composeRule.onAllNodesWithText("Lagd til")[0].assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Lagd til").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare").assertIsDisplayed()
     }
 
@@ -98,8 +99,8 @@ class ReelstackSmokeTest {
     fun homeSectionsCanBeEditedInSettings() {
         composeRule.onNodeWithText("Innstillingar").performClick()
 
-        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("HomeReel"))
-        composeRule.onNodeWithText("HomeReel").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Reelune"))
+        composeRule.onNodeWithText("Reelune").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Heimskjerm"))
         composeRule.onNodeWithText("Heimskjerm").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Emby · Filmar"))

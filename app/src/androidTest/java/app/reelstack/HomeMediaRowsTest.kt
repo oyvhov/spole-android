@@ -41,7 +41,7 @@ class HomeMediaRowsTest {
         org.junit.Assert.assertTrue(opened)
         composeRule.onNodeWithText("Ingen aktive avspelingar").assertIsDisplayed()
         composeRule.onNodeWithText("Spelar no").assertDoesNotExist()
-        composeRule.onNodeWithText("HomeReel").assertDoesNotExist()
+        composeRule.onNodeWithText("Reelune").assertIsDisplayed()
     }
 
     @Test

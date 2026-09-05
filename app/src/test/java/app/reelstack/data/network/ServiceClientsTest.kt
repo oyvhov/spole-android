@@ -9,6 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ServiceClientsTest {
+    private val verifiedAdmin = app.reelstack.data.model.ServiceAccount(ServiceKind.SEERR, "1", "Admin", isAdmin = true)
+    private val adminAccess = app.reelstack.data.model.ViewerAccess(false, mapOf(ServiceKind.SEERR to verifiedAdmin))
     @Test
     fun jellyfinAccountLoginReturnsTokenAndProfileWithoutLeakingPassword() {
         val transport = RecordingTransport(
@@ -97,7 +99,7 @@ class ServiceClientsTest {
         val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, "[]")))
         val connection = connection(ServiceKind.JELLYFIN, "very-secret-token")
 
-        MediaServerClient(transport, deviceId = "android-42").sessions(connection)
+        MediaServerClient(transport, deviceId = "android-42").sessions(connection, adminAccess)
 
         assertTrue(
             transport.lastHeaders["Authorization"].orEmpty()
@@ -135,14 +137,14 @@ class ServiceClientsTest {
                     "NowPlayingItem":{"Id":"episode-bluey","Name":"Bluey","SeriesName":"Bluey"},
                     "PlayState":{}
                 }]"""),
-                HttpResponse(200, """{"Items":[]}"""),
+                HttpResponse(200, """{"Items":[{"Id":"all-library","Name":"Media","CollectionType":"mixed"}]}"""),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(200, """[{"Id":"episode-1","Name":"The Signal","SeriesName":"Foundation","Type":"Episode","ImageTags":{"Thumb":"wide-tag"}}]"""),
             ),
         )
         val connection = connection(ServiceKind.JELLYFIN, "secret").copy(userId = "user 9")
 
-        val feed = MediaServerClient(transport).feed(connection)
+        val feed = MediaServerClient(transport).feed(connection, adminAccess)
 
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
@@ -168,14 +170,14 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
-                HttpResponse(200, """{"Items":[]}"""),
+                HttpResponse(200, """{"Items":[{"Id":"all-library","Name":"Media","CollectionType":"mixed"}]}"""),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
         )
         val connection = connection(ServiceKind.EMBY, "secret").copy(userId = "emby-user")
 
-        val feed = MediaServerClient(transport).feed(connection)
+        val feed = MediaServerClient(transport).feed(connection, adminAccess)
 
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
@@ -219,10 +221,10 @@ class ServiceClientsTest {
             ),
         )
 
-        val feed = MediaServerClient(transport).feed(connection(ServiceKind.EMBY, "server-api-key"))
+        val feed = MediaServerClient(transport).feed(connection(ServiceKind.EMBY, "server-api-key"), adminAccess)
 
         assertEquals(listOf("The Odyssey", "Curious George", "Mickey 17"), feed.recentMovies.map { it.title })
-        assertEquals(listOf("Foundation", "Bluey"), feed.recentSeries.map { it.title })
+        assertEquals(listOf("Foundation"), feed.recentSeries.map { it.title })
         assertTrue(transport.urls[1].endsWith("/Users/Me"))
         assertTrue(transport.urls[2].endsWith("/Users"))
         assertTrue(transport.urls[3].contains("Users/admin-user/Views"))
@@ -236,7 +238,7 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
-                HttpResponse(200, """{"Items":[]}"""),
+                HttpResponse(200, """{"Items":[{"Id":"all-library","Name":"Media","CollectionType":"mixed"}]}"""),
                 HttpResponse(404, "{}"),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(404, "{}"),
@@ -245,7 +247,7 @@ class ServiceClientsTest {
         )
         val connection = connection(ServiceKind.JELLYFIN, "secret").copy(userId = "legacy-user")
 
-        val feed = MediaServerClient(transport).feed(connection)
+        val feed = MediaServerClient(transport).feed(connection, adminAccess)
 
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
@@ -254,7 +256,7 @@ class ServiceClientsTest {
     }
 
     @Test
-    fun jellyfinLoadsLatestRowsWithoutAProfileId() {
+    fun jellyfinDoesNotLoadUnscopedRowsWithoutLibraryIdentity() {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, "[]"),
@@ -265,14 +267,14 @@ class ServiceClientsTest {
             ),
         )
 
-        val feed = MediaServerClient(transport).feed(connection(ServiceKind.JELLYFIN, "server-api-key"))
+        val feed = MediaServerClient(transport).feed(connection(ServiceKind.JELLYFIN, "server-api-key"), adminAccess)
 
-        assertEquals("The Odyssey", feed.recentMovies.single().title)
-        assertEquals("Foundation", feed.recentSeries.single().title)
-        assertTrue(feed.warning == null)
+        assertTrue(feed.recentMovies.isEmpty())
+        assertTrue(feed.recentSeries.isEmpty())
+        assertTrue(feed.warning != null)
         assertTrue(transport.urls[1].endsWith("/Users/Me"))
         assertTrue(transport.urls[2].endsWith("/Users"))
-        assertTrue(transport.urls[3].contains("Items/Latest?Limit=12"))
+        assertFalse(transport.urls.any { it.contains("Items/Latest") })
     }
 
     @Test
@@ -280,14 +282,14 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(403, "{}"),
-                HttpResponse(200, """{"Items":[]}"""),
+                HttpResponse(200, """{"Items":[{"Id":"all-library","Name":"Media","CollectionType":"mixed"}]}"""),
                 HttpResponse(200, """[{"Id":"movie-1","Name":"The Odyssey","Type":"Movie"}]"""),
                 HttpResponse(200, """[{"Id":"series-1","Name":"Foundation","Type":"Series"}]"""),
             ),
         )
         val connection = connection(ServiceKind.EMBY, "personal-token").copy(userId = "emby-user")
 
-        val feed = MediaServerClient(transport).feed(connection)
+        val feed = MediaServerClient(transport).feed(connection, adminAccess)
 
         assertTrue(feed.sessions.isEmpty())
         assertEquals("The Odyssey", feed.recentMovies.single().title)
@@ -301,14 +303,12 @@ class ServiceClientsTest {
             getResponses = mutableListOf(
                 HttpResponse(403, "{}"),
                 HttpResponse(403, "{}"),
-                HttpResponse(403, "{}"),
-                HttpResponse(403, "{}"),
                 HttpResponse(200, """{"Version":"10.11.0"}"""),
             ),
         )
         val connection = connection(ServiceKind.EMBY, "limited-api-key").copy(userId = "limited-user")
 
-        val feed = MediaServerClient(transport).feed(connection)
+        val feed = MediaServerClient(transport).feed(connection, adminAccess)
 
         assertTrue(feed.sessions.isEmpty())
         assertTrue(feed.recentMovies.isEmpty())
@@ -361,7 +361,7 @@ class ServiceClientsTest {
 
     @Test
     fun televisionRequestIncludesSelectedSeasons() {
-        val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, """{"id":7,"displayName":"Maya"}"""),
+        val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, """{"id":7,"displayName":"Maya","permissions":32}"""),
             HttpResponse(200, """{"overview":"A series","seasons":[{"seasonNumber":1},{"seasonNumber":3}]}""")), postResponse = HttpResponse(201, "{}"))
         val connection = connection(ServiceKind.SEERR, "connect.sid=seerr-secret").copy(sessionCookie = true, userId = "7")
 
@@ -383,7 +383,7 @@ class ServiceClientsTest {
             ),
         )
 
-        val feed = SeerrServiceClient(transport).feed(connection(ServiceKind.SEERR, "seerr-secret"))
+        val feed = SeerrServiceClient(transport).feed(connection(ServiceKind.SEERR, "seerr-secret"), verifiedAdmin)
 
         assertEquals("The Odyssey", feed.requests.single().title)
         assertEquals("https://image.tmdb.org/t/p/w500/odyssey.jpg", feed.requests.single().artworkUrl)

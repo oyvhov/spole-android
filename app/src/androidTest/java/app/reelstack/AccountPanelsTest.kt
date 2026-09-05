@@ -62,7 +62,7 @@ class AccountPanelsTest {
         }
         rule.onNodeWithText(seerr.displayName).assertIsDisplayed()
         rule.onNodeWithText(jellyfin.displayName).assertIsDisplayed()
-        rule.onNodeWithText("Førespurnader som deg").assertIsDisplayed()
+        rule.onNodeWithText("Førespurnader som deg").assertDoesNotExist()
         rule.onNodeWithContentDescription("Endre Seerr-konto").performClick()
         assertEquals(ServiceKind.SEERR, selected)
         rule.onNodeWithContentDescription("Endre Jellyfin-konto").performClick()

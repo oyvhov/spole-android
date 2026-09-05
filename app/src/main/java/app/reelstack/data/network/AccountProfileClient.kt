@@ -7,6 +7,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.longOrNull
 import java.io.IOException
 import java.net.URI
 import java.net.URLEncoder
@@ -18,7 +20,7 @@ class AccountProfileClient(
 ) {
     fun load(connection: ServiceConnection): ServiceAccount {
         val path = when (connection.kind) {
-            ServiceKind.JELLYFIN -> "Users/Me"
+            ServiceKind.JELLYFIN, ServiceKind.EMBY -> "Users/Me"
             ServiceKind.SEERR -> "api/v1/auth/me"
             else -> error("Kontovisning er berre støtta for Jellyfin og Seerr.")
         }
@@ -41,7 +43,7 @@ class AccountProfileClient(
         val root = runCatching { Json.parseToJsonElement(response.body) as? JsonObject }.getOrNull()
             ?: error("${connection.kind.displayName} sende ugyldig kontoinformasjon.")
         return when (connection.kind) {
-            ServiceKind.JELLYFIN -> jellyfinAccount(connection, root)
+            ServiceKind.JELLYFIN, ServiceKind.EMBY -> jellyfinAccount(connection, root)
             ServiceKind.SEERR -> seerrAccount(connection, root)
             else -> error("Kontotypen er ikkje støtta.")
         }
@@ -66,7 +68,7 @@ class AccountProfileClient(
         val name = root.text("Name") ?: root.text("name") ?: error("Jellyfin sende ikkje noko brukarnamn.")
         val imageTag = root.text("PrimaryImageTag") ?: root.text("primaryImageTag")
         return ServiceAccount(
-            source = ServiceKind.JELLYFIN,
+            source = connection.kind,
             id = id,
             displayName = name,
             username = name,
@@ -74,6 +76,7 @@ class AccountProfileClient(
                 EndpointValidator.resolve(connection.baseUrl, "Users/${encode(id)}/Images/Primary?tag=${encode(it)}")
             },
             isPersonal = true, // /Users/Me succeeds only when the token is associated with a user.
+            isAdmin = ((root["Policy"] as? JsonObject)?.get("IsAdministrator") as? JsonPrimitive)?.booleanOrNull == true,
         )
     }
 
@@ -89,11 +92,15 @@ class AccountProfileClient(
             username = username,
             avatarUrl = resolveAvatar(connection.baseUrl, root.text("avatar")),
             isPersonal = connection.sessionCookie,
+            permissions = (root["permissions"] as? JsonPrimitive)?.longOrNull ?: 0,
+            isAdmin = ((root["permissions"] as? JsonPrimitive)?.longOrNull ?: 0) and 2L != 0L,
+            mediaUserId = root.text("jellyfinUserId"),
         )
     }
 
     private fun accountHeaders(connection: ServiceConnection): Map<String, String> = when (connection.kind) {
         ServiceKind.JELLYFIN -> mapOf("Authorization" to jellyfinAuthorization(deviceId, connection.token))
+        ServiceKind.EMBY -> mapOf("X-Emby-Token" to connection.token)
         ServiceKind.SEERR -> if (connection.sessionCookie) seerrCookieHeaders(connection.token)
             else mapOf("X-Api-Key" to connection.token)
         else -> emptyMap()

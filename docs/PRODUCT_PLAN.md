@@ -1,4 +1,10 @@
-# HomeReel product and implementation plan
+# Reelune product and implementation plan
+
+## Current milestone — v0.10.0
+
+Personal request tracking, missing-season choice and optional artwork notifications shipped in v0.9.0. The v0.10.0 pass adds a verified Seerr administrator boundary, own-session/own-Activity defaults, requested children's TV library exclusions, full-bleed Upcoming/Discover cards, explicit playback counts and the Reelune identity. See [viewer access](VIEWER_ACCESS.md) and [design system](DESIGN_SYSTEM.md).
+
+Next: paginated discovery and personal history, clearer quota/approval context before submission, then permission-gated approval tools. Direct queue mutations and administrator-key distribution are not ordinary-user features. Adaptive tablet layouts and production release signing remain separate milestones. Historical proposed items below are context, not a claim that every integration action is already implemented.
 
 ## Product promise
 

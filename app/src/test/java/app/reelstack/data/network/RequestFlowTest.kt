@@ -11,7 +11,7 @@ class RequestFlowTest {
         var writes = 0
         var body = ""
         override fun get(url: String, headers: Map<String, String>) = HttpResponse(200,
-            if (url.endsWith("auth/me")) """{"id":7,"displayName":"Maya"}""" else detail)
+            if (url.endsWith("auth/me")) """{"id":7,"displayName":"Maya","permissions":32}""" else detail)
         override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse {
             writes++; body = jsonBody; return HttpResponse(responseCode, "{}")
         }

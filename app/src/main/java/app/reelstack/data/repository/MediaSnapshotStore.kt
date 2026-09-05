@@ -43,13 +43,13 @@ class MediaSnapshotStore(context: Context) {
     fun save(snapshot: MediaSyncSnapshot) {
         val payload = buildJsonObject {
             put("refreshedAt", snapshot.refreshedAt.toEpochMilli())
-            put("sessions", buildJsonArray { snapshot.sessions.forEach { add(sessionJson(it)) } })
+            put("sessions", buildJsonArray { })
             put("recentMovies", libraryJson(snapshot.recentMovies))
             put("recentSeries", libraryJson(snapshot.recentSeries))
             put("upcoming", upcomingJson(snapshot.upcoming))
-            put("incoming", incomingJson(snapshot.incoming))
+            put("incoming", buildJsonArray { })
             put("discover", discoverJson(snapshot.discover))
-            put("activity", activityJson(snapshot.activity))
+            put("activity", buildJsonArray { })
         }.toString()
         preferences.edit { putString(CACHE_KEY, payload) }
     }

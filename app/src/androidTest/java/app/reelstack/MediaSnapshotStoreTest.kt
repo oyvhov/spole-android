@@ -95,11 +95,7 @@ class MediaSnapshotStoreTest {
         store.save(snapshot)
         val restored = store.read()
 
-        assertEquals("Severance", restored?.sessions?.single()?.title)
-        assertEquals("session-1", restored?.sessions?.single()?.sessionId)
-        assertEquals("30 min att", restored?.sessions?.single()?.timeLeft)
-        assertEquals("Direkteavspeling", restored?.sessions?.single()?.streamMethod)
-        assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.sessions?.single()?.artworkUrl)
+        assertEquals(emptyList<PlaybackSession>(), restored?.sessions)
         assertEquals("The Odyssey", restored?.recentMovies?.single()?.title)
         assertEquals(R.drawable.media_placeholder, restored?.recentMovies?.single()?.artworkRes)
         assertEquals(6, restored?.discover?.single()?.seerrStatus)

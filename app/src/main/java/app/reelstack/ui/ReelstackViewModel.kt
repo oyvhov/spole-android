@@ -21,6 +21,7 @@ import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceAccount
+import app.reelstack.data.model.canRequestType
 import app.reelstack.data.model.RequestDraft
 import app.reelstack.data.model.RequestSeason
 import app.reelstack.data.model.TrackedRequest
@@ -107,12 +108,16 @@ data class ReelstackUiState(
     val trackedRequests: List<TrackedRequest> = emptyList(),
     val trackingError: String? = null,
     val trackingLoading: Boolean = false,
+    val adminView: Boolean = false,
 ) {
     val visibleDiscover: List<DiscoverMedia>
         get() = if (searchQuery.isBlank()) discover else searchResults
 
     val configuredCount: Int
         get() = connections.count { it.baseUrl.isNotBlank() }
+
+    fun canEditConnection(kind: ServiceKind): Boolean = kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR) ||
+        connections.none { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() } || adminView
 
     val onlineCount: Int
         get() = connections.count { it.state == ConnectionState.CONNECTED }
@@ -156,6 +161,7 @@ class ReelstackViewModel(
 
     fun openSheet(sheet: AppSheet) {
         if (sheet is AppSheet.ConnectionEditor) {
+            if (!_uiState.value.canEditConnection(sheet.kind)) return
             if (_uiState.value.requestingMediaIds.isNotEmpty()) {
                 _uiState.update { it.copy(snackbar = "Vent til førespurnaden er ferdig før du byter konto.") }
                 return
@@ -167,7 +173,7 @@ class ReelstackViewModel(
                 kind = existing.kind,
                 name = existing.name,
                 url = existing.baseUrl,
-                token = if (existing.sessionCookie) "" else existing.token,
+                token = if (existing.sessionCookie || !_uiState.value.adminView) "" else existing.token,
                 userId = existing.userId,
                 authMode = if (existing.kind == ServiceKind.SEERR && (existing.token.isBlank() || existing.sessionCookie)) {
                     ConnectionAuthMode.ACCOUNT
@@ -492,6 +498,8 @@ class ReelstackViewModel(
         val state = _uiState.value
         val media = (state.discover + state.searchResults).firstOrNull { it.id == id } ?: return
         if (!media.canRequest || state.requestingMediaIds.isNotEmpty()) return
+        if (state.configuredCount > 0 && state.accounts[ServiceKind.SEERR]?.isPersonal == true &&
+            state.accounts[ServiceKind.SEERR]?.canRequestType(media.mediaType ?: "movie") != true) return
         val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.token.isNotBlank() }
         if (state.configuredCount > 0 && (connection?.sessionCookie != true || state.accounts[ServiceKind.SEERR]?.isPersonal != true)) {
             openSeerrAccount()
@@ -702,26 +710,11 @@ class ReelstackViewModel(
                 val anySuccess = snapshot.successfulServices.isNotEmpty()
 
                 current.copy(
-                    sessions = when {
-                        configuredMedia.isEmpty() -> emptyList()
-                        mediaLive -> snapshot.sessions
-                        current.liveSession || current.hasCachedData -> current.sessions
-                        else -> emptyList()
-                    },
-                    recentMovies = when {
-                        configuredMedia.isEmpty() -> emptyList()
-                        mediaLive -> (snapshot.recentMovies + current.recentMovies.filter { it.source in snapshot.errors })
-                            .distinctBy(LibraryMedia::id)
-                        current.liveLibrary || current.hasCachedData -> current.recentMovies
-                        else -> emptyList()
-                    },
-                    recentSeries = when {
-                        configuredMedia.isEmpty() -> emptyList()
-                        mediaLive -> (snapshot.recentSeries + current.recentSeries.filter { it.source in snapshot.errors })
-                            .distinctBy(LibraryMedia::id)
-                        current.liveLibrary || current.hasCachedData -> current.recentSeries
-                        else -> emptyList()
-                    },
+                    adminView = snapshot.adminView,
+                    sessions = snapshot.sessions,
+                    // Do not retain library data after the current profile or library scope fails verification.
+                    recentMovies = snapshot.recentMovies,
+                    recentSeries = snapshot.recentSeries,
                     upcoming = when {
                         configuredQueue.isEmpty() -> emptyList()
                         queueLive -> (snapshot.upcoming + current.upcoming.filter { it.source in snapshot.errors })
@@ -730,28 +723,14 @@ class ReelstackViewModel(
                         current.liveIncoming || current.hasCachedData -> current.upcoming
                         else -> emptyList()
                     },
-                    incoming = when {
-                        configuredQueue.isEmpty() -> emptyList()
-                        queueLive -> (snapshot.incoming + current.incoming.filter { it.source in snapshot.errors })
-                            .distinctBy(IncomingMedia::id)
-                        current.liveIncoming || current.hasCachedData -> current.incoming
-                        else -> emptyList()
-                    },
+                    incoming = snapshot.incoming,
                     discover = when {
                         ServiceKind.SEERR !in configuredKinds -> emptyList()
                         seerrLive -> snapshot.discover
                         current.liveDiscover || current.hasCachedData -> current.discover
                         else -> emptyList()
                     },
-                    activity = when {
-                        configuredQueue.isEmpty() && ServiceKind.SEERR !in configuredKinds -> emptyList()
-                        activityLive -> (snapshot.activity + current.activity.filter { event ->
-                            event.source?.let(snapshot.errors::containsKey) == true
-                        })
-                            .distinctBy(ActivityEvent::id)
-                        current.liveActivity || current.hasCachedData -> current.activity
-                        else -> emptyList()
-                    },
+                    activity = snapshot.activity,
                     connections = current.connections.map { connection ->
                         when {
                             connection.baseUrl.isBlank() -> connection.copy(state = ConnectionState.DEMO, detail = "Demodata")
@@ -1052,6 +1031,8 @@ class ReelstackViewModel(
         }
 
         withContext(Dispatchers.IO) { container.connectionRepository.save(candidate) }
+        refreshJob?.cancel()
+        refreshJob = null
         val saved = candidate.copy(
             state = ConnectionState.CONNECTED,
             latencyMs = result.latencyMs,
@@ -1063,13 +1044,14 @@ class ReelstackViewModel(
                 accounts = state.accounts - saved.kind,
                 trackedRequests = if (saved.kind == ServiceKind.SEERR) emptyList() else state.trackedRequests,
                 accountErrors = state.accountErrors - saved.kind,
-                sessions = if (state.configuredCount == 0) emptyList() else state.sessions,
-                recentMovies = if (state.configuredCount == 0) emptyList() else state.recentMovies,
-                recentSeries = if (state.configuredCount == 0) emptyList() else state.recentSeries,
-                upcoming = if (state.configuredCount == 0) emptyList() else state.upcoming,
-                incoming = if (state.configuredCount == 0) emptyList() else state.incoming,
-                discover = if (state.configuredCount == 0) emptyList() else state.discover,
-                activity = if (state.configuredCount == 0) emptyList() else state.activity,
+                adminView = false,
+                sessions = emptyList(),
+                recentMovies = emptyList(),
+                recentSeries = emptyList(),
+                upcoming = emptyList(),
+                incoming = emptyList(),
+                discover = emptyList(),
+                activity = emptyList(),
                 searchQuery = "",
                 searchResults = emptyList(),
                 activeSheet = null,
@@ -1081,13 +1063,22 @@ class ReelstackViewModel(
     }
 
     fun removeConnection(kind: ServiceKind) {
+        if (!_uiState.value.canEditConnection(kind)) return
         if (_uiState.value.requestingMediaIds.isNotEmpty()) return
+        refreshJob?.cancel()
+        refreshJob = null
         container.connectionRepository.delete(kind)
         val remaining = container.connectionRepository.list()
         if (remaining.none { it.baseUrl.isNotBlank() }) container.mediaSnapshotStore.clear()
         _uiState.update {
             it.copy(
                 connections = remaining,
+                adminView = false,
+                sessions = emptyList(),
+                activity = emptyList(),
+                incoming = emptyList(),
+                recentMovies = emptyList(),
+                recentSeries = emptyList(),
                 accounts = it.accounts - kind,
                 trackedRequests = if (kind == ServiceKind.SEERR) emptyList() else it.trackedRequests,
                 accountErrors = it.accountErrors - kind,
@@ -1124,7 +1115,8 @@ private fun initialState(container: AppContainer): ReelstackUiState {
     val hasMediaServer = configuredKinds.any { it == ServiceKind.JELLYFIN || it == ServiceKind.EMBY }
     val hasQueueService = configuredKinds.any { it == ServiceKind.RADARR || it == ServiceKind.SONARR }
     val hasSeerr = ServiceKind.SEERR in configuredKinds
-    val cached = if (configuredKinds.isNotEmpty()) container.mediaSnapshotStore.read() else null
+    // Revalidate identities and library exclusions before exposing any persisted feed.
+    val cached: app.reelstack.data.repository.CachedMediaSnapshot? = null
 
     return ReelstackUiState(
         showOnboarding = configuredKinds.isEmpty() && !container.preferencesRepository.onboardingCompleted,
