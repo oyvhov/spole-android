@@ -94,10 +94,11 @@ Det finst to ulike emulatorroller. Bland dei aldri.
 | emulator-5560 | Vanleg review-emulator med ekte brukardata | Installer med -r; slett aldri data; køyr aldri testpakka her |
 | emulator-5562 | Isolert instrumenteringsemulator | Kan nullstillast av testane; bruk denne for heile Android-testpakken |
 
-Review-emulatoren (5560) er ikkje sett opp på denne maskina no: `~/.android/avd` er tom, og berre den
-isolerte `HomeReel_Instrumentation` under `app/build/test-avds` finst. Fram til nokon lagar 5560 på nytt
-må visuell review gjerast med demodata på 5562, og det skal seiast tydeleg i verifiseringa at ingen ekte
-konto er brukt.
+Review-emulatoren `emulator-5560` er den vanlege `Tunet_Test`-AVD-en med lagra brukar-/appdata. Han skal
+alltid startast med eksisterande data og oppdaterast med `adb install -r`; ikkje avinstaller, nullstill eller
+køyr instrumenteringstestar der. Dersom 5560 ikkje er tilgjengeleg, skal visuell review gjerast med
+demodata på den isolerte `HomeReel_Instrumentation` på 5562, og det skal seiast tydeleg i verifiseringa
+kva som faktisk vart testa.
 
 Emulatoren må startast i same kommando som du brukar han. Startar du han i ein eigen bakgrunnsjobb, blir
 prosessen teken ned når det skallet avsluttar, og neste ADB-kommando finn ingen einingar. Bruk `-gpu

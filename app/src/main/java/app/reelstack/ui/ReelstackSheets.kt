@@ -276,6 +276,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 artworkUrl = details.artworkUrl,
                 artworkRes = details.artworkRes,
                 source = details.source,
+                portrait = mediaType == "Series",
             )
         }
         val remainingFacts = if (usePoster) visibleFacts.drop(4) else visibleFacts
@@ -412,6 +413,7 @@ private fun MoviePosterSummary(
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 source = source,
+                crossfadeDurationMillis = 0,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -544,21 +546,21 @@ private fun CinematicTitleHero(
     artworkUrl: String?,
     artworkRes: Int,
     source: ServiceKind?,
+    portrait: Boolean,
 ) {
-    // Sonarr often has no still for an episode that has not aired, and answers with the series
-    // poster instead. A locked 16:9 frame then draws grey bars either side, so the frame follows
-    // the image that actually arrived: wide art fills a 16:9 crop, portrait art keeps its shape.
-    var aspect by remember(artworkUrl) { mutableStateOf<Float?>(null) }
-    val wideArt = (aspect ?: 16f / 9f) >= 1.2f
+    // Pick the frame from metadata, not from the first decoded frame. Measuring the image and
+    // then changing between a wide and portrait layout while the sheet is entering is visible as
+    // a jump on slower devices. The image itself can still be fit or cropped inside this stable
+    // frame, so the sheet has one geometry from the first frame onward.
     Column {
         MediaArtwork(
             url = artworkUrl, fallbackRes = artworkRes, contentDescription = null,
-            contentScale = if (wideArt) ContentScale.Crop else ContentScale.Fit,
+            contentScale = if (portrait) ContentScale.Fit else ContentScale.Crop,
             source = source,
-            onAspectRatio = { aspect = it },
+            crossfadeDurationMillis = 0,
             modifier = Modifier
-                .then(if (wideArt) Modifier.fillMaxWidth() else Modifier.width(190.dp))
-                .aspectRatio(if (wideArt) 16f / 9f else 2f / 3f)
+                .then(if (portrait) Modifier.width(190.dp) else Modifier.fillMaxWidth())
+                .aspectRatio(if (portrait) 2f / 3f else 16f / 9f)
                 .clip(RoundedCornerShape(14.dp)).background(Ink),
         )
         source?.let {

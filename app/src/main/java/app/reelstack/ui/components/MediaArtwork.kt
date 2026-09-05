@@ -25,6 +25,7 @@ fun MediaArtwork(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     source: ServiceKind? = null,
+    crossfadeDurationMillis: Int = 260,
     /**
      * Reports width / height once the image is decoded. A caller that has to pick between a wide
      * and a portrait frame cannot know which it has been given until then — services return a
@@ -38,7 +39,7 @@ fun MediaArtwork(
         runCatching {
             val builder = ImageRequest.Builder(context)
                 .data(url ?: fallbackRes)
-                .crossfade(260)
+                .crossfade(crossfadeDurationMillis)
             if (url != null && (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY)) {
                 val connection = (context.applicationContext as? ReelstackApplication)
                     ?.container
