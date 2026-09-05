@@ -138,7 +138,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize().testTag("home-feed"),
         ) {
             item {
-                HomeHeader(state, onCalendarClick, onAccountClick)
+                HomeHeader(state, onAccountClick)
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
                 item {
@@ -234,7 +234,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHeader(state: ReelstackUiState, onCalendarClick: () -> Unit, onAccountClick: () -> Unit) {
+private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit) {
     var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
@@ -252,14 +252,11 @@ private fun HomeHeader(state: ReelstackUiState, onCalendarClick: () -> Unit, onA
         },
     ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.reelune_mark), "Reelune-logo",
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.spole_mark), "Spole-logo",
                     modifier = Modifier.size(34.dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Primary))
-                Text("Reelune", color = TextColor, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
+                Text("Spole", color = TextColor, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
             }
-        IconButton(onClick = onCalendarClick, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Rounded.CalendarMonth, contentDescription = "Opne kalenderen", tint = Primary, modifier = Modifier.size(22.dp))
-        }
         IconButton(onClick = onAccountClick, modifier = Modifier.size(48.dp).testTag("home-account").semantics {
             contentDescription = account?.let { "Opne kontoen til ${it.displayName} · ${it.source.displayName}" }
                 ?: "Opne kontoinnstillingar"

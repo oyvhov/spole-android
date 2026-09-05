@@ -29,6 +29,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
@@ -128,6 +129,7 @@ fun ReelstackSheets(
     onRequestSeason: (Int, Boolean) -> Unit = { _, _ -> },
     onRequestNotification: (Boolean) -> Unit = {},
     onConfirmRequest: () -> Unit = {},
+    onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
 ) {
     val sheet = state.activeSheet ?: return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
@@ -187,6 +189,7 @@ fun ReelstackSheets(
                         onTokenChange = onConnectionTokenChange,
                         onUserIdChange = onConnectionUserIdChange,
                         onAuthModeChange = onConnectionAuthModeChange,
+                        onCompanionLoginChange = onCompanionLoginChange,
                         onUsernameChange = onConnectionUsernameChange,
                         onPasswordChange = onConnectionPasswordChange,
                         onTestAndSave = onTestAndSaveConnection,
@@ -594,7 +597,7 @@ private fun SessionMetric(label: String, value: String, modifier: Modifier) {
 
 
 @Composable
-private fun ConnectionEditorSheet(
+internal fun ConnectionEditorSheet(
     draft: ConnectionDraft,
     configured: Boolean,
     onDismiss: () -> Unit,
@@ -607,11 +610,13 @@ private fun ConnectionEditorSheet(
     onPasswordChange: (String) -> Unit,
     onTestAndSave: () -> Unit,
     onRemove: () -> Unit,
+    onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
 ) {
     var credentialsStep by rememberSaveable(draft.kind) { mutableStateOf(configured) }
     var advanced by rememberSaveable(draft.kind) { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
     var addressError by remember { mutableStateOf<String?>(null) }
+    var confirmSignOut by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val nextStep: () -> Unit = {
         runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
@@ -625,8 +630,21 @@ private fun ConnectionEditorSheet(
         Text(if (configured) "TILKOPLING" else if (credentialsStep) "02 / LOGG INN" else "01 / FINN TENAREN",
             color = Primary, fontSize = 12.sp, letterSpacing = 1.6.sp,
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-        SheetHeader("Kople til ${draft.kind.displayName}",
-            if (credentialsStep) "Vel korleis du vil logge inn." else "Bruk adressa du vanlegvis opnar i nettlesaren.", onDismiss)
+        SheetHeader("Logg inn på ${draft.kind.displayName}",
+            if (credentialsStep) "Bruk kontoen din. Vi tek vare på resten." else "Bruk adressa du vanlegvis opnar i nettlesaren.", onDismiss)
+        if (configured) {
+            TextButton(onClick = { confirmSignOut = true }, enabled = !draft.saving) { Text("Logg ut", color = Warning) }
+        }
+        if (confirmSignOut) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmSignOut = false },
+                title = { Text("Logg ut av ${draft.kind.displayName}?") },
+                text = { Text("Innlogginga blir fjerna frå Spole på denne eininga. Dei andre tenestene er framleis innlogga. Vi hugsar tenaradressa til neste gong.") },
+                confirmButton = { TextButton(onClick = { confirmSignOut = false; onRemove() }) { Text("Logg ut", color = Warning) } },
+                dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Avbryt") } },
+                containerColor = SurfaceRaised, shape = RoundedCornerShape(28.dp),
+            )
+        }
         Spacer(Modifier.height(20.dp))
         if (!credentialsStep) {
             OutlinedTextField(
@@ -650,13 +668,14 @@ private fun ConnectionEditorSheet(
                 maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             TextButton(onClick = { credentialsStep = false }, enabled = !draft.saving) { Text("Endre") }
         }
-        if (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR) {
+        if (draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR) ||
+            (draft.kind == ServiceKind.EMBY && (advanced || draft.authMode == ConnectionAuthMode.API_KEY))) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                listOf(
-                    ConnectionAuthMode.QUICK_CONNECT to "Quick Connect",
+                listOfNotNull(
+                    (ConnectionAuthMode.QUICK_CONNECT to "Quick Connect").takeIf { draft.kind != ServiceKind.EMBY },
                     ConnectionAuthMode.ACCOUNT to if (draft.kind == ServiceKind.SEERR) "Jellyfin-konto" else "Brukarnamn",
-                    ConnectionAuthMode.API_KEY to if (draft.kind == ServiceKind.SEERR) "API-nøkkel" else "Tilgangsteikn",
+                    (ConnectionAuthMode.API_KEY to "API-nøkkel").takeIf { advanced || draft.authMode == ConnectionAuthMode.API_KEY },
                 ).forEach { (mode, label) ->
                     FilterChip(selected = draft.authMode == mode, onClick = { onAuthModeChange(mode) },
                         enabled = !draft.saving, label = { Text(label, fontSize = 12.sp) },
@@ -665,7 +684,7 @@ private fun ConnectionEditorSheet(
             }
         }
         val supportsJellyfinLogin = draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR
-        val usesAccount = supportsJellyfinLogin && draft.authMode == ConnectionAuthMode.ACCOUNT
+        val usesAccount = (supportsJellyfinLogin || draft.kind == ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
         val usesQuickConnect = supportsJellyfinLogin && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
         if (usesQuickConnect) QuickConnectPanel(draft)
         if (usesAccount) {
@@ -695,8 +714,32 @@ private fun ConnectionEditorSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
             Text(if (draft.kind == ServiceKind.SEERR) "Bruk Jellyfin-kontoen din. Seerr sjekkar innlogginga og brukar dine vanlege rettar. Passordet blir aldri lagra."
-                else "Passordet blir sendt direkte til Jellyfin og blir aldri lagra.",
+                else "Bruk den lokale ${draft.kind.displayName}-kontoen din. Passordet blir aldri lagra.",
                 color = Muted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp))
+            if (supportsJellyfinLogin) {
+                val otherName = if (draft.kind == ServiceKind.SEERR) "Jellyfin" else "Seerr"
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                        .then(Modifier.clip(RoundedCornerShape(14.dp)).background(SurfaceRaised))
+                        .then(Modifier.toggleableLogin(!draft.saving, draft.alsoConnect) { onCompanionLoginChange(it, draft.companionUrl) })
+                        .padding(horizontal = 12.dp, vertical = 6.dp)) {
+                    androidx.compose.material3.Checkbox(checked = draft.alsoConnect, onCheckedChange = null, enabled = !draft.saving)
+                    Text("Logg inn på $otherName òg", color = Primary, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
+                }
+                if (draft.alsoConnect) {
+                    OutlinedTextField(value = draft.companionUrl,
+                        onValueChange = { onCompanionLoginChange(true, it) }, label = { Text("Adresse til $otherName") },
+                        enabled = !draft.saving, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+                    Text("Same brukarnamn og passord blir sende til begge adressene du har valt. Seerr må vere knytt til denne Jellyfin-tenaren. Eksisterande kontoar på desse to tenestene blir bytte ut.",
+                        color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
+                    if (runCatching { EndpointValidator.isCleartext(draft.companionUrl) }.getOrDefault(false)) {
+                        Text("Denne adressa brukar HTTP utan kryptering. Bruk helst HTTPS.", color = Warning, fontSize = 12.sp)
+                    }
+                }
+            }
         }
         if (!usesAccount && !usesQuickConnect) {
             OutlinedTextField(
@@ -741,31 +784,28 @@ private fun ConnectionEditorSheet(
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
             modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(56.dp),
         ) {
-            if (draft.saving) CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+            if (draft.saving) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
             Text(when {
                 draft.saving && usesQuickConnect && draft.quickConnectCode != null -> "Ventar på godkjenning…"
                 draft.saving && usesQuickConnect -> "Lagar kode…"
                 draft.saving -> "Koplar til…"
                 usesQuickConnect && draft.quickConnectCode != null -> "Lag ny kode"
                 usesQuickConnect -> "Start Quick Connect"
+                usesAccount && draft.alsoConnect -> "Logg inn på begge"
                 usesAccount -> "Logg inn"
                 else -> "Kople til"
             }, modifier = Modifier.padding(start = if (draft.saving) 10.dp else 0.dp))
         }
         if (draft.saving) {
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Avbryt") }
-        } else if (configured) {
-            TextButton(onClick = onRemove, colors = ButtonDefaults.textButtonColors(contentColor = Warning),
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp)) {
-                Icon(Icons.Rounded.DeleteOutline, null, Modifier.size(18.dp))
-                Text("Fjern tilkoplinga", modifier = Modifier.padding(start = 7.dp))
-            }
         }
     }
 }
 
 @Composable
-private fun QuickConnectPanel(draft: ConnectionDraft) {
+internal fun QuickConnectPanel(draft: ConnectionDraft) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var copied by remember(draft.quickConnectCode) { mutableStateOf(false) }
     AnimatedContent(
         targetState = draft.quickConnectCode,
         transitionSpec = { (fadeIn() togetherWith fadeOut()).using(SizeTransform(clip = false)) },
@@ -834,8 +874,11 @@ private fun QuickConnectPanel(draft: ConnectionDraft) {
                         letterSpacing = 3.sp,
                         modifier = Modifier.padding(top = 10.dp),
                     )
+                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true }) {
+                        Text(if (copied) "Kopiert" else "Kopier kode")
+                    }
                     Text(
-                        "Opne Jellyfin på ei anna eining, gå til Innstillingar → Quick Connect, og skriv inn koden.",
+                        "Opne Jellyfin der du er innlogga. Gå til Innstillingar → Quick Connect og lim inn koden. Du kan bruke nettlesaren på denne mobilen òg.",
                         color = Muted,
                         fontSize = 12.sp,
                         lineHeight = 17.sp,
@@ -847,6 +890,9 @@ private fun QuickConnectPanel(draft: ConnectionDraft) {
         }
     }
 }
+
+private fun Modifier.toggleableLogin(enabled: Boolean, checked: Boolean, onChange: (Boolean) -> Unit): Modifier =
+    toggleable(value = checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Checkbox, onValueChange = onChange)
 
 @Composable
 private fun connectionChipColors() = FilterChipDefaults.filterChipColors(

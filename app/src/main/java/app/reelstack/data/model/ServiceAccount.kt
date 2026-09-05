@@ -13,5 +13,10 @@ data class ServiceAccount(
     val mediaUserId: String? = null,
 )
 
+/** Never equate accounts by display name, email or administrator status. */
+fun matchesJellyfinAccount(seerr: ServiceAccount, jellyfinId: String): Boolean =
+    seerr.source == ServiceKind.SEERR && seerr.isPersonal && jellyfinId.isNotBlank() &&
+        seerr.mediaUserId?.replace("-", "")?.lowercase() == jellyfinId.replace("-", "").lowercase()
+
 fun ServiceAccount.canRequestType(type: String): Boolean = isPersonal &&
     (isAdmin || permissions and 32L != 0L || permissions and (if (type == "tv") 524288L else 262144L) != 0L)

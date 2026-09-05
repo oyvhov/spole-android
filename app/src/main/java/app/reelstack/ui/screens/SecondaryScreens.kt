@@ -429,12 +429,12 @@ private fun AppIdentity() {
         modifier = Modifier.fillMaxWidth().padding(bottom = 26.dp),
     ) {
         Image(
-            painter = painterResource(R.drawable.reelune_mark),
-            contentDescription = "Reelune-logo",
+            painter = painterResource(R.drawable.spole_mark),
+            contentDescription = "Spole-logo",
             modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)),
         )
         Column(Modifier.padding(start = 13.dp)) {
-            Text("Reelune", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text("Spole", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 "Personleg medieoversikt · v${BuildConfig.VERSION_NAME}",
                 color = Muted,

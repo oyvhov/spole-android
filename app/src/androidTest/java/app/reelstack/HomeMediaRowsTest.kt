@@ -24,25 +24,26 @@ class HomeMediaRowsTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun calendarIsReachableWithoutScrollingAndEmptyPlaybackStaysQuiet() {
+    fun calendarRemainsInUpcomingButNotInHeaderAndEmptyPlaybackStaysHidden() {
         var opened = false
         composeRule.setContent {
             ReelstackTheme {
                 HomeScreen(
                     state = ReelstackUiState(connections = emptyList(), sessions = emptyList(),
-                        homeSections = setOf(HomeSection.NOW_PLAYING)),
+                        homeSections = setOf(HomeSection.NOW_PLAYING, HomeSection.UPCOMING)),
                     contentPadding = PaddingValues(0.dp), onSessionClick = {}, onPlaybackToggle = {},
                     onMediaClick = {}, onLibraryClick = {}, onUpcomingClick = {},
                     onCalendarClick = { opened = true }, onRefresh = {},
                 )
             }
         }
-        composeRule.onNodeWithContentDescription("Opne kalenderen").assertIsDisplayed().performClick()
+        composeRule.onNodeWithContentDescription("Opne kalenderen").assertDoesNotExist()
+        composeRule.onNodeWithText("Kalender").performScrollTo().assertIsDisplayed().performClick()
         org.junit.Assert.assertTrue(opened)
         composeRule.onNodeWithText("Ingen aktive avspelingar").assertDoesNotExist()
         composeRule.onNodeWithText("Sjekkar avspelingar…").assertDoesNotExist()
         composeRule.onNodeWithText("Spelar no").assertDoesNotExist()
-        composeRule.onNodeWithText("Reelune").assertIsDisplayed()
+        composeRule.onNodeWithText("Spole").assertIsDisplayed()
     }
 
     @Test

@@ -60,6 +60,8 @@ data class ConnectionDraft(
     val authMode: ConnectionAuthMode = ConnectionAuthMode.API_KEY,
     val username: String = "",
     val password: String = "",
+    val alsoConnect: Boolean = false,
+    val companionUrl: String = "",
     val saving: Boolean = false,
     val quickConnectCode: String? = null,
     val quickConnectWaiting: Boolean = false,
@@ -116,7 +118,7 @@ data class ReelstackUiState(
     val configuredCount: Int
         get() = connections.count { it.baseUrl.isNotBlank() }
 
-    fun canEditConnection(kind: ServiceKind): Boolean = kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR) ||
+    fun canEditConnection(kind: ServiceKind): Boolean = kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR) ||
         connections.none { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() } || adminView
 
     val onlineCount: Int
@@ -172,12 +174,15 @@ class ReelstackViewModel(
             connectionDraft.value = ConnectionDraft(
                 kind = existing.kind,
                 name = existing.name,
-                url = existing.baseUrl,
+                url = existing.baseUrl.ifBlank { container.connectionRepository.rememberedUrl(existing.kind) },
                 token = if (existing.sessionCookie || !_uiState.value.adminView) "" else existing.token,
                 userId = existing.userId,
-                authMode = if (existing.kind == ServiceKind.SEERR && (existing.token.isBlank() || existing.sessionCookie)) {
+                companionUrl = _uiState.value.connections.firstOrNull {
+                    it.kind == if (existing.kind == ServiceKind.SEERR) ServiceKind.JELLYFIN else ServiceKind.SEERR
+                }?.baseUrl.orEmpty(),
+                authMode = if (existing.kind in setOf(ServiceKind.SEERR, ServiceKind.EMBY)) {
                     ConnectionAuthMode.ACCOUNT
-                } else if (existing.kind == ServiceKind.JELLYFIN && existing.token.isBlank()) {
+                } else if (existing.kind == ServiceKind.JELLYFIN) {
                     ConnectionAuthMode.QUICK_CONNECT
                 } else {
                     ConnectionAuthMode.API_KEY
@@ -852,6 +857,9 @@ class ReelstackViewModel(
     }
     fun updateConnectionUsername(value: String) = updateDraft { copy(username = value, error = null) }
     fun updateConnectionPassword(value: String) = updateDraft { copy(password = value, error = null) }
+    fun updateCompanionLogin(enabled: Boolean, url: String) = updateDraft {
+        copy(alsoConnect = enabled, companionUrl = url, error = null)
+    }
 
     fun testAndSaveConnection() {
         val draft = connectionDraft.value ?: return
@@ -860,21 +868,27 @@ class ReelstackViewModel(
                 updateDraft { copy(error = it.message ?: "Skriv inn ei gyldig tenaradresse") }
                 return
             }
-        val useJellyfinAccount = (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR) && draft.authMode == ConnectionAuthMode.ACCOUNT
+        val useJellyfinAccount = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
         val useQuickConnect = (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR) && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
         if (useQuickConnect) {
             startQuickConnect(draft, normalizedUrl)
             return
         }
         if (useJellyfinAccount && draft.username.isBlank()) {
-            updateDraft { copy(error = "Skriv inn Jellyfin-brukarnamnet") }
+            updateDraft { copy(error = "Skriv inn brukarnamnet ditt") }
             return
         }
         if (!useJellyfinAccount && draft.token.isBlank()) {
             updateDraft { copy(error = "Skriv inn ein API-nøkkel eller eit tilgangsteikn") }
             return
         }
-        updateDraft { copy(url = normalizedUrl, saving = true, error = null) }
+        val companionUrl = if (useJellyfinAccount && draft.alsoConnect && draft.kind != ServiceKind.EMBY) {
+            runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
+                updateDraft { copy(error = "Sjekk adressa til den andre tenesta.") }
+                return
+            }
+        } else null
+        updateDraft { copy(url = normalizedUrl, saving = true, error = null, password = "") }
 
         connectionJob?.cancel()
         connectionJob = viewModelScope.launch {
@@ -883,6 +897,8 @@ class ReelstackViewModel(
                     withContext(Dispatchers.IO) {
                         if (draft.kind == ServiceKind.SEERR) {
                             container.seerrAuthenticationClient.authenticate(normalizedUrl, draft.username.trim(), draft.password)
+                        } else if (draft.kind == ServiceKind.EMBY) {
+                            container.embyAuthenticationClient.authenticate(normalizedUrl, draft.username.trim(), draft.password)
                         } else container.jellyfinAuthenticationClient.authenticate(
                             baseUrl = normalizedUrl,
                             username = draft.username.trim(),
@@ -904,7 +920,28 @@ class ReelstackViewModel(
                 userId = credentials?.userId ?: draft.userId,
                 state = ConnectionState.TESTING,
             )
-            verifyAndSaveConnection(candidate)
+            val companion = if (companionUrl != null) {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val otherKind = if (draft.kind == ServiceKind.SEERR) ServiceKind.JELLYFIN else ServiceKind.SEERR
+                        val auth = if (otherKind == ServiceKind.SEERR) container.seerrAuthenticationClient.authenticate(companionUrl, draft.username.trim(), draft.password)
+                            else container.jellyfinAuthenticationClient.authenticate(companionUrl, draft.username.trim(), draft.password)
+                        val other = ServiceConnection(otherKind, otherKind.displayName, companionUrl, auth.accessToken,
+                            userId = auth.userId, sessionCookie = otherKind == ServiceKind.SEERR)
+                        val seerr = container.accountProfileClient.load(if (draft.kind == ServiceKind.SEERR) candidate else other)
+                        val jellyfinId = if (draft.kind == ServiceKind.JELLYFIN) candidate.userId else other.userId
+                        check(app.reelstack.data.model.matchesJellyfinAccount(seerr, jellyfinId)) {
+                            "Seerr-kontoen er ikkje knytt til denne Jellyfin-kontoen. Logg inn på tenestene kvar for seg."
+                        }
+                        other
+                    }
+                }.getOrElse { error ->
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    updateDraft { copy(saving = false, error = "Ingen tilkoplingar vart endra. ${error.message ?: "Den andre innlogginga feila."} Prøv igjen, eller slå av felles innlogging.") }
+                    return@launch
+                }
+            } else null
+            verifyAndSaveConnection(candidate, companion)
         }
     }
 
@@ -1014,9 +1051,26 @@ class ReelstackViewModel(
         }
     }
 
-    private suspend fun verifyAndSaveConnection(candidate: ServiceConnection) {
+    private suspend fun verifyAndSaveConnection(candidate: ServiceConnection, companion: ServiceConnection? = null) {
+        val personalLogin = connectionDraft.value?.authMode != ConnectionAuthMode.API_KEY
+        fun verify(connection: ServiceConnection): app.reelstack.data.model.ConnectionTestResult {
+            if (personalLogin && connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+                val account = container.accountProfileClient.load(connection)
+                check(account.id == connection.userId) { "Tenaren stadfesta ikkje den innlogga kontoen." }
+                return app.reelstack.data.model.ConnectionTestResult(true, 0, "Logga inn")
+            }
+            return container.connectionTester.test(connection)
+        }
+        if (companion != null) {
+            val otherResult = runCatching { withContext(Dispatchers.IO) { verify(companion) } }
+            if (otherResult.exceptionOrNull() is kotlinx.coroutines.CancellationException) throw otherResult.exceptionOrNull()!!
+            if (otherResult.getOrNull()?.success != true) {
+                updateDraft { copy(saving = false, error = "Fekk ikkje stadfesta ${companion.kind.displayName}. Ingen tilkoplingar vart endra.") }
+                return
+            }
+        }
         val result = runCatching {
-            withContext(Dispatchers.IO) { container.connectionTester.test(candidate) }
+            withContext(Dispatchers.IO) { verify(candidate) }
         }.getOrElse { error ->
             if (error is kotlinx.coroutines.CancellationException) throw error
             updateDraft {
@@ -1030,9 +1084,15 @@ class ReelstackViewModel(
             return
         }
 
-        withContext(Dispatchers.IO) { container.connectionRepository.save(candidate) }
+        withContext(Dispatchers.IO) {
+            container.connectionRepository.save(candidate)
+            companion?.let { container.connectionRepository.save(it) }
+            container.mediaSnapshotStore.clear()
+        }
         refreshJob?.cancel()
         refreshJob = null
+        searchJob?.cancel()
+        trackingJob?.cancel()
         val saved = candidate.copy(
             state = ConnectionState.CONNECTED,
             latencyMs = result.latencyMs,
@@ -1040,9 +1100,9 @@ class ReelstackViewModel(
         )
         _uiState.update { state ->
             state.copy(
-                connections = state.connections.map { if (it.kind == saved.kind) saved else it },
-                accounts = state.accounts - saved.kind,
-                trackedRequests = if (saved.kind == ServiceKind.SEERR) emptyList() else state.trackedRequests,
+                connections = state.connections.map { if (it.kind == saved.kind) saved else if (it.kind == companion?.kind) companion.copy(state = ConnectionState.CONNECTED) else it },
+                accounts = state.accounts - saved.kind - listOfNotNull(companion?.kind).toSet(),
+                trackedRequests = if (saved.kind == ServiceKind.SEERR || companion?.kind == ServiceKind.SEERR) emptyList() else state.trackedRequests,
                 accountErrors = state.accountErrors - saved.kind,
                 adminView = false,
                 sessions = emptyList(),
@@ -1055,7 +1115,8 @@ class ReelstackViewModel(
                 searchQuery = "",
                 searchResults = emptyList(),
                 activeSheet = null,
-                snackbar = "${saved.kind.displayName} er klar. Hentar innhaldet ditt…",
+                isSearching = false,
+                snackbar = if (companion != null) "Jellyfin og Seerr er klare. Hentar innhaldet ditt…" else "${saved.kind.displayName} er klar. Hentar innhaldet ditt…",
             )
         }
         connectionDraft.value = null
@@ -1065,26 +1126,39 @@ class ReelstackViewModel(
     fun removeConnection(kind: ServiceKind) {
         if (!_uiState.value.canEditConnection(kind)) return
         if (_uiState.value.requestingMediaIds.isNotEmpty()) return
+        connectionJob?.cancel()
+        quickConnectJob?.cancel()
+        accountsJob?.cancel()
+        trackingJob?.cancel()
+        searchJob?.cancel()
         refreshJob?.cancel()
         refreshJob = null
-        container.connectionRepository.delete(kind)
+        container.connectionRepository.signOut(kind)
         val remaining = container.connectionRepository.list()
-        if (remaining.none { it.baseUrl.isNotBlank() }) container.mediaSnapshotStore.clear()
+        val signedOutEverywhere = remaining.none { it.baseUrl.isNotBlank() }
+        if (signedOutEverywhere) container.preferencesRepository.onboardingCompleted = false
+        container.mediaSnapshotStore.clear()
         _uiState.update {
             it.copy(
                 connections = remaining,
+                showOnboarding = signedOutEverywhere,
                 adminView = false,
                 sessions = emptyList(),
                 activity = emptyList(),
                 incoming = emptyList(),
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
+                upcoming = emptyList(),
+                discover = emptyList(),
+                searchResults = emptyList(),
+                searchQuery = "",
+                isSearching = false,
                 accounts = it.accounts - kind,
                 trackedRequests = if (kind == ServiceKind.SEERR) emptyList() else it.trackedRequests,
                 accountErrors = it.accountErrors - kind,
                 activeSheet = null,
                 failedServices = it.failedServices - kind,
-                snackbar = "Tilkoplinga til ${kind.displayName} er fjerna",
+                snackbar = "Logga ut av ${kind.displayName} på denne eininga",
             )
         }
         connectionDraft.value = null

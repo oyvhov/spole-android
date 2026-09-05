@@ -34,7 +34,7 @@ class ViewerExperienceTest {
         val demo = ReelstackUiState()
         rule.setContent { ReelstackTheme { HomeScreen(demo.copy(sessions = listOf(demo.sessions.first(), demo.sessions.first().copy(sessionId = "second")),
             homeSections = setOf(HomeSection.NOW_PLAYING)), PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}) } }
-        rule.onNodeWithText("Reelune").assertIsDisplayed()
+        rule.onNodeWithText("Spole").assertIsDisplayed()
         rule.onNodeWithText("2 avspelingar").assertIsDisplayed()
     }
 }

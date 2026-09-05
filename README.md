@@ -1,6 +1,6 @@
-# Reelune Android
+# Spole Android
 
-Reelune (previously HomeReel) is a native Android companion for a self-hosted media stack. It brings Jellyfin, Emby, Seerr, Radarr, and Sonarr into one calm, cinematic interface without replacing the servers themselves.
+Spole (previously Reelune / HomeReel) is a native Android companion for a self-hosted media stack. It brings Jellyfin, Emby, Seerr, Radarr, and Sonarr into one calm, cinematic interface without replacing the servers themselves.
 
 The native app includes a multi-server Home, four interactive destinations, personal service accounts, a live-data layer, and background refresh. First-run setup offers an explicit demo preview. Once a service is connected, unconfigured services no longer contribute sample content. Personal views are rebuilt from verified accounts rather than restoring a previous user's dashboard.
 
@@ -19,6 +19,7 @@ Install the newest APK from [GitHub Releases](https://github.com/oyvhov/reelstac
 - Personal Activity for ordinary users; verified Seerr administrators also have Seerr/Radarr/Sonarr overview filters
 - Settings and connection editors for Jellyfin, Emby, Seerr, Radarr, and Sonarr
 - Native Jellyfin Quick Connect plus username/password and advanced access-token setup
+- Local Emby username/password login, copyable Quick Connect codes, and optional Jellyfin/Seerr sign-in from one form
 - Seerr Jellyfin account sign-in and Seerr-mediated Quick Connect with encrypted session cookies and CSRF support
 - Real Jellyfin/Seerr profile pictures and names; Seerr rechecks the acting user before each request, and administrator keys are read-only for requests
 - Real connectivity/authentication probes for all five services
@@ -69,7 +70,7 @@ Use HTTPS through a trusted reverse proxy when the services are reachable outsid
 
 ## Architecture
 
-See [viewer access rules](docs/VIEWER_ACCESS.md) for the administrator/personal boundary, identity matching, and server-side limitations, and [Reelune branding](docs/REELUNE_BRAND.md) for the new image asset and generation brief. The app ID and signing identity remain unchanged so existing installations update in place.
+See [viewer access rules](docs/VIEWER_ACCESS.md) for the administrator/personal boundary, identity matching, and server-side limitations, and [Spole branding](docs/SPOLE_BRAND.md) for the icon, design references and generation brief. The app ID and signing identity remain unchanged so existing installations update in place. Spole branding and the simpler account flow are included in version 0.11.0.
 
 - `ui/`: Compose navigation, screens, sheets, state, and theme
 - `data/model/`: shared service and activity models

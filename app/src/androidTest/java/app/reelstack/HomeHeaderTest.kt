@@ -35,7 +35,7 @@ class HomeHeaderTest {
         }
         val today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE d. MMMM", java.util.Locale.forLanguageTag("nn-NO")))
         rule.onNode(hasText(today, ignoreCase = true)).assertDoesNotExist()
-        rule.onNodeWithText("Reelune").assertIsDisplayed()
+        rule.onNodeWithText("Spole").assertIsDisplayed()
     }
     @Test fun unverifiedOrRemovedSeerrFallsBackToJellyfinThenEmby() {
         val current = mutableStateOf(state().copy(accountErrors = mapOf(ServiceKind.SEERR to "Expired")))

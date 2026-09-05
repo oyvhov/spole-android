@@ -14,6 +14,14 @@ class ConnectionRepository(context: Context) {
 
     fun list(): List<ServiceConnection> = ServiceKind.entries.map(::get)
 
+    fun rememberedUrl(kind: ServiceKind): String = preferences.getString("${kind.name.lowercase()}.last_url", "").orEmpty()
+
+    fun signOut(kind: ServiceKind) {
+        val url = get(kind).baseUrl
+        preferences.edit { putString("${kind.name.lowercase()}.last_url", url) }
+        delete(kind)
+    }
+
     fun get(kind: ServiceKind): ServiceConnection {
         val prefix = kind.name.lowercase()
         val savedUrl = preferences.getString("$prefix.url", null)

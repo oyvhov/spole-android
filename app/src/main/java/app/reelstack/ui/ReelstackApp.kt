@@ -180,6 +180,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onConnectionPasswordChange = viewModel::updateConnectionPassword,
         onTestAndSaveConnection = viewModel::testAndSaveConnection,
         onRemoveConnection = viewModel::removeConnection,
+        onCompanionLoginChange = viewModel::updateCompanionLogin,
         onAddMedia = viewModel::requestMedia,
         onUpcomingClick = viewModel::openUpcomingDetails,
         onBackToCalendar = viewModel::backToCalendar,

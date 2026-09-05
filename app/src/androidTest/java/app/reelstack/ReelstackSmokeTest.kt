@@ -35,7 +35,7 @@ class ReelstackSmokeTest {
 
     @Test
     fun homeScreenShowsCoreMediaState() {
-        composeRule.onNodeWithText("Reelune").assertIsDisplayed()
+        composeRule.onNodeWithText("Spole").assertIsDisplayed()
         composeRule.onNodeWithText("Spelar no").assertIsDisplayed()
         composeRule.onNodeWithText("Førehandsvising").assertDoesNotExist()
         composeRule.onAllNodesWithText("Severance")[0].assertIsDisplayed()
@@ -90,7 +90,7 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Quick Connect").assertIsDisplayed()
         composeRule.onNodeWithText("Start Quick Connect").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Brukarnamn").performClick()
-        composeRule.onNodeWithText("Tilgangsteikn").assertIsDisplayed()
+        composeRule.onNodeWithText("API-nøkkel").assertDoesNotExist()
         composeRule.onAllNodesWithText("Brukarnamn")[1].performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Passord").performScrollTo().assertIsDisplayed()
     }
@@ -99,8 +99,8 @@ class ReelstackSmokeTest {
     fun homeSectionsCanBeEditedInSettings() {
         composeRule.onNodeWithText("Innstillingar").performClick()
 
-        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Reelune"))
-        composeRule.onNodeWithText("Reelune").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Spole"))
+        composeRule.onNodeWithText("Spole").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Heimskjerm"))
         composeRule.onNodeWithText("Heimskjerm").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Emby · Filmar"))

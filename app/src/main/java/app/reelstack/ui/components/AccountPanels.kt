@@ -36,17 +36,21 @@ import app.reelstack.ui.theme.Text as TextColor
 
 @Composable
 fun SettingsAccounts(state: ReelstackUiState, onConnectionClick: (ServiceKind) -> Unit) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    Surface(color = SurfaceRaised, shape = RoundedCornerShape(24.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 20.dp).testTag("settings-accounts"),
     ) {
+      Column {
         SettingsAccountPanel(state, ServiceKind.SEERR, onClick = { onConnectionClick(ServiceKind.SEERR) })
-        SettingsAccountPanel(state, ServiceKind.JELLYFIN, onClick = { onConnectionClick(ServiceKind.JELLYFIN) })
+        SettingsAccountPanel(state, ServiceKind.JELLYFIN, compact = true, onClick = { onConnectionClick(ServiceKind.JELLYFIN) })
+        if (state.connections.any { it.kind == ServiceKind.EMBY && it.baseUrl.isNotBlank() }) {
+            SettingsAccountPanel(state, ServiceKind.EMBY, compact = true, onClick = { onConnectionClick(ServiceKind.EMBY) })
+        }
+      }
     }
 }
 
 @Composable
-private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, onClick: () -> Unit) {
+private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, compact: Boolean = false, onClick: () -> Unit) {
     val connection = state.connections.firstOrNull { it.kind == source }
     val loading = source in state.loadingAccounts
     val hasError = source in state.accountErrors
@@ -55,17 +59,30 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, o
     val overviewOnly = isSeerr && (account?.isPersonal == false || connection.isSeerrApiKey())
 
     Surface(
-        color = SurfaceRaised,
+        color = androidx.compose.ui.graphics.Color.Transparent,
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth().testTag("settings-account-${source.name.lowercase()}"),
     ) {
         Column(Modifier.padding(16.dp)) {
+            if (compact && account == null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ServiceSymbol(source, Modifier.size(24.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(source.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (loading) "Hentar kontoen…" else if (hasError) "Logg inn på nytt" else "Bruk kontoen din",
+                            color = Muted, fontSize = 12.sp)
+                    }
+                    if (!loading) TextButton(onClick = onClick) { Text("Logg inn") }
+                }
+                return@Column
+            }
             if (account != null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AccountAvatar(account, connection, Modifier.size(if (isSeerr) 56.dp else 40.dp))
+                    if (compact) ServiceSymbol(source, Modifier.size(24.dp))
+                    else AccountAvatar(account, connection, Modifier.size(56.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
-                            account.displayName,
+                            if (compact) source.displayName else account.displayName,
                             color = TextColor,
                             fontSize = if (isSeerr) 21.sp else 16.sp,
                             lineHeight = if (isSeerr) 26.sp else 21.sp,
@@ -73,9 +90,9 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, o
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(account.source.displayName, color = Muted, fontSize = 12.sp,
+                        Text(if (compact) account.displayName else account.source.displayName, color = Muted, fontSize = 12.sp,
                             modifier = Modifier.padding(top = 3.dp))
-                        if (account.isAdmin) Text("Administrator", color = Primary, fontSize = 11.sp,
+                        if (account.isAdmin && !compact) Text("Administrator", color = Primary, fontSize = 11.sp,
                             modifier = Modifier.padding(top = 5.dp))
                     }
                     if (!isSeerr || (account.isPersonal && !overviewOnly)) {
@@ -96,7 +113,7 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, o
                                 loading -> "Hentar kontoen…"
                                 hasError -> "Kunne ikkje stadfeste kontoen."
                                 overviewOnly -> "Ingen personleg konto stadfesta."
-                                else -> "Ingen konto stadfesta enno."
+                                else -> "Logg inn med kontoen din."
                             },
                             color = if (hasError && !loading) Caution else Muted,
                             fontSize = 13.sp, lineHeight = 19.sp,
@@ -121,7 +138,7 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, o
                         when {
                             isSeerr -> "Logg inn med Jellyfin"
                             hasError -> "Prøv igjen"
-                            else -> "Logg inn på Jellyfin"
+                            else -> "Logg inn på ${source.displayName}"
                         },
                         fontSize = 13.sp,
                     )
