@@ -104,10 +104,10 @@ class MediaSyncRepository(
         )
     }
 
-    fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId) {
+    fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {
         val remoteId = requireNotNull(media.remoteId) { "Tittelen manglar medie-ID frå Seerr" }
         val mediaType = requireNotNull(media.mediaType) { "Tittelen manglar medietype frå Seerr" }
-        seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId)
+        seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId, seasons)
     }
 
     fun search(connection: ServiceConnection, query: String): List<DiscoverMedia> =
@@ -242,15 +242,11 @@ class MediaSyncRepository(
     private fun requestActivity(request: RemoteRequest, discovered: DiscoverMedia?) = ActivityEvent(
         id = "seerr-request-${request.id}",
         title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Ny film" else "Ny serie",
-        detail = when (request.status) {
-            2 -> "Godkjend av Seerr for ${request.requestedBy}"
-            3 -> "Avvist i Seerr"
-            4 -> "Kunne ikkje behandlast i Seerr"
-            5 -> "Fullført i Seerr"
-            else -> "Lagd til av ${request.requestedBy}"
-        },
+        detail = app.reelstack.data.model.requestProgress(request.mediaStatus, request.availableSeasons, request.seasons,
+            request.downloads, request.status).stage.label + " · ${request.requestedBy}",
         time = relativeTime(request.createdAt),
-        complete = request.status == 5,
+        complete = app.reelstack.data.model.requestProgress(request.mediaStatus, request.availableSeasons, request.seasons,
+            request.downloads, request.status).stage == app.reelstack.data.model.RequestStage.AVAILABLE,
         source = ServiceKind.SEERR,
         artworkRes = R.drawable.media_placeholder,
         artworkUrl = discovered?.artworkUrl ?: request.artworkUrl,

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+- Added a personal Seerr request sheet with explicit missing-season selection, fresh availability checks and visible account identity before submission.
+- Added a default-on library notification choice, optional poster artwork and a text-only fallback when artwork is unavailable.
+- Added personal request tracking in Activity: requested, actual downloading, waiting for library import and confirmed library availability. Approval alone never means downloading.
+- Isolated local follows by server and verified account, preserved notification choices across app restarts, and kept existing requests notification-off until explicitly enabled.
+- Replaced ambiguous availability copy with “I biblioteket ditt” and a library icon. Kept series season selection available even when existing seasons are already in the library.
+- Added regression coverage for season eligibility, request identity, 4K status, persistence, notification artwork and the native confirmation flow.
+
 ## 0.8.0
 
 - Added authenticated Jellyfin/Seerr account panels with server-provided names and profile pictures, and a visible request identity in Discover and title details.

@@ -27,4 +27,5 @@ class AppContainer(context: Context) {
     )
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
     val preferencesRepository = AppPreferencesRepository(appContext)
+    val requestTrackingRepository = app.reelstack.data.repository.RequestTrackingRepository(appContext)
 }

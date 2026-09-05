@@ -58,6 +58,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Tv
+import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -123,9 +124,13 @@ fun ReelstackSheets(
     onUpcomingClick: (String) -> Unit,
     onBackToCalendar: () -> Unit = {},
     onSeerrAccount: () -> Unit = {},
+    onRequestSeason: (Int, Boolean) -> Unit = { _, _ -> },
+    onRequestNotification: (Boolean) -> Unit = {},
+    onConfirmRequest: () -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
+        confirmValueChange = { value -> value != androidx.compose.material3.SheetValue.Hidden || state.requestDraft?.sending != true })
     val sheetContentStates = rememberSaveableStateHolder()
     ModalBottomSheet(
         // A dismiss gesture has already hidden the modal. Only the explicit
@@ -162,6 +167,8 @@ fun ReelstackSheets(
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
             when (sheet) {
+                AppSheet.RequestComposer -> RequestComposer(state, onRequestSeason, onRequestNotification,
+                    onConfirmRequest, onDismiss, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount)
                 is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle)
                 is AppSheet.TitleDetails -> state.contentDetails?.let {
                     RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia, onSeerrAccount = onSeerrAccount)
@@ -279,7 +286,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         details.statusTitle?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
                 .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
-                details.source?.let { ServiceSymbol(it, Modifier.padding(top = 3.dp).size(18.dp)) }
+                if (details.libraryAvailable) Icon(Icons.Rounded.VideoLibrary, null, tint = Primary, modifier = Modifier.padding(top = 3.dp).size(20.dp))
+                else Icon(Icons.Rounded.Schedule, null, tint = Muted, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
                     Text(title, color = PrimarySoft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -296,7 +304,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             RequestIdentity(state, onSeerrAccount)
             Button(
                 onClick = { if (needsAccount) onSeerrAccount() else onAddMedia(discoverMedia.id) },
-                enabled = !discoverMedia.requested && !adding,
+                enabled = !adding,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Primary,
@@ -315,7 +323,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                     when {
                         adding -> "Legg til…"
                         needsAccount -> "Logg inn for å leggje til"
-                        discoverMedia.requested -> "Lagd til"
+                        discoverMedia.mediaType == "tv" -> "Vel sesongar"
                         else -> "Legg til i mediesamlinga"
                     },
                     modifier = Modifier.padding(start = 8.dp),

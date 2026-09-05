@@ -223,7 +223,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                 modifier = Modifier.padding(top = 10.dp))
             Text(media.metadata, color = Muted, fontSize = 12.sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
-            if (!media.canRequest) {
+            if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
                 Text(
                     seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested),
                     color = Primary, fontSize = 12.sp, lineHeight = 17.sp,
@@ -246,6 +246,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             Text(when {
                 requesting -> "Legg til…"
                 !media.canRequest -> "Vis detaljar"
+                media.mediaType == "tv" -> "Vel sesongar"
                 else -> "Legg til"
             }, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
         }
@@ -253,8 +254,10 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
 }
 
 @Composable
-fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit) {
-    var sourceFilter by rememberSaveable { mutableStateOf("Alt") }
+fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit,
+                   onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {}) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var sourceFilter by rememberSaveable { mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) "Mine" else "Alt") }
     val events = state.activity.filter { sourceFilter == "Alt" || it.source?.displayName == sourceFilter }
     val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
     LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
@@ -274,9 +277,31 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp)
                 }
             }
-            AppFilterRow(listOf("Alt", "Seerr", "Radarr", "Sonarr"), sourceFilter, { sourceFilter = it }, Modifier.padding(bottom = 12.dp))
+            AppFilterRow(listOf("Mine", "Alt", "Seerr", "Radarr", "Sonarr"), sourceFilter, { sourceFilter = it }, Modifier.padding(bottom = 12.dp))
         }
-        if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {
+        if (sourceFilter == "Mine") {
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Førespurnadene dine", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onRefresh, enabled = !state.trackingLoading) { Text(if (state.trackingLoading) "Sjekkar…" else "Oppdater") }
+                }
+                state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp)) }
+                if (state.trackedRequests.any { it.notify } && (!state.notificationsEnabled || !app.reelstack.background.LibraryNotifications.allowed(context))) {
+                    Text(if (!state.notificationsEnabled) "Appvarsel er av i Innstillingar. Du kan framleis følgje status her." else
+                        "Android tillèt ikkje varsel no. Slå dei på for å få beskjed når innhaldet er klart.", color = Caution, fontSize = 12.sp)
+                    if (state.notificationsEnabled) TextButton(onClick = {
+                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
+                    }) { Text("Opne varselinnstillingar") }
+                }
+                if (state.trackedRequests.isEmpty()) Text(if (state.trackingLoading) "Hentar førespurnadene dine…" else
+                    "Førespurnader frå den personlege Seerr-kontoen din kjem her. Finn ein tittel i Oppdag for å starte.",
+                    color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 18.dp))
+            }
+            items(state.trackedRequests, key = { "follow-${it.key}" }) { request ->
+                app.reelstack.ui.TrackedRequestCard(request, { onDetails(request.key) }, { onNotify(request.key, it) })
+            }
+        } else if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {
             item { ActivitySkeleton(Modifier.fillMaxWidth()) }
         } else if (events.isEmpty()) {
             item {

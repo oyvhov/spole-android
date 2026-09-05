@@ -17,8 +17,8 @@ class MediaStatusTest {
         val labels = (1..7).map { seerrStatusLabel(it) }
         assertEquals(7, labels.distinct().size)
         assertEquals("Ventar på godkjenning", seerrStatusLabel(2))
-        assertEquals("Under behandling", seerrStatusLabel(3))
-        assertEquals("Delvis tilgjengeleg", seerrStatusLabel(4))
+        assertEquals("Førespurd", seerrStatusLabel(3))
+        assertEquals("Delvis i biblioteket", seerrStatusLabel(4))
         assertEquals("Blokkert i Seerr", seerrStatusLabel(6, inLibrary = true))
         assertTrue(seerrStatusDescription(3).contains("ikkje nødvendigvis starta"))
         assertEquals("Lagd til", seerrStatusLabel(null, requested = true))

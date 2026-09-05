@@ -526,6 +526,7 @@ class SeerrServiceClient(
         mediaType: String,
         remoteId: Int,
         language: String = "nb",
+        includeOverviewFallback: Boolean = true,
     ): RemoteMediaDetails {
         require(connection.kind == ServiceKind.SEERR)
         require(mediaType == "movie" || mediaType == "tv")
@@ -544,7 +545,7 @@ class SeerrServiceClient(
         }
 
         val details = fetch(requestedLanguage)
-        if (!details.overview.isNullOrBlank() || requestedLanguage.substringBefore('-').equals("en", ignoreCase = true)) {
+        if (!includeOverviewFallback || !details.overview.isNullOrBlank() || requestedLanguage.substringBefore('-').equals("en", ignoreCase = true)) {
             return details
         }
 
@@ -625,7 +626,14 @@ class SeerrServiceClient(
         )
     }
 
-    fun request(connection: ServiceConnection, mediaType: String, remoteId: Int, expectedUserId: String = connection.userId) {
+    fun requests(connection: ServiceConnection, userId: String): List<RemoteRequest> {
+        require(userId.toIntOrNull()?.let { it > 0 } == true)
+        val response = transport.get(EndpointValidator.resolve(connection.baseUrl, "api/v1/request?take=100&skip=0&sort=added&requestedBy=${encode(userId)}"), headers(connection))
+        response.requireSuccess(connection.kind)
+        return ServicePayloadParser.requests(response.body)
+    }
+
+    fun request(connection: ServiceConnection, mediaType: String, remoteId: Int, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {
         require(connection.kind == ServiceKind.SEERR)
         require(mediaType == "movie" || mediaType == "tv")
         require(connection.sessionCookie && expectedUserId.isNotBlank()) {
@@ -633,10 +641,17 @@ class SeerrServiceClient(
         }
         val actor = AccountProfileClient(transport = transport).load(connection)
         check(actor.isPersonal && actor.id == expectedUserId) { "Seerr-kontoen er endra. Sjekk innlogginga før du sender." }
+        if (mediaType == "tv") {
+            require(seasons.isNotEmpty() && seasons.all { it >= 0 }) { "Vel minst éin sesong." }
+            val fresh = details(connection, mediaType, remoteId)
+            check(fresh.seerrStatus != 6 && seasons.all { number -> fresh.seasons.any { it.number == number && it.canRequest } }) {
+                "Sesongane er endra eller alt førespurde. Opne førespurnaden på nytt."
+            }
+        }
         val body = buildJsonObject {
             put("mediaType", mediaType)
             put("mediaId", remoteId)
-            if (mediaType == "tv") put("seasons", "all")
+            if (mediaType == "tv") put("seasons", kotlinx.serialization.json.JsonArray(seasons.sorted().map { kotlinx.serialization.json.JsonPrimitive(it) }))
         }.toString()
         val response = transport.post(
             EndpointValidator.resolve(connection.baseUrl, "api/v1/request"),
@@ -644,6 +659,7 @@ class SeerrServiceClient(
             body,
         )
         response.requireSuccess(connection.kind)
+        check(response.statusCode != 202) { "Ingen nye sesongar vart lagde til. Sjekk sesongane på nytt." }
     }
 
     private fun cachedRequestMetadata(key: RequestMetadataKey): RequestMetadata? = synchronized(requestMetadataCache) {

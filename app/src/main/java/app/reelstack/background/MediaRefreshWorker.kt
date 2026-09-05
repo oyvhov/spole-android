@@ -20,6 +20,9 @@ class MediaRefreshWorker(
         val connections = container.connectionRepository.list()
         val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
         if (configured.isEmpty()) return Result.success()
+        configured.firstOrNull { it.kind == app.reelstack.data.model.ServiceKind.SEERR && it.sessionCookie }?.let {
+            runCatching { container.requestTrackingRepository.refresh(it) }
+        }
 
         val snapshot = runCatching {
             container.mediaSyncRepository.refresh(

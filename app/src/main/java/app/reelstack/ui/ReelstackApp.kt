@@ -60,6 +60,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import app.reelstack.R
 import app.reelstack.ui.screens.ActivityScreen
 import app.reelstack.ui.screens.DiscoverScreen
@@ -76,6 +77,15 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val connectionDraft by viewModel.connectionDraft.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                viewModel.refreshTrackedRequests()
+                kotlinx.coroutines.delay(30_000)
+            }
+        }
+    }
     BackHandler(enabled = state.activeSheet == null && !state.showOnboarding && state.selectedTab != AppTab.HOME) {
         viewModel.selectTab(AppTab.HOME)
     }
@@ -134,7 +144,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onDetails = viewModel::openDiscoverDetails,
                         onAccountClick = viewModel::openSeerrAccount,
                     )
-                    AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails)
+                    AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
+                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests)
                     AppTab.SETTINGS -> SettingsScreen(
                         state = state,
                         contentPadding = PaddingValues(0.dp),
@@ -172,6 +183,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onUpcomingClick = viewModel::openUpcomingDetails,
         onBackToCalendar = viewModel::backToCalendar,
         onSeerrAccount = viewModel::openSeerrAccount,
+        onRequestSeason = viewModel::setRequestSeason,
+        onRequestNotification = viewModel::setRequestNotification,
+        onConfirmRequest = viewModel::confirmRequest,
     )
 }
 

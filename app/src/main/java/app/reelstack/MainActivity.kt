@@ -20,8 +20,10 @@ class MainActivity : ComponentActivity() {
                     factory = ReelstackViewModel.Factory(container),
                 )
                 ReelstackApp(viewModel = reelstackViewModel)
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    if (intent.getBooleanExtra("open_requests", false)) reelstackViewModel.selectTab(app.reelstack.ui.AppTab.ACTIVITY)
+                }
             }
         }
     }
 }
-

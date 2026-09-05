@@ -21,6 +21,9 @@ import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.PlaybackSession
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceAccount
+import app.reelstack.data.model.RequestDraft
+import app.reelstack.data.model.RequestSeason
+import app.reelstack.data.model.TrackedRequest
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.network.EndpointValidator
@@ -42,6 +45,7 @@ enum class ConnectionAuthMode { QUICK_CONNECT, ACCOUNT, API_KEY }
 sealed interface AppSheet {
     data class SessionDetails(val sessionKey: String) : AppSheet
     data class TitleDetails(val key: String) : AppSheet
+    data object RequestComposer : AppSheet
     data object UpcomingCalendar : AppSheet
     data class ConnectionEditor(val kind: ServiceKind) : AppSheet
 }
@@ -99,6 +103,10 @@ data class ReelstackUiState(
     val snackbar: String? = null,
     val contentDetails: ContentDetails? = null,
     val returnToCalendar: Boolean = false,
+    val requestDraft: RequestDraft? = null,
+    val trackedRequests: List<TrackedRequest> = emptyList(),
+    val trackingError: String? = null,
+    val trackingLoading: Boolean = false,
 ) {
     val visibleDiscover: List<DiscoverMedia>
         get() = if (searchQuery.isBlank()) discover else searchResults
@@ -125,6 +133,8 @@ class ReelstackViewModel(
     private var quickConnectJob: Job? = null
     private var connectionJob: Job? = null
     private var accountsJob: Job? = null
+    private var trackingJob: Job? = null
+    private var requestDraftJob: Job? = null
 
     init {
         refreshLiveData()
@@ -175,6 +185,9 @@ class ReelstackViewModel(
     }
 
     fun closeSheet() {
+        if (_uiState.value.requestDraft?.sending == true) return
+        requestDraftJob?.cancel()
+        _uiState.update { it.copy(requestDraft = null) }
         connectionJob?.cancel()
         quickConnectJob?.cancel()
         _uiState.update { it.copy(activeSheet = null, contentDetails = null, returnToCalendar = false) }
@@ -207,6 +220,7 @@ class ReelstackViewModel(
                     mediaType = media.mediaType,
                     loading = connection != null && media.remoteId != null,
                     statusTitle = "I biblioteket",
+                    libraryAvailable = true,
                     statusDescription = "Registrert i ${media.source.displayName}.",
                 ),
             )
@@ -265,6 +279,7 @@ class ReelstackViewModel(
                     source = ServiceKind.SEERR,
                     mediaType = resolvedMediaType(media.mediaType, media.metadata),
                     statusTitle = seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested),
+                    libraryAvailable = media.inLibrary || media.seerrStatus == 5,
                     statusDescription = seerrStatusDescription(media.seerrStatus, media.inLibrary),
                     loading = connection != null && media.remoteId != null && media.mediaType != null,
                 ),
@@ -283,6 +298,7 @@ class ReelstackViewModel(
                             contentDetails = details.copy(
                                 title = remote.title ?: details.title,
                                 statusTitle = remote.seerrStatus?.let { seerrStatusLabel(it) } ?: details.statusTitle,
+                                libraryAvailable = remote.seerrStatus == 5,
                                 statusDescription = remote.seerrStatus?.let { seerrStatusDescription(it) } ?: details.statusDescription,
                                 tagline = remote.tagline ?: details.tagline,
                                 overview = remote.overview ?: details.overview,
@@ -354,6 +370,16 @@ class ReelstackViewModel(
     }
 
     fun openActivityDetails(id: String) {
+        _uiState.value.trackedRequests.firstOrNull { it.key == id }?.let { tracked ->
+            val media = app.reelstack.data.model.DiscoverMedia(
+                id = "seerr-${tracked.mediaType}-${tracked.mediaId}", title = tracked.title,
+                metadata = if (tracked.mediaType == "tv") "Serie" else "Film", artworkRes = R.drawable.media_placeholder,
+                artworkUrl = tracked.artworkUrl, inLibrary = tracked.stage == app.reelstack.data.model.RequestStage.AVAILABLE,
+                remoteId = tracked.mediaId, mediaType = tracked.mediaType)
+            _uiState.update { it.copy(discover = it.discover.filterNot { entry -> entry.id == media.id } + media, searchQuery = "") }
+            openDiscoverDetails(media.id)
+            return
+        }
         val event = _uiState.value.activity.firstOrNull { it.id == id } ?: return
         showLocalDetails(
             ContentDetails(
@@ -464,7 +490,91 @@ class ReelstackViewModel(
 
     fun requestMedia(id: String) {
         val state = _uiState.value
-        val media = state.visibleDiscover.firstOrNull { it.id == id } ?: return
+        val media = (state.discover + state.searchResults).firstOrNull { it.id == id } ?: return
+        if (!media.canRequest || state.requestingMediaIds.isNotEmpty()) return
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.token.isNotBlank() }
+        if (state.configuredCount > 0 && (connection?.sessionCookie != true || state.accounts[ServiceKind.SEERR]?.isPersonal != true)) {
+            openSeerrAccount()
+            return
+        }
+        requestDraftJob?.cancel()
+        _uiState.update { it.copy(activeSheet = AppSheet.RequestComposer, requestDraft = RequestDraft(media), returnToCalendar = false) }
+        if (connection == null && state.configuredCount == 0) {
+            val seasons = if (media.mediaType == "tv") listOf(RequestSeason(1, "Sesong 1", 8, 1)) else emptyList()
+            _uiState.update { it.copy(requestDraft = RequestDraft(media, seasons, seasons.map { s -> s.number }.toSet(), loading = false)) }
+            return
+        }
+        requestDraftJob = viewModelScope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { container.mediaSyncRepository.details(requireNotNull(connection), media) } }
+            if (!isActive) return@launch
+            _uiState.update { current ->
+                val draft = current.requestDraft?.takeIf { it.media.id == id } ?: return@update current
+                if (current.activeSheet != AppSheet.RequestComposer) return@update current
+                current.copy(requestDraft = result.fold(onSuccess = { remote ->
+                    val eligible = remote.seasons.filter { it.canRequest && it.number > 0 }
+                    draft.copy(loading = false, seasons = remote.seasons, selected = eligible.map { it.number }.toSet(),
+                        mediaStatus = remote.seerrStatus,
+                        error = when {
+                            remote.seerrStatus == 6 -> "Tittelen er blokkert av administratoren."
+                            media.mediaType == "tv" && remote.seasons.isEmpty() -> "Seerr gav ingen sesongar. Prøv igjen seinare."
+                            media.mediaType != "tv" && remote.seerrStatus in 2..5 -> "Filmen er alt førespurd eller i biblioteket."
+                            else -> null
+                        })
+                }, onFailure = { draft.copy(loading = false, error = "Fekk ikkje henta sesongar og tilgjenge. Prøv igjen.") }))
+            }
+        }
+    }
+
+    fun setRequestSeason(number: Int, checked: Boolean) = _uiState.update { state ->
+        val draft = state.requestDraft ?: return@update state
+        if (draft.sending || draft.seasons.none { it.number == number && it.canRequest }) return@update state
+        state.copy(requestDraft = draft.copy(selected = if (checked) draft.selected + number else draft.selected - number))
+    }
+
+    fun setRequestNotification(enabled: Boolean) = _uiState.update { state ->
+        state.copy(requestDraft = state.requestDraft?.takeUnless { it.sending }?.copy(notify = enabled) ?: state.requestDraft)
+    }
+
+    fun confirmRequest() {
+        val draft = _uiState.value.requestDraft ?: return
+        if (draft.loading || draft.sending || draft.error != null || (draft.media.mediaType == "tv" && draft.selected.isEmpty())) return
+        sendRequest(draft.media.id)
+    }
+
+    fun setFollowNotification(key: String, enabled: Boolean) {
+        val state = _uiState.value
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR } ?: return
+        val actor = state.accounts[ServiceKind.SEERR]?.takeIf { it.isPersonal } ?: return
+        val scope = container.requestTrackingRepository.scope(connection, actor.id)
+        container.requestTrackingRepository.setNotify(scope, key, enabled)
+        _uiState.update { it.copy(trackedRequests = container.requestTrackingRepository.list(scope)) }
+    }
+
+    fun refreshTrackedRequests() {
+        if (trackingJob?.isActive == true) return
+        val state = _uiState.value
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() } ?: run {
+            _uiState.update { it.copy(trackedRequests = emptyList(), trackingError = null) }
+            return
+        }
+        _uiState.update { it.copy(trackingLoading = true) }
+        trackingJob = viewModelScope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { container.requestTrackingRepository.refresh(connection) } }
+            if (!isActive) return@launch
+            _uiState.update { current ->
+                val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+                if (configured?.token != connection.token || configured.baseUrl != connection.baseUrl || configured.sessionCookie != connection.sessionCookie) current.copy(trackingLoading = false)
+                else current.copy(trackingLoading = false,
+                    trackedRequests = result.getOrNull()?.second ?: current.trackedRequests,
+                    trackingError = if (result.isFailure) "Fekk ikkje oppdatert førespurnadene. Sjekk Seerr-innlogginga og prøv igjen." else null)
+            }
+        }
+    }
+
+    private fun sendRequest(id: String) {
+        val state = _uiState.value
+        val draft = state.requestDraft ?: return
+        val media = draft.media
         if (!media.canRequest || id in state.requestingMediaIds) return
         val seerr = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
 
@@ -482,6 +592,8 @@ class ReelstackViewModel(
                         if (details.key == id) details.copy(statusTitle = "Lagd til lokalt", statusDescription = "Dette er ei førehandsvising. Ingenting er sendt til Seerr.") else details
                     },
                     snackbar = "Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare",
+                    activeSheet = null,
+                    requestDraft = null,
                 )
             }
             return
@@ -493,12 +605,13 @@ class ReelstackViewModel(
             _uiState.update { it.copy(snackbar = "Logg inn med Jellyfin-kontoen din i Seerr for å sende som deg sjølv.") }
             return
         }
-        _uiState.update { it.copy(requestingMediaIds = it.requestingMediaIds + id) }
+        _uiState.update { it.copy(requestingMediaIds = it.requestingMediaIds + id, requestDraft = draft.copy(sending = true)) }
         viewModelScope.launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
                     // Reconfirm the exact identity shown in the UI before any write.
-                    container.mediaSyncRepository.request(seerr, media, expectedUserId = account.id)
+                    container.mediaSyncRepository.request(seerr, media, expectedUserId = account.id, seasons = draft.selected)
+                    container.requestTrackingRepository.follow(seerr, account.id, media, draft.selected, draft.notify)
                 }
             }
             _uiState.update { current ->
@@ -522,19 +635,25 @@ class ReelstackViewModel(
                         ) + current.activity,
                         requestingMediaIds = current.requestingMediaIds - id,
                         snackbar = "Sendt til Seerr som ${account.displayName}",
+                        activeSheet = null,
+                        requestDraft = null,
+                        selectedTab = AppTab.ACTIVITY,
                     )
                 } else {
                     current.copy(
                         requestingMediaIds = current.requestingMediaIds - id,
                         snackbar = "Fekk ikkje sendt som ${account.displayName}. Sjekk Seerr-kontoen og tilgangen din.",
+                        requestDraft = draft.copy(sending = false, error = "Fekk ikkje sendt. Sesongane kan vere endra, eller kontoen manglar tilgang. Opne førespurnaden på nytt før du prøver igjen."),
                     )
                 }
             }
+            if (result.isSuccess) refreshTrackedRequests()
         }
     }
 
     fun refreshLiveData(userInitiated: Boolean = false) {
         refreshAccounts()
+        refreshTrackedRequests()
         if (refreshJob?.isActive == true) return
         val state = _uiState.value
         val configured = state.connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
@@ -942,6 +1061,7 @@ class ReelstackViewModel(
             state.copy(
                 connections = state.connections.map { if (it.kind == saved.kind) saved else it },
                 accounts = state.accounts - saved.kind,
+                trackedRequests = if (saved.kind == ServiceKind.SEERR) emptyList() else state.trackedRequests,
                 accountErrors = state.accountErrors - saved.kind,
                 sessions = if (state.configuredCount == 0) emptyList() else state.sessions,
                 recentMovies = if (state.configuredCount == 0) emptyList() else state.recentMovies,
@@ -969,6 +1089,7 @@ class ReelstackViewModel(
             it.copy(
                 connections = remaining,
                 accounts = it.accounts - kind,
+                trackedRequests = if (kind == ServiceKind.SEERR) emptyList() else it.trackedRequests,
                 accountErrors = it.accountErrors - kind,
                 activeSheet = null,
                 failedServices = it.failedServices - kind,

@@ -104,6 +104,12 @@ data class RemoteMediaDetails(
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val seerrStatus: Int? = null,
+    val seasons: List<app.reelstack.data.model.RequestSeason> = emptyList(),
+    val downloads: List<app.reelstack.data.model.RequestDownload> = emptyList(),
+    val requestStatus: Int? = null,
+    val status4k: Int? = null,
+    val seasons4k: List<app.reelstack.data.model.RequestSeason> = emptyList(),
+    val downloads4k: List<app.reelstack.data.model.RequestDownload> = emptyList(),
 )
 
 data class RemoteRequest(
@@ -115,6 +121,12 @@ data class RemoteRequest(
     val createdAt: String?,
     val title: String?,
     val artworkUrl: String?,
+    val ownerId: String? = null,
+    val seasons: Set<Int> = emptySet(),
+    val mediaStatus: Int? = null,
+    val downloads: List<app.reelstack.data.model.RequestDownload> = emptyList(),
+    val availableSeasons: List<app.reelstack.data.model.RequestSeason> = emptyList(),
+    val is4k: Boolean = false,
 )
 
 object ServicePayloadParser {
@@ -335,12 +347,24 @@ object ServicePayloadParser {
             val id = request.int("id") ?: return@mapNotNull null
             val media = request.obj("media")
             val user = request.obj("requestedBy")
+            val is4k = request["is4k"]?.jsonPrimitive?.booleanOrNull == true
+            val statusKey = if (is4k) "status4k" else "status"
             RemoteRequest(
                 id = id,
                 remoteId = media?.int("tmdbId"),
                 mediaType = media?.string("mediaType") ?: "movie",
                 status = request.int("status") ?: 1,
                 requestedBy = user?.string("displayName") ?: user?.string("username") ?: "Nokon",
+                ownerId = user?.int("id")?.toString(),
+                is4k = is4k,
+                seasons = request.array("seasons").mapNotNull { (it as? JsonObject)?.int("seasonNumber") }.toSet(),
+                mediaStatus = media?.int(statusKey),
+                downloads = downloadItems(media, if (is4k) "downloadStatus4k" else "downloadStatus"),
+                availableSeasons = media?.array("seasons").orEmpty().mapNotNull {
+                    val season = it as? JsonObject ?: return@mapNotNull null
+                    val number = season.int("seasonNumber") ?: return@mapNotNull null
+                    app.reelstack.data.model.RequestSeason(number, "Sesong $number", 0, season.int(statusKey) ?: 1)
+                },
                 createdAt = request.string("createdAt"),
                 title = media?.string("title") ?: media?.string("name"),
                 artworkUrl = media?.string("posterPath")?.let(::safeTmdbArtwork),
@@ -353,6 +377,11 @@ object ServicePayloadParser {
         return RemoteMediaDetails(
             title = item.string("title") ?: item.string("name"),
             seerrStatus = item.obj("mediaInfo")?.int("status"),
+            seasons = requestSeasons(item),
+            downloads = downloadItems(item.obj("mediaInfo")),
+            status4k = item.obj("mediaInfo")?.int("status4k"),
+            seasons4k = requestSeasons(item, "status4k"),
+            downloads4k = downloadItems(item.obj("mediaInfo"), "downloadStatus4k"),
             artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork),
             tagline = item.string("tagline"),
             overview = item.string("overview")?.takeIf { it.isNotBlank() }
@@ -365,6 +394,33 @@ object ServicePayloadParser {
             genres = objectNameArray(item, "genres").ifEmpty { stringArray(item, "Genres", "genres") },
         )
     }
+
+    private fun requestSeasons(item: JsonObject, statusKey: String = "status"): List<app.reelstack.data.model.RequestSeason> {
+        val info = item.obj("mediaInfo")
+        val existing = info?.array("seasons").orEmpty().mapNotNull { it as? JsonObject }
+            .associateBy { it.int("seasonNumber") }
+        val requests = info?.array("requests").orEmpty().mapNotNull { it as? JsonObject }
+        return item.array("seasons").mapNotNull {
+            val season = it as? JsonObject ?: return@mapNotNull null
+            val number = season.int("seasonNumber") ?: return@mapNotNull null
+            if (number < 0) return@mapNotNull null
+            val pending = requests.any { request -> (request["is4k"]?.jsonPrimitive?.booleanOrNull == true) == (statusKey == "status4k") && request.int("status") in setOf(1, 2) &&
+                request.array("seasons").any { (it as? JsonObject)?.int("seasonNumber") == number } }
+            val recorded = existing[number]?.int(statusKey) ?: 1
+            val status = if (recorded in setOf(1, 7) && pending) 2 else recorded
+            app.reelstack.data.model.RequestSeason(number,
+                if (number == 0) "Spesialepisodar" else "Sesong $number", season.int("episodeCount") ?: 0, status)
+        }.distinctBy { it.number }.sortedBy { it.number }
+    }
+
+    private fun downloadItems(info: JsonObject?, key: String = "downloadStatus"): List<app.reelstack.data.model.RequestDownload> =
+        info?.array(key).orEmpty().mapNotNull {
+            val item = it as? JsonObject ?: return@mapNotNull null
+            app.reelstack.data.model.RequestDownload(item.obj("episode")?.int("seasonNumber"),
+                item.string("status").orEmpty(),
+                item["size"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull() ?: 0.0,
+                item["sizeLeft"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull() ?: 0.0)
+        }
 
     fun libraryDetails(payload: String): RemoteMediaDetails {
         val item = json.parseToJsonElement(payload) as? JsonObject ?: return RemoteMediaDetails(null, null)

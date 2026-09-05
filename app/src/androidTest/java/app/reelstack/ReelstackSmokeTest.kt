@@ -53,6 +53,7 @@ class ReelstackSmokeTest {
     fun demoRequestIsClearlyKeptLocal() {
         composeRule.onNodeWithText("Oppdag").performClick()
         composeRule.onNodeWithText("Legg til").performClick()
+        composeRule.onNodeWithTag("confirm-request").performClick()
 
         composeRule.onAllNodesWithText("Lagd til")[0].assertIsDisplayed()
         composeRule.onNodeWithText("Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare").assertIsDisplayed()

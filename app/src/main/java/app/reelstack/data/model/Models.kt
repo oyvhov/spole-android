@@ -137,13 +137,13 @@ data class DiscoverMedia(
 )
 
 val DiscoverMedia.canRequest: Boolean
-    get() = !inLibrary && !requested && seerrStatus !in 2..6
+    get() = if (mediaType == "tv") seerrStatus != 6 else !inLibrary && !requested && seerrStatus !in 2..6
 
 fun seerrStatusLabel(status: Int?, inLibrary: Boolean = false, requested: Boolean = false): String = when {
     status == 6 -> "Blokkert i Seerr"
-    status == 5 || inLibrary -> "Tilgjengeleg"
-    status == 4 -> "Delvis tilgjengeleg"
-    status == 3 -> "Under behandling"
+    status == 5 || inLibrary -> "I biblioteket ditt"
+    status == 4 -> "Delvis i biblioteket"
+    status == 3 -> "Førespurd"
     status == 2 -> "Ventar på godkjenning"
     requested -> "Lagd til"
     status == 7 -> "Fjerna frå biblioteket"
@@ -161,7 +161,7 @@ fun resolvedMediaType(type: String?, subtitle: String): String? = when {
 
 fun seerrStatusDescription(status: Int?, inLibrary: Boolean = false): String = when {
     status == 6 -> "Denne tittelen er blokkert av administratoren i Seerr."
-    status == 5 || inLibrary -> "Seerr melder at tittelen finst i mediebiblioteket."
+    status == 5 || inLibrary -> "Klart til å sjå i mediebiblioteket ditt."
     status == 4 -> "Noko av innhaldet er tilgjengeleg, men ikkje alt."
     status == 3 -> "Seerr behandlar tittelen. Nedlastinga er ikkje nødvendigvis starta."
     status == 2 -> "Ein administrator må godkjenne tittelen i Seerr."
@@ -186,6 +186,7 @@ data class ContentDetails(
     val error: String? = null,
     val statusTitle: String? = null,
     val statusDescription: String? = null,
+    val libraryAvailable: Boolean = false,
 )
 
 data class ActivityEvent(
