@@ -72,6 +72,8 @@ Use HTTPS through a trusted reverse proxy when the services are reachable outsid
 
 See [viewer access rules](docs/VIEWER_ACCESS.md) for the administrator/personal boundary, identity matching, and server-side limitations, and [Spole branding](docs/SPOLE_BRAND.md) for the icon, design references and generation brief. The app ID and signing identity remain unchanged so existing installations update in place. Spole branding and the simpler account flow are included in version 0.11.0.
 
+For the repeatable AI workflow for building, emulator testing, verification, committing, and GitHub publishing, see [AI instructions](docs/AI_INSTRUCTIONS.md).
+
 - `ui/`: Compose navigation, screens, sheets, state, and theme
 - `data/model/`: shared service and activity models
 - `data/network/`: URL validation, HTTP transport, and service-specific probes
