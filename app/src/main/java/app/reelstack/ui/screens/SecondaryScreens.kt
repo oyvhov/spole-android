@@ -123,6 +123,19 @@ import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
 
+/** Stable filter identities. The visible label is a property, never the state itself. */
+enum class DiscoverFilter(val label: String) {
+    ALL("Alt"), MOVIES("Filmar"), SERIES("Seriar")
+}
+
+enum class ActivityFilter(val label: String, val source: ServiceKind?) {
+    MINE("Mine", null),
+    ALL("Alt", null),
+    SEERR("Seerr", ServiceKind.SEERR),
+    RADARR("Radarr", ServiceKind.RADARR),
+    SONARR("Sonarr", ServiceKind.SONARR),
+}
+
 @Composable
 private fun ScreenHeader(kicker: String, title: String, lede: String) {
     Text(title, color = TextColor, style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 6.dp))
@@ -146,12 +159,12 @@ fun DiscoverScreen(
     onAccountClick: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
-    var filter by rememberSaveable { mutableStateOf("Alt") }
+    var filter by rememberSaveable { mutableStateOf(DiscoverFilter.ALL) }
     val visible = state.visibleDiscover.filter { media ->
         when (filter) {
-            "Filmar" -> !media.isSeries
-            "Seriar" -> media.isSeries
-            else -> true
+            DiscoverFilter.MOVIES -> !media.isSeries
+            DiscoverFilter.SERIES -> media.isSeries
+            DiscoverFilter.ALL -> true
         }
     }
     ReelPage {
@@ -192,7 +205,7 @@ fun DiscoverScreen(
                     ),
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 )
-                AppFilterRow(listOf("Alt", "Filmar", "Seriar"), filter, { filter = it }, Modifier.padding(top = 12.dp))
+                AppFilterRow(DiscoverFilter.entries, filter, { it.label }, { filter = it }, Modifier.padding(top = 12.dp))
                 RequestIdentity(state, onSignIn = onAccountClick)
             }
         }
@@ -204,7 +217,7 @@ fun DiscoverScreen(
                 Text(
                     state.searchError ?: when {
                         state.searchQuery.isNotBlank() -> "Ingen treff på «${state.searchQuery.trim()}». Prøv eit anna søk eller filter."
-                        filter != "Alt" -> "Ingen titlar i dette filteret enno."
+                        filter != DiscoverFilter.ALL -> "Ingen titlar i dette filteret enno."
                         else -> "Ingen forslag enno. Kople til Seerr i Innstillingar for å oppdage nye titlar."
                     },
                     color = Muted, style = MaterialTheme.typography.bodyLarge,
@@ -285,9 +298,13 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
 fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit,
                    onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var savedSourceFilter by rememberSaveable { mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) "Mine" else "Alt") }
-    val sourceFilter = if (state.adminView || state.configuredCount == 0) savedSourceFilter else "Mine"
-    val events = state.activity.filter { sourceFilter == "Alt" || it.source?.displayName == sourceFilter }
+    var savedSourceFilter by rememberSaveable {
+        mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) ActivityFilter.MINE else ActivityFilter.ALL)
+    }
+    val sourceFilter = if (state.adminView || state.configuredCount == 0) savedSourceFilter else ActivityFilter.MINE
+    val events = state.activity.filter { event ->
+        sourceFilter == ActivityFilter.ALL || event.source == sourceFilter.source
+    }
     val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
     ReelPage {
     LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
@@ -306,9 +323,9 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(start = 10.dp))
             }
-            if (state.adminView || state.configuredCount == 0) AppFilterRow(listOf("Mine", "Alt", "Seerr", "Radarr", "Sonarr"), sourceFilter, { savedSourceFilter = it }, Modifier.padding(bottom = 12.dp))
+            if (state.adminView || state.configuredCount == 0) AppFilterRow(ActivityFilter.entries, sourceFilter, { it.label }, { savedSourceFilter = it }, Modifier.padding(bottom = 12.dp))
         }
-        if (sourceFilter == "Mine") {
+        if (sourceFilter == ActivityFilter.MINE) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Førespurnadene dine", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -336,7 +353,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
             item {
                 Column(Modifier.padding(vertical = 24.dp)) {
                     Text("Ingen hendingar her enno", color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text(if (sourceFilter == "Alt") "Nye oppdateringar dukkar opp her." else "Prøv Alt for å sjå dei andre tenestene.",
+                    Text(if (sourceFilter == ActivityFilter.ALL) "Nye oppdateringar dukkar opp her." else "Prøv Alt for å sjå dei andre tenestene.",
                         color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }

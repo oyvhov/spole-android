@@ -39,6 +39,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/** Stable filter identities; the visible label is a property, not the state. */
+enum class CalendarFilter(val label: String, val source: ServiceKind?) {
+    ALL("Alt", null),
+    MOVIES("Filmar", ServiceKind.RADARR),
+    EPISODES("Episodar", ServiceKind.SONARR),
+}
+
 @Composable
 internal fun UpcomingCalendarSheet(
     items: List<UpcomingMedia>,
@@ -48,16 +55,11 @@ internal fun UpcomingCalendarSheet(
     val today = LocalDate.now()
     val zone = ZoneId.systemDefault()
     val locale = Locale.forLanguageTag("nn-NO")
-    var filter by rememberSaveable { mutableStateOf("Alt") }
+    var filter by rememberSaveable { mutableStateOf(CalendarFilter.ALL) }
     var selectedDay by rememberSaveable { mutableStateOf<String?>(null) }
     val grouped = remember(items, filter, today, zone) {
-        items.filter {
-            when (filter) {
-                "Filmar" -> it.source == ServiceKind.RADARR
-                "Episodar" -> it.source == ServiceKind.SONARR
-                else -> true
-            }
-        }.sortedBy { it.airDateEpochMillis }
+        items.filter { filter.source == null || it.source == filter.source }
+            .sortedBy { it.airDateEpochMillis }
             .groupBy { Instant.ofEpochMilli(it.airDateEpochMillis).atZone(zone).toLocalDate() }
             .filterKeys { !it.isBefore(today) && it.isBefore(today.plusDays(28)) }
     }
@@ -72,7 +74,8 @@ internal fun UpcomingCalendarSheet(
             }
             IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Lukk kalenderen") }
         }
-        AppFilterRow(listOf("Alt", "Filmar", "Episodar"), filter, { filter = it }, Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        AppFilterRow(CalendarFilter.entries, filter, { it.label }, { filter = it },
+            Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         Text(
             "${today.format(DateTimeFormatter.ofPattern("d. MMM", locale))} – ${today.plusDays(27).format(DateTimeFormatter.ofPattern("d. MMM", locale))}",
             color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 24.dp, bottom = 10.dp),

@@ -28,13 +28,24 @@ fun ServiceSymbol(kind: ServiceKind, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Filter state is the value, not the label. Keying selection on the visible text meant a saved
+ * filter silently reset the moment that copy was edited, and it blocked moving the copy out of
+ * the composables at all.
+ */
 @Composable
-fun AppFilterRow(options: List<String>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+fun <T> AppFilterRow(
+    options: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     LazyRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(options, key = { it }) { option ->
+        items(options, key = { it.toString() }) { option ->
             FilterChip(
                 selected = option == selected, onClick = { onSelect(option) },
-                label = { Text(option) }, shape = RoundedCornerShape(10.dp), border = null,
+                label = { Text(label(option), maxLines = 1) }, shape = RoundedCornerShape(10.dp), border = null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceRaised, labelColor = Muted,
                     selectedContainerColor = Primary, selectedLabelColor = Ink),
                 modifier = Modifier.minimumInteractiveComponentSize(),
