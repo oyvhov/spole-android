@@ -236,7 +236,7 @@ private fun AccountEditButton(onClick: () -> Unit, description: String) {
 }
 
 // Keep verified profiles stable during refresh; the ViewModel clears them when credentials change.
-private fun ReelstackUiState.verifiedPanelAccount(source: ServiceKind): ServiceAccount? =
+fun ReelstackUiState.verifiedPanelAccount(source: ServiceKind): ServiceAccount? =
     accounts[source]?.takeIf {
         source !in accountErrors && it.source == source && it.displayName.isNotBlank()
     }

@@ -150,6 +150,26 @@ class HomeMediaRowsTest {
         }
     }
 
+    @Test fun shortEpisodeTitleDoesNotReserveBlankLineBecauseAnotherTitleIsLong() {
+        val state = ReelstackUiState(
+            connections = listOf(connection(ServiceKind.EMBY)),
+            recentMovies = emptyList(),
+            recentSeries = listOf(
+                episode("short", "Lioness", "S03 E06 · Sugar Land"),
+                episode("long", "Dette er ein mykje lengre serietittel", "S01 E01 · Starten"),
+            ),
+            sessions = emptyList(), upcoming = emptyList(), incoming = emptyList(),
+            homeSections = setOf(HomeSection.EMBY_SERIES),
+        )
+        composeRule.setContent {
+            ReelstackTheme { HomeScreen(state, PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}) }
+        }
+        composeRule.onNodeWithText("Lioness").performScrollTo()
+        val title = composeRule.onNodeWithText("Lioness").fetchSemanticsNode().boundsInRoot
+        val episode = composeRule.onNodeWithText("S03 E06 · Sugar Land").fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue("Episode should follow the one-line title closely", episode.top - title.bottom < 16f)
+    }
+
     private fun connection(kind: ServiceKind) = ServiceConnection(
         kind = kind,
         name = kind.displayName,
@@ -164,5 +184,10 @@ class HomeMediaRowsTest {
         subtitle = "Film",
         artworkRes = R.drawable.media_placeholder,
         source = source,
+    )
+
+    private fun episode(id: String, title: String, subtitle: String) = LibraryMedia(
+        id = id, title = title, subtitle = subtitle, artworkRes = R.drawable.media_placeholder,
+        source = ServiceKind.EMBY, mediaType = "Episode",
     )
 }

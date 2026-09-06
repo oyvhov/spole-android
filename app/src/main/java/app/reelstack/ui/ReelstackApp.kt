@@ -172,7 +172,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onAccountClick = viewModel::openSeerrAccount,
                     )
                     AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
-                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests)
+                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount)
                     AppTab.SETTINGS -> SettingsScreen(
                         state = state,
                         contentPadding = PaddingValues(0.dp),

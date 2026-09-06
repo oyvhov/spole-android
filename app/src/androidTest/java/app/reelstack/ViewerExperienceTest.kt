@@ -27,6 +27,7 @@ class ViewerExperienceTest {
     }
     @Test fun verifiedAdminHasOverviewFilters() {
         rule.setContent { ReelstackTheme { ActivityScreen(ReelstackUiState(connections = listOf(connection), adminView = true), PaddingValues(0.dp), {}) } }
+        rule.onNodeWithTag("activity-scope").assertIsDisplayed().performClick()
         rule.onNodeWithText("Alt").assertIsDisplayed()
         rule.onNodeWithText("Radarr").assertIsDisplayed()
     }

@@ -30,9 +30,11 @@ class UiConsistencyTest {
         rule.onNodeWithText("Klare · 1").performScrollTo().performClick()
         rule.onNodeWithText("Klar for filmkveld").assertIsDisplayed()
         rule.onNodeWithText("På veg heim").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Framdrift: I biblioteket").assertDoesNotExist()
         rule.onNodeWithText("På veg · 1").performClick()
         rule.onNodeWithText("På veg heim").assertIsDisplayed()
         rule.onNodeWithText("Klar for filmkveld").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Framdrift: Førespurd").assertIsDisplayed()
     }
 
     @Test fun activityFiltersSourceAndOpensExactTitle() {
@@ -45,12 +47,15 @@ class UiConsistencyTest {
                 )), PaddingValues(0.dp), { opened = it })
             }
         }
+        rule.onNodeWithTag("activity-scope").performClick()
         rule.onNodeWithText("Radarr").performClick()
         rule.onNodeWithText("Film A").assertDoesNotExist()
         rule.onNodeWithText("Film B").performClick()
         assertEquals("two", opened)
+        rule.onNodeWithTag("activity-scope").performClick()
         rule.onNodeWithText("Sonarr").performClick()
         rule.onNodeWithText("Ingen hendingar her enno").assertIsDisplayed()
+        rule.onNodeWithTag("activity-scope").performClick()
         rule.onNodeWithText("Alt").performClick()
         rule.onNodeWithText("Film A").assertIsDisplayed()
     }

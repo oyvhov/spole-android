@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.ServiceAccount
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.screens.DiscoverScreen
 import app.reelstack.ui.screens.WelcomeScreen
@@ -26,12 +27,32 @@ class SetupAndDiscoverTest {
         rule.setContent {
             ReelstackTheme { DiscoverScreen(ReelstackUiState(discover = titles), PaddingValues(0.dp), {}, {}, {}) }
         }
-        rule.onNodeWithText("Kan leggjast til").performScrollTo().performClick()
+        rule.onNodeWithText("Status").performScrollTo().performClick()
+        rule.onNodeWithText("Kan leggjast til").performClick()
         rule.onNodeWithText("Klar film").assertDoesNotExist()
         rule.onNodeWithText("Ny serie").assertIsDisplayed()
-        rule.onNodeWithText("I biblioteket").performScrollTo().performClick()
+        rule.onNodeWithText("Kan leggjast til").performScrollTo().performClick()
+        rule.onNodeWithText("I biblioteket").performClick()
         rule.onNodeWithText("Ny serie").assertDoesNotExist()
         rule.onNodeWithText("Klar film").assertIsDisplayed()
+    }
+
+    @Test fun discoverUsesPersonalSeerrAvatarInHeaderWithoutIdentityCard() {
+        val connection = ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "session", sessionCookie = true)
+        val account = ServiceAccount(ServiceKind.SEERR, "7", "Maya")
+        var opened = false
+        rule.setContent {
+            ReelstackTheme {
+                DiscoverScreen(ReelstackUiState(connections = listOf(connection), accounts = mapOf(ServiceKind.SEERR to account)),
+                    PaddingValues(0.dp), {}, {}, {}, { opened = true })
+            }
+        }
+        rule.onNodeWithTag("discover-account").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Endre Seerr-kontoen til Maya").performClick()
+        assertEquals(true, opened)
+        rule.onNodeWithText("Som Maya").assertDoesNotExist()
+        rule.onNodeWithTag("request-identity").assertDoesNotExist()
+        rule.onNodeWithTag("discover-filters").assertIsDisplayed()
     }
 
     @Test fun firstRunOffersServicesAndExplicitPreview() {

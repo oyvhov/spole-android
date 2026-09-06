@@ -1,5 +1,15 @@
 # Spole design system
 
+### Navigation and activity refinement · 0.12.3
+
+Discover and Activity use the same pinned-size personal Seerr portrait target as Home. Discover
+collapses type and library availability into one horizontal filter rail; availability lives in a
+single status menu. Activity removes the normal sync timestamp and administrator chip wall. Ready
+requests are short recognition cards; only requests still moving through Seerr/Radarr/Sonarr show
+progress and a notification toggle. Home episode subtitles follow their own title immediately instead
+of inheriting blank title lines from neighbouring cards. A small in-memory portrait cache prevents
+lazy-list disposal from making the account image flash away after a short scroll.
+
 ### Popup entrance correction · 0.12.2
 
 `StableSheetDialog` supersedes the Material drag-anchor host below. A fixed 82% surface translates
@@ -73,7 +83,7 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 - Bottom sheets that receive remote metadata (title details, calendar, request composer) reserve a stable 90% content viewport from their first frame, plus the drag handle and system insets. Sheets whose content is already known — the connection form, the playback sheet — are sized by that content and capped at the same 90%, so a one-field form does not reserve most of the screen and leave it black. The size constraint belongs to the content, not the modal surface, so the sheet keeps its bottom anchor. Remote metadata updates only the scrollable interior; no content-size spring changes the outer anchor. Keyboard insets may resize the usable area deliberately.
 - Calendar keeps title, type filters and a 28-day date strip above a lazy agenda. A selected date filters the list; tapping it again or “Alle dagar” resets it. Empty days remain selectable. Rows have borderless 16:9 episode art or uncropped 2:3 film posters, 48 dp minimum targets, and a readable source/time label. Film dates do not imply an exact release time or availability in the library.
 - Home visibility has four independent library switches: Jellyfin movies/series and Emby movies/series. Older combined preferences migrate without re-enabling hidden rows. Hiding a row does not disconnect the service or disable its other features.
-- Discover, Activity and Calendar share `AppFilterRow`: compact solid filters, no outline, lime selected state and Material's minimum 48 dp interaction area. The visible chip is not inflated to fill its touch target.
+- Compact solid filters use no decorative outline, a lime selected state and Material's minimum 48 dp interaction area. Discover uses one mixed type/status rail; personal Activity keeps its three stage choices; Calendar keeps its date/type tools.
 - `ServiceSymbol` shares source identity across setup, settings and details. Jellyfin/Emby use their real logos; TV/movie/search icons describe the other services consistently.
 - Title/playback sheets have explicit close controls. The Calendar back button restores its saved filter, date and agenda position; a swipe, scrim tap or system Back dismisses the sheet. There is no close/reopen animation for the in-sheet Calendar button.
 - Home has one compact row: Spole identity and a 40 dp personal avatar inside a 48 dp account-settings target. No greeting, date or calendar shortcut in the header; Calendar remains under Upcoming. Prefer verified personal Seerr, then Jellyfin, then Emby; use the selected person's initial when artwork is missing and a neutral person icon when no personal identity is verified. Never substitute a shared API-key owner. The row's dimensions stay stable as the picture loads. Settings retains version/identity at its bottom. A preference row exposes one switch action, not competing row and thumb actions. Library notifications have an actual working master switch alongside each followed request's choice.

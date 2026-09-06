@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -22,6 +23,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -122,35 +126,109 @@ fun TrackedRequestCard(item: TrackedRequest, onDetails: () -> Unit, onNotify: (B
     val context = LocalContext.current
     val notifyAction by rememberUpdatedState(onNotify)
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifyAction(true) }
-    Column(Modifier.fillMaxWidth().padding(bottom = 16.dp).clip(RoundedCornerShape(18.dp)).background(SurfaceRaised).padding(16.dp)) {
-        Row(Modifier.fillMaxWidth().clickable(onClick = onDetails), verticalAlignment = Alignment.CenterVertically) {
-            MediaArtwork(item.artworkUrl, app.reelstack.R.drawable.media_placeholder, null,
-                Modifier.width(60.dp).height(90.dp).clip(RoundedCornerShape(8.dp)), ContentScale.Fit, ServiceKind.SEERR)
-            Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold)
-                Text((if (item.seasons.isEmpty()) "Film" else "Sesong ${item.seasons.sorted().joinToString(", ")}") + if (item.is4k) " · 4K" else "", color = Muted, fontSize = 12.sp)
-                Text(item.stage.label + (item.percent?.let { " · $it %" } ?: ""), color = when(item.stage) {
-                    RequestStage.AVAILABLE -> Success
-                    RequestStage.DECLINED, RequestStage.FAILED -> Warning
-                    else -> MaterialTheme.colorScheme.onSurface
-                }, fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 8.dp))
+    val active = item.stage != RequestStage.AVAILABLE
+    Surface(
+        color = SurfaceRaised,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("tracked-request-${item.key}"),
+    ) {
+        Column {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.weight(1f).clickable(onClickLabel = "Vis detaljar for ${item.title}", onClick = onDetails)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MediaArtwork(
+                        item.artworkUrl, app.reelstack.R.drawable.media_placeholder, null,
+                        Modifier.width(68.dp).height(102.dp).clip(RoundedCornerShape(10.dp)),
+                        ContentScale.Crop, ServiceKind.SEERR,
+                    )
+                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                        Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp,
+                            lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(
+                            (if (item.seasons.isEmpty()) "Film" else "Sesong ${item.seasons.sorted().joinToString(", ")}") +
+                                if (item.is4k) " · 4K" else "",
+                            color = Muted, fontSize = 11.sp, maxLines = 1,
+                            modifier = Modifier.padding(top = 3.dp),
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 9.dp)) {
+                            Icon(
+                                when (item.stage) {
+                                    RequestStage.AVAILABLE -> Icons.Rounded.CheckCircle
+                                    RequestStage.DOWNLOADING -> Icons.Rounded.Download
+                                    RequestStage.FAILED, RequestStage.DECLINED -> Icons.Rounded.ErrorOutline
+                                    else -> Icons.Rounded.Schedule
+                                }, null,
+                                tint = when (item.stage) {
+                                    RequestStage.AVAILABLE -> Success
+                                    RequestStage.FAILED, RequestStage.DECLINED -> Warning
+                                    else -> Primary
+                                }, modifier = Modifier.size(16.dp),
+                            )
+                            Text(
+                                item.stage.label + (item.percent?.let { " · $it %" } ?: ""),
+                                color = when (item.stage) {
+                                    RequestStage.AVAILABLE -> Success
+                                    RequestStage.DECLINED, RequestStage.FAILED -> Warning
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                },
+                                fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1,
+                                modifier = Modifier.padding(start = 6.dp),
+                            )
+                        }
+                    }
+                    if (!active) Icon(Icons.Rounded.ChevronRight, "Vis detaljar", tint = Muted, modifier = Modifier.size(20.dp))
+                }
+                if (active) {
+                    IconToggleButton(
+                        checked = item.notify,
+                        onCheckedChange = { enabled ->
+                            if (enabled && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context)) {
+                                permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else onNotify(enabled)
+                        },
+                        modifier = Modifier.padding(end = 8.dp).semantics {
+                            contentDescription = if (item.notify) "Varsel på for ${item.title}" else "Varsel av for ${item.title}"
+                        },
+                    ) {
+                        Icon(
+                            if (item.notify) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
+                            null, tint = if (item.notify) Primary else Muted,
+                        )
+                    }
+                }
             }
-            Icon(Icons.Rounded.ChevronRight, "Vis detaljar", tint = Muted)
+            if (active) {
+                CompactRequestProgress(item, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp))
+            }
         }
-        app.reelstack.ui.components.RequestJourney(item.stage, Modifier.padding(top = 18.dp))
-        Text(item.stage.explanation, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 10.dp))
-        if (item.seasons.isNotEmpty() && item.availableSeasons.isNotEmpty() && item.stage != RequestStage.AVAILABLE) {
-            Text("${item.availableSeasons.size} av ${item.seasons.size} sesongar er i biblioteket", color = Primary,
-                fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+@Composable
+private fun CompactRequestProgress(item: TrackedRequest, modifier: Modifier = Modifier) {
+    val filled = when (item.stage) {
+        RequestStage.AVAILABLE -> 3
+        RequestStage.DOWNLOADING, RequestStage.IMPORTING -> 2
+        RequestStage.REQUESTED -> 1
+        else -> 0
+    }
+    Column(modifier.clearAndSetSemantics { contentDescription = "Framdrift: ${item.stage.label}" }) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            repeat(3) { index ->
+                Box(Modifier.weight(1f).height(3.dp).clip(CircleShape)
+                    .background(if (index < filled) Primary else Divider))
+            }
         }
-        if (item.stage != RequestStage.AVAILABLE) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Varsle når det er klart", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                Switch(item.notify, onCheckedChange = { enabled ->
-                    if (enabled && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context)) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else onNotify(enabled)
-                })
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+            Text(item.stage.explanation, color = Muted, fontSize = 11.sp, lineHeight = 16.sp,
+                maxLines = 2, modifier = Modifier.weight(1f))
+            if (item.seasons.isNotEmpty() && item.availableSeasons.isNotEmpty()) {
+                Text("${item.availableSeasons.size}/${item.seasons.size} sesongar", color = PrimarySoft,
+                    fontSize = 11.sp, modifier = Modifier.padding(start = 12.dp))
             }
         }
     }

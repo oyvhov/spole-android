@@ -10,6 +10,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -63,6 +64,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
@@ -74,9 +76,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -110,7 +115,8 @@ import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.ActivitySkeleton
 import app.reelstack.ui.components.DiscoverSkeleton
-import app.reelstack.ui.components.RequestIdentity
+import app.reelstack.ui.components.AccountAvatarButton
+import app.reelstack.ui.components.verifiedPanelAccount
 import app.reelstack.ui.components.SettingsAccounts
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.theme.Caution
@@ -193,7 +199,25 @@ fun DiscoverScreen(
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
-                ScreenHeader("", "Oppdag", "Den neste historia di byrjar her.")
+                val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
+                val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Oppdag", color = TextColor, style = MaterialTheme.typography.displaySmall,
+                            modifier = Modifier.padding(top = 6.dp))
+                        Text("Den neste historia di byrjar her.", color = Muted, fontSize = 13.sp,
+                            lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
+                    }
+                    AccountAvatarButton(
+                        account = account,
+                        connection = connection,
+                        onClick = onAccountClick,
+                        description = account?.let { "Endre Seerr-kontoen til ${it.displayName}" }
+                            ?: "Logg inn på Seerr",
+                        testTag = "discover-account",
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = onSearch,
@@ -221,9 +245,8 @@ fun DiscoverScreen(
                     ),
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 )
-                AppFilterRow(DiscoverFilter.entries, filter, { it.label }, { filter = it }, Modifier.padding(top = 12.dp))
-                AppFilterRow(LibraryFilter.entries, libraryFilter, { it.label }, { libraryFilter = it })
-                RequestIdentity(state, onSignIn = onAccountClick)
+                DiscoverFilterBar(filter, libraryFilter, { filter = it }, { libraryFilter = it },
+                    Modifier.padding(top = 12.dp))
             }
         }
         if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank()
@@ -249,6 +272,63 @@ fun DiscoverScreen(
             }
         }
     }
+    }
+}
+
+@Composable
+private fun DiscoverFilterBar(
+    type: DiscoverFilter,
+    library: LibraryFilter,
+    onType: (DiscoverFilter) -> Unit,
+    onLibrary: (LibraryFilter) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var statusOpen by rememberSaveable { mutableStateOf(false) }
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier.fillMaxWidth().testTag("discover-filters"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(DiscoverFilter.entries, key = { "type-${it.name}" }) { option ->
+            FilterChip(
+                selected = option == type,
+                onClick = { onType(option) },
+                label = { Text(option.label, maxLines = 1) },
+                shape = RoundedCornerShape(10.dp), border = null,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = SurfaceRaised, labelColor = Muted,
+                    selectedContainerColor = Primary, selectedLabelColor = Ink,
+                ),
+                modifier = Modifier.minimumInteractiveComponentSize(),
+            )
+        }
+        item(key = "library-status") {
+            Box {
+                FilterChip(
+                    selected = library != LibraryFilter.ALL,
+                    onClick = { statusOpen = true },
+                    label = { Text(if (library == LibraryFilter.ALL) "Status" else library.label, maxLines = 1) },
+                    trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },
+                    shape = RoundedCornerShape(10.dp), border = null,
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = SurfaceRaised, labelColor = Muted,
+                        selectedContainerColor = Primary, selectedLabelColor = Ink,
+                    ),
+                    modifier = Modifier.minimumInteractiveComponentSize().testTag("discover-status-filter"),
+                )
+                DropdownMenu(expanded = statusOpen, onDismissRequest = { statusOpen = false },
+                    containerColor = SurfaceRaised) {
+                    LibraryFilter.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.label) },
+                            leadingIcon = if (option == library) {
+                                { Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(18.dp)) }
+                            } else null,
+                            onClick = { onLibrary(option); statusOpen = false },
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -314,7 +394,8 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
 }
 @Composable
 fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit,
-                   onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {}) {
+                   onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {},
+                   onAccountClick: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var savedSourceFilter by rememberSaveable {
         mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) ActivityFilter.MINE else ActivityFilter.ALL)
@@ -335,27 +416,45 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     ReelPage {
     LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
         item {
-            ScreenHeader("", "Aktivitet", "Frå første førespurnad til klart for filmkveld.")
-            if (state.adminView || state.configuredCount == 0) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
+            val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
+            val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    ScreenHeader("", "Aktivitet", "Det du har lagt til, frå førespurnad til klart.")
+                }
+                AccountAvatarButton(
+                    account, connection, onAccountClick,
+                    account?.let { "Endre Seerr-kontoen til ${it.displayName}" } ?: "Logg inn på Seerr",
+                    "activity-account", Modifier.padding(top = 2.dp),
+                )
+            }
+            if ((state.adminView || state.configuredCount == 0) && (state.isRefreshing || hasIssues || state.configuredCount == 0)) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)) {
                 Box(Modifier.size(7.dp).clip(CircleShape)
                     .background(if (hasIssues) Caution else Muted))
                 Text(when {
                     state.configuredCount == 0 -> "Førehandsvising med demodata"
                     state.isRefreshing -> "Oppdaterer…"
                     hasIssues -> "Noko kunne ikkje oppdaterast. Sjå Innstillingar."
-                    state.lastUpdatedEpochMillis != null -> "Sist oppdatert kl. " + Instant.ofEpochMilli(state.lastUpdatedEpochMillis)
-                        .atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
                     else -> "Ventar på første oppdatering"
                 }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(start = 10.dp))
             }
-            if (state.adminView || state.configuredCount == 0) AppFilterRow(ActivityFilter.entries, sourceFilter, { it.label }, { savedSourceFilter = it }, Modifier.padding(bottom = 12.dp))
+            if (state.adminView || state.configuredCount == 0) {
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Vising", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    ActivityScopeMenu(sourceFilter, { savedSourceFilter = it })
+                }
+            }
         }
         if (sourceFilter == ActivityFilter.MINE) {
             item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Førespurnadene dine", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onRefresh, enabled = !state.trackingLoading) { Text(if (state.trackingLoading) "Sjekkar…" else "Oppdater") }
+                Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Førespurnadene dine", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onRefresh, enabled = !state.trackingLoading,
+                        modifier = Modifier.testTag("activity-refresh")) {
+                        if (state.trackingLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
+                        else Icon(Icons.Rounded.Refresh, "Oppdater førespurnadene", tint = Primary)
+                    }
                 }
                 state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp)) }
                 if (state.trackedRequests.isNotEmpty()) {
@@ -366,7 +465,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                             PersonalActivityFilter.IN_PROGRESS -> state.trackedRequests.count { it.stage != app.reelstack.data.model.RequestStage.AVAILABLE }
                         }
                         "${choice.label} · $count"
-                    }, { personalFilter = it }, Modifier.padding(bottom = 12.dp))
+                    }, { personalFilter = it }, Modifier.padding(top = 4.dp, bottom = 12.dp))
                     if (personalRequests.isEmpty()) Text("Ingen førespurnader i dette filteret.", color = Muted,
                         modifier = Modifier.padding(vertical = 16.dp))
                 }
@@ -396,6 +495,10 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 }
             }
         } else {
+            item {
+                Text("Tenesteaktivitet", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 20.dp))
+            }
             // Group by day so a long feed can be skimmed instead of read as one undifferentiated list.
             var lastGroup: String? = null
             events.forEach { event ->
@@ -412,6 +515,28 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
             }
         }
     }
+    }
+}
+
+@Composable
+private fun ActivityScopeMenu(selected: ActivityFilter, onSelect: (ActivityFilter) -> Unit) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }, modifier = Modifier.testTag("activity-scope")) {
+            Text(selected.label, color = PrimarySoft)
+            Icon(Icons.Rounded.ArrowDropDown, null, tint = PrimarySoft, modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = SurfaceRaised) {
+            ActivityFilter.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    leadingIcon = if (option == selected) {
+                        { Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(18.dp)) }
+                    } else null,
+                    onClick = { onSelect(option); expanded = false },
+                )
+            }
+        }
     }
 }
 

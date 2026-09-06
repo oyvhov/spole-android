@@ -89,7 +89,7 @@ import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.IncomingSkeleton
 import app.reelstack.ui.components.LibraryRailSkeleton
-import app.reelstack.ui.components.AccountAvatar
+import app.reelstack.ui.components.AccountAvatarButton
 import app.reelstack.ui.components.preferredHomeAccount
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.UpcomingSkeleton
@@ -334,12 +334,14 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit) {
                 Text("Spole", color = TextColor, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
             }
-        IconButton(onClick = onAccountClick, modifier = Modifier.size(48.dp).testTag("home-account").semantics {
-            contentDescription = account?.let { "Opne kontoen til ${it.displayName} · ${it.source.displayName}" }
-                ?: "Opne kontoinnstillingar"
-        }) {
-            AccountAvatar(account, connection, Modifier.size(40.dp))
-        }
+        AccountAvatarButton(
+            account = account,
+            connection = connection,
+            onClick = onAccountClick,
+            description = account?.let { "Opne kontoen til ${it.displayName} · ${it.source.displayName}" }
+                ?: "Opne kontoinnstillingar",
+            testTag = "home-account",
+        )
     }
 }
 
@@ -694,7 +696,8 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             lineHeight = 19.sp,
             maxLines = titleLines,
             overflow = TextOverflow.Ellipsis,
-            minLines = titleLines,
+            // A long neighbouring title must not reserve a blank line in this card.
+            minLines = 1,
             modifier = Modifier.padding(top = 9.dp),
         )
         Text(
