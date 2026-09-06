@@ -33,6 +33,7 @@ import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.model.isMovieRelease
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.AppFilterRow
+import app.reelstack.ui.components.SheetToolbar
 import app.reelstack.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -72,13 +73,9 @@ internal fun UpcomingCalendarSheet(
     val agendaState = rememberLazyListState()
     LaunchedEffect(filter, selectedDay) { agendaState.scrollToItem(0) }
     Column(Modifier.fillMaxSize().testTag("calendar")) {
-        Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Kalender", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text("Filmar heime og nye episodar", color = Muted, fontSize = 13.sp)
-            }
-            IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Lukk kalenderen") }
-        }
+        SheetToolbar("Kalender", "Lukk kalenderen", onDismiss)
+        Text("Filmar heime og nye episodar", color = Muted, fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 24.dp))
         AppFilterRow(CalendarFilter.entries, filter, { it.label }, { filter = it },
             Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         Text(

@@ -1,5 +1,11 @@
 # HomeReel layout
 
+Popup override (Spole 0.12.1): all five modal routes share a fixed viewport and one pinned toolbar.
+The X sits at the top-right trailing inset, never within scrolling content. Body scroll gestures no
+longer drag the outer sheet; close with X, scrim tap or Android Back. No drag-handle affordance remains.
+The calendar's explicit back button still returns to the saved date/filter. These rules replace the
+older content-sized connection/playback exceptions and swipe-to-dismiss references below.
+
 Current overrides (Spole 0.12.0): Home uses Spole identity + personal avatar, no date/greeting/calendar shortcut,
 and no empty playback section. Calendar stays under Upcoming. Discover uses image overlays and embedded request
 buttons, with separate type/availability filters. All remote-content sheets share the same 82% viewport;

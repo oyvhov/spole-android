@@ -29,6 +29,7 @@ import app.reelstack.background.LibraryNotifications
 import app.reelstack.data.model.*
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.RequestIdentity
+import app.reelstack.ui.components.SheetToolbar
 import app.reelstack.ui.theme.*
 
 @Composable
@@ -40,11 +41,8 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { confirm() }
     val isSeries = draft.media.mediaType == "tv"
     Column(Modifier.fillMaxSize().testTag("request-composer")) {
-        Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Ny førespurnad", fontSize = 25.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            IconButton(onClick = onDismiss, enabled = !draft.sending) { Icon(Icons.Rounded.Close, "Lukk førespurnaden") }
-        }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
+        SheetToolbar("Ny førespurnad", "Lukk førespurnaden", onDismiss, enabled = !draft.sending)
+        Column(Modifier.weight(1f).testTag("request-scroll").verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MediaArtwork(draft.media.artworkUrl, draft.media.artworkRes, null,
                     Modifier.width(82.dp).height(123.dp).clip(RoundedCornerShape(10.dp)), ContentScale.Fit, ServiceKind.SEERR)

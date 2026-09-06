@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.1
+
+- Rettar X som hamna inne i arket på korte detaljoverskrifter: éi felles topplinje med fast lukkeknapp øvst til høgre for alle popupane.
+- Skil rulling av innhaldet frå rørsla til heile popupen, slik at arket ikkje blir drege med ved rullegrensene. Lukking skjer med X, trykk utanfor eller Android Tilbake.
+- Held òg innlogging og avspeling i den faste popup-ramma. Feil, innloggingssteg og nye opplysningar endrar ikkje den ytre høgda.
+- Flyttar innlogginga sin lukkeknapp ut av rulleinnhaldet og fjernar dobbel tastaturmarg.
+- Animerer X-lukking før arket blir fjerna; vernet mot lukking under sending omfattar no òg Android sin tilbakeknapp.
+- Nye Android-testar kontrollerer plassering medan fingeren er nede, raske rullerørsler, dataoppdateringar, alle popup-typar, tastatur og stor skrift.
+
 ## 0.12.0
 
 - Nyleg tilgjengeleg krev no filmkopi i eigne bibliotek og stadfesta digital utgjevingsdato; nye tilgjengelege episodar bruker sin eigen premieredato. Ingen Radarr-/Sonarr-nøkkel er nødvendig for denne rada.

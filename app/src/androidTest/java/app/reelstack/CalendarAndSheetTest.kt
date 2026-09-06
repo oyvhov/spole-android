@@ -150,6 +150,7 @@ class CalendarAndSheetTest {
         rule.onNodeWithText("Film B").assertDoesNotExist()
         rule.onNodeWithText("Episode B").performClick()
         rule.onNodeWithContentDescription("Lukk detaljane").performClick()
+        rule.waitUntil { closed } // The explicit close now waits for the exit animation.
         assertEquals(true, closed)
     }
 }

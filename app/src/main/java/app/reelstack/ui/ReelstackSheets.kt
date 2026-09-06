@@ -4,21 +4,18 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.core.net.toUri
 import app.reelstack.data.model.ContentDetails
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import app.reelstack.ui.components.ServiceSymbol
 import app.reelstack.data.model.resolvedMediaType
 import app.reelstack.data.model.canRequest
@@ -50,7 +47,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -59,7 +55,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Download
@@ -80,6 +75,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -114,6 +110,9 @@ import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.DetailTextSkeleton
 import app.reelstack.ui.components.RequestIdentity
 import app.reelstack.ui.components.ServiceLogo
+import app.reelstack.ui.components.SheetToolbar
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,88 +143,68 @@ fun ReelstackSheets(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
         confirmValueChange = { value -> value != androidx.compose.material3.SheetValue.Hidden || state.requestDraft?.sending != true })
     val sheetContentStates = rememberSaveableStateHolder()
+    val scope = rememberCoroutineScope()
+    var closing by remember { mutableStateOf(false) }
+    val close: () -> Unit = {
+        if (!closing && state.requestDraft?.sending != true) {
+            closing = true
+            scope.launch {
+                try {
+                    sheetState.hide()
+                    if (!sheetState.isVisible) onDismiss()
+                } finally { closing = false }
+            }
+        }
+    }
     ModalBottomSheet(
-        // A dismiss gesture has already hidden the modal. Only the explicit
-        // calendar back control changes its content without closing the surface.
-        onDismissRequest = onDismiss,
+        // Dialog Back is not routed through confirmValueChange in all Material versions.
+        // Guard the dialog too; never abandon an in-flight personal request.
+        onDismissRequest = { if (state.requestDraft?.sending != true) onDismiss() },
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = state.requestDraft?.sending != true),
         sheetState = sheetState,
+        // A reading gesture belongs only to the body, including at its scroll boundaries.
+        // Otherwise Material's nested-scroll connection drags/bounces the whole modal.
+        sheetGesturesEnabled = false,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         containerColor = app.reelstack.ui.theme.Surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
         scrimColor = Color(0xB8040308),
         tonalElevation = 0.dp,
-        dragHandle = {
-            Box(
-                Modifier.padding(top = 12.dp, bottom = 5.dp).size(width = 36.dp, height = 4.dp)
-                    .background(app.reelstack.ui.theme.Muted, CircleShape),
-            )
-        },
+        dragHandle = null,
     ) {
-        // A stable anchor matters only where remote metadata arrives into the layout. Sheets whose
-        // content is already known are sized by that content, capped at the same 90 %, so a
-        // one-field form does not reserve most of the screen and leave it black.
+        // All routes have the same anchor. Form steps, errors and playback updates must not
+        // resize the modal either. Material owns system/keyboard insets; bodies do not add them.
         val windowHeight = with(LocalDensity.current) {
             androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toDp()
         }
-        val maxSheetHeight = windowHeight * 0.90f
-        val fillsViewport = when (sheet) {
-            is AppSheet.TitleDetails, AppSheet.UpcomingCalendar, AppSheet.RequestComposer -> true
-            else -> false
-        }
-        val viewport = if (fillsViewport) {
-            // One anchor across calendar, details and request composer, including async updates.
-            Modifier.height(windowHeight * 0.82f)
-        } else {
-            Modifier.heightIn(max = maxSheetHeight).wrapContentHeight(Alignment.Top)
-        }
-        // Hoisted so the header can tell whether the hero is still on screen.
+        val viewport = Modifier.height(windowHeight * 0.82f)
         val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
         Column(viewport.fillMaxWidth().testTag("sheet-viewport")) {
             if (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails) {
-                Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (state.returnToCalendar) {
-                        TextButton(onClick = onBackToCalendar) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, Modifier.size(18.dp))
-                            Text("Kalender", modifier = Modifier.padding(start = 8.dp))
-                        }
-                    } else {
-                        // Once the hero has scrolled away the bar carries the real title, so the
-                        // reader keeps context. While the hero is visible it would only repeat it.
-                        val scrolledPastHero by remember { derivedStateOf { detailScroll.value > 220 } }
-                        val heading = when (sheet) {
-                            is AppSheet.SessionDetails -> state.sessions.firstOrNull { it.key == sheet.sessionKey }?.title
-                            else -> state.contentDetails?.title
-                        }
-                        Text(
-                            if (scrolledPastHero && heading != null) heading
-                            else if (sheet is AppSheet.SessionDetails) "Avspeling" else "Detaljar",
-                            color = Muted, fontSize = 13.sp, maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp),
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Lukk detaljane") }
-                }
+                SheetToolbar(
+                    title = if (sheet is AppSheet.SessionDetails) "Avspeling" else "Detaljar",
+                    closeDescription = "Lukk detaljane", onClose = close, enabled = !closing,
+                    onBack = if (state.returnToCalendar) onBackToCalendar else null,
+                )
             }
             Box(
-                if (fillsViewport) Modifier.weight(1f).fillMaxWidth() else Modifier.fillMaxWidth(),
+                Modifier.weight(1f).fillMaxWidth(),
             ) {
             when (sheet) {
                 AppSheet.RequestComposer -> RequestComposer(state, onRequestSeason, onRequestNotification,
-                    onConfirmRequest, onDismiss, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount)
+                    onConfirmRequest, close, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount)
                 is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle, detailScroll)
                 is AppSheet.TitleDetails -> state.contentDetails?.let {
                     RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia, onSeerrAccount = onSeerrAccount, scroll = detailScroll)
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
-                    UpcomingCalendarSheet(state.upcoming, onUpcomingClick, onDismiss)
+                    UpcomingCalendarSheet(state.upcoming, onUpcomingClick, close)
                 }
                 is AppSheet.ConnectionEditor -> connectionDraft?.let {
                     ConnectionEditorSheet(
                         draft = it,
                         configured = state.connections.firstOrNull { item -> item.kind == it.kind }?.baseUrl?.isNotBlank() == true,
-                        onDismiss = onDismiss,
+                        onDismiss = close,
                         onNameChange = onConnectionNameChange,
                         onUrlChange = onConnectionUrlChange,
                         onTokenChange = onConnectionTokenChange,
@@ -254,6 +233,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val visibleFacts = details.facts.filterNot { it == details.source?.displayName }.distinct()
     Column(
         Modifier
+            .testTag("detail-scroll")
             .verticalScroll(scroll)
             .padding(start = 24.dp, end = 24.dp, bottom = 40.dp),
     ) {
@@ -657,23 +637,10 @@ private fun DetailPill(text: String) {
 }
 
 @Composable
-private fun SheetHeader(title: String, description: String, onDismiss: (() -> Unit)? = null) {
-    Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, style = MaterialTheme.typography.headlineSmall)
-            Text(description, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
-        }
-        onDismiss?.let {
-            IconButton(onClick = it) { Icon(Icons.Rounded.Close, contentDescription = "Lukk") }
-        }
-    }
-}
-
-@Composable
 private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlaybackToggle: (String) -> Unit, scroll: ScrollState) {
     val session = state.sessions.firstOrNull { it.key == sessionKey } ?: return
     Column(
-        Modifier.verticalScroll(scroll).padding(start = 18.dp, end = 18.dp, bottom = 34.dp),
+        Modifier.testTag("session-scroll").verticalScroll(scroll).padding(start = 18.dp, end = 18.dp, bottom = 34.dp),
     ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(286.dp).clip(RoundedCornerShape(28.dp)),
@@ -827,16 +794,18 @@ internal fun ConnectionEditorSheet(
             .onSuccess { onUrlChange(it); credentialsStep = true; focus.clearFocus() }
             .onFailure { addressError = it.message }
     }
+    Column(Modifier.fillMaxSize()) {
+        SheetToolbar("Logg inn på ${draft.kind.displayName}", "Lukk", onDismiss)
     Column(
-        Modifier.imePadding().verticalScroll(rememberScrollState())
+        Modifier.weight(1f).testTag("connection-scroll").verticalScroll(rememberScrollState())
             .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
     ) {
         // A step marker only helps when it says how many steps there are.
         Text(if (configured) "TILKOPLING" else if (credentialsStep) "STEG 2 AV 2 · LOGG INN" else "STEG 1 AV 2 · FINN TENAREN",
             color = Muted, fontSize = 11.sp, letterSpacing = 1.4.sp,
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-        SheetHeader("Logg inn på ${draft.kind.displayName}",
-            if (credentialsStep) "Bruk kontoen din. Vi tek vare på resten." else "Bruk adressa du vanlegvis opnar i nettlesaren.", onDismiss)
+        Text(if (credentialsStep) "Bruk kontoen din. Vi tek vare på resten."
+            else "Bruk adressa du vanlegvis opnar i nettlesaren.", color = Muted, fontSize = 14.sp)
         if (configured) {
             TextButton(onClick = { confirmSignOut = true }, enabled = !draft.saving) { Text("Logg ut", color = Warning) }
         }
@@ -1025,6 +994,7 @@ internal fun ConnectionEditorSheet(
         if (draft.saving) {
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Avbryt") }
         }
+    }
     }
 }
 

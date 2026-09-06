@@ -2,6 +2,22 @@
 
 ## Current refinements · 0.12.0
 
+### Popup correction · 0.12.1 (supersedes earlier sheet rules)
+
+Every modal route, including connection steps and playback, now keeps an 82% content viewport.
+There is no content-sized exception. One shared `SheetToolbar` owns the top row: 48 dp close target,
+36 dp circular surface, 20 dp icon, 12 dp trailing inset. The close target is top-aligned independently
+of title length and stays outside the scrolling body. Calendar retains its explicit back action.
+Material handles keyboard/system insets once; the connection body no longer adds another IME inset.
+
+Content scrolling does not drag or dismiss the modal. `sheetGesturesEnabled = false` removes the
+competing parent nested-scroll gesture, and the drag handle is removed so it does not promise that
+interaction. Close, scrim tap and Android Back remain available; the explicit close animates the sheet
+out before removing it. Sending a request still prevents dismissal. Headers never switch title based
+on pixel scroll thresholds. Test bounds during a held drag as well as after flings and async updates.
+
+API reference: [Material modal gesture control](https://developer.android.com/reference/kotlin/androidx/compose/material3/ModalBottomSheet.composable).
+
 These supersede older sizing descriptions below. Title details, Calendar and Request Composer share an exact
 82% content viewport. Inner text uses minimum heights, never clipping fixed boxes. Synopsis starts at four
 lines with an explicit expand/collapse action; the outer modal stays still. Cast appears only from service

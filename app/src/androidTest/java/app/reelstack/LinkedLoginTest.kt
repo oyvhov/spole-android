@@ -73,6 +73,12 @@ class LinkedLoginTest {
                 assertNull(model.connectionDraft.value)
                 assertEquals("jellyfin-personal", container.connectionRepository.get(ServiceKind.EMBY).token)
                 assertEquals("media-user", container.connectionRepository.get(ServiceKind.EMBY).userId)
+                // Saving dismisses the form before the independent profile refresh completes.
+                // Wait for that result, not just saving=false, without hiding profile failures.
+                val profileDeadline = System.currentTimeMillis() + 15000
+                while (model.uiState.value.accounts[ServiceKind.EMBY] == null &&
+                    model.uiState.value.accountErrors[ServiceKind.EMBY] == null &&
+                    System.currentTimeMillis() < profileDeadline) Thread.sleep(25)
                 assertEquals("Test User", model.uiState.value.accounts[ServiceKind.EMBY]?.displayName)
             } else if (rejectSeerr || mismatchedId) {
                 assertNotNull(model.connectionDraft.value?.error)
