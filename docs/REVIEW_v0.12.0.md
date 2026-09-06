@@ -28,7 +28,7 @@ eigen identitet utan nettverksavhengig pynt. Ingen ny backend eller ekstra innlo
 
 - Utgjevingsradene er gjennomgått på nytt: «Nyleg tilgjengeleg» er eit snitt av personleg bibliotektilgjenge og ny digital dato (filmar), eller ny premieredato for ein tilgjengeleg episode. Kalenderen er framleis Radarr/Sonarr. Sjå [planen for delt kalender](SHARED_CALENDAR_PLAN.md).
 - Konto- og administratorgrenser er bevarte. Ingen ekte førespurnader eller avspelingskommandoar blir sende under review.
-- Testemulatoren er skild frå review-data. Den gamle review-installasjonen viste førstegongsoppsett; denne runden kan difor ikkje stadfeste dei gamle tenestekontoane.
+- Testemulatoren er skild frå review-data. Etter ny personleg innlogging er Seerr, Jellyfin, Emby og Radarr kontrollerte som aktive i produksjonsappen. Heim viser nye bibliotekepisodar og Radarr-filmar i kalenderen. Sonarr er framleis ikkje tilkopla. Sjå [verifiseringa](VERIFICATION_v0.12.0.md) for nøyaktige avgrensingar.
 - Ein ny, synleg `Spole_Review`-emulator på port 5560 er opna for personleg innlogging. Data ligg utanfor byggmappa i `C:/JellyBin/.spole-review-avds`. Instrumentering skal berre køyre på `Spole_Instrumentation`, port 5562.
 - Medverkande avheng av metadata på tenaren. Manglande bilete gir initialar; manglande credits skjuler delen.
 - Dette er ei samla kvalitetsforbetring, ikkje ei påstand om full Seerr-administrasjon. Paginering, godkjenningsverktøy og eit komplett historikkarkiv er framleis eigne produktsteg.
