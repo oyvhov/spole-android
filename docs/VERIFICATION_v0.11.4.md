@@ -11,7 +11,8 @@
 
 ## Kjelde for lista
 
-`recommendations.json` i GitHub-repoet er den delte kjelda. Han kan endrast med nye TMDB-ID-ar,
+`recommendations.json` i det offentlege [spole-recommendations-repoet](https://github.com/oyvhov/spole-recommendations)
+er den delte kjelda. Han kan endrast med nye TMDB-ID-ar,
 medietype, tittel, postersti, sjanger og kort omtale. Appen byggjer ikkje denne lista frå ein lokal
 server eller ein ny backend.
 

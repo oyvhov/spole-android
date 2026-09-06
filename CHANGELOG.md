@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.5
+
+- Peikar den felles anbefalingslista til det offentlege `spole-recommendations`-repoet, slik at alle
+  installasjonar kan hente henne utan GitHub-innlogging.
+
 ## 0.11.4
 
 - Rettar Anbefalingar til å bruke den felles, statiske `recommendations.json`-lista frå GitHub.

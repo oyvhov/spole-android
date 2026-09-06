@@ -17,6 +17,6 @@ class RecommendationsClient(
 
     private companion object {
         const val DEFAULT_ENDPOINT =
-            "https://raw.githubusercontent.com/oyvhov/reelstack-android/main/recommendations.json"
+            "https://raw.githubusercontent.com/oyvhov/spole-recommendations/main/recommendations.json"
     }
 }

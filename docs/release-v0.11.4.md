@@ -1,7 +1,7 @@
 ## Spole 0.11.4 · Felles anbefalingar frå GitHub
 
 - Rettar “Anbefalingar” frå Seerr-trending til ei felles, kuratert liste i
-  [`recommendations.json`](https://github.com/oyvhov/reelstack-android/blob/main/recommendations.json).
+  [`spole-recommendations`](https://github.com/oyvhov/spole-recommendations).
 - Lista kan oppdaterast på GitHub utan at appen må byggjast eller publiserast på nytt.
 - Appen cache-ar lista lokalt. Seerr blir berre brukt for live status, detaljar og førespurnader når
   brukaren opnar ein tittel.
