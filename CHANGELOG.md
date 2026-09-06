@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.7
+
+- Publiserer ein produksjons-APK med pakkenamnet `app.reelstack`, i staden for den mellombelse
+  debug-pakken som gjorde Android-oppdateringar avhengige av lokal debug-signering.
+- Innfører stabil lokal releasesignering, slik at nye APK-ar kan installerast som vanlege oppdateringar
+  framover.
+
 ## 0.11.6
 
 - Sjekkar anbefalingar mot Seerr under synkronisering, slik at Home viser om tittelen alt ligg i

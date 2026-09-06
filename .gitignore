@@ -9,3 +9,5 @@ captures/
 .cxx/
 *.hprof
 *.apk
+signing.properties
+.spole-signing/

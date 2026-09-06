@@ -3,6 +3,22 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+import java.util.Properties
+
+val signingProperties = Properties().apply {
+    val propertiesFile = rootProject.file("signing.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use(::load)
+    }
+}
+
+val hasStableReleaseSigning = listOf(
+    "storeFile",
+    "storePassword",
+    "keyAlias",
+    "keyPassword",
+).all { signingProperties.getProperty(it).isNullOrBlank().not() }
+
 android {
     namespace = "app.reelstack"
 
@@ -16,8 +32,8 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-        versionCode = 28
-        versionName = "0.11.6"
+        versionCode = 29
+        versionName = "0.11.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -29,6 +45,14 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
+            if (hasStableReleaseSigning) {
+                signingConfig = signingConfigs.create("stableRelease") {
+                    storeFile = rootProject.file(signingProperties.getProperty("storeFile"))
+                    storePassword = signingProperties.getProperty("storePassword")
+                    keyAlias = signingProperties.getProperty("keyAlias")
+                    keyPassword = signingProperties.getProperty("keyPassword")
+                }
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
