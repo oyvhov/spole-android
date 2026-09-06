@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.3
+
+- La til Anbefalingar frå Seerr som ei eiga, valfri Home-rad med moderne overlay-kort og detaljvising.
+- La til Nyleg tilgjengeleg som ein separat release-feed frå Radarr og Sonarr, sortert etter digital/heime- eller episode-release.
+- Avgrensa release-historia til dei siste 28 dagane og ignorerer filmar som berre har kinodato, slik at gamle bibliotekfilmar ikkje dukkar opp som nye.
+- Held fram med eigne Jellyfin- og Emby-rader for sist lagde bibliotekinnhald, utan å blande kjeldene.
+- La til skeleton-lasting, cache-støtte, detaljpopup og Innstillingar-migrering for dei nye Home-delane.
+
 ## 0.10.1
 
 - Removed the Home greeting and date. The compact brand header now includes a personal profile picture that opens account settings.

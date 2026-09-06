@@ -30,6 +30,7 @@ data class CachedMediaSnapshot(
     val recentMovies: List<LibraryMedia>,
     val recentSeries: List<LibraryMedia>,
     val upcoming: List<UpcomingMedia>,
+    val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
     val activity: List<ActivityEvent>,
@@ -47,6 +48,7 @@ class MediaSnapshotStore(context: Context) {
             put("recentMovies", libraryJson(snapshot.recentMovies))
             put("recentSeries", libraryJson(snapshot.recentSeries))
             put("upcoming", upcomingJson(snapshot.upcoming))
+            put("recentReleases", upcomingJson(snapshot.recentReleases))
             put("incoming", buildJsonArray { })
             put("discover", discoverJson(snapshot.discover))
             put("activity", buildJsonArray { })
@@ -73,6 +75,7 @@ class MediaSnapshotStore(context: Context) {
                 legacyRecentlyAdded.filter(::looksLikeSeries)
             },
             upcoming = root.array("upcoming").mapNotNull(::upcomingItem),
+            recentReleases = root.array("recentReleases").mapNotNull(::upcomingItem),
             incoming = root.array("incoming").mapNotNull(::incomingItem),
             discover = root.array("discover").mapNotNull(::discoverItem),
             activity = root.array("activity").mapNotNull(::activityItem),

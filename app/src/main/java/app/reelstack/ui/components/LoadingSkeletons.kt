@@ -110,6 +110,19 @@ fun LibraryRailSkeleton(description: String, wide: Boolean = false, modifier: Mo
 }
 
 @Composable
+fun RecommendationSkeleton(modifier: Modifier = Modifier) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        userScrollEnabled = false,
+        modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar anbefalingar" },
+    ) {
+        items(3) {
+            ShimmerBlock(Modifier.width(164.dp).height(258.dp), RoundedCornerShape(16.dp))
+        }
+    }
+}
+
+@Composable
 fun UpcomingSkeleton(modifier: Modifier = Modifier) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),

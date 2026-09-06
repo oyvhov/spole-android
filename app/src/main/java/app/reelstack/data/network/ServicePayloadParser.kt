@@ -264,7 +264,7 @@ object ServicePayloadParser {
                     digitalRelease?.let { it to "Digital utgjeving" },
                     physicalRelease?.let { it to "Fysisk utgjeving" },
                 ).firstOrNull { (date, _) ->
-                    notBefore == null || parseUpcomingInstant(date)?.let { !it.isBefore(notBefore) } == true
+                    notBefore == null || calendarInstant(date)?.let { !it.isBefore(notBefore) } == true
                 } ?: return@mapNotNull null
                 val (dateTime, availability) = release
                 val year = item.int("year")
@@ -603,7 +603,7 @@ object ServicePayloadParser {
         else -> null
     }
 
-    private fun parseUpcomingInstant(value: String): Instant? =
+    fun calendarInstant(value: String): Instant? =
         runCatching { Instant.parse(value) }.getOrNull()
             ?: runCatching { OffsetDateTime.parse(value).toInstant() }.getOrNull()
             ?: runCatching {

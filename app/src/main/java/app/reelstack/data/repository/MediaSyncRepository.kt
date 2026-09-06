@@ -40,6 +40,7 @@ data class MediaSyncSnapshot(
     val recentMovies: List<LibraryMedia>,
     val recentSeries: List<LibraryMedia>,
     val upcoming: List<UpcomingMedia>,
+    val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
     val activity: List<ActivityEvent>,
@@ -83,6 +84,9 @@ class MediaSyncRepository(
         val upcoming = queuePayloads.flatMap { payload ->
             payload.feed.upcoming.mapNotNull(::upcomingMedia)
         }.sortedBy(UpcomingMedia::airDateEpochMillis)
+        val recentReleases = queuePayloads.flatMap { payload ->
+            payload.feed.recentReleases.mapNotNull(::upcomingMedia)
+        }.sortedByDescending(UpcomingMedia::airDateEpochMillis)
         val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
         val titleLookup = discover.associateBy { it.remoteId }
@@ -102,6 +106,7 @@ class MediaSyncRepository(
                 payload.feed.recentSeries.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
             upcoming = upcoming.take(30),
+            recentReleases = recentReleases.take(30),
             incoming = if (access.isAdmin) queue.map(::incomingMedia) else emptyList(),
             discover = discover,
             activity = activity,

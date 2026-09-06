@@ -40,6 +40,7 @@ data class MediaServerFeed(
 data class QueueServiceFeed(
     val queue: List<RemoteQueueItem>,
     val upcoming: List<RemoteUpcomingItem>,
+    val recentReleases: List<RemoteUpcomingItem> = emptyList(),
 )
 
 data class ServiceAuthentication(
@@ -485,9 +486,12 @@ class QueueServiceClient(
 
     fun feed(connection: ServiceConnection, includeQueue: Boolean = true): QueueServiceFeed {
         val queue = if (includeQueue) queue(connection) else emptyList()
-        val windowStart = Instant.now().minus(1, ChronoUnit.DAYS)
+        // The calendar powers both "Kjem snart" and the date-based release rail. Keep a finite
+        // history window so an old library title can never reappear as newly available.
+        val now = Instant.now()
+        val windowStart = now.minus(28, ChronoUnit.DAYS)
         val start = encode(windowStart.toString())
-        val end = encode(Instant.now().plus(28, ChronoUnit.DAYS).toString())
+        val end = encode(now.plus(28, ChronoUnit.DAYS).toString())
         val options = if (connection.kind == ServiceKind.SONARR) {
             "&includeSeries=true&includeEpisodeImages=true"
         } else {
@@ -501,9 +505,15 @@ class QueueServiceClient(
             headers(connection),
         )
         response.requireSuccess(connection.kind)
+        val releases = ServicePayloadParser.upcoming(response.body, connection.kind, windowStart)
         return QueueServiceFeed(
             queue = queue,
-            upcoming = ServicePayloadParser.upcoming(response.body, connection.kind, windowStart),
+            upcoming = releases.filter { release ->
+                ServicePayloadParser.calendarInstant(release.dateTime)?.let { !it.isBefore(now) } == true
+            },
+            recentReleases = releases.filter { release ->
+                ServicePayloadParser.calendarInstant(release.dateTime)?.let { it.isBefore(now) } == true
+            },
         )
     }
 }

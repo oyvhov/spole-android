@@ -346,7 +346,10 @@ class ServiceClientsTest {
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, """{"records":[]}"""),
-                HttpResponse(200, """[{"id":3,"airDateUtc":"2026-09-09T19:00:00Z","series":{"title":"Andor"}}]"""),
+                HttpResponse(200, """[
+                    {"id":3,"airDateUtc":"2026-09-09T19:00:00Z","series":{"title":"Andor"}},
+                    {"id":2,"airDateUtc":"2026-09-05T19:00:00Z","series":{"title":"Silo"}}
+                ]"""),
             ),
         )
         val connection = connection(ServiceKind.SONARR, "sonarr-secret")
@@ -354,6 +357,7 @@ class ServiceClientsTest {
         val feed = QueueServiceClient(transport).feed(connection)
 
         assertEquals("Andor", feed.upcoming.single().title)
+        assertEquals("Silo", feed.recentReleases.single().title)
         assertTrue(transport.urls[1].contains("/api/v3/calendar?"))
         assertTrue(transport.urls[1].contains("includeSeries=true"))
         assertTrue(transport.headers.all { it["X-Api-Key"] == "sonarr-secret" })

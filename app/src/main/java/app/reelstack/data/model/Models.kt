@@ -17,6 +17,8 @@ enum class ConnectionState {
 
 enum class HomeSection {
     NOW_PLAYING,
+    RECOMMENDATIONS,
+    RECENT_RELEASES,
     JELLYFIN_MOVIES,
     JELLYFIN_SERIES,
     EMBY_MOVIES,

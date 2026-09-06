@@ -81,6 +81,7 @@ data class ReelstackUiState(
     val recentMovies: List<LibraryMedia> = demoRecentMovies(),
     val recentSeries: List<LibraryMedia> = demoRecentSeries(),
     val upcoming: List<UpcomingMedia> = demoUpcoming(),
+    val recentReleases: List<UpcomingMedia> = demoRecentReleases(),
     val incoming: List<IncomingMedia> = demoIncoming(),
     val discover: List<DiscoverMedia> = demoDiscover(),
     val searchResults: List<DiscoverMedia> = emptyList(),
@@ -337,13 +338,14 @@ class ReelstackViewModel(
     }
 
     fun openUpcomingDetails(id: String) {
-        val media = _uiState.value.upcoming.firstOrNull { it.id == id } ?: return
+        val recent = _uiState.value.recentReleases.firstOrNull { it.id == id }
+        val media = _uiState.value.upcoming.firstOrNull { it.id == id } ?: recent ?: return
         val fromCalendar = _uiState.value.activeSheet == AppSheet.UpcomingCalendar
         showLocalDetails(
             ContentDetails(
                 key = media.id,
                 title = media.title,
-                eyebrow = "Kjem snart · ${media.source.displayName}",
+                eyebrow = if (recent == null) "Kjem snart · ${media.source.displayName}" else "Nyleg tilgjengeleg · ${media.source.displayName}",
                 subtitle = media.subtitle,
                 overview = media.overview ?: "Denne tittelen er overvaka og planlagd i ${media.source.displayName}.",
                 facts = (media.facts + media.dateLabel + media.source.displayName).distinct(),
@@ -352,8 +354,12 @@ class ReelstackViewModel(
                 artworkUrl = media.artworkUrl,
                 source = media.source,
                 mediaType = media.mediaType,
-                statusTitle = "Planlagd utgjeving",
-                statusDescription = "${media.dateLabel} · Datoen er venta, ikkje ei stadfesting på at tittelen er tilgjengeleg.",
+                statusTitle = if (recent == null) "Planlagd utgjeving" else "Sleppdato passert",
+                statusDescription = if (recent == null) {
+                    "${media.dateLabel} · Datoen er venta, ikkje ei stadfesting på at tittelen er tilgjengeleg."
+                } else {
+                    "${media.dateLabel} · Henta frå release-datoen i ${media.source.displayName}."
+                },
             ),
         )
         _uiState.update { it.copy(returnToCalendar = fromCalendar) }
@@ -677,6 +683,7 @@ class ReelstackViewModel(
                     recentMovies = demoRecentMovies(),
                     recentSeries = demoRecentSeries(),
                     upcoming = demoUpcoming(),
+                    recentReleases = demoRecentReleases(),
                     incoming = demoIncoming(),
                     discover = demoDiscover(),
                     activity = demoActivity(),
@@ -720,6 +727,12 @@ class ReelstackViewModel(
                     // Do not retain library data after the current profile or library scope fails verification.
                     recentMovies = snapshot.recentMovies,
                     recentSeries = snapshot.recentSeries,
+                    recentReleases = when {
+                        configuredQueue.isEmpty() -> emptyList()
+                        queueLive -> snapshot.recentReleases
+                        current.liveIncoming || current.hasCachedData -> current.recentReleases
+                        else -> emptyList()
+                    },
                     upcoming = when {
                         configuredQueue.isEmpty() -> emptyList()
                         queueLive -> (snapshot.upcoming + current.upcoming.filter { it.source in snapshot.errors })
@@ -1109,6 +1122,7 @@ class ReelstackViewModel(
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
                 upcoming = emptyList(),
+                recentReleases = emptyList(),
                 incoming = emptyList(),
                 discover = emptyList(),
                 activity = emptyList(),
@@ -1149,6 +1163,7 @@ class ReelstackViewModel(
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
                 upcoming = emptyList(),
+                recentReleases = emptyList(),
                 discover = emptyList(),
                 searchResults = emptyList(),
                 searchQuery = "",
@@ -1214,6 +1229,11 @@ private fun initialState(container: AppContainer): ReelstackUiState {
             hasQueueService && cached != null -> cached.upcoming
             hasQueueService -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoUpcoming() else emptyList()
+        },
+        recentReleases = when {
+            hasQueueService && cached != null -> cached.recentReleases
+            hasQueueService -> emptyList()
+            else -> if (configuredKinds.isEmpty()) demoRecentReleases() else emptyList()
         },
         incoming = when {
             hasQueueService && cached != null -> cached.incoming
@@ -1329,6 +1349,33 @@ private fun demoUpcoming(): List<UpcomingMedia> {
             mediaType = "Movie",
         ),
     )
+}
+
+private fun demoRecentReleases(): List<UpcomingMedia> {
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    return listOf(
+        UpcomingMedia(
+            id = "recent-release-odyssey",
+            title = "The Odyssey",
+            subtitle = "Film · 2026",
+            dateLabel = "I går",
+            airDateEpochMillis = today.minusDays(1).atTime(20, 0).atZone(zone).toInstant().toEpochMilli(),
+            artworkRes = R.drawable.desert_arrival,
+            source = ServiceKind.RADARR,
+            mediaType = "Movie",
+        ),
+        UpcomingMedia(
+            id = "recent-release-andor",
+            title = "Andor",
+            subtitle = "S02 E06 · Ny episode",
+            dateLabel = "I dag",
+            airDateEpochMillis = today.atTime(18, 0).atZone(zone).toInstant().toEpochMilli(),
+            artworkRes = R.drawable.kitchen_request,
+            source = ServiceKind.SONARR,
+            mediaType = "Episode",
+        ),
+    ).sortedByDescending(UpcomingMedia::airDateEpochMillis)
 }
 
 private fun demoIncoming() = listOf(

@@ -55,6 +55,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudDone
@@ -65,6 +66,7 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Button
@@ -475,6 +477,8 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             HomeSectionRow(HomeSection.NOW_PLAYING, "Spelar no", "Aktive avspelingar frå Jellyfin og Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECOMMENDATIONS, "Anbefalingar", "Forslag frå Seerr", Icons.Rounded.Explore, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECENT_RELEASES, "Nyleg tilgjengeleg", "Siste 28 dagar etter release-dato", Icons.Rounded.Schedule, state, onHomeSectionChange)
             if (connected(ServiceKind.JELLYFIN)) {
                 HomeSectionRow(HomeSection.JELLYFIN_MOVIES, "Jellyfin · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
                 HomeSectionRow(HomeSection.JELLYFIN_SERIES, "Jellyfin · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
