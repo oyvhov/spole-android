@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0
+
+- Normaliserer store bokstavar i protokoll og domenenamn ved innlogging; slår av automatisk stor forbokstav/retting i adressefelt og viser konkrete adressefeil.
+- Samlar detaljar, kalender og førespurnader i ei fast, lik popup-ramme; utvidbar omtale og tekst som toler stor skrift.
+- Viser medverkande og roller frå Jellyfin/Emby/Seerr, med Seerr-portrett når tilgjengelege.
+- Legg til bibliotekfilter i Oppdag og Alle / På veg / Klare for eigne førespurnader.
+- Ny lokal filmstripe i førstegongsoppsettet og ein felles visuell framdrift for førespurnader.
+- Ryddar avstandar og statusmerke på Heim; cover får plass til både merke og større skrift.
+- Rettar anbefalingskjelde og bevarer Oppdag-søket når ei anbefaling blir opna.
+- Stoppar produksjonsbygg utan den eksisterande signeringskonfigurasjonen.
+
 ## 0.11.7
 
 - Publiserer ein produksjons-APK med pakkenamnet `app.reelstack`, i staden for den mellombelse

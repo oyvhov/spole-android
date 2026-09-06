@@ -115,6 +115,7 @@ data class RemoteMediaDetails(
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
+    val cast: List<app.reelstack.data.model.CastMember> = emptyList(),
     val seerrStatus: Int? = null,
     val seasons: List<app.reelstack.data.model.RequestSeason> = emptyList(),
     val downloads: List<app.reelstack.data.model.RequestDownload> = emptyList(),
@@ -434,6 +435,12 @@ object ServicePayloadParser {
                 year = (item.string("releaseDate") ?: item.string("firstAirDate") ?: item.string("PremiereDate"))?.take(4),
             ),
             genres = objectNameArray(item, "genres").ifEmpty { stringArray(item, "Genres", "genres") },
+            cast = item.obj("credits")?.array("cast").orEmpty().mapNotNull {
+                val person = it as? JsonObject ?: return@mapNotNull null
+                val name = person.string("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                app.reelstack.data.model.CastMember(name, person.string("character"),
+                    person.string("profilePath")?.let(::safeTmdbArtwork))
+            }.distinctBy { it.name }.take(16),
         )
     }
 
@@ -476,6 +483,12 @@ object ServicePayloadParser {
             overview = item.string("Overview") ?: item.string("overview"),
             facts = libraryFacts(item, mediaType, runtime),
             genres = stringArray(item, "Genres", "genres"),
+            cast = item.array("People").mapNotNull {
+                val person = it as? JsonObject ?: return@mapNotNull null
+                if (!person.string("Type").equals("Actor", ignoreCase = true)) return@mapNotNull null
+                val name = person.string("Name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                app.reelstack.data.model.CastMember(name, person.string("Role"))
+            }.distinctBy { it.name }.take(16),
         )
     }
 

@@ -120,7 +120,7 @@ internal fun UpcomingCalendarSheet(
                         )
                         Text(date.dayOfMonth.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text(if (count > 0) count.toString() else "–", fontSize = 10.sp, lineHeight = 14.sp,
-                            color = if (isSelected) Ink else if (count > 0) Primary else Muted)
+                            color = if (isSelected) Ink else Muted)
                     }
                 }
             }

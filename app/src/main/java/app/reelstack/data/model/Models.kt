@@ -181,6 +181,8 @@ fun seerrStatusDescription(status: Int?, inLibrary: Boolean = false): String = w
     else -> "Tilgjenge og handlingar blir styrte av Seerr-kontoen din."
 }
 
+data class CastMember(val name: String, val role: String? = null, val portraitUrl: String? = null)
+
 data class ContentDetails(
     val key: String,
     val title: String,
@@ -199,6 +201,7 @@ data class ContentDetails(
     val statusTitle: String? = null,
     val statusDescription: String? = null,
     val libraryAvailable: Boolean = false,
+    val cast: List<CastMember> = emptyList(),
 )
 
 data class ActivityEvent(

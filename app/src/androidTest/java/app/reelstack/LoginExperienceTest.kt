@@ -18,6 +18,32 @@ class LoginExperienceTest {
     @get:Rule val rule = createComposeRule()
     private fun draft(kind: ServiceKind) = ConnectionDraft(kind, kind.displayName, "https://media.example", "", authMode = ConnectionAuthMode.ACCOUNT)
 
+    @Test fun uppercaseAddressIsNormalizedBeforeCredentialsStep() {
+        val value = mutableStateOf(draft(ServiceKind.EMBY).copy(url = "HTTPS://EMBY.EXAMPLE.COM/Media/"))
+        rule.setContent { ReelstackTheme {
+            ConnectionEditorSheet(value.value, false, {}, {},
+                { value.value = value.value.copy(url = it) }, {}, {}, {}, {}, {}, {}, {})
+        } }
+        rule.onNodeWithText("Hald fram").performScrollTo().performClick()
+        assertEquals("https://emby.example.com/Media", value.value.url)
+        rule.onNode(hasText("Brukarnamn") and hasSetTextAction()).assertIsDisplayed()
+    }
+
+    @Test fun malformedAddressStaysOnAddressStepAndCanBeCorrected() {
+        val value = mutableStateOf(draft(ServiceKind.JELLYFIN).copy(url = "https://media .example.com"))
+        rule.setContent { ReelstackTheme {
+            ConnectionEditorSheet(value.value, false, {}, {},
+                { value.value = value.value.copy(url = it) }, {}, {}, {}, {}, {}, {}, {})
+        } }
+        rule.onNodeWithText("Hald fram").performScrollTo().performClick()
+        rule.onNodeWithText("Tenaradressa inneheld mellomrom. Fjern dei og prøv igjen.").assertIsDisplayed()
+        rule.onNodeWithText("Brukarnamn").assertDoesNotExist()
+        rule.onNodeWithTag("connection-url").performTextReplacement("JELLYFIN.EXAMPLE.COM")
+        rule.onNodeWithText("Hald fram").performScrollTo().performClick()
+        assertEquals("https://jellyfin.example.com", value.value.url)
+        rule.onNode(hasText("Brukarnamn") and hasSetTextAction()).assertIsDisplayed()
+    }
+
     @Test fun embyUsesAccountFieldsAndHidesTechnicalMethods() {
         rule.setContent { ReelstackTheme {
             ConnectionEditorSheet(draft(ServiceKind.EMBY), true, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})

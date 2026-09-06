@@ -168,23 +168,18 @@ fun ReelstackSheets(
             androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toDp()
         }
         val maxSheetHeight = windowHeight * 0.90f
-        val detailSheetHeight = windowHeight * 0.82f
         val fillsViewport = when (sheet) {
             is AppSheet.TitleDetails, AppSheet.UpcomingCalendar, AppSheet.RequestComposer -> true
             else -> false
         }
-        val viewport = if (sheet is AppSheet.TitleDetails) {
-            // Details are the one sheet that receives metadata after it is already visible. Use
-            // an exact, slightly shorter standard viewport instead of a content-dependent
-            // minimum. The sheet stays calm while the scrollable body gets richer.
-            Modifier.height(detailSheetHeight)
-        } else if (fillsViewport) {
-            Modifier.fillMaxHeight(0.90f)
+        val viewport = if (fillsViewport) {
+            // One anchor across calendar, details and request composer, including async updates.
+            Modifier.height(windowHeight * 0.82f)
         } else {
             Modifier.heightIn(max = maxSheetHeight).wrapContentHeight(Alignment.Top)
         }
         // Hoisted so the header can tell whether the hero is still on screen.
-        val detailScroll = rememberScrollState()
+        val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
         Column(viewport.fillMaxWidth().testTag("sheet-viewport")) {
             if (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails) {
                 Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -252,7 +247,7 @@ fun ReelstackSheets(
 @Composable
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit, scroll: ScrollState) {
     val details = state.contentDetails ?: return
-    val discoverMedia = (state.discover + state.searchResults).firstOrNull { it.id == details.key }
+    val discoverMedia = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == details.key }
     val mediaType = resolvedMediaType(details.mediaType, details.subtitle)
     val isMovie = mediaType == "Movie"
     val usePoster = isMovie || details.source == ServiceKind.SEERR
@@ -288,7 +283,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         val remainingFacts = if (usePoster) visibleFacts.drop(4) else visibleFacts
         // Keep metadata on one predictable rail. A wrapping FlowRow changes the scroll content
         // height when the remote detail response adds a second row of facts.
-        Box(Modifier.fillMaxWidth().height(50.dp).padding(top = 16.dp)) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 50.dp).padding(top = 16.dp)) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -310,14 +305,14 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
         // Reserve the two metadata slots before the network response arrives. The placeholders
         // are intentionally quiet; the fixed geometry is what makes the opening feel instant.
-        Box(Modifier.fillMaxWidth().height(31.dp).padding(start = 6.dp, top = 15.dp, end = 6.dp)) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 31.dp).padding(start = 6.dp, top = 15.dp, end = 6.dp)) {
             if (details.genres.isNotEmpty()) {
                 Text(
                     details.genres.take(4).joinToString(" · "),
                     color = PrimarySoft,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
+                    maxLines = 3,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             } else if (details.loading) {
@@ -327,7 +322,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }
         }
         if (!usePoster) {
-            Box(Modifier.fillMaxWidth().height(48.dp).padding(start = 6.dp, top = 10.dp, end = 6.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 6.dp, top = 10.dp, end = 6.dp)) {
                 val tagline = details.tagline?.takeIf(String::isNotBlank)
                 if (tagline != null) {
                     Text(
@@ -344,11 +339,13 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 }
             }
         }
-        // The overview is a fixed slot. While it is loading, the skeleton occupies exactly the
-        // same space as the final four-line synopsis, so the sheet does not reflow on completion.
+        // Reserve room for a synopsis, but let large text and explicit expansion grow inside the
+        // scroll view. Only the outer sheet has a fixed height; text must never be clipped by it.
         val overview = details.overview?.takeIf { it.isNotBlank() }
+        var expandedOverview by rememberSaveable(details.key) { mutableStateOf(false) }
+        var overviewOverflows by remember(details.key, overview) { mutableStateOf(false) }
         Column(
-            Modifier.fillMaxWidth().height(174.dp).padding(start = 6.dp, top = 19.dp, end = 6.dp),
+            Modifier.fillMaxWidth().heightIn(min = 174.dp).padding(start = 6.dp, top = 19.dp, end = 6.dp),
         ) {
             Text(
                 when {
@@ -367,10 +364,17 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 16.sp,
                     lineHeight = 25.sp,
-                    maxLines = 4,
+                    maxLines = if (expandedOverview) Int.MAX_VALUE else 4,
+                    onTextLayout = { if (!expandedOverview) overviewOverflows = it.hasVisualOverflow },
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 8.dp),
                 )
+                if (overviewOverflows || expandedOverview) {
+                    TextButton(onClick = { expandedOverview = !expandedOverview },
+                        modifier = Modifier.testTag("overview-expand")) {
+                        Text(if (expandedOverview) "Vis mindre" else "Les heile omtalen")
+                    }
+                }
             } else if (details.loading) {
                 DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
             } else {
@@ -396,6 +400,11 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         details.error?.let {
             Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
+        if (details.cast.isNotEmpty()) {
+            Text("Medverkande", style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 24.dp, bottom = 14.dp))
+            app.reelstack.ui.components.CastRail(details.cast)
+        }
         OpenInServerButton(state, details)
         if (discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
             state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
@@ -413,7 +422,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                     disabledContainerColor = Color(0xFF2A473B),
                     disabledContentColor = Color(0xFFC9F4DB),
                 ),
-                modifier = Modifier.fillMaxWidth().padding(top = 22.dp).height(56.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 22.dp).heightIn(min = 56.dp),
             ) {
                 if (adding) {
                     CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(19.dp))
@@ -478,13 +487,13 @@ private fun MoviePosterSummary(
                 fontSize = 25.sp,
                 lineHeight = 27.sp,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
+                maxLines = 4,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 7.dp),
             )
             // Type/year already live in the facts: avoid saying them twice.
             val supportingText = tagline?.takeIf(String::isNotBlank) ?: subtitle.takeIf { facts.isEmpty() }.orEmpty()
-            Box(Modifier.fillMaxWidth().height(43.dp).padding(top = 8.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 43.dp).padding(top = 8.dp)) {
                 if (supportingText.isNotBlank()) {
                 Text(
                     supportingText,
@@ -496,7 +505,7 @@ private fun MoviePosterSummary(
                 )
                 }
             }
-            Box(Modifier.fillMaxWidth().height(39.dp).padding(top = 11.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 39.dp).padding(top = 11.dp)) {
                 if (facts.isNotEmpty()) {
                     Text(
                         facts.take(4).joinToString(" · "),
@@ -753,7 +762,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
             enabled = state.pendingSessionKey == null,
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = app.reelstack.ui.theme.Ink),
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(58.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 58.dp),
         ) {
             if (state.pendingSessionKey == session.key) {
                 CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
@@ -849,7 +858,12 @@ internal fun ConnectionEditorSheet(
                 supportingText = { Text(addressError ?: "Ta med port eller undermappe dersom tenaren din brukar det.") },
                 isError = addressError != null,
                 singleLine = true, shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Next,
+                ),
                 keyboardActions = KeyboardActions(onNext = { nextStep() }),
                 modifier = Modifier.fillMaxWidth().testTag("connection-url"),
             )
@@ -938,7 +952,11 @@ internal fun ConnectionEditorSheet(
                     OutlinedTextField(value = draft.companionUrl,
                         onValueChange = { onCompanionLoginChange(true, it) }, label = { Text("Adresse til $otherName") },
                         enabled = !draft.saving, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                            autoCorrectEnabled = false,
+                            keyboardType = KeyboardType.Uri,
+                        ),
                         shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                         modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
                     Text("Same brukarnamn og passord blir sende til begge adressene du har valt. Seerr må vere knytt til denne Jellyfin-tenaren. Eksisterande kontoar på desse to tenestene blir bytte ut.",
@@ -990,7 +1008,7 @@ internal fun ConnectionEditorSheet(
             enabled = !draft.saving && (usesQuickConnect || if (usesAccount) draft.username.isNotBlank() else draft.token.isNotBlank()),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).height(56.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp),
         ) {
             if (draft.saving) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
             Text(when {

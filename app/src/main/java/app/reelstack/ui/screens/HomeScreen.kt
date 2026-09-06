@@ -173,7 +173,7 @@ fun HomeScreen(
                     val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_MOVIES else HomeSection.JELLYFIN_MOVIES
                     if (section !in state.homeSections) return@forEach
                     item(key = "recent-movies-${source.name}") {
-                        MediaSectionTitle("Nye filmar", source, Modifier.padding(top = 8.dp, bottom = 13.dp))
+                        MediaSectionTitle("Nye filmar", source, Modifier.padding(top = 24.dp, bottom = 13.dp))
                         val items = state.recentMovies.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
@@ -192,7 +192,7 @@ fun HomeScreen(
                     val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_SERIES else HomeSection.JELLYFIN_SERIES
                     if (section !in state.homeSections) return@forEach
                     item(key = "recent-series-${source.name}") {
-                        MediaSectionTitle("Nye episodar", source, Modifier.padding(top = 8.dp, bottom = 13.dp))
+                        MediaSectionTitle("Nye episodar", source, Modifier.padding(top = 24.dp, bottom = 13.dp))
                         val items = state.recentSeries.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
@@ -212,10 +212,8 @@ fun HomeScreen(
             if (HomeSection.RECOMMENDATIONS in state.homeSections) {
                 item {
                     SectionTitle("Anbefalingar", Modifier.padding(top = 28.dp, bottom = 4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
-                        ServiceLogo(ServiceKind.SEERR, contentDescription = null, modifier = Modifier.size(13.dp))
-                        Text("Frå Seerr", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 7.dp))
-                    }
+                    Text("Handplukka historier å oppdage", color = Muted, fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 12.dp))
                     if (state.recommendations.isEmpty() && state.isRefreshing) {
                         RecommendationSkeleton()
                     } else if (state.recommendations.isEmpty()) {
@@ -230,7 +228,7 @@ fun HomeScreen(
                     Column(Modifier.padding(top = 28.dp, bottom = 13.dp)) {
                         SectionTitle("Nyleg tilgjengeleg")
                         Text(
-                            "Siste 28 dagar · etter release-dato frå Radarr og Sonarr",
+                            "Nye heimeutgjevingar og episodar · siste 28 dagar",
                             color = Muted,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
@@ -402,11 +400,12 @@ private fun RecommendationRail(items: List<DiscoverMedia>, onClick: (String) -> 
 
 @Composable
 private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
-    val status = seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested)
+    val status = if (media.seerrStatus == null && !media.inLibrary && !media.requested) "Sjå tilgjenge"
+        else seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested)
     Box(
         Modifier
             .width(164.dp)
-            .height(258.dp)
+            .heightIn(min = 258.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClickLabel = "Vis detaljar for ${media.title}", onClick = onClick)
             .semantics { role = Role.Button }
@@ -441,12 +440,12 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
                 Icon(
                     if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.CloudDone,
                     contentDescription = null,
-                    tint = Primary,
+                    tint = app.reelstack.ui.theme.Success,
                     modifier = Modifier.background(Color.Black.copy(alpha = .72f), CircleShape).padding(6.dp).size(18.dp),
                 )
             }
         }
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(12.dp)) {
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 54.dp)) {
             Text(media.metadata, color = Color.White.copy(alpha = .78f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 20.sp,
                 fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -741,7 +740,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
         label = "upcoming-card-press",
     )
-    Box(Modifier.width(280.dp).height(226.dp).graphicsLayer {
+    Box(Modifier.width(280.dp).heightIn(min = 226.dp).graphicsLayer {
         alpha = reveal; translationY = (1f - reveal) * 18f; scaleX = scale; scaleY = scale
     }.clip(shape).background(SurfaceRaised)
         .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
@@ -756,11 +755,11 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
             Text(media.dateLabel, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 6.dp))
         }
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp)) {
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 70.dp)) {
             Text(if (recent) {
-                if (media.source == ServiceKind.RADARR) "SLEPPT DIGITALT" else "NY EPISODE"
+                if (media.source == ServiceKind.RADARR) "HEIMEUTGJEVING" else "NY EPISODE"
             } else if (media.source == ServiceKind.RADARR) "HEIMEUTGJEVING" else "NY EPISODE",
-                color = Primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                color = Color.White.copy(alpha = .8f), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text(media.title, color = Color.White, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
             Text(media.subtitle.replace(" · TBA", ""), color = Color.White.copy(alpha = .85f),

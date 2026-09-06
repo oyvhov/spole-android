@@ -10,6 +10,27 @@ import java.time.Instant
 
 class ServicePayloadParserTest {
     @Test
+    fun castsUseServiceCreditsAndSkipBlankNamesAndNonActors() {
+        val seerr = ServicePayloadParser.mediaDetails("""{"title":"Film","credits":{"cast":[
+            {"name":"Ada Example","character":"Kapteinen","profilePath":"/ada.jpg"},
+            {"name":"Ada Example","character":"Kapteinen"},{"name":" "},
+            {"name":"Bo Example","profilePath":"https://untrusted.example/image.jpg"}
+        ]}}""")
+        assertEquals(listOf("Ada Example", "Bo Example"), seerr.cast.map { it.name })
+        assertEquals("Kapteinen", seerr.cast.first().role)
+        assertTrue(seerr.cast.first().portraitUrl!!.startsWith("https://image.tmdb.org/"))
+        assertEquals(null, seerr.cast.last().portraitUrl)
+        val library = ServicePayloadParser.libraryDetails("""{"Name":"Film","People":[
+            {"Name":"Ada Example","Type":"Actor","Role":"Kapteinen"},
+            {"Name":"Regissøren","Type":"Director"},{"Type":"Actor"}
+        ]}""")
+        assertEquals(1, library.cast.size)
+        assertEquals("Ada Example", library.cast.single().name)
+        assertEquals("Kapteinen", library.cast.single().role)
+        assertTrue(ServicePayloadParser.mediaDetails("""{"title":"Utan credits"}""").cast.isEmpty())
+    }
+
+    @Test
     fun preservesExactSeerrStatusInListsAndDetails() {
         (1..7).forEach { status ->
             val item = ServicePayloadParser.discover("""{"results":[{"id":12,"title":"Film","mediaType":"movie","mediaInfo":{"status":$status}}]}""").single()

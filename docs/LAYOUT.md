@@ -1,5 +1,10 @@
 # HomeReel layout
 
+Current overrides (Spole 0.12.0): Home uses Spole identity + personal avatar, no date/greeting/calendar shortcut,
+and no empty playback section. Calendar stays under Upcoming. Discover uses image overlays and embedded request
+buttons, with separate type/availability filters. All remote-content sheets share the same 82% viewport;
+text expands inside it. See [the current review](REVIEW_v0.12.0.md) for the latest changes.
+
 ## Navigation and hierarchy
 
 Four persistent destinations: **Heim**, **Oppdag**, **Aktivitet**, **Innstillingar**. The navigation owns space rather than covering the feed. Each tab retains its scroll position. App identity belongs in Settings, not in every page header.

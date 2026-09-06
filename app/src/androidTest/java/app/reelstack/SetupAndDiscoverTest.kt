@@ -18,6 +18,22 @@ import org.junit.Test
 class SetupAndDiscoverTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun libraryFilterSeparatesAvailableAndRequestableTitles() {
+        val titles = listOf(
+            DiscoverMedia("ready", "Klar film", "Film", R.drawable.media_placeholder, true, mediaType = "movie", seerrStatus = 5),
+            DiscoverMedia("new", "Ny serie", "Serie", R.drawable.media_placeholder, false, mediaType = "tv", seerrStatus = 1),
+        )
+        rule.setContent {
+            ReelstackTheme { DiscoverScreen(ReelstackUiState(discover = titles), PaddingValues(0.dp), {}, {}, {}) }
+        }
+        rule.onNodeWithText("Kan leggjast til").performScrollTo().performClick()
+        rule.onNodeWithText("Klar film").assertDoesNotExist()
+        rule.onNodeWithText("Ny serie").assertIsDisplayed()
+        rule.onNodeWithText("I biblioteket").performScrollTo().performClick()
+        rule.onNodeWithText("Ny serie").assertDoesNotExist()
+        rule.onNodeWithText("Klar film").assertIsDisplayed()
+    }
+
     @Test fun firstRunOffersServicesAndExplicitPreview() {
         var selected: ServiceKind? = null
         rule.setContent {

@@ -53,6 +53,18 @@ Typiske område:
 
 ## 3. Bygging
 
+### Produksjon frå 0.11.7 (gjeld framfor eldre debug-eksempel under)
+
+- Publiser `assembleRelease` → `app/build/outputs/apk/release/app-release.apk`, aldri debug-APK til telefonoppdateringar.
+- Pakke: `app.reelstack`. Bevar eksisterande nøkkel i `C:/JellyBin/.spole-signing/spole-release.jks` og lokal, Git-ignorert `signing.properties`.
+- Sertifikat SHA-256: `36fa94f03494f326053bdcc3d7253994950652d282e6db681cc33270b5f51a10`.
+- Manglande nøkkel er ein byggblokkering. Ikkje generer erstatningsnøkkel eller byt pakkenamn for å kome rundt ein installasjonsfeil.
+- Installer produksjons-APK-en med `-r` over førre produksjonsversjon på testemulatoren før publisering. Sjekk at lokale val er bevarte.
+- I Windows-miljøet her brukar Gradle `TEMP`/`TMP=C:/JellyBin/.gradle-tmp` og `--gradle-user-home C:/JellyBin/.gradle-home`.
+- AVD-data skal liggje utanfor `app/build` slik at ei normal opprydding av byggfiler ikkje slettar emulatoren.
+- Frå review 0.12.0 finst isolert WSL-test-AVD i `C:/JellyBin/.spole-test-avds`, starta med `ANDROID_AVD_HOME=/mnt/c/JellyBin/.spole-test-avds`, Linux-emulatoren og `-gpu swiftshader` på port 5562.
+- Den gamle `Tunet_Test`-installasjonen viste førstegongsoppsett under denne gjennomgangen. Ikkje gå ut frå at kontoane framleis er innlogga.
+
 ### Vanleg lokal bygging
 
 Frå PowerShell:

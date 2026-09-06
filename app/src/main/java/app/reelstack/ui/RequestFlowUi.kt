@@ -55,6 +55,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 }
             }
             RequestIdentity(state, onAccount)
+            app.reelstack.ui.components.RequestJourney(null, Modifier.padding(top = 20.dp, bottom = 8.dp))
             if (draft.loading) {
                 LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 24.dp))
                 Text("Sjekkar bibliotek og førespurnader…", color = Muted, fontSize = 13.sp)
@@ -102,9 +103,8 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             Spacer(Modifier.height(18.dp))
         }
         Column(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 24.dp, vertical = 12.dp)) {
-            Text(if (state.configuredCount == 0) "Førehandsvising · ingenting blir sendt" else
-                "Førespurd  →  Lastar ned  →  I biblioteket", color = Muted, fontSize = 11.sp,
-                modifier = Modifier.padding(bottom = 10.dp))
+            if (state.configuredCount == 0) Text("Førehandsvising · ingenting blir sendt", color = Muted,
+                fontSize = 11.sp, modifier = Modifier.padding(bottom = 10.dp))
             Button(onClick = {
                 if (draft.notify && state.notificationsEnabled && state.configuredCount > 0 && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context))
                     permission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -131,18 +131,16 @@ fun TrackedRequestCard(item: TrackedRequest, onDetails: () -> Unit, onNotify: (B
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
                 Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold)
                 Text((if (item.seasons.isEmpty()) "Film" else "Sesong ${item.seasons.sorted().joinToString(", ")}") + if (item.is4k) " · 4K" else "", color = Muted, fontSize = 12.sp)
-                Text(item.stage.label + (item.percent?.let { " · $it %" } ?: ""), color = Primary, fontSize = 13.sp,
+                Text(item.stage.label + (item.percent?.let { " · $it %" } ?: ""), color = when(item.stage) {
+                    RequestStage.AVAILABLE -> Success
+                    RequestStage.DECLINED, RequestStage.FAILED -> Warning
+                    else -> MaterialTheme.colorScheme.onSurface
+                }, fontSize = 13.sp,
                     modifier = Modifier.padding(top = 8.dp))
             }
             Icon(Icons.Rounded.ChevronRight, "Vis detaljar", tint = Muted)
         }
-        val step = when (item.stage) { RequestStage.AVAILABLE -> 3; RequestStage.DOWNLOADING, RequestStage.IMPORTING -> 2; else -> 1 }
-        Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            (1..3).forEach { index -> Box(Modifier.weight(1f).height(3.dp).background(if (index <= step && item.stage != RequestStage.UNKNOWN) Primary else Muted.copy(alpha = .25f))) }
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf("Førespurd", "Nedlasting", "I biblioteket").forEach { Text(it, color = Muted, fontSize = 10.sp) }
-        }
+        app.reelstack.ui.components.RequestJourney(item.stage, Modifier.padding(top = 18.dp))
         Text(item.stage.explanation, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 10.dp))
         if (item.seasons.isNotEmpty() && item.availableSeasons.isNotEmpty() && item.stage != RequestStage.AVAILABLE) {
             Text("${item.availableSeasons.size} av ${item.seasons.size} sesongar er i biblioteket", color = Primary,

@@ -1,5 +1,14 @@
 # Spole design system
 
+## Current refinements · 0.12.0
+
+These supersede older sizing descriptions below. Title details, Calendar and Request Composer share an exact
+82% content viewport. Inner text uses minimum heights, never clipping fixed boxes. Synopsis starts at four
+lines with an explicit expand/collapse action; the outer modal stays still. Cast appears only from service
+metadata. Discover has type and availability filters, and personal Activity has All / In progress / Ready.
+Cover cards reserve top space for badges and grow at large font sizes. Onboarding uses a local vector film
+strip and one short reveal. The request journey uses the same three steps before and after submission.
+
 ## Product hierarchy
 
 Home is a service-agnostic media feed. Service names explain provenance, but never become primary navigation. The default order follows immediacy: active playback, new library items, future releases, then active downloads.

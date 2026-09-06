@@ -79,8 +79,43 @@ class CalendarAndSheetTest {
         rule.waitForIdle()
         val after = rule.onNodeWithTag("sheet-viewport").fetchSemanticsNode().boundsInRoot
         assertEquals(before, after)
+        rule.onNodeWithTag("overview-expand").performScrollTo().performClick()
+        rule.onNodeWithText("Vis mindre").performScrollTo().assertIsDisplayed()
+        assertEquals(before, rule.onNodeWithTag("sheet-viewport").fetchSemanticsNode().boundsInRoot)
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        rule.onNodeWithText("Ein lang omtale med mykje informasjon. ".repeat(50))
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        org.junit.Assert.assertFalse(layouts.single().hasVisualOverflow)
         rule.runOnIdle { state.value = state.value.copy(contentDetails = details.copy(loading = false, overview = "Kort omtale.")) }
         rule.waitForIdle()
+        assertEquals(before, rule.onNodeWithTag("sheet-viewport").fetchSemanticsNode().boundsInRoot)
+    }
+
+    @Test fun largeTextKeepsCompleteSynopsisReadableWithoutResizingSheet() {
+        val overview = "Ei forteljing som skal kunne lesast i sin heilskap. ".repeat(8)
+        rule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
+                    androidx.compose.ui.platform.LocalDensity.current.density, 2f),
+            ) {
+                ReelstackTheme {
+                    ReelstackSheets(
+                        state = ReelstackUiState(activeSheet = AppSheet.TitleDetails("large"),
+                            contentDetails = ContentDetails("large", "Ein film med ein lang tittel", "Seerr", "Film",
+                                artworkRes = R.drawable.media_placeholder, mediaType = "movie", overview = overview,
+                                facts = listOf("Film", "2026", "120 min", "★ 8,2"), genres = listOf("Drama", "Eventyr"))),
+                        connectionDraft = null, onDismiss = {}, onPlaybackToggle = {},
+                        onConnectionNameChange = {}, onConnectionUrlChange = {}, onConnectionTokenChange = {},
+                        onConnectionUserIdChange = {}, onConnectionAuthModeChange = {}, onConnectionUsernameChange = {},
+                        onConnectionPasswordChange = {}, onTestAndSaveConnection = {}, onRemoveConnection = {},
+                        onAddMedia = {}, onUpcomingClick = {},
+                    )
+                }
+            }
+        }
+        val before = rule.onNodeWithTag("sheet-viewport").fetchSemanticsNode().boundsInRoot
+        rule.onNodeWithTag("overview-expand").performScrollTo().performClick()
+        rule.onNodeWithText("Vis mindre").performScrollTo().assertIsDisplayed()
         assertEquals(before, rule.onNodeWithTag("sheet-viewport").fetchSemanticsNode().boundsInRoot)
     }
 

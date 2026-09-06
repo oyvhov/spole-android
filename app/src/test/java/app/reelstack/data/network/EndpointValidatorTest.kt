@@ -6,6 +6,47 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EndpointValidatorTest {
+    @Test fun normalizationDoesNotDependOnDeviceLanguage() {
+        val previous = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("tr-TR"))
+            assertEquals("https://jellyfin.example.com", EndpointValidator.normalizeBaseUrl("HTTPS://JELLYFIN.EXAMPLE.COM"))
+        } finally {
+            java.util.Locale.setDefault(previous)
+        }
+    }
+
+    @Test fun invalidAddressesHaveActionableMessages() {
+        val cases = mapOf(
+            " " to "Skriv inn tenaradressa først",
+            "https://media .example.com" to "Tenaradressa inneheld mellomrom. Fjern dei og prøv igjen.",
+            "https://media.example.com:99999" to "Portnummeret må vere mellom 1 og 65535",
+            "ftp://media.example.com" to "Berre HTTP- og HTTPS-adresser er støtta",
+        )
+        cases.forEach { (input, expected) ->
+            assertEquals(expected, runCatching { EndpointValidator.normalizeBaseUrl(input) }.exceptionOrNull()?.message)
+        }
+    }
+
+    @Test fun apiResolutionNormalizesHostWithoutChangingPathCase() {
+        assertEquals("https://emby.example.com/Media/Users/AuthenticateByName",
+            EndpointValidator.resolve("HTTPS://EMBY.EXAMPLE.COM/Media/", "/Users/AuthenticateByName"))
+    }
+
+    @Test fun normalizesUppercaseSchemeAndHostButPreservesCaseSensitivePath() {
+        assertEquals("https://emby.example.com/MediaServer", EndpointValidator.normalizeBaseUrl(" HTTPS://EMBY.Example.COM/MediaServer/ "))
+        assertEquals("https://jellyfin.example.com", EndpointValidator.normalizeBaseUrl("Jellyfin.Example.COM"))
+        assertEquals("http://localhost:8096", EndpointValidator.normalizeBaseUrl("HTTP://LOCALHOST:8096"))
+    }
+
+    @Test(expected = IllegalArgumentException::class) fun rejectsBlankAddress() {
+        EndpointValidator.normalizeBaseUrl(" ")
+    }
+
+    @Test(expected = IllegalArgumentException::class) fun rejectsInvalidPort() {
+        EndpointValidator.normalizeBaseUrl("https://media.example.com:99999")
+    }
+
     @Test
     fun addsHttpsWhenSchemeIsMissing() {
         assertEquals("https://media.example.com", EndpointValidator.normalizeBaseUrl("media.example.com/"))

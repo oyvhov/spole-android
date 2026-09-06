@@ -19,6 +19,14 @@ val hasStableReleaseSigning = listOf(
     "keyPassword",
 ).all { signingProperties.getProperty(it).isNullOrBlank().not() }
 
+tasks.matching { it.name == "validateSigningRelease" || it.name == "packageRelease" }.configureEach {
+    doFirst {
+        check(hasStableReleaseSigning) {
+            "Produksjonsbygg krev signing.properties og den eksisterande Spole-nøkkelen. Ikkje lag ein ny nøkkel."
+        }
+    }
+}
+
 android {
     namespace = "app.reelstack"
 
@@ -32,8 +40,8 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-        versionCode = 29
-        versionName = "0.11.7"
+        versionCode = 30
+        versionName = "0.12.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

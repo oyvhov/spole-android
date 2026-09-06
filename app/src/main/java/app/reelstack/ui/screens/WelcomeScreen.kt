@@ -51,11 +51,12 @@ fun WelcomeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
+            app.reelstack.ui.components.SpoleWelcomeArt(Modifier.padding(bottom = 24.dp))
             Text(if (ready) "KLART" else "KOM I GANG", color = Muted,
                 fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.Bold)
             Text(if (ready) "Din samling.\nDi oversikt." else "Alt du ser.\nÉin stad.",
                 color = TextColor, fontSize = 48.sp, lineHeight = 50.sp, letterSpacing = (-2).sp,
-                fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
+                fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
             Text(if (ready) "Du er klar. Kople til fleire tenester no, eller finn dei i Innstillingar seinare."
                 else "Start med Jellyfin eller Emby. Du treng berre tenaradressa og kontoen din. Seerr kan leggjast til i same steg som Jellyfin.",
                 color = Muted, style = MaterialTheme.typography.bodyLarge,

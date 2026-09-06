@@ -255,6 +255,7 @@ class ReelstackViewModel(
                                     remote.title ?: details.title
                                 },
                                 tagline = remote.tagline ?: details.tagline,
+                                cast = remote.cast,
                                 overview = remote.overview ?: details.overview,
                                 facts = (remote.facts + details.facts).distinct(),
                                 genres = (remote.genres + details.genres).distinct(),
@@ -272,7 +273,7 @@ class ReelstackViewModel(
     }
 
     fun openDiscoverDetails(id: String) {
-        val media = _uiState.value.visibleDiscover.firstOrNull { it.id == id } ?: return
+        val media = (_uiState.value.visibleDiscover + _uiState.value.recommendations).firstOrNull { it.id == id } ?: return
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
@@ -314,6 +315,7 @@ class ReelstackViewModel(
                                 libraryAvailable = remote.seerrStatus == 5,
                                 statusDescription = remote.seerrStatus?.let { seerrStatusDescription(it) } ?: details.statusDescription,
                                 tagline = remote.tagline ?: details.tagline,
+                                cast = remote.cast,
                                 overview = remote.overview ?: details.overview,
                                 facts = (remote.facts + details.facts).distinct(),
                                 genres = (remote.genres + details.genres).distinct(),
@@ -343,16 +345,8 @@ class ReelstackViewModel(
     }
 
     fun openRecommendationDetails(id: String) {
-        val media = _uiState.value.recommendations.firstOrNull { it.id == id } ?: return
-        // Reuse the normal Seerr detail/request surface while keeping the shared catalogue out of
-        // Discover search results and the user's private Seerr feed.
-        _uiState.update { state ->
-            state.copy(
-                discover = state.discover.filterNot { it.id == id } + media,
-                searchQuery = "",
-                searchResults = emptyList(),
-            )
-        }
+        // Opening a Home recommendation must preserve the user's separate Discover search.
+        if (_uiState.value.recommendations.none { it.id == id }) return
         openDiscoverDetails(id)
     }
 
@@ -526,7 +520,7 @@ class ReelstackViewModel(
 
     fun requestMedia(id: String) {
         val state = _uiState.value
-        val media = (state.discover + state.searchResults).firstOrNull { it.id == id } ?: return
+        val media = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == id } ?: return
         if (!media.canRequest || state.requestingMediaIds.isNotEmpty()) return
         if (state.configuredCount > 0 && state.accounts[ServiceKind.SEERR]?.isPersonal == true &&
             state.accounts[ServiceKind.SEERR]?.canRequestType(media.mediaType ?: "movie") != true) return
@@ -924,11 +918,11 @@ class ReelstackViewModel(
         }
         val companionUrl = if (useJellyfinAccount && draft.alsoConnect && draft.kind != ServiceKind.EMBY) {
             runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
-                updateDraft { copy(error = "Sjekk adressa til den andre tenesta.") }
+                updateDraft { copy(error = "Sjekk adressa til den andre tenesta: ${it.message ?: "Skriv inn ei gyldig tenaradresse"}") }
                 return
             }
         } else null
-        updateDraft { copy(url = normalizedUrl, saving = true, error = null, password = "") }
+        updateDraft { copy(url = normalizedUrl, companionUrl = companionUrl ?: this.companionUrl, saving = true, error = null, password = "") }
 
         connectionJob?.cancel()
         connectionJob = viewModelScope.launch {

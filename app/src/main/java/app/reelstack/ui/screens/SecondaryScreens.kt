@@ -130,6 +130,14 @@ enum class DiscoverFilter(val label: String) {
     ALL("Alt"), MOVIES("Filmar"), SERIES("Seriar")
 }
 
+enum class LibraryFilter(val label: String) {
+    ALL("Alle titlar"), AVAILABLE("I biblioteket"), REQUESTABLE("Kan leggjast til")
+}
+
+enum class PersonalActivityFilter(val label: String) {
+    ALL("Alle"), IN_PROGRESS("På veg"), READY("Klare")
+}
+
 enum class ActivityFilter(val label: String, val source: ServiceKind?) {
     MINE("Mine", null),
     ALL("Alt", null),
@@ -162,11 +170,17 @@ fun DiscoverScreen(
 ) {
     val focusManager = LocalFocusManager.current
     var filter by rememberSaveable { mutableStateOf(DiscoverFilter.ALL) }
+    var libraryFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
     val visible = state.visibleDiscover.filter { media ->
-        when (filter) {
+        val matchesType = when (filter) {
             DiscoverFilter.MOVIES -> !media.isSeries
             DiscoverFilter.SERIES -> media.isSeries
             DiscoverFilter.ALL -> true
+        }
+        matchesType && when (libraryFilter) {
+            LibraryFilter.ALL -> true
+            LibraryFilter.AVAILABLE -> media.inLibrary || media.seerrStatus == 5
+            LibraryFilter.REQUESTABLE -> media.canRequest
         }
     }
     ReelPage {
@@ -208,6 +222,7 @@ fun DiscoverScreen(
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 )
                 AppFilterRow(DiscoverFilter.entries, filter, { it.label }, { filter = it }, Modifier.padding(top = 12.dp))
+                AppFilterRow(LibraryFilter.entries, libraryFilter, { it.label }, { libraryFilter = it })
                 RequestIdentity(state, onSignIn = onAccountClick)
             }
         }
@@ -219,7 +234,7 @@ fun DiscoverScreen(
                 Text(
                     state.searchError ?: when {
                         state.searchQuery.isNotBlank() -> "Ingen treff på «${state.searchQuery.trim()}». Prøv eit anna søk eller filter."
-                        filter != DiscoverFilter.ALL -> "Ingen titlar i dette filteret enno."
+                        filter != DiscoverFilter.ALL || libraryFilter != LibraryFilter.ALL -> "Ingen titlar i dette filteret enno."
                         else -> "Ingen forslag enno. Kople til Seerr i Innstillingar for å oppdage nye titlar."
                     },
                     color = Muted, style = MaterialTheme.typography.bodyLarge,
@@ -263,11 +278,11 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                 Icon(if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.CloudDone,
                     // Labelled only when no status line follows below, so it is never read twice.
                     contentDescription = if (actionable) statusLabel else null,
-                    tint = Primary,
+                    tint = if (media.inLibrary || media.seerrStatus == 5) Success else Color.White,
                     modifier = Modifier.background(Color.Black.copy(alpha = .75f), CircleShape).padding(7.dp).size(19.dp))
             }
         }
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(12.dp)) {
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 58.dp)) {
             Text(media.metadata, color = Color.White.copy(alpha = .82f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
                 minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
@@ -288,7 +303,8 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                 // Nothing to do here beyond opening the card, so this is a status line, not a button.
                 Row(verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(top = 8.dp)) {
-                    Icon(Icons.Rounded.CheckCircle, null, tint = PrimarySoft, modifier = Modifier.size(13.dp))
+                    Icon(if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.Schedule,
+                        null, tint = if (media.inLibrary || media.seerrStatus == 5) Success else Muted, modifier = Modifier.size(13.dp))
                     Text(statusLabel, color = Color.White.copy(alpha = .82f), fontSize = 12.sp, maxLines = 2,
                         lineHeight = 16.sp, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
                 }
@@ -304,6 +320,14 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) ActivityFilter.MINE else ActivityFilter.ALL)
     }
     val sourceFilter = if (state.adminView || state.configuredCount == 0) savedSourceFilter else ActivityFilter.MINE
+    var personalFilter by rememberSaveable { mutableStateOf(PersonalActivityFilter.ALL) }
+    val personalRequests = state.trackedRequests.filter {
+        when (personalFilter) {
+            PersonalActivityFilter.ALL -> true
+            PersonalActivityFilter.READY -> it.stage == app.reelstack.data.model.RequestStage.AVAILABLE
+            PersonalActivityFilter.IN_PROGRESS -> it.stage != app.reelstack.data.model.RequestStage.AVAILABLE
+        }
+    }
     val events = state.activity.filter { event ->
         sourceFilter == ActivityFilter.ALL || event.source == sourceFilter.source
     }
@@ -311,7 +335,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     ReelPage {
     LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
         item {
-            ScreenHeader("", "Aktivitet", "Følg titlane frå lagde til til klare.")
+            ScreenHeader("", "Aktivitet", "Frå første førespurnad til klart for filmkveld.")
             if (state.adminView || state.configuredCount == 0) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
                 Box(Modifier.size(7.dp).clip(CircleShape)
                     .background(if (hasIssues) Caution else Muted))
@@ -334,6 +358,18 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     TextButton(onClick = onRefresh, enabled = !state.trackingLoading) { Text(if (state.trackingLoading) "Sjekkar…" else "Oppdater") }
                 }
                 state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp)) }
+                if (state.trackedRequests.isNotEmpty()) {
+                    AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice ->
+                        val count = when (choice) {
+                            PersonalActivityFilter.ALL -> state.trackedRequests.size
+                            PersonalActivityFilter.READY -> state.trackedRequests.count { it.stage == app.reelstack.data.model.RequestStage.AVAILABLE }
+                            PersonalActivityFilter.IN_PROGRESS -> state.trackedRequests.count { it.stage != app.reelstack.data.model.RequestStage.AVAILABLE }
+                        }
+                        "${choice.label} · $count"
+                    }, { personalFilter = it }, Modifier.padding(bottom = 12.dp))
+                    if (personalRequests.isEmpty()) Text("Ingen førespurnader i dette filteret.", color = Muted,
+                        modifier = Modifier.padding(vertical = 16.dp))
+                }
                 if (state.trackedRequests.any { it.notify } && (!state.notificationsEnabled || !app.reelstack.background.LibraryNotifications.allowed(context))) {
                     Text(if (!state.notificationsEnabled) "Appvarsel er av i Innstillingar. Du kan framleis følgje status her." else
                         "Android tillèt ikkje varsel no. Slå dei på for å få beskjed når innhaldet er klart.", color = Caution, fontSize = 12.sp)
@@ -346,7 +382,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     "Førespurnader frå den personlege Seerr-kontoen din kjem her. Finn ein tittel i Oppdag for å starte.",
                     color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 18.dp))
             }
-            items(state.trackedRequests, key = { "follow-${it.key}" }) { request ->
+            items(personalRequests, key = { "follow-${it.key}" }) { request ->
                 app.reelstack.ui.TrackedRequestCard(request, { onDetails(request.key) }, { onNotify(request.key, it) })
             }
         } else if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {

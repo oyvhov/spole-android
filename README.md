@@ -6,7 +6,7 @@ The native app includes a multi-server Home, four interactive destinations, pers
 
 ## Download
 
-This repository is private. Releases are published to [GitHub Releases](https://github.com/oyvhov/reelstack-android/releases/latest), and downloading one requires being signed in with access to the repository — the link is not a public download. The current early-access build is debug-signed and intended for direct testing, not Play Store distribution.
+This repository is private. Releases are published to [GitHub Releases](https://github.com/oyvhov/reelstack-android/releases/latest), and downloading one requires being signed in with access to the repository. Since 0.11.7, downloads are production APKs with the stable `app.reelstack` package and release certificate. Debug builds are only for local testing.
 
 ## Included now
 
