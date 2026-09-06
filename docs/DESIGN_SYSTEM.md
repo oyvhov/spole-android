@@ -1,5 +1,15 @@
 # Spole design system
 
+### Popup entrance correction · 0.12.2
+
+`StableSheetDialog` supersedes the Material drag-anchor host below. A fixed 82% surface translates
+once over 320 ms without spring overshoot; close takes 200 ms. Window constraints own geometry.
+The shared toolbar/48 dp X stays pinned. Keyboard/system insets are applied once by this dialog.
+Remote title metadata is not progressively inserted during the entrance: a full-body skeleton
+remains until the entrance and detail request finish, then content fades in without size animation.
+Synopsis overflow is measured before placement, not through a state-writing layout callback.
+Test every animation frame, including repeated opens and early/late remote responses, not just idle bounds.
+
 ## Current refinements · 0.12.0
 
 ### Popup correction · 0.12.1 (supersedes earlier sheet rules)

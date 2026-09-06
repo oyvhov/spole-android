@@ -27,6 +27,29 @@ class SheetInteractionTest {
 
     private fun bounds(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
 
+    @Test fun repeatedOpeningNeverOvershootsOrReversesDirection() {
+        val state = mutableStateOf(ReelstackUiState(activeSheet = null))
+        rule.setContent { ReelstackTheme { Sheets(state.value) } }
+        rule.mainClock.autoAdvance = false
+        repeat(3) { opening ->
+            rule.runOnUiThread { state.value = state.value.copy(
+                activeSheet = AppSheet.TitleDetails("fixture"), contentDetails = details) }
+            rule.mainClock.advanceTimeBy(32)
+            val positions = mutableListOf<Float>()
+            repeat(60) {
+                rule.mainClock.advanceTimeByFrame()
+                positions += bounds("sheet-viewport").top
+            }
+            val finalTop = positions.last()
+            assertTrue("Opening $opening must animate, not snap: $positions", positions.first() > finalTop + 10)
+            assertTrue("Opening $opening overshot its resting position: $positions", positions.all { it >= finalTop - 1f })
+            assertTrue("Opening $opening reversed direction: $positions", positions.zipWithNext().all { (a, b) -> b <= a + 1f })
+            rule.runOnUiThread { state.value = state.value.copy(activeSheet = null, contentDetails = null) }
+            rule.mainClock.advanceTimeBy(32)
+        }
+        rule.mainClock.autoAdvance = true
+    }
+
     @Test fun draggingAtTopDoesNotMoveSheetEvenWhileFingerIsStillDown() {
         var closed = false
         rule.setContent { ReelstackTheme {
@@ -44,6 +67,62 @@ class SheetInteractionTest {
         assertEquals(close, bounds("sheet-close"))
         body.performTouchInput { up() }
         assertFalse(closed)
+        rule.onNodeWithTag("sheet-close").performClick()
+        rule.waitUntil { closed }
+    }
+
+    @Test fun earlyAndLateMetadataUseOneLoadingStageWithoutRetargetingEntrance() {
+        val state = mutableStateOf(ReelstackUiState(activeSheet = null))
+        rule.setContent { ReelstackTheme { Sheets(state.value) } }
+        rule.mainClock.autoAdvance = false
+        for (arrivalFrame in listOf(0, 8, 36)) {
+            rule.runOnUiThread { state.value = state.value.copy(activeSheet = AppSheet.TitleDetails("fixture"),
+                contentDetails = details.copy(loading = true, overview = null)) }
+            rule.mainClock.advanceTimeBy(32)
+            val positions = mutableListOf<Float>()
+            repeat(65) { frame ->
+                if (frame == arrivalFrame) rule.runOnUiThread {
+                    state.value = state.value.copy(contentDetails = details.copy(
+                        title = "Ein lang tittel som tek fleire linjer",
+                        tagline = "Ei ny forteljing. ".repeat(5),
+                        facts = listOf("Film", "2026", "123 min", "★ 8,1", "Studio"),
+                        genres = listOf("Drama", "Eventyr"), cast = listOf(CastMember("Testperson", "Rolle")),
+                    ))
+                }
+                rule.mainClock.advanceTimeByFrame()
+                positions += bounds("sheet-viewport").top
+                if (frame < 5) rule.onNodeWithTag("detail-loading").assertExists()
+            }
+            assertTrue("Metadata at frame $arrivalFrame caused overshoot: $positions",
+                positions.all { it >= positions.last() - 1f })
+            assertTrue(positions.zipWithNext().all { (a, b) -> b <= a + 1f })
+            rule.onNodeWithTag("detail-loading").assertDoesNotExist()
+            rule.onNodeWithTag("detail-scroll").assertIsDisplayed()
+            val stableFrame = bounds("sheet-viewport")
+            val stableClose = bounds("sheet-close")
+            repeat(6) {
+                rule.mainClock.advanceTimeByFrame()
+                assertEquals(stableFrame, bounds("sheet-viewport"))
+                assertEquals(stableClose, bounds("sheet-close"))
+            }
+            rule.runOnUiThread { state.value = state.value.copy(activeSheet = null, contentDetails = null) }
+            rule.mainClock.advanceTimeBy(32)
+        }
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test fun metadataFailureRevealsFallbackAndLoadingCanBeClosed() {
+        val state = mutableStateOf(ReelstackUiState(activeSheet = AppSheet.TitleDetails("fixture"),
+            contentDetails = details.copy(loading = true, overview = null)))
+        var closed = false
+        rule.setContent { ReelstackTheme { Sheets(state.value, onClose = { closed = true }) } }
+        rule.onNodeWithTag("detail-loading").assertIsDisplayed()
+        val close = bounds("sheet-close")
+        rule.runOnIdle { state.value = state.value.copy(contentDetails = details.copy(loading = false,
+            overview = null, error = "Fekk ikkje henta alle detaljane")) }
+        rule.onNodeWithText("Ingen omtale tilgjengeleg.").assertIsDisplayed()
+        assertEquals(close, bounds("sheet-close"))
+        rule.runOnIdle { state.value = state.value.copy(contentDetails = details.copy(loading = true)) }
         rule.onNodeWithTag("sheet-close").performClick()
         rule.waitUntil { closed }
     }

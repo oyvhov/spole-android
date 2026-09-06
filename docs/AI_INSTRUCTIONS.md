@@ -29,6 +29,9 @@ Følg desse føringane i alle endringar:
 - Siste lagt til, komande innhald, kalender, oppdag, aktivitet og detaljpoppup skal vere innhaldstenlege og bruke riktig kunstformat.
 - Filmcover skal ikkje få kunstige botnkanter. Film bruker poster; seriar og episodar bruker brei thumbnail når tenesta tilbyr det.
 - Popupark skal ha stabil høgd og mjuk animasjon. Ikkje animer høgda på nytt kvar gong eit bilde eller ein tekstbit lastar inn.
+- Frå 0.12.2 eig `StableSheetDialog` popup-rørsla: ingen fjør/overshoot eller Material-draanker.
+  Kontroller fleire etterfølgjande opningar ramme for ramme, ikkje berre posisjonen etter `waitForIdle`.
+  Metadata før/under/etter opning skal gå gjennom same skeleton-til-innhald-overgang.
 
 Les også README.md, docs/PRODUCT_PLAN.md, docs/LAYOUT.md, docs/DESIGN_SYSTEM.md, docs/VIEWER_ACCESS.md og docs/REQUEST_FLOW.md før ei større endring.
 

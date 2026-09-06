@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.core.net.toUri
 import app.reelstack.data.model.ContentDetails
 import androidx.compose.runtime.getValue
@@ -27,6 +26,7 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import app.reelstack.data.network.EndpointValidator
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -74,11 +74,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -111,8 +108,10 @@ import app.reelstack.ui.components.DetailTextSkeleton
 import app.reelstack.ui.components.RequestIdentity
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.SheetToolbar
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
+import app.reelstack.ui.components.StableSheetDialog
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -140,46 +139,10 @@ fun ReelstackSheets(
     onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
 ) {
     val sheet = state.activeSheet ?: return
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
-        confirmValueChange = { value -> value != androidx.compose.material3.SheetValue.Hidden || state.requestDraft?.sending != true })
     val sheetContentStates = rememberSaveableStateHolder()
-    val scope = rememberCoroutineScope()
-    var closing by remember { mutableStateOf(false) }
-    val close: () -> Unit = {
-        if (!closing && state.requestDraft?.sending != true) {
-            closing = true
-            scope.launch {
-                try {
-                    sheetState.hide()
-                    if (!sheetState.isVisible) onDismiss()
-                } finally { closing = false }
-            }
-        }
-    }
-    ModalBottomSheet(
-        // Dialog Back is not routed through confirmValueChange in all Material versions.
-        // Guard the dialog too; never abandon an in-flight personal request.
-        onDismissRequest = { if (state.requestDraft?.sending != true) onDismiss() },
-        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = state.requestDraft?.sending != true),
-        sheetState = sheetState,
-        // A reading gesture belongs only to the body, including at its scroll boundaries.
-        // Otherwise Material's nested-scroll connection drags/bounces the whole modal.
-        sheetGesturesEnabled = false,
-        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-        containerColor = app.reelstack.ui.theme.Surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        scrimColor = Color(0xB8040308),
-        tonalElevation = 0.dp,
-        dragHandle = null,
-    ) {
-        // All routes have the same anchor. Form steps, errors and playback updates must not
-        // resize the modal either. Material owns system/keyboard insets; bodies do not add them.
-        val windowHeight = with(LocalDensity.current) {
-            androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toDp()
-        }
-        val viewport = Modifier.height(windowHeight * 0.82f)
+    StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss) { entered, closing, close ->
         val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
-        Column(viewport.fillMaxWidth().testTag("sheet-viewport")) {
+        Column(Modifier.fillMaxSize().testTag("sheet-viewport")) {
             if (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails) {
                 SheetToolbar(
                     title = if (sheet is AppSheet.SessionDetails) "Avspeling" else "Detaljar",
@@ -194,8 +157,18 @@ fun ReelstackSheets(
                 AppSheet.RequestComposer -> RequestComposer(state, onRequestSeason, onRequestNotification,
                     onConfirmRequest, close, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount)
                 is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle, detailScroll)
-                is AppSheet.TitleDetails -> state.contentDetails?.let {
-                    RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia, onSeerrAccount = onSeerrAccount, scroll = detailScroll)
+                is AppSheet.TitleDetails -> state.contentDetails?.let { details ->
+                    androidx.compose.runtime.key(details.key) {
+                        AnimatedContent(
+                            targetState = !entered || details.loading,
+                            modifier = Modifier.fillMaxSize(),
+                            transitionSpec = { (fadeIn(tween(180)) togetherWith fadeOut(tween(90))).using(null) },
+                            label = "detail-ready",
+                        ) { loading ->
+                            if (loading) DetailSheetSkeleton()
+                            else RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia, onSeerrAccount = onSeerrAccount, scroll = detailScroll)
+                        }
+                    }
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
                     UpcomingCalendarSheet(state.upcoming, onUpcomingClick, close)
@@ -224,6 +197,25 @@ fun ReelstackSheets(
 }
 
 @Composable
+private fun DetailSheetSkeleton() {
+    // One quiet, viewport-sized loading state. Do not expose partial metadata and then
+    // move the same paragraphs repeatedly as the detail response completes.
+    Column(Modifier.fillMaxSize().testTag("detail-loading")
+        .padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(17.dp)) {
+            Box(Modifier.width(116.dp).height(174.dp).clip(RoundedCornerShape(12.dp)).background(SurfaceRaised))
+            Column(Modifier.weight(1f).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Box(Modifier.width(70.dp).height(9.dp).clip(CircleShape).background(SurfaceRaised))
+                Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceRaised))
+                Box(Modifier.fillMaxWidth(0.65f).height(22.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceRaised))
+            }
+        }
+        DetailTextSkeleton(Modifier.fillMaxWidth())
+        DetailTextSkeleton(Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit, scroll: ScrollState) {
     val details = state.contentDetails ?: return
     val discoverMedia = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == details.key }
@@ -233,6 +225,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val visibleFacts = details.facts.filterNot { it == details.source?.displayName }.distinct()
     Column(
         Modifier
+            .fillMaxSize()
             .testTag("detail-scroll")
             .verticalScroll(scroll)
             .padding(start = 24.dp, end = 24.dp, bottom = 40.dp),
@@ -323,7 +316,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // scroll view. Only the outer sheet has a fixed height; text must never be clipped by it.
         val overview = details.overview?.takeIf { it.isNotBlank() }
         var expandedOverview by rememberSaveable(details.key) { mutableStateOf(false) }
-        var overviewOverflows by remember(details.key, overview) { mutableStateOf(false) }
+        val textMeasurer = rememberTextMeasurer()
         Column(
             Modifier.fillMaxWidth().heightIn(min = 174.dp).padding(start = 6.dp, top = 19.dp, end = 6.dp),
         ) {
@@ -339,21 +332,30 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 fontWeight = FontWeight.SemiBold,
             )
             if (overview != null) {
+                BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                val overviewStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 25.sp)
+                // Measure before placement: onTextLayout + mutableState inserts the button
+                // one frame later and moves everything below it on every first composition.
+                val overviewOverflows = textMeasurer.measure(
+                    overview, style = overviewStyle, maxLines = 4,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    constraints = Constraints(maxWidth = constraints.maxWidth),
+                ).hasVisualOverflow
+                Column {
                 Text(
                     overview,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 16.sp,
-                    lineHeight = 25.sp,
+                    style = overviewStyle,
                     maxLines = if (expandedOverview) Int.MAX_VALUE else 4,
-                    onTextLayout = { if (!expandedOverview) overviewOverflows = it.hasVisualOverflow },
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 8.dp),
                 )
                 if (overviewOverflows || expandedOverview) {
                     TextButton(onClick = { expandedOverview = !expandedOverview },
                         modifier = Modifier.testTag("overview-expand")) {
                         Text(if (expandedOverview) "Vis mindre" else "Les heile omtalen")
                     }
+                }
+                }
                 }
             } else if (details.loading) {
                 DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))

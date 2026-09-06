@@ -1,5 +1,9 @@
 # HomeReel layout
 
+Popup override (Spole 0.12.2): `StableSheetDialog` now owns the fixed 82% surface, system/keyboard
+insets and non-bouncing entrance/exit. There are no Material drag anchors. Detail loading is a
+single skeleton-to-content fade after the entrance; no partial-text reflow while the surface moves.
+
 Popup override (Spole 0.12.1): all five modal routes share a fixed viewport and one pinned toolbar.
 The X sits at the top-right trailing inset, never within scrolling content. Body scroll gestures no
 longer drag the outer sheet; close with X, scrim tap or Android Back. No drag-handle affordance remains.
