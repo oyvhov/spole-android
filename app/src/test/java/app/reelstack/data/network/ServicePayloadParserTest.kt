@@ -193,6 +193,24 @@ class ServicePayloadParserTest {
     }
 
     @Test
+    fun sonarrSeasonPackRowsKeepUniqueQueueRecordIds() {
+        val payload = """
+            {"records":[
+              {"id":41,"downloadId":"same-season-pack","status":"downloading","size":1000,"sizeleft":500,
+               "series":{"title":"Lioness"}},
+              {"id":42,"downloadId":"same-season-pack","status":"downloading","size":1000,"sizeleft":250,
+               "series":{"title":"Lioness"}}
+            ]}
+        """.trimIndent()
+
+        val items = ServicePayloadParser.queue(payload, ServiceKind.SONARR)
+
+        assertEquals(2, items.size)
+        assertEquals(listOf("sonarr-41", "sonarr-42"), items.map { it.id })
+        assertEquals(2, items.map { it.id }.distinct().size)
+    }
+
+    @Test
     fun rejectsCleartextRemoteArtworkFromQueuePayload() {
         val payload = """
             {"records":[{"id":1,"title":"Unsafe art","status":"queued","size":0,

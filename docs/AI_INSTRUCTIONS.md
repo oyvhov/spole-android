@@ -115,6 +115,11 @@ køyr instrumenteringstestar der. Dersom 5560 ikkje er tilgjengeleg, skal visuel
 demodata på den isolerte `HomeReel_Instrumentation` på 5562, og det skal seiast tydeleg i verifiseringa
 kva som faktisk vart testa.
 
+Denne namngjevne AVD-en er òg den felles, varige Android-eininga for andre AI-verktøy. Dei skal bruke
+same AVD-namn og ADB-serien `emulator-5560`, ikkje lage ein ny tilfeldig eining. Quick Boot og den
+eksisterande `userdata-qemu.img` bevarer appar og innloggingar mellom økter. Ved ein hengande eller
+låst AVD skal prosessar og låsefiler undersøkast først; aldri bruk `-wipe-data` som reparasjon.
+
 Emulatoren må startast i same kommando som du brukar han. Startar du han i ein eigen bakgrunnsjobb, blir
 prosessen teken ned når det skallet avsluttar, og neste ADB-kommando finn ingen einingar. Bruk `-gpu
 swiftshader`; `swiftshader_indirect` segfaultar på denne maskina.

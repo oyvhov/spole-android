@@ -551,7 +551,10 @@ object ServicePayloadParser {
     private fun queueItem(item: JsonObject, source: ServiceKind): RemoteQueueItem? {
         val media = item.obj(if (source == ServiceKind.RADARR) "movie" else "series")
         val title = media?.string("title") ?: item.string("title") ?: return null
-        val id = item.string("downloadId") ?: item.int("id")?.toString() ?: "$title-${item.hashCode()}"
+        // Sonarr can expose several episode rows from one season pack with the same downloadId.
+        // The queue record id is the row identity; preferring downloadId produced duplicate Compose
+        // keys exactly while a multi-episode download was active.
+        val id = item.string("id") ?: item.string("downloadId") ?: "$title-${item.hashCode()}"
         val size = item.long("size") ?: 0L
         val sizeLeft = item.long("sizeleft") ?: item.long("sizeLeft") ?: size
         val progress = if (size > 0L) (((size - sizeLeft).coerceAtLeast(0L).toDouble() / size) * 100).roundToInt().coerceIn(0, 100) else null

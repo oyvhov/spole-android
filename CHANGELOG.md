@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.4
+
+- Gjer innlogga tenester kompakte i innloggingspopupen: grøn stadfesting først, konto- og utloggingsval ved behov.
+- Animerer berre innhaldet inne i den faste popup-ramma, slik at opning og utviding ikkje flyttar arket.
+- Rettar krasj i aktive Sonarr-nedlastingar når fleire episodar frå same sesongpakke deler nedlastings-ID.
+- Avdupliserer køaktivitet ved innlesing og vernar lista mot identiske tredjeparts-ID-ar.
+
 ## 0.12.1
 
 - Rettar X som hamna inne i arket på korte detaljoverskrifter: éi felles topplinje med fast lukkeknapp øvst til høgre for alle popupane.

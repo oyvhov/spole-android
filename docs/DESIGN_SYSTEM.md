@@ -1,5 +1,13 @@
 # Spole design system
 
+### Signed-in connection summary · 0.12.4
+
+An existing connection opens as one calm success surface: green check, plain-language service state
+and a single disclosure action. Address, authentication method, account fields and sign-out remain
+hidden until explicitly expanded. New connections still enter the two-step address/login flow directly.
+The disclosure uses a short fade/vertical reveal and a rotating chevron inside the fixed dialog viewport,
+so progressive disclosure never retargets or resizes the popup entrance.
+
 ### Navigation and activity refinement · 0.12.3
 
 Discover and Activity use the same pinned-size personal Seerr portrait target as Home. Discover

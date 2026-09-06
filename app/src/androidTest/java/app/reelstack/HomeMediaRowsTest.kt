@@ -2,7 +2,9 @@ package app.reelstack
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performScrollTo
@@ -10,6 +12,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.HomeSection
+import app.reelstack.data.model.IncomingMedia
+import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
@@ -168,6 +172,25 @@ class HomeMediaRowsTest {
         val title = composeRule.onNodeWithText("Lioness").fetchSemanticsNode().boundsInRoot
         val episode = composeRule.onNodeWithText("S03 E06 · Sugar Land").fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue("Episode should follow the one-line title closely", episode.top - title.bottom < 16f)
+    }
+
+    @Test fun repeatedThirdPartyQueueIdsCannotCrashActiveDownloads() {
+        val state = ReelstackUiState(
+            connections = listOf(connection(ServiceKind.SONARR)), adminView = true,
+            sessions = emptyList(), recentMovies = emptyList(), recentSeries = emptyList(), upcoming = emptyList(),
+            incoming = listOf(
+                IncomingMedia("same-download", "Episode 1", ServiceKind.SONARR, "Lastar ned 40 %", IncomingState.DOWNLOADING, R.drawable.media_placeholder, progress = 40),
+                IncomingMedia("same-download", "Episode 2", ServiceKind.SONARR, "Lastar ned 40 %", IncomingState.DOWNLOADING, R.drawable.media_placeholder, progress = 40),
+            ),
+            homeSections = setOf(HomeSection.DOWNLOADS),
+        )
+
+        composeRule.setContent {
+            ReelstackTheme { HomeScreen(state, PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}) }
+        }
+
+        composeRule.onNodeWithText("Nedlastingar").performScrollTo().assertIsDisplayed()
+        composeRule.onAllNodesWithText("Lastar ned 40 %").assertCountEquals(2)
     }
 
     private fun connection(kind: ServiceKind) = ServiceConnection(

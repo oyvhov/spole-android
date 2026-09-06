@@ -44,15 +44,22 @@ class LoginExperienceTest {
         rule.onNode(hasText("Brukarnamn") and hasSetTextAction()).assertIsDisplayed()
     }
 
-    @Test fun embyUsesAccountFieldsAndHidesTechnicalMethods() {
+    @Test fun signedInServiceStartsCompactAndRevealsAccountFieldsOnDemand() {
         rule.setContent { ReelstackTheme {
             ConnectionEditorSheet(draft(ServiceKind.EMBY), true, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         } }
-        rule.onNodeWithText("Logg inn på Emby").assertIsDisplayed()
+        rule.onNodeWithText("Emby").assertIsDisplayed()
+        rule.onNodeWithText("Emby er innlogga").assertIsDisplayed()
+        rule.onNodeWithText("Passord").assertDoesNotExist()
+        rule.onNodeWithText("Logg ut").assertDoesNotExist()
+        rule.onNodeWithTag("connected-service-summary").performClick()
         rule.onNodeWithText("Quick Connect").assertDoesNotExist()
         rule.onNodeWithText("API-nøkkel").assertDoesNotExist()
         rule.onNodeWithText("Passord").assertIsDisplayed()
         rule.onNodeWithText("Logg ut").assertIsDisplayed()
+        rule.onNodeWithTag("connected-service-summary").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Passord").assertDoesNotExist()
     }
 
     @Test fun companionLoginIsOptInAndShowsDestinationAndConsent() {
@@ -63,6 +70,7 @@ class LoginExperienceTest {
         } }
         assertFalse(value.value.alsoConnect)
         rule.onNodeWithText("Adresse til Seerr").assertDoesNotExist()
+        rule.onNodeWithTag("connected-service-summary").performClick()
         rule.onNodeWithText("Logg inn på Seerr òg").performScrollTo().performClick()
         rule.onNodeWithText("Adresse til Seerr").performScrollTo().performTextInput("https://seerr.example")
         assertTrue(value.value.alsoConnect)
@@ -88,6 +96,7 @@ class LoginExperienceTest {
         rule.setContent { ReelstackTheme {
             ConnectionEditorSheet(draft(ServiceKind.SEERR), true, {}, {}, {}, {}, {}, {}, {}, {}, {}, { removed++ })
         } }
+        rule.onNodeWithTag("connected-service-summary").performClick()
         rule.onNodeWithText("Logg ut").performClick()
         rule.onNodeWithText("Logg ut av Seerr?").assertIsDisplayed()
         assertEquals(0, removed)

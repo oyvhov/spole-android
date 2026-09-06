@@ -1,5 +1,9 @@
 # HomeReel layout
 
+Current override (Spole 0.12.4): opening an already configured service shows a compact verified
+summary first. The credential method, address change and sign-out action are progressively disclosed
+from that summary. Expansion animates only the inner content; the fixed popup viewport does not move.
+
 Current override (Spole 0.12.3): Home episode cards no longer reserve a second title line for
 every item just because one title is long. Discover and Activity put the verified personal Seerr
 portrait in the top-right account target. Discover has one horizontal filter rail: type choices stay

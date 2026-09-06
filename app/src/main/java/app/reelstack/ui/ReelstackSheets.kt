@@ -26,12 +26,17 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import app.reelstack.data.network.EndpointValidator
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
@@ -58,6 +63,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -83,6 +89,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -90,6 +97,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.reelstack.R
@@ -101,6 +112,7 @@ import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
+import app.reelstack.ui.theme.Success
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Warning
 import app.reelstack.ui.components.MediaArtwork
@@ -787,6 +799,7 @@ internal fun ConnectionEditorSheet(
 ) {
     var credentialsStep by rememberSaveable(draft.kind) { mutableStateOf(configured) }
     var advanced by rememberSaveable(draft.kind) { mutableStateOf(false) }
+    var detailsExpanded by rememberSaveable(draft.kind, configured) { mutableStateOf(!configured) }
     var showPassword by remember { mutableStateOf(false) }
     var addressError by remember { mutableStateOf<String?>(null) }
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -797,11 +810,20 @@ internal fun ConnectionEditorSheet(
             .onFailure { addressError = it.message }
     }
     Column(Modifier.fillMaxSize()) {
-        SheetToolbar("Logg inn på ${draft.kind.displayName}", "Lukk", onDismiss)
+        SheetToolbar(if (configured) draft.kind.displayName else "Logg inn på ${draft.kind.displayName}", "Lukk", onDismiss)
     Column(
         Modifier.weight(1f).testTag("connection-scroll").verticalScroll(rememberScrollState())
             .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
     ) {
+        if (configured) {
+            ConnectedServiceSummary(draft.kind, detailsExpanded) { detailsExpanded = !detailsExpanded }
+        }
+        AnimatedVisibility(
+            visible = !configured || detailsExpanded,
+            enter = expandVertically(animationSpec = tween(220), expandFrom = Alignment.Top) + fadeIn(tween(180)),
+            exit = shrinkVertically(animationSpec = tween(180), shrinkTowards = Alignment.Top) + fadeOut(tween(120)),
+        ) {
+        Column {
         // A step marker only helps when it says how many steps there are.
         Text(if (configured) "TILKOPLING" else if (credentialsStep) "STEG 2 AV 2 · LOGG INN" else "STEG 1 AV 2 · FINN TENAREN",
             color = Muted, fontSize = 11.sp, letterSpacing = 1.4.sp,
@@ -996,7 +1018,51 @@ internal fun ConnectionEditorSheet(
         if (draft.saving) {
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Avbryt") }
         }
+        }
+        }
     }
+    }
+}
+
+@Composable
+private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onToggle: () -> Unit) {
+    val isAccount = kind == ServiceKind.JELLYFIN || kind == ServiceKind.EMBY || kind == ServiceKind.SEERR
+    val stateText = if (isAccount) "${kind.displayName} er innlogga" else "${kind.displayName} er tilkopla"
+    val subject = if (isAccount) "innlogginga" else "tilkoplinga"
+    val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(180), label = "connection-details-arrow")
+    Surface(
+        color = Success.copy(alpha = .09f),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
+            .testTag("connected-service-summary")
+            .clickable(onClickLabel = if (expanded) "Skjul $subject" else "Vis $subject", onClick = onToggle)
+            .semantics {
+                role = Role.Button
+                contentDescription = "$stateText. ${if (expanded) "Skjul" else "Vis"} $subject"
+            },
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(Success.copy(alpha = .16f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Rounded.CheckCircle, null, tint = Success, modifier = Modifier.size(22.dp))
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(stateText, color = Success, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (expanded) "Skjul $subject" else "Vis $subject og kontoval",
+                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            Icon(
+                Icons.Rounded.KeyboardArrowDown, null, tint = Muted,
+                modifier = Modifier.size(22.dp).rotate(arrowRotation),
+            )
+        }
     }
 }
 

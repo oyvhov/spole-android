@@ -157,7 +157,7 @@ class MediaSyncRepository(
         val activity = buildList {
             seerr?.requests.orEmpty().forEach { add(requestActivity(it, titleLookup[it.remoteId])) }
             if (access.isAdmin) queue.forEach { add(queueActivity(it)) }
-        }.take(30)
+        }.distinctBy { it.id }.take(30)
 
         MediaSyncSnapshot(
             sessions = mediaPayloads.flatMap { payload ->
@@ -171,7 +171,7 @@ class MediaSyncRepository(
             }).take(24),
             upcoming = upcoming.take(30),
             recentReleases = recentReleases.take(30),
-            incoming = if (access.isAdmin) queue.map(::incomingMedia) else emptyList(),
+            incoming = if (access.isAdmin) queue.map(::incomingMedia).distinctBy { it.id } else emptyList(),
             discover = discover,
             recommendations = recommendations,
             recommendationsError = recommendationResult.exceptionOrNull()?.message,

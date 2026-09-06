@@ -278,7 +278,10 @@ fun HomeScreen(
                         }
                     }
                 }
-                items(state.incoming, key = IncomingMedia::id) { media ->
+                // Keep the feed alive even if a third-party queue briefly repeats a record id.
+                itemsIndexed(state.incoming, key = { index, media ->
+                    "incoming-${media.source.name}-${media.id}-$index"
+                }) { _, media ->
                     IncomingRow(media = media, onClick = { onMediaClick(media.id) })
                 }
             }
