@@ -26,6 +26,7 @@ eigen identitet utan nettverksavhengig pynt. Ingen ny backend eller ekstra innlo
 
 ## Kva som framleis er viktig
 
+- Utgjevingsradene er gjennomgått på nytt: «Nyleg tilgjengeleg» er eit snitt av personleg bibliotektilgjenge og ny digital dato (filmar), eller ny premieredato for ein tilgjengeleg episode. Kalenderen er framleis Radarr/Sonarr. Sjå [planen for delt kalender](SHARED_CALENDAR_PLAN.md).
 - Konto- og administratorgrenser er bevarte. Ingen ekte førespurnader eller avspelingskommandoar blir sende under review.
 - Testemulatoren er skild frå review-data. Den gamle review-installasjonen viste førstegongsoppsett; denne runden kan difor ikkje stadfeste dei gamle tenestekontoane.
 - Ein ny, synleg `Spole_Review`-emulator på port 5560 er opna for personleg innlogging. Data ligg utanfor byggmappa i `C:/JellyBin/.spole-review-avds`. Instrumentering skal berre køyre på `Spole_Instrumentation`, port 5562.

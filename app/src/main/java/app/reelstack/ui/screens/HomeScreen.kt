@@ -228,7 +228,7 @@ fun HomeScreen(
                     Column(Modifier.padding(top = 28.dp, bottom = 13.dp)) {
                         SectionTitle("Nyleg tilgjengeleg")
                         Text(
-                            "Nye heimeutgjevingar og episodar · siste 28 dagar",
+                            "Nett utgjeve · i biblioteka dine",
                             color = Muted,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
@@ -236,13 +236,14 @@ fun HomeScreen(
                         )
                     }
                     if (state.recentReleases.isEmpty()) {
-                        if (state.isRefreshing && hasQueueConnection) {
+                        if (state.isRefreshing && state.configuredCount > 0) {
                             UpcomingSkeleton()
                         } else {
-                            EmptySectionLine("Ingen nye digitale utgjevingar eller episodar dei siste 28 dagane.")
+                            EmptySectionLine(state.recentReleasesError ?: "Ingen nye digitale filmutgjevingar eller episodar i biblioteka dine dei siste 28 dagane.")
                         }
                     } else {
                         RecentReleaseRail(state.recentReleases, onUpcomingClick)
+                        state.recentReleasesError?.let { EmptySectionLine(it) }
                     }
                 }
             }
@@ -253,13 +254,16 @@ fun HomeScreen(
                         modifier = Modifier.padding(top = 25.dp, bottom = 13.dp),
                     )
                     if (state.upcoming.isEmpty()) {
-                        if (state.isRefreshing && hasQueueConnection) {
+                        if (state.isRefreshing && state.configuredCount > 0) {
                             UpcomingSkeleton()
                         } else {
-                            EmptySectionLine("Ingen overvaka utgjevingar dei neste 28 dagane.")
+                            EmptySectionLine(state.upcomingError ?: if (!hasQueueConnection)
+                                "Kalenderkjelda er ikkje kopla til enno."
+                            else "Ingen komande utgjevingar med kjend dato dei neste 28 dagane.")
                         }
                     } else {
                         UpcomingRail(state.upcoming, onUpcomingClick)
+                        state.upcomingError?.let { EmptySectionLine(it) }
                     }
                 }
             }
@@ -757,8 +761,8 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 70.dp)) {
             Text(if (recent) {
-                if (media.source == ServiceKind.RADARR) "HEIMEUTGJEVING" else "NY EPISODE"
-            } else if (media.source == ServiceKind.RADARR) "HEIMEUTGJEVING" else "NY EPISODE",
+                if (media.mediaType.equals("Movie", true)) "NY FILM" else "NY EPISODE"
+            } else if (media.mediaType.equals("Movie", true)) "HEIMEUTGJEVING" else "NY EPISODE",
                 color = Color.White.copy(alpha = .8f), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text(media.title, color = Color.White, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))

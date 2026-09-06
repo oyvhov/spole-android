@@ -35,6 +35,9 @@ data class MediaServerFeed(
     val recentMovies: List<RemoteLibraryItem>,
     val recentSeries: List<RemoteLibraryItem>,
     val warning: String? = null,
+    val recentReleases: List<RemoteUpcomingItem> = emptyList(),
+    val releasesFailed: Boolean = false,
+    val releaseCandidates: List<RemoteLibraryItem> = emptyList(),
 )
 
 data class QueueServiceFeed(
@@ -267,6 +270,10 @@ class MediaServerClient(
             emptyList()
         }
 
+        val releasesResult = runCatching {
+            releasedAcrossLibraries(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
+        }
+
         if (userId == null && connection.kind == ServiceKind.EMBY) {
             warnings += "Legg til profil-ID for bibliotekradene frå Emby"
         }
@@ -280,7 +287,39 @@ class MediaServerClient(
             recentMovies = movies,
             recentSeries = series,
             warning = warnings.distinct().takeIf { it.isNotEmpty() }?.joinToString(" · "),
+            recentReleases = releasesResult.getOrDefault(emptyList()).filter { it.mediaType == "Episode" }
+                .mapNotNull { libraryRelease(it, connection.kind, ReleaseWindow()) },
+            releasesFailed = releasesResult.isFailure,
+            releaseCandidates = releasesResult.getOrDefault(emptyList()).filter { it.mediaType == "Movie" && it.available },
         )
+    }
+
+    private fun releasedAcrossLibraries(
+        connection: ServiceConnection,
+        userId: String,
+        views: List<RemoteLibraryView>,
+    ): List<RemoteLibraryItem> {
+        val window = ReleaseWindow()
+        val relevant = views.filter { !isExcludedHomeLibrary(it.name) && (it.supports("Movie") || it.supports("Episode")) }
+            .take(MAX_LIBRARY_VIEWS)
+        if (relevant.isEmpty()) return emptyList()
+        val groups = relevant.flatMap { view -> listOf("Movie", "Episode").filter { view.supports(it) }.map { view to it } }.mapNotNull { (view, type) ->
+            // A movie can reach digital months after cinema. Query candidates, then verify the
+            // actual digital date through Seerr. Episodes use their own air date directly.
+            val start = if (type == "Movie") window.today.minusYears(1) else window.start
+            val query = "ParentId=${encodePathSegment(view.id)}&Recursive=true&IncludeItemTypes=$type" +
+                "&SortBy=PremiereDate&SortOrder=Descending&Limit=60&IsMissing=false&IsVirtualUnaired=false" +
+                "&MinPremiereDate=$start&MaxPremiereDate=${window.today}T23:59:59Z" +
+                "&Fields=Overview,Genres,ProviderIds,PrimaryImageAspectRatio&EnableImages=true&EnableUserData=false"
+            runCatching {
+                val paths = if (connection.kind == ServiceKind.JELLYFIN) {
+                    listOf("Items?UserId=$userId&$query", "Users/$userId/Items?$query")
+                } else listOf("Users/$userId/Items?$query")
+                getItems(connection, paths)
+            }.getOrNull()
+        }
+        check(groups.isNotEmpty()) { "Fekk ikkje henta nye utgjevingar frå biblioteka" }
+        return groups.flatten().distinctBy(RemoteLibraryItem::id).filter { it.available }
     }
 
     fun setPaused(connection: ServiceConnection, sessionId: String, paused: Boolean) {

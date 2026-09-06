@@ -2,6 +2,17 @@
 
 Dato: 6. september 2026. Ikkje publisert enno.
 
+## Siste oppfølging · utgjevingar og personleg tilgang
+
+- Endeleg lokal køyring: **168/168 einingstestar og 69/69 Android-testar bestod**, med lint og signert produksjonsbygg. Desse tala erstattar den tidlegare mellomkøyringa under.
+- Oppdatert `Spole_Review` på port 5560 med `install -r`; ekte Seerr-, Jellyfin- og Emby-kontoar vart bevarte. «Nyleg tilgjengeleg» gjekk frå tom til ekte nye episodar, mellom anna Lioness og Forræder. Ingen ekte førespurnader eller avspelingskommandoar vart sende.
+- Filmvilkåra er verifiserte med kontrollerte tenestesvar: eigne bibliotek-ID-ar + TMDB-ID + ny type-4 digitaldato. Kino, berre fysisk utgjeving, gamle filmar, manglande dato og virtuelle/manglande bibliotekpostar blir ikkje brukte som ny digital tilgjenge. Ein konkret digital film frå den ekte kontoen er ikkje individuelt etterprøvd i denne runden.
+- Ordinære brukarar med Seerr + anten Jellyfin eller Emby er testa utan Radarr-/Sonarr-credentials. Ingen administratorkø, andres aktivitet eller barneserie-bibliotek blir henta i desse testane.
+- «Kjem snart» er framleis berre Radarr/Sonarr. Den ekte emulatoren har inga kalenderkjelde tilkopla; appen seier no dette i staden for å melde ein vellukka tom kalender. Kalenderens datovindauge og vising er testa med fixtures, ikkje mot ein ekte Radarr-/Sonarr-kalender i denne runden.
+- Brukaren valde å **planleggje** trygg delt kalender. Sjå [planen](SHARED_CALENDAR_PLAN.md). Ingen ny tenarteneste, deling av nøklar eller distribusjon er gjennomført.
+- Bibliotekoppslag er avgrensa til 60 postar per relevant bibliotek/type. Inntil 60 unike nye filmkandidatar får digitaldato kontrollert med høgst fire samtidige Seerr-kall og ti minutt kontobunden minnecache. Dette er ei Home-rad, ikkje eit fullstendig bibliotekarkiv. Nyaste episode per serie hindrar at ein sesong skjuler filmane.
+- Endeleg lokal APK SHA-256: `4566a11b41d5c185efe815b7b8e5ea41d61e4713366f0348e4689b8a51fb3f37`. Produksjonssertifikatet er uendra.
+
 ## Bygg og automatiske testar
 
 - `testDebugUnitTest`: 158 testar, ingen feil. 13 av desse testar adressevalidering og normalisering.
@@ -23,4 +34,4 @@ Dato: 6. september 2026. Ikkje publisert enno.
 
 - Synleg `Spole_Review`, port 5560, er opna for brukaren. Ikkje køyr instrumentering eller tøm appdata der.
 - Brukaren er beden om å seie frå når innlogging er ferdig før APK-en blir oppdatert der. Ingen ekte førespurnader eller avspelingskommandoar er sende.
-- Profilbilete som blinkar ved rulling, og tomme «Nyleg tilgjengeleg»/«Kjem snart»-rader, er framleis oppfølgingspunkt. Dei er ikkje stadfesta retta av denne adressefiksen. Kontroller kjelder og tenestesvar med dei ekte kontoane; ikkje erstatt utgjevingsdato med dato lagt til.
+- Profilbilete som blinkar ved rulling er framleis eit eige oppfølgingspunkt. Utgjevingsradene er følgde opp ovanfor; dato lagt til er ikkje brukt som utgjevingsdato.

@@ -103,6 +103,9 @@ data class UpcomingMedia(
     val mediaType: String = "Video",
 )
 
+val UpcomingMedia.isMovieRelease: Boolean
+    get() = mediaType.equals("Movie", true) || (mediaType == "Video" && source == ServiceKind.RADARR)
+
 enum class IncomingState {
     DOWNLOADING,
     REQUESTED,

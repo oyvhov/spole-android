@@ -82,6 +82,8 @@ data class ReelstackUiState(
     val recentSeries: List<LibraryMedia> = demoRecentSeries(),
     val upcoming: List<UpcomingMedia> = demoUpcoming(),
     val recentReleases: List<UpcomingMedia> = demoRecentReleases(),
+    val upcomingError: String? = null,
+    val recentReleasesError: String? = null,
     val incoming: List<IncomingMedia> = demoIncoming(),
     val discover: List<DiscoverMedia> = demoDiscover(),
     val recommendations: List<DiscoverMedia> = demoRecommendations(),
@@ -360,18 +362,20 @@ class ReelstackViewModel(
                 title = media.title,
                 eyebrow = if (recent == null) "Kjem snart · ${media.source.displayName}" else "Nyleg tilgjengeleg · ${media.source.displayName}",
                 subtitle = media.subtitle,
-                overview = media.overview ?: "Denne tittelen er overvaka og planlagd i ${media.source.displayName}.",
+                overview = media.overview ?: "Omtalen er ikkje tilgjengeleg frå ${media.source.displayName} enno.",
                 facts = (media.facts + media.dateLabel + media.source.displayName).distinct(),
                 genres = media.genres,
                 artworkRes = media.artworkRes,
                 artworkUrl = media.artworkUrl,
                 source = media.source,
                 mediaType = media.mediaType,
-                statusTitle = if (recent == null) "Planlagd utgjeving" else "Sleppdato passert",
+                statusTitle = if (recent == null) "Planlagd utgjeving" else if (media.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) "I biblioteket" else "Heimeutgjeven",
                 statusDescription = if (recent == null) {
                     "${media.dateLabel} · Datoen er venta, ikkje ei stadfesting på at tittelen er tilgjengeleg."
                 } else {
-                    "${media.dateLabel} · Henta frå release-datoen i ${media.source.displayName}."
+                    if (media.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
+                        "Tilgjengeleg i ${media.source.displayName}. Datoen er utgjevingsdatoen, ikkje datoen tittelen vart lagd til."
+                    else "${media.dateLabel} · Utgjevingsdato frå ${media.source.displayName}. Bibliotektilgjenge blir vist under Oppdag."
                 },
             ),
         )
@@ -743,20 +747,11 @@ class ReelstackViewModel(
                     // Do not retain library data after the current profile or library scope fails verification.
                     recentMovies = snapshot.recentMovies,
                     recentSeries = snapshot.recentSeries,
-                    recentReleases = when {
-                        configuredQueue.isEmpty() -> emptyList()
-                        queueLive -> snapshot.recentReleases
-                        current.liveIncoming || current.hasCachedData -> current.recentReleases
-                        else -> emptyList()
-                    },
-                    upcoming = when {
-                        configuredQueue.isEmpty() -> emptyList()
-                        queueLive -> (snapshot.upcoming + current.upcoming.filter { it.source in snapshot.errors })
-                            .distinctBy(UpcomingMedia::id)
-                            .sortedBy(UpcomingMedia::airDateEpochMillis)
-                        current.liveIncoming || current.hasCachedData -> current.upcoming
-                        else -> emptyList()
-                    },
+                    // Release metadata does not require administrator queue credentials.
+                    recentReleases = snapshot.recentReleases,
+                    upcoming = snapshot.upcoming,
+                    recentReleasesError = snapshot.recentReleasesError,
+                    upcomingError = snapshot.upcomingError,
                     incoming = snapshot.incoming,
                     discover = when {
                         ServiceKind.SEERR !in configuredKinds -> emptyList()

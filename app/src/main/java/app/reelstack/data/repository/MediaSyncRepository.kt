@@ -27,6 +27,7 @@ import app.reelstack.data.network.RemoteRecommendationItem
 import app.reelstack.data.network.RecommendationsClient
 import app.reelstack.data.network.SeerrFeed
 import app.reelstack.data.network.SeerrServiceClient
+import app.reelstack.data.network.SeerrReleaseClient
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -54,6 +55,8 @@ data class MediaSyncSnapshot(
     val refreshedAt: Instant,
     val warnings: Map<ServiceKind, String> = emptyMap(),
     val adminView: Boolean = false,
+    val upcomingError: String? = null,
+    val recentReleasesError: String? = null,
 )
 
 class MediaSyncRepository(
@@ -62,6 +65,7 @@ class MediaSyncRepository(
     private val seerrServiceClient: SeerrServiceClient = SeerrServiceClient(),
     private val recommendationsClient: RecommendationsClient = RecommendationsClient(),
     private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
+    private val seerrReleaseClient: SeerrReleaseClient = SeerrReleaseClient(),
 ) {
     suspend fun refresh(
         connections: List<ServiceConnection>,
@@ -87,12 +91,22 @@ class MediaSyncRepository(
         }.toMap()
         val queuePayloads = payloads.filterIsInstance<ServicePayload.Queue>()
         val queue = queuePayloads.flatMap { it.feed.queue }
-        val upcoming = queuePayloads.flatMap { payload ->
+        val catalogueResult = configured.firstOrNull { it.kind == ServiceKind.SEERR }?.let { connection ->
+            try { Result.success(seerrReleaseClient.feed(connection, mediaPayloads.flatMap { payload ->
+                payload.feed.releaseCandidates.map { app.reelstack.data.network.LibraryReleaseCandidate(it, payload.kind) }
+            })) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { Result.failure(e) }
+        }
+        val catalogue = catalogueResult?.getOrNull()
+        val upcoming = mergeReleaseItems(queuePayloads.flatMap { payload ->
             payload.feed.upcoming.mapNotNull(::upcomingMedia)
-        }.sortedBy(UpcomingMedia::airDateEpochMillis)
-        val recentReleases = queuePayloads.flatMap { payload ->
+        }).sortedBy(UpcomingMedia::airDateEpochMillis)
+        val recentReleases = mergeReleaseItems(mediaPayloads.flatMap { payload ->
             payload.feed.recentReleases.mapNotNull(::upcomingMedia)
-        }.sortedByDescending(UpcomingMedia::airDateEpochMillis)
+        } + catalogue?.recent.orEmpty().mapNotNull(::upcomingMedia)).sortedByDescending(UpcomingMedia::airDateEpochMillis)
+            // One latest episode per series keeps imported season batches from hiding new movies.
+            .distinctBy { "${it.mediaType.lowercase(Locale.ROOT)}:${it.title.lowercase(Locale.ROOT).trim()}" }
         val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
         val recommendationResult = runCatching {
@@ -167,6 +181,11 @@ class MediaSyncRepository(
             refreshedAt = Instant.now(),
             warnings = warnings,
             adminView = access.isAdmin,
+            upcomingError = if (errors.keys.any { it in setOf(ServiceKind.RADARR, ServiceKind.SONARR) })
+                "Nokre utgjevingsdatoar kunne ikkje hentast. Prøv å oppdatere." else null,
+            recentReleasesError = if (catalogueResult?.isFailure == true || catalogue?.incomplete == true ||
+                mediaPayloads.any { it.feed.releasesFailed } || errors.keys.any { it != ServiceKind.SEERR })
+                "Nokre nye utgjevingar kunne ikkje hentast. Prøv å oppdatere." else null,
         )
     }
 
@@ -403,6 +422,12 @@ class MediaSyncRepository(
         // the user opens them from the catalogue in a later step.
         const val RECOMMENDATION_STATUS_LOOKUP_LIMIT = 12
     }
+}
+
+/** Prefer a verified library copy; retain distinct episodes but avoid repeated source cards. */
+internal fun mergeReleaseItems(items: List<UpcomingMedia>): List<UpcomingMedia> = items.distinctBy {
+    val episode = if (it.mediaType.equals("Episode", true)) Regex("S\\d+ E\\d+").find(it.subtitle)?.value ?: it.id else "movie"
+    "${it.title.lowercase(Locale.ROOT).trim()}|$episode"
 }
 
 private fun <T> interleave(groups: List<List<T>>): List<T> = buildList {

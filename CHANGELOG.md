@@ -2,6 +2,8 @@
 
 ## 0.12.0
 
+- Nyleg tilgjengeleg krev no filmkopi i eigne bibliotek og stadfesta digital utgjevingsdato; nye tilgjengelege episodar bruker sin eigen premieredato. Ingen Radarr-/Sonarr-nøkkel er nødvendig for denne rada.
+- Kjem snart held fram med Radarr-/Sonarr-kalenderen; manglande tilkopling er ikkje lenger feilmerkt som ein tom kalender. Trygg delt kalender for vanlege brukarar er planlagd, ikkje sett opp.
 - Normaliserer store bokstavar i protokoll og domenenamn ved innlogging; slår av automatisk stor forbokstav/retting i adressefelt og viser konkrete adressefeil.
 - Samlar detaljar, kalender og førespurnader i ei fast, lik popup-ramme; utvidbar omtale og tekst som toler stor skrift.
 - Viser medverkande og roller frå Jellyfin/Emby/Seerr, med Seerr-portrett når tilgjengelege.

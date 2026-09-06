@@ -47,6 +47,9 @@ data class RemoteLibraryItem(
     val overview: String? = null,
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
+    val premiereDate: String? = null,
+    val available: Boolean = true,
+    val tmdbId: Int? = null,
 )
 
 data class RemoteLibraryView(
@@ -243,6 +246,13 @@ object ServicePayloadParser {
                 overview = item.string("Overview") ?: item.string("overview"),
                 facts = libraryFacts(item, mediaType, runtime),
                 genres = stringArray(item, "Genres", "genres"),
+                premiereDate = item.string("PremiereDate") ?: item.string("premiereDate"),
+                tmdbId = (item.obj("ProviderIds") ?: item.obj("providerIds"))?.let {
+                    (it.string("Tmdb") ?: it.string("tmdb"))?.toIntOrNull()
+                },
+                available = item["IsMissing"]?.jsonPrimitive?.booleanOrNull != true &&
+                    item["IsPlaceHolder"]?.jsonPrimitive?.booleanOrNull != true &&
+                    !item.string("LocationType").equals("Virtual", ignoreCase = true),
             )
         }
     }

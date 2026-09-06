@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
+import app.reelstack.data.model.isMovieRelease
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.AppFilterRow
 import app.reelstack.ui.theme.*
@@ -58,7 +59,11 @@ internal fun UpcomingCalendarSheet(
     var filter by rememberSaveable { mutableStateOf(CalendarFilter.ALL) }
     var selectedDay by rememberSaveable { mutableStateOf<String?>(null) }
     val grouped = remember(items, filter, today, zone) {
-        items.filter { filter.source == null || it.source == filter.source }
+        items.filter { when (filter) {
+            CalendarFilter.ALL -> true
+            CalendarFilter.MOVIES -> it.isMovieRelease
+            CalendarFilter.EPISODES -> !it.isMovieRelease
+        } }
             .sortedBy { it.airDateEpochMillis }
             .groupBy { Instant.ofEpochMilli(it.airDateEpochMillis).atZone(zone).toLocalDate() }
             .filterKeys { !it.isBefore(today) && it.isBefore(today.plusDays(28)) }
@@ -178,7 +183,7 @@ internal fun UpcomingCalendarSheet(
 
 @Composable
 private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
-    val isMovie = media.source == ServiceKind.RADARR
+    val isMovie = media.isMovieRelease
     val time = Instant.ofEpochMilli(media.airDateEpochMillis).atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("HH:mm"))
     Surface(onClick = { onOpen(media.id) }, color = androidx.compose.ui.graphics.Color.Transparent) {
@@ -197,7 +202,8 @@ private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                     Icon(if (isMovie) Icons.Rounded.Movie else Icons.Rounded.Tv, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(12.dp))
                     Text(
-                        if (!isMovie) "${media.source.displayName} · $time" else if ("Fysisk utgjeving" in media.facts) "Fysisk utgjeving" else "Digital utgjeving",
+                        if (!isMovie) if (media.source == ServiceKind.SONARR) "${media.source.displayName} · $time" else media.source.displayName
+                        else if ("Fysisk utgjeving" in media.facts) "Fysisk utgjeving" else "Heimeutgjeving",
                         color = PrimarySoft, fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp),
                     )
                 }
