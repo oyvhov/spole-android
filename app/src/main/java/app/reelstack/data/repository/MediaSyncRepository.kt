@@ -35,6 +35,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
 
 data class MediaSyncSnapshot(
@@ -95,20 +96,49 @@ class MediaSyncRepository(
         val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
         val recommendationResult = runCatching {
-            recommendationsClient.feed().map(::recommendationMedia).map { recommendation ->
-                val live = discover.firstOrNull { item ->
-                    item.remoteId == recommendation.remoteId && item.mediaType == recommendation.mediaType
-                }
-                live?.let {
-                    recommendation.copy(
-                        inLibrary = it.inLibrary,
-                        requested = it.requested,
-                        seerrStatus = it.seerrStatus,
-                    )
-                } ?: recommendation
-            }
+            recommendationsClient.feed().map(::recommendationMedia)
         }
-        val recommendations = recommendationResult.getOrDefault(emptyList())
+        val recommendationSeed = recommendationResult.getOrDefault(emptyList())
+        // The public recommendation feed deliberately contains no private Seerr state. Resolve
+        // that state during refresh instead of waiting for a tap on the card. This means Home can
+        // truthfully label a title as available/requested before the detail sheet opens.
+        val seerrConnection = configured.firstOrNull { it.kind == ServiceKind.SEERR }
+        val recommendations = if (seerrConnection != null) {
+            recommendationSeed.mapIndexed { index, recommendation ->
+                async {
+                    if (index >= RECOMMENDATION_STATUS_LOOKUP_LIMIT) {
+                        return@async recommendation
+                    }
+                    val remoteId = recommendation.remoteId ?: return@async recommendation
+                    val mediaType = recommendation.mediaType ?: return@async recommendation
+                    if (mediaType != "movie" && mediaType != "tv") return@async recommendation
+                    runCatching {
+                        seerrServiceClient.details(
+                            connection = seerrConnection,
+                            mediaType = mediaType,
+                            remoteId = remoteId,
+                            includeOverviewFallback = false,
+                        )
+                    }.fold(
+                        onSuccess = { remote ->
+                            val status = remote.seerrStatus
+                            recommendation.copy(
+                                inLibrary = status?.let { it == 5 } ?: recommendation.inLibrary,
+                                requested = status?.let { it in 2..4 } ?: recommendation.requested,
+                                seerrStatus = status ?: recommendation.seerrStatus,
+                                artworkUrl = remote.artworkUrl ?: recommendation.artworkUrl,
+                                overview = remote.overview ?: recommendation.overview,
+                                facts = (remote.facts + recommendation.facts).distinct(),
+                                genres = (remote.genres + recommendation.genres).distinct(),
+                            )
+                        },
+                        onFailure = { recommendation },
+                    )
+                }
+            }.awaitAll()
+        } else {
+            recommendationSeed
+        }
         val titleLookup = discover.associateBy { it.remoteId }
         val activity = buildList {
             seerr?.requests.orEmpty().forEach { add(requestActivity(it, titleLookup[it.remoteId])) }
@@ -365,6 +395,13 @@ class MediaSyncRepository(
         data class Media(override val kind: ServiceKind, val feed: MediaServerFeed) : ServicePayload
         data class Queue(override val kind: ServiceKind, val feed: QueueServiceFeed) : ServicePayload
         data class Seerr(override val kind: ServiceKind, val feed: SeerrFeed) : ServicePayload
+    }
+
+    private companion object {
+        // Keep refresh quick and predictable if the shared catalogue grows. The Home rail only
+        // renders a small number of cards, while the remaining entries can still be checked when
+        // the user opens them from the catalogue in a later step.
+        const val RECOMMENDATION_STATUS_LOOKUP_LIMIT = 12
     }
 }
 

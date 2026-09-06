@@ -41,7 +41,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -169,11 +168,17 @@ fun ReelstackSheets(
             androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toDp()
         }
         val maxSheetHeight = windowHeight * 0.90f
+        val detailSheetHeight = windowHeight * 0.82f
         val fillsViewport = when (sheet) {
             is AppSheet.TitleDetails, AppSheet.UpcomingCalendar, AppSheet.RequestComposer -> true
             else -> false
         }
-        val viewport = if (fillsViewport) {
+        val viewport = if (sheet is AppSheet.TitleDetails) {
+            // Details are the one sheet that receives metadata after it is already visible. Use
+            // an exact, slightly shorter standard viewport instead of a content-dependent
+            // minimum. The sheet stays calm while the scrollable body gets richer.
+            Modifier.height(detailSheetHeight)
+        } else if (fillsViewport) {
             Modifier.fillMaxHeight(0.90f)
         } else {
             Modifier.heightIn(max = maxSheetHeight).wrapContentHeight(Alignment.Top)
@@ -267,6 +272,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 artworkUrl = details.artworkUrl,
                 artworkRes = details.artworkRes,
                 source = details.source,
+                loading = details.loading,
             )
         } else {
             CinematicTitleHero(
@@ -280,38 +286,70 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             )
         }
         val remainingFacts = if (usePoster) visibleFacts.drop(4) else visibleFacts
-        if (remainingFacts.isNotEmpty()) {
-            FlowRow(
+        // Keep metadata on one predictable rail. A wrapping FlowRow changes the scroll content
+        // height when the remote detail response adds a second row of facts.
+        Box(Modifier.fillMaxWidth().height(50.dp).padding(top = 16.dp)) {
+            Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             ) {
-                remainingFacts.distinct().forEach { fact -> DetailPill(fact) }
+                if (remainingFacts.isNotEmpty()) {
+                    remainingFacts.distinct().take(8).forEach { fact -> DetailPill(fact) }
+                } else if (details.loading) {
+                    repeat(2) { index ->
+                        Box(
+                            Modifier
+                                .width(if (index == 0) 62.dp else 86.dp)
+                                .height(30.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(SurfaceRaised),
+                        )
+                    }
+                }
             }
         }
-        if (details.genres.isNotEmpty()) {
-            Text(
-                details.genres.take(4).joinToString(" · "),
-                color = PrimarySoft,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 6.dp, top = 15.dp, end = 6.dp),
-            )
+        // Reserve the two metadata slots before the network response arrives. The placeholders
+        // are intentionally quiet; the fixed geometry is what makes the opening feel instant.
+        Box(Modifier.fillMaxWidth().height(31.dp).padding(start = 6.dp, top = 15.dp, end = 6.dp)) {
+            if (details.genres.isNotEmpty()) {
+                Text(
+                    details.genres.take(4).joinToString(" · "),
+                    color = PrimarySoft,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            } else if (details.loading) {
+                Box(
+                    Modifier.width(132.dp).height(8.dp).clip(CircleShape).background(SurfaceRaised),
+                )
+            }
         }
-        details.tagline?.takeIf { !usePoster && it.isNotBlank() }?.let { tagline ->
-            Text(
-                tagline,
-                color = app.reelstack.ui.theme.Muted,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(start = 6.dp, top = 17.dp, end = 6.dp),
-            )
+        if (!usePoster) {
+            Box(Modifier.fillMaxWidth().height(48.dp).padding(start = 6.dp, top = 10.dp, end = 6.dp)) {
+                val tagline = details.tagline?.takeIf(String::isNotBlank)
+                if (tagline != null) {
+                    Text(
+                        tagline,
+                        color = app.reelstack.ui.theme.Muted,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        fontStyle = FontStyle.Italic,
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                } else if (details.loading) {
+                    Box(Modifier.fillMaxWidth(0.72f).height(9.dp).clip(CircleShape).background(SurfaceRaised))
+                }
+            }
         }
-        // Only promise an overview when there is one. A heading over a one-line status sentence
-        // reads as a missing synopsis rather than as the status it actually is.
+        // The overview is a fixed slot. While it is loading, the skeleton occupies exactly the
+        // same space as the final four-line synopsis, so the sheet does not reflow on completion.
         val overview = details.overview?.takeIf { it.isNotBlank() }
-        if (overview != null || details.loading) {
+        Column(
+            Modifier.fillMaxWidth().height(174.dp).padding(start = 6.dp, top = 19.dp, end = 6.dp),
+        ) {
             Text(
                 when {
                     isMovie -> "Om filmen"
@@ -322,18 +360,27 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 color = Color.White,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 6.dp, top = 19.dp, end = 6.dp),
             )
-            Text(
-                overview ?: "Hentar omtale…",
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 16.sp,
-                lineHeight = 25.sp,
-                modifier = Modifier.padding(start = 6.dp, top = 8.dp, end = 6.dp),
-            )
-        }
-        if (details.loading) {
-            DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
+            if (overview != null) {
+                Text(
+                    overview,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp,
+                    lineHeight = 25.sp,
+                    maxLines = 4,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            } else if (details.loading) {
+                DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
+            } else {
+                Text(
+                    "Ingen omtale tilgjengeleg.",
+                    color = Muted,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
         }
         details.statusTitle?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
@@ -397,6 +444,7 @@ private fun MoviePosterSummary(
     artworkUrl: String?,
     artworkRes: Int,
     source: ServiceKind?,
+    loading: Boolean,
 ) {
     Row(
         verticalAlignment = Alignment.Top,
@@ -430,29 +478,38 @@ private fun MoviePosterSummary(
                 fontSize = 25.sp,
                 lineHeight = 27.sp,
                 fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 7.dp),
             )
             // Type/year already live in the facts: avoid saying them twice.
             val supportingText = tagline?.takeIf(String::isNotBlank) ?: subtitle.takeIf { facts.isEmpty() }.orEmpty()
-            if (supportingText.isNotBlank()) {
+            Box(Modifier.fillMaxWidth().height(43.dp).padding(top = 8.dp)) {
+                if (supportingText.isNotBlank()) {
                 Text(
                     supportingText,
                     color = app.reelstack.ui.theme.Muted,
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                     maxLines = 3,
-                    modifier = Modifier.padding(top = 8.dp),
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
+                }
             }
-            if (facts.isNotEmpty()) {
-                Text(
-                    facts.take(4).joinToString(" · "),
-                    color = PrimarySoft,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 11.dp),
-                )
+            Box(Modifier.fillMaxWidth().height(39.dp).padding(top = 11.dp)) {
+                if (facts.isNotEmpty()) {
+                    Text(
+                        facts.take(4).joinToString(" · "),
+                        color = PrimarySoft,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                } else if (loading) {
+                    Box(Modifier.width(112.dp).height(8.dp).clip(CircleShape).background(SurfaceRaised))
+                }
             }
         }
     }

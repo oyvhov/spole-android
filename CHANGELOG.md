@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.6
+
+- Sjekkar anbefalingar mot Seerr under synkronisering, slik at Home viser om tittelen alt ligg i
+  biblioteket eller er førespurd før ein opnar detaljane.
+- Låser detaljpopupen til ei føreseieleg standardramme med fast metadata- og omtaleplass, skeleton
+  medan data blir henta og avgrensa tekstlinjer for å unngå hopp når ekstra informasjon kjem inn.
+
 ## 0.11.5
 
 - Peikar den felles anbefalingslista til det offentlege `spole-recommendations`-repoet, slik at alle
