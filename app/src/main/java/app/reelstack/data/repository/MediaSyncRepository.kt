@@ -23,6 +23,8 @@ import app.reelstack.data.network.RemotePlayback
 import app.reelstack.data.network.RemoteQueueItem
 import app.reelstack.data.network.RemoteRequest
 import app.reelstack.data.network.RemoteUpcomingItem
+import app.reelstack.data.network.RemoteRecommendationItem
+import app.reelstack.data.network.RecommendationsClient
 import app.reelstack.data.network.SeerrFeed
 import app.reelstack.data.network.SeerrServiceClient
 import java.time.Duration
@@ -43,6 +45,8 @@ data class MediaSyncSnapshot(
     val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
+    val recommendations: List<DiscoverMedia> = emptyList(),
+    val recommendationsError: String? = null,
     val activity: List<ActivityEvent>,
     val successfulServices: Set<ServiceKind>,
     val errors: Map<ServiceKind, String>,
@@ -55,6 +59,7 @@ class MediaSyncRepository(
     private val mediaServerClient: MediaServerClient = MediaServerClient(),
     private val queueServiceClient: QueueServiceClient = QueueServiceClient(),
     private val seerrServiceClient: SeerrServiceClient = SeerrServiceClient(),
+    private val recommendationsClient: RecommendationsClient = RecommendationsClient(),
     private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
 ) {
     suspend fun refresh(
@@ -89,6 +94,21 @@ class MediaSyncRepository(
         }.sortedByDescending(UpcomingMedia::airDateEpochMillis)
         val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
+        val recommendationResult = runCatching {
+            recommendationsClient.feed().map(::recommendationMedia).map { recommendation ->
+                val live = discover.firstOrNull { item ->
+                    item.remoteId == recommendation.remoteId && item.mediaType == recommendation.mediaType
+                }
+                live?.let {
+                    recommendation.copy(
+                        inLibrary = it.inLibrary,
+                        requested = it.requested,
+                        seerrStatus = it.seerrStatus,
+                    )
+                } ?: recommendation
+            }
+        }
+        val recommendations = recommendationResult.getOrDefault(emptyList())
         val titleLookup = discover.associateBy { it.remoteId }
         val activity = buildList {
             seerr?.requests.orEmpty().forEach { add(requestActivity(it, titleLookup[it.remoteId])) }
@@ -109,6 +129,8 @@ class MediaSyncRepository(
             recentReleases = recentReleases.take(30),
             incoming = if (access.isAdmin) queue.map(::incomingMedia) else emptyList(),
             discover = discover,
+            recommendations = recommendations,
+            recommendationsError = recommendationResult.exceptionOrNull()?.message,
             activity = activity,
             successfulServices = successful,
             errors = errors,
@@ -239,6 +261,21 @@ class MediaSyncRepository(
         inLibrary = item.inLibrary,
         requested = item.requested,
         seerrStatus = item.seerrStatus,
+        artworkUrl = item.artworkUrl,
+        remoteId = item.remoteId,
+        mediaType = item.mediaType,
+        overview = item.overview,
+        facts = item.facts,
+        genres = item.genres,
+    )
+
+    private fun recommendationMedia(item: RemoteRecommendationItem) = DiscoverMedia(
+        id = item.id,
+        title = item.title,
+        metadata = item.metadata,
+        artworkRes = R.drawable.media_placeholder,
+        inLibrary = false,
+        requested = false,
         artworkUrl = item.artworkUrl,
         remoteId = item.remoteId,
         mediaType = item.mediaType,

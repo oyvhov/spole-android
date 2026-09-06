@@ -21,6 +21,22 @@ class ServicePayloadParserTest {
     }
 
     @Test
+    fun parsesGithubRecommendationsWithoutTurningThemIntoDiscoverResults() {
+        val items = ServicePayloadParser.recommendations("""
+            {"version":1,"items":[
+              {"tmdbId":95396,"mediaType":"tv","title":"Severance","year":2022,
+               "posterPath":"/poster.jpg","genres":["Thriller"]},
+              {"tmdbId":9,"mediaType":"person","title":"Not a title"}
+            ]}
+        """.trimIndent())
+
+        assertEquals(1, items.size)
+        assertEquals("github-recommendation-tv-95396", items.single().id)
+        assertEquals("Serie · 2022", items.single().metadata)
+        assertEquals("https://image.tmdb.org/t/p/w500/poster.jpg", items.single().artworkUrl)
+    }
+
+    @Test
     fun parsesJellyfinPlaybackSession() {
         val payload = """
             [{

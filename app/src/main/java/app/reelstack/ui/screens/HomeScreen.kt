@@ -216,12 +216,12 @@ fun HomeScreen(
                         ServiceLogo(ServiceKind.SEERR, contentDescription = null, modifier = Modifier.size(13.dp))
                         Text("Frå Seerr", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 7.dp))
                     }
-                    if (state.discover.isEmpty() && state.isRefreshing && state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() }) {
+                    if (state.recommendations.isEmpty() && state.isRefreshing) {
                         RecommendationSkeleton()
-                    } else if (state.discover.isEmpty()) {
-                        EmptySectionLine("Kople til Seerr for å få anbefalingar.")
+                    } else if (state.recommendations.isEmpty()) {
+                        EmptySectionLine("GitHub-lista med anbefalingar er tom eller utilgjengeleg.")
                     } else {
-                        RecommendationRail(state.discover.take(8), onDiscoverClick)
+                        RecommendationRail(state.recommendations.take(8), onDiscoverClick)
                     }
                 }
             }

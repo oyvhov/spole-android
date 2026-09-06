@@ -33,6 +33,7 @@ data class CachedMediaSnapshot(
     val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
+    val recommendations: List<DiscoverMedia> = emptyList(),
     val activity: List<ActivityEvent>,
     val refreshedAtEpochMillis: Long,
 )
@@ -51,6 +52,7 @@ class MediaSnapshotStore(context: Context) {
             put("recentReleases", upcomingJson(snapshot.recentReleases))
             put("incoming", buildJsonArray { })
             put("discover", discoverJson(snapshot.discover))
+            put("recommendations", discoverJson(snapshot.recommendations))
             put("activity", buildJsonArray { })
         }.toString()
         preferences.edit { putString(CACHE_KEY, payload) }
@@ -78,6 +80,7 @@ class MediaSnapshotStore(context: Context) {
             recentReleases = root.array("recentReleases").mapNotNull(::upcomingItem),
             incoming = root.array("incoming").mapNotNull(::incomingItem),
             discover = root.array("discover").mapNotNull(::discoverItem),
+            recommendations = root.array("recommendations").mapNotNull(::discoverItem),
             activity = root.array("activity").mapNotNull(::activityItem),
             refreshedAtEpochMillis = root.long("refreshedAt") ?: return null,
         )

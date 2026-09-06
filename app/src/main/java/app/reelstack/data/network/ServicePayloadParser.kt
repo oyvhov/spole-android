@@ -96,6 +96,18 @@ data class RemoteDiscoverItem(
     val seerrStatus: Int? = null,
 )
 
+data class RemoteRecommendationItem(
+    val id: String,
+    val remoteId: Int,
+    val mediaType: String,
+    val title: String,
+    val metadata: String,
+    val artworkUrl: String?,
+    val overview: String? = null,
+    val facts: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
+)
+
 data class RemoteMediaDetails(
     val title: String?,
     val artworkUrl: String?,
@@ -336,6 +348,36 @@ object ServicePayloadParser {
                 overview = item.string("overview"),
                 facts = discoverFacts(item, mediaType, year),
                 genres = objectNameArray(item, "genres"),
+            )
+        }
+    }
+
+    fun recommendations(payload: String): List<RemoteRecommendationItem> {
+        val root = json.parseToJsonElement(payload)
+        val items = when (root) {
+            is JsonArray -> root
+            is JsonObject -> root.array("items")
+            else -> JsonArray(emptyList())
+        }
+        return items.mapNotNull { element ->
+            val item = element as? JsonObject ?: return@mapNotNull null
+            val remoteId = item.int("tmdbId") ?: item.int("remoteId") ?: return@mapNotNull null
+            val mediaType = item.string("mediaType")?.lowercase() ?: return@mapNotNull null
+            if (mediaType !in setOf("movie", "tv")) return@mapNotNull null
+            val title = item.string("title") ?: item.string("name") ?: return@mapNotNull null
+            val year = item.int("year")?.toString()
+                ?: (item.string("releaseDate") ?: item.string("firstAirDate"))?.take(4)
+            RemoteRecommendationItem(
+                id = "github-recommendation-$mediaType-$remoteId",
+                remoteId = remoteId,
+                mediaType = mediaType,
+                title = title,
+                metadata = "${if (mediaType == "movie") "Film" else "Serie"}${year?.let { " · $it" }.orEmpty()}",
+                artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork)
+                    ?: item.string("artworkUrl")?.takeIf { it.startsWith("https://", ignoreCase = true) },
+                overview = item.string("overview"),
+                facts = discoverFacts(item, mediaType, year),
+                genres = stringArray(item, "genres"),
             )
         }
     }

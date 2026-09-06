@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "updatedAt": "2026-09-06",
+  "items": [
+    {
+      "tmdbId": 95396,
+      "mediaType": "tv",
+      "title": "Severance",
+      "year": 2022,
+      "posterPath": "/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg",
+      "genres": ["Science fiction", "Thriller"],
+      "overview": "Tilsette ved eit mystisk kontor får minna sine delte mellom arbeid og livet utanfor."
+    },
+    {
+      "tmdbId": 136315,
+      "mediaType": "tv",
+      "title": "The Bear",
+      "year": 2022,
+      "posterPath": "/eKfVzzEazSIjJMrw9ADa2x8ksLz.jpg",
+      "genres": ["Drama", "Komedie"],
+      "overview": "Ein ung kokk vender heim for å drive familierestauranten og samle eit kaotisk kjøkenlag."
+    },
+    {
+      "tmdbId": 693134,
+      "mediaType": "movie",
+      "title": "Dune: Part Two",
+      "year": 2024,
+      "posterPath": "/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+      "genres": ["Science fiction", "Eventyr"],
+      "overview": "Paul Atreides slår seg saman med Chani og frimen-folket på vegen mot hemn og ei større skjebne."
+    },
+    {
+      "tmdbId": 1184918,
+      "mediaType": "movie",
+      "title": "The Wild Robot",
+      "year": 2024,
+      "posterPath": "/wTnV3PCVW5O92JMrFvvrRcV39RU.jpg",
+      "genres": ["Animasjon", "Eventyr"],
+      "overview": "Ein robot stranda på ei vill øy må lære å leve saman med dyra som bur der."
+    }
+  ]
+}

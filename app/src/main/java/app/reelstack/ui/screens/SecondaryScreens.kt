@@ -477,7 +477,7 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             HomeSectionRow(HomeSection.NOW_PLAYING, "Spelar no", "Aktive avspelingar frå Jellyfin og Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECOMMENDATIONS, "Anbefalingar", "Forslag frå Seerr", Icons.Rounded.Explore, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECOMMENDATIONS, "Anbefalingar", "Felles liste frå GitHub", Icons.Rounded.Explore, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.RECENT_RELEASES, "Nyleg tilgjengeleg", "Siste 28 dagar etter release-dato", Icons.Rounded.Schedule, state, onHomeSectionChange)
             if (connected(ServiceKind.JELLYFIN)) {
                 HomeSectionRow(HomeSection.JELLYFIN_MOVIES, "Jellyfin · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)

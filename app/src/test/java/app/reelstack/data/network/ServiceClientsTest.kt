@@ -11,6 +11,22 @@ import org.junit.Test
 class ServiceClientsTest {
     private val verifiedAdmin = app.reelstack.data.model.ServiceAccount(ServiceKind.SEERR, "1", "Admin", isAdmin = true)
     private val adminAccess = app.reelstack.data.model.ViewerAccess(false, mapOf(ServiceKind.SEERR to verifiedAdmin))
+
+    @Test
+    fun githubRecommendationsUseAPlainUnauthenticatedJsonRequest() {
+        val transport = RecordingTransport(
+            getResponses = mutableListOf(HttpResponse(200, """
+                {"items":[{"tmdbId":95396,"mediaType":"tv","title":"Severance"}]}
+            """.trimIndent())),
+        )
+
+        val items = RecommendationsClient(transport, "https://raw.example/recommendations.json").feed()
+
+        assertEquals("Severance", items.single().title)
+        assertEquals("https://raw.example/recommendations.json", transport.lastUrl)
+        assertTrue(transport.lastHeaders.isEmpty())
+    }
+
     @Test
     fun jellyfinAccountLoginReturnsTokenAndProfileWithoutLeakingPassword() {
         val transport = RecordingTransport(

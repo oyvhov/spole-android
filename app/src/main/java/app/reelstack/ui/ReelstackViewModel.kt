@@ -84,6 +84,7 @@ data class ReelstackUiState(
     val recentReleases: List<UpcomingMedia> = demoRecentReleases(),
     val incoming: List<IncomingMedia> = demoIncoming(),
     val discover: List<DiscoverMedia> = demoDiscover(),
+    val recommendations: List<DiscoverMedia> = demoRecommendations(),
     val searchResults: List<DiscoverMedia> = emptyList(),
     val activity: List<ActivityEvent> = demoActivity(),
     val searchQuery: String = "",
@@ -323,6 +324,10 @@ class ReelstackViewModel(
                                 if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
                                     inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
                             },
+                            recommendations = current.recommendations.map { item ->
+                                if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
+                                    inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
+                            },
                             searchResults = current.searchResults.map { item ->
                                 if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
                                     inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
@@ -335,6 +340,20 @@ class ReelstackViewModel(
                 )
             }
         }
+    }
+
+    fun openRecommendationDetails(id: String) {
+        val media = _uiState.value.recommendations.firstOrNull { it.id == id } ?: return
+        // Reuse the normal Seerr detail/request surface while keeping the shared catalogue out of
+        // Discover search results and the user's private Seerr feed.
+        _uiState.update { state ->
+            state.copy(
+                discover = state.discover.filterNot { it.id == id } + media,
+                searchQuery = "",
+                searchResults = emptyList(),
+            )
+        }
+        openDiscoverDetails(id)
     }
 
     fun openUpcomingDetails(id: String) {
@@ -606,6 +625,7 @@ class ReelstackViewModel(
             _uiState.update {
                 it.copy(
                     discover = it.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
+                    recommendations = it.recommendations.map { item -> if (item.id == id) item.copy(requested = true) else item },
                     searchResults = it.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
                     contentDetails = it.contentDetails?.let { details ->
                         if (details.key == id) details.copy(statusTitle = "Lagd til lokalt", statusDescription = "Dette er ei førehandsvising. Ingenting er sendt til Seerr.") else details
@@ -637,6 +657,7 @@ class ReelstackViewModel(
                 if (result.isSuccess) {
                     current.copy(
                         discover = current.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
+                        recommendations = current.recommendations.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         searchResults = current.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         contentDetails = current.contentDetails?.let { details ->
                             if (details.key == id) details.copy(statusTitle = "Sendt som ${account.displayName}", statusDescription = "Førespurnaden er registrert på Seerr-kontoen din. Oppdatert status kjem ved neste synkronisering.") else details
@@ -686,6 +707,7 @@ class ReelstackViewModel(
                     recentReleases = demoRecentReleases(),
                     incoming = demoIncoming(),
                     discover = demoDiscover(),
+                    recommendations = demoRecommendations(),
                     activity = demoActivity(),
                     isRefreshing = false,
                     liveSession = false,
@@ -746,6 +768,11 @@ class ReelstackViewModel(
                         ServiceKind.SEERR !in configuredKinds -> emptyList()
                         seerrLive -> snapshot.discover
                         current.liveDiscover || current.hasCachedData -> current.discover
+                        else -> emptyList()
+                    },
+                    recommendations = when {
+                        snapshot.recommendationsError == null -> snapshot.recommendations
+                        current.hasCachedData -> current.recommendations
                         else -> emptyList()
                     },
                     activity = snapshot.activity,
@@ -1125,6 +1152,7 @@ class ReelstackViewModel(
                 recentReleases = emptyList(),
                 incoming = emptyList(),
                 discover = emptyList(),
+                recommendations = emptyList(),
                 activity = emptyList(),
                 searchQuery = "",
                 searchResults = emptyList(),
@@ -1165,6 +1193,7 @@ class ReelstackViewModel(
                 upcoming = emptyList(),
                 recentReleases = emptyList(),
                 discover = emptyList(),
+                recommendations = emptyList(),
                 searchResults = emptyList(),
                 searchQuery = "",
                 isSearching = false,
@@ -1244,6 +1273,11 @@ private fun initialState(container: AppContainer): ReelstackUiState {
             hasSeerr && cached != null -> cached.discover
             hasSeerr -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoDiscover() else emptyList()
+        },
+        recommendations = when {
+            cached != null -> cached.recommendations
+            configuredKinds.isEmpty() -> demoRecommendations()
+            else -> emptyList()
         },
         activity = when {
             (hasQueueService || hasSeerr) && cached != null -> cached.activity
@@ -1411,6 +1445,31 @@ private fun demoDiscover() = listOf(
         overview = "Ein kokk tek over restauranten til familien og oppdagar at kaoset på kjøkenet " +
             "er lettare å styre enn folka rundt han.",
         facts = listOf("3 sesongar"), genres = listOf("Drama", "Komedie")),
+)
+
+private fun demoRecommendations() = listOf(
+    DiscoverMedia(
+        id = "github-recommendation-tv-95396",
+        title = "Severance",
+        metadata = "Serie · 2022",
+        artworkRes = R.drawable.session_still,
+        inLibrary = false,
+        remoteId = 95396,
+        mediaType = "tv",
+        overview = "Tilsette ved eit mystisk kontor får minna sine delte mellom arbeid og livet utanfor.",
+        genres = listOf("Science fiction", "Thriller"),
+    ),
+    DiscoverMedia(
+        id = "github-recommendation-movie-693134",
+        title = "Dune: Part Two",
+        metadata = "Film · 2024",
+        artworkRes = R.drawable.desert_arrival,
+        inLibrary = false,
+        remoteId = 693134,
+        mediaType = "movie",
+        overview = "Paul Atreides slår seg saman med Chani og frimen-folket på vegen mot hemn og ei større skjebne.",
+        genres = listOf("Science fiction", "Eventyr"),
+    ),
 )
 
 private fun demoActivity() = listOf(

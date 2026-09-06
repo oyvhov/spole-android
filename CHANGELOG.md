@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.4
+
+- Rettar Anbefalingar til å bruke den felles, statiske `recommendations.json`-lista frå GitHub.
+- Seerr blir brukt for live detaljar, bibliotekstatus og førespurnader når ein opnar ei anbefaling,
+  men ikkje som kjelde for sjølve Home-rada.
+- Cache-ar GitHub-lista lokalt slik at Home ikkje blir tom ved eit mellombels nettverksbrot.
+
 ## 0.11.3
 
 - La til Anbefalingar frå Seerr som ei eiga, valfri Home-rad med moderne overlay-kort og detaljvising.

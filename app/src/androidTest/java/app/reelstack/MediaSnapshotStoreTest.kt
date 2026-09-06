@@ -100,6 +100,10 @@ class MediaSnapshotStoreTest {
                 ),
             ),
             incoming = emptyList(),
+            recommendations = listOf(
+                DiscoverMedia("github-recommendation-tv-95396", "Severance", "Serie · 2022", R.drawable.session_still, false,
+                    remoteId = 95396, mediaType = "tv"),
+            ),
             discover = listOf(DiscoverMedia("blocked", "Blokkert film", "Film", R.drawable.desert_arrival, false, seerrStatus = 6)),
             activity = emptyList(),
             successfulServices = setOf(ServiceKind.JELLYFIN),
@@ -120,6 +124,7 @@ class MediaSnapshotStoreTest {
         assertEquals("Severance", restored?.recentSeries?.single()?.title)
         assertEquals("https://media.example/Items/series-1/Images/Primary", restored?.recentSeries?.single()?.artworkUrl)
         assertEquals("Ny film", restored?.recentReleases?.single()?.title)
+        assertEquals(95396, restored?.recommendations?.single()?.remoteId)
         assertEquals(Instant.parse("2026-09-04T08:00:00Z").toEpochMilli(), restored?.refreshedAtEpochMillis)
 
         store.clear()
