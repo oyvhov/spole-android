@@ -71,6 +71,8 @@ class UiConsistencyTest {
                 })
             }
         }
+        rule.onNodeWithText("Emby · Filmar").assertDoesNotExist()
+        rule.onNodeWithText("Tilpass framsida").performScrollTo().performClick()
         rule.onNodeWithText("Emby · Filmar").performScrollTo().performClick()
         assertEquals(1, changes)
         assertEquals(HomeSection.EMBY_MOVIES, changedSection)

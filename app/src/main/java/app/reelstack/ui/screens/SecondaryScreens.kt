@@ -24,6 +24,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import app.reelstack.ui.components.AppFilterRow
@@ -669,6 +672,7 @@ fun SettingsScreen(
     onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit = onConnectionClick,
 ) {
+    var homeExpanded by rememberSaveable { mutableStateOf(false) }
     // A visibility switch for a service that is not connected controls content that cannot exist,
     // so the row only appears once that service has an address.
     val connected = { kind: ServiceKind ->
@@ -683,7 +687,7 @@ fun SettingsScreen(
             ScreenHeader(
                 kicker = "App og tenester",
                 title = "Innstillingar",
-                lede = "Tilkoplingar, val og personvern.",
+                lede = "Gjer Spole til ditt.",
             )
             SettingsAccounts(state, onAccountClick)
             SettingsSectionTitle("Tenestene dine")
@@ -693,18 +697,32 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 6.dp),
             )
         }
-        items(state.connections.filter { state.canEditConnection(it.kind) }, key = { it.kind }) { connection ->
-            ServiceRow(connection = connection, onClick = { onConnectionClick(connection.kind) })
+        item {
+            Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    state.connections.filter { state.canEditConnection(it.kind) }.forEach { connection ->
+                        ServiceRow(connection = connection, onClick = { onConnectionClick(connection.kind) })
+                    }
+                }
+            }
         }
         item {
             SettingsSectionTitle("Heimskjerm")
-            Text(
-                "Vel kva som skal visast på Heim.",
-                color = Muted,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
+            Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
+              Column(Modifier.padding(horizontal = 16.dp)) {
+                Row(Modifier.fillMaxWidth().clickable { homeExpanded = !homeExpanded }
+                    .semantics { stateDescription = if (homeExpanded) "Utvida" else "Felt saman" }
+                    .padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Tv, null, tint = PrimarySoft, modifier = Modifier.size(24.dp))
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text("Tilpass framsida", color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        Text("Vel rader frå kvart bibliotek", color = Muted, fontSize = 12.sp)
+                    }
+                    Icon(if (homeExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                        null, tint = Muted)
+                }
+                androidx.compose.animation.AnimatedVisibility(visible = homeExpanded) {
+                  Column {
             HomeSectionRow(HomeSection.NOW_PLAYING, "Spelar no", "Aktive avspelingar frå Jellyfin og Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.CONTINUE_WATCHING, "Hald fram å sjå", "Halvsette filmar og episodar", Icons.Rounded.History, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.RECOMMENDATIONS, "Anbefalingar", "Felles liste frå GitHub", Icons.Rounded.Explore, state, onHomeSectionChange)
@@ -718,7 +736,13 @@ fun SettingsScreen(
                 HomeSectionRow(HomeSection.EMBY_SERIES, "Emby · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
             }
             HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.CalendarMonth, state, onHomeSectionChange)
-            SettingsSectionTitle("Val")
+                  }
+                }
+              }
+            }
+            SettingsSectionTitle("Varsel og oppdatering")
+            Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
+              Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             PreferenceRow(Icons.Rounded.Notifications, "Bibliotekvarsel", "For førespurnader du har valt å følgje",
                 state.notificationsEnabled, onNotificationsChange)
             PreferenceRow(
@@ -728,6 +752,8 @@ fun SettingsScreen(
                 checked = state.wifiOnly,
                 onCheckedChange = onWifiOnlyChange,
             )
+              }
+            }
             PrivacyCard(state)
             SettingsSectionTitle("Om appen")
             AppIdentity()
@@ -799,8 +825,8 @@ private fun AppIdentity() {
 
 @Composable
 private fun SettingsSectionTitle(text: String) {
-    Text(text, color = TextColor, style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.padding(top = 28.dp, bottom = 12.dp).semantics { heading() })
+    Text(text, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+        modifier = Modifier.padding(top = 26.dp, bottom = 10.dp, start = 4.dp).semantics { heading() })
 }
 
 @Composable
@@ -810,7 +836,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
     val hasWarning = connected && connection.detail?.startsWith("Tilkopla ·") == true
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -822,7 +848,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             Text(connection.kind.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 when (connection.state) {
-                    ConnectionState.CONNECTED -> connection.detail ?: "Tilkopla"
+                    ConnectionState.CONNECTED -> if (hasWarning) connection.detail else "Tilkopla"
                     ConnectionState.TESTING -> "Sjekkar tilkoplinga…"
                     ConnectionState.ERROR -> connection.detail ?: "Må sjekkast · Trykk for å rette"
                     ConnectionState.DEMO -> "Kople til ${connection.kind.displayName}"
@@ -839,7 +865,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             )
         }
         Icon(
-            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            if (connected && !hasWarning) Icons.Rounded.CheckCircle else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
             tint = when {
                 hasWarning -> Caution
@@ -850,7 +876,6 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             modifier = Modifier.size(22.dp),
         )
     }
-    HorizontalDivider(color = app.reelstack.ui.theme.Divider)
 }
 
 @Composable
@@ -892,7 +917,6 @@ private fun PreferenceRow(
             ),
         )
     }
-    HorizontalDivider(color = app.reelstack.ui.theme.Divider)
 }
 
 @Composable
