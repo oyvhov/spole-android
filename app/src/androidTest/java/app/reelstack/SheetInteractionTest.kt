@@ -117,10 +117,13 @@ class SheetInteractionTest {
         var closed = false
         rule.setContent { ReelstackTheme { Sheets(state.value, onClose = { closed = true }) } }
         rule.onNodeWithTag("detail-loading").assertIsDisplayed()
+        rule.onNodeWithTag("detail-artwork").assertIsDisplayed()
+        val artworkFrame = bounds("detail-artwork")
         val close = bounds("sheet-close")
         rule.runOnIdle { state.value = state.value.copy(contentDetails = details.copy(loading = false,
             overview = null, error = "Fekk ikkje henta alle detaljane")) }
         rule.onNodeWithText("Ingen omtale tilgjengeleg.").assertIsDisplayed()
+        assertEquals(artworkFrame, bounds("detail-artwork"))
         assertEquals(close, bounds("sheet-close"))
         rule.runOnIdle { state.value = state.value.copy(contentDetails = details.copy(loading = true)) }
         rule.onNodeWithTag("sheet-close").performClick()

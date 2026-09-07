@@ -88,6 +88,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -172,15 +173,8 @@ fun ReelstackSheets(
                 is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle, detailScroll)
                 is AppSheet.TitleDetails -> state.contentDetails?.let { details ->
                     androidx.compose.runtime.key(details.key) {
-                        AnimatedContent(
-                            targetState = !entered || details.loading,
-                            modifier = Modifier.fillMaxSize(),
-                            transitionSpec = { (fadeIn(tween(180)) togetherWith fadeOut(tween(90))).using(null) },
-                            label = "detail-ready",
-                        ) { loading ->
-                            if (loading) DetailSheetSkeleton()
-                            else RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia, onSeerrAccount = onSeerrAccount, scroll = detailScroll)
-                        }
+                        RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
+                            onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered)
                     }
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
@@ -230,12 +224,16 @@ private fun DetailSheetSkeleton() {
 }
 
 @Composable
-private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit, scroll: ScrollState) {
+private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit, scroll: ScrollState, entered: Boolean) {
     val details = state.contentDetails ?: return
+    // Freeze the opening artwork and title. Late metadata must not replace or resize the hero.
+    val opening = remember(details.key) { details }
+    val ready = entered && !details.loading
+    val metadataAlpha by animateFloatAsState(if (ready) 1f else 0f, tween(180), label = "metadata-reveal")
     val discoverMedia = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == details.key }
-    val mediaType = resolvedMediaType(details.mediaType, details.subtitle)
+    val mediaType = resolvedMediaType(opening.mediaType, opening.subtitle)
     val isMovie = mediaType == "Movie"
-    val usePoster = isMovie || details.source == ServiceKind.SEERR
+    val usePoster = isMovie || mediaType == "Series" || opening.source == ServiceKind.SEERR
     val visibleFacts = details.facts.filterNot { it == details.source?.displayName }.distinct()
     Column(
         Modifier
@@ -246,28 +244,41 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     ) {
         if (usePoster) {
             MoviePosterSummary(
-                title = details.title,
-                eyebrow = details.eyebrow,
-                subtitle = details.subtitle,
-                tagline = details.tagline,
-                facts = visibleFacts,
-                artworkUrl = details.artworkUrl,
-                artworkRes = details.artworkRes,
-                source = details.source,
-                loading = details.loading,
+                title = opening.title,
+                eyebrow = opening.eyebrow,
+                subtitle = opening.subtitle,
+                tagline = opening.tagline,
+                facts = opening.facts.take(4),
+                artworkUrl = opening.artworkUrl,
+                artworkRes = opening.artworkRes,
+                source = opening.source,
+                loading = false,
             )
         } else {
             CinematicTitleHero(
-                title = details.title,
-                eyebrow = details.eyebrow,
-                subtitle = details.subtitle,
-                artworkUrl = details.artworkUrl,
-                artworkRes = details.artworkRes,
-                source = details.source,
+                title = opening.title,
+                eyebrow = opening.eyebrow,
+                subtitle = opening.subtitle,
+                artworkUrl = opening.artworkUrl,
+                artworkRes = opening.artworkRes,
+                source = opening.source,
                 portrait = mediaType == "Series",
             )
         }
-        val remainingFacts = if (usePoster) visibleFacts.drop(4) else visibleFacts
+        if (!ready) {
+            Column(Modifier.fillMaxWidth().testTag("detail-loading").padding(top = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                DetailTextSkeleton(Modifier.fillMaxWidth())
+                DetailTextSkeleton(Modifier.fillMaxWidth())
+            }
+            return@Column
+        }
+        Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
+        if (details.title != opening.title) {
+            Text(details.title, style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(top = 20.dp))
+        }
+        val remainingFacts = if (usePoster) visibleFacts.filterNot { it in opening.facts.take(4) } else visibleFacts
         // Keep metadata on one predictable rail. A wrapping FlowRow changes the scroll content
         // height when the remote detail response adds a second row of facts.
         Box(Modifier.fillMaxWidth().heightIn(min = 50.dp).padding(top = 16.dp)) {
@@ -436,6 +447,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 )
             }
         }
+        }
     }
 }
 
@@ -458,7 +470,7 @@ private fun MoviePosterSummary(
         Surface(
             color = app.reelstack.ui.theme.Ink,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.width(116.dp).height(174.dp),
+            modifier = Modifier.width(116.dp).height(174.dp).testTag("detail-artwork"),
         ) {
             MediaArtwork(
                 url = artworkUrl,

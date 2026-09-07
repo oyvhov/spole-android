@@ -40,6 +40,7 @@ internal fun StableSheetDialog(
     val canDismiss by rememberUpdatedState(dismissEnabled)
     val dismissLatest by rememberUpdatedState(onDismiss)
     val scope = rememberCoroutineScope()
+    val hostView = LocalView.current
     val close = {
         if (canDismiss && !closing) {
             closing = true
@@ -50,6 +51,8 @@ internal fun StableSheetDialog(
         }
     }
     LaunchedEffect(Unit) {
+        // Android honours the user's system touch-feedback preference.
+        hostView.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
         progress.animateTo(1f, tween(320, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
         entered = true
     }

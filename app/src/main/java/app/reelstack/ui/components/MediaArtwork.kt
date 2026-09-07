@@ -35,11 +35,14 @@ fun MediaArtwork(
 ) {
     val context = LocalContext.current
     val fallback = painterResource(fallbackRes)
-    val model = remember(url, fallbackRes, source) {
+    val motionEnabled = Settings.Global.getFloat(context.contentResolver,
+        Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
+    val fadeDuration = if (motionEnabled) crossfadeDurationMillis else 0
+    val model = remember(url, fallbackRes, source, fadeDuration) {
         runCatching {
             val builder = ImageRequest.Builder(context)
                 .data(url ?: fallbackRes)
-                .crossfade(crossfadeDurationMillis)
+                .crossfade(fadeDuration)
             if (url != null && (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY)) {
                 val connection = (context.applicationContext as? ReelstackApplication)
                     ?.container
