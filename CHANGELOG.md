@@ -1,6 +1,6 @@
 # Changelog
 
-## Ikkje utgjeve
+## 0.13.0
 
 ### Nye funksjonar
 
