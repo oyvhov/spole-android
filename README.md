@@ -4,7 +4,7 @@ Spole samlar Jellyfin, Emby, Seerr, Radarr og Sonarr i ein innfødd Android-app 
 
 ## Siste utgåve · 0.13.2
 
-[Last ned Spole for Android](https://github.com/oyvhov/reelstack-android/releases/download/v0.13.2/Spole-v0.13.2.apk) · [Release-notat](https://github.com/oyvhov/reelstack-android/releases/tag/v0.13.2)
+[Last ned Spole for Android](https://github.com/oyvhov/spole-android/releases/download/v0.13.2/Spole-v0.13.2.apk) · [Release-notat](https://github.com/oyvhov/spole-android/releases/tag/v0.13.2)
 
 Animert Spole-oppstart, eit luftigare appikon og ei ryddigare framside utan eiga nedlastingsrad. Førespurnadsframdrift ligg framleis i Aktivitet. Privat repo: nedlasting krev GitHub-tilgang.
 
@@ -12,7 +12,7 @@ The native app includes a multi-server Home, four interactive destinations, pers
 
 ## Download
 
-This repository is private. Releases are published to [GitHub Releases](https://github.com/oyvhov/reelstack-android/releases/latest), and downloading one requires being signed in with access to the repository. Since 0.11.7, downloads are production APKs with the stable `app.reelstack` package and release certificate. Debug builds are only for local testing.
+This repository is private. Releases are published to [GitHub Releases](https://github.com/oyvhov/spole-android/releases/latest), and downloading one requires being signed in with access to the repository. Since 0.11.7, downloads are production APKs with the stable `app.reelstack` package and release certificate. Debug builds are only for local testing.
 
 ## Included now
 
