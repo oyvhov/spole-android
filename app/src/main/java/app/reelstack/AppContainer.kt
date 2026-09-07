@@ -23,9 +23,8 @@ class AppContainer(context: Context) {
     val jellyfinAuthenticationClient = JellyfinAuthenticationClient(
         deviceId = deviceId,
     )
-    val mediaSyncRepository = MediaSyncRepository(
-        mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId),
-    )
+    val mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId)
+    val mediaSyncRepository = MediaSyncRepository(mediaServerClient = mediaServerClient)
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
     val preferencesRepository = AppPreferencesRepository(appContext)
     val requestTrackingRepository = app.reelstack.data.repository.RequestTrackingRepository(appContext)

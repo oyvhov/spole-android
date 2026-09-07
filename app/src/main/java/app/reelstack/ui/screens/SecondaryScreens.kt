@@ -32,9 +32,6 @@ import app.reelstack.data.model.canRequest
 import app.reelstack.data.model.canRequestType
 import app.reelstack.data.model.seerrStatusLabel
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,6 +59,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Refresh
@@ -82,6 +80,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -103,9 +102,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.reelstack.data.model.ActivityEvent
+import app.reelstack.data.model.activityDayGroup
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.HomeSection
+import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.isSeries
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
@@ -173,6 +174,8 @@ fun DiscoverScreen(
     onRequest: (String) -> Unit,
     onDetails: (String) -> Unit,
     onAccountClick: () -> Unit = {},
+    onLibraryDetails: (String) -> Unit = {},
+    onLoadMore: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     var filter by rememberSaveable { mutableStateOf(DiscoverFilter.ALL) }
@@ -249,6 +252,22 @@ fun DiscoverScreen(
                     Modifier.padding(top = 12.dp))
             }
         }
+        if (state.librarySearchResults.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.padding(top = 4.dp)) {
+                    Text("I biblioteka dine", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Alt her kan du sjå med ein gong.", color = Muted, fontSize = 12.sp,
+                        lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+                }
+            }
+            items(state.librarySearchResults, key = { "library-hit-${it.id}" }) { media ->
+                LibraryHitCard(media) { onLibraryDetails(media.id) }
+            }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text("Legg til noko nytt", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+            }
+        }
         if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank()
                 && state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() })) {
             item(span = { GridItemSpan(maxLineSpan) }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
@@ -256,6 +275,8 @@ fun DiscoverScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     state.searchError ?: when {
+                        state.searchQuery.isNotBlank() && state.librarySearchResults.isNotEmpty() ->
+                            "Ingenting nytt å leggje til for «${state.searchQuery.trim()}»."
                         state.searchQuery.isNotBlank() -> "Ingen treff på «${state.searchQuery.trim()}». Prøv eit anna søk eller filter."
                         filter != DiscoverFilter.ALL || libraryFilter != LibraryFilter.ALL -> "Ingen titlar i dette filteret enno."
                         else -> "Ingen forslag enno. Kople til Seerr i Innstillingar for å oppdage nye titlar."
@@ -269,6 +290,26 @@ fun DiscoverScreen(
                 DiscoverCard(media, media.id in state.requestingMediaIds,
                     allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(if (media.isSeries) "tv" else "movie") } == true,
                     onRequest = { onRequest(media.id) }, onDetails = { onDetails(media.id) })
+            }
+            // Seerr answers 20 results at a time. Loading the next page is explicit rather than
+            // automatic, so scrolling a long list never fires requests the reader did not ask for.
+            if (state.searchHasMore) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    OutlinedButton(
+                        onClick = onLoadMore,
+                        enabled = !state.loadingMoreSearch,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 52.dp)
+                            .testTag("discover-load-more"),
+                    ) {
+                        if (state.loadingMoreSearch) {
+                            CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)
+                            Text("Hentar fleire…", modifier = Modifier.padding(start = 10.dp))
+                        } else {
+                            Text("Hent fleire treff")
+                        }
+                    }
+                }
             }
         }
     }
@@ -329,6 +370,36 @@ private fun DiscoverFilterBar(
                 }
             }
         }
+    }
+}
+
+/** A title you already own: no request action, just the way into its details. */
+@Composable
+private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+            .clickable(onClickLabel = "Vis detaljar for ${media.title}", onClick = onClick)
+            .testTag("library-hit-${media.id}"),
+    ) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(14.dp)).background(SurfaceRaised)) {
+            MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(),
+                ContentScale.Crop, source = media.source)
+            Row(
+                Modifier.align(Alignment.TopStart).padding(8.dp)
+                    .background(Color.Black.copy(alpha = .72f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 7.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.CheckCircle, null, tint = Success, modifier = Modifier.size(12.dp))
+                Text("I biblioteket", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 1, modifier = Modifier.padding(start = 5.dp))
+            }
+        }
+        Text(media.title, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            lineHeight = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 8.dp))
+        Text(media.subtitle, color = Muted, fontSize = 12.sp, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
@@ -395,7 +466,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
 @Composable
 fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit,
                    onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {},
-                   onAccountClick: () -> Unit = {}) {
+                   onAccountClick: () -> Unit = {}, onCancelRequest: (String) -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var savedSourceFilter by rememberSaveable {
         mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) ActivityFilter.MINE else ActivityFilter.ALL)
@@ -482,7 +553,13 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 18.dp))
             }
             items(personalRequests, key = { "follow-${it.key}" }) { request ->
-                app.reelstack.ui.TrackedRequestCard(request, { onDetails(request.key) }, { onNotify(request.key, it) })
+                app.reelstack.ui.TrackedRequestCard(
+                    request,
+                    { onDetails(request.key) },
+                    { onNotify(request.key, it) },
+                    onCancel = { onCancelRequest(request.key) },
+                    cancelling = request.key in state.cancellingRequestKeys,
+                )
             }
         } else if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {
             item { ActivitySkeleton(Modifier.fillMaxWidth()) }
@@ -502,7 +579,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
             // Group by day so a long feed can be skimmed instead of read as one undifferentiated list.
             var lastGroup: String? = null
             events.forEach { event ->
-                val group = activityDayGroup(event.time)
+                val group = activityDayGroup(event)
                 if (group != lastGroup) {
                     lastGroup = group
                     item(key = "group-${event.id}") {
@@ -538,15 +615,6 @@ private fun ActivityScopeMenu(selected: ActivityFilter, onSelect: (ActivityFilte
             }
         }
     }
-}
-
-/** Buckets the human time string the services already produce; no extra parsing of raw dates. */
-private fun activityDayGroup(time: String): String = when {
-    time.isBlank() -> "TIDLEGARE"
-    time.startsWith("For ", ignoreCase = true) || time.equals("No", ignoreCase = true) -> "I DAG"
-    time.startsWith("I dag", ignoreCase = true) -> "I DAG"
-    time.startsWith("I går", ignoreCase = true) -> "I GÅR"
-    else -> "TIDLEGARE"
 }
 
 @Composable
@@ -638,6 +706,7 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             HomeSectionRow(HomeSection.NOW_PLAYING, "Spelar no", "Aktive avspelingar frå Jellyfin og Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.CONTINUE_WATCHING, "Hald fram å sjå", "Halvsette filmar og episodar", Icons.Rounded.History, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.RECOMMENDATIONS, "Anbefalingar", "Felles liste frå GitHub", Icons.Rounded.Explore, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.RECENT_RELEASES, "Nyleg tilgjengeleg", "Siste 28 dagar etter release-dato", Icons.Rounded.Schedule, state, onHomeSectionChange)
             if (connected(ServiceKind.JELLYFIN)) {
@@ -690,9 +759,13 @@ private fun PrivacyCard(state: ReelstackUiState) {
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
                 if (configured.isNotEmpty()) Text(
                     when {
+                        cleartext.isEmpty() && configured.size == 1 -> "Tilkoplinga går over HTTPS."
                         cleartext.isEmpty() -> "Alle ${configured.size} tilkoplingane går over HTTPS."
-                        else -> "${cleartext.size} av ${configured.size} tilkoplingar går over HTTP: " +
-                            cleartext.joinToString(", ") { it.kind.displayName } + ". Det er greitt på eige nett."
+                        else -> {
+                            val scope = if (configured.size == 1) "Tilkoplinga" else "${cleartext.size} av ${configured.size} tilkoplingar"
+                            "$scope går over HTTP: " + cleartext.joinToString(", ") { it.kind.displayName } +
+                                ". Det er greitt på eige nett."
+                        }
                     },
                     color = if (cleartext.isEmpty()) Muted else Caution,
                     fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),

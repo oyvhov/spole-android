@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -122,8 +123,15 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
 }
 
 @Composable
-fun TrackedRequestCard(item: TrackedRequest, onDetails: () -> Unit, onNotify: (Boolean) -> Unit) {
+fun TrackedRequestCard(
+    item: TrackedRequest,
+    onDetails: () -> Unit,
+    onNotify: (Boolean) -> Unit,
+    onCancel: () -> Unit = {},
+    cancelling: Boolean = false,
+) {
     val context = LocalContext.current
+    var confirmCancel by rememberSaveable(item.key) { mutableStateOf(false) }
     val notifyAction by rememberUpdatedState(onNotify)
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifyAction(true) }
     val active = item.stage != RequestStage.AVAILABLE
@@ -203,8 +211,47 @@ fun TrackedRequestCard(item: TrackedRequest, onDetails: () -> Unit, onNotify: (B
             }
             if (active) {
                 CompactRequestProgress(item, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp))
+                // Withdrawing is only offered once Seerr has given the request an id: without it
+                // there is nothing to withdraw, and a dead button would be worse than none.
+                if (item.requestId != null) {
+                    TextButton(
+                        onClick = { confirmCancel = true },
+                        enabled = !cancelling,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp).testTag("cancel-request-${item.key}"),
+                    ) {
+                        if (cancelling) {
+                            CircularProgressIndicator(Modifier.size(14.dp), color = Warning, strokeWidth = 2.dp)
+                            Text("Trekkjer tilbake…", color = Muted, fontSize = 13.sp,
+                                modifier = Modifier.padding(start = 8.dp))
+                        } else {
+                            Icon(Icons.Rounded.Close, null, tint = Warning, modifier = Modifier.size(16.dp))
+                            Text("Trekk tilbake", color = Warning, fontSize = 13.sp,
+                                modifier = Modifier.padding(start = 6.dp))
+                        }
+                    }
+                }
             }
         }
+    }
+    if (confirmCancel) {
+        AlertDialog(
+            onDismissRequest = { confirmCancel = false },
+            title = { Text("Trekkje tilbake «${item.title}»?") },
+            text = {
+                Text(
+                    "Førespurnaden blir fjerna i Seerr. Alt som alt er lasta ned blir verande i " +
+                        "biblioteket. Du kan sende han på nytt seinare.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { confirmCancel = false; onCancel() }) {
+                    Text("Trekk tilbake", color = Warning)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text("Behald") } },
+            containerColor = SurfaceRaised,
+            shape = RoundedCornerShape(28.dp),
+        )
     }
 }
 

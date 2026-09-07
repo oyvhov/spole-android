@@ -14,6 +14,14 @@ This repository is private. Releases are published to [GitHub Releases](https://
 - Matte charcoal design with warm white type, lime accents, borderless posters and navigation that reserves space for content
 - First-run service checklist, address-first connection setup, preserved tab scroll state and working Discover filters
 - Aggregated Home dashboard with content from every connected server; no server switching required
+- "Hald fram a sja" rail of partly watched films and episodes from the servers' own resume lists, with per-item progress
+- Search your own Jellyfin/Emby libraries alongside Seerr, so a title you already own is findable by name
+- Withdraw one of your own pending Seerr requests, with confirmation and a server-side owner check
+- Two addresses per service (home LAN and an away proxy) with automatic failover and no second sign-in
+- Opens an installed Jellyfin/Emby client for a title when one handles the server address, instead of always falling back to a browser
+- Separate notification channels for ready / downloading / stopped, tunable independently in Android settings
+- Room-backed dashboard cache with paged reads, and "load more" for Seerr search results
+- "Spelar no" home-screen widget that queries the servers directly, since playback is never cached
 - Multiple simultaneous Jellyfin/Emby sessions with independent playback controls
 - Live Seerr search with personal “add to media collection” actions and a visible verified account identity
 - Personal Activity for ordinary users; verified Seerr administrators also have Seerr/Radarr/Sonarr overview filters
@@ -30,7 +38,7 @@ This repository is private. Releases are published to [GitHub Releases](https://
 - Artwork-led Upcoming section and a 28-day agenda calendar: Radarr home releases (not cinema-only dates) plus Sonarr episodes
 - Live Seerr trending discovery, request activity, and request submission
 - Independent per-service refresh errors, empty states, and pull-to-refresh; playback, activity and library access fail closed rather than retaining an unverified previous scope
-- 30-minute WorkManager refresh with an optional Wi-Fi-only constraint; shared sessions and activity are never written to the dashboard cache
+- 30-minute WorkManager refresh with an optional Wi-Fi-only constraint; shared sessions, queues and activity are never written to the dashboard cache
 - Per-section Home visibility controls in Settings
 - Remote artwork with local fallbacks and HTTPS-only external image filtering
 - Android Keystore-backed AES/GCM encryption for API tokens

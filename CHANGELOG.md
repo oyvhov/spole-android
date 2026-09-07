@@ -1,5 +1,32 @@
 # Changelog
 
+## Ikkje utgjeve
+
+### Nye funksjonar
+
+- **Hald fram å sjå**: ny rad på Heim med halvsette filmar og episodar, henta frå Jellyfin/Emby si eiga resume-liste. Framdrifta låg alt i modellen, men vart aldri vist. Rada kan skruast av i Innstillingar, og barnebiblioteka blir aldri spurde.
+- **Søk i eigne bibliotek**: Oppdag søkjer no i Jellyfin og Emby i tillegg til Seerr. Treff du alt eig kjem øvst under «I biblioteka dine», og dei to kjeldene svarar uavhengig av kvarandre, så eit søk verkar sjølv om Seerr er nede.
+- **Trekk tilbake ein førespurnad**: aktive førespurnader i Aktivitet kan trekkjast tilbake, med stadfesting. Appen kontrollerer at førespurnaden er din før han sender slettinga.
+- **To adresser per teneste**: legg til ei alternativ adresse under avanserte val, til dømes heimenettet og ein proxy utanfrå. Appen byter automatisk når den vanlege adressa ikkje svarar, og hugsar valet. Tilgangsteiknet høyrer til tenaren, så du treng ikkje logge inn på nytt.
+- **Ekte «opne i appen»**: detaljpopupen finn ein installert Jellyfin-/Emby-klient som handterer adressa og opnar han direkte, i staden for alltid å hamne i nettlesaren. Knappen namngjev appen han opnar.
+- **Varselkanalar per hending**: «klart i biblioteket», «lastar ned» og «stoppa» er no tre kanalar i Android-innstillingane, så dei kan stillast eller slåast av kvar for seg.
+- **Mellomlager i SQLite (Room)**: dashbordet blir lagra i ein database i staden for éin JSON-tekst i SharedPreferences. Rader kan lesast sidevis, og ei forelda kopi blir sletta i staden for å bli tolka.
+- **Paginering i Oppdag**: søkjeresultat frå Seerr stoppar ikkje lenger på dei første 20. «Hent fleire treff» hentar neste side når det finst ein.
+- **Heimeskjermwidget**: «Spelar no» viser kva som spelar på Jellyfin og Emby. Avspeling blir aldri mellomlagra, så widgeten spør tenaren direkte og fell tilbake til ei tekstlinje om han ikkje når fram.
+
+### Rettingar
+
+- Innloggings- og tilkoplingsfeil viser no nynorsk tekst med neste steg i staden for rå Java-nettverkstekst. Eit vertsnamn som ikkje svarar, ein tenar som er av og eit sertifikat Android ikkje stolar på får kvar si melding. Jellyfin, Seerr og tilkoplingstesten følgjer no same regel som Emby alt gjorde.
+- Eit uventa svar frå ein omvend proxy (til dømes ei HTML-feilside med status 200) blir rapportert som «uventa svar» i staden for parser-tekst.
+- Vanleg HTTP er igjen berre tillate for ekte private adresser. Sjekken var eit prefikstest på vertsnamnet, så namn som `fcbarcelona.com` eller `192.168.1.5.nip.io` opna for ukryptert trafikk over det opne internettet.
+- Heim viser den sist stadfesta feeden med ein gong ved kald start. Mellomlageret vart skrive ved kvar oppdatering, men aldri lese, så alle rader stod tomme til første nettverkssvar kom. Lageret er knytt til akkurat dei innlogga kontoane, slik at ein tidlegare brukar sin feed aldri kan dukke opp for den neste.
+- Aktivitet grupperer no etter faktisk tidspunkt. «For 5 dagar sidan» hamna under «I DAG» fordi han deler prefiks med «For 5 min sidan», og ein førespurnad du nettopp sende hamna under «TIDLEGARE».
+- Detaljpopupen viser igjen kvar tittelen kjem frå: «Nyleg tilgjengeleg · Radarr», «Bibliotek i Jellyfin», «I biblioteket ditt». Linja vart laga for kvar popup, men begge overskriftene kasta henne og skreiv berre tenestenamnet.
+- Ei uventa feil under oppdatering krasjar ikkje lenger appen og lèt ikkje spinnaren gå for alltid. Ei innlogging som ikkje kan lagrast trygt på eininga blir sagt frå om i staden for å bli rapportert som tilkopla.
+- Følgjing av førespurnader går no i lågt tempo når Aktivitet ikkje er open. Kvart intervall kostar eit profilkall, ei førespurnadsliste og opptil tjue detaljoppslag, og det gjekk kvart 30. sekund frå alle faner.
+- Éin uventa oppføring frå ei teneste tømmer ikkje lenger heile rada.
+- Rettar eintal i personvernkortet: «Alle 1 tilkoplingane går over HTTPS.»
+
 ## 0.12.4
 
 - Gjer innlogga tenester kompakte i innloggingspopupen: grøn stadfesting først, konto- og utloggingsval ved behov.

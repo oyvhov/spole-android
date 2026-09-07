@@ -16,32 +16,69 @@ import androidx.core.content.ContextCompat
 import app.reelstack.MainActivity
 import app.reelstack.data.model.TrackedRequest
 
+/**
+ * Each kind of update is its own Android channel, so "it is ready to watch" and "the download
+ * failed" can be tuned — or silenced — separately in system settings. A single channel forced one
+ * choice on both, and turning off a failure you did not care about also lost the ready alert.
+ */
+enum class NotificationEvent(val channelId: String, val channelName: String, val importance: Int) {
+    READY("library-ready", "Klart i biblioteket", NotificationManager.IMPORTANCE_DEFAULT),
+    DOWNLOADING("request-downloading", "Lastar ned", NotificationManager.IMPORTANCE_LOW),
+    FAILED("request-failed", "Førespurnader som stoppa", NotificationManager.IMPORTANCE_DEFAULT),
+}
+
 object LibraryNotifications {
-    private const val CHANNEL = "library-ready"
     fun allowed(context: Context): Boolean = (Build.VERSION.SDK_INT < 33 ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
         NotificationManagerCompat.from(context).areNotificationsEnabled()
 
+    /** Registers every channel up front so they are visible in system settings before the first alert. */
+    fun ensureChannels(context: Context) {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        NotificationEvent.entries.forEach { event ->
+            manager.createNotificationChannel(
+                NotificationChannel(event.channelId, event.channelName, event.importance),
+            )
+        }
+    }
+
     fun show(context: Context, scope: String, item: TrackedRequest,
-             stillEligible: () -> Boolean = { true }, artworkLoader: (String?) -> Bitmap? = ::notificationArtwork): Boolean {
+             stillEligible: () -> Boolean = { true }, artworkLoader: (String?) -> Bitmap? = ::notificationArtwork,
+             event: NotificationEvent = NotificationEvent.READY): Boolean {
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Klart i biblioteket", NotificationManager.IMPORTANCE_DEFAULT))
-        if (!allowed(context) || manager.getNotificationChannel(CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE) return false
+        val channel = event.channelId
+        ensureChannels(context)
+        if (!allowed(context) || manager.getNotificationChannel(channel)?.importance == NotificationManager.IMPORTANCE_NONE) return false
         val intent = Intent(context, MainActivity::class.java).putExtra("open_requests", true)
-        val pending = PendingIntent.getActivity(context, (scope + item.key).hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val subtitle = if (item.seasons.isEmpty()) "Filmen er klar til å sjå." else
-            "Sesong ${item.seasons.sorted().joinToString(", ")} er klar til å sjå."
+        val pending = PendingIntent.getActivity(context, (scope + item.key + event.name).hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val seasons = item.seasons.sorted().joinToString(", ")
+        val subtitle = when (event) {
+            NotificationEvent.READY ->
+                if (item.seasons.isEmpty()) "Filmen er klar til å sjå."
+                else "Sesong $seasons er klar til å sjå."
+            NotificationEvent.DOWNLOADING ->
+                item.percent?.let { "Lastar ned · $it %" } ?: "Nedlastinga har starta."
+            NotificationEvent.FAILED ->
+                "Førespurnaden stoppa. Opne Spole for å sjå kva som skjedde."
+        }
         // Artwork is optional. Never attach server credentials or follow an image redirect.
         val picture = artworkLoader(item.artworkUrl)
         if (!stillEligible()) return false
         return runCatching {
-            val builder = NotificationCompat.Builder(context, CHANNEL)
+            val builder = NotificationCompat.Builder(context, channel)
                 .setSmallIcon(app.reelstack.R.drawable.ic_notification_library)
-                .setContentTitle("${item.title} · i biblioteket").setContentText(subtitle)
+                .setContentTitle(
+                    when (event) {
+                        NotificationEvent.READY -> "${item.title} · i biblioteket"
+                        NotificationEvent.DOWNLOADING -> "${item.title} · lastar ned"
+                        NotificationEvent.FAILED -> "${item.title} · stoppa"
+                    },
+                )
+                .setContentText(subtitle)
                 .setContentIntent(pending).setAutoCancel(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             if (picture != null) builder.setLargeIcon(picture).setStyle(NotificationCompat.BigPictureStyle()
                 .bigPicture(picture).setSummaryText(subtitle))
-            manager.notify((scope + item.key).hashCode(), builder.build())
+            manager.notify((scope + item.key + event.name).hashCode(), builder.build())
             true
         }.getOrDefault(false)
     }

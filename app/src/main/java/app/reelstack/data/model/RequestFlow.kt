@@ -66,6 +66,13 @@ data class TrackedRequest(
     val checkedAt: Long = 0,
     val is4k: Boolean = false,
     val availableSeasons: Set<Int> = emptySet(),
+    /** Seerr's own request id, needed to withdraw it. Null for follows imported before 0.13. */
+    val requestId: Int? = null,
+    /**
+     * Stages already announced. Per stage, because one `notified` flag meant a "ready" alert also
+     * silenced the later "this stopped" alert for the same title.
+     */
+    val notifiedStages: Set<String> = emptySet(),
 )
 
 data class RequestDraft(

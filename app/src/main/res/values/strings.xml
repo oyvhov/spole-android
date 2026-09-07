@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Spole</string>
+    <string name="widget_title">Spelar no</string>
+    <string name="widget_description">Viser kva som spelar på Jellyfin og Emby akkurat no.</string>
+    <string name="widget_loading">Hentar…</string>
 </resources>

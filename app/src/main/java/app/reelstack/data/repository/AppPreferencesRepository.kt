@@ -29,7 +29,8 @@ class AppPreferencesRepository(context: Context) {
             if (saved != null && saved.isNotEmpty() &&
                 preferences.getInt(KEY_HOME_SECTIONS_VERSION, 0) < HOME_SECTIONS_VERSION
             ) {
-                val migrated = decoded + HomeSection.RECOMMENDATIONS + HomeSection.RECENT_RELEASES
+                val migrated = decoded + HomeSection.RECOMMENDATIONS + HomeSection.RECENT_RELEASES +
+                    HomeSection.CONTINUE_WATCHING
                 preferences.edit {
                     putStringSet(KEY_HOME_SECTIONS, migrated.mapTo(mutableSetOf()) { it.name })
                     putInt(KEY_HOME_SECTIONS_VERSION, HOME_SECTIONS_VERSION)
@@ -48,6 +49,6 @@ class AppPreferencesRepository(context: Context) {
         const val KEY_WIFI_ONLY = "wifi_only"
         const val KEY_HOME_SECTIONS = "home_sections"
         const val KEY_HOME_SECTIONS_VERSION = "home_sections_version"
-        const val HOME_SECTIONS_VERSION = 2
+        const val HOME_SECTIONS_VERSION = 3
     }
 }

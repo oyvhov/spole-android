@@ -149,6 +149,7 @@ fun ReelstackSheets(
     onRequestNotification: (Boolean) -> Unit = {},
     onConfirmRequest: () -> Unit = {},
     onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
+    onConnectionAlternateUrlChange: (String) -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     val sheetContentStates = rememberSaveableStateHolder()
@@ -194,6 +195,7 @@ fun ReelstackSheets(
                         onUrlChange = onConnectionUrlChange,
                         onTokenChange = onConnectionTokenChange,
                         onUserIdChange = onConnectionUserIdChange,
+                        onAlternateUrlChange = onConnectionAlternateUrlChange,
                         onAuthModeChange = onConnectionAuthModeChange,
                         onCompanionLoginChange = onCompanionLoginChange,
                         onUsernameChange = onConnectionUsernameChange,
@@ -469,12 +471,7 @@ private fun MoviePosterSummary(
             )
         }
         Column(Modifier.weight(1f).padding(start = 17.dp, top = 7.dp)) {
-            source?.let {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SourceMark(kind = it, modifier = Modifier.size(12.dp))
-                    Text(it.displayName, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
-                }
-            }
+            DetailEyebrow(eyebrow, source)
             Text(
                 title,
                 color = Color.White,
@@ -525,6 +522,25 @@ private fun SourceMark(kind: ServiceKind, modifier: Modifier = Modifier) {
 }
 
 /**
+ * Says where this title came from and what it is right now — "Nyleg tilgjengeleg · Radarr",
+ * "Bibliotek i Jellyfin", "I biblioteket ditt". The screens build that line for every sheet, and
+ * both headers used to drop it and print the bare service name instead, so a title opened from
+ * Kjem snart looked the same as one opened from Nedlastingar.
+ */
+@Composable
+private fun DetailEyebrow(eyebrow: String, source: ServiceKind?, modifier: Modifier = Modifier) {
+    val label = eyebrow.takeIf(String::isNotBlank) ?: source?.displayName ?: return
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        source?.let {
+            SourceMark(it, Modifier.size(12.dp))
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(label, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/**
  * Hands a library title over to the server's own client, which is the one place that can actually
  * play it. Library ids are stored as "<source>-<serverId>", so the server id is recoverable.
  */
@@ -538,16 +554,15 @@ private fun OpenInServerButton(state: ReelstackUiState, details: ContentDetails)
         ?: return
     val path = if (source == ServiceKind.JELLYFIN) "details" else "item"
     val context = LocalContext.current
+    val url = "$baseUrl/web/index.html#!/$path?id=$itemId"
+    // Resolved once per sheet, so the button can name the app it is actually going to open.
+    val target = androidx.compose.runtime.remember(url) {
+        app.reelstack.ui.components.NativeClientLauncher.resolve(context, url)
+    }
+    var failed by androidx.compose.runtime.saveable.rememberSaveable(url) { mutableStateOf(false) }
     OutlinedButton(
         onClick = {
-            runCatching {
-                context.startActivity(
-                    android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        "$baseUrl/web/index.html#!/$path?id=$itemId".toUri(),
-                    ),
-                )
-            }
+            failed = !app.reelstack.ui.components.NativeClientLauncher.open(context, url, target.packageName)
         },
         shape = RoundedCornerShape(14.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, app.reelstack.ui.theme.ControlOutline),
@@ -555,7 +570,17 @@ private fun OpenInServerButton(state: ReelstackUiState, details: ContentDetails)
         modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 52.dp).testTag("open-in-server"),
     ) {
         Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-        Text("Opne i ${source.displayName}", modifier = Modifier.padding(start = 8.dp))
+        Text(
+            if (target.packageName != null) target.label else "Opne i ${source.displayName}",
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+    if (failed) {
+        Text(
+            "Fann ingen app som kan opne denne lenkja.",
+            color = Warning, fontSize = 12.sp, lineHeight = 17.sp,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
     }
 }
 
@@ -623,12 +648,7 @@ private fun CinematicTitleHero(
                 .aspectRatio(if (portrait) 2f / 3f else 16f / 9f)
                 .clip(RoundedCornerShape(14.dp)).background(Ink),
         )
-        source?.let {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp)) {
-                SourceMark(it, Modifier.size(12.dp))
-                Text(it.displayName, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
-            }
-        }
+        DetailEyebrow(eyebrow, source, Modifier.padding(top = 16.dp))
         Text(title, color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 6.dp))
         if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 14.sp, lineHeight = 20.sp,
@@ -796,6 +816,7 @@ internal fun ConnectionEditorSheet(
     onTestAndSave: () -> Unit,
     onRemove: () -> Unit,
     onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
+    onAlternateUrlChange: (String) -> Unit = {},
 ) {
     var credentialsStep by rememberSaveable(draft.kind) { mutableStateOf(configured) }
     var advanced by rememberSaveable(draft.kind) { mutableStateOf(false) }
@@ -993,6 +1014,22 @@ internal fun ConnectionEditorSheet(
                     shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
             }
+            // The same server usually has two ways in: the LAN address at home and a proxy from
+            // outside. The token belongs to the server, so one sign-in covers both.
+            OutlinedTextField(
+                value = draft.alternateUrl, onValueChange = onAlternateUrlChange,
+                label = { Text("Andre adresse (valfri)") }, singleLine = true, enabled = !draft.saving,
+                placeholder = { Text("https://spole.dømet.no") },
+                supportingText = {
+                    Text("Brukt automatisk når den vanlege adressa ikkje svarar, til dømes når du ikkje er heime.")
+                },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                    autoCorrectEnabled = false, keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done,
+                ),
+                shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp).testTag("connection-alternate-url"),
+            )
         }
         draft.warning?.let { MessageCard(it, warning = true) }
         draft.error?.let { MessageCard(it, warning = false) }

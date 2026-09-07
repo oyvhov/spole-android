@@ -31,8 +31,16 @@ class MediaRefreshWorker(
         }.getOrElse { return Result.retry() }
 
         if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
-            container.mediaSnapshotStore.save(snapshot)
+            runCatching {
+                container.mediaSnapshotStore.save(
+                    snapshot,
+                    app.reelstack.data.repository.MediaSnapshotStore.fingerprint(connections),
+                )
+            }
         }
+        // The home-screen widget has no schedule of its own beyond Android's 30-minute floor;
+        // a completed background refresh is the best moment to redraw it.
+        app.reelstack.widget.NowPlayingWidget.requestUpdate(applicationContext)
         return if (snapshot.successfulServices.isEmpty() && snapshot.errors.isNotEmpty()) {
             Result.retry()
         } else {

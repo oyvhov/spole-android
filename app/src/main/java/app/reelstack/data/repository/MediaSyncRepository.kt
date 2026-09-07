@@ -43,6 +43,7 @@ data class MediaSyncSnapshot(
     val sessions: List<PlaybackSession>,
     val recentMovies: List<LibraryMedia>,
     val recentSeries: List<LibraryMedia>,
+    val resume: List<LibraryMedia> = emptyList(),
     val upcoming: List<UpcomingMedia>,
     val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
@@ -55,6 +56,8 @@ data class MediaSyncSnapshot(
     val refreshedAt: Instant,
     val warnings: Map<ServiceKind, String> = emptyMap(),
     val adminView: Boolean = false,
+    /** Services that only answered on their alternate address, so the switch can be persisted. */
+    val switchedToAlternate: Set<ServiceKind> = emptySet(),
     val upcomingError: String? = null,
     val recentReleasesError: String? = null,
 )
@@ -76,9 +79,11 @@ class MediaSyncRepository(
             .mapNotNull { it.await() }.toMap()
         val access = ViewerAccess(configured.any { it.kind == ServiceKind.SEERR }, identities)
         val deferred = configured.map { connection ->
-            async { connection.kind to runCatching { fetch(connection, access) } }
+            async { connection.kind to fetchWithFailover(connection, access) }
         }
-        val results = deferred.map { it.await() }
+        val awaited = deferred.map { it.await() }
+        val switchedToAlternate = awaited.filter { it.second.second }.mapTo(mutableSetOf()) { it.first }
+        val results = awaited.map { it.first to it.second.first }
         val successful = results.filter { it.second.isSuccess }.mapTo(mutableSetOf()) { it.first }
         val errors = results.mapNotNull { (kind, result) ->
             result.exceptionOrNull()?.let { kind to friendlyError(kind, it) }
@@ -163,6 +168,9 @@ class MediaSyncRepository(
             sessions = mediaPayloads.flatMap { payload ->
                 payload.feed.sessions.map { playbackSession(it, payload.kind) }
             },
+            resume = interleave(mediaPayloads.map { payload ->
+                payload.feed.resume.map { item -> libraryMedia(item, payload.kind) }
+            }).take(12),
             recentMovies = interleave(mediaPayloads.map { payload ->
                 payload.feed.recentMovies.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
@@ -181,6 +189,7 @@ class MediaSyncRepository(
             refreshedAt = Instant.now(),
             warnings = warnings,
             adminView = access.isAdmin,
+            switchedToAlternate = switchedToAlternate,
             upcomingError = if (errors.keys.any { it in setOf(ServiceKind.RADARR, ServiceKind.SONARR) })
                 "Nokre utgjevingsdatoar kunne ikkje hentast. Prøv å oppdatere." else null,
             recentReleasesError = if (catalogueResult?.isFailure == true || catalogue?.incomplete == true ||
@@ -195,8 +204,31 @@ class MediaSyncRepository(
         seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId, seasons)
     }
 
-    fun search(connection: ServiceConnection, query: String): List<DiscoverMedia> =
-        seerrServiceClient.search(connection, query).map(::discoverMedia)
+    /** One page of Seerr results plus whether another page exists. */
+    data class SearchPage(val items: List<DiscoverMedia>, val page: Int, val hasMore: Boolean)
+
+    fun search(connection: ServiceConnection, query: String, page: Int = 1): SearchPage {
+        val result = seerrServiceClient.search(connection, query, page)
+        return SearchPage(result.items.map(::discoverMedia), result.page, result.hasMore)
+    }
+
+    /** Searches every connected media server, so a title you already own is findable by name. */
+    suspend fun searchLibraries(
+        connections: List<ServiceConnection>,
+        query: String,
+    ): List<LibraryMedia> = supervisorScope {
+        val servers = connections.filter {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+                it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        }
+        val groups = servers.map { connection ->
+            async {
+                runCatching { mediaServerClient.search(connection, query) }.getOrNull()
+                    ?.map { libraryMedia(it, connection.kind) }
+            }
+        }.awaitAll().filterNotNull()
+        interleave(groups).distinctBy(LibraryMedia::id).take(24)
+    }
 
     fun details(connection: ServiceConnection, media: DiscoverMedia): RemoteMediaDetails =
         seerrServiceClient.details(
@@ -225,6 +257,23 @@ class MediaSyncRepository(
         val access = ViewerAccess(connections.any { it.kind == ServiceKind.SEERR && it.token.isNotBlank() }, accounts)
         check(mediaServerClient.sessions(connection, access).any { it.sessionId == sessionId }) { "Avspelingsøkta er ikkje tilgjengeleg" }
         mediaServerClient.setPaused(connection, sessionId, paused)
+    }
+
+    /**
+     * Tries the address in use, then the alternate. Only a failure pays for the second attempt, so
+     * the ordinary case at home costs exactly what it did before. Returns whether the alternate is
+     * the one that answered.
+     */
+    private fun fetchWithFailover(
+        connection: ServiceConnection,
+        access: ViewerAccess,
+    ): Pair<Result<ServicePayload>, Boolean> {
+        val first = runCatching { fetch(connection, access) }
+        if (first.isSuccess || !connection.hasAlternate) return first to false
+        val swapped = connection.copy(baseUrl = connection.alternateUrl, alternateUrl = connection.baseUrl)
+        val second = runCatching { fetch(swapped, access) }
+        // Keep the original failure when neither route works: it describes the address the user set.
+        return if (second.isSuccess) second to true else first to false
     }
 
     private fun fetch(connection: ServiceConnection, access: ViewerAccess): ServicePayload = when (connection.kind) {
@@ -338,6 +387,7 @@ class MediaSyncRepository(
         title = item.title,
         detail = "${item.source.displayName} · ${item.status}",
         time = "No",
+        timeEpochMillis = Instant.now().toEpochMilli(),
         progress = item.progress,
         complete = item.state == IncomingState.READY,
         source = item.source,
@@ -346,20 +396,25 @@ class MediaSyncRepository(
         mediaType = if (item.source == ServiceKind.SONARR) "Episode" else "Movie",
     )
 
-    private fun requestActivity(request: RemoteRequest, discovered: DiscoverMedia?) = ActivityEvent(
-        id = "seerr-request-${request.id}",
-        title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Ny film" else "Ny serie",
-        detail = app.reelstack.data.model.requestProgress(request.mediaStatus, request.availableSeasons, request.seasons,
-            request.downloads, request.status).stage.label + " · ${request.requestedBy}",
-        time = relativeTime(request.createdAt),
-        complete = app.reelstack.data.model.requestProgress(request.mediaStatus, request.availableSeasons, request.seasons,
-            request.downloads, request.status).stage == app.reelstack.data.model.RequestStage.AVAILABLE,
-        source = ServiceKind.SEERR,
-        artworkRes = R.drawable.media_placeholder,
-        artworkUrl = discovered?.artworkUrl ?: request.artworkUrl,
-        // Seerr requests are shown with their poster, the same as everywhere else in the app.
-        mediaType = "Movie",
-    )
+    private fun requestActivity(request: RemoteRequest, discovered: DiscoverMedia?): ActivityEvent {
+        val progress = app.reelstack.data.model.requestProgress(
+            request.mediaStatus, request.availableSeasons, request.seasons, request.downloads, request.status,
+        )
+        val created = createdInstant(request.createdAt)
+        return ActivityEvent(
+            id = "seerr-request-${request.id}",
+            title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Ny film" else "Ny serie",
+            detail = progress.stage.label + " · ${request.requestedBy}",
+            time = relativeTime(created),
+            timeEpochMillis = created?.toEpochMilli(),
+            complete = progress.stage == app.reelstack.data.model.RequestStage.AVAILABLE,
+            source = ServiceKind.SEERR,
+            artworkRes = R.drawable.media_placeholder,
+            artworkUrl = discovered?.artworkUrl ?: request.artworkUrl,
+            // Seerr requests are shown with their poster, the same as everywhere else in the app.
+            mediaType = "Movie",
+        )
+    }
 
     private fun parseCalendarInstant(value: String): Instant? =
         runCatching { Instant.parse(value) }.getOrNull()
@@ -381,8 +436,11 @@ class MediaSyncRepository(
         return if (source == ServiceKind.SONARR) "$day · ${dateTime.format(DateTimeFormatter.ofPattern("HH:mm"))}" else day
     }
 
-    private fun relativeTime(createdAt: String?): String {
-        val instant = createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return "Nyleg"
+    private fun createdInstant(createdAt: String?): Instant? =
+        createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+
+    private fun relativeTime(instant: Instant?): String {
+        if (instant == null) return "Nyleg"
         val duration = Duration.between(instant, Instant.now()).coerceAtLeast(Duration.ZERO)
         return when {
             duration.toMinutes() < 1 -> "Akkurat no"

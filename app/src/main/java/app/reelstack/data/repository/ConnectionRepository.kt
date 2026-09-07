@@ -32,6 +32,9 @@ class ConnectionRepository(context: Context) {
             token = tokenFor(kind),
             userId = preferences.getString("$prefix.user_id", null).orEmpty(),
             sessionCookie = preferences.getBoolean("$prefix.session_cookie", false),
+            alternateUrl = preferences.getString("$prefix.alt_url", null).orEmpty(),
+            // Older installations have no identity key; their address is the identity.
+            identityUrl = preferences.getString("$prefix.identity_url", null) ?: savedUrl.orEmpty(),
             state = if (savedUrl.isNullOrBlank()) ConnectionState.DEMO else ConnectionState.CONNECTED,
             detail = if (savedUrl.isNullOrBlank()) "Demodata" else "Konfigurert",
         )
@@ -39,9 +42,18 @@ class ConnectionRepository(context: Context) {
 
     fun save(connection: ServiceConnection) {
         val prefix = connection.kind.name.lowercase()
+        val normalized = EndpointValidatorFacade.normalize(connection.baseUrl)
+        val alternate = connection.alternateUrl.takeIf(String::isNotBlank)
+            ?.let(EndpointValidatorFacade::normalize)
         preferences.edit {
             putString("$prefix.name", connection.name.trim())
-            putString("$prefix.url", EndpointValidatorFacade.normalize(connection.baseUrl))
+            putString("$prefix.url", normalized)
+            if (alternate == null || alternate == normalized) remove("$prefix.alt_url")
+            else putString("$prefix.alt_url", alternate)
+            // Written once. A later failover changes the address, never the identity.
+            if (!preferences.contains("$prefix.identity_url")) {
+                putString("$prefix.identity_url", connection.identityUrl.takeIf(String::isNotBlank) ?: normalized)
+            }
             putString("$prefix.user_id", connection.userId.trim())
             putBoolean("$prefix.session_cookie", connection.sessionCookie)
         }
@@ -56,12 +68,28 @@ class ConnectionRepository(context: Context) {
         preferences.edit {
             remove("$prefix.name")
             remove("$prefix.url")
+            remove("$prefix.alt_url")
+            remove("$prefix.identity_url")
             remove("$prefix.user_id")
             remove("$prefix.session_cookie")
         }
         tokenStore.remove("$prefix.token")
         synchronized(tokenCache) {
             tokenCache.remove(kind)
+        }
+    }
+
+    /**
+     * Makes the alternate address the active one after a successful failover. Only the two
+     * addresses swap: token, profile and identity are untouched.
+     */
+    fun promoteAlternate(kind: ServiceKind) {
+        val current = get(kind)
+        if (!current.hasAlternate) return
+        val prefix = kind.name.lowercase()
+        preferences.edit {
+            putString("$prefix.url", current.alternateUrl)
+            putString("$prefix.alt_url", current.baseUrl)
         }
     }
 

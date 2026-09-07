@@ -204,7 +204,7 @@ object ServicePayloadParser {
             else -> JsonArray(emptyList())
         }
         return items.mapNotNull { element ->
-            val item = element.jsonObject
+            val item = element as? JsonObject ?: return@mapNotNull null
             val id = item.string("Id") ?: item.string("id") ?: return@mapNotNull null
             val name = item.string("Name") ?: item.string("name") ?: return@mapNotNull null
             val series = item.string("SeriesName") ?: item.string("seriesName")
@@ -265,7 +265,7 @@ object ServicePayloadParser {
             is JsonObject -> root.array("records")
             else -> JsonArray(emptyList())
         }
-        return records.mapNotNull { queueItem(it.jsonObject, source) }
+        return records.mapNotNull { record -> (record as? JsonObject)?.let { queueItem(it, source) } }
     }
 
     fun upcoming(payload: String, source: ServiceKind, notBefore: Instant? = null): List<RemoteUpcomingItem> {
@@ -277,7 +277,7 @@ object ServicePayloadParser {
             else -> JsonArray(emptyList())
         }
         return items.mapNotNull { element ->
-            val item = element.jsonObject
+            val item = element as? JsonObject ?: return@mapNotNull null
             if (source == ServiceKind.RADARR) {
                 val id = item.int("id")?.toString() ?: return@mapNotNull null
                 val title = item.string("title") ?: return@mapNotNull null
@@ -338,7 +338,7 @@ object ServicePayloadParser {
     fun discover(payload: String): List<RemoteDiscoverItem> {
         val results = json.parseToJsonElement(payload).jsonObject.array("results")
         return results.mapNotNull { element ->
-            val item = element.jsonObject
+            val item = element as? JsonObject ?: return@mapNotNull null
             val remoteId = item.int("id") ?: return@mapNotNull null
             val mediaType = item.string("mediaType") ?: if (item.string("title") != null) "movie" else "tv"
             if (mediaType != "movie" && mediaType != "tv") return@mapNotNull null
@@ -396,7 +396,7 @@ object ServicePayloadParser {
     fun requests(payload: String): List<RemoteRequest> {
         val results = json.parseToJsonElement(payload).jsonObject.array("results")
         return results.mapNotNull { element ->
-            val request = element.jsonObject
+            val request = element as? JsonObject ?: return@mapNotNull null
             val id = request.int("id") ?: return@mapNotNull null
             val media = request.obj("media")
             val user = request.obj("requestedBy")
@@ -424,6 +424,16 @@ object ServicePayloadParser {
             )
         }
     }
+
+    /** Seerr reports how many pages a search has; without it "load more" would guess. */
+    fun totalPages(payload: String): Int =
+        ((runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonObject)?.int("totalPages") ?: 1)
+            .coerceAtLeast(1)
+
+    /** The owner of a single `api/v1/request/{id}` response, used to confirm a withdrawal. */
+    fun requestOwnerId(payload: String): String? =
+        (runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonObject)
+            ?.obj("requestedBy")?.int("id")?.toString()
 
     fun mediaDetails(payload: String): RemoteMediaDetails {
         val item = json.parseToJsonElement(payload) as? JsonObject ?: return RemoteMediaDetails(null, null)
@@ -503,7 +513,7 @@ object ServicePayloadParser {
     }
 
     private fun playbackSession(element: JsonElement): RemotePlayback? {
-        val session = element.jsonObject
+        val session = element as? JsonObject ?: return null
         val item = session.obj("NowPlayingItem") ?: return null
         val playState = session.obj("PlayState") ?: JsonObject(emptyMap())
         val title = item.string("SeriesName") ?: item.string("Name") ?: return null

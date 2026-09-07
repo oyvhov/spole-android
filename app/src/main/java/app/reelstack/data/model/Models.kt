@@ -17,6 +17,7 @@ enum class ConnectionState {
 
 enum class HomeSection {
     NOW_PLAYING,
+    CONTINUE_WATCHING,
     RECOMMENDATIONS,
     RECENT_RELEASES,
     JELLYFIN_MOVIES,
@@ -46,6 +47,7 @@ fun decodeHomeSections(saved: Set<String>?): Set<HomeSection> {
 data class ServiceConnection(
     val kind: ServiceKind,
     val name: String,
+    /** The address in use right now. Failover swaps this with [alternateUrl]. */
     val baseUrl: String,
     val token: String = "",
     val userId: String = "",
@@ -53,7 +55,23 @@ data class ServiceConnection(
     val latencyMs: Long? = null,
     val detail: String? = null,
     val sessionCookie: Boolean = false,
-)
+    /**
+     * A second way to the same server — a LAN address at home and a proxy from outside. The token
+     * belongs to the server, not the route, so switching route needs no new sign-in.
+     */
+    val alternateUrl: String = "",
+    /**
+     * Fixed at first save and never changed by failover. Local data keyed by server — followed
+     * requests above all — must survive a change of route, and keying it on [baseUrl] would
+     * orphan every follow the moment the app switched address.
+     */
+    val identityUrl: String = "",
+) {
+    /** Stable key for anything stored per server. */
+    val identity: String get() = identityUrl.ifBlank { baseUrl }
+
+    val hasAlternate: Boolean get() = alternateUrl.isNotBlank()
+}
 
 data class PlaybackSession(
     val userName: String,
@@ -212,6 +230,11 @@ data class ActivityEvent(
     val title: String,
     val detail: String,
     val time: String,
+    /**
+     * When the event actually happened. [time] is a display string ("For 5 dagar sidan"), and two
+     * such strings can share a prefix without sharing a day, so day grouping reads this instead.
+     */
+    val timeEpochMillis: Long? = null,
     val progress: Int? = null,
     val complete: Boolean = false,
     val source: ServiceKind? = null,

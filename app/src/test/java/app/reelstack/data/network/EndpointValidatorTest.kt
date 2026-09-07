@@ -91,4 +91,50 @@ class EndpointValidatorTest {
             EndpointValidator.normalizeBaseUrl("http://172.20.0.5:8096"),
         )
     }
+
+    /**
+     * The private-address check used to be a prefix test on the hostname, so any registered name
+     * that merely started like a private address unlocked cleartext HTTP over the public internet.
+     */
+    @Test fun publicNamesThatLookPrivateDoNotUnlockCleartextHttp() {
+        listOf(
+            "http://fcbarcelona.com",        // starts with "fc", the IPv6 ULA prefix
+            "http://fdependencies.example",  // starts with "fd"
+            "http://192.168.1.5.nip.io",     // wildcard resolver, public DNS
+            "http://10.example.com",
+            "http://127.0.0.1.nip.io",
+            "http://172.16.example.com",
+            "http://fe80.example.com",
+        ).forEach { address ->
+            assertEquals(
+                "Vanleg HTTP er berre tillate for localhost eller private lokalnettadresser",
+                runCatching { EndpointValidator.normalizeBaseUrl(address) }.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    @Test fun realPrivateAddressesStillAllowCleartextHttp() {
+        listOf(
+            "http://192.168.1.5:8096",
+            "http://10.0.0.8:8096",
+            "http://172.16.0.1:8096",
+            "http://172.31.255.254:8096",
+            "http://127.0.0.1:8096",
+            "http://localhost:8096",
+            "http://tunet.local:8096",
+            "http://[fd00::1]:8096",
+            "http://[::1]:8096",
+        ).forEach { address ->
+            assertTrue(address, runCatching { EndpointValidator.normalizeBaseUrl(address) }.isSuccess)
+        }
+    }
+
+    @Test fun addressesOutsideThePrivateRangesStayHttpsOnly() {
+        listOf("http://172.15.0.1", "http://172.32.0.1", "http://11.0.0.1", "http://192.169.0.1", "http://256.1.1.1")
+            .forEach { address ->
+                assertTrue(address, runCatching { EndpointValidator.normalizeBaseUrl(address) }.isFailure)
+            }
+        assertTrue(runCatching { EndpointValidator.normalizeBaseUrl("https://172.15.0.1") }.isSuccess)
+    }
+
 }

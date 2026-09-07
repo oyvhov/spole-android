@@ -420,8 +420,12 @@ class ServiceClientsTest {
 
         val results = SeerrServiceClient(transport).search(connection(ServiceKind.SEERR, "seerr-secret"), "Dune Part Two")
 
-        assertEquals("Dune", results.single().title)
+        assertEquals("Dune", results.items.single().title)
+        // A response without totalPages is a single page, so no "load more" is offered.
+        assertEquals(1, results.page)
+        assertFalse(results.hasMore)
         assertTrue(transport.lastUrl.contains("/api/v1/search?query=Dune%20Part%20Two"))
+        assertTrue(transport.lastUrl.contains("page=1"))
         assertEquals("seerr-secret", transport.lastHeaders["X-Api-Key"])
     }
 

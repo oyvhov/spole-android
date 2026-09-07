@@ -15,6 +15,10 @@ data class HttpResponse(
 interface JsonHttpTransport {
     fun get(url: String, headers: Map<String, String>): HttpResponse
     fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse
+
+    /** Defaulted so a read-only fake stays valid; only the request flow needs to withdraw anything. */
+    fun delete(url: String, headers: Map<String, String>): HttpResponse =
+        error("Denne tenesta støttar ikkje sletting")
 }
 
 class HttpTransport(
@@ -26,6 +30,9 @@ class HttpTransport(
 
     override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse =
         request(method = "POST", url = url, headers = headers, jsonBody = jsonBody)
+
+    override fun delete(url: String, headers: Map<String, String>): HttpResponse =
+        request(method = "DELETE", url = url, headers = headers, jsonBody = null)
 
     private fun request(
         method: String,

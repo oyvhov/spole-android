@@ -73,7 +73,9 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Oppdag").performClick()
         composeRule.onNodeWithText("The Last Horizon").performClick()
 
-        composeRule.onNode(hasText("Seerr") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
+        // The sheet says where the title came from, not just which service answered: a Discover
+        // title reads "Oppdag i Seerr", a library title "Bibliotek i Jellyfin".
+        composeRule.onNode(hasText("Oppdag i Seerr") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
         composeRule.onNode(hasText("The Last Horizon") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
         composeRule.onNodeWithText("Om filmen").assertIsDisplayed()
         composeRule.onNodeWithText("Legg til i mediesamlinga").performScrollTo().assertIsDisplayed()

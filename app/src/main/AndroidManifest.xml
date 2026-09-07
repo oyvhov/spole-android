@@ -4,6 +4,22 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+        Android 11+ hides other packages by default, so a native Jellyfin/Emby client that handles
+        the server's own URL is invisible to queryIntentActivities without this. Browsers are
+        visible regardless; this is what makes "open in the app" possible at all.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
+
     <application
         android:name=".ReelstackApplication"
         android:allowBackup="false"
@@ -14,6 +30,18 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.Reelstack">
+        <receiver
+            android:name=".widget.NowPlayingWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.reelstack.widget.REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_now_playing_info" />
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

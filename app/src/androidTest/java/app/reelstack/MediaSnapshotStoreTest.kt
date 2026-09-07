@@ -7,6 +7,7 @@ import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.canRequest
 import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.PlaybackSession
+import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.repository.MediaSnapshotStore
@@ -29,7 +30,15 @@ class MediaSnapshotStoreTest {
 
         val visible = AppPreferencesRepository(context).visibleHomeSections
 
-        assertEquals(setOf(HomeSection.NOW_PLAYING, HomeSection.RECOMMENDATIONS, HomeSection.RECENT_RELEASES, HomeSection.JELLYFIN_MOVIES, HomeSection.EMBY_MOVIES, HomeSection.JELLYFIN_SERIES, HomeSection.EMBY_SERIES), visible)
+        // Every rail added since the saved choice is switched on once, including Hald fram a sja.
+        assertEquals(
+            setOf(
+                HomeSection.NOW_PLAYING, HomeSection.CONTINUE_WATCHING, HomeSection.RECOMMENDATIONS,
+                HomeSection.RECENT_RELEASES, HomeSection.JELLYFIN_MOVIES, HomeSection.EMBY_MOVIES,
+                HomeSection.JELLYFIN_SERIES, HomeSection.EMBY_SERIES,
+            ),
+            visible,
+        )
         AppPreferencesRepository(context).visibleHomeSections = HomeSection.entries.toSet()
     }
 
@@ -111,8 +120,15 @@ class MediaSnapshotStoreTest {
             refreshedAt = Instant.parse("2026-09-04T08:00:00Z"),
         )
 
-        store.save(snapshot)
-        val restored = store.read()
+        val connections = listOf(
+            ServiceConnection(ServiceKind.JELLYFIN, "Heimetenar", "https://media.example", "token-a", userId = "me"),
+        )
+        val fingerprint = MediaSnapshotStore.fingerprint(connections)
+        store.save(snapshot, fingerprint)
+        val restored = store.read(fingerprint)
+
+        // A different account on the same device must not inherit this feed.
+        assertNull(store.read(MediaSnapshotStore.fingerprint(connections.map { it.copy(token = "token-b") })))
 
         assertEquals(emptyList<PlaybackSession>(), restored?.sessions)
         assertEquals("The Odyssey", restored?.recentMovies?.single()?.title)
@@ -128,6 +144,6 @@ class MediaSnapshotStoreTest {
         assertEquals(Instant.parse("2026-09-04T08:00:00Z").toEpochMilli(), restored?.refreshedAtEpochMillis)
 
         store.clear()
-        assertNull(store.read())
+        assertNull(store.read(fingerprint))
     }
 }

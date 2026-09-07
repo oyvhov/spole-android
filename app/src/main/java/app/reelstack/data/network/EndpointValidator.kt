@@ -36,13 +36,31 @@ object EndpointValidator {
 
     private fun isTrustedLanHost(host: String): Boolean {
         val normalized = host.lowercase(Locale.ROOT).trim('[', ']')
-        if (normalized == "localhost" || normalized == "::1" || normalized.endsWith(".local")) return true
-        if (normalized.startsWith("127.") || normalized.startsWith("10.") || normalized.startsWith("192.168.")) return true
-        val octets = normalized.split('.')
-        if (octets.size == 4 && octets[0] == "172") {
-            val second = octets[1].toIntOrNull()
-            if (second != null && second in 16..31) return true
-        }
-        return normalized.startsWith("fc") || normalized.startsWith("fd") || normalized.startsWith("fe80:")
+        if (normalized == "localhost" || normalized.endsWith(".local")) return true
+        // Only literal addresses count as private. A registered name that merely begins like one
+        // still resolves through public DNS to whatever its owner points it at: "fcbarcelona.com"
+        // starts with "fc", and wildcard resolvers hand out names like "192.168.1.5.nip.io".
+        // Treating either as LAN would quietly permit cleartext HTTP over the open internet.
+        if (normalized.contains(':')) return isPrivateIpv6(normalized)
+        return isPrivateIpv4(normalized)
     }
+
+    private fun isPrivateIpv4(host: String): Boolean {
+        val octets = host.split('.')
+        if (octets.size != 4) return false
+        val values = octets.map { octet ->
+            if (octet.isEmpty() || octet.length > 3 || !octet.all(Char::isDigit)) return false
+            octet.toInt().also { if (it > 255) return false }
+        }
+        return when (values[0]) {
+            10, 127 -> true
+            172 -> values[1] in 16..31
+            192 -> values[1] == 168
+            else -> false
+        }
+    }
+
+    /** Reached only for a literal address, so a leading "fc"/"fd" here really is fc00::/7. */
+    private fun isPrivateIpv6(host: String): Boolean =
+        host == "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80:")
 }

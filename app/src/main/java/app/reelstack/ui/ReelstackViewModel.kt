@@ -29,6 +29,7 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.network.EndpointValidator
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,6 +63,7 @@ data class ConnectionDraft(
     val password: String = "",
     val alsoConnect: Boolean = false,
     val companionUrl: String = "",
+    val alternateUrl: String = "",
     val saving: Boolean = false,
     val quickConnectCode: String? = null,
     val quickConnectWaiting: Boolean = false,
@@ -78,6 +80,7 @@ data class ReelstackUiState(
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
     val loadingAccounts: Set<ServiceKind> = emptySet(),
     val sessions: List<PlaybackSession> = demoSessions(),
+    val resume: List<LibraryMedia> = demoResume(),
     val recentMovies: List<LibraryMedia> = demoRecentMovies(),
     val recentSeries: List<LibraryMedia> = demoRecentSeries(),
     val upcoming: List<UpcomingMedia> = demoUpcoming(),
@@ -88,6 +91,11 @@ data class ReelstackUiState(
     val discover: List<DiscoverMedia> = demoDiscover(),
     val recommendations: List<DiscoverMedia> = demoRecommendations(),
     val searchResults: List<DiscoverMedia> = emptyList(),
+    /** Hits from your own Jellyfin/Emby libraries, shown above the Seerr results. */
+    val librarySearchResults: List<LibraryMedia> = emptyList(),
+    val searchPage: Int = 1,
+    val searchHasMore: Boolean = false,
+    val loadingMoreSearch: Boolean = false,
     val activity: List<ActivityEvent> = demoActivity(),
     val searchQuery: String = "",
     val isSearching: Boolean = false,
@@ -114,6 +122,8 @@ data class ReelstackUiState(
     val trackedRequests: List<TrackedRequest> = emptyList(),
     val trackingError: String? = null,
     val trackingLoading: Boolean = false,
+    /** Keys of follows currently being withdrawn, so a card cannot be cancelled twice. */
+    val cancellingRequestKeys: Set<String> = emptySet(),
     val adminView: Boolean = false,
 ) {
     val visibleDiscover: List<DiscoverMedia>
@@ -181,6 +191,7 @@ class ReelstackViewModel(
                 url = existing.baseUrl.ifBlank { container.connectionRepository.rememberedUrl(existing.kind) },
                 token = if (existing.sessionCookie || !_uiState.value.adminView) "" else existing.token,
                 userId = existing.userId,
+                alternateUrl = existing.alternateUrl,
                 companionUrl = _uiState.value.connections.firstOrNull {
                     it.kind == if (existing.kind == ServiceKind.SEERR) ServiceKind.JELLYFIN else ServiceKind.SEERR
                 }?.baseUrl.orEmpty(),
@@ -214,7 +225,9 @@ class ReelstackViewModel(
     }
 
     fun openLibraryDetails(id: String) {
-        val media = (_uiState.value.recentMovies + _uiState.value.recentSeries).firstOrNull { it.id == id } ?: return
+        val state = _uiState.value
+        val media = (state.resume + state.recentMovies + state.recentSeries + state.librarySearchResults)
+            .firstOrNull { it.id == id } ?: return
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
@@ -482,17 +495,23 @@ class ReelstackViewModel(
         val seerr = state.connections.firstOrNull {
             it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
+        val mediaServers = state.connections.filter {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+                it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        }
         if (query.isBlank()) {
             _uiState.update {
-                it.copy(searchQuery = value, searchResults = emptyList(), isSearching = false, searchError = null)
+                it.copy(searchQuery = value, searchResults = emptyList(), librarySearchResults = emptyList(),
+                    isSearching = false, searchError = null, searchPage = 1, searchHasMore = false)
             }
             return
         }
-        if (seerr == null) {
+        if (seerr == null && mediaServers.isEmpty()) {
             _uiState.update {
                 it.copy(
                     searchQuery = value,
                     searchResults = it.discover.filter { media -> media.title.contains(query, ignoreCase = true) },
+                    librarySearchResults = emptyList(),
                     isSearching = false,
                     searchError = null,
                 )
@@ -500,24 +519,74 @@ class ReelstackViewModel(
             return
         }
         _uiState.update {
-            it.copy(searchQuery = value, searchResults = emptyList(), isSearching = true, searchError = null)
+            it.copy(searchQuery = value, searchResults = emptyList(), librarySearchResults = emptyList(),
+                isSearching = true, searchError = null, searchPage = 1, searchHasMore = false)
         }
         searchJob = viewModelScope.launch {
             delay(350)
-            val result = runCatching {
-                withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query) }
-            }
-            if (_uiState.value.searchQuery.trim() != query) return@launch
-            _uiState.update {
-                if (result.isSuccess) {
-                    it.copy(searchResults = result.getOrThrow(), isSearching = false, searchError = null)
-                } else {
-                    it.copy(
-                        searchResults = emptyList(),
-                        isSearching = false,
-                        searchError = "Fekk ikkje søkt i Seerr. Sjekk tilkoplinga og prøv igjen.",
-                    )
+            // Your own libraries and Seerr answer independently: a title you already own must still
+            // be findable when Seerr is down, and vice versa.
+            val libraryDeferred = async {
+                if (mediaServers.isEmpty()) Result.success(emptyList())
+                else runCatching {
+                    withContext(Dispatchers.IO) {
+                        container.mediaSyncRepository.searchLibraries(mediaServers, query)
+                    }
                 }
+            }
+            val discoverResult = if (seerr == null) {
+                Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
+            } else runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query, page = 1) }
+            }
+            val libraryResult = libraryDeferred.await()
+            if (!isActive || _uiState.value.searchQuery.trim() != query) return@launch
+            _uiState.update {
+                it.copy(
+                    searchResults = discoverResult.getOrNull()?.items.orEmpty(),
+                    searchPage = discoverResult.getOrNull()?.page ?: 1,
+                    searchHasMore = discoverResult.getOrNull()?.hasMore == true,
+                    librarySearchResults = libraryResult.getOrDefault(emptyList()),
+                    isSearching = false,
+                    searchError = when {
+                        discoverResult.isFailure && libraryResult.isFailure ->
+                            "Fekk ikkje søkt. Sjekk tilkoplingane og prøv igjen."
+                        discoverResult.isFailure && seerr != null ->
+                            "Fekk ikkje søkt i Seerr. Sjekk tilkoplinga og prøv igjen."
+                        libraryResult.isFailure ->
+                            "Fekk ikkje søkt i biblioteka dine. Sjekk tilkoplinga og prøv igjen."
+                        else -> null
+                    },
+                )
+            }
+        }
+    }
+
+    /** Appends the next page of Seerr results. Existing hits stay put; only the tail grows. */
+    fun loadMoreSearchResults() {
+        val state = _uiState.value
+        val query = state.searchQuery.trim()
+        if (query.isBlank() || !state.searchHasMore || state.loadingMoreSearch || state.isSearching) return
+        val seerr = state.connections.firstOrNull {
+            it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        } ?: return
+        val next = state.searchPage + 1
+        _uiState.update { it.copy(loadingMoreSearch = true) }
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query, next) }
+            }
+            _uiState.update { current ->
+                if (current.searchQuery.trim() != query) return@update current.copy(loadingMoreSearch = false)
+                val page = result.getOrNull()
+                current.copy(
+                    loadingMoreSearch = false,
+                    searchResults = if (page == null) current.searchResults
+                    else (current.searchResults + page.items).distinctBy { item -> item.id },
+                    searchPage = page?.page ?: current.searchPage,
+                    searchHasMore = page?.hasMore == true,
+                    searchError = if (result.isFailure) "Fekk ikkje henta fleire treff. Prøv igjen." else current.searchError,
+                )
             }
         }
     }
@@ -584,6 +653,38 @@ class ReelstackViewModel(
         val scope = container.requestTrackingRepository.scope(connection, actor.id)
         container.requestTrackingRepository.setNotify(scope, key, enabled)
         _uiState.update { it.copy(trackedRequests = container.requestTrackingRepository.list(scope)) }
+    }
+
+    fun cancelTrackedRequest(key: String) {
+        val state = _uiState.value
+        if (key in state.cancellingRequestKeys) return
+        val connection = state.connections.firstOrNull {
+            it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank()
+        } ?: return
+        val actor = state.accounts[ServiceKind.SEERR]?.takeIf { it.isPersonal } ?: run {
+            openSeerrAccount()
+            return
+        }
+        _uiState.update { it.copy(cancellingRequestKeys = it.cancellingRequestKeys + key) }
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    container.requestTrackingRepository.cancel(connection, actor.id, key)
+                    container.requestTrackingRepository.list(
+                        container.requestTrackingRepository.scope(connection, actor.id),
+                    )
+                }
+            }
+            _uiState.update { current ->
+                current.copy(
+                    cancellingRequestKeys = current.cancellingRequestKeys - key,
+                    trackedRequests = result.getOrNull() ?: current.trackedRequests,
+                    snackbar = if (result.isSuccess) "Førespurnaden er trekt tilbake"
+                    else result.exceptionOrNull()?.message
+                        ?: "Fekk ikkje trekt tilbake førespurnaden. Prøv igjen.",
+                )
+            }
+        }
     }
 
     fun refreshTrackedRequests() {
@@ -666,6 +767,7 @@ class ReelstackViewModel(
                                 title = media.title,
                                 detail = "Sendt som ${account.displayName}",
                                 time = "No nettopp",
+                                timeEpochMillis = System.currentTimeMillis(),
                                 source = ServiceKind.SEERR,
                                 artworkRes = media.artworkRes,
                                 artworkUrl = media.artworkUrl,
@@ -699,6 +801,7 @@ class ReelstackViewModel(
             _uiState.update {
                 it.copy(
                     sessions = demoSessions(),
+                    resume = demoResume(),
                     recentMovies = demoRecentMovies(),
                     recentSeries = demoRecentSeries(),
                     upcoming = demoUpcoming(),
@@ -723,16 +826,52 @@ class ReelstackViewModel(
 
         _uiState.update { it.copy(isRefreshing = true) }
         refreshJob = viewModelScope.launch {
-            val snapshot = withContext(Dispatchers.IO) {
-                container.mediaSyncRepository.refresh(
-                    connections = _uiState.value.connections,
-                )
+            val outcome = runCatching {
+                val snapshot = withContext(Dispatchers.IO) {
+                    container.mediaSyncRepository.refresh(
+                        connections = _uiState.value.connections,
+                    )
+                }
+                if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
+                    // Writing the offline copy is a convenience. A full disk must not take the
+                    // refresh down with it.
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            container.mediaSnapshotStore.save(
+                                snapshot,
+                                app.reelstack.data.repository.MediaSnapshotStore.fingerprint(_uiState.value.connections),
+                            )
+                        }
+                    }
+                }
+                snapshot
             }
-            if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
-                withContext(Dispatchers.IO) { container.mediaSnapshotStore.save(snapshot) }
+            val snapshot = outcome.getOrElse { error ->
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                // Per-service failures are already reported inside the snapshot. Anything that
+                // escapes to here is unexpected, and it used to leave the spinner turning forever
+                // and take the process down with it.
+                _uiState.update {
+                    it.copy(
+                        isRefreshing = false,
+                        snackbar = "Fekk ikkje oppdatert innhaldet. Dra ned for å prøve igjen.",
+                    )
+                }
+                return@launch
             }
+            // A service that only answered on its alternate address keeps that address next time.
+            if (snapshot.switchedToAlternate.isNotEmpty()) {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        snapshot.switchedToAlternate.forEach(container.connectionRepository::promoteAlternate)
+                    }
+                }
+            }
+            val refreshedConnections = if (snapshot.switchedToAlternate.isEmpty()) null
+            else runCatching { container.connectionRepository.list() }.getOrNull()
             _uiState.update { current ->
-                val configuredKinds = current.connections.filter { it.baseUrl.isNotBlank() }.mapTo(mutableSetOf()) { it.kind }
+                val connectionsNow = refreshedConnections ?: current.connections
+                val configuredKinds = connectionsNow.filter { it.baseUrl.isNotBlank() }.mapTo(mutableSetOf()) { it.kind }
                 val configuredMedia = configuredKinds.intersect(setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
                 val configuredQueue = configuredKinds.intersect(setOf(ServiceKind.RADARR, ServiceKind.SONARR))
                 val mediaLive = snapshot.successfulServices.any { it in configuredMedia }
@@ -745,6 +884,7 @@ class ReelstackViewModel(
                     adminView = snapshot.adminView,
                     sessions = snapshot.sessions,
                     // Do not retain library data after the current profile or library scope fails verification.
+                    resume = snapshot.resume,
                     recentMovies = snapshot.recentMovies,
                     recentSeries = snapshot.recentSeries,
                     // Release metadata does not require administrator queue credentials.
@@ -765,7 +905,7 @@ class ReelstackViewModel(
                         else -> emptyList()
                     },
                     activity = snapshot.activity,
-                    connections = current.connections.map { connection ->
+                    connections = connectionsNow.map { connection ->
                         when {
                             connection.baseUrl.isBlank() -> connection.copy(state = ConnectionState.DEMO, detail = "Demodata")
                             connection.kind in snapshot.errors -> connection.copy(
@@ -774,8 +914,11 @@ class ReelstackViewModel(
                             )
                             connection.kind in snapshot.successfulServices -> connection.copy(
                                 state = ConnectionState.CONNECTED,
-                                detail = snapshot.warnings[connection.kind]?.let { "Tilkopla · $it" }
-                                    ?: "Aktiv · oppdatert no",
+                                detail = when {
+                                    connection.kind in snapshot.switchedToAlternate -> "Aktiv · bytta til den andre adressa"
+                                    else -> snapshot.warnings[connection.kind]?.let { "Tilkopla · $it" }
+                                        ?: "Aktiv · oppdatert no"
+                                },
                             )
                             else -> connection
                         }
@@ -872,6 +1015,7 @@ class ReelstackViewModel(
     }
     fun updateConnectionToken(value: String) = updateDraft { copy(token = value, error = null) }
     fun updateConnectionUserId(value: String) = updateDraft { copy(userId = value, error = null) }
+    fun updateConnectionAlternateUrl(value: String) = updateDraft { copy(alternateUrl = value, error = null) }
     fun updateConnectionAuthMode(value: ConnectionAuthMode) {
         quickConnectJob?.cancel()
         updateDraft {
@@ -911,6 +1055,16 @@ class ReelstackViewModel(
             updateDraft { copy(error = "Skriv inn ein API-nøkkel eller eit tilgangsteikn") }
             return
         }
+        val alternateUrl = draft.alternateUrl.takeIf(String::isNotBlank)?.let { entered ->
+            runCatching { EndpointValidator.normalizeBaseUrl(entered) }.getOrElse {
+                updateDraft { copy(error = "Sjekk den andre adressa: ${it.message ?: "Skriv inn ei gyldig tenaradresse"}") }
+                return
+            }
+        }.orEmpty()
+        if (alternateUrl.isNotBlank() && alternateUrl == normalizedUrl) {
+            updateDraft { copy(error = "Den andre adressa er den same som den vanlege.") }
+            return
+        }
         val companionUrl = if (useJellyfinAccount && draft.alsoConnect && draft.kind != ServiceKind.EMBY) {
             runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
                 updateDraft { copy(error = "Sjekk adressa til den andre tenesta: ${it.message ?: "Skriv inn ei gyldig tenaradresse"}") }
@@ -947,6 +1101,7 @@ class ReelstackViewModel(
                 token = credentials?.accessToken ?: draft.token,
                 sessionCookie = draft.kind == ServiceKind.SEERR && credentials != null,
                 userId = credentials?.userId ?: draft.userId,
+                alternateUrl = alternateUrl,
                 state = ConnectionState.TESTING,
             )
             val companion = if (companionUrl != null) {
@@ -1041,6 +1196,10 @@ class ReelstackViewModel(
                             baseUrl = normalizedUrl,
                             token = credentials.accessToken,
                             userId = credentials.userId,
+                            alternateUrl = runCatching {
+                                draft.alternateUrl.takeIf(String::isNotBlank)
+                                    ?.let(EndpointValidator::normalizeBaseUrl).orEmpty()
+                            }.getOrDefault(""),
                             state = ConnectionState.TESTING,
                         ),
                     )
@@ -1113,10 +1272,19 @@ class ReelstackViewModel(
             return
         }
 
-        withContext(Dispatchers.IO) {
-            container.connectionRepository.save(candidate)
-            companion?.let { container.connectionRepository.save(it) }
-            container.mediaSnapshotStore.clear()
+        // The server accepted us, but the token still has to reach the keystore. If that write
+        // fails, say so rather than reporting a connection the app cannot actually reuse.
+        val stored = runCatching {
+            withContext(Dispatchers.IO) {
+                container.connectionRepository.save(candidate)
+                companion?.let { container.connectionRepository.save(it) }
+                container.mediaSnapshotStore.clear()
+            }
+        }
+        stored.exceptionOrNull()?.let { error ->
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            updateDraft { copy(saving = false, error = "Fekk ikkje lagra innlogginga trygt på denne eininga. Prøv igjen.") }
+            return
         }
         refreshJob?.cancel()
         refreshJob = null
@@ -1135,6 +1303,7 @@ class ReelstackViewModel(
                 accountErrors = state.accountErrors - saved.kind,
                 adminView = false,
                 sessions = emptyList(),
+                resume = emptyList(),
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
                 upcoming = emptyList(),
@@ -1145,6 +1314,7 @@ class ReelstackViewModel(
                 activity = emptyList(),
                 searchQuery = "",
                 searchResults = emptyList(),
+                librarySearchResults = emptyList(),
                 activeSheet = null,
                 isSearching = false,
                 snackbar = if (companion != null) "Jellyfin og Seerr er klare. Hentar innhaldet ditt…" else "${saved.kind.displayName} er klar. Hentar innhaldet ditt…",
@@ -1177,6 +1347,7 @@ class ReelstackViewModel(
                 sessions = emptyList(),
                 activity = emptyList(),
                 incoming = emptyList(),
+                resume = emptyList(),
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
                 upcoming = emptyList(),
@@ -1184,6 +1355,7 @@ class ReelstackViewModel(
                 discover = emptyList(),
                 recommendations = emptyList(),
                 searchResults = emptyList(),
+                librarySearchResults = emptyList(),
                 searchQuery = "",
                 isSearching = false,
                 accounts = it.accounts - kind,
@@ -1222,8 +1394,14 @@ private fun initialState(container: AppContainer): ReelstackUiState {
     val hasMediaServer = configuredKinds.any { it == ServiceKind.JELLYFIN || it == ServiceKind.EMBY }
     val hasQueueService = configuredKinds.any { it == ServiceKind.RADARR || it == ServiceKind.SONARR }
     val hasSeerr = ServiceKind.SEERR in configuredKinds
-    // Revalidate identities and library exclusions before exposing any persisted feed.
-    val cached: app.reelstack.data.repository.CachedMediaSnapshot? = null
+    // Show the last verified feed while the first refresh runs, instead of empty rails. The store
+    // only returns a copy written by this feed version for exactly these signed-in accounts, so
+    // identities and library exclusions are revalidated before anything is exposed.
+    val cached = runCatching {
+        container.mediaSnapshotStore.read(
+            app.reelstack.data.repository.MediaSnapshotStore.fingerprint(connections),
+        )
+    }.getOrNull()
 
     return ReelstackUiState(
         showOnboarding = configuredKinds.isEmpty() && !container.preferencesRepository.onboardingCompleted,
@@ -1232,6 +1410,11 @@ private fun initialState(container: AppContainer): ReelstackUiState {
             hasMediaServer && cached != null -> cached.sessions
             hasMediaServer -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoSessions() else emptyList()
+        },
+        resume = when {
+            hasMediaServer && cached != null -> cached.resume
+            hasMediaServer -> emptyList()
+            else -> if (configuredKinds.isEmpty()) demoResume() else emptyList()
         },
         recentMovies = when {
             hasMediaServer && cached != null -> cached.recentMovies
@@ -1313,6 +1496,31 @@ private fun demoSessions() = listOf(
 
 // Demo carries the same fields a real service would, including an omtale: the detail sheet only
 // shows its synopsis section when there is one, so a demo without omtale looks half-built.
+private fun demoResume() = listOf(
+    LibraryMedia(
+        id = "resume-severance",
+        title = "Severance",
+        subtitle = "S02 E04 · Ein halvsett episode",
+        progress = 0.58f,
+        artworkRes = R.drawable.session_still,
+        source = ServiceKind.JELLYFIN,
+        mediaType = "Episode",
+        overview = "Du er 58 % gjennom denne episoden.",
+        facts = listOf("32 min att"),
+    ),
+    LibraryMedia(
+        id = "resume-odyssey",
+        title = "The Odyssey",
+        subtitle = "Film · 2026",
+        progress = 0.21f,
+        artworkRes = R.drawable.desert_arrival,
+        source = ServiceKind.JELLYFIN,
+        mediaType = "Movie",
+        overview = "Du er 21 % gjennom denne filmen.",
+        facts = listOf("2 t 10 min att"),
+    ),
+)
+
 private fun demoRecentMovies() = listOf(
     LibraryMedia(
         id = "recent-odyssey",

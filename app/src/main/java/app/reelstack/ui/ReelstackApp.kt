@@ -89,11 +89,17 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    // Following a request costs a Seerr profile call, a request listing and up to twenty detail
+    // lookups. Polling that every 30 seconds from every tab kept a self-hosted server busy for a
+    // list nobody had on screen, so the fast cadence now belongs to the tab that shows it. The tab
+    // is read inside the loop so switching tabs adapts the delay without restarting the poll.
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             while (true) {
                 viewModel.refreshTrackedRequests()
-                kotlinx.coroutines.delay(30_000)
+                kotlinx.coroutines.delay(
+                    if (viewModel.uiState.value.selectedTab == AppTab.ACTIVITY) 30_000L else 300_000L,
+                )
             }
         }
     }
@@ -170,9 +176,12 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onRequest = viewModel::requestMedia,
                         onDetails = viewModel::openDiscoverDetails,
                         onAccountClick = viewModel::openSeerrAccount,
+                        onLibraryDetails = viewModel::openLibraryDetails,
+                        onLoadMore = viewModel::loadMoreSearchResults,
                     )
                     AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
-                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount)
+                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
+                        viewModel::cancelTrackedRequest)
                     AppTab.SETTINGS -> SettingsScreen(
                         state = state,
                         contentPadding = PaddingValues(0.dp),
@@ -204,6 +213,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onConnectionUrlChange = viewModel::updateConnectionUrl,
         onConnectionTokenChange = viewModel::updateConnectionToken,
         onConnectionUserIdChange = viewModel::updateConnectionUserId,
+        onConnectionAlternateUrlChange = viewModel::updateConnectionAlternateUrl,
         onConnectionAuthModeChange = viewModel::updateConnectionAuthMode,
         onConnectionUsernameChange = viewModel::updateConnectionUsername,
         onConnectionPasswordChange = viewModel::updateConnectionPassword,

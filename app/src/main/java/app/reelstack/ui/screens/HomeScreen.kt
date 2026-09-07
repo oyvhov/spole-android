@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -127,7 +128,9 @@ fun HomeScreen(
             connection.baseUrl.isNotBlank() &&
                 (connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
         }
+        // Each source becomes a keyed LazyColumn item, and duplicate keys crash the list.
         .map { it.kind }
+        .distinct()
     val mediaSources = configuredMediaSources.ifEmpty {
         (state.recentMovies + state.recentSeries).map(LibraryMedia::source).distinct()
     }
@@ -166,6 +169,15 @@ fun HomeScreen(
                             onOpen = onSessionClick,
                             onPlaybackToggle = onPlaybackToggle,
                         )
+                }
+            }
+            if (HomeSection.CONTINUE_WATCHING in state.homeSections &&
+                (state.resume.isNotEmpty() || (state.isRefreshing && state.configuredCount > 0))
+            ) {
+                item {
+                    SectionTitle("Hald fram å sjå", Modifier.padding(top = 24.dp, bottom = 13.dp))
+                    if (state.resume.isEmpty()) LibraryRailSkeleton("Lastar det du held på med", wide = true)
+                    else ResumeRail(state.resume, onLibraryClick)
                 }
             }
             run {
@@ -638,6 +650,99 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
                 onClick = { onClick(media.id) },
             )
         }
+    }
+}
+
+/**
+ * Partly watched titles. Each card keeps the shape of its own artwork — a film stays a poster and
+ * an episode stays a wide still — while a shared artwork height keeps every title on one baseline.
+ */
+@Composable
+private fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit) {
+    val titleLines = if (items.any { it.title.length > 20 }) 2 else 1
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
+            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30) { onClick(media.id) }
+        }
+    }
+}
+
+@Composable
+private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, onClick: () -> Unit) {
+    val wide = !media.mediaType.equals("Movie", ignoreCase = true)
+    val artworkHeight = ReelLayout.EpisodeHeight
+    val cardWidth = if (wide) ReelLayout.EpisodeWidth else artworkHeight * 2f / 3f
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
+    LaunchedEffect(media.id) { appeared = true }
+    val reveal by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
+        label = "resume-card-reveal",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
+        label = "resume-card-press",
+    )
+    val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
+    Column(
+        modifier = Modifier
+            .width(cardWidth)
+            .graphicsLayer {
+                alpha = reveal
+                translationY = (1f - reveal) * 30f
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick,
+                onClickLabel = "Hald fram på ${media.title}, $percent prosent sett",
+            )
+            .semantics { role = Role.Button }
+            .testTag("resume-card-${media.id}"),
+    ) {
+        Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))) {
+            MediaArtwork(
+                url = media.artworkUrl,
+                fallbackRes = media.artworkRes,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                source = media.source,
+                modifier = Modifier.fillMaxSize(),
+            )
+            // How far in you are is the whole point of this rail, so it sits on the artwork
+            // rather than competing with the title for a line of its own.
+            Box(
+                Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp)
+                    .background(Color.Black.copy(alpha = 0.55f)),
+            ) {
+                Box(Modifier.fillMaxWidth((media.progress ?: 0f).coerceIn(0f, 1f)).fillMaxHeight().background(Primary))
+            }
+        }
+        Text(
+            media.title,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            lineHeight = 19.sp,
+            maxLines = titleLines,
+            minLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 9.dp),
+        )
+        Text(
+            media.subtitle,
+            color = Muted,
+            fontSize = 12.sp,
+            maxLines = 2,
+            lineHeight = 17.sp,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
 }
 

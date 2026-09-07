@@ -25,6 +25,15 @@ private data class ServiceProbe(
     val headerName: String,
 )
 
+/** One page of Seerr results, so Discover can ask for the next one instead of truncating at 20. */
+data class SeerrSearchPage(
+    val items: List<RemoteDiscoverItem>,
+    val page: Int,
+    val totalPages: Int,
+) {
+    val hasMore: Boolean get() = page < totalPages
+}
+
 data class SeerrFeed(
     val discover: List<RemoteDiscoverItem>,
     val requests: List<RemoteRequest>,
@@ -34,6 +43,8 @@ data class MediaServerFeed(
     val sessions: List<RemotePlayback>,
     val recentMovies: List<RemoteLibraryItem>,
     val recentSeries: List<RemoteLibraryItem>,
+    /** Partly watched titles, newest activity first, straight from the server's own resume list. */
+    val resume: List<RemoteLibraryItem> = emptyList(),
     val warning: String? = null,
     val recentReleases: List<RemoteUpcomingItem> = emptyList(),
     val releasesFailed: Boolean = false,
@@ -68,11 +79,13 @@ class JellyfinAuthenticationClient(
             put("Pw", password)
         }.toString()
         val authorization = jellyfinAuthorization(deviceId)
-        val response = transport.post(
-            EndpointValidator.resolve(baseUrl, "Users/AuthenticateByName"),
-            mapOf("Authorization" to authorization),
-            body,
-        )
+        val response = contacting(JELLYFIN) {
+            transport.post(
+                EndpointValidator.resolve(baseUrl, "Users/AuthenticateByName"),
+                mapOf("Authorization" to authorization),
+                body,
+            )
+        }
 
         when (response.statusCode) {
             401, 403 -> error("Feil brukarnamn eller passord")
@@ -88,11 +101,13 @@ class JellyfinAuthenticationClient(
     }
 
     fun initiateQuickConnect(baseUrl: String): QuickConnectChallenge {
-        val response = transport.post(
-            EndpointValidator.resolve(baseUrl, "QuickConnect/Initiate"),
-            mapOf("Authorization" to jellyfinAuthorization(deviceId)),
-            "{}",
-        )
+        val response = contacting(JELLYFIN) {
+            transport.post(
+                EndpointValidator.resolve(baseUrl, "QuickConnect/Initiate"),
+                mapOf("Authorization" to jellyfinAuthorization(deviceId)),
+                "{}",
+            )
+        }
         when (response.statusCode) {
             in 200..299 -> Unit
             404 -> error("Denne Jellyfin-tenaren støttar ikkje Quick Connect")
@@ -104,10 +119,12 @@ class JellyfinAuthenticationClient(
     }
 
     fun quickConnectState(baseUrl: String, secret: String): QuickConnectChallenge {
-        val response = transport.get(
-            EndpointValidator.resolve(baseUrl, "QuickConnect/Connect?secret=${encode(secret)}"),
-            mapOf("Authorization" to jellyfinAuthorization(deviceId)),
-        )
+        val response = contacting(JELLYFIN) {
+            transport.get(
+                EndpointValidator.resolve(baseUrl, "QuickConnect/Connect?secret=${encode(secret)}"),
+                mapOf("Authorization" to jellyfinAuthorization(deviceId)),
+            )
+        }
         when (response.statusCode) {
             in 200..299 -> Unit
             404 -> error("Quick Connect-koden er ikkje lenger gyldig")
@@ -119,11 +136,13 @@ class JellyfinAuthenticationClient(
 
     fun authenticateWithQuickConnect(baseUrl: String, secret: String): ServiceAuthentication {
         val body = buildJsonObject { put("Secret", secret) }.toString()
-        val response = transport.post(
-            EndpointValidator.resolve(baseUrl, "Users/AuthenticateWithQuickConnect"),
-            mapOf("Authorization" to jellyfinAuthorization(deviceId)),
-            body,
-        )
+        val response = contacting(JELLYFIN) {
+            transport.post(
+                EndpointValidator.resolve(baseUrl, "Users/AuthenticateWithQuickConnect"),
+                mapOf("Authorization" to jellyfinAuthorization(deviceId)),
+                body,
+            )
+        }
         when (response.statusCode) {
             in 200..299 -> Unit
             401, 403 -> error("Quick Connect-koden vart ikkje godkjend")
@@ -161,6 +180,10 @@ class JellyfinAuthenticationClient(
 
     private fun parseObject(body: String, message: String) =
         runCatching { Json.parseToJsonElement(body).jsonObject }.getOrElse { error(message) }
+
+    private companion object {
+        const val JELLYFIN = "Jellyfin"
+    }
 }
 
 class ServiceConnectionTester(
@@ -177,14 +200,18 @@ class ServiceConnectionTester(
         val endpoint = EndpointValidator.resolve(connection.baseUrl, probe.path)
         lateinit var response: HttpResponse
         val elapsed = measureTimeMillis {
-            response = transport.get(
-                endpoint,
-                if (connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.SEERR) {
-                    headers(connection, deviceId)
-                } else {
-                    mapOf(probe.headerName to connection.token)
-                },
-            )
+            // A test that cannot reach the server is a result the sheet can render, not a crash
+            // that surfaces `UnknownHostException`'s bare hostname in the error field.
+            response = contacting(connection.kind.displayName) {
+                transport.get(
+                    endpoint,
+                    if (connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.SEERR) {
+                        headers(connection, deviceId)
+                    } else {
+                        mapOf(probe.headerName to connection.token)
+                    },
+                )
+            }
         }
 
         return when (response.statusCode) {
@@ -239,7 +266,9 @@ class MediaServerClient(
         val userId = access.ownMediaUser(connection.kind) ?: if (allowFallback) connection.userId.takeIf { it.isNotBlank() }
             ?: runCatching { currentUserId(connection) }.getOrNull()
             ?: runCatching { preferredAvailableUserId(connection) }.getOrNull() else null
-        if (userId == null && !allowFallback) return MediaServerFeed(sessions, emptyList(), emptyList(), null)
+        if (userId == null && !allowFallback) {
+            return MediaServerFeed(sessions = sessions, recentMovies = emptyList(), recentSeries = emptyList())
+        }
 
         val encodedUserId = userId?.let(::encodePathSegment)
         val viewsResult = runCatching { libraryViews(connection, requireNotNull(encodedUserId) { "Profil-ID manglar" }) }
@@ -270,6 +299,14 @@ class MediaServerClient(
             emptyList()
         }
 
+        val resumeResult = runCatching {
+            resume(connection, requireNotNull(encodedUserId) { "Profil-ID manglar" }, viewsResult.getOrThrow())
+        }
+        val resume = resumeResult.getOrElse {
+            warnings += "Hald fram å sjå er utilgjengeleg"
+            emptyList()
+        }
+
         val releasesResult = runCatching {
             releasedAcrossLibraries(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
         }
@@ -286,6 +323,7 @@ class MediaServerClient(
             sessions = sessions,
             recentMovies = movies,
             recentSeries = series,
+            resume = resume,
             warning = warnings.distinct().takeIf { it.isNotEmpty() }?.joinToString(" · "),
             recentReleases = releasesResult.getOrDefault(emptyList()).filter { it.mediaType == "Episode" }
                 .mapNotNull { libraryRelease(it, connection.kind, ReleaseWindow()) },
@@ -293,6 +331,69 @@ class MediaServerClient(
             releaseCandidates = releasesResult.getOrDefault(emptyList()).filter { it.mediaType == "Movie" && it.available },
         )
     }
+
+    /**
+     * The server's own resume list. Jellyfin and Emby both track playback position, so a partly
+     * watched title is theirs to report; guessing from a cached percentage would go stale the
+     * moment the title is finished on another device.
+     *
+     * Scoped per library, because the resume list is otherwise unfiltered and would be the one
+     * way an excluded children's library reappears on Home.
+     */
+    fun resume(
+        connection: ServiceConnection,
+        userId: String,
+        views: List<RemoteLibraryView> = libraryViews(connection, userId),
+    ): List<RemoteLibraryItem> {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val allowed = views.filter { !isExcludedHomeLibrary(it.name) }.take(MAX_LIBRARY_VIEWS)
+        if (allowed.isEmpty()) return emptyList()
+        val query = "Limit=$RESUME_ITEM_LIMIT&Recursive=true&MediaTypes=Video" +
+            "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
+            "&EnableImageTypes=Primary,Thumb&EnableUserData=true"
+        val groups = allowed.mapNotNull { view ->
+            val scoped = "$query&ParentId=${encodePathSegment(view.id)}"
+            val paths = when (connection.kind) {
+                ServiceKind.JELLYFIN -> listOf("UserItems/Resume?userId=$userId&$scoped", "Users/$userId/Items/Resume?$scoped")
+                else -> listOf("Users/$userId/Items/Resume?$scoped")
+            }
+            runCatching { getItems(connection, paths) }.getOrNull()
+        }
+        check(groups.isNotEmpty()) { "Fekk ikkje henta Hald fram å sjå" }
+        return interleave(groups).distinctBy(RemoteLibraryItem::id).take(RESUME_ITEM_LIMIT)
+    }
+
+    /**
+     * Searches the libraries the signed-in profile can actually see. Discover only ever reached
+     * Seerr, so a title already sitting in your own library was the one thing you could not find.
+     */
+    fun search(connection: ServiceConnection, term: String): List<RemoteLibraryItem> {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val trimmed = term.trim()
+        if (trimmed.isBlank()) return emptyList()
+        val userId = ownUserId(connection)?.let(::encodePathSegment) ?: return emptyList()
+        val allowed = libraryViews(connection, userId).filter { !isExcludedHomeLibrary(it.name) }
+            .take(MAX_LIBRARY_VIEWS)
+        if (allowed.isEmpty()) return emptyList()
+        val query = "searchTerm=${encode(trimmed).replace("+", "%20")}&Recursive=true" +
+            "&IncludeItemTypes=Movie,Series,Episode&Limit=$SEARCH_ITEM_LIMIT" +
+            "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
+            "&EnableImageTypes=Primary,Thumb&EnableUserData=true&IsMissing=false"
+        val groups = allowed.mapNotNull { view ->
+            val scoped = "$query&ParentId=${encodePathSegment(view.id)}"
+            val paths = when (connection.kind) {
+                ServiceKind.JELLYFIN -> listOf("Items?userId=$userId&$scoped", "Users/$userId/Items?$scoped")
+                else -> listOf("Users/$userId/Items?$scoped")
+            }
+            runCatching { getItems(connection, paths) }.getOrNull()
+        }
+        check(groups.isNotEmpty()) { "Fekk ikkje søkt i biblioteket" }
+        return interleave(groups).distinctBy(RemoteLibraryItem::id).take(SEARCH_ITEM_LIMIT)
+    }
+
+    private fun ownUserId(connection: ServiceConnection): String? = connection.userId.takeIf(String::isNotBlank)
+        ?: runCatching { currentUserId(connection) }.getOrNull()
+        ?: runCatching { preferredAvailableUserId(connection) }.getOrNull()
 
     private fun releasedAcrossLibraries(
         connection: ServiceConnection,
@@ -504,6 +605,8 @@ class MediaServerClient(
     private companion object {
         const val LATEST_ITEM_LIMIT = 12
         const val MAX_LIBRARY_VIEWS = 12
+        const val RESUME_ITEM_LIMIT = 12
+        const val SEARCH_ITEM_LIMIT = 24
     }
 }
 
@@ -564,15 +667,20 @@ class SeerrServiceClient(
     // Cache only display metadata; request and availability status always come from fresh feed responses.
     private val requestMetadataCache = LinkedHashMap<RequestMetadataKey, CachedRequestMetadata>(16, 0.75f, true)
 
-    fun search(connection: ServiceConnection, query: String): List<RemoteDiscoverItem> {
+    fun search(connection: ServiceConnection, query: String, page: Int = 1): SeerrSearchPage {
         require(connection.kind == ServiceKind.SEERR)
+        require(page >= 1) { "Sidetalet må vere minst 1" }
         val encodedQuery = encode(query).replace("+", "%20")
         val response = transport.get(
-            EndpointValidator.resolve(connection.baseUrl, "api/v1/search?query=$encodedQuery&page=1&language=nb"),
+            EndpointValidator.resolve(connection.baseUrl, "api/v1/search?query=$encodedQuery&page=$page&language=nb"),
             headers(connection),
         )
         response.requireSuccess(connection.kind)
-        return ServicePayloadParser.discover(response.body)
+        return SeerrSearchPage(
+            items = ServicePayloadParser.discover(response.body),
+            page = page,
+            totalPages = ServicePayloadParser.totalPages(response.body),
+        )
     }
 
     fun details(
@@ -715,6 +823,38 @@ class SeerrServiceClient(
         )
         response.requireSuccess(connection.kind)
         check(response.statusCode != 202) { "Ingen nye sesongar vart lagde til. Sjekk sesongane på nytt." }
+    }
+
+    /**
+     * Withdraws one of your own pending requests. Deleting is destructive and Seerr's own
+     * permissions are the last word, but the owner is confirmed here first so the app never sends
+     * a delete for a request that is not yours — the same rule the submit path already follows.
+     */
+    fun cancelRequest(connection: ServiceConnection, requestId: Int, expectedUserId: String = connection.userId) {
+        require(connection.kind == ServiceKind.SEERR)
+        require(requestId > 0) { "Førespurnaden manglar ein gyldig ID." }
+        require(connection.sessionCookie && expectedUserId.isNotBlank()) {
+            "Logg inn personleg i Seerr for å trekkje tilbake ein førespurnad."
+        }
+        val actor = AccountProfileClient(transport = transport).load(connection)
+        check(actor.isPersonal && actor.id == expectedUserId) { "Seerr-kontoen er endra. Sjekk innlogginga før du held fram." }
+
+        val requestHeaders = headers(connection)
+        val existing = transport.get(
+            EndpointValidator.resolve(connection.baseUrl, "api/v1/request/$requestId"),
+            requestHeaders,
+        )
+        if (existing.statusCode == 404) error("Førespurnaden finst ikkje lenger i Seerr.")
+        existing.requireSuccess(connection.kind)
+        val owner = ServicePayloadParser.requestOwnerId(existing.body)
+        check(owner == null || owner == actor.id) { "Denne førespurnaden tilhøyrer ein annan konto." }
+
+        val response = transport.delete(
+            EndpointValidator.resolve(connection.baseUrl, "api/v1/request/$requestId"),
+            requestHeaders,
+        )
+        if (response.statusCode == 404) error("Førespurnaden var alt fjerna i Seerr.")
+        response.requireSuccess(connection.kind)
     }
 
     private fun cachedRequestMetadata(key: RequestMetadataKey): RequestMetadata? = synchronized(requestMetadataCache) {
