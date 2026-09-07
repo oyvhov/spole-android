@@ -174,7 +174,7 @@ class HomeMediaRowsTest {
         org.junit.Assert.assertTrue("Episode should follow the one-line title closely", episode.top - title.bottom < 16f)
     }
 
-    @Test fun repeatedThirdPartyQueueIdsCannotCrashActiveDownloads() {
+    @Test fun legacyDownloadPreferenceDoesNotShowSeparateQueue() {
         val state = ReelstackUiState(
             connections = listOf(connection(ServiceKind.SONARR)), adminView = true,
             sessions = emptyList(), recentMovies = emptyList(), recentSeries = emptyList(), upcoming = emptyList(),
@@ -189,8 +189,8 @@ class HomeMediaRowsTest {
             ReelstackTheme { HomeScreen(state, PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}) }
         }
 
-        composeRule.onNodeWithText("Nedlastingar").performScrollTo().assertIsDisplayed()
-        composeRule.onAllNodesWithText("Lastar ned 40 %").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Nedlastingar").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Lastar ned 40 %").assertCountEquals(0)
     }
 
     private fun connection(kind: ServiceKind) = ServiceConnection(

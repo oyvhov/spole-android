@@ -9,7 +9,7 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/reelstack_background</item>
         <item name="android:windowSplashScreenBackground">@color/reelstack_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/spole_splash_empty</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/reelstack_background</item>
     </style>
 </resources>

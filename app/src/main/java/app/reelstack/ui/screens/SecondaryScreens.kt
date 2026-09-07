@@ -718,7 +718,6 @@ fun SettingsScreen(
                 HomeSectionRow(HomeSection.EMBY_SERIES, "Emby · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
             }
             HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.CalendarMonth, state, onHomeSectionChange)
-            if (state.adminView || state.configuredCount == 0) HomeSectionRow(HomeSection.DOWNLOADS, "Nedlastingar", "Aktive køar i Radarr og Sonarr", Icons.Rounded.Download, state, onHomeSectionChange)
             SettingsSectionTitle("Val")
             PreferenceRow(Icons.Rounded.Notifications, "Bibliotekvarsel", "For førespurnader du har valt å følgje",
                 state.notificationsEnabled, onNotificationsChange)

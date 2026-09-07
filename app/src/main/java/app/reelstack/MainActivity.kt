@@ -19,7 +19,9 @@ class MainActivity : ComponentActivity() {
                 val reelstackViewModel: ReelstackViewModel = viewModel(
                     factory = ReelstackViewModel.Factory(container),
                 )
-                ReelstackApp(viewModel = reelstackViewModel)
+                app.reelstack.ui.StartupReveal(reelstackViewModel) {
+                    ReelstackApp(viewModel = reelstackViewModel)
+                }
                 androidx.compose.runtime.LaunchedEffect(Unit) {
                     if (intent.getBooleanExtra("open_requests", false)) reelstackViewModel.selectTab(app.reelstack.ui.AppTab.ACTIVITY)
                 }

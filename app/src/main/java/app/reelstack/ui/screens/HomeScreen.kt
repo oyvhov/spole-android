@@ -279,24 +279,6 @@ fun HomeScreen(
                     }
                 }
             }
-            if (HomeSection.DOWNLOADS in state.homeSections && (state.adminView || state.configuredCount == 0)) {
-                item {
-                    SectionTitle("Nedlastingar", Modifier.padding(top = 26.dp, bottom = 10.dp))
-                    if (state.incoming.isEmpty()) {
-                        if (state.isRefreshing && hasQueueConnection) {
-                            IncomingSkeleton()
-                        } else {
-                            EmptySectionLine("Køane i Radarr og Sonarr er tomme.")
-                        }
-                    }
-                }
-                // Keep the feed alive even if a third-party queue briefly repeats a record id.
-                itemsIndexed(state.incoming, key = { index, media ->
-                    "incoming-${media.source.name}-${media.id}-$index"
-                }) { _, media ->
-                    IncomingRow(media = media, onClick = { onMediaClick(media.id) })
-                }
-            }
             item { HomeFreshness(state) }
         }
       }
