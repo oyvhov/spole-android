@@ -791,6 +791,18 @@ class ReelstackViewModel(
         }
     }
 
+    suspend fun refreshPlayback() {
+        if (refreshJob?.isActive == true) return
+        val connections = _uiState.value.connections
+        if (connections.none { it.token.isNotBlank() && it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }) return
+        val sessions = withContext(Dispatchers.IO) { container.mediaSyncRepository.refreshPlayback(connections) }
+        // A response from an account that has since signed out must never repopulate the screen.
+        _uiState.update { current ->
+            if (current.connections != connections || refreshJob?.isActive == true) current
+            else current.copy(sessions = sessions)
+        }
+    }
+
     fun refreshLiveData(userInitiated: Boolean = false) {
         refreshAccounts()
         refreshTrackedRequests()

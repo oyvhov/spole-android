@@ -5,6 +5,25 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ViewerAccessTest {
+    @Test fun playbackRefreshReadsFreshProgressWithoutFetchingLibraryAndPreservesPrivacy() = kotlinx.coroutines.runBlocking {
+        var position = 10000000L
+        val transport = Transport { url -> HttpResponse(200, when {
+            url.contains("auth/me") -> """{"id":7,"jellyfinUserId":"own","permissions":32}"""
+            url.endsWith("Sessions") -> """[{"Id":"mine","UserId":"own","NowPlayingItem":{"Id":"1","Name":"Own","RunTimeTicks":100000000},"PlayState":{"PositionTicks":$position}},{"Id":"other","UserId":"other","NowPlayingItem":{"Id":"2","Name":"Private"}}]"""
+            else -> """{"Id":"own","Name":"Person","Policy":{"IsAdministrator":false}}"""
+        }) }
+        val repository = app.reelstack.data.repository.MediaSyncRepository(
+            mediaServerClient = MediaServerClient(transport), accountProfileClient = AccountProfileClient(transport = transport),
+        )
+        val connections = listOf(connection, ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "cookie", sessionCookie = true))
+        val first = repository.refreshPlayback(connections).single()
+        position = 50000000L
+        val next = repository.refreshPlayback(connections).single()
+        assertEquals("mine", next.sessionId)
+        assertTrue(next.progress > first.progress)
+        assertTrue(transport.urls.none { it.contains("/Items") || it.contains("/request") || it.contains("/discover") })
+        assertEquals(0, transport.writes)
+    }
     private val seerr = ServiceAccount(ServiceKind.SEERR, "7", "Same name", permissions = 32, mediaUserId = "own")
     private val media = ServiceAccount(ServiceKind.JELLYFIN, "own", "Same name")
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Server", "https://media.example", "test", "wrong-form-id")

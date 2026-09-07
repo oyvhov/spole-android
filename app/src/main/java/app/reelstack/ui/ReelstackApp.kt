@@ -89,6 +89,16 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner, state.selectedTab, state.activeSheet) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            if (viewModel.uiState.value.selectedTab == AppTab.HOME || viewModel.uiState.value.activeSheet is AppSheet.SessionDetails) {
+                while (true) {
+                    viewModel.refreshPlayback()
+                    kotlinx.coroutines.delay(if (viewModel.uiState.value.sessions.isEmpty()) 15_000L else 5_000L)
+                }
+            }
+        }
+    }
     // Following a request costs a Seerr profile call, a request listing and up to twenty detail
     // lookups. Polling that every 30 seconds from every tab kept a self-hosted server busy for a
     // list nobody had on screen, so the fast cadence now belongs to the tab that shows it. The tab

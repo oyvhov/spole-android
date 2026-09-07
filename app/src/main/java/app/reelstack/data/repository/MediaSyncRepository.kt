@@ -70,6 +70,20 @@ class MediaSyncRepository(
     private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
     private val seerrReleaseClient: SeerrReleaseClient = SeerrReleaseClient(),
 ) {
+    /** Refresh only playback, retaining the same server-verified visibility rules as a full sync. */
+    suspend fun refreshPlayback(connections: List<ServiceConnection>): List<PlaybackSession> = supervisorScope {
+        val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
+        val identities = configured.filter { it.kind in setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY) }
+            .map { connection -> async { runCatching { accountProfileClient.load(connection) }.getOrNull()?.let { connection.kind to it } } }
+            .mapNotNull { it.await() }.toMap()
+        val access = ViewerAccess(configured.any { it.kind == ServiceKind.SEERR }, identities)
+        configured.filter { it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY }
+            .map { connection -> async {
+                runCatching { mediaServerClient.sessions(connection, access).map { playbackSession(it, connection.kind) } }
+                    .getOrDefault(emptyList())
+            } }.awaitAll().flatten().distinctBy { it.key }
+    }
+
     suspend fun refresh(
         connections: List<ServiceConnection>,
     ): MediaSyncSnapshot = supervisorScope {
