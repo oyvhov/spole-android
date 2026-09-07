@@ -1,6 +1,12 @@
-# Spole Android
+# Spole
 
-Spole (previously Reelune / HomeReel) is a native Android companion for a self-hosted media stack. It brings Jellyfin, Emby, Seerr, Radarr, and Sonarr into one calm, cinematic interface without replacing the servers themselves.
+Spole samlar Jellyfin, Emby, Seerr, Radarr og Sonarr i ein innfødd Android-app med eit roleg, filmatisk uttrykk.
+
+## Siste utgåve · 0.13.2
+
+[Last ned Spole for Android](https://github.com/oyvhov/reelstack-android/releases/download/v0.13.2/Spole-v0.13.2.apk) · [Release-notat](https://github.com/oyvhov/reelstack-android/releases/tag/v0.13.2)
+
+Animert Spole-oppstart, eit luftigare appikon og ei ryddigare framside utan eiga nedlastingsrad. Førespurnadsframdrift ligg framleis i Aktivitet. Privat repo: nedlasting krev GitHub-tilgang.
 
 The native app includes a multi-server Home, four interactive destinations, personal service accounts, a live-data layer, and background refresh. First-run setup offers an explicit demo preview. Once a service is connected, unconfigured services no longer contribute sample content. Personal views are rebuilt from verified accounts rather than restoring a previous user's dashboard.
 
@@ -34,7 +40,7 @@ This repository is private. Releases are published to [GitHub Releases](https://
 - Live Jellyfin/Emby playback sessions
 - Separate Jellyfin/Emby recently-added movie and episode rails, with wide Thumb artwork for series and the requested children's TV libraries excluded
 - Real Jellyfin/Emby remote pause and resume commands with pending/error feedback
-- Administrator-only live Radarr/Sonarr shared download queues with normalized progress
+- Request download progress in Activity; no separate download queue on Home
 - Artwork-led Upcoming section and a 28-day agenda calendar: Radarr home releases (not cinema-only dates) plus Sonarr episodes
 - Live Seerr trending discovery, request activity, and request submission
 - Independent per-service refresh errors, empty states, and pull-to-refresh; playback, activity and library access fail closed rather than retaining an unverified previous scope
