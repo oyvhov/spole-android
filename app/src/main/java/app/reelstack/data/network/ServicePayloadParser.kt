@@ -126,6 +126,7 @@ data class RemoteMediaDetails(
     val status4k: Int? = null,
     val seasons4k: List<app.reelstack.data.model.RequestSeason> = emptyList(),
     val downloads4k: List<app.reelstack.data.model.RequestDownload> = emptyList(),
+    val nextEpisode: app.reelstack.data.model.SeriesNextEpisode? = null,
 )
 
 data class RemoteRequest(
@@ -445,6 +446,12 @@ object ServicePayloadParser {
             status4k = item.obj("mediaInfo")?.int("status4k"),
             seasons4k = requestSeasons(item, "status4k"),
             downloads4k = downloadItems(item.obj("mediaInfo"), "downloadStatus4k"),
+            nextEpisode = item.obj("nextEpisodeToAir")?.let { episode ->
+                val season = episode.int("seasonNumber")?.takeIf { it > 0 } ?: return@let null
+                val number = episode.int("episodeNumber")?.takeIf { it > 0 } ?: return@let null
+                val date = runCatching { java.time.LocalDate.parse(episode.string("airDate")) }.getOrNull() ?: return@let null
+                app.reelstack.data.model.SeriesNextEpisode(season, number, date)
+            },
             artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork),
             tagline = item.string("tagline"),
             overview = item.string("overview")?.takeIf { it.isNotBlank() }
@@ -473,12 +480,15 @@ object ServicePayloadParser {
             val season = it as? JsonObject ?: return@mapNotNull null
             val number = season.int("seasonNumber") ?: return@mapNotNull null
             if (number < 0) return@mapNotNull null
-            val pending = requests.any { request -> (request["is4k"]?.jsonPrimitive?.booleanOrNull == true) == (statusKey == "status4k") && request.int("status") in setOf(1, 2) &&
+            val pending = requests.filter { request -> (request["is4k"]?.jsonPrimitive?.booleanOrNull == true) == (statusKey == "status4k") && request.int("status") in setOf(1, 2) &&
                 request.array("seasons").any { (it as? JsonObject)?.int("seasonNumber") == number } }
             val recorded = existing[number]?.int(statusKey) ?: 1
-            val status = if (recorded in setOf(1, 7) && pending) 2 else recorded
+            val status = if (recorded in setOf(1, 7) && pending.isNotEmpty()) {
+                if (pending.any { it.int("status") == 2 }) 3 else 2
+            } else recorded
             app.reelstack.data.model.RequestSeason(number,
-                if (number == 0) "Spesialepisodar" else "Sesong $number", season.int("episodeCount") ?: 0, status)
+                if (number == 0) "Spesialepisodar" else "Sesong $number", season.int("episodeCount") ?: 0, status,
+                airDate = runCatching { java.time.LocalDate.parse(season.string("airDate")) }.getOrNull())
         }.distinctBy { it.number }.sortedBy { it.number }
     }
 

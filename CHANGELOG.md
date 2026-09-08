@@ -1,5 +1,13 @@
 # Changelog
 
+## I arbeid · tydelegare sesongflyt
+
+- «Sjå sesongar» skil bibliotekstatus frå ei ny førespurnad. Ingen sesongar er førehandsvalde.
+- Komande sesongar får premieredato når kjend; udaterte sesongar blir ikkje framstilte som forseinka.
+- Delvis tilgjengelege og alt førespurde sesongar kan følgjast med eit lokalt varsel, utan ny førespurnad.
+- Berre Seerr-kontoen er nødvendig. Ingen Sonarr-tilkopling, ny backend eller endring av automatisk henting.
+- Roligare sesongark med skeleton til opninga er ferdig, tydeleg status, fast lukking og støtte for stor tekst.
+
 ## 0.14.1
 
 - Tydeleg søkeinngang rett under Spole og profilbiletet på Heim.

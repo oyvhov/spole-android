@@ -2,12 +2,32 @@
 
 ## Flyt
 
-1. Opne ein tittel i Oppdag. Filmar har «Legg til»; seriar har «Vel sesongar».
+1. Opne ein tittel i Oppdag. Filmar har «Legg til»; seriar har «Sjå sesongar».
 2. Arket viser plakat, tittel og den verifiserte Seerr-kontoen som sender.
-3. Bibliotekstatus blir henta på nytt. Manglande ordinære sesongar er valde; spesialar må veljast aktivt. Tilgjengelege, delvis tilgjengelege, blokkerte og alt førespurde sesongar kan ikkje sendast på nytt.
+3. Bibliotekstatus blir henta på nytt. Ingen sesongar er valde på førehand: vel berre dei du vil leggje til.
+   Komande sesongar får premieredato; udaterte sesongar blir ikkje framstilte som allereie utgjevne.
+   Tilgjengelege, delvis tilgjengelege, blokkerte og alt førespurde sesongar kan ikkje sendast på nytt.
 4. «Varsle når det er klart» er på som standard og kan slåast av før sending. Android kan be om varslingsløyve; avslag stoppar ikkje sjølve førespurnaden.
 5. Berre «Send førespurnad» sender til Seerr. Tomt sesongval, lasting, feil og pågåande sending sperrar knappen. Konto og sesongtilgjenge blir kontrollerte igjen rett før sending.
 6. Etter vellukka sending opnar Aktivitet. «Mine» viser eigne førespurnader og varslingsval.
+
+## Følgje utan å førespørje
+
+Sesongar med Seerr-status ventar på godkjenning, førespurd eller delvis i biblioteket får ei bjølle.
+Ho lagrar eit personleg varsel på denne eininga. Ho sender aldri POST/DELETE til Seerr og endrar
+ikkje overvaking, søk eller automatisk henting. Ein vanleg Seerr-brukar kan følgje tilgjenge sjølv
+utan løyve til å sende nye førespurnader; serveren avgjer framleis kva metadata kontoen får lese.
+
+- Eit lokalt varsel er merkt «Berre varsel» i Aktivitet og har inga førespurnadsframdriftslinje.
+- «Slutt å følgje» fjernar berre det lokale varselet. Dette er ikkje «Trekk tilbake».
+- Ein eigen førespurnad for nøyaktig same sesong blir brukt om han alt finst, slik at bjølla ikkje
+  opprettar ei ekstra rad. Varsel for éin sesong og ein samla fleirsesongsførespurnad har ulike
+  vilkår; appen endrar ikkje varslingsvalet for heile gruppa automatisk.
+- Sesongen får ikkje tilgjengevarsel før Seerr melder AVAILABLE. Dette er ikkje eit abonnement
+  på kvar ny episode, og Seerr sin status er ikkje eit løfte om at framtidige episodar er utgjevne.
+- «Returning Series», premieredato eller delvis tilgjenge er aldri brukt som bevis på overvaking.
+  Appen lovar derfor ikkje «kjem automatisk». Ingen direkte Sonarr-tilkopling eller ekstra backend.
+- Alle varsel kan slåast av lokalt. Lagring og bakgrunnssjekkar brukar same kontoavgrensing som før.
 
 ## Kva statusane tyder
 
@@ -19,6 +39,7 @@
 | I biblioteket | Seerr melder AVAILABLE for filmen eller alle dei valde sesongane. |
 | Avvist / Treng tilsyn | Avvist førespurnad, blokkering eller rapportert nedlastingsfeil. |
 | Status ukjend | Detaljstatus kunne ikkje hentast; ingen påstått framdrift. |
+| Følgjer med | Eit lokalt varsel ventar på endra bibliotekstatus; ingen ny førespurnad er sendt. |
 
 Standard- og 4K-status blir haldne frå kvarandre. Ei nedlasting for ein annan sesong påverkar ikkje førespurnaden. Ukjent sesongnummer blir ikkje gjetta. Prosent gjeld dei kjende, matchande nedlastingane, ikkje nødvendigvis alle episodane i ein sesong.
 

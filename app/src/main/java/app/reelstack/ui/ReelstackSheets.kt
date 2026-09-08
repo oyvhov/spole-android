@@ -63,6 +63,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Pause
@@ -151,6 +152,7 @@ fun ReelstackSheets(
     onConfirmRequest: () -> Unit = {},
     onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
     onConnectionAlternateUrlChange: (String) -> Unit = {},
+    onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> },
 ) {
     val sheet = state.activeSheet ?: return
     val sheetContentStates = rememberSaveableStateHolder()
@@ -169,7 +171,8 @@ fun ReelstackSheets(
             ) {
             when (sheet) {
                 AppSheet.RequestComposer -> RequestComposer(state, onRequestSeason, onRequestNotification,
-                    onConfirmRequest, close, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount)
+                    onConfirmRequest, close, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount,
+                    onSeasonWatch = onSeasonWatch, entered = entered)
                 is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle, detailScroll)
                 is AppSheet.TitleDetails -> state.contentDetails?.let { details ->
                     androidx.compose.runtime.key(details.key) {
@@ -414,7 +417,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
         OpenInServerButton(state, details)
         if (discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
-            state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
+            state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
             val adding = discoverMedia.id in state.requestingMediaIds
             val connectedSeerr = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() }
             val needsAccount = connectedSeerr && state.accounts[ServiceKind.SEERR]?.isPersonal != true
@@ -434,13 +437,14 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 if (adding) {
                     CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(19.dp))
                 } else {
-                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(if (discoverMedia.mediaType == "tv") Icons.AutoMirrored.Rounded.FormatListBulleted else Icons.Rounded.Add,
+                        contentDescription = null, modifier = Modifier.size(20.dp))
                 }
                 Text(
                     when {
                         adding -> "Legg til…"
                         needsAccount -> "Logg inn for å leggje til"
-                        discoverMedia.mediaType == "tv" -> "Vel sesongar"
+                        discoverMedia.mediaType == "tv" -> "Sjå sesongar"
                         else -> "Legg til i mediesamlinga"
                     },
                     modifier = Modifier.padding(start = 8.dp),

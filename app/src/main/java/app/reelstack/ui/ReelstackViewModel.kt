@@ -596,7 +596,7 @@ class ReelstackViewModel(
         val state = _uiState.value
         val media = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == id } ?: return
         if (!media.canRequest || state.requestingMediaIds.isNotEmpty()) return
-        if (state.configuredCount > 0 && state.accounts[ServiceKind.SEERR]?.isPersonal == true &&
+        if (media.mediaType != "tv" && state.configuredCount > 0 && state.accounts[ServiceKind.SEERR]?.isPersonal == true &&
             state.accounts[ServiceKind.SEERR]?.canRequestType(media.mediaType ?: "movie") != true) return
         val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.token.isNotBlank() }
         if (state.configuredCount > 0 && (connection?.sessionCookie != true || state.accounts[ServiceKind.SEERR]?.isPersonal != true)) {
@@ -607,19 +607,28 @@ class ReelstackViewModel(
         _uiState.update { it.copy(activeSheet = AppSheet.RequestComposer, requestDraft = RequestDraft(media), returnToCalendar = false) }
         if (connection == null && state.configuredCount == 0) {
             val seasons = if (media.mediaType == "tv") listOf(RequestSeason(1, "Sesong 1", 8, 1)) else emptyList()
-            _uiState.update { it.copy(requestDraft = RequestDraft(media, seasons, seasons.map { s -> s.number }.toSet(), loading = false)) }
+            _uiState.update { it.copy(requestDraft = RequestDraft(media, seasons, loading = false)) }
             return
         }
         requestDraftJob = viewModelScope.launch {
-            val result = attempt { withContext(Dispatchers.IO) { container.mediaSyncRepository.details(requireNotNull(connection), media) } }
+            val result = attempt { withContext(Dispatchers.IO) {
+                val remote = container.mediaSyncRepository.details(requireNotNull(connection), media)
+                val watched = state.accounts[ServiceKind.SEERR]?.let { actor ->
+                    media.remoteId?.let { remoteId -> container.requestTrackingRepository.watchedSeasons(connection, actor.id, remoteId) }
+                }.orEmpty()
+                remote to watched
+            } }
             if (!isActive) return@launch
             _uiState.update { current ->
                 val draft = current.requestDraft?.takeIf { it.media.id == id } ?: return@update current
                 if (current.activeSheet != AppSheet.RequestComposer) return@update current
-                current.copy(requestDraft = result.fold(onSuccess = { remote ->
-                    val eligible = remote.seasons.filter { it.canRequest && it.number > 0 }
-                    draft.copy(loading = false, seasons = remote.seasons, selected = eligible.map { it.number }.toSet(),
-                        mediaStatus = remote.seerrStatus,
+                val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+                if (configured?.token != connection?.token || configured?.baseUrl != connection?.baseUrl) return@update current
+                current.copy(requestDraft = result.fold(onSuccess = { (remote, watched) ->
+                    // No implicit "all seasons", including future or undated returning seasons.
+                    draft.copy(loading = false, seasons = remote.seasons, selected = emptySet(),
+                        mediaStatus = remote.seerrStatus, nextEpisode = remote.nextEpisode,
+                        watchedSeasons = watched,
                         error = when {
                             remote.seerrStatus == 6 -> "Tittelen er blokkert av administratoren."
                             media.mediaType == "tv" && remote.seasons.isEmpty() -> "Seerr gav ingen sesongar. Prøv igjen seinare."
@@ -633,7 +642,9 @@ class ReelstackViewModel(
 
     fun setRequestSeason(number: Int, checked: Boolean) = _uiState.update { state ->
         val draft = state.requestDraft ?: return@update state
-        if (draft.sending || draft.seasons.none { it.number == number && it.canRequest }) return@update state
+        if (draft.loading || draft.sending || draft.savingWatch != null || draft.mediaStatus == 6 || draft.error != null ||
+            draft.seasons.none { it.number == number && it.canRequest } ||
+            (state.configuredCount > 0 && state.accounts[ServiceKind.SEERR]?.canRequestType("tv") != true)) return@update state
         state.copy(requestDraft = draft.copy(selected = if (checked) draft.selected + number else draft.selected - number))
     }
 
@@ -643,8 +654,43 @@ class ReelstackViewModel(
 
     fun confirmRequest() {
         val draft = _uiState.value.requestDraft ?: return
-        if (draft.loading || draft.sending || draft.error != null || (draft.media.mediaType == "tv" && draft.selected.isEmpty())) return
+        if (draft.loading || draft.sending || draft.savingWatch != null || draft.error != null || (draft.media.mediaType == "tv" && draft.selected.isEmpty())) return
         sendRequest(draft.media.id)
+    }
+
+    fun setSeasonWatch(number: Int, enabled: Boolean) {
+        val state = _uiState.value
+        val draft = state.requestDraft ?: return
+        if (draft.loading || draft.sending || draft.savingWatch != null || draft.error != null || draft.mediaStatus == 6 ||
+            draft.seasons.none { it.number == number && it.canWatch }) return
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() }
+        val actor = state.accounts[ServiceKind.SEERR]?.takeIf { it.isPersonal }
+        if (connection == null || actor == null) return
+        _uiState.update { it.copy(requestDraft = draft.copy(savingWatch = number, watchError = null)) }
+        viewModelScope.launch {
+            val result = attempt { withContext(Dispatchers.IO) {
+                container.requestTrackingRepository.setSeasonWatch(connection, actor.id, draft.media, number, enabled)
+                container.requestTrackingRepository.list(container.requestTrackingRepository.scope(connection, actor.id))
+            } }
+            _uiState.update { current ->
+                val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+                if (configured?.token != connection.token || configured.baseUrl != connection.baseUrl || !configured.sessionCookie ||
+                    current.accounts[ServiceKind.SEERR]?.id != actor.id) return@update current
+                val openDraft = current.requestDraft?.takeIf { it.media.id == draft.media.id }
+                current.copy(
+                    trackedRequests = result.getOrNull() ?: current.trackedRequests,
+                    requestDraft = openDraft?.copy(savingWatch = null,
+                        watchedSeasons = if (result.isSuccess) {
+                            if (enabled) openDraft.watchedSeasons + number else openDraft.watchedSeasons - number
+                        } else openDraft.watchedSeasons,
+                        watchError = if (result.isFailure) "Fekk ikkje lagra varselet. Sjekk sesongane på nytt og prøv igjen." else null,
+                    ) ?: current.requestDraft,
+                    snackbar = if (result.isSuccess) {
+                        if (enabled) "Varsel på for sesong $number · ingen ny førespurnad" else "Varsel av for sesong $number"
+                    } else current.snackbar,
+                )
+            }
+        }
     }
 
     fun setFollowNotification(key: String, enabled: Boolean) {
@@ -677,10 +723,18 @@ class ReelstackViewModel(
                 }
             }
             _uiState.update { current ->
+                val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+                if (configured?.token != connection.token || configured.baseUrl != connection.baseUrl ||
+                    current.accounts[ServiceKind.SEERR]?.id != actor.id) {
+                    return@update current.copy(cancellingRequestKeys = current.cancellingRequestKeys - key)
+                }
                 current.copy(
                     cancellingRequestKeys = current.cancellingRequestKeys - key,
                     trackedRequests = result.getOrNull() ?: current.trackedRequests,
-                    snackbar = if (result.isSuccess) "Førespurnaden er trekt tilbake"
+                    snackbar = if (result.isSuccess) {
+                        if (state.trackedRequests.firstOrNull { it.key == key }?.availabilityOnly == true) "Slutta å følgje sesongen"
+                        else "Førespurnaden er trekt tilbake"
+                    }
                     else result.exceptionOrNull()?.readableMessage()
                         ?: "Fekk ikkje trekt tilbake førespurnaden. Prøv igjen.",
                 )

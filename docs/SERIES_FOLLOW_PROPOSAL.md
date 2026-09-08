@@ -1,6 +1,28 @@
 # Forslag: følgje ein serie utan ein overflødig førespurnad
 
-Status: undersøkt og foreslått, ikkje implementert i 0.14.1. Ingen serverdata er endra.
+Status: den enkle Seerr-baserte varianten er implementert etter 0.14.1, enno ikkje publisert.
+Ingen serverdata er endra under testing. Resten av dokumentet tek vare på bakgrunnen for valet.
+
+## Valt løysing
+
+Brukaren ønskjer det minst forvirrande alternativet, utan eiga Sonarr-innlogging. Vi brukar derfor
+berre vanleg Seerr-metadata og personlege, lokale varsel — ikkje eit ekstra Sonarr-oppslag.
+
+- «Sjå sesongar» viser kva som er i biblioteket, delvis tilgjengeleg eller alt førespurt.
+- Ingen sesongar er førehandsvalde. Daterte framtidige sesongar viser «Kjem …», udaterte viser
+  «Premiere ikkje avklart». Berre eksplisitt val og «Send førespurnad» kan opprette noko i Seerr.
+- Når kjend, står neste episode og utgjevingsdato over sesongane. Dato er ikkje bibliotektilgjenge.
+- Bjølla ved delvise/alt førespurde sesongar følgjer bibliotekstatus og sender ikkje ein ny
+  førespurnad. Lokale varsel er merkte «Berre varsel» og kan fjernast utan å endre Seerr.
+- Ingen påstand om «blir følgd automatisk»: produksjonsstatus er ikkje overvaking. Ny sesong blir
+  heller ikkje automatisk følgd av det lokale varselet for den førre sesongen.
+- Ein vanleg Seerr-brukar treng verken Sonarr-adresse, administratornøkkel eller ny backend.
+
+Dette dekkjer ikkje episodevise varsel eller innsending av problemrapportar. Manglande airedato
+eller Seerr sin delvis-status seier ikkje nøyaktig kva episodar som manglar. Vi viser ikkje
+«manglar allereie sende episodar» utan eit datagrunnlag som faktisk stadfestar det.
+
+Sjå REQUEST_FLOW.md for den implementerte flyten og VERIFICATION_SERIES_FLOW.md for kontrollane.
 
 ## Funnet i Spole
 
@@ -15,7 +37,7 @@ behandla som ein mangel sjølv om Sonarr allereie er sett opp til å følgje han
 «Returning Series» er produksjonsmetadata, ikkje bevis på automatisk henting. Tilgjenge og
 overvaking må vere to separate eigenskapar; serien kan vere delvis tilgjengeleg OG overvaka.
 
-## Føreslått brukaroppleving
+## Tidlegare vurdert brukaroppleving (ikkje alt implementert)
 
 | Situasjon | Vis til brukaren | Handling |
 | --- | --- | --- |
@@ -30,7 +52,7 @@ Varsel om nye episodar og varsel når ein heil vald sesong er klar må vere sepa
 Framtidige eller udaterte sesongar skal ikkje førehandsveljast som manglar. Brukaren kan
 framleis aktivt velje dei når Seerr tillèt det.
 
-## Datagrunnlag utan eigen backend
+## Vurdert ekstra datagrunnlag (ikkje brukt)
 
 Seerr sin noverande kjeldekode har `GET /api/v1/service/sonarr/lookup/:tmdbId` for innlogga
 brukarar. Han spør Sonarr gjennom Seerr, så klienten treng ikkje administratornøkkelen.
@@ -51,12 +73,11 @@ Viktige avgrensingar før implementering:
 - Sonarr-stiar, nøklar og andre brukarars førespurnader skal ikkje visast eller lagrast i
   følgjeinformasjonen. Ingen konto- eller tenarinnstillingar skal endrast automatisk.
 
-## Verifisering som står att
+## Avgrensingar som står att
 
-Brukaren er spurd om konkret serie og sesong. Les akkurat den i emulatoren. Test så:
-serie utan bibliotek, delvis pågåande sesong, ny sesong som kjem seinare, overvaking av/på,
-fleire Sonarr-tenarar, 4K, utgått status, vanleg brukar og tilbaketrekking/avslag i Seerr.
-Ingen ekte førespurnad treng sendast for å kontrollere lesinga.
+Brukaren har ikkje namngjeve serien/sesongen bak den opphavlege førespurnaden. Vi kan derfor
+ikkje fastslå om akkurat den ville ha blitt henta automatisk. Sonarr-overvaking blir ikkje lesen
+eller endra i denne løysinga. Reell nedlasting/import og løpande episodevarsel er ikkje testa.
 
 ## Primærkjelder
 

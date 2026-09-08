@@ -274,6 +274,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onRequestSeason = viewModel::setRequestSeason,
         onRequestNotification = viewModel::setRequestNotification,
         onConfirmRequest = viewModel::confirmRequest,
+        onSeasonWatch = viewModel::setSeasonWatch,
     )
 }
 

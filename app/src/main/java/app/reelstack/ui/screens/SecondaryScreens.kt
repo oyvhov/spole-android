@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -332,7 +333,7 @@ fun DiscoverScreen(
         } else {
             items(visible, key = DiscoverMedia::id) { media ->
                 DiscoverCard(media, media.id in state.requestingMediaIds,
-                    allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { !it.isPersonal || it.canRequestType(if (media.isSeries) "tv" else "movie") } == true,
+                    allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { media.isSeries || !it.isPersonal || it.canRequestType("movie") } == true,
                     onRequest = { onRequest(media.id) }, onDetails = { onDetails(media.id) })
             }
             // Seerr answers 20 results at a time. Loading the next page is explicit rather than
@@ -487,11 +488,11 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                     contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)
                         .semantics {
-                            contentDescription = if (media.isSeries) "Vel sesongar av ${media.title}" else "Legg til ${media.title}"
+                            contentDescription = if (media.isSeries) "Sjå sesongar av ${media.title}" else "Legg til ${media.title}"
                         }) {
                     if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
-                    else Icon(Icons.Rounded.Add, null, Modifier.size(14.dp))
-                    Text(when { requesting -> "Sender…"; media.isSeries -> "Vel sesongar"; else -> "Legg til" },
+                    else Icon(if (media.isSeries) Icons.AutoMirrored.Rounded.FormatListBulleted else Icons.Rounded.Add, null, Modifier.size(14.dp))
+                    Text(when { requesting -> "Sender…"; media.isSeries -> "Sjå sesongar"; else -> "Legg til" },
                         fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp))
                 }
             } else {
@@ -564,7 +565,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         if (sourceFilter == ActivityFilter.MINE) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Førespurnadene dine", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text(if (state.trackedRequests.any { it.availabilityOnly }) "Det du følgjer" else "Førespurnadene dine", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     IconButton(onClick = onRefresh, enabled = !state.trackingLoading,
                         modifier = Modifier.testTag("activity-refresh")) {
                         if (state.trackingLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)

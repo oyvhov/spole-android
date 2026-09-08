@@ -1,15 +1,38 @@
 package app.reelstack.data.model
 
-data class RequestSeason(val number: Int, val name: String, val episodes: Int, val status: Int) {
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+data class RequestSeason(
+    val number: Int, val name: String, val episodes: Int, val status: Int,
+    val airDate: LocalDate? = null,
+) {
     val canRequest: Boolean get() = status == 1 || status == 7
+    val canWatch: Boolean get() = status in 2..4
     val label: String get() = when (status) {
         5 -> "I biblioteket"
         4 -> "Delvis i biblioteket"
         2 -> "Ventar på godkjenning"
         3 -> "Førespurd"
         6 -> "Blokkert"
-        else -> "Manglar"
+        1, 7 -> "Manglar i biblioteket"
+        else -> "Status ukjend"
     }
+
+    fun description(today: LocalDate = LocalDate.now()): String = when {
+        !canRequest -> label
+        airDate == null -> "Premiere ikkje avklart"
+        airDate > today -> "Kjem ${airDate.format(SEASON_DATE)}"
+        else -> label
+    }
+}
+
+private val SEASON_DATE = DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.forLanguageTag("nn-NO"))
+
+data class SeriesNextEpisode(val season: Int, val episode: Int, val airDate: LocalDate) {
+    fun description(today: LocalDate = LocalDate.now()): String? = if (airDate < today) null else
+        "Neste episode · S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')} · ${airDate.format(SEASON_DATE)}"
 }
 
 data class RequestDownload(val season: Int?, val status: String, val size: Double, val remaining: Double)
@@ -22,6 +45,7 @@ enum class RequestStage(val label: String, val explanation: String) {
     DECLINED("Avvist", "Førespurnaden vart avvist i Seerr."),
     FAILED("Treng tilsyn", "Seerr eller nedlastingsklienten melder om ein feil."),
     UNKNOWN("Status ukjend", "Fekk ikkje oppdatert status. Prøver igjen seinare."),
+    WATCHING("Følgjer med", "Berre varsel. Ingen ny førespurnad er sendt."),
 }
 
 data class RequestProgress(val stage: RequestStage, val percent: Int? = null)
@@ -73,7 +97,20 @@ data class TrackedRequest(
      * silenced the later "this stopped" alert for the same title.
      */
     val notifiedStages: Set<String> = emptySet(),
+    /** A local availability alert is not a Seerr request and must never acquire its delete action. */
+    val availabilityOnly: Boolean = false,
+    /** Keep a ready-only bell's promise even if its watch later merges into an owned request. */
+    val readyNotificationOnly: Boolean = false,
 )
+
+fun availabilityWatchProgress(
+    seasons: List<RequestSeason>, selected: Set<Int>, downloads: List<RequestDownload>, mediaStatus: Int?,
+): RequestProgress {
+    if (mediaStatus == 6 || selected.isEmpty() || selected.any { number -> seasons.none { it.number == number } })
+        return RequestProgress(RequestStage.UNKNOWN)
+    val progress = requestProgress(mediaStatus, seasons, selected, downloads)
+    return if (progress.stage == RequestStage.REQUESTED) RequestProgress(RequestStage.WATCHING) else progress
+}
 
 data class RequestDraft(
     val media: DiscoverMedia,
@@ -84,4 +121,8 @@ data class RequestDraft(
     val sending: Boolean = false,
     val error: String? = null,
     val mediaStatus: Int? = null,
+    val nextEpisode: SeriesNextEpisode? = null,
+    val watchedSeasons: Set<Int> = emptySet(),
+    val savingWatch: Int? = null,
+    val watchError: String? = null,
 )

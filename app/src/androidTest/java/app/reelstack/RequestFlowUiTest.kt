@@ -1,6 +1,8 @@
 package app.reelstack
 
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.reelstack.data.model.*
@@ -52,5 +54,71 @@ class RequestFlowUiTest {
         rule.onNodeWithText("Sesong 2").assertIsDisplayed()
         rule.onNodeWithText("Lastar ned").assertDoesNotExist()
         assertFalse(notify)
+    }
+
+    @Test fun partialSeasonCanEnableAlertWithoutSelectingOrSendingRequest() {
+        var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(2, "Sesong 2", 8, 4)), loading = false))
+        var sent = 0
+        val actor = ServiceAccount(ServiceKind.SEERR, "7", "Maya", permissions = 32)
+        rule.setContent { ReelstackTheme { RequestComposer(
+            ReelstackUiState(requestDraft = draft, accounts = mapOf(ServiceKind.SEERR to actor), notificationsEnabled = false),
+            { _, _ -> error("Partial season must not be requested") }, {}, { sent++ }, {}, {}, {},
+            onSeasonWatch = { number, enabled -> draft = draft.copy(watchedSeasons = if (enabled) setOf(number) else emptySet()) },
+        ) } }
+        rule.onNodeWithTag("request-season-2").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("watch-season-2").performClick().assertIsOn()
+        rule.onNodeWithTag("confirm-request").assertDoesNotExist()
+        assertTrue(draft.selected.isEmpty())
+        assertEquals(0, sent)
+    }
+
+    @Test fun futureSeasonRequiresExplicitSelectionAndKeepsNotificationChoice() {
+        var draft by mutableStateOf(RequestDraft(media,
+            listOf(RequestSeason(3, "Sesong 3", 8, 1, java.time.LocalDate.now().plusYears(1))), loading = false))
+        rule.setContent { ReelstackTheme { RequestComposer(ReelstackUiState(requestDraft = draft),
+            { n, checked -> draft = draft.copy(selected = if (checked) setOf(n) else emptySet()) }, {}, {}, {}, {}, {}) } }
+        rule.onNodeWithTag("request-season-3").performScrollTo().assertIsOff()
+        rule.onNodeWithTag("confirm-request").assertIsNotEnabled()
+        rule.onNodeWithTag("request-notification").assertDoesNotExist()
+        rule.onNodeWithTag("request-season-3").performClick()
+        rule.onNodeWithTag("confirm-request").assertIsEnabled()
+        rule.onNodeWithTag("request-notification").performScrollTo().assertIsOn()
+    }
+
+    @Test fun availabilityOnlyCardNeverShowsWithdrawalOrFakeRequestProgress() {
+        var removed = false
+        val watch = TrackedRequest("watch", 42, "tv", "Testserie", null, setOf(2), stage = RequestStage.WATCHING, availabilityOnly = true)
+        rule.setContent { ReelstackTheme { TrackedRequestCard(watch, {}, {}, onCancel = { removed = true }) } }
+        rule.onNodeWithText("Følgjer med").assertIsDisplayed()
+        rule.onNodeWithText("Sesong 2 · Berre varsel").assertIsDisplayed()
+        rule.onNodeWithTag("cancel-request-watch").assertDoesNotExist()
+        rule.onNodeWithTag("remove-watch-watch").performClick()
+        assertTrue(removed)
+    }
+
+    @Test fun seasonWatchControlsWorkAtDoubleTextSize() {
+        var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(2, "Sesong 2", 12, 4)), loading = false))
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                ReelstackTheme { RequestComposer(
+                    ReelstackUiState(requestDraft = draft, accounts = mapOf(ServiceKind.SEERR to ServiceAccount(ServiceKind.SEERR, "7", "Maya")), notificationsEnabled = false),
+                    { _, _ -> }, {}, {}, {}, {}, {}, onSeasonWatch = { n, _ -> draft = draft.copy(watchedSeasons = setOf(n)) },
+                ) }
+            }
+        }
+        rule.onNodeWithTag("watch-season-2").performScrollTo().assertIsDisplayed().performClick().assertIsOn()
+        rule.onNodeWithTag("sheet-close").assertIsDisplayed()
+    }
+
+    @Test fun fastSeasonResponseWaitsForSheetEntranceBeforeRevealingControls() {
+        var entered by mutableStateOf(false)
+        val draft = RequestDraft(media, listOf(RequestSeason(3, "Sesong 3", 8, 1)), loading = false)
+        rule.setContent { ReelstackTheme { RequestComposer(ReelstackUiState(requestDraft = draft),
+            { _, _ -> }, {}, {}, {}, {}, {}, entered = entered) } }
+        rule.onNodeWithTag("seasons-loading").assertExists()
+        rule.onNodeWithTag("request-season-3").assertDoesNotExist()
+        rule.runOnIdle { entered = true }
+        rule.onNodeWithTag("request-season-3").assertExists()
+        rule.onNodeWithTag("seasons-loading").assertDoesNotExist()
     }
 }

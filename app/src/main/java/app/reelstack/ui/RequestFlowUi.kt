@@ -2,6 +2,8 @@ package app.reelstack.ui
 
 import android.Manifest
 import android.os.Build
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -20,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -39,57 +42,112 @@ import app.reelstack.ui.theme.*
 
 @Composable
 fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, onNotify: (Boolean) -> Unit,
-                    onConfirm: () -> Unit, onDismiss: () -> Unit, onRetry: () -> Unit, onAccount: () -> Unit) {
+                    onConfirm: () -> Unit, onDismiss: () -> Unit, onRetry: () -> Unit, onAccount: () -> Unit,
+                    onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> }, entered: Boolean = true) {
     val draft = state.requestDraft ?: return
     val context = LocalContext.current
     val confirm by rememberUpdatedState(onConfirm)
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { confirm() }
     val isSeries = draft.media.mediaType == "tv"
+    val ready = entered && !draft.loading
+    val contentAlpha by animateFloatAsState(if (ready) 1f else 0f, tween(180), label = "season-content")
+    val canAdd = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.canRequestType(if (isSeries) "tv" else "movie") == true
+    var pendingWatch by remember(draft.media.id) { mutableStateOf<Int?>(null) }
+    val watchAction by rememberUpdatedState(onSeasonWatch)
+    val watchPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        pendingWatch?.let { watchAction(it, true) }
+        pendingWatch = null
+    }
+    val busy = draft.sending || draft.savingWatch != null
+    val hasSelection = !isSeries || draft.selected.isNotEmpty()
     Column(Modifier.fillMaxSize().testTag("request-composer")) {
-        SheetToolbar("Ny førespurnad", "Lukk førespurnaden", onDismiss, enabled = !draft.sending)
+        SheetToolbar(if (isSeries) "Sesongar" else "Ny førespurnad", "Lukk førespurnaden", onDismiss, enabled = !draft.sending)
         Column(Modifier.weight(1f).testTag("request-scroll").verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MediaArtwork(draft.media.artworkUrl, draft.media.artworkRes, null,
                     Modifier.width(82.dp).height(123.dp).clip(RoundedCornerShape(10.dp)), ContentScale.Fit, ServiceKind.SEERR)
                 Column(Modifier.weight(1f).padding(start = 16.dp)) {
                     Text(draft.media.title, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
-                    Text(if (isSeries) "Vel sesongane du vil leggje til" else "Legg filmen til i mediesamlinga", color = Muted,
+                    Text(if (isSeries) "Biblioteket ditt, sesong for sesong" else "Legg filmen til i mediesamlinga", color = Muted,
                         fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 8.dp))
                 }
             }
             RequestIdentity(state, onAccount)
-            app.reelstack.ui.components.RequestJourney(null, Modifier.padding(top = 20.dp, bottom = 8.dp))
-            if (draft.loading) {
-                LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 24.dp))
-                Text("Sjekkar bibliotek og førespurnader…", color = Muted, fontSize = 13.sp)
-            } else if (isSeries) {
-                Text("Sesongar", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
-                if (draft.seasons.isNotEmpty() && draft.seasons.none { it.canRequest }) {
-                    Text("Ingen nye sesongar å leggje til. Sjå status under Aktivitet.", color = Muted, fontSize = 13.sp)
-                }
-                draft.seasons.forEach { season ->
-                    val enabled = season.canRequest && !draft.sending && draft.mediaStatus != 6
-                    Row(Modifier.fillMaxWidth().defaultMinSize(minHeight = 66.dp)
-                        .toggleable(season.number in draft.selected, enabled = enabled, role = Role.Checkbox,
-                            onValueChange = { onSeason(season.number, it) }).testTag("request-season-${season.number}")
-                        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(season.name, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                            Text(listOfNotNull(season.label, season.episodes.takeIf { it > 0 }?.let { if (it == 1) "1 episode" else "$it episodar" }).joinToString(" · "),
-                                color = Muted, fontSize = 12.sp)
-                        }
-                        if (season.status == 5) Icon(Icons.Rounded.CheckCircle, null, tint = Primary, modifier = Modifier.size(24.dp))
-                        else Checkbox(checked = season.number in draft.selected, onCheckedChange = null, enabled = enabled)
+            if (!isSeries) app.reelstack.ui.components.RequestJourney(null, Modifier.padding(top = 20.dp, bottom = 8.dp))
+            if (!ready) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 24.dp).testTag("seasons-loading"),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("Sjekkar bibliotek og førespurnader…", color = Muted, fontSize = 13.sp)
+                    repeat(3) {
+                        Box(Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(12.dp)).background(SurfaceRaised))
                     }
                 }
+            } else if (isSeries) {
+                Column(Modifier.fillMaxWidth().graphicsLayer { alpha = contentAlpha }) {
+                draft.nextEpisode?.description()?.let { next ->
+                    Text(next, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, lineHeight = 20.sp,
+                        modifier = Modifier.padding(top = 20.dp).testTag("next-episode"))
+                }
+                Text(if (draft.seasons.any { it.canRequest } && canAdd) "Vel berre sesongane du vil leggje til."
+                    else "Status frå Seerr", color = Muted, fontSize = 13.sp, lineHeight = 20.sp,
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+                draft.seasons.forEach { season ->
+                    val enabled = season.canRequest && canAdd && !busy && draft.error == null && draft.mediaStatus != 6
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.weight(1f).defaultMinSize(minHeight = 72.dp)
+                            .toggleable(season.number in draft.selected, enabled = enabled, role = Role.Checkbox,
+                                onValueChange = { onSeason(season.number, it) }).testTag("request-season-${season.number}")
+                            .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(season.name, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
+                                Text(listOfNotNull(season.description(), season.episodes.takeIf { it > 0 }?.let { if (it == 1) "1 episode" else "$it episodar" }).joinToString(" · "),
+                                    color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 3.dp))
+                            }
+                            if (season.canRequest && canAdd) Checkbox(checked = season.number in draft.selected, onCheckedChange = null, enabled = enabled)
+                            else if (!season.canWatch) Icon(if (season.status == 5) Icons.Rounded.CheckCircle else Icons.Rounded.Info,
+                                null, tint = if (season.status == 5) Success else Muted, modifier = Modifier.size(24.dp).padding(end = 2.dp))
+                        }
+                        if (season.canWatch && draft.mediaStatus != 6 && state.accounts[ServiceKind.SEERR]?.isPersonal == true) {
+                            val watched = season.number in draft.watchedSeasons
+                            IconToggleButton(watched, enabled = !busy && draft.error == null,
+                                onCheckedChange = { enabledWatch ->
+                                    if (enabledWatch && state.notificationsEnabled && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context)) {
+                                        pendingWatch = season.number
+                                        watchPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    } else onSeasonWatch(season.number, enabledWatch)
+                                }, modifier = Modifier.testTag("watch-season-${season.number}").semantics {
+                                    contentDescription = "${if (watched) "Slå av varsel" else "Varsle når tilgjengeleg"} for ${season.name.lowercase()}"
+                                }) {
+                                if (draft.savingWatch == season.number) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                else Icon(if (watched) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsNone,
+                                    null, tint = if (watched) Primary else Muted)
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = SurfaceRaised)
+                }
+                if (draft.seasons.any { it.status == 4 }) {
+                    Text("Delvis betyr at nokre episodar finst. Resten kan mangle eller ikkje vere sende enno.",
+                        color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 14.dp))
+                }
+                if (draft.seasons.any { it.canWatch } && state.accounts[ServiceKind.SEERR]?.isPersonal == true) {
+                    Text("Bjølla varslar når Seerr melder sesongen tilgjengeleg. Ho sender ingen ny førespurnad og endrar ikkje automatisk henting.",
+                        color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
+                }
+                draft.watchError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 12.dp))
+                    TextButton(onClick = onRetry, enabled = !busy) { Text("Sjekk på nytt") }
+                }
+                }
             }
+            if (ready && hasSelection && canAdd) {
             HorizontalDivider(Modifier.padding(vertical = 18.dp), color = SurfaceRaised)
             Row(Modifier.fillMaxWidth().toggleable(draft.notify, enabled = !draft.sending, role = Role.Checkbox, onValueChange = onNotify)
                 .padding(vertical = 8.dp).testTag("request-notification"), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.NotificationsActive, null, tint = Primary, modifier = Modifier.size(22.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text("Varsle når det er klart", fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    Text(if (isSeries) "Når dei valde sesongane er i biblioteket." else "Når filmen er i biblioteket.",
+                    Text(if (isSeries) "Når Seerr melder dei valde sesongane tilgjengelege." else "Når filmen er i biblioteket.",
                         color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                 }
                 Checkbox(draft.notify, onCheckedChange = null, enabled = !draft.sending)
@@ -99,6 +157,12 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 !LibraryNotifications.allowed(context) -> "Android må tillate varsel. Du kan framleis følgje status i Aktivitet."
                 else -> "Appen sjekkar i bakgrunnen. Android kan forseinke varselet."
             }, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp))
+            }
+            if (ready && isSeries && !hasSelection && draft.watchedSeasons.isNotEmpty() &&
+                (!state.notificationsEnabled || !LibraryNotifications.allowed(context))) {
+                Text("Varsel er ikkje tillatne no. Slå dei på i Innstillingar; statusen kan følgjast i Aktivitet.",
+                    color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
+            }
             draft.error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp))
                 TextButton(onClick = onRetry, enabled = !draft.sending) { Text("Sjekk på nytt") }
@@ -108,14 +172,17 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
         Column(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 24.dp, vertical = 12.dp)) {
             if (state.configuredCount == 0) Text("Førehandsvising · ingenting blir sendt", color = Muted,
                 fontSize = 11.sp, modifier = Modifier.padding(bottom = 10.dp))
-            Button(onClick = {
+            if (isSeries && ready && draft.error == null && (!canAdd || draft.seasons.none { it.canRequest })) {
+                TextButton(onClick = onDismiss, enabled = !draft.sending, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) { Text("Ferdig") }
+            } else Button(onClick = {
                 if (draft.notify && state.notificationsEnabled && state.configuredCount > 0 && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context))
                     permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else onConfirm()
-            }, enabled = !draft.loading && !draft.sending && draft.error == null && (!isSeries || draft.selected.isNotEmpty()),
+            }, enabled = ready && !busy && canAdd && draft.error == null && hasSelection,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("confirm-request")) {
                 if (draft.sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Ink)
-                Text(if (draft.sending) "Sender…" else if (isSeries) "Send førespurnad · ${draft.selected.size} " + (if (draft.selected.size == 1) "sesong" else "sesongar") else "Send førespurnad",
+                Text(if (draft.sending) "Sender…" else if (isSeries && draft.selected.isEmpty()) "Vel sesongar å leggje til"
+                    else if (isSeries) "Send førespurnad · ${draft.selected.size} " + (if (draft.selected.size == 1) "sesong" else "sesongar") else "Send førespurnad",
                     modifier = Modifier.padding(horizontal = 8.dp))
             }
         }
@@ -158,8 +225,8 @@ fun TrackedRequestCard(
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         Text(
                             (if (item.seasons.isEmpty()) "Film" else "Sesong ${item.seasons.sorted().joinToString(", ")}") +
-                                if (item.is4k) " · 4K" else "",
-                            color = Muted, fontSize = 11.sp, maxLines = 1,
+                                (if (item.is4k) " · 4K" else "") + (if (item.availabilityOnly) " · Berre varsel" else ""),
+                            color = Muted, fontSize = 11.sp, lineHeight = 16.sp,
                             modifier = Modifier.padding(top = 3.dp),
                         )
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 9.dp)) {
@@ -173,7 +240,7 @@ fun TrackedRequestCard(
                                 tint = when (item.stage) {
                                     RequestStage.AVAILABLE -> Success
                                     RequestStage.FAILED, RequestStage.DECLINED -> Warning
-                                    else -> Primary
+                                    else -> Muted
                                 }, modifier = Modifier.size(16.dp),
                             )
                             Text(
@@ -209,7 +276,14 @@ fun TrackedRequestCard(
                     }
                 }
             }
-            if (active) {
+            if (item.availabilityOnly) {
+                if (active) Text("Følgjer bibliotekstatus i Seerr. Ingen ny førespurnad.", color = Muted, fontSize = 12.sp,
+                    lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 12.dp))
+                TextButton(onClick = onCancel, enabled = !cancelling,
+                    modifier = Modifier.padding(start = 4.dp).testTag("remove-watch-${item.key}")) {
+                    Text(if (cancelling) "Fjernar…" else "Slutt å følgje")
+                }
+            } else if (active) {
                 CompactRequestProgress(item, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp))
                 // Withdrawing is only offered once Seerr has given the request an id: without it
                 // there is nothing to withdraw, and a dead button would be worse than none.

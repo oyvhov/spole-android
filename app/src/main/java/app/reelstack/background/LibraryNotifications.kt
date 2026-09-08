@@ -55,7 +55,7 @@ object LibraryNotifications {
         val subtitle = when (event) {
             NotificationEvent.READY ->
                 if (item.seasons.isEmpty()) "Filmen er klar til å sjå."
-                else "Sesong $seasons er klar til å sjå."
+                else "Sesong $seasons er i biblioteket, ifølgje Seerr."
             NotificationEvent.DOWNLOADING ->
                 item.percent?.let { "Lastar ned · $it %" } ?: "Nedlastinga har starta."
             NotificationEvent.FAILED ->
