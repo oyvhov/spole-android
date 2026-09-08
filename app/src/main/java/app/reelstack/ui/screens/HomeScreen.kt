@@ -88,6 +88,7 @@ import app.reelstack.data.model.isSeries
 import app.reelstack.data.model.seerrStatusLabel
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.HomeSearchEntry
 import app.reelstack.ui.components.IncomingSkeleton
 import app.reelstack.ui.components.LibraryRailSkeleton
 import app.reelstack.ui.components.AccountAvatarButton
@@ -122,6 +123,8 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     onAccountClick: () -> Unit = {},
     onDiscoverClick: (String) -> Unit = {},
+    onSearchClick: () -> Unit = {},
+    searchTransitionModifier: Modifier = Modifier,
 ) {
     val configuredMediaSources = state.connections
         .filter { connection ->
@@ -154,6 +157,11 @@ fun HomeScreen(
         ) {
             item {
                 HomeHeader(state, onAccountClick)
+            }
+            item(key = "search-entry") {
+                Box(Modifier.padding(top = 8.dp)) {
+                    HomeSearchEntry(onSearchClick, searchTransitionModifier)
+                }
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
                 item {

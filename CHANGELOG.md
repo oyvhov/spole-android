@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.1
+
+- Tydeleg søkeinngang rett under Spole og profilbiletet på Heim.
+- Feltet glir over til søket i Oppdag. Tastaturet kjem fram etter overgangen.
+- Eit nytt søk frå Heim går til toppen og fjernar gamle filter, men bevarer søketeksten.
+- Vanlege fanebesøk opnar ikkje tastaturet automatisk.
+- Fem nye Android-testar for navigering, fokus, éi trykkhandling og stor tekst.
+
 ## 0.14.0
 
 Ein publiseringsrunde: appen er 69 % mindre, feil som før viste eit statusnummer forklarer no kva

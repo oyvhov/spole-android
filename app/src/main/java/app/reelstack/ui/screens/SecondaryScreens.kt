@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.Close
@@ -17,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -102,6 +104,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -184,10 +189,37 @@ fun DiscoverScreen(
     onAccountClick: () -> Unit = {},
     onLibraryDetails: (String) -> Unit = {},
     onLoadMore: () -> Unit = {},
+    searchTransitionModifier: Modifier = Modifier,
+    prepareSearch: Boolean = false,
+    searchReady: Boolean = false,
+    onSearchFocusConsumed: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val searchFocus = remember { FocusRequester() }
+    val gridState = rememberLazyGridState()
     var filter by rememberSaveable { mutableStateOf(DiscoverFilter.ALL) }
     var libraryFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
+    // An explicit Home search starts at the field, even after browsing a long filtered grid.
+    // Ordinary tab visits retain their query, filters and scroll position.
+    LaunchedEffect(prepareSearch) {
+        if (prepareSearch) {
+            filter = DiscoverFilter.ALL
+            libraryFilter = LibraryFilter.ALL
+            gridState.scrollToItem(0)
+        }
+    }
+    LaunchedEffect(prepareSearch, searchReady) {
+        if (prepareSearch && searchReady) {
+            gridState.scrollToItem(0)
+            // Let the lazy header attach before focusing. This is frame-driven, not a timer
+            // that drifts from the transition on a slow device or with animations disabled.
+            withFrameNanos { }
+            searchFocus.requestFocus()
+            keyboard?.show()
+            onSearchFocusConsumed()
+        }
+    }
     val visible = state.visibleDiscover.filter { media ->
         val matchesType = when (filter) {
             DiscoverFilter.MOVIES -> !media.isSeries
@@ -203,6 +235,7 @@ fun DiscoverScreen(
     ReelPage {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(145.dp),
+        state = gridState,
         contentPadding = screenPadding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -216,7 +249,7 @@ fun DiscoverScreen(
                     Column(Modifier.weight(1f).padding(end = 12.dp)) {
                         Text("Oppdag", color = TextColor, style = MaterialTheme.typography.displaySmall,
                             modifier = Modifier.padding(top = 6.dp))
-                        Text("Den neste historia di byrjar her.", color = Muted, fontSize = 13.sp,
+                        Text("Finn noko nytt å sjå. Legg til det du vil ha i biblioteket.", color = Muted, fontSize = 13.sp,
                             lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
                     }
                     AccountAvatarButton(
@@ -229,6 +262,7 @@ fun DiscoverScreen(
                         modifier = Modifier.padding(top = 2.dp),
                     )
                 }
+                Box(Modifier.fillMaxWidth().padding(top = 18.dp)) {
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = onSearch,
@@ -246,16 +280,18 @@ fun DiscoverScreen(
                     placeholder = { Text("Søk etter filmar og seriar", fontSize = 14.sp) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Primary,
-                        unfocusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = app.reelstack.ui.theme.ControlOutline,
                         focusedContainerColor = SurfaceRaised,
                         unfocusedContainerColor = SurfaceRaised,
                         cursorColor = Primary,
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
+                    modifier = searchTransitionModifier.fillMaxWidth().focusRequester(searchFocus)
+                        .testTag("discover-search"),
                 )
+                }
                 DiscoverFilterBar(filter, libraryFilter, { filter = it }, { libraryFilter = it },
                     Modifier.padding(top = 12.dp))
             }

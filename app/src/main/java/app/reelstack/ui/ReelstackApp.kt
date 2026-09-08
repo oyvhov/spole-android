@@ -1,10 +1,14 @@
 package app.reelstack.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -50,6 +54,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +66,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -82,12 +90,22 @@ import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.SurfaceRaised
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ReelstackApp(viewModel: ReelstackViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val connectionDraft by viewModel.connectionDraft.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
+    var pendingSearchFocus by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val selectTab: (AppTab) -> Unit = { tab ->
+        pendingSearchFocus = false
+        focusManager.clearFocus()
+        keyboard?.hide()
+        viewModel.selectTab(tab)
+    }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner, state.selectedTab, state.activeSheet) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
@@ -114,7 +132,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         }
     }
     BackHandler(enabled = state.activeSheet == null && !state.showOnboarding && state.selectedTab != AppTab.HOME) {
-        viewModel.selectTab(AppTab.HOME)
+        selectTab(AppTab.HOME)
     }
 
     LaunchedEffect(state.snackbar) {
@@ -138,7 +156,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             bottomBar = {
                 if (!state.showOnboarding && !wideWindow) ReelstackBottomBar(
                     selectedTab = state.selectedTab,
-                    onSelect = viewModel::selectTab,
+                    onSelect = selectTab,
                 )
             },
         ) { paddingValues ->
@@ -146,7 +164,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             if (showRail) {
                 ReelstackNavigationRail(
                     selectedTab = state.selectedTab,
-                    onSelect = viewModel::selectTab,
+                    onSelect = selectTab,
                 )
             }
             Box(Modifier.weight(1f).fillMaxSize()) {
@@ -158,12 +176,19 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     onContinue = viewModel::completeOnboarding,
                 )
             } else {
-            AnimatedContent(
-                targetState = state.selectedTab,
+            SharedTransitionLayout {
+            val navigation = updateTransition(state.selectedTab, label = "navigation-state")
+            navigation.AnimatedContent(
                 transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(150)) },
-                label = "primary-navigation",
                 modifier = Modifier.fillMaxSize(),
             ) { tab ->
+                val searchTransition = Modifier.sharedBounds(
+                    rememberSharedContentState(key = "home-discover-search"),
+                    animatedVisibilityScope = this,
+                    boundsTransform = { _, _ -> tween(320, easing = FastOutSlowInEasing) },
+                    enter = fadeIn(tween(180, delayMillis = 80)),
+                    exit = fadeOut(tween(120)),
+                )
                 tabStates.SaveableStateProvider(tab) {
                 when (tab) {
                     AppTab.HOME -> HomeScreen(
@@ -178,6 +203,13 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onRefresh = { viewModel.refreshLiveData(userInitiated = true) },
                         onAccountClick = { viewModel.selectTab(AppTab.SETTINGS) },
                         onDiscoverClick = viewModel::openRecommendationDetails,
+                        onSearchClick = {
+                            if (state.selectedTab == AppTab.HOME && !pendingSearchFocus) {
+                                pendingSearchFocus = true
+                                viewModel.selectTab(AppTab.DISCOVER)
+                            }
+                        },
+                        searchTransitionModifier = searchTransition,
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
                         state = state,
@@ -188,6 +220,10 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onAccountClick = viewModel::openSeerrAccount,
                         onLibraryDetails = viewModel::openLibraryDetails,
                         onLoadMore = viewModel::loadMoreSearchResults,
+                        searchTransitionModifier = searchTransition,
+                        prepareSearch = pendingSearchFocus,
+                        searchReady = navigation.currentState == AppTab.DISCOVER && !navigation.isRunning,
+                        onSearchFocusConsumed = { pendingSearchFocus = false },
                     )
                     AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
                         viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
@@ -206,6 +242,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     )
                 }
                 }
+            }
             }
             }
             }
