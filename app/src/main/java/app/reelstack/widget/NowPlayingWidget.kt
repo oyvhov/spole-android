@@ -33,7 +33,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 class NowPlayingWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
-        appWidgetIds.forEach { id -> manager.updateAppWidget(id, loadingViews(context)) }
+        val localized = app.reelstack.localization.AppLanguages.wrap(context)
+        appWidgetIds.forEach { id -> manager.updateAppWidget(id, loadingViews(localized)) }
         refresh(context, manager, appWidgetIds)
     }
 
@@ -48,7 +49,7 @@ class NowPlayingWidget : AppWidgetProvider() {
     private fun refresh(context: Context, manager: AppWidgetManager, ids: IntArray) {
         if (ids.isEmpty()) return
         val pending = goAsync()
-        val app = context.applicationContext
+        val app = app.reelstack.localization.AppLanguages.wrap(context.applicationContext)
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             val views = runCatching {
                 // A widget update must not hang: an unreachable server has to degrade to a line
@@ -66,7 +67,7 @@ class NowPlayingWidget : AppWidgetProvider() {
             (it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY) &&
                 it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
-        if (servers.isEmpty()) return views(context, "Ingen tenester", "Kople til Jellyfin eller Emby i Spole.")
+        if (servers.isEmpty()) return views(context, context.getString(R.string.widget_no_services), context.getString(R.string.widget_connect))
 
         val sessions = kotlinx.coroutines.coroutineScope {
             servers.map { connection ->
@@ -87,9 +88,9 @@ class NowPlayingWidget : AppWidgetProvider() {
     }
 
     private fun playbackViews(context: Context, playing: List<RemotePlayback>): RemoteViews {
-        if (playing.isEmpty()) return views(context, "Ingenting spelar", "Alt er roleg akkurat no.")
+        if (playing.isEmpty()) return views(context, context.getString(R.string.widget_empty), context.getString(R.string.widget_quiet))
         val first = playing.first()
-        val heading = if (playing.size > 1) "${playing.size} avspelingar" else null
+        val heading = if (playing.size > 1) context.resources.getQuantityString(R.plurals.home_playback_count, playing.size, playing.size) else null
         val detail = listOfNotNull(
             first.subtitle.takeIf(String::isNotBlank),
             first.userName.takeIf(String::isNotBlank),
@@ -102,14 +103,14 @@ class NowPlayingWidget : AppWidgetProvider() {
         views(context, context.getString(R.string.widget_loading), "")
 
     private fun errorViews(context: Context) =
-        views(context, "Fekk ikkje kontakt", "Sjekk tilkoplinga i Spole.")
+        views(context, context.getString(R.string.widget_error), context.getString(R.string.widget_check))
 
     private fun views(context: Context, primary: String, secondary: String, heading: String? = null): RemoteViews =
         RemoteViews(context.packageName, R.layout.widget_now_playing).apply {
             setTextViewText(R.id.widget_primary, primary)
             setTextViewText(R.id.widget_secondary, secondary)
             setTextViewText(R.id.widget_heading, heading ?: context.getString(R.string.widget_title))
-            setContentDescription(R.id.widget_root, "Spelar no: $primary. $secondary")
+            setContentDescription(R.id.widget_root, context.getString(R.string.widget_accessibility, primary, secondary))
             // Tapping opens the app; tapping again after it is open just refreshes the widget.
             setOnClickPendingIntent(R.id.widget_root, openAppIntent(context))
         }

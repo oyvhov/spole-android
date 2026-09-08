@@ -1,5 +1,7 @@
 # Reelune product and implementation plan
 
+> **Historisk produktplan.** Gjeldande prioriteringar og milepålar frå Spole 0.15.1 er samla i [veikartet mot 1.0](../ROADMAP.md). Planen nedanfor er bevart som bakgrunn; gamle namn, uavkryssa oppgåver og føreslegne funksjonar er ikkje ei statusliste for dagens app.
+
 ## Current milestone — v0.10.0
 
 Personal request tracking, missing-season choice and optional artwork notifications shipped in v0.9.0. The v0.10.0 pass adds a verified Seerr administrator boundary, own-session/own-Activity defaults, requested children's TV library exclusions, full-bleed Upcoming/Discover cards, explicit playback counts and the Reelune identity. See [viewer access](VIEWER_ACCESS.md) and [design system](DESIGN_SYSTEM.md).

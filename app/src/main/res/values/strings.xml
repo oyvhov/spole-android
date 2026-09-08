@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Spole</string>
-    <string name="widget_title">Spelar no</string>
-    <string name="widget_description">Viser kva som spelar på Jellyfin og Emby akkurat no.</string>
-    <string name="widget_loading">Hentar…</string>
+    <string name="app_name" translatable="false">Spole</string>
+    <string name="widget_title">Now playing</string>
+    <string name="widget_description">Shows what is playing on Jellyfin and Emby right now.</string>
+    <string name="widget_loading">Loading…</string>
+    <string name="widget_no_services">No services</string>
+    <string name="widget_connect">Connect Jellyfin or Emby in Spole.</string>
+    <string name="widget_empty">Nothing playing</string>
+    <string name="widget_quiet">All quiet right now.</string>
+    <string name="widget_error">Could not connect</string>
+    <string name="widget_check">Check your connection in Spole.</string>
+    <string name="widget_accessibility">Now playing: %1$s. %2$s</string>
 </resources>

@@ -1,6 +1,7 @@
 package app.reelstack.ui.theme
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
@@ -33,9 +34,11 @@ object ReelLayout {
  * [content] so the column, not the window, decides how wide a row is allowed to grow.
  */
 @Composable
-fun ReelPage(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Box(Modifier.widthIn(max = ReelLayout.ContentMaxWidth).fillMaxSize()) {
+fun ReelPage(modifier: Modifier = Modifier, media: Boolean = false, content: @Composable () -> Unit) {
+    BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val policy = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
+        val maximum = if (media) policy.mediaMaxWidthDp.dp else ReelLayout.ContentMaxWidth
+        Box(Modifier.widthIn(max = maximum).fillMaxSize()) {
             content()
         }
     }

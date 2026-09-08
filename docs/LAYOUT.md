@@ -1,5 +1,12 @@
 # HomeReel layout
 
+Current override (roadmap implementation, 9 September 2026, unreleased): media pages expand up to
+1120 dp when their available width after navigation reaches 1000 dp; reading/settings pages stay
+capped at 840 dp. Navigation still switches at a 640 dp window. A wide dialog window (at least
+840 × 480 dp) centres a 720 dp panel capped at 860 dp height. Narrow windows keep the bottom sheet.
+Dialog height is calculated inside safe/IME constraints, independent of metadata. Full physical
+tablet support is not yet verified. See [the roadmap](../ROADMAP.md) and [language implementation](LOCALIZATION.md).
+
 Current override (Spole 0.12.4): opening an already configured service shows a compact verified
 summary first. The credential method, address change and sign-out action are progressively disclosed
 from that summary. Expansion animates only the inner content; the fixed popup viewport does not move.

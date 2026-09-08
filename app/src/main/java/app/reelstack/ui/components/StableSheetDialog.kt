@@ -16,6 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import app.reelstack.R
+import app.reelstack.ui.layout.WindowLayoutPolicy
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.dismiss
 import androidx.compose.ui.semantics.paneTitle
@@ -41,6 +45,8 @@ internal fun StableSheetDialog(
     val dismissLatest by rememberUpdatedState(onDismiss)
     val scope = rememberCoroutineScope()
     val hostView = LocalView.current
+    val dismissLabel = stringResource(R.string.sheet_dismiss)
+    val dialogLabel = stringResource(R.string.sheet_title)
     val close = {
         if (canDismiss && !closing) {
             closing = true
@@ -80,28 +86,34 @@ internal fun StableSheetDialog(
         // The dialog's constraints, not LocalWindowInfo's asynchronously updated size, own
         // geometry. Insets/keyboard can constrain the surface; media responses cannot.
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val sheetHeight = maxHeight * 0.82f
+            val policy = WindowLayoutPolicy(maxWidth.value, maxHeight.value)
             Box(Modifier.fillMaxSize()
                 .graphicsLayer { alpha = progress.value }
                 .background(Color(0xB8040308))
-                .semantics { contentDescription = "Lukk popupen" }
+                .semantics { contentDescription = dismissLabel }
                 .clickable(enabled = dismissEnabled && !closing,
                     interactionSource = remember { MutableInteractionSource() }, indication = null,
                     onClick = close))
-            Box(Modifier.fillMaxSize()
+            BoxWithConstraints(Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .imePadding()) {
+                val sheetHeight = policy.dialogHeightDp(maxHeight.value).dp
                 Surface(
-                    modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = 640.dp)
-                        .fillMaxWidth().height(sheetHeight)
+                    modifier = Modifier.align(if (policy.useCenteredDialog) Alignment.Center else Alignment.BottomCenter)
+                        .widthIn(max = policy.dialogWidthDp.dp)
+                        .fillMaxWidth().height(sheetHeight).testTag("adaptive-dialog")
                         // Translation is draw-only: it never remeasures the body or retargets
                         // an anchor. A tween cannot bounce past its final position.
-                        .graphicsLayer { translationY = (1f - progress.value) * size.height }
+                        .graphicsLayer {
+                            translationY = (1f - progress.value) * if (policy.useCenteredDialog) 40.dp.toPx() else size.height
+                            alpha = if (policy.useCenteredDialog) progress.value else 1f
+                        }
                         .semantics {
-                            paneTitle = "Popup"
+                            paneTitle = dialogLabel
                             if (dismissEnabled && !closing) dismiss { close(); true }
                         },
-                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                    shape = if (policy.useCenteredDialog) RoundedCornerShape(28.dp)
+                        else RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                     color = app.reelstack.ui.theme.Surface,
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ) {

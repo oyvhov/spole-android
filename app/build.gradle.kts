@@ -41,10 +41,10 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-        versionCode = 43
-        versionName = "0.15.1"
+        versionCode = 44
+        versionName = "0.16.0-alpha01"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "app.reelstack.SpoleTestRunner"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -79,6 +79,13 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Both small UI catalogues must be available when a user switches language offline.
+    bundle {
+        language {
+            enableSplit = false
+        }
     }
 
     packaging {

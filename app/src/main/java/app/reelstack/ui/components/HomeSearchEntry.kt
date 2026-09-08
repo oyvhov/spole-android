@@ -40,7 +40,7 @@ fun HomeSearchEntry(onClick: () -> Unit, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(Icons.Rounded.Search, contentDescription = null, tint = Muted, modifier = Modifier.size(21.dp))
-            Text("Søk etter filmar og seriar", color = Muted, fontSize = 14.sp,
+            Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_search), color = Muted, fontSize = 14.sp,
                 lineHeight = 20.sp, modifier = Modifier.weight(1f))
         }
         HorizontalDivider(color = Divider, thickness = 1.dp)

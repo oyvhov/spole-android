@@ -1,5 +1,15 @@
 # Spole design system
 
+## Roadmap implementation · 9 September 2026 (unreleased)
+
+- Tablet media pages have a wider canvas while long-form/settings content keeps a readable column.
+- Wide windows use a centred 720 dp dialog with 28 dp corners and a restrained 40 dp draw-only
+  entrance plus fade. Phone dialogs keep their bottom anchor and the existing entrance timing.
+- Safe drawing/keyboard constraints are measured before choosing dialog height. Late metadata does
+  not change the outer frame. Short windows use more of the available height to retain controls.
+- Nynorsk and English UI resources are separate from stable filter/menu identities. English remains
+  explicitly marked as preview until all screens and messages are translated; see [localization](LOCALIZATION.md).
+
 ## Avspelingskontrollar og tilbakehandling
 
 - Tilbake ligg fast i eit 48 dp treffområde øvst, utanfor den rullbare kontrollflata, også

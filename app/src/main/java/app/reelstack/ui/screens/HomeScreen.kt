@@ -145,7 +145,7 @@ fun HomeScreen(
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
     ) {
-      ReelPage {
+      ReelPage(media = true) {
         LazyColumn(
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
@@ -166,9 +166,9 @@ fun HomeScreen(
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
                 item {
                         Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
-                            SectionTitle("Spelar no", Modifier.weight(1f))
+                            SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
                             // A count is status, not an action, so it stays out of the accent colour.
-                            if (state.sessions.size > 1) Text("${state.sessions.size} avspelingar",
+                            if (state.sessions.size > 1) Text(androidx.compose.ui.res.pluralStringResource(app.reelstack.R.plurals.home_playback_count, state.sessions.size, state.sessions.size),
                                 color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 12.dp, bottom = 2.dp))
                         }
                         NowPlayingRail(
@@ -183,7 +183,7 @@ fun HomeScreen(
                 (state.resume.isNotEmpty() || (state.isRefreshing && state.configuredCount > 0))
             ) {
                 item {
-                    SectionTitle("Hald fram å sjå", Modifier.padding(top = 24.dp, bottom = 13.dp))
+                    SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_continue), Modifier.padding(top = 24.dp, bottom = 13.dp))
                     if (state.resume.isEmpty()) LibraryRailSkeleton("Lastar det du held på med", wide = true)
                     else ResumeRail(state.resume, onLibraryClick)
                 }
@@ -193,7 +193,7 @@ fun HomeScreen(
                     val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_MOVIES else HomeSection.JELLYFIN_MOVIES
                     if (section !in state.homeSections) return@forEach
                     item(key = "recent-movies-${source.name}") {
-                        MediaSectionTitle("Nye filmar", source, Modifier.padding(top = 24.dp, bottom = 13.dp))
+                        MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = 24.dp, bottom = 13.dp))
                         val items = state.recentMovies.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
@@ -212,7 +212,7 @@ fun HomeScreen(
                     val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_SERIES else HomeSection.JELLYFIN_SERIES
                     if (section !in state.homeSections) return@forEach
                     item(key = "recent-series-${source.name}") {
-                        MediaSectionTitle("Nye episodar", source, Modifier.padding(top = 24.dp, bottom = 13.dp))
+                        MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = 24.dp, bottom = 13.dp))
                         val items = state.recentSeries.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
@@ -231,7 +231,7 @@ fun HomeScreen(
             }
             if (HomeSection.RECOMMENDATIONS in state.homeSections) {
                 item {
-                    SectionTitle("Anbefalingar", Modifier.padding(top = 28.dp, bottom = 4.dp))
+                    SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = 28.dp, bottom = 4.dp))
                     Text("Handplukka historier å oppdage", color = Muted, fontSize = 12.sp,
                         modifier = Modifier.padding(bottom = 12.dp))
                     if (state.recommendations.isEmpty() && state.isRefreshing) {
@@ -246,7 +246,7 @@ fun HomeScreen(
             if (HomeSection.RECENT_RELEASES in state.homeSections) {
                 item {
                     Column(Modifier.padding(top = 28.dp, bottom = 13.dp)) {
-                        SectionTitle("Nyleg tilgjengeleg")
+                        SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
                         Text(
                             "Nett utgjeve · i biblioteka dine",
                             color = Muted,
@@ -881,7 +881,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
 private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            SectionTitle("Kjem snart", Modifier.weight(1f).padding(end = 12.dp))
+            SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_upcoming), Modifier.weight(1f).padding(end = 12.dp))
             Surface(
                 onClick = onCalendarClick,
                 color = Primary.copy(alpha = 0.18f),
@@ -893,7 +893,7 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
                     modifier = Modifier.heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
                     Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Text("Kalender", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
+                    Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
                 }
             }
         }

@@ -109,6 +109,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -167,6 +168,34 @@ enum class ActivityFilter(val label: String, val source: ServiceKind?) {
     SONARR("Sonarr", ServiceKind.SONARR),
 }
 
+
+@Composable
+private fun DiscoverFilter.localizedLabel(): String = when (this) {
+    DiscoverFilter.ALL -> stringResource(R.string.filter_all)
+    DiscoverFilter.MOVIES -> stringResource(R.string.filter_movies)
+    DiscoverFilter.SERIES -> stringResource(R.string.filter_series)
+}
+
+@Composable
+private fun LibraryFilter.localizedLabel(): String = when (this) {
+    LibraryFilter.ALL -> stringResource(R.string.filter_all_titles)
+    LibraryFilter.AVAILABLE -> stringResource(R.string.filter_available)
+    LibraryFilter.REQUESTABLE -> stringResource(R.string.filter_requestable)
+}
+
+@Composable
+private fun PersonalActivityFilter.localizedLabel(): String = when (this) {
+    PersonalActivityFilter.ALL -> stringResource(R.string.filter_personal_all)
+    PersonalActivityFilter.IN_PROGRESS -> stringResource(R.string.filter_in_progress)
+    PersonalActivityFilter.READY -> stringResource(R.string.filter_ready)
+}
+
+@Composable
+private fun ActivityFilter.localizedLabel(): String = when (this) {
+    ActivityFilter.MINE -> stringResource(R.string.filter_mine)
+    ActivityFilter.ALL -> stringResource(R.string.filter_all)
+    else -> label
+}
 @Composable
 private fun ScreenHeader(kicker: String, title: String, lede: String) {
     Text(title, color = TextColor, style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 6.dp))
@@ -233,7 +262,7 @@ fun DiscoverScreen(
             LibraryFilter.REQUESTABLE -> media.canRequest
         }
     }
-    ReelPage {
+    ReelPage(media = true) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(145.dp),
         state = gridState,
@@ -248,17 +277,17 @@ fun DiscoverScreen(
                 val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text("Oppdag", color = TextColor, style = MaterialTheme.typography.displaySmall,
+                        Text(stringResource(R.string.nav_discover), color = TextColor, style = MaterialTheme.typography.displaySmall,
                             modifier = Modifier.padding(top = 6.dp))
-                        Text("Finn noko nytt å sjå. Legg til det du vil ha i biblioteket.", color = Muted, fontSize = 13.sp,
+                        Text(stringResource(R.string.discover_subtitle), color = Muted, fontSize = 13.sp,
                             lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
                     }
                     AccountAvatarButton(
                         account = account,
                         connection = connection,
                         onClick = onAccountClick,
-                        description = account?.let { "Endre Seerr-kontoen til ${it.displayName}" }
-                            ?: "Logg inn på Seerr",
+                        description = account?.let { stringResource(R.string.account_change_seerr, it.displayName) }
+                            ?: stringResource(R.string.account_signin_seerr),
                         testTag = "discover-account",
                         modifier = Modifier.padding(top = 2.dp),
                     )
@@ -274,11 +303,11 @@ fun DiscoverScreen(
                             CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                         } else if (state.searchQuery.isNotEmpty()) {
                             IconButton(onClick = { onSearch("") }) {
-                                Icon(Icons.Rounded.Close, contentDescription = "Tøm søket")
+                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.search_clear))
                             }
                         }
                     },
-                    placeholder = { Text("Søk etter filmar og seriar", fontSize = 14.sp) },
+                    placeholder = { Text(stringResource(R.string.home_search), fontSize = 14.sp) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     shape = RoundedCornerShape(20.dp),
@@ -300,8 +329,8 @@ fun DiscoverScreen(
         if (state.librarySearchResults.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(top = 4.dp)) {
-                    Text("I biblioteka dine", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Alt her kan du sjå med ein gong.", color = Muted, fontSize = 12.sp,
+                    Text(stringResource(R.string.search_libraries), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.search_ready), color = Muted, fontSize = 12.sp,
                         lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
                 }
             }
@@ -309,7 +338,7 @@ fun DiscoverScreen(
                 LibraryHitCard(media) { onLibraryDetails(media.id) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Text("Legg til noko nytt", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                Text(stringResource(R.string.search_add_new), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
             }
         }
@@ -321,10 +350,10 @@ fun DiscoverScreen(
                 Text(
                     state.searchError ?: when {
                         state.searchQuery.isNotBlank() && state.librarySearchResults.isNotEmpty() ->
-                            "Ingenting nytt å leggje til for «${state.searchQuery.trim()}»."
-                        state.searchQuery.isNotBlank() -> "Ingen treff på «${state.searchQuery.trim()}». Prøv eit anna søk eller filter."
-                        filter != DiscoverFilter.ALL || libraryFilter != LibraryFilter.ALL -> "Ingen titlar i dette filteret enno."
-                        else -> "Ingen forslag enno. Kople til Seerr i Innstillingar for å oppdage nye titlar."
+                            stringResource(R.string.search_no_new, state.searchQuery.trim())
+                        state.searchQuery.isNotBlank() -> stringResource(R.string.search_no_results, state.searchQuery.trim())
+                        filter != DiscoverFilter.ALL || libraryFilter != LibraryFilter.ALL -> stringResource(R.string.search_empty_filter)
+                        else -> stringResource(R.string.search_not_connected)
                     },
                     color = Muted, style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(vertical = 24.dp),
@@ -349,9 +378,9 @@ fun DiscoverScreen(
                     ) {
                         if (state.loadingMoreSearch) {
                             CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)
-                            Text("Hentar fleire…", modifier = Modifier.padding(start = 10.dp))
+                            Text(stringResource(R.string.search_loading_more), modifier = Modifier.padding(start = 10.dp))
                         } else {
-                            Text("Hent fleire treff")
+                            Text(stringResource(R.string.search_more))
                         }
                     }
                 }
@@ -378,7 +407,7 @@ private fun DiscoverFilterBar(
             FilterChip(
                 selected = option == type,
                 onClick = { onType(option) },
-                label = { Text(option.label, maxLines = 1) },
+                label = { Text(option.localizedLabel(), maxLines = 1) },
                 shape = RoundedCornerShape(10.dp), border = null,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = SurfaceRaised, labelColor = Muted,
@@ -392,7 +421,7 @@ private fun DiscoverFilterBar(
                 FilterChip(
                     selected = library != LibraryFilter.ALL,
                     onClick = { statusOpen = true },
-                    label = { Text(if (library == LibraryFilter.ALL) "Status" else library.label, maxLines = 1) },
+                    label = { Text(if (library == LibraryFilter.ALL) stringResource(R.string.filter_status) else library.localizedLabel(), maxLines = 1) },
                     trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },
                     shape = RoundedCornerShape(10.dp), border = null,
                     colors = FilterChipDefaults.filterChipColors(
@@ -405,7 +434,7 @@ private fun DiscoverFilterBar(
                     containerColor = SurfaceRaised) {
                     LibraryFilter.entries.forEach { option ->
                         DropdownMenuItem(
-                            text = { Text(option.label) },
+                            text = { Text(option.localizedLabel()) },
                             leadingIcon = if (option == library) {
                                 { Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                             } else null,
@@ -517,6 +546,14 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) ActivityFilter.MINE else ActivityFilter.ALL)
     }
     val sourceFilter = if (state.adminView || state.configuredCount == 0) savedSourceFilter else ActivityFilter.MINE
+    val personalLabels = PersonalActivityFilter.entries.associateWith { choice ->
+        val count = when (choice) {
+            PersonalActivityFilter.ALL -> state.trackedRequests.size
+            PersonalActivityFilter.READY -> state.trackedRequests.count { it.stage == app.reelstack.data.model.RequestStage.AVAILABLE }
+            PersonalActivityFilter.IN_PROGRESS -> state.trackedRequests.count { it.stage != app.reelstack.data.model.RequestStage.AVAILABLE }
+        }
+        stringResource(R.string.filter_count, choice.localizedLabel(), count)
+    }
     var personalFilter by rememberSaveable { mutableStateOf(PersonalActivityFilter.ALL) }
     val personalRequests = state.trackedRequests.filter {
         when (personalFilter) {
@@ -536,11 +573,11 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
             val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                    ScreenHeader("", "Aktivitet", "Det du har lagt til, frå førespurnad til klart.")
+                    ScreenHeader("", stringResource(R.string.nav_activity), stringResource(R.string.activity_subtitle))
                 }
                 AccountAvatarButton(
                     account, connection, onAccountClick,
-                    account?.let { "Endre Seerr-kontoen til ${it.displayName}" } ?: "Logg inn på Seerr",
+                    account?.let { stringResource(R.string.account_change_seerr, it.displayName) } ?: stringResource(R.string.account_signin_seerr),
                     "activity-account", Modifier.padding(top = 2.dp),
                 )
             }
@@ -548,16 +585,16 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 Box(Modifier.size(7.dp).clip(CircleShape)
                     .background(if (hasIssues) Caution else Muted))
                 Text(when {
-                    state.configuredCount == 0 -> "Førehandsvising med demodata"
-                    state.isRefreshing -> "Oppdaterer…"
-                    hasIssues -> "Noko kunne ikkje oppdaterast. Sjå Innstillingar."
-                    else -> "Ventar på første oppdatering"
+                    state.configuredCount == 0 -> stringResource(R.string.activity_preview)
+                    state.isRefreshing -> stringResource(R.string.activity_refreshing)
+                    hasIssues -> stringResource(R.string.activity_partial_error)
+                    else -> stringResource(R.string.activity_waiting)
                 }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(start = 10.dp))
             }
             if (state.adminView || state.configuredCount == 0) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Vising", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.activity_view), color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     ActivityScopeMenu(sourceFilter, { savedSourceFilter = it })
                 }
             }
@@ -565,36 +602,29 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         if (sourceFilter == ActivityFilter.MINE) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (state.trackedRequests.any { it.availabilityOnly }) "Det du følgjer" else "Førespurnadene dine", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text(if (state.trackedRequests.any { it.availabilityOnly }) stringResource(R.string.activity_following) else stringResource(R.string.activity_requests), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     IconButton(onClick = onRefresh, enabled = !state.trackingLoading,
                         modifier = Modifier.testTag("activity-refresh")) {
                         if (state.trackingLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
-                        else Icon(Icons.Rounded.Refresh, "Oppdater førespurnadene", tint = Primary)
+                        else Icon(Icons.Rounded.Refresh, stringResource(R.string.activity_refresh), tint = Primary)
                     }
                 }
                 state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp)) }
                 if (state.trackedRequests.isNotEmpty()) {
-                    AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice ->
-                        val count = when (choice) {
-                            PersonalActivityFilter.ALL -> state.trackedRequests.size
-                            PersonalActivityFilter.READY -> state.trackedRequests.count { it.stage == app.reelstack.data.model.RequestStage.AVAILABLE }
-                            PersonalActivityFilter.IN_PROGRESS -> state.trackedRequests.count { it.stage != app.reelstack.data.model.RequestStage.AVAILABLE }
-                        }
-                        "${choice.label} · $count"
-                    }, { personalFilter = it }, Modifier.padding(top = 4.dp, bottom = 12.dp))
-                    if (personalRequests.isEmpty()) Text("Ingen førespurnader i dette filteret.", color = Muted,
+                    AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) }, { personalFilter = it }, Modifier.padding(top = 4.dp, bottom = 12.dp))
+                    if (personalRequests.isEmpty()) Text(stringResource(R.string.activity_empty_filter), color = Muted,
                         modifier = Modifier.padding(vertical = 16.dp))
                 }
                 if (state.trackedRequests.any { it.notify } && (!state.notificationsEnabled || !app.reelstack.background.LibraryNotifications.allowed(context))) {
-                    Text(if (!state.notificationsEnabled) "Appvarsel er av i Innstillingar. Du kan framleis følgje status her." else
-                        "Android tillèt ikkje varsel no. Slå dei på for å få beskjed når innhaldet er klart.", color = Caution, fontSize = 12.sp)
+                    Text(if (!state.notificationsEnabled) stringResource(R.string.activity_notifications_off) else
+                        stringResource(R.string.activity_android_notifications_off), color = Caution, fontSize = 12.sp)
                     if (state.notificationsEnabled) TextButton(onClick = {
                         context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
-                    }) { Text("Opne varselinnstillingar") }
+                    }) { Text(stringResource(R.string.activity_notifications_open)) }
                 }
-                if (state.trackedRequests.isEmpty()) Text(if (state.trackingLoading) "Hentar førespurnadene dine…" else
-                    "Førespurnader frå den personlege Seerr-kontoen din kjem her. Finn ein tittel i Oppdag for å starte.",
+                if (state.trackedRequests.isEmpty()) Text(if (state.trackingLoading) stringResource(R.string.activity_loading) else
+                    stringResource(R.string.activity_empty),
                     color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 18.dp))
             }
             items(personalRequests, key = { "follow-${it.key}" }) { request ->
@@ -611,14 +641,14 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         } else if (events.isEmpty()) {
             item {
                 Column(Modifier.padding(vertical = 24.dp)) {
-                    Text("Ingen hendingar her enno", color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.activity_no_events), color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Text(if (sourceFilter == ActivityFilter.ALL) "Nye oppdateringar dukkar opp her." else "Prøv Alt for å sjå dei andre tenestene.",
                         color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         } else {
             item {
-                Text("Tenesteaktivitet", color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                Text(stringResource(R.string.activity_services), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp))
             }
             // Group by day so a long feed can be skimmed instead of read as one undifferentiated list.
@@ -645,13 +675,13 @@ private fun ActivityScopeMenu(selected: ActivityFilter, onSelect: (ActivityFilte
     var expanded by rememberSaveable { mutableStateOf(false) }
     Box {
         TextButton(onClick = { expanded = true }, modifier = Modifier.testTag("activity-scope")) {
-            Text(selected.label, color = PrimarySoft)
+            Text(selected.localizedLabel(), color = PrimarySoft)
             Icon(Icons.Rounded.ArrowDropDown, null, tint = PrimarySoft, modifier = Modifier.size(18.dp))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = SurfaceRaised) {
             ActivityFilter.entries.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option.label) },
+                    text = { Text(option.localizedLabel()) },
                     leadingIcon = if (option == selected) {
                         { Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -715,6 +745,8 @@ fun SettingsScreen(
     onAccountClick: (ServiceKind) -> Unit = onConnectionClick,
 ) {
     var homeExpanded by rememberSaveable { mutableStateOf(false) }
+    val expandedLabel = stringResource(R.string.state_expanded)
+    val collapsedLabel = stringResource(R.string.state_collapsed)
     // A visibility switch for a service that is not connected controls content that cannot exist,
     // so the row only appears once that service has an address.
     val connected = { kind: ServiceKind ->
@@ -728,13 +760,13 @@ fun SettingsScreen(
         item {
             ScreenHeader(
                 kicker = "App og tenester",
-                title = "Innstillingar",
-                lede = "Gjer Spole til ditt.",
+                title = stringResource(R.string.nav_settings),
+                lede = stringResource(R.string.settings_subtitle),
             )
             SettingsAccounts(state, onAccountClick)
-            SettingsSectionTitle("Tenestene dine")
+            SettingsSectionTitle(stringResource(R.string.settings_services))
             Text(
-                "Tenaradresse og innlogging for kvar teneste.",
+                stringResource(R.string.settings_services_note),
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
@@ -749,55 +781,56 @@ fun SettingsScreen(
             }
         }
         item {
-            SettingsSectionTitle("Heimskjerm")
+            app.reelstack.ui.components.LanguagePreference()
+            SettingsSectionTitle(stringResource(R.string.settings_home))
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
               Column(Modifier.padding(horizontal = 16.dp)) {
                 Row(Modifier.fillMaxWidth().clickable { homeExpanded = !homeExpanded }
-                    .semantics { stateDescription = if (homeExpanded) "Utvida" else "Felt saman" }
+                    .semantics { stateDescription = if (homeExpanded) expandedLabel else collapsedLabel }
                     .padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Tv, null, tint = PrimarySoft, modifier = Modifier.size(24.dp))
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text("Tilpass framsida", color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                        Text("Vel rader frå kvart bibliotek", color = Muted, fontSize = 12.sp)
+                        Text(stringResource(R.string.settings_customize), color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        Text(stringResource(R.string.settings_customize_note), color = Muted, fontSize = 12.sp)
                     }
                     Icon(if (homeExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
                         null, tint = Muted)
                 }
                 androidx.compose.animation.AnimatedVisibility(visible = homeExpanded) {
                   Column {
-            HomeSectionRow(HomeSection.NOW_PLAYING, "Spelar no", "Aktive avspelingar frå Jellyfin og Emby", Icons.Rounded.PlayArrow, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.CONTINUE_WATCHING, "Hald fram å sjå", "Halvsette filmar og episodar", Icons.Rounded.History, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECOMMENDATIONS, "Anbefalingar", "Felles liste frå GitHub", Icons.Rounded.Explore, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECENT_RELEASES, "Nyleg tilgjengeleg", "Siste 28 dagar etter release-dato", Icons.Rounded.Schedule, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.NOW_PLAYING, stringResource(R.string.home_now_playing), stringResource(R.string.settings_playback_note), Icons.Rounded.PlayArrow, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.CONTINUE_WATCHING, stringResource(R.string.home_continue), stringResource(R.string.settings_continue_note), Icons.Rounded.History, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECOMMENDATIONS, stringResource(R.string.home_recommendations), stringResource(R.string.settings_recommendations_note), Icons.Rounded.Explore, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECENT_RELEASES, stringResource(R.string.home_recent_releases), stringResource(R.string.settings_releases_note), Icons.Rounded.Schedule, state, onHomeSectionChange)
             if (connected(ServiceKind.JELLYFIN)) {
-                HomeSectionRow(HomeSection.JELLYFIN_MOVIES, "Jellyfin · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
-                HomeSectionRow(HomeSection.JELLYFIN_SERIES, "Jellyfin · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.JELLYFIN_MOVIES, stringResource(R.string.settings_movies, "Jellyfin"), stringResource(R.string.settings_movies_note), Icons.Rounded.Movie, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.JELLYFIN_SERIES, stringResource(R.string.settings_series, "Jellyfin"), stringResource(R.string.settings_episodes_note), Icons.Rounded.Tv, state, onHomeSectionChange)
             }
             if (connected(ServiceKind.EMBY)) {
-                HomeSectionRow(HomeSection.EMBY_MOVIES, "Emby · Filmar", "Nyleg lagde til filmar", Icons.Rounded.Movie, state, onHomeSectionChange)
-                HomeSectionRow(HomeSection.EMBY_SERIES, "Emby · Seriar", "Nyleg lagde til episodar", Icons.Rounded.Tv, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.EMBY_MOVIES, stringResource(R.string.settings_movies, "Emby"), stringResource(R.string.settings_movies_note), Icons.Rounded.Movie, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.EMBY_SERIES, stringResource(R.string.settings_series, "Emby"), stringResource(R.string.settings_episodes_note), Icons.Rounded.Tv, state, onHomeSectionChange)
             }
-            HomeSectionRow(HomeSection.UPCOMING, "Kjem snart", "Overvaka utgjevingar frå Radarr og Sonarr", Icons.Rounded.CalendarMonth, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.UPCOMING, stringResource(R.string.home_upcoming), stringResource(R.string.settings_upcoming_note), Icons.Rounded.CalendarMonth, state, onHomeSectionChange)
                   }
                 }
               }
             }
-            SettingsSectionTitle("Varsel og oppdatering")
+            SettingsSectionTitle(stringResource(R.string.settings_updates))
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
               Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            PreferenceRow(Icons.Rounded.Notifications, "Bibliotekvarsel", "For førespurnader du har valt å følgje",
+            PreferenceRow(Icons.Rounded.Notifications, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_note),
                 state.notificationsEnabled, onNotificationsChange)
             PreferenceRow(
                 icon = Icons.Rounded.Wifi,
-                label = "Synkroniser berre på Wi-Fi",
-                description = "Bakgrunnsoppdatering på Wi-Fi",
+                label = stringResource(R.string.settings_wifi),
+                description = stringResource(R.string.settings_wifi_note),
                 checked = state.wifiOnly,
                 onCheckedChange = onWifiOnlyChange,
             )
               }
             }
             PrivacyCard(state)
-            SettingsSectionTitle("Om appen")
+            SettingsSectionTitle(stringResource(R.string.settings_about))
             AppIdentity()
             AttributionCard()
             CrashReportRow()
@@ -817,19 +850,16 @@ private fun AttributionCard() {
         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text(
-                "Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby, Overseerr/Jellyseerr, " +
-                    "Radarr eller Sonarr. Namna og merka tilhøyrer prosjekta sine eigarar.",
+                stringResource(R.string.attribution_services),
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
             )
             Text(
-                "Plakatar og bakgrunnsbilete for oppdaging kjem frå TMDB. Denne appen brukar " +
-                    "TMDB-tenestene, men er ikkje godkjend eller sertifisert av TMDB.",
+                stringResource(R.string.attribution_tmdb),
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                 modifier = Modifier.padding(top = 10.dp),
             )
             Text(
-                "Bygd med opne komponentar frå AndroidX, Jetpack Compose, Kotlin, OkHttp og Coil, " +
-                    "under Apache-lisens 2.0.",
+                stringResource(R.string.attribution_libraries),
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                 modifier = Modifier.padding(top = 10.dp),
             )
@@ -849,13 +879,14 @@ private fun CrashReportRow() {
         report = withContext(Dispatchers.IO) { app.reelstack.diagnostics.CrashReporter.report(context) }
     }
     val current = report ?: return
+    val shareLabel = stringResource(R.string.crash_share)
+    val shareSubject = stringResource(R.string.crash_subject)
     Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp),
         modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("Spole stoppa uventa sist", color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(stringResource(R.string.crash_title), color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(
-                "Ein feilrapport er lagra på eininga. Han inneheld versjon, modell og kva som " +
-                    "gjekk gale — adresser og tilgangsteikn er fjerna. Ingenting er sendt.",
+                stringResource(R.string.crash_note),
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp),
             )
             Row(Modifier.padding(top = 12.dp)) {
@@ -864,16 +895,16 @@ private fun CrashReportRow() {
                         android.content.Intent.createChooser(
                             android.content.Intent(android.content.Intent.ACTION_SEND)
                                 .setType("text/plain")
-                                .putExtra(android.content.Intent.EXTRA_SUBJECT, "Spole-feilrapport")
+                                .putExtra(android.content.Intent.EXTRA_SUBJECT, shareSubject)
                                 .putExtra(android.content.Intent.EXTRA_TEXT, current),
-                            "Del feilrapport",
+                            shareLabel,
                         ),
                     )
-                }) { Text("Del feilrapport", color = Primary, fontSize = 13.sp) }
+                }) { Text(shareLabel, color = Primary, fontSize = 13.sp) }
                 TextButton(onClick = {
                     app.reelstack.diagnostics.CrashReporter.clear(context)
                     report = null
-                }) { Text("Slett", color = Muted, fontSize = 13.sp) }
+                }) { Text(stringResource(R.string.action_delete), color = Muted, fontSize = 13.sp) }
             }
         }
     }
@@ -896,18 +927,15 @@ private fun PrivacyCard(state: ReelstackUiState) {
             Icon(Icons.Rounded.Security, contentDescription = null, tint = Success,
                 modifier = Modifier.padding(top = 1.dp).size(24.dp))
             Column(Modifier.padding(start = 12.dp)) {
-                Text("Direkte og privat", color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("Tilgangsteikn er krypterte på denne eininga og blir aldri sende vidare.",
+                Text(stringResource(R.string.privacy_title), color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.privacy_tokens),
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
                 if (configured.isNotEmpty()) Text(
                     when {
-                        cleartext.isEmpty() && configured.size == 1 -> "Tilkoplinga går over HTTPS."
-                        cleartext.isEmpty() -> "Alle ${configured.size} tilkoplingane går over HTTPS."
-                        else -> {
-                            val scope = if (configured.size == 1) "Tilkoplinga" else "${cleartext.size} av ${configured.size} tilkoplingar"
-                            "$scope går over HTTP: " + cleartext.joinToString(", ") { it.kind.displayName } +
-                                ". Det er greitt på eige nett."
-                        }
+                        cleartext.isEmpty() && configured.size == 1 -> stringResource(R.string.privacy_https)
+                        cleartext.isEmpty() -> androidx.compose.ui.res.pluralStringResource(R.plurals.privacy_all_https, configured.size, configured.size)
+                        else -> androidx.compose.ui.res.pluralStringResource(R.plurals.privacy_http, configured.size, cleartext.size, configured.size,
+                            cleartext.joinToString(", ") { it.kind.displayName })
                     },
                     color = if (cleartext.isEmpty()) Muted else Caution,
                     fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
@@ -931,7 +959,7 @@ private fun AppIdentity() {
         Column(Modifier.padding(start = 13.dp)) {
             Text("Spole", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                "Personleg medieoversikt · v${BuildConfig.VERSION_NAME}",
+                stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
                 color = Muted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 2.dp),
@@ -965,10 +993,10 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             Text(connection.kind.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 when (connection.state) {
-                    ConnectionState.CONNECTED -> if (hasWarning) connection.detail else "Tilkopla"
-                    ConnectionState.TESTING -> "Sjekkar tilkoplinga…"
-                    ConnectionState.ERROR -> connection.detail ?: "Må sjekkast · Trykk for å rette"
-                    ConnectionState.DEMO -> "Kople til ${connection.kind.displayName}"
+                    ConnectionState.CONNECTED -> if (hasWarning) connection.detail else stringResource(R.string.service_connected)
+                    ConnectionState.TESTING -> stringResource(R.string.service_checking)
+                    ConnectionState.ERROR -> connection.detail ?: stringResource(R.string.service_error)
+                    ConnectionState.DEMO -> stringResource(R.string.service_connect, connection.kind.displayName)
                 },
                 color = when {
                     hasWarning -> Caution

@@ -1,5 +1,8 @@
 package app.reelstack.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import app.reelstack.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,13 +55,13 @@ fun WelcomeScreen(
     ) {
         item {
             app.reelstack.ui.components.SpoleWelcomeArt(Modifier.padding(bottom = 24.dp))
-            Text(if (ready) "KLART" else "KOM I GANG", color = Muted,
+            Text(if (ready) stringResource(R.string.welcome_ready) else stringResource(R.string.welcome_start), color = Muted,
                 fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.Bold)
-            Text(if (ready) "Din samling.\nDi oversikt." else "Alt du ser.\nÉin stad.",
+            Text(if (ready) stringResource(R.string.welcome_title_ready) else stringResource(R.string.welcome_title),
                 color = TextColor, fontSize = 48.sp, lineHeight = 50.sp, letterSpacing = (-2).sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
-            Text(if (ready) "Du er klar. Kople til fleire tenester no, eller finn dei i Innstillingar seinare."
-                else "Start med Jellyfin eller Emby. Du treng berre tenaradressa og kontoen din. Seerr kan leggjast til i same steg som Jellyfin.",
+            Text(if (ready) stringResource(R.string.welcome_ready_note)
+                else stringResource(R.string.welcome_note),
                 color = Muted, style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(top = 16.dp, bottom = 24.dp))
         }
@@ -70,35 +73,36 @@ fun WelcomeScreen(
             item(key = kind.name) {
                 val connected = state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() }
                 val primary = kind == ServiceKind.JELLYFIN && !connected && !ready
+                val actionLabel = if (connected) stringResource(R.string.welcome_connected_accessibility, kind.displayName)
+                    else stringResource(R.string.service_connect, kind.displayName)
                 Surface(
                     onClick = { onConnect(kind) },
                     color = if (primary) Primary else SurfaceRaised,
                     contentColor = if (primary) app.reelstack.ui.theme.Ink else TextColor,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().semantics {
-                        contentDescription = if (connected) "${kind.displayName} er tilkopla. Opne for å endre."
-                        else "Kople til ${kind.displayName}"
+                        contentDescription = actionLabel
                     },
                 ) {
                     Row(Modifier.heightIn(min = 64.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         ServiceSymbol(kind, Modifier.size(28.dp))
                         Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                             Text(kind.displayName, fontWeight = FontWeight.SemiBold)
-                            Text(if (connected) "Tilkopla · klar til bruk" else when (kind) {
-                                ServiceKind.JELLYFIN -> "Bibliotek · Quick Connect eller konto"
-                                ServiceKind.EMBY -> "Logg inn med brukarnamn og passord"
-                                ServiceKind.SEERR -> "Oppdag · logg inn med Jellyfin-konto"
-                                ServiceKind.RADARR -> "Filmar, utgjevingar og nedlastingar"
-                                ServiceKind.SONARR -> "Episodar, kalender og nedlastingar"
+                            Text(if (connected) stringResource(R.string.welcome_connected) else when (kind) {
+                                ServiceKind.JELLYFIN -> stringResource(R.string.welcome_jellyfin)
+                                ServiceKind.EMBY -> stringResource(R.string.welcome_emby)
+                                ServiceKind.SEERR -> stringResource(R.string.welcome_seerr)
+                                ServiceKind.RADARR -> stringResource(R.string.welcome_radarr)
+                                ServiceKind.SONARR -> stringResource(R.string.welcome_sonarr)
                             }, color = if (primary) app.reelstack.ui.theme.Ink.copy(alpha = 0.72f)
                             else if (connected) Primary else Muted,
                                 fontSize = 12.sp, lineHeight = 16.sp)
                         }
-                        // "Kople til" says what happens; a bare plus reads as "add another".
+                        // stringResource(R.string.action_connect) says what happens; a bare plus reads as "add another".
                         if (connected) {
                             Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(20.dp))
                         } else {
-                            Text("Kople til", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            Text(stringResource(R.string.action_connect), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                 color = if (primary) app.reelstack.ui.theme.Ink else PrimarySoft)
                         }
                     }
@@ -112,13 +116,13 @@ fun WelcomeScreen(
                 modifier = Modifier.heightIn(min = 48.dp)) {
                 Icon(if (advancedServices) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     null, Modifier.size(18.dp))
-                Text(if (advancedServices) "Skjul tenarverktøy" else "Tenarverktøy for administratorar",
+                Text(if (advancedServices) stringResource(R.string.welcome_hide_admin) else stringResource(R.string.welcome_admin),
                     modifier = Modifier.padding(start = 8.dp))
             }
             if (ready) {
                 Button(onClick = onContinue, shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp)) {
-                    Text("Opne oversikta mi", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.welcome_open), fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(12.dp))
                     Icon(Icons.AutoMirrored.Rounded.ArrowForward, null)
                 }
@@ -127,10 +131,10 @@ fun WelcomeScreen(
                 TextButton(onClick = onContinue,
                     colors = ButtonDefaults.textButtonColors(contentColor = Muted),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 10.dp)) {
-                    Text("Utforsk med demodata først", fontSize = 13.sp)
+                    Text(stringResource(R.string.welcome_demo), fontSize = 13.sp)
                 }
             }
-            Text("Tilkoplingane blir lagra på denne eininga. Du kan endre dei når som helst i Innstillingar.",
+            Text(stringResource(R.string.welcome_storage),
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 16.dp))
         }
     }

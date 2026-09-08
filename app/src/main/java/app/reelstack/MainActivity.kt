@@ -9,7 +9,7 @@ import app.reelstack.ui.ReelstackApp
 import app.reelstack.ui.ReelstackViewModel
 import app.reelstack.ui.theme.ReelstackTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : app.reelstack.localization.LocalizedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -145,7 +146,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     // icons across a tablet, and so the content column keeps its own width. Measured from the
     // window, not the device configuration, so split-screen is handled correctly.
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Ink)) {
-    val wideWindow = maxWidth >= ReelLayout.RailBreakpoint
+    val wideWindow = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useNavigationRail
     val showRail = !state.showOnboarding && wideWindow
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -280,15 +281,15 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
 
 private data class TabItem(
     val tab: AppTab,
-    val label: String,
+    val label: Int,
     val icon: ImageVector,
 )
 
 private val tabs = listOf(
-    TabItem(AppTab.HOME, "Heim", Icons.Rounded.Home),
-    TabItem(AppTab.DISCOVER, "Oppdag", Icons.Rounded.Explore),
-    TabItem(AppTab.ACTIVITY, "Aktivitet", Icons.AutoMirrored.Rounded.ViewList),
-    TabItem(AppTab.SETTINGS, "Innstillingar", Icons.Rounded.Settings),
+    TabItem(AppTab.HOME, app.reelstack.R.string.nav_home, Icons.Rounded.Home),
+    TabItem(AppTab.DISCOVER, app.reelstack.R.string.nav_discover, Icons.Rounded.Explore),
+    TabItem(AppTab.ACTIVITY, app.reelstack.R.string.nav_activity, Icons.AutoMirrored.Rounded.ViewList),
+    TabItem(AppTab.SETTINGS, app.reelstack.R.string.nav_settings, Icons.Rounded.Settings),
 )
 
 @Composable
@@ -302,7 +303,7 @@ private fun ReelstackBottomBar(
         containerColor = Ink,
         tonalElevation = 0.dp,
         windowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = Modifier.navigationBarsPadding().heightIn(min = 76.dp),
+        modifier = Modifier.navigationBarsPadding().heightIn(min = 76.dp).testTag("bottom-navigation"),
     ) {
             tabs.forEach { item ->
                 NavigationBarItem(
@@ -311,7 +312,7 @@ private fun ReelstackBottomBar(
                     icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
                     label = {
                         Text(
-                            item.label,
+                            androidx.compose.ui.res.stringResource(item.label),
                             fontSize = 10.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -338,7 +339,7 @@ private fun ReelstackNavigationRail(
     NavigationRail(
         containerColor = Ink,
         windowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = Modifier.fillMaxHeight(),
+        modifier = Modifier.fillMaxHeight().testTag("side-navigation"),
     ) {
         Spacer(Modifier.weight(1f))
         tabs.forEach { item ->
@@ -346,7 +347,7 @@ private fun ReelstackNavigationRail(
                 selected = item.tab == selectedTab,
                 onClick = { onSelect(item.tab) },
                 icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
-                label = { Text(item.label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                label = { Text(androidx.compose.ui.res.stringResource(item.label), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 colors = NavigationRailItemDefaults.colors(
                     selectedIconColor = Primary,
                     selectedTextColor = Primary,

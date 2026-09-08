@@ -18,6 +18,8 @@
 
 Spole samlar medietenestene dine i ein innfødd Android-app. Eit mørkt, roleg uttrykk, mjuke overgangar og innhaldet i sentrum — på nynorsk.
 
+[Sjå veikartet mot 1.0 →](ROADMAP.md)
+
 ## Ein liten kikk
 
 <p align="center">
@@ -73,6 +75,6 @@ Bygd med Kotlin og Jetpack Compose. Opne prosjektet i Android Studio, eller bygg
 .\gradlew.bat testDebugUnitTest lintDebug
 ```
 
-[Arbeidsrettleiing](docs/AI_INSTRUCTIONS.md) · [Produktplan](docs/PRODUCT_PLAN.md) · [Tilgang og personvern](docs/VIEWER_ACCESS.md) · [Personvern](docs/PRIVACY.md) · [Design og logo](docs/SPOLE_BRAND.md) · [Publiseringsklarheit](docs/PUBLISHING_READINESS.md)
+[Arbeidsrettleiing](docs/AI_INSTRUCTIONS.md) · [Veikart](ROADMAP.md) · [Tilgang og personvern](docs/VIEWER_ACCESS.md) · [Personvern](docs/PRIVACY.md) · [Design og logo](docs/SPOLE_BRAND.md) · [Publiseringsklarheit](docs/PUBLISHING_READINESS.md)
 
 </details>

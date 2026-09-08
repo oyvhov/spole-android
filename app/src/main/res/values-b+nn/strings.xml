@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_title">Spelar no</string>
+    <string name="widget_description">Viser kva som spelar på Jellyfin og Emby akkurat no.</string>
+    <string name="widget_loading">Hentar…</string>
+    <string name="widget_no_services">Ingen tenester</string>
+    <string name="widget_connect">Kople til Jellyfin eller Emby i Spole.</string>
+    <string name="widget_empty">Ingenting spelar</string>
+    <string name="widget_quiet">Alt er roleg akkurat no.</string>
+    <string name="widget_error">Fekk ikkje kontakt</string>
+    <string name="widget_check">Sjekk tilkoplinga i Spole.</string>
+    <string name="widget_accessibility">Spelar no: %1$s. %2$s</string>
+</resources>

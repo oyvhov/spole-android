@@ -1,5 +1,7 @@
 package app.reelstack.player
 
+import androidx.compose.ui.res.stringResource
+import app.reelstack.R
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -56,8 +58,12 @@ import app.reelstack.ui.theme.ReelstackTheme
 import app.reelstack.ui.components.NativeClientLauncher
 import kotlinx.coroutines.delay
 
+private enum class PlayerMenu(val label: Int) {
+    AUDIO(R.string.player_audio_tracks), SUBTITLES(R.string.player_subtitles), QUALITY(R.string.player_quality)
+}
+
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-class JellyfinPlayerActivity : ComponentActivity() {
+class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
     internal lateinit var model: JellyfinPlayerModel
         private set
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -119,9 +125,10 @@ fun PlayerScreen(
     onResume: (Boolean) -> Unit = {},
     onRotate: () -> Unit = {},
 ) {
+    val showControlsLabel = stringResource(R.string.player_show_controls)
     var controls by remember { mutableStateOf(true) }
     var interaction by remember { mutableIntStateOf(0) }
-    var menu by remember { mutableStateOf<String?>(null) }
+    var menu by remember { mutableStateOf<PlayerMenu?>(null) }
     var scrubbing by remember { mutableStateOf(false) }
     val accessibility = LocalAccessibilityManager.current
     val canHide = state.playing && !state.busy && state.error == null && !state.ended && !state.awaitingResume
@@ -150,7 +157,7 @@ fun PlayerScreen(
         )
         // An ancestor receives unconsumed video taps; a sibling behind the scroll container cannot.
         Box(Modifier.fillMaxSize().testTag("player-touch-surface")
-            .semantics { if (!showControls) onClick("Vis avspelingskontrollar") { controls = true; interaction++; true } }
+            .semantics { if (!showControls) onClick(showControlsLabel) { controls = true; interaction++; true } }
             .pointerInput(Unit) {
                 awaitEachGesture {
                     // Observe before the fading scroll layer: it may still own this touch.
@@ -182,16 +189,16 @@ fun PlayerScreen(
                                 Icon(if (item.type == "Season") Icons.Rounded.VideoLibrary else Icons.Rounded.PlayArrow, null)
                                 Column(Modifier.weight(1f).padding(start = 16.dp)) {
                                     Text(if (item.type == "Episode") item.subtitle else item.title, style = MaterialTheme.typography.titleMedium)
-                                    Text(when { item.played -> "Sett"; item.resumeMs > 0 -> "Hald fram frå ${playbackTime(item.resumeMs)}"
-                                        else -> "I biblioteket" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(when { item.played -> stringResource(R.string.player_watched); item.resumeMs > 0 -> stringResource(R.string.player_resume, playbackTime(item.resumeMs))
+                                        else -> stringResource(R.string.player_available) }, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
                     }
-                    if (state.hasMore && !state.busy) item { TextButton(onClick = onMore) { Text("Vis fleire") } }
-                    if (state.choices.isEmpty() && !state.busy && state.error == null) item { Text("Ingen tilgjengelege episodar her enno.") }
+                    if (state.hasMore && !state.busy) item { TextButton(onClick = onMore) { Text(stringResource(R.string.action_more)) } }
+                    if (state.choices.isEmpty() && !state.busy && state.error == null) item { Text(stringResource(R.string.player_no_episodes)) }
                     if (state.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                    state.error?.let { error -> item { Text(error); TextButton(onClick = onRetry) { Text("Prøv igjen") } } }
+                    state.error?.let { error -> item { Text(error); TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) } } }
                 }
             }
         } else {
@@ -210,32 +217,32 @@ fun PlayerScreen(
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (state.awaitingResume) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Button(onClick = { onResume(false) }) { Text("Hald fram frå ${playbackTime(state.positionMs)}") }
-                            TextButton(onClick = { onResume(true) }) { Text("Spel frå byrjinga") }
+                            Button(onClick = { onResume(false) }) { Text(stringResource(R.string.player_resume, playbackTime(state.positionMs))) }
+                            TextButton(onClick = { onResume(true) }) { Text(stringResource(R.string.player_restart)) }
                         }
                     } else if (state.error != null) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Rounded.ErrorOutline, null, tint = MaterialTheme.colorScheme.error)
                             Text(state.error, modifier = Modifier.padding(vertical = 12.dp))
-                            Button(onClick = onRetry) { Text("Prøv igjen") }
-                            TextButton(onClick = onExternal) { Text("Opne i Jellyfin") }
+                            Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                            TextButton(onClick = onExternal) { Text(stringResource(R.string.player_external)) }
                         }
                     } else {
                         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
                             verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { interaction++; onSeek(state.positionMs - 10_000) }, enabled = !state.busy) {
-                                Icon(Icons.Rounded.Replay10, "10 sekund tilbake", Modifier.size(32.dp))
+                                Icon(Icons.Rounded.Replay10, stringResource(R.string.player_rewind), Modifier.size(32.dp))
                             }
                             FilledIconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy, modifier = Modifier.size(72.dp).testTag("player-toggle")) {
                                 if (state.busy) CircularProgressIndicator(Modifier.size(30.dp), strokeWidth = 2.dp)
                                 else Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    if (state.playing) "Set på pause" else "Spel av", Modifier.size(36.dp))
+                                    if (state.playing) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(36.dp))
                             }
                             IconButton(onClick = { interaction++; onSeek(state.positionMs + 10_000) }, enabled = !state.busy) {
-                                Icon(Icons.Rounded.Forward10, "10 sekund fram", Modifier.size(32.dp))
+                                Icon(Icons.Rounded.Forward10, stringResource(R.string.player_forward), Modifier.size(32.dp))
                             }
                         }
-                        if (state.busy) Text("Gjer klar avspelinga …", Modifier.align(Alignment.CenterHorizontally).padding(8.dp))
+                        if (state.busy) Text(stringResource(R.string.player_preparing), Modifier.align(Alignment.CenterHorizontally).padding(8.dp))
                     }
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (!state.awaitingResume) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
@@ -251,12 +258,12 @@ fun PlayerScreen(
                             Text(playbackTime(dragging?.toLong() ?: state.positionMs)); Text(playbackTime(state.durationMs))
                         }
                         FlowRow(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { menu = "Lydspor" }, enabled = state.audio.isNotEmpty() && !state.busy) { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null); Text(" Lyd") }
-                            TextButton(onClick = { menu = "Undertekstar" }, enabled = state.subtitles.isNotEmpty() && !state.busy) { Icon(Icons.Rounded.Subtitles, null); Text(" Tekst") }
-                            TextButton(onClick = { menu = "Kvalitet" }, enabled = !state.busy) { Icon(Icons.Rounded.Tune, null); Text(" Kvalitet") }
-                            IconButton(onClick = onRotate) { Icon(Icons.Rounded.ScreenRotation, "Snu skjermen") }
+                            TextButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy) { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null); Text(stringResource(R.string.player_audio)) }
+                            TextButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy) { Icon(Icons.Rounded.Subtitles, null); Text(stringResource(R.string.player_subtitles_button)) }
+                            TextButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy) { Icon(Icons.Rounded.Tune, null); Text(stringResource(R.string.player_quality)) }
+                            IconButton(onClick = onRotate) { Icon(Icons.Rounded.ScreenRotation, stringResource(R.string.player_rotate)) }
                         }
-                        Text(if (state.direct) "Direkte frå Jellyfin" else "Tilpassa avspeling frå Jellyfin", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Text(if (state.direct) stringResource(R.string.player_direct) else stringResource(R.string.player_transcoded), color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelMedium)
                         state.warning?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
                     }
@@ -267,18 +274,18 @@ fun PlayerScreen(
         }
         }
         menu?.let { title ->
-            AlertDialog(onDismissRequest = { menu = null }, title = { Text(title) },
+            AlertDialog(onDismissRequest = { menu = null }, title = { Text(stringResource(title.label)) },
                 text = {
                     val options = when (title) {
-                        "Lydspor" -> state.audio.map { it.index to it.label }
-                        "Undertekstar" -> listOf(-1 to "Av") + state.subtitles.map { it.index to it.label }
-                        else -> listOf(0 to "Automatisk", 4_000_000 to "Mindre data · 4 Mbit/s", 2_000_000 to "Lite data · 2 Mbit/s")
+                        PlayerMenu.AUDIO -> state.audio.map { it.index to it.label }
+                        PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }
+                        else -> listOf(0 to stringResource(R.string.player_auto), 4_000_000 to stringResource(R.string.player_medium_data), 2_000_000 to stringResource(R.string.player_low_data))
                     }
                     Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState())) {
                         options.forEach { (id, label) ->
-                            val selected = id == when (title) { "Lydspor" -> state.audioIndex; "Undertekstar" -> state.subtitleIndex; else -> state.quality }
+                            val selected = id == when (title) { PlayerMenu.AUDIO -> state.audioIndex; PlayerMenu.SUBTITLES -> state.subtitleIndex; else -> state.quality }
                             TextButton(onClick = {
-                                when (title) { "Lydspor" -> onAudio(id); "Undertekstar" -> onSubtitle(id); else -> onQuality(id) }
+                                when (title) { PlayerMenu.AUDIO -> onAudio(id); PlayerMenu.SUBTITLES -> onSubtitle(id); else -> onQuality(id) }
                                 menu = null; interaction++
                             }, modifier = Modifier.fillMaxWidth()) {
                                 if (selected) Icon(Icons.Rounded.Check, null, Modifier.padding(end = 8.dp))
@@ -286,7 +293,7 @@ fun PlayerScreen(
                             }
                         }
                     }
-                }, confirmButton = { TextButton(onClick = { menu = null }) { Text("Lukk") } })
+                }, confirmButton = { TextButton(onClick = { menu = null }) { Text(stringResource(R.string.action_close)) } })
         }
     }
     }
@@ -296,7 +303,7 @@ fun PlayerScreen(
 private fun PlayerHeader(title: String, subtitle: String, onClose: () -> Unit, showTitle: Boolean = true) {
     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
         IconButton(onClick = onClose, modifier = Modifier.size(48.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-close")) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Tilbake")
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back))
         }
         Column(Modifier.weight(1f).padding(start = 12.dp, top = 10.dp)
             .graphicsLayer { alpha = if (showTitle) 1f else 0f }
