@@ -1,6 +1,6 @@
 # Forslag: følgje ein serie utan ein overflødig førespurnad
 
-Status: den enkle Seerr-baserte varianten er implementert etter 0.14.1, enno ikkje publisert.
+Status: den enkle Seerr-baserte varianten er implementert og inngår i Spole 0.14.2.
 Ingen serverdata er endra under testing. Resten av dokumentet tek vare på bakgrunnen for valet.
 
 ## Valt løysing

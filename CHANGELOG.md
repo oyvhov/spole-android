@@ -1,6 +1,6 @@
 # Changelog
 
-## I arbeid · tydelegare sesongflyt
+## 0.14.2 · Tydelegare sesongflyt
 
 - «Sjå sesongar» skil bibliotekstatus frå ei ny førespurnad. Ingen sesongar er førehandsvalde.
 - Komande sesongar får premieredato når kjend; udaterte sesongar blir ikkje framstilte som forseinka.
