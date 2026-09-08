@@ -1,5 +1,12 @@
 # Changelog
 
+## I arbeid · Animert Spole-logo og raskare avspelingskontrollar
+
+- Oppstarten formar den eksisterande Spole-logoen over namnet: to filmruter glir på plass før midtstykket bind dei saman.
+- Fast layout, ingen gjentakande spinner og avgrensa venting på nettverket. Android sitt val for animasjonsfart blir respektert.
+- Fast tilbakeknapp under video, raskare vising av avspelingskontrollar ved berøring og ingen automatisk skjuling medan ein spolar med tidslinja.
+- Android si tilbake-/gestnavigering er tilgjengeleg under avspeling. Tilbake er registrert før innlasting og krev ikkje at kontrollane først blir viste.
+
 ## 0.15.0 · Integrert Jellyfin-spelar
 
 - Jellyfin får no klientnamnet «Spole» ved innlogging, bibliotekkall og avspeling, ikkje «HomeReel». Lagra einings-ID og kontoar er uendra.

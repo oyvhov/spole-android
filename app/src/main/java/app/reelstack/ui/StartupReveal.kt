@@ -11,30 +11,45 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import app.reelstack.ui.components.SpoleStartupArt
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** A bounded opening reveal. Network work continues behind the cover. */
 @Composable
 fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit) {
+    StartupCover(awaitContentReady = { viewModel.uiState.first { !it.isRefreshing } }, content = content)
+}
+
+@Composable
+internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Composable () -> Unit) {
     var opening by rememberSaveable { mutableStateOf(true) }
-    val reveal = remember { Animatable(0f) }
+    var formed by rememberSaveable { mutableStateOf(false) }
+    val reveal = remember { Animatable(if (formed || !opening) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!opening) return@LaunchedEffect
-        reveal.animateTo(1f, tween(360))
-        withTimeoutOrNull(1_200) { viewModel.uiState.first { !it.isRefreshing } }
+        if (!formed) reveal.animateTo(1f, tween(820, easing = androidx.compose.animation.core.LinearEasing))
+        formed = true
+        // Let the expensive home composition settle behind a completed, stationary mark.
+        // The ViewModel has already started its network refresh independently of this UI.
+        withFrameNanos { }
+        withFrameNanos { }
+        withTimeoutOrNull(800) { awaitContentReady() }
         opening = false
     }
     Box(Modifier.fillMaxSize()) {
-        content()
+        // Loading continues, but TalkBack must not focus controls hidden by the cover.
+        if (formed || !opening) {
+            Box(if (opening) Modifier.clearAndSetSemantics {} else Modifier) { content() }
+        }
         AnimatedVisibility(visible = opening, exit = fadeOut(tween(240))) {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+                    .testTag("startup-cover")
                     .pointerInput(Unit) {
                         awaitPointerEventScope {
                             while (true) awaitPointerEvent().changes.forEach { it.consume() }
@@ -42,22 +57,7 @@ fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Column(
-                    Modifier.graphicsLayer {
-                        alpha = reveal.value
-                        translationY = (1f - reveal.value) * 12.dp.toPx()
-                    },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text("Spole", fontSize = 58.sp, fontWeight = FontWeight.Bold,
-                        letterSpacing = (-2).sp, color = MaterialTheme.colorScheme.onBackground)
-                    Spacer(Modifier.height(24.dp))
-                    LinearProgressIndicator(
-                        modifier = Modifier.width(48.dp).height(2.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
-                }
+                SpoleStartupArt(progress = { reveal.value }, modifier = Modifier.safeDrawingPadding().padding(24.dp))
             }
         }
     }

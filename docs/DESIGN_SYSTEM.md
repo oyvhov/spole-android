@@ -1,5 +1,36 @@
 # Spole design system
 
+## Avspelingskontrollar og tilbakehandling
+
+- Tilbake ligg fast i eit 48 dp treffområde øvst, utanfor den rullbare kontrollflata, også
+  når transportkontrollane er skjulte. Android Tilbake lukkar først ein open spor-/kvalitetsmeny,
+  deretter går han til episodelista eller ut av spelaren.
+- Berøring ned på videoen viser skjulte kontrollar straks; brukaren treng ikkje løfte fingeren
+  først. Knappetrykk og rulling blir ikkje tolka som eit ekstra trykk på videoflata.
+- Inn: 90 ms. Ut: 140 ms. Automatisk skjuling etter 3,5 sekund (eller Android sin lengre
+  tilgjengelegheitstimeout), aldri medan tidslinja blir dregen eller ein meny er open.
+- Pause, feil og bufring held kontrollane synlege. Native PlayerView eig video og undertekst,
+  men ikkje tastaturfokus eller eit konkurrerande kontrollag.
+- Videoen skjuler statuslinja, men ikkje Android si tilbake-/gestnavigering automatisk.
+  Dette unngår at systemet si førstegongsmelding for immersiv vising tek fokus over spelaren.
+  Tilbakehandteringa er registrert før videoinnlasting, og søkjetastaturet blir halde skjult.
+
+## Oppstart: logo som blir forma
+
+`SpoleStartupArt` byggjer den eksisterande `spole_mark`-vektoren i tre delar. Dei to
+filmrutene kjem frå motsette retningar (maks 10 dp), og midtstykket blir avdekt etterpå.
+Sluttbiletet er den uendra produksjonsvektoren, ikkje ein ny logo. Ingen glød, glass eller skugge.
+
+- Logo: fast 84 × 112 dp, 20 dp over Spole i 52 sp. Namnet tonar inn og flyttar seg høgst 6 dp.
+- Forming: 820 ms med delvise FastOutSlowIn-kurver; overgang til appen: 240 ms uttoning.
+- Ingen animasjon av layoutstorleik eller endelaus framdriftsindikator. Redusert/avslått
+  systemanimasjon blir følgd gjennom Compose sin animasjonsklokke.
+- ViewModel hentar data med ein gong, men den tyngre framsida blir først komponert etter
+  logoforminga. To skjermrammer lèt innhaldet bli teikna under den ferdige logoen før uttoning.
+  Etter forming ventar han høgst 800 ms på oppdateringa,
+  før appen opnar med sine vanlege lastetilstandar. TalkBack får ikkje skjulte kontrollar bak dekket.
+- Fullført oppstart blir lagra i skjermtilstanden og skal ikkje spelast på nytt ved vanleg retur.
+
 ### Signed-in connection summary · 0.12.4
 
 An existing connection opens as one calm success surface: green check, plain-language service state

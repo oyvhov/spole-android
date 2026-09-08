@@ -11,6 +11,9 @@ class HomeSearchNavigationTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
     @Before fun enterPreview() {
+        rule.waitUntil(timeoutMillis = 5_000) {
+            rule.onAllNodesWithTag("startup-cover").fetchSemanticsNodes().isEmpty()
+        }
         if (rule.onAllNodesWithText("Alt du ser.\nÉin stad.").fetchSemanticsNodes().isNotEmpty()) {
             rule.onNodeWithText("Utforsk med demodata først").performScrollTo().performClick()
         }

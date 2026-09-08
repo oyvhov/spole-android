@@ -119,6 +119,75 @@ class JellyfinPlayerTest {
         waitFor { server.events.any { it.first.endsWith("/Progress") && it.second["IsPaused"] == JsonPrimitive(true) } }
         assertEquals(1,server.events.count { it.first == "/Sessions/Playing" })
     }
+    @Test fun androidBackClosesVideoAndReportsStopped() = exercise { scenario,server,_ ->
+        playing(scenario)
+        instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        waitFor { scenario.state == Lifecycle.State.DESTROYED }
+        waitFor { server.events.any { it.first.endsWith("/Stopped") } }
+    }
+    @Test fun videoTouchShowsControlsAndPauseReceivesTheNextTap() = exercise { scenario,_,_ ->
+        val automation = instrumentation.uiAutomation
+        fun freshRoot(): android.view.accessibility.AccessibilityNodeInfo? {
+            // AnimatedVisibility recreates nodes; do not assert against UiAutomation's old tree.
+            if (android.os.Build.VERSION.SDK_INT >= 33) automation.clearCache()
+            return automation.rootInActiveWindow
+        }
+        fun find(description: String, node: android.view.accessibility.AccessibilityNodeInfo? = freshRoot()): android.view.accessibility.AccessibilityNodeInfo? {
+            node ?: return null
+            if (node.contentDescription?.toString() == description) return node
+            for (index in 0 until node.childCount) find(description,node.getChild(index))?.let { return it }
+            return null
+        }
+        fun tap(x: Float,y: Float) {
+            val time = SystemClock.uptimeMillis()
+            for (action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
+                val event = android.view.MotionEvent.obtain(time,SystemClock.uptimeMillis(),action,x,y,0)
+                event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+                try { assertTrue(automation.injectInputEvent(event,true)) } finally { event.recycle() }
+            }
+        }
+        playing(scenario)
+        waitFor { find("Set på pause") != null }
+        waitFor(8_000) { find("Set på pause") == null && find("Tilbake") != null }
+        val bounds = android.graphics.Rect()
+        scenario.onActivity { it.window.decorView.getGlobalVisibleRect(bounds) }
+        tap(bounds.left + bounds.width() * .85f,bounds.top + bounds.height() * .35f)
+        waitFor(2_000) { find("Set på pause") != null }
+        find("Set på pause")!!.getBoundsInScreen(bounds)
+        tap(bounds.exactCenterX(),bounds.exactCenterY())
+        waitFor { !snapshot(scenario).playing }
+        assertTrue(snapshot(scenario).error == null)
+    }
+    @Test fun onScreenBackWorksAfterTransportControlsHide() = exercise { scenario,server,_ ->
+        val automation = instrumentation.uiAutomation
+        playing(scenario)
+        SystemClock.sleep(3_900) // Real auto-hide deadline, not the Compose test clock.
+        fun findBack(node: android.view.accessibility.AccessibilityNodeInfo): android.view.accessibility.AccessibilityNodeInfo? {
+            if (node.contentDescription?.toString() == "Tilbake") return node
+            for (index in 0 until node.childCount) {
+                val child = node.getChild(index) ?: continue
+                findBack(child)?.let { return it }
+            }
+            return null
+        }
+        // UiAutomation's accessibility service connects asynchronously on first use.
+        var back: android.view.accessibility.AccessibilityNodeInfo? = null
+        waitFor(5_000) {
+            back = automation.rootInActiveWindow?.let(::findBack)
+            back != null
+        }
+        assertNotNull("Back must remain available while video plays", back)
+        val bounds = android.graphics.Rect()
+        back!!.getBoundsInScreen(bounds)
+        val time = SystemClock.uptimeMillis()
+        for (action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
+            val event = android.view.MotionEvent.obtain(time,SystemClock.uptimeMillis(),action,
+                bounds.exactCenterX(),bounds.exactCenterY(),0)
+            try { assertTrue(instrumentation.uiAutomation.injectInputEvent(event,true)) } finally { event.recycle() }
+        }
+        waitFor { scenario.state == Lifecycle.State.DESTROYED }
+        waitFor { server.events.any { it.first.endsWith("/Stopped") } }
+    }
     @Test fun hlsVideoSeeksAndSubtitleTrackIsSelected() = exercise(hls=true) { scenario,server,_ ->
         playing(scenario)
         assertFalse(snapshot(scenario).direct)

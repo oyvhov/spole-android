@@ -5,14 +5,17 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,8 +63,12 @@ class JellyfinPlayerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         WindowCompat.getInsetsController(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
+            // Do not trigger Android's first-use immersive confirmation over the back button.
+            // Keep system Back/gesture navigation available; video still draws edge-to-edge.
+            hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.ime())
+            show(WindowInsetsCompat.Type.navigationBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
@@ -65,9 +78,11 @@ class JellyfinPlayerActivity : ComponentActivity() {
         })[JellyfinPlayerModel::class.java]
         val id = intent.getStringExtra(ITEM_ID).orEmpty()
         if (id.isBlank() || id.length > 128) { finish(); return }
-        model.open(id)
+        // Covers Back during the first frame too; the screen's menu handler takes precedence later.
+        onBackPressedDispatcher.addCallback(this) { if (!model.back()) finish() }
         setContent {
             ReelstackTheme {
+                LaunchedEffect(id) { model.open(id) }
                 val state by model.state.collectAsStateWithLifecycle()
                 DisposableEffect(state.playing, state.busy) {
                     if (state.playing || state.busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -107,10 +122,15 @@ fun PlayerScreen(
     var controls by remember { mutableStateOf(true) }
     var interaction by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf<String?>(null) }
+    var scrubbing by remember { mutableStateOf(false) }
     val accessibility = LocalAccessibilityManager.current
-    LaunchedEffect(state.playing, state.busy, state.error, interaction, menu) {
-        controls = true
-        if (state.playing && !state.busy && state.error == null && menu == null) {
+    val canHide = state.playing && !state.busy && state.error == null && !state.ended && !state.awaitingResume
+    val showControls = controls || !canHide || menu != null
+    val latestShown by rememberUpdatedState(showControls)
+    val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null)
+    LaunchedEffect(canHide) { if (!canHide) controls = true }
+    LaunchedEffect(controls, canHide, interaction, menu, scrubbing) {
+        if (controls && canHide && menu == null && !scrubbing) {
             delay(accessibility?.calculateRecommendedTimeoutMillis(3500, containsControls = true) ?: 3500)
             controls = false
         }
@@ -121,12 +141,35 @@ fun PlayerScreen(
         if (!state.browsing && player != null) AndroidView(
             factory = { context -> PlayerView(context).apply {
                 useController = false; this.player = player; setKeepContentOnPlayerReset(false)
+                isFocusable = false
+                descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
             } },
             update = { it.player = player },
             onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize().testTag("player-video"),
         )
-        Box(Modifier.fillMaxSize().clickable { controls = !controls; if (controls) interaction++ })
+        // An ancestor receives unconsumed video taps; a sibling behind the scroll container cannot.
+        Box(Modifier.fillMaxSize().testTag("player-touch-surface")
+            .semantics { if (!showControls) onClick("Vis avspelingskontrollar") { controls = true; interaction++; true } }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    // Observe before the fading scroll layer: it may still own this touch.
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val revealing = !latestShown
+                    // Keep the pinned Back button's original gesture intact as well.
+                    if (revealing) { controls = true; interaction++ }
+                    var handledByControl = false
+                    var moved = false
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Final)
+                        handledByControl = handledByControl || event.changes.any { it.isConsumed }
+                        moved = moved || event.changes.any { (it.position - down.position).getDistance() > viewConfiguration.touchSlop }
+                    } while (event.changes.any { it.pressed })
+                    if (!revealing && !handledByControl && !moved && latestCanHide) {
+                        controls = false; interaction++
+                    }
+                }
+            }) {
         if (state.browsing) {
             Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding()) {
                 PlayerHeader(state.title, state.subtitle, onClose)
@@ -152,10 +195,18 @@ fun PlayerScreen(
                 }
             }
         } else {
-            AnimatedVisibility(visible = controls || state.busy || state.error != null || state.ended, enter = fadeIn(), exit = fadeOut()) {
-                Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .65f), Color.Transparent, Color.Black.copy(alpha = .85f))))
-                    .safeDrawingPadding().verticalScroll(rememberScrollState())) {
-                    PlayerHeader(state.title, state.subtitle, onClose)
+            Column(Modifier.fillMaxSize()
+                .background(Brush.verticalGradient(if (showControls)
+                    listOf(Color.Black.copy(alpha = .65f), Color.Transparent, Color.Black.copy(alpha = .85f))
+                    else listOf(Color.Transparent, Color.Transparent)))
+                .safeDrawingPadding()) {
+                // Back is always reachable and never scrolls away with the transport controls.
+                PlayerHeader(state.title, state.subtitle, onClose, showTitle = showControls)
+            AnimatedVisibility(visible = showControls, enter = fadeIn(tween(90)), exit = fadeOut(tween(140)),
+                modifier = Modifier.weight(1f).testTag("player-controls")) {
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                val viewportHeight = maxHeight
+                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = viewportHeight)) {
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (state.awaitingResume) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -192,8 +243,8 @@ fun PlayerScreen(
                         Slider(value = dragging ?: state.positionMs.toFloat().coerceIn(0f, state.durationMs.coerceAtLeast(1).toFloat()),
                             thumb = { Box(Modifier.size(12.dp).background(MaterialTheme.colorScheme.primary, CircleShape)) },
                             track = { SliderDefaults.Track(it, modifier = Modifier.height(4.dp), thumbTrackGapSize = 0.dp) },
-                            onValueChange = { dragging = it; interaction++ },
-                            onValueChangeFinished = { dragging?.let { onSeek(it.toLong()) }; dragging = null; interaction++ },
+                            onValueChange = { dragging = it; scrubbing = true; interaction++ },
+                            onValueChangeFinished = { dragging?.let { onSeek(it.toLong()) }; dragging = null; scrubbing = false; interaction++ },
                             valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(), enabled = !state.busy && state.error == null && state.durationMs > 0,
                             modifier = Modifier.testTag("player-timeline"))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -211,6 +262,9 @@ fun PlayerScreen(
                     }
                 }
             }
+            }
+            }
+        }
         }
         menu?.let { title ->
             AlertDialog(onDismissRequest = { menu = null }, title = { Text(title) },
@@ -239,12 +293,14 @@ fun PlayerScreen(
 }
 
 @Composable
-private fun PlayerHeader(title: String, subtitle: String, onClose: () -> Unit) {
+private fun PlayerHeader(title: String, subtitle: String, onClose: () -> Unit, showTitle: Boolean = true) {
     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
         IconButton(onClick = onClose, modifier = Modifier.size(48.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-close")) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Tilbake")
         }
-        Column(Modifier.weight(1f).padding(start = 12.dp, top = 10.dp)) {
+        Column(Modifier.weight(1f).padding(start = 12.dp, top = 10.dp)
+            .graphicsLayer { alpha = if (showTitle) 1f else 0f }
+            .then(if (showTitle) Modifier else Modifier.clearAndSetSemantics {})) {
             Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

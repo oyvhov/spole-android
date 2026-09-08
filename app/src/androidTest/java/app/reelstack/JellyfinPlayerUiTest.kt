@@ -28,6 +28,33 @@ class JellyfinPlayerUiTest {
         assertTrue(closed)
         rule.onNodeWithTag("player-toggle").assertIsNotEnabled()
     }
+    @Test fun hiddenControlsAppearOnTouchDownWithoutWaitingForFingerRelease() {
+        rule.mainClock.autoAdvance = false
+        screen(PlayerScreenState(busy=false,playing=true,durationMs=20000))
+        rule.mainClock.advanceTimeBy(4_000)
+        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("player-close").assertIsDisplayed()
+        rule.onNodeWithTag("player-touch-surface").performTouchInput {
+            down(androidx.compose.ui.geometry.Offset(width * .75f, height * .4f))
+        }
+        rule.mainClock.advanceTimeBy(32)
+        rule.onNodeWithTag("player-toggle").assertExists()
+        rule.onNodeWithTag("player-touch-surface").performTouchInput { up() }
+        rule.mainClock.advanceTimeBy(120)
+        rule.onNodeWithTag("player-toggle").assertIsDisplayed().assertIsEnabled()
+        rule.mainClock.autoAdvance = true
+    }
+    @Test fun backStaysPinnedAfterScrollingLargeTextControls() {
+        var closed = false
+        screen(PlayerScreenState(title="Ein lang filmtittel med fleire ord",busy=false,durationMs=20000),
+            scale=2f, close={ closed=true })
+        val before = rule.onNodeWithTag("player-close").fetchSemanticsNode().boundsInRoot
+        rule.onNodeWithText("Kvalitet",substring=true).performScrollTo()
+        val after = rule.onNodeWithTag("player-close").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals(before,after)
+        rule.onNodeWithTag("player-close").performTouchInput { click() }
+        assertTrue(closed)
+    }
     @Test fun textChoiceAndOffAreExplicit() {
         var selected=99
         screen(PlayerScreenState(busy=false,subtitles=listOf(PlaybackTrack(2,"Norsk", "nor",true)),subtitleIndex=2),subtitle={selected=it})
