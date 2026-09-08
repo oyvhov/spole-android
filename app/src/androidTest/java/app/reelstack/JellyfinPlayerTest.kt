@@ -26,6 +26,7 @@ class JellyfinPlayerTest {
         val pool = Executors.newCachedThreadPool()
         val events = CopyOnWriteArrayList<Pair<String, JsonObject>>()
         val requests = CopyOnWriteArrayList<String>()
+        val clientHeaders = CopyOnWriteArrayList<String>()
         @Volatile var rejectVideo = false
         @Volatile var rejectReports = false
         init { pool.execute { while (!socket.isClosed) runCatching { val client = socket.accept(); pool.execute {
@@ -38,6 +39,7 @@ class JellyfinPlayerTest {
                 val headers = mutableMapOf<String,String>()
                 while (true) { val value = reader.readLine() ?: break; if (value.isBlank()) break
                     headers[value.substringBefore(':').lowercase()] = value.substringAfter(':').trim() }
+                clientHeaders += headers["authorization"].orEmpty()
                 val chars = CharArray(headers["content-length"]?.toIntOrNull() ?: 0)
                 var count = 0
                 while (count < chars.size) { val n = reader.read(chars, count, chars.size-count); if (n < 0) break; count += n }
@@ -104,6 +106,8 @@ class JellyfinPlayerTest {
 
     @Test fun directVideoRendersSeeksPausesAndSurvivesRotation() = exercise { scenario,server,_ ->
         playing(scenario)
+        assertTrue(server.clientHeaders.isNotEmpty())
+        assertTrue(server.clientHeaders.all { it.contains("Client=\"Spole\"") })
         scenario.onActivity { assertTrue(it.model.player.videoSize.width > 0); it.model.seek(10_000) }
         waitFor { snapshot(scenario).positionMs >= 10_000 }
         scenario.onActivity { it.model.toggle() }

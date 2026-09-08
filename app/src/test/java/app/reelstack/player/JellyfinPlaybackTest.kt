@@ -18,10 +18,12 @@ class JellyfinPlaybackTest {
         var posted = JsonObject(emptyMap())
         var path = ""
         override fun get(url: String, headers: Map<String,String>): HttpResponse {
+            assertTrue(headers.getValue("Authorization").contains("Client=\"Spole\""))
             assertTrue(headers.getValue("Authorization").contains("synthetic-token"))
             return HttpResponse(code, """{"Id":"$user","Policy":{"EnableMediaPlayback":$allowed}}""")
         }
         override fun post(url: String, headers: Map<String,String>, jsonBody: String): HttpResponse {
+            assertTrue(headers.getValue("Authorization").contains("Client=\"Spole\""))
             assertFalse(url.contains("synthetic-token"))
             posted = Json.parseToJsonElement(jsonBody).jsonObject; path = url
             return HttpResponse(code, body)

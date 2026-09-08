@@ -29,6 +29,10 @@ class HomeSearchNavigationTest {
 
     @Test fun ordinaryDiscoverVisitDoesNotAutofocusAndExplicitSearchResetsFilters() {
         rule.onNodeWithText("Oppdag").performClick()
+        // The tab change travels through StateFlow before AnimatedContent creates the field.
+        rule.waitUntil(timeoutMillis = 5_000) {
+            rule.onAllNodesWithTag("discover-search").fetchSemanticsNodes().size == 1
+        }
         rule.onNodeWithTag("discover-search").assertIsNotFocused()
         rule.onNodeWithText("Seriar").performClick()
         rule.onNodeWithText("Heim").performClick()

@@ -9,6 +9,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ServiceClientsTest {
+    @Test
+    fun jellyfinUsesSpoleNameWithoutChangingExistingDeviceIdentity() {
+        val identity = "homereel-android"
+        val expected = "MediaBrowser Client=\"Spole\", Device=\"Android\", " +
+            "DeviceId=\"$identity\", Version=\"${app.reelstack.BuildConfig.VERSION_NAME}\""
+        assertEquals(expected, jellyfinAuthorization(identity))
+        assertEquals("$expected, Token=\"existing-token\"", jellyfinAuthorization(identity, "existing-token"))
+    }
+
     private val verifiedAdmin = app.reelstack.data.model.ServiceAccount(ServiceKind.SEERR, "1", "Admin", isAdmin = true)
     private val adminAccess = app.reelstack.data.model.ViewerAccess(false, mapOf(ServiceKind.SEERR to verifiedAdmin))
 
@@ -42,6 +51,7 @@ class ServiceClientsTest {
         assertEquals("fresh-token", login.accessToken)
         assertEquals("profile-7", login.userId)
         assertTrue(transport.lastUrl.endsWith("/Users/AuthenticateByName"))
+        assertTrue(transport.lastHeaders.getValue("Authorization").contains("Client=\"Spole\""))
         assertTrue(transport.lastHeaders["Authorization"].orEmpty().contains("DeviceId=\"android-42\""))
         assertFalse(transport.lastHeaders.containsKey("X-Emby-Authorization"))
         assertFalse(transport.lastHeaders.values.any { it.contains("p@ss") })
@@ -95,6 +105,7 @@ class ServiceClientsTest {
         assertTrue(transport.urls[1].endsWith("/QuickConnect/Connect?secret=secret-123"))
         assertTrue(transport.urls[2].endsWith("/Users/AuthenticateWithQuickConnect"))
         assertTrue(transport.headers.all { "Authorization" in it })
+        assertTrue(transport.headers.all { it.getValue("Authorization").contains("Client=\"Spole\"") })
         assertTrue(transport.headers.none { "X-Emby-Authorization" in it })
         assertEquals("{\"Secret\":\"secret-123\"}", transport.lastBody)
     }
@@ -116,6 +127,8 @@ class ServiceClientsTest {
         val connection = connection(ServiceKind.JELLYFIN, "very-secret-token")
 
         MediaServerClient(transport, deviceId = "android-42").sessions(connection, adminAccess)
+
+        assertTrue(transport.lastHeaders.getValue("Authorization").contains("Client=\"Spole\""))
 
         assertTrue(
             transport.lastHeaders["Authorization"].orEmpty()

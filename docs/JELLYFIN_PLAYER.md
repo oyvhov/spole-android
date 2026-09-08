@@ -1,6 +1,6 @@
 # Jellyfin-spelaren i Spole
 
-Status: lokal prøveversjon etter 0.14.2. Ikkje publisert som ein eigen release enno.
+Status: integrert i Spole 0.15.0. Sjå `VERIFICATION_v0.15.0.md` for releasekontrollen.
 
 ## Brukarflyt
 

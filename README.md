@@ -33,6 +33,7 @@ Spole samlar medietenestene dine i ein innfødd Android-app. Eit mørkt, roleg u
 ## Dette får du
 
 - **Biblioteka dine samla.** Eigne film- og episoderader frå Jellyfin og Emby, utan å byte tenar.
+- **Spel frå Jellyfin.** Sjå filmar og episodar i appen, hald fram der du slapp og vel lyd og undertekst.
 - **Finn noko nytt.** Søk etter filmar og seriar, les detaljar og legg til manglande sesongar gjennom Seerr.
 - **Følg det du har lagt til.** Frå førespurnad til bibliotek, med valfrie varsel.
 - **Sjå kva som kjem.** Komande heimeutgjevingar og episodar frå Radarr og Sonarr, med kalender.

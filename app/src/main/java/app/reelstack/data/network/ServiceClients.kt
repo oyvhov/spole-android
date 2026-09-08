@@ -918,7 +918,7 @@ private fun headers(
 }
 
 internal fun jellyfinAuthorization(deviceId: String, token: String? = null): String = buildString {
-    append("MediaBrowser Client=\"HomeReel\", Device=\"Android\", ")
+    append("MediaBrowser Client=\"Spole\", Device=\"Android\", ")
     append("DeviceId=\"")
     append(deviceId)
     append("\", Version=\"")
