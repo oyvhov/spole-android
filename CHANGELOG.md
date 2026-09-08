@@ -1,6 +1,6 @@
 # Changelog
 
-## I arbeid · Animert Spole-logo og raskare avspelingskontrollar
+## 0.15.1 · Animert Spole-logo og raskare avspelingskontrollar
 
 - Oppstarten formar den eksisterande Spole-logoen over namnet: to filmruter glir på plass før midtstykket bind dei saman.
 - Fast layout, ingen gjentakande spinner og avgrensa venting på nettverket. Android sitt val for animasjonsfart blir respektert.
