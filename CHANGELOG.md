@@ -1,5 +1,13 @@
 # Changelog
 
+## I arbeid · Integrert Jellyfin-spelar
+
+- Spel filmar og episodar direkte i Spole, med personleg Jellyfin-konto.
+- Vel sesong/episode, hald fram frå lagra posisjon, spol, byt lydspor og undertekst eller vel lågare databruk.
+- Fullskjerm med diskrete kontrollar, rotasjon, pause i bakgrunnen og feil med prøve-på-nytt.
+- Framdrift blir rapportert til Jellyfin. Ingen ny backend eller styring av andre sine avspelingar.
+- Sjå `docs/JELLYFIN_PLAYER.md` for avgrensingar. Dette er førebels ikkje i den publiserte 0.14.2-APK-en.
+
 ## 0.14.2 · Tydelegare sesongflyt
 
 - «Sjå sesongar» skil bibliotekstatus frå ei ny førespurnad. Ingen sesongar er førehandsvalde.

@@ -277,6 +277,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             return@Column
         }
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
+        IntegratedPlaybackButton(state, details)
         if (details.title != opening.title) {
             Text(details.title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 20.dp))
@@ -556,10 +557,23 @@ private fun DetailEyebrow(eyebrow: String, source: ServiceKind?, modifier: Modif
     }
 }
 
-/**
- * Hands a library title over to the server's own client, which is the one place that can actually
- * play it. Library ids are stored as "<source>-<serverId>", so the server id is recoverable.
- */
+/** Playback requires a real Jellyfin library ID; never guess one from a Seerr title. */
+@Composable
+private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDetails) {
+    if (details.source != ServiceKind.JELLYFIN || state.connections.none { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }) return
+    val itemId = details.key.removePrefix("jellyfin-").takeIf { it.isNotBlank() && it != details.key } ?: return
+    val context = LocalContext.current
+    Button(
+        onClick = { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId) },
+        modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 52.dp).testTag("play-in-spole"),
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Icon(Icons.Rounded.PlayArrow, null, Modifier.size(20.dp))
+        Text(if (details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true)) "Vel episode" else "Spel av i Spole",
+            Modifier.padding(start = 8.dp))
+    }
+}
+
 @Composable
 private fun OpenInServerButton(state: ReelstackUiState, details: ContentDetails) {
     val source = details.source ?: return

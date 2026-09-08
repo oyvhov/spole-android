@@ -38,6 +38,12 @@ plakatadresser blir mellomlagra, slik at framsida har noko å vise medan første
 førespurnadene dine og eit einings-ID slik at tenaren kan vise «Spole på Android» i eiga
 einingsliste. Kva desse tenarane loggar, er opp til oppsettet ditt.
 
+**Ved avspeling i den integrerte Jellyfin-spelaren** blir video og undertekstar henta frå din
+Jellyfin-tenar. Tittel-ID, avspelingsøkt, posisjon, pause/stopp og valde spor blir sende tilbake
+til same tenar under din eigen konto, slik at Jellyfin kan lagre framdrifta. Android får
+tittel og avspelingsstatus gjennom ei lokal medieøkt for system- og hovudtelefonkontrollar.
+Video blir bufra i minnet; spelaren lagrar ikkje ei nedlasta filmfil eller ein varig avspelingslogg.
+
 **Til `image.tmdb.org`**: adressene til plakatar og bakgrunnsbilete som Seerr viser til. TMDB ser
 IP-adressa di og kva bilete du bad om. Ingen kontoinformasjon og ingen tilgangsteikn blir sende
 dit — appen nektar å feste tenesteteikn til noko som ikkje er tenaren din.
