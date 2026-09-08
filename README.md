@@ -46,6 +46,22 @@ Spole samlar medietenestene dine i ein innfødd Android-app. Eit mørkt, roleg u
 
 Du treng eigne medietenester; Spole leverer ikkje filmar eller seriar. Repoet er privat, så nedlasting krev GitHub-tilgang. Oppdateringar kan installerast over eksisterande app.
 
+## Personvern
+
+Spole sender medieførespurnadene dine berre til adressene du sjølv skriv inn. Ingenting går til
+utviklaren — det finst ingen tenar å sende det til. Innloggingar blir lagra kryptert på eininga.
+
+Utanom dine eigne tenarar kontaktar appen to adresser: TMDB for plakatar, og GitHub for
+tilrådingslista. Begge får berre IP-adressa di og kva fil du bad om.
+
+[Heile personvernerklæringa](docs/PRIVACY.md)
+
+## Merknad
+
+Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby, Overseerr/Jellyseerr, Radarr eller
+Sonarr. Namna og merka tilhøyrer prosjekta sine eigarar. Appen brukar TMDB-tenestene, men er ikkje
+godkjend eller sertifisert av TMDB.
+
 <details>
 <summary>For utviklarar</summary>
 
@@ -56,6 +72,6 @@ Bygd med Kotlin og Jetpack Compose. Opne prosjektet i Android Studio, eller bygg
 .\gradlew.bat testDebugUnitTest lintDebug
 ```
 
-[Arbeidsrettleiing](docs/AI_INSTRUCTIONS.md) · [Produktplan](docs/PRODUCT_PLAN.md) · [Tilgang og personvern](docs/VIEWER_ACCESS.md) · [Design og logo](docs/SPOLE_BRAND.md)
+[Arbeidsrettleiing](docs/AI_INSTRUCTIONS.md) · [Produktplan](docs/PRODUCT_PLAN.md) · [Tilgang og personvern](docs/VIEWER_ACCESS.md) · [Personvern](docs/PRIVACY.md) · [Design og logo](docs/SPOLE_BRAND.md) · [Publiseringsklarheit](docs/PUBLISHING_READINESS.md)
 
 </details>

@@ -2,6 +2,7 @@ package app.reelstack.data.network
 
 import app.reelstack.BuildConfig
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -10,6 +11,14 @@ data class HttpResponse(
     val statusCode: Int,
     val body: String,
     val setCookies: List<String> = emptyList(),
+    /**
+     * `Location` from a 3xx answer. Redirects are never followed automatically — that could hand
+     * a service token to whatever host the redirect names — so the address itself is what the
+     * user needs to see in order to fix their own setup.
+     */
+    val location: String? = null,
+    /** `Retry-After` in seconds, when the server said how long to wait. */
+    val retryAfterSeconds: Long? = null,
 )
 
 interface JsonHttpTransport {
@@ -26,13 +35,30 @@ class HttpTransport(
     private val readTimeoutMs: Int = 9_000,
 ) : JsonHttpTransport {
     override fun get(url: String, headers: Map<String, String>): HttpResponse =
-        request(method = "GET", url = url, headers = headers, jsonBody = null)
+        // GET is the only method retried. A home server on the far side of a phone's mobile
+        // connection drops the occasional first attempt, and re-reading a dashboard row is free.
+        // POST is never retried: a resent request could reach Seerr twice, and "ingen dobbel
+        // innsending" has to hold for a flaky network too, not only for a fast double tap.
+        retrying { request(method = "GET", url = url, headers = headers, jsonBody = null) }
 
     override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse =
         request(method = "POST", url = url, headers = headers, jsonBody = jsonBody)
 
     override fun delete(url: String, headers: Map<String, String>): HttpResponse =
         request(method = "DELETE", url = url, headers = headers, jsonBody = null)
+
+    private fun <T> retrying(block: () -> T): T = try {
+        block()
+    } catch (first: IOException) {
+        try {
+            block()
+        } catch (_: IOException) {
+            // The caller turns an IOException into "Fekk ikkje kontakt med …". Report the first
+            // failure, not the second: they are the same outage, and the first one happened at
+            // the moment the user actually asked for something.
+            throw first
+        }
+    }
 
     private fun request(
         method: String,
@@ -70,9 +96,14 @@ class HttpTransport(
                 }
                 output.toString(StandardCharsets.UTF_8.name())
             }.orEmpty()
-            HttpResponse(statusCode = status, body = body,
+            HttpResponse(
+                statusCode = status,
+                body = body,
                 setCookies = connection.headerFields.entries
-                    .filter { it.key.equals("Set-Cookie", ignoreCase = true) }.flatMap { it.value })
+                    .filter { it.key.equals("Set-Cookie", ignoreCase = true) }.flatMap { it.value },
+                location = connection.getHeaderField("Location")?.takeIf(String::isNotBlank),
+                retryAfterSeconds = connection.getHeaderField("Retry-After")?.trim()?.toLongOrNull(),
+            )
         } finally {
             connection.disconnect()
         }

@@ -222,7 +222,7 @@ class AccountProfileClientTest {
 
         val failure = runCatching { AccountProfileClient(transport = transport).load(jellyfin) }.exceptionOrNull()
 
-        assertTrue(failure is IllegalStateException)
+        assertTrue(failure is ServiceMessage)
         assertTrue(failure?.message.orEmpty().contains("personleg konto"))
         assertEquals(listOf("${jellyfin.baseUrl}/Users/Me"), transport.urls)
         assertFalse(failure.toString().contains("test-token-private-body"))
@@ -234,7 +234,7 @@ class AccountProfileClientTest {
             val transport = RecordingTransport(HttpResponse(code, "private-body-with-test-secret"))
             val failure = runCatching { AccountProfileClient(transport = transport).load(seerr) }.exceptionOrNull()
 
-            assertTrue(failure is IllegalStateException)
+            assertTrue(failure is ServiceMessage)
             assertTrue(failure?.message.orEmpty().contains("Seerr"))
             assertFalse(failure.toString().contains("test-secret"))
             assertFalse(failure.toString().contains(seerr.token))
@@ -247,7 +247,7 @@ class AccountProfileClientTest {
         listOf("private invalid json", "null", "[]", "{}", """{"id":true}""", """{"id":0}""", """{"id":{}}""").forEach { body ->
             val transport = RecordingTransport(HttpResponse(200, body))
             val failure = runCatching { AccountProfileClient(transport = transport).load(seerr) }.exceptionOrNull()
-            assertTrue(failure is IllegalStateException)
+            assertTrue(failure is ServiceMessage)
             assertEquals(null, failure?.cause)
         }
         listOf("{}", """{"Id":"user","Name":false}""", """{"Id":"user"}""").forEach { body ->
@@ -259,7 +259,7 @@ class AccountProfileClientTest {
     fun transportFailureHasSafeActionableMessage() {
         val failure = runCatching { AccountProfileClient(transport = RecordingTransport()).load(seerr) }.exceptionOrNull()
 
-        assertTrue(failure is IllegalStateException)
+        assertTrue(failure is ServiceMessage)
         assertTrue(failure?.message.orEmpty().contains("Fekk ikkje kontakt"))
         assertFalse(failure.toString().contains("private transport context"))
         assertEquals(null, failure?.cause)

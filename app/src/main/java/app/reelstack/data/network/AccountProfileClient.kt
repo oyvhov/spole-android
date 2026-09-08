@@ -25,32 +25,34 @@ class AccountProfileClient(
             // supplies the authenticated user's id, which Emby exposes at /Users/{Id}.
             ServiceKind.EMBY -> connection.userId.takeIf { it.isNotBlank() }
                 ?.let { "Users/${encode(it)}" }
-                ?: error("Logg inn med Emby-kontoen din for å stadfeste profilen.")
+                ?: serviceError("Logg inn med Emby-kontoen din for å stadfeste profilen.")
             ServiceKind.SEERR -> "api/v1/auth/me"
-            else -> error("Kontovisning er berre støtta for Jellyfin og Seerr.")
+            else -> serviceError("Kontovisning er berre støtta for Jellyfin og Seerr.")
         }
         check(connection.token.isNotBlank()) { "Logg inn på ${connection.kind.displayName} for å sjå kontoen din." }
         val response = try {
             transport.get(EndpointValidator.resolve(connection.baseUrl, path), accountHeaders(connection))
         } catch (_: IOException) {
             // Transport messages can include request context; expose only a safe, actionable message.
-            error("Fekk ikkje kontakt med ${connection.kind.displayName}. Prøv igjen.")
+            serviceError("Fekk ikkje kontakt med ${connection.kind.displayName}. Prøv igjen.")
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            400 -> error("${connection.kind.displayName} kunne ikkje stadfeste ein personleg konto. Logg inn på nytt.")
-            401, 403 -> error("${connection.kind.displayName} avviste kontotilgangen. Logg inn på nytt.")
-            404 -> error("${connection.kind.displayName} tilbyr ikkje kontoinformasjon på denne adressa.")
-            408, 429 -> error("${connection.kind.displayName} er mellombels oppteken. Prøv igjen seinare.")
-            in 500..599 -> error("${connection.kind.displayName} er utilgjengeleg no. Prøv igjen seinare.")
-            else -> error("${connection.kind.displayName} svara med status ${response.statusCode}.")
+            400 -> serviceError("${connection.kind.displayName} kunne ikkje stadfeste ein personleg konto. Logg inn på nytt.")
+            401, 403 -> serviceError("${connection.kind.displayName} avviste kontotilgangen. Logg inn på nytt.")
+            404 -> serviceError("${connection.kind.displayName} tilbyr ikkje kontoinformasjon på denne adressa.")
+            408 -> serviceError("${connection.kind.displayName} er mellombels oppteken. Prøv igjen seinare.")
+            429 -> serviceError(busyMessage(connection.kind, response.retryAfterSeconds))
+            in 500..599 -> serviceError("${connection.kind.displayName} er utilgjengeleg no. Prøv igjen seinare.")
+            in 300..399 -> serviceError(redirectMessage(connection.kind, response.location))
+            else -> serviceError("${connection.kind.displayName} svara med status ${response.statusCode}.")
         }
         val root = runCatching { Json.parseToJsonElement(response.body) as? JsonObject }.getOrNull()
-            ?: error("${connection.kind.displayName} sende ugyldig kontoinformasjon.")
+            ?: serviceError("${connection.kind.displayName} sende ugyldig kontoinformasjon.")
         return when (connection.kind) {
             ServiceKind.JELLYFIN, ServiceKind.EMBY -> jellyfinAccount(connection, root)
             ServiceKind.SEERR -> seerrAccount(connection, root)
-            ServiceKind.RADARR, ServiceKind.SONARR -> error("Kontotypen er ikkje støtta.")
+            ServiceKind.RADARR, ServiceKind.SONARR -> serviceError("Kontotypen er ikkje støtta.")
         }
     }
 
@@ -70,8 +72,8 @@ class AccountProfileClient(
 
     private fun jellyfinAccount(connection: ServiceConnection, root: JsonObject): ServiceAccount {
         val service = connection.kind.displayName
-        val id = root.text("Id") ?: root.text("id") ?: error("$service sende ingen konto-ID.")
-        val name = root.text("Name") ?: root.text("name") ?: error("$service sende ikkje noko brukarnamn.")
+        val id = root.text("Id") ?: root.text("id") ?: serviceError("$service sende ingen konto-ID.")
+        val name = root.text("Name") ?: root.text("name") ?: serviceError("$service sende ikkje noko brukarnamn.")
         val imageTag = root.text("PrimaryImageTag") ?: root.text("primaryImageTag")
         return ServiceAccount(
             source = connection.kind,
@@ -89,7 +91,7 @@ class AccountProfileClient(
     private fun seerrAccount(connection: ServiceConnection, root: JsonObject): ServiceAccount {
         val id = (root["id"] as? JsonPrimitive)?.contentOrNull
             ?.takeIf { it.toLongOrNull()?.let { value -> value > 0 } == true }
-            ?: error("Seerr sende ingen gyldig konto-ID.")
+            ?: serviceError("Seerr sende ingen gyldig konto-ID.")
         val username = root.text("username") ?: root.text("jellyfinUsername") ?: root.text("plexUsername")
         return ServiceAccount(
             source = ServiceKind.SEERR,

@@ -27,8 +27,10 @@ class MediaRefreshWorker(
         val snapshot = runCatching {
             container.mediaSyncRepository.refresh(
                 connections = connections,
+                includeRecommendations = app.reelstack.data.model.HomeSection.RECOMMENDATIONS in
+                    container.preferencesRepository.visibleHomeSections,
             )
-        }.getOrElse { return Result.retry() }
+        }.getOrElse { return giveUpOrRetry() }
 
         if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
             runCatching {
@@ -42,10 +44,25 @@ class MediaRefreshWorker(
         // a completed background refresh is the best moment to redraw it.
         app.reelstack.widget.NowPlayingWidget.requestUpdate(applicationContext)
         return if (snapshot.successfulServices.isEmpty() && snapshot.errors.isNotEmpty()) {
-            Result.retry()
+            giveUpOrRetry()
         } else {
             Result.success()
         }
+    }
+
+    /**
+     * A server that is simply switched off — a home NAS during a holiday, a laptop that is not on
+     * the network — would otherwise be retried forever, because the periodic request is
+     * rescheduled the moment a retry chain ends. WorkManager's backoff spaces the attempts out,
+     * but never stops them. After [MAX_ATTEMPTS] we end this run as a success instead: the next
+     * period comes around in thirty minutes anyway, so nothing is lost except the battery spent
+     * on knocking at a door that is not going to open.
+     */
+    private fun giveUpOrRetry(): Result =
+        if (runAttemptCount >= MAX_ATTEMPTS) Result.success() else Result.retry()
+
+    private companion object {
+        const val MAX_ATTEMPTS = 4
     }
 }
 

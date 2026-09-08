@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.14.0
+
+Ein publiseringsrunde: appen er 69 % mindre, feil som før viste eit statusnummer forklarer no kva
+brukaren skal gjere, og ein krasj etterlèt for første gong eit spor det går an å lese.
+
+### Nye funksjonar
+
+- **Lokal krasjlogg.** Stoppar Spole uventa, blir versjon, einingsmodell og stack trace lagra i ei fil på eininga. Tenaradresser og alt som liknar eit tilgangsteikn blir fjerna før fila blir skriven. Ingenting blir sendt nokon stad — Innstillingar får ein «Del feilrapport»-knapp du sjølv trykkjer på, og ein «Slett» ved sida av.
+- **Personvernerklæring** i `docs/PRIVACY.md`, med kva som blir lagra kvar, kva som blir kryptert, og dei to adressene utanom dine eigne tenarar som appen kontaktar.
+- **Attribusjon i Om appen**: TMDB, og at Spole ikkje er tilknytt eller godkjend av Jellyfin, Emby, Overseerr/Jellyseerr, Radarr eller Sonarr.
+
+### Rettingar
+
+- **Ei omdirigering forklarer seg sjølv.** Ein omvend proxy som sender `http://` vidare til `https://`, eller som legg på ein skråstrek, gav før «Jellyfin svara med status 301» og ingen veg vidare. Appen les no `Location` og seier kva adresse tenaren faktisk svarar på — i tilkoplingstesten, der du står i det feltet du må rette. Omdirigeringar blir framleis aldri følgde automatisk; det kunne sende eit tilgangsteikn til kva vert som helst.
+- **Same tittel blir vist éin gong.** Eit søk etter ein serie du har på både Jellyfin og Emby gav to kort med same plakat og ingenting som skilde dei, fordi tenarane gir same verk kvar sin ID. Treffa blir no slegne saman på TMDB-ID, eller på namn, type og år når tenaren ikkje oppgir nokon. Episodar forsvinn frå treffa når serien deira alt er der — dei bar serienamnet sitt som tittel og teikna med same plakat.
+- **Ei avbroten handling er ikkje ein feil.** Lukka du eit popupark midt i eit kall, eller bytte fane, fanga `runCatching` avbrotet som om det var ein feil og viste ei feilmelding for noko du sjølv valde å avbryte. Alle 22 nettverkskalla i ViewModel går no gjennom ein `attempt`-hjelpar som slepp avbrotet vidare.
+- **Ei ulesbar innlogging seier frå.** Blir Keystore-nøkkelen ugyldig — etter ei gjenoppretting til ei ny eining, til dømes — kunne appen ikkje lenger dekryptere tilgangsteiknet, men Innstillingar sa framleis «Konfigurert» medan Heim stille fall tilbake til demoinnhald. Tilstanden er no eigen, og seier at du må logge inn på nytt.
+- **Berre tekst som er skriven for deg, blir vist til deg.** Nettverkslaget kastar no ein eigen unntakstype. Ein intern feil kan ikkje lenger hamne i det same feltet som «Sjekk tenaradressa og nettet», der dei to var umoglege å skilje.
+- **`Retry-After` blir gjenteken.** Er tenesta oppteken og seier kor lenge, står talet i meldinga i staden for berre «prøv igjen».
+- **Eitt nytt forsøk på GET.** Eit tapt fyrste forsøk over mobilnett blir prøvd om att. POST blir aldri prøvd på nytt — ein førespurnad skal ikkje kunne nå Seerr to gonger.
+- **Bakgrunnsoppdateringa gir opp.** Ein tenar som står av vart før prøvd på nytt i det uendelege. Etter fire forsøk blir køyringa avslutta, og neste periode kjem uansett om ein halvtime.
+- **Widgeten rekk å svare.** Tidsavbrotet var 12 sekund, meir enn ein kringkastingsmottakar trygt kan halde på resultatet. Det er no 8, og widgeten har eigne, kortare tidsavbrot mot tenaren, så «Fekk ikkje kontakt» kjem i staden for eit kort som blir ståande på «Hentar…».
+- **Tilrådingslista blir ikkje henta når rada er av.** Det er det einaste kallet appen gjer til ein vert som ikkje er din eigen, og no stoppar valet i Innstillingar sjølve førespurnaden, ikkje berre visinga.
+
+### Endringar under panseret
+
+- **APK-en er 2,24 MB, ned frå 7,14 MB.** 5,1 MB av det gamle bygget var tre demobilete i PNG som ein tilkopla brukar aldri ser. Dei er no WebP (PSNR 43–48 dB, visuelt uskilbart). Daude ressursar frå «Reelune»-namnet er fjerna frå kjelda.
+- **Einings-ID er ikkje lenger `ANDROID_ID`.** Det var ein varig maskinvarebunden identifikator som overlever avinstallering og må oppgjevast som einings-ID i eit butikkskjema. Det er no ein tilfeldig verdi laga per installasjon. Eksisterande installasjonar tek med seg ID-en dei alt hadde, så tenaren din får ikkje ei duplisert einingsoppføring.
+- **Tilrådingslista ligg på ein versjonert sti** (`v1/recommendations.json`). Den gamle stien blir framleis prøvd som reserve, så rada held fram å virke medan katalogen blir flytta.
+- **`mapping.txt` skal no følgje kvar release.** Utan mappinga for nøyaktig den versjonen er ein stack trace frå eit R8-bygg uleseleg, og fila blir sletta av `clean`.
+- **GitHub Actions** køyrer einingstestar, lint og byggkontroll på kvar push.
+- Oppstarten les ikkje lenger innstillingar frå disk på hovudtråden.
+- Lint: 26 → 18 åtvaringar. `HardwareIds` og `InsecureBaseConfiguration` er borte.
+
+
 ## 0.13.0
 
 ### Nye funksjonar

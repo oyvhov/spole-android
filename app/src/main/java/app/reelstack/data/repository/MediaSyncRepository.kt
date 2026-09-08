@@ -86,6 +86,13 @@ class MediaSyncRepository(
 
     suspend fun refresh(
         connections: List<ServiceConnection>,
+        /**
+         * Whether the shared recommendation list should be fetched at all. It is the one call
+         * Spole makes to a host that is not the user's own server, so switching the row off in
+         * Innstillingar has to stop the request, not merely hide the result. Otherwise the privacy
+         * note would be describing something the app does not do.
+         */
+        includeRecommendations: Boolean = true,
     ): MediaSyncSnapshot = supervisorScope {
         val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
         val identities = configured.filter { it.kind in setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY) }
@@ -128,7 +135,7 @@ class MediaSyncRepository(
             .distinctBy { "${it.mediaType.lowercase(Locale.ROOT)}:${it.title.lowercase(Locale.ROOT).trim()}" }
         val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
-        val recommendationResult = runCatching {
+        val recommendationResult = if (!includeRecommendations) Result.success(emptyList()) else runCatching {
             recommendationsClient.feed().map(::recommendationMedia)
         }
         val recommendationSeed = recommendationResult.getOrDefault(emptyList())
@@ -238,11 +245,41 @@ class MediaSyncRepository(
         val groups = servers.map { connection ->
             async {
                 runCatching { mediaServerClient.search(connection, query) }.getOrNull()
-                    ?.map { libraryMedia(it, connection.kind) }
+                    ?.map { it to connection.kind }
             }
         }.awaitAll().filterNotNull()
-        interleave(groups).distinctBy(LibraryMedia::id).take(24)
+        // Deduplicated by the work, not by the copy. A series held on both Jellyfin and Emby has a
+        // different item id on each, so the old id-based pass could not see that they were the
+        // same thing — and the user got two cards with the same TMDB poster and nothing to tell
+        // them apart. Interleaving still decides which server's copy wins, so neither server's
+        // whole library outranks the other's.
+        val unique = interleave(groups).distinctBy { (item, _) -> workKey(item) }
+
+        // An episode carries its *series* name as its title, so searching for a series returns the
+        // series and every episode that matched — each drawn with the same poster whenever the
+        // episode has no still of its own. When the series itself is among the hits, its episodes
+        // are the same answer repeated; the series card is the one that leads somewhere.
+        val seriesTitles = unique.filter { (item, _) -> item.mediaType.equals("Series", ignoreCase = true) }
+            .mapTo(mutableSetOf()) { (item, _) -> item.title.trim().lowercase(java.util.Locale.ROOT) }
+        unique.filterNot { (item, _) ->
+            item.mediaType.equals("Episode", ignoreCase = true) &&
+                item.title.trim().lowercase(java.util.Locale.ROOT) in seriesTitles
+        }
+            .map { (item, kind) -> libraryMedia(item, kind) }
+            .take(24)
     }
+
+    /**
+     * Identifies the title itself across servers. TMDB's id is the reliable answer when the server
+     * knows it; otherwise name, type and release year together are specific enough to catch the
+     * ordinary case without merging, say, two different films that share a name.
+     */
+    private fun workKey(item: RemoteLibraryItem): String = item.tmdbId?.let { "tmdb:$it" }
+        ?: listOf(
+            item.title.trim().lowercase(java.util.Locale.ROOT),
+            item.mediaType.lowercase(java.util.Locale.ROOT),
+            item.premiereDate?.take(4).orEmpty(),
+        ).joinToString("|")
 
     fun details(connection: ServiceConnection, media: DiscoverMedia): RemoteMediaDetails =
         seerrServiceClient.details(

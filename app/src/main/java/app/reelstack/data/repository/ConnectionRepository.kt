@@ -25,18 +25,32 @@ class ConnectionRepository(context: Context) {
     fun get(kind: ServiceKind): ServiceConnection {
         val prefix = kind.name.lowercase()
         val savedUrl = preferences.getString("$prefix.url", null)
+        val token = tokenFor(kind)
+        // An address with no readable token, where a token was nevertheless written, means the
+        // Keystore entry is gone. Reporting that as "Konfigurert" sent the user to a home screen
+        // full of demo content with nothing anywhere saying why.
+        val unreadable = !savedUrl.isNullOrBlank() && token.isBlank() &&
+            tokenStore.hasStoredValue("$prefix.token")
         return ServiceConnection(
             kind = kind,
             name = preferences.getString("$prefix.name", null) ?: defaultName(kind),
             baseUrl = savedUrl.orEmpty(),
-            token = tokenFor(kind),
+            token = token,
             userId = preferences.getString("$prefix.user_id", null).orEmpty(),
             sessionCookie = preferences.getBoolean("$prefix.session_cookie", false),
             alternateUrl = preferences.getString("$prefix.alt_url", null).orEmpty(),
             // Older installations have no identity key; their address is the identity.
             identityUrl = preferences.getString("$prefix.identity_url", null) ?: savedUrl.orEmpty(),
-            state = if (savedUrl.isNullOrBlank()) ConnectionState.DEMO else ConnectionState.CONNECTED,
-            detail = if (savedUrl.isNullOrBlank()) "Demodata" else "Konfigurert",
+            state = when {
+                savedUrl.isNullOrBlank() -> ConnectionState.DEMO
+                unreadable -> ConnectionState.ERROR
+                else -> ConnectionState.CONNECTED
+            },
+            detail = when {
+                savedUrl.isNullOrBlank() -> "Demodata"
+                unreadable -> "Innlogginga kan ikkje lesast på denne eininga · Logg inn på nytt"
+                else -> "Konfigurert"
+            },
         )
     }
 

@@ -14,12 +14,12 @@ internal inline fun <T> contacting(service: String, block: () -> T): T = try {
 } catch (_: SSLException) {
     // Self-hosted servers often use a certificate Android does not trust. That is a different
     // problem from an unreachable server, and it needs a different next step.
-    error("Klarte ikkje å opprette ei trygg HTTPS-tilkopling til $service. Sjekk at sertifikatet på tenaren er gyldig og tiltrudd.")
+    serviceError("Klarte ikkje å opprette ei trygg HTTPS-tilkopling til $service. Sjekk at sertifikatet på tenaren er gyldig og tiltrudd.")
 } catch (_: IOException) {
-    error("Fekk ikkje kontakt med $service. Sjekk tenaradressa og nettet.")
+    serviceError("Fekk ikkje kontakt med $service. Sjekk tenaradressa og nettet.")
 }
 
 /** Parses a service response body, without putting the raw body or parser text in the message. */
 internal fun serviceJson(body: String, service: String) =
     runCatching { kotlinx.serialization.json.Json.parseToJsonElement(body) }
-        .getOrElse { error("$service sende eit uventa svar. Sjekk at adressa peikar på $service.") }
+        .getOrElse { serviceError("$service sende eit uventa svar. Sjekk at adressa peikar på $service.") }

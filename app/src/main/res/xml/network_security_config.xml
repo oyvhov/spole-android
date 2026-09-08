@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
-    <!-- Self-hosted media servers frequently use HTTP on a trusted LAN. The UI
-         surfaces a warning for these profiles; HTTPS remains recommended. -->
-    <base-config cleartextTrafficPermitted="true" />
-</network-security-config>
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <!--
+        Self-hosted media servers frequently use HTTP on a trusted LAN. The UI surfaces a warning
+        for these profiles; HTTPS remains recommended.
 
+        This deliberately stays a blanket permission, and `InsecureBaseConfiguration` is suppressed
+        rather than worked around. A <domain-config> cannot express the rule Spole actually
+        enforces: domain matching here is a right-anchored hostname suffix, the same way DNS works,
+        so "192.168" does not match "192.168.1.20" and there is no CIDR syntax to reach for. Only
+        an exhaustive list of literal addresses would work, and the whole point is that the user's
+        server can be at any address on their own network.
+
+        The real check is `EndpointValidator.isTrustedLanHost`, which accepts http:// only for
+        localhost, a .local name, or a literal RFC 1918 / loopback / link-local address, and which
+        deliberately refuses registered names that merely look private. Every address the app
+        connects to passes through `normalizeBaseUrl` first, so that check is not advisory.
+    -->
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration" />
+</network-security-config>

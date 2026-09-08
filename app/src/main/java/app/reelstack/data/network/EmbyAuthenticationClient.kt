@@ -1,6 +1,7 @@
 package app.reelstack.data.network
 
 import app.reelstack.BuildConfig
+import app.reelstack.data.model.ServiceKind
 import java.io.IOException
 import kotlinx.serialization.json.*
 
@@ -18,22 +19,23 @@ class EmbyAuthenticationClient(
                 buildJsonObject { put("Username", username); put("Pw", password) }.toString(),
             )
         } catch (_: IOException) {
-            error("Fekk ikkje kontakt med Emby. Sjekk tenaradressa og nettet.")
+            serviceError("Fekk ikkje kontakt med Emby. Sjekk tenaradressa og nettet.")
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            400 -> error("Emby avviste innloggingskallet. Sjekk brukarnamnet og prøv igjen.")
-            401, 403 -> error("Feil Emby-brukarnamn eller passord.")
-            404 -> error("Fann ikkje Emby-innlogginga. Sjekk tenaradressa.")
-            in 500..599 -> error("Emby fekk ein tenarfeil under innlogginga (status ${response.statusCode}).")
-            else -> error("Emby kunne ikkje logge deg inn (status ${response.statusCode}).")
+            400 -> serviceError("Emby avviste innloggingskallet. Sjekk brukarnamnet og prøv igjen.")
+            401, 403 -> serviceError("Feil Emby-brukarnamn eller passord.")
+            404 -> serviceError("Fann ikkje Emby-innlogginga. Sjekk tenaradressa.")
+            in 500..599 -> serviceError("Emby fekk ein tenarfeil under innlogginga (status ${response.statusCode}).")
+            in 300..399 -> serviceError(redirectMessage(ServiceKind.EMBY, response.location))
+            else -> serviceError("Emby kunne ikkje logge deg inn (status ${response.statusCode}).")
         }
         val root = runCatching { Json.parseToJsonElement(response.body).jsonObject }.getOrNull()
-            ?: error("Emby sende eit ugyldig innloggingssvar.")
+            ?: serviceError("Emby sende eit ugyldig innloggingssvar.")
         val token = root["AccessToken"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-            ?: error("Emby sende ikkje eit tilgangsteikn.")
+            ?: serviceError("Emby sende ikkje eit tilgangsteikn.")
         val userId = root["User"]?.jsonObject?.get("Id")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-            ?: error("Emby sende ingen profil-ID.")
+            ?: serviceError("Emby sende ingen profil-ID.")
         return ServiceAuthentication(token, userId)
     }
 }

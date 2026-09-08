@@ -18,6 +18,7 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Base64
+import java.util.Locale
 import kotlin.system.measureTimeMillis
 
 private data class ServiceProbe(
@@ -88,13 +89,14 @@ class JellyfinAuthenticationClient(
         }
 
         when (response.statusCode) {
-            401, 403 -> error("Feil brukarnamn eller passord")
-            404 -> error("Fann Jellyfin, men innlogging med brukarkonto er ikkje tilgjengeleg")
+            401, 403 -> serviceError("Feil brukarnamn eller passord")
+            404 -> serviceError("Fann Jellyfin, men innlogging med brukarkonto er ikkje tilgjengeleg")
             in 200..299 -> Unit
-            in 500..599 -> error(
+            in 500..599 -> serviceError(
                 "Jellyfin klarte ikkje å opprette innloggingsøkta (tenarfeil ${response.statusCode})",
             )
-            else -> error("Jellyfin svara med status ${response.statusCode}")
+            in 300..399 -> serviceError(redirectMessage(ServiceKind.JELLYFIN, response.location))
+            else -> serviceError("Jellyfin svara med status ${response.statusCode}")
         }
 
         return parseAuthentication(response.body)
@@ -110,10 +112,10 @@ class JellyfinAuthenticationClient(
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            404 -> error("Denne Jellyfin-tenaren støttar ikkje Quick Connect")
-            401, 403 -> error("Quick Connect er ikkje slått på i Jellyfin")
-            in 500..599 -> error("Quick Connect er ikkje slått på, eller Jellyfin klarte ikkje å lage ein kode")
-            else -> error("Jellyfin svara med status ${response.statusCode}")
+            404 -> serviceError("Denne Jellyfin-tenaren støttar ikkje Quick Connect")
+            401, 403 -> serviceError("Quick Connect er ikkje slått på i Jellyfin")
+            in 500..599 -> serviceError("Quick Connect er ikkje slått på, eller Jellyfin klarte ikkje å lage ein kode")
+            else -> serviceError("Jellyfin svara med status ${response.statusCode}")
         }
         return parseQuickConnect(response.body)
     }
@@ -127,9 +129,9 @@ class JellyfinAuthenticationClient(
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            404 -> error("Quick Connect-koden er ikkje lenger gyldig")
-            401, 403 -> error("Jellyfin avviste Quick Connect-førespurnaden")
-            else -> error("Jellyfin svara med status ${response.statusCode}")
+            404 -> serviceError("Quick Connect-koden er ikkje lenger gyldig")
+            401, 403 -> serviceError("Jellyfin avviste Quick Connect-førespurnaden")
+            else -> serviceError("Jellyfin svara med status ${response.statusCode}")
         }
         return parseQuickConnect(response.body)
     }
@@ -145,9 +147,9 @@ class JellyfinAuthenticationClient(
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            401, 403 -> error("Quick Connect-koden vart ikkje godkjend")
-            404 -> error("Quick Connect-koden er ikkje lenger gyldig")
-            else -> error("Jellyfin svara med status ${response.statusCode}")
+            401, 403 -> serviceError("Quick Connect-koden vart ikkje godkjend")
+            404 -> serviceError("Quick Connect-koden er ikkje lenger gyldig")
+            else -> serviceError("Jellyfin svara med status ${response.statusCode}")
         }
         return parseAuthentication(response.body)
     }
@@ -156,11 +158,11 @@ class JellyfinAuthenticationClient(
         val root = parseObject(body, "Jellyfin sende eit ugyldig innloggingssvar")
         val token = root["AccessToken"]?.jsonPrimitive?.contentOrNull
             ?: root["accessToken"]?.jsonPrimitive?.contentOrNull
-            ?: error("Jellyfin sende ikkje tilbake eit tilgangsteikn")
+            ?: serviceError("Jellyfin sende ikkje tilbake eit tilgangsteikn")
         val user = root["User"]?.jsonObject ?: root["user"]?.jsonObject
         val userId = user?.get("Id")?.jsonPrimitive?.contentOrNull
             ?: user?.get("id")?.jsonPrimitive?.contentOrNull
-            ?: error("Jellyfin sende ikkje tilbake ein profil-ID")
+            ?: serviceError("Jellyfin sende ikkje tilbake ein profil-ID")
         return ServiceAuthentication(accessToken = token, userId = userId)
     }
 
@@ -168,10 +170,10 @@ class JellyfinAuthenticationClient(
         val root = parseObject(body, "Jellyfin sende eit ugyldig Quick Connect-svar")
         val secret = root["Secret"]?.jsonPrimitive?.contentOrNull
             ?: root["secret"]?.jsonPrimitive?.contentOrNull
-            ?: error("Jellyfin sende ikkje tilbake ein Quick Connect-hemmelegheit")
+            ?: serviceError("Jellyfin sende ikkje tilbake ein Quick Connect-hemmelegheit")
         val code = root["Code"]?.jsonPrimitive?.contentOrNull
             ?: root["code"]?.jsonPrimitive?.contentOrNull
-            ?: error("Jellyfin sende ikkje tilbake ein Quick Connect-kode")
+            ?: serviceError("Jellyfin sende ikkje tilbake ein Quick Connect-kode")
         val authenticated = root["Authenticated"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
             ?: root["authenticated"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
             ?: false
@@ -179,7 +181,7 @@ class JellyfinAuthenticationClient(
     }
 
     private fun parseObject(body: String, message: String) =
-        runCatching { Json.parseToJsonElement(body).jsonObject }.getOrElse { error(message) }
+        runCatching { Json.parseToJsonElement(body).jsonObject }.getOrElse { serviceError(message) }
 
     private companion object {
         const val JELLYFIN = "Jellyfin"
@@ -222,6 +224,12 @@ class ServiceConnectionTester(
             )
             401, 403 -> ConnectionTestResult(false, elapsed, if (connection.sessionCookie) "Seerr-økta er utgått. Logg inn på nytt." else "API-nøkkelen vart avvist")
             404 -> ConnectionTestResult(false, elapsed, "Fann tenesta, men API-stien var ikkje tilgjengeleg")
+            // This is where a misconfigured address is actually discovered, so the redirect target
+            // belongs here more than anywhere else: the user is standing in the very sheet that
+            // holds the field they need to change.
+            in 300..399 -> ConnectionTestResult(false, elapsed, redirectMessage(connection.kind, response.location))
+            429 -> ConnectionTestResult(false, elapsed, busyMessage(connection.kind, response.retryAfterSeconds))
+            in 500..599 -> ConnectionTestResult(false, elapsed, "${connection.kind.displayName} er utilgjengeleg no")
             else -> ConnectionTestResult(false, elapsed, "Tenaren svara med status ${response.statusCode}")
         }
     }
@@ -375,9 +383,12 @@ class MediaServerClient(
         val allowed = libraryViews(connection, userId).filter { !isExcludedHomeLibrary(it.name) }
             .take(MAX_LIBRARY_VIEWS)
         if (allowed.isEmpty()) return emptyList()
+        // ProviderIds is what lets the same title be recognised across two servers. Without it a
+        // film held on both Jellyfin and Emby arrives as two unrelated items and is shown twice.
         val query = "searchTerm=${encode(trimmed).replace("+", "%20")}&Recursive=true" +
             "&IncludeItemTypes=Movie,Series,Episode&Limit=$SEARCH_ITEM_LIMIT" +
-            "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
+            "&Fields=Overview,Genres,PrimaryImageAspectRatio,ProviderIds,PremiereDate" +
+            "&EnableImages=true&ImageTypeLimit=1" +
             "&EnableImageTypes=Primary,Thumb&EnableUserData=true&IsMissing=false"
         val groups = allowed.mapNotNull { view ->
             val scoped = "$query&ParentId=${encodePathSegment(view.id)}"
@@ -455,7 +466,7 @@ class MediaServerClient(
             if (response.statusCode in 200..299) return ServicePayloadParser.libraryDetails(response.body)
         }
         lastResponse?.requireSuccess(connection.kind)
-        error("Fekk ikkje henta detaljar frå ${connection.kind.displayName}")
+        serviceError("Fekk ikkje henta detaljar frå ${connection.kind.displayName}")
     }
 
     private fun currentUserId(connection: ServiceConnection): String? {
@@ -514,7 +525,7 @@ class MediaServerClient(
                 getItems(connection, latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id))
             }.getOrNull()
         }
-        if (successfulGroups.isEmpty()) error("Fekk ikkje oppdatert dei valde biblioteka")
+        if (successfulGroups.isEmpty()) serviceError("Fekk ikkje oppdatert dei valde biblioteka")
         return interleave(successfulGroups).distinctBy(RemoteLibraryItem::id).take(LATEST_ITEM_LIMIT)
     }
 
@@ -566,7 +577,7 @@ class MediaServerClient(
             ServiceKind.EMBY -> userId?.let {
                 listOf("Users/$it/Items/Latest?$query&EnableUserData=true")
             }.orEmpty()
-            ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> error("Medietenaren er ikkje støtta")
+            ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> serviceError("Medietenaren er ikkje støtta")
         }
     }
 
@@ -844,7 +855,7 @@ class SeerrServiceClient(
             EndpointValidator.resolve(connection.baseUrl, "api/v1/request/$requestId"),
             requestHeaders,
         )
-        if (existing.statusCode == 404) error("Førespurnaden finst ikkje lenger i Seerr.")
+        if (existing.statusCode == 404) serviceError("Førespurnaden finst ikkje lenger i Seerr.")
         existing.requireSuccess(connection.kind)
         val owner = ServicePayloadParser.requestOwnerId(existing.body)
         check(owner == null || owner == actor.id) { "Denne førespurnaden tilhøyrer ein annan konto." }
@@ -853,7 +864,7 @@ class SeerrServiceClient(
             EndpointValidator.resolve(connection.baseUrl, "api/v1/request/$requestId"),
             requestHeaders,
         )
-        if (response.statusCode == 404) error("Førespurnaden var alt fjerna i Seerr.")
+        if (response.statusCode == 404) serviceError("Førespurnaden var alt fjerna i Seerr.")
         response.requireSuccess(connection.kind)
     }
 
@@ -927,11 +938,45 @@ private fun encodePathSegment(value: String): String = encode(value).replace("+"
 private fun HttpResponse.requireSuccess(kind: ServiceKind) {
     when (statusCode) {
         in 200..299 -> Unit
-        401 -> error(if (kind == ServiceKind.SEERR) "Logg inn på Seerr på nytt i Innstillingar." else "${kind.displayName} avviste API-nøkkelen")
-        403 -> error(if (kind == ServiceKind.SEERR) "Seerr gav ikkje kontoen tilgang til denne handlinga." else "${kind.displayName} avviste API-nøkkelen")
-        404 -> error("${kind.displayName} tilbyr ikkje dette API-endepunktet")
-        408, 429 -> error("${kind.displayName} er mellombels oppteken")
-        in 500..599 -> error("${kind.displayName} er utilgjengeleg no")
-        else -> error("${kind.displayName} svara med status $statusCode")
+        401 -> serviceError(if (kind == ServiceKind.SEERR) "Logg inn på Seerr på nytt i Innstillingar." else "${kind.displayName} avviste API-nøkkelen")
+        403 -> serviceError(if (kind == ServiceKind.SEERR) "Seerr gav ikkje kontoen tilgang til denne handlinga." else "${kind.displayName} avviste API-nøkkelen")
+        404 -> serviceError("${kind.displayName} tilbyr ikkje dette API-endepunktet")
+        408 -> serviceError("${kind.displayName} er mellombels oppteken")
+        429 -> serviceError(busyMessage(kind, retryAfterSeconds))
+        in 300..399 -> serviceError(redirectMessage(kind, location))
+        in 500..599 -> serviceError("${kind.displayName} er utilgjengeleg no")
+        else -> serviceError("${kind.displayName} svara med status $statusCode")
     }
+}
+
+/**
+ * A redirect is the most common way a working server still looks broken: a reverse proxy that
+ * sends `http://` to `https://`, or a host that only answers on a different name. Redirects are
+ * never followed automatically, so without this the user got "svara med status 301" and no idea
+ * that the fix is one address change in Innstillingar.
+ */
+internal fun redirectMessage(kind: ServiceKind, location: String?): String {
+    val target = location?.let { runCatching { java.net.URI(it) }.getOrNull() }
+        ?.takeIf { it.isAbsolute && !it.host.isNullOrBlank() }
+        // Only scheme, host and port. The path of a redirect is not something the user types into
+        // the address field, and a query string could carry a token.
+        ?.let { uri -> buildString {
+            append(uri.scheme.lowercase(Locale.ROOT))
+            append("://")
+            append(uri.host.lowercase(Locale.ROOT))
+            if (uri.port != -1) append(":${uri.port}")
+        } }
+    return if (target != null) {
+        "${kind.displayName} sender deg vidare til $target. Bruk den adressa i Innstillingar."
+    } else {
+        "${kind.displayName} sender deg vidare til ei anna adresse. Sjekk kva adresse tenaren " +
+            "faktisk svarar på, og bruk den i Innstillingar."
+    }
+}
+
+/** Repeats the server's own `Retry-After` when it gave one, so "vent litt" has a number in it. */
+internal fun busyMessage(kind: ServiceKind, retryAfterSeconds: Long?): String = when {
+    retryAfterSeconds == null || retryAfterSeconds <= 0 -> "${kind.displayName} er mellombels oppteken"
+    retryAfterSeconds < 60 -> "${kind.displayName} er mellombels oppteken. Prøv igjen om $retryAfterSeconds sekund."
+    else -> "${kind.displayName} er mellombels oppteken. Prøv igjen om ${retryAfterSeconds / 60} minutt."
 }

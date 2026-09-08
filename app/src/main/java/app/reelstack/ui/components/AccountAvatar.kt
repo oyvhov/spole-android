@@ -1,6 +1,6 @@
 package app.reelstack.ui.components
 
-import android.provider.Settings
+import app.reelstack.data.repository.DeviceIdentity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,8 +50,7 @@ fun AccountAvatar(account: ServiceAccount?, connection: ServiceConnection?, modi
         val url = account?.avatarUrl ?: return@produceState
         value = withContext(Dispatchers.IO) {
             runCatching {
-                val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "homereel-android"
-                loadProfileImage(url, connection, deviceId)
+                loadProfileImage(url, connection, DeviceIdentity.get(context))
             }.getOrNull()?.also { data -> cacheKey?.let { ProfileImageMemory.put(it, data) } }
         }
     }

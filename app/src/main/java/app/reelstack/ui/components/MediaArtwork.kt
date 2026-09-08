@@ -1,6 +1,7 @@
 package app.reelstack.ui.components
 
 import android.provider.Settings
+import app.reelstack.data.repository.DeviceIdentity
 import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -53,13 +54,9 @@ fun MediaArtwork(
                 ) {
                     val headers = NetworkHeaders.Builder()
                     if (source == ServiceKind.JELLYFIN) {
-                        val deviceId = Settings.Secure.getString(
-                            context.contentResolver,
-                            Settings.Secure.ANDROID_ID,
-                        ) ?: "homereel-android"
                         headers.set(
                             "Authorization",
-                            jellyfinAuthorization(deviceId, connection.token),
+                            jellyfinAuthorization(DeviceIdentity.get(context), connection.token),
                         )
                     } else {
                         headers.set("X-Emby-Token", connection.token)

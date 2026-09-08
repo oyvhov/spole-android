@@ -15,6 +15,11 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -757,8 +762,83 @@ fun SettingsScreen(
             PrivacyCard(state)
             SettingsSectionTitle("Om appen")
             AppIdentity()
+            AttributionCard()
+            CrashReportRow()
         }
     }
+    }
+}
+
+/**
+ * The attributions Spole is obliged to show once it is distributed to anyone but its author: TMDB
+ * requires acknowledgement for the artwork it serves, and five separate projects lend their names
+ * and marks to an app none of them endorses.
+ */
+@Composable
+private fun AttributionCard() {
+    Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby, Overseerr/Jellyseerr, " +
+                    "Radarr eller Sonarr. Namna og merka tilhøyrer prosjekta sine eigarar.",
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+            )
+            Text(
+                "Plakatar og bakgrunnsbilete for oppdaging kjem frå TMDB. Denne appen brukar " +
+                    "TMDB-tenestene, men er ikkje godkjend eller sertifisert av TMDB.",
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Text(
+                "Bygd med opne komponentar frå AndroidX, Jetpack Compose, Kotlin, OkHttp og Coil, " +
+                    "under Apache-lisens 2.0.",
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Only appears when there is something to send. A crash report row on an app that has never
+ * crashed is a permanent reminder of a problem the user does not have.
+ */
+@Composable
+private fun CrashReportRow() {
+    val context = LocalContext.current
+    var report by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        report = withContext(Dispatchers.IO) { app.reelstack.diagnostics.CrashReporter.report(context) }
+    }
+    val current = report ?: return
+    Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Spole stoppa uventa sist", color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(
+                "Ein feilrapport er lagra på eininga. Han inneheld versjon, modell og kva som " +
+                    "gjekk gale — adresser og tilgangsteikn er fjerna. Ingenting er sendt.",
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp),
+            )
+            Row(Modifier.padding(top = 12.dp)) {
+                TextButton(onClick = {
+                    context.startActivity(
+                        android.content.Intent.createChooser(
+                            android.content.Intent(android.content.Intent.ACTION_SEND)
+                                .setType("text/plain")
+                                .putExtra(android.content.Intent.EXTRA_SUBJECT, "Spole-feilrapport")
+                                .putExtra(android.content.Intent.EXTRA_TEXT, current),
+                            "Del feilrapport",
+                        ),
+                    )
+                }) { Text("Del feilrapport", color = Primary, fontSize = 13.sp) }
+                TextButton(onClick = {
+                    app.reelstack.diagnostics.CrashReporter.clear(context)
+                    report = null
+                }) { Text("Slett", color = Muted, fontSize = 13.sp) }
+            }
+        }
     }
 }
 

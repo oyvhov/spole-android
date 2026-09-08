@@ -72,7 +72,7 @@ class NowPlayingWidget : AppWidgetProvider() {
             servers.map { connection ->
                 async {
                     runCatching {
-                        container.mediaServerClient.sessions(connection, viewerAccess(container, connection))
+                        container.widgetMediaServerClient.sessions(connection, viewerAccess(container, connection))
                     }.getOrNull().orEmpty()
                 }
             }.awaitAll().flatten()
@@ -82,7 +82,7 @@ class NowPlayingWidget : AppWidgetProvider() {
 
 
     private fun viewerAccess(container: AppContainer, connection: ServiceConnection): ViewerAccess {
-        val account = runCatching { container.accountProfileClient.load(connection) }.getOrNull()
+        val account = runCatching { container.widgetAccountProfileClient.load(connection) }.getOrNull()
         return ViewerAccess(false, account?.let { mapOf(connection.kind to it) }.orEmpty())
     }
 
@@ -123,7 +123,15 @@ class NowPlayingWidget : AppWidgetProvider() {
 
     companion object {
         const val ACTION_REFRESH = "app.reelstack.widget.REFRESH"
-        private const val SESSION_TIMEOUT_MS = 12_000L
+
+        /**
+         * A receiver holding its result open with `goAsync()` has to be done well inside the
+         * broadcast window — around ten seconds when the broadcast arrives at foreground
+         * priority. The old 12 s budget was on the wrong side of that: the system could finish
+         * the result for us, leaving the widget stuck on "Hentar…" instead of saying it could
+         * not reach the server. Eight seconds leaves room to actually draw the answer.
+         */
+        private const val SESSION_TIMEOUT_MS = 8_000L
 
         /** Lets the background refresh nudge the widget without knowing how it renders. */
         fun requestUpdate(context: Context) {

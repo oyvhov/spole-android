@@ -45,6 +45,16 @@ class EncryptedTokenStore(context: Context) {
         preferences.edit { remove(key) }
     }
 
+    /**
+     * Whether something was written under [key], regardless of whether it can still be read.
+     *
+     * The Keystore key can go away underneath us — a restore onto a different device, some OEM
+     * update paths — and then [get] returns null for a value that is very much still there. Told
+     * apart from "never signed in", that is a sentence the user can act on instead of a home
+     * screen that quietly falls back to demo content.
+     */
+    fun hasStoredValue(key: String): Boolean = preferences.contains(key)
+
     private fun secretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
         (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }

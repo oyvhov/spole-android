@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.data.model.ServiceKind
 import java.net.URLDecoder
 import java.net.URLEncoder
 import kotlinx.serialization.json.buildJsonObject
@@ -41,7 +42,7 @@ class SeerrAuthenticationClient(private val transport: JsonHttpTransport = HttpT
             transport.get(EndpointValidator.resolve(baseUrl, "api/v1/auth/jellyfin/quickconnect/check?secret=$secret"),
                 seerrCookieHeaders(challenge.cookies))
         }
-        if (response.statusCode == 404) error("Quick Connect-koden er utgått. Lag ein ny kode.")
+        if (response.statusCode == 404) serviceError("Quick Connect-koden er utgått. Lag ein ny kode.")
         requireSuccess(response, quickConnect = true)
         val root = serviceJson(response.body, SEERR).jsonObject
         return challenge.copy(authenticated = root["authenticated"]?.jsonPrimitive?.contentOrNull == "true",
@@ -79,11 +80,12 @@ class SeerrAuthenticationClient(private val transport: JsonHttpTransport = HttpT
     private fun requireSuccess(response: HttpResponse, quickConnect: Boolean = false) {
         when (response.statusCode) {
             in 200..299 -> Unit
-            401 -> error("Feil Jellyfin-brukarnamn eller passord.")
-            403 -> error("Seerr avviste innlogginga. Sjekk at kontoen har tilgang og at Jellyfin-innlogging er slått på.")
-            404 -> error(if (quickConnect) "Denne Seerr-versjonen støttar ikkje Quick Connect. Vel Jellyfin-konto." else "Fann ikkje Seerr. Sjekk tenaradressa.")
-            429 -> error("For mange innloggingsforsøk. Vent litt og prøv igjen.")
-            else -> error(if (quickConnect) "Fekk ikkje starta Quick Connect via Seerr. Prøv Jellyfin-konto." else "Seerr kunne ikkje logge deg inn. Sjekk at Jellyfin-innlogging er aktivert på tenaren.")
+            401 -> serviceError("Feil Jellyfin-brukarnamn eller passord.")
+            403 -> serviceError("Seerr avviste innlogginga. Sjekk at kontoen har tilgang og at Jellyfin-innlogging er slått på.")
+            404 -> serviceError(if (quickConnect) "Denne Seerr-versjonen støttar ikkje Quick Connect. Vel Jellyfin-konto." else "Fann ikkje Seerr. Sjekk tenaradressa.")
+            429 -> serviceError(busyMessage(ServiceKind.SEERR, response.retryAfterSeconds))
+            in 300..399 -> serviceError(redirectMessage(ServiceKind.SEERR, response.location))
+            else -> serviceError(if (quickConnect) "Fekk ikkje starta Quick Connect via Seerr. Prøv Jellyfin-konto." else "Seerr kunne ikkje logge deg inn. Sjekk at Jellyfin-innlogging er aktivert på tenaren.")
         }
     }
 

@@ -28,6 +28,7 @@ import app.reelstack.data.model.TrackedRequest
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.network.EndpointValidator
+import app.reelstack.data.network.readableMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
@@ -255,7 +256,7 @@ class ReelstackViewModel(
         }
         if (connection == null || media.remoteId == null) return
         viewModelScope.launch {
-            val result = runCatching {
+            val result = attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
             }
             _uiState.update { current ->
@@ -316,7 +317,7 @@ class ReelstackViewModel(
         }
         if (connection == null || media.remoteId == null || media.mediaType == null) return
         viewModelScope.launch {
-            val result = runCatching {
+            val result = attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
             }
             _uiState.update { current ->
@@ -463,7 +464,7 @@ class ReelstackViewModel(
         val targetPaused = !session.paused
         _uiState.update { it.copy(pendingSessionKey = sessionKey) }
         viewModelScope.launch {
-            val result = runCatching {
+            val result = attempt {
                 withContext(Dispatchers.IO) {
                     container.mediaSyncRepository.setPlaybackPaused(
                         connections = _uiState.value.connections,
@@ -528,7 +529,7 @@ class ReelstackViewModel(
             // be findable when Seerr is down, and vice versa.
             val libraryDeferred = async {
                 if (mediaServers.isEmpty()) Result.success(emptyList())
-                else runCatching {
+                else attempt {
                     withContext(Dispatchers.IO) {
                         container.mediaSyncRepository.searchLibraries(mediaServers, query)
                     }
@@ -536,7 +537,7 @@ class ReelstackViewModel(
             }
             val discoverResult = if (seerr == null) {
                 Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
-            } else runCatching {
+            } else attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query, page = 1) }
             }
             val libraryResult = libraryDeferred.await()
@@ -573,7 +574,7 @@ class ReelstackViewModel(
         val next = state.searchPage + 1
         _uiState.update { it.copy(loadingMoreSearch = true) }
         viewModelScope.launch {
-            val result = runCatching {
+            val result = attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query, next) }
             }
             _uiState.update { current ->
@@ -610,7 +611,7 @@ class ReelstackViewModel(
             return
         }
         requestDraftJob = viewModelScope.launch {
-            val result = runCatching { withContext(Dispatchers.IO) { container.mediaSyncRepository.details(requireNotNull(connection), media) } }
+            val result = attempt { withContext(Dispatchers.IO) { container.mediaSyncRepository.details(requireNotNull(connection), media) } }
             if (!isActive) return@launch
             _uiState.update { current ->
                 val draft = current.requestDraft?.takeIf { it.media.id == id } ?: return@update current
@@ -667,7 +668,7 @@ class ReelstackViewModel(
         }
         _uiState.update { it.copy(cancellingRequestKeys = it.cancellingRequestKeys + key) }
         viewModelScope.launch {
-            val result = runCatching {
+            val result = attempt {
                 withContext(Dispatchers.IO) {
                     container.requestTrackingRepository.cancel(connection, actor.id, key)
                     container.requestTrackingRepository.list(
@@ -680,7 +681,7 @@ class ReelstackViewModel(
                     cancellingRequestKeys = current.cancellingRequestKeys - key,
                     trackedRequests = result.getOrNull() ?: current.trackedRequests,
                     snackbar = if (result.isSuccess) "Førespurnaden er trekt tilbake"
-                    else result.exceptionOrNull()?.message
+                    else result.exceptionOrNull()?.readableMessage()
                         ?: "Fekk ikkje trekt tilbake førespurnaden. Prøv igjen.",
                 )
             }
@@ -696,7 +697,7 @@ class ReelstackViewModel(
         }
         _uiState.update { it.copy(trackingLoading = true) }
         trackingJob = viewModelScope.launch {
-            val result = runCatching { withContext(Dispatchers.IO) { container.requestTrackingRepository.refresh(connection) } }
+            val result = attempt { withContext(Dispatchers.IO) { container.requestTrackingRepository.refresh(connection) } }
             if (!isActive) return@launch
             _uiState.update { current ->
                 val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
@@ -745,7 +746,7 @@ class ReelstackViewModel(
         }
         _uiState.update { it.copy(requestingMediaIds = it.requestingMediaIds + id, requestDraft = draft.copy(sending = true)) }
         viewModelScope.launch {
-            val result = runCatching {
+            val result = attempt {
                 withContext(Dispatchers.IO) {
                     // Reconfirm the exact identity shown in the UI before any write.
                     container.mediaSyncRepository.request(seerr, media, expectedUserId = account.id, seasons = draft.selected)
@@ -810,6 +811,12 @@ class ReelstackViewModel(
         val state = _uiState.value
         val configured = state.connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
         if (configured.isEmpty()) {
+            // Falling back to demo content is right when nothing is set up. It is misleading when
+            // a service *is* set up and its stored sign-in simply cannot be decrypted any more, so
+            // that case gets its own sentence rather than the generic invitation to connect.
+            val unreadable = state.connections.filter {
+                it.baseUrl.isNotBlank() && it.state == ConnectionState.ERROR
+            }
             _uiState.update {
                 it.copy(
                     sessions = demoSessions(),
@@ -830,7 +837,12 @@ class ReelstackViewModel(
                     liveActivity = false,
                     failedServices = emptySet(),
                     hasCachedData = false,
-                    snackbar = if (userInitiated) "Kople til ei teneste for å starte synkronisering" else it.snackbar,
+                    snackbar = when {
+                        unreadable.isNotEmpty() -> "Innlogginga på denne eininga kan ikkje lesast lenger. " +
+                            "Logg inn på nytt i Innstillingar."
+                        userInitiated -> "Kople til ei teneste for å starte synkronisering"
+                        else -> it.snackbar
+                    },
                 )
             }
             return
@@ -838,16 +850,17 @@ class ReelstackViewModel(
 
         _uiState.update { it.copy(isRefreshing = true) }
         refreshJob = viewModelScope.launch {
-            val outcome = runCatching {
+            val outcome = attempt {
                 val snapshot = withContext(Dispatchers.IO) {
                     container.mediaSyncRepository.refresh(
                         connections = _uiState.value.connections,
+                        includeRecommendations = HomeSection.RECOMMENDATIONS in _uiState.value.homeSections,
                     )
                 }
                 if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
                     // Writing the offline copy is a convenience. A full disk must not take the
                     // refresh down with it.
-                    runCatching {
+                    attempt {
                         withContext(Dispatchers.IO) {
                             container.mediaSnapshotStore.save(
                                 snapshot,
@@ -859,7 +872,6 @@ class ReelstackViewModel(
                 snapshot
             }
             val snapshot = outcome.getOrElse { error ->
-                if (error is kotlinx.coroutines.CancellationException) throw error
                 // Per-service failures are already reported inside the snapshot. Anything that
                 // escapes to here is unexpected, and it used to leave the spinner turning forever
                 // and take the process down with it.
@@ -873,7 +885,7 @@ class ReelstackViewModel(
             }
             // A service that only answered on its alternate address keeps that address next time.
             if (snapshot.switchedToAlternate.isNotEmpty()) {
-                runCatching {
+                attempt {
                     withContext(Dispatchers.IO) {
                         snapshot.switchedToAlternate.forEach(container.connectionRepository::promoteAlternate)
                     }
@@ -974,7 +986,7 @@ class ReelstackViewModel(
         accountsJob = viewModelScope.launch {
             targets.forEach { connection ->
                 launch profile@ {
-                    val result = runCatching { withContext(Dispatchers.IO) { container.accountProfileClient.load(connection) } }
+                    val result = attempt { withContext(Dispatchers.IO) { container.accountProfileClient.load(connection) } }
                     if (!isActive) return@profile
                     _uiState.update { current ->
                         val configured = current.connections.firstOrNull { it.kind == connection.kind }
@@ -1088,7 +1100,7 @@ class ReelstackViewModel(
         connectionJob?.cancel()
         connectionJob = viewModelScope.launch {
             val credentials = if (useJellyfinAccount) {
-                runCatching {
+                attempt {
                     withContext(Dispatchers.IO) {
                         if (draft.kind == ServiceKind.SEERR) {
                             container.seerrAuthenticationClient.authenticate(normalizedUrl, draft.username.trim(), draft.password)
@@ -1101,8 +1113,7 @@ class ReelstackViewModel(
                         )
                     }
                 }.getOrElse { error ->
-                    if (error is kotlinx.coroutines.CancellationException) throw error
-                    updateDraft { copy(saving = false, error = error.message ?: "Jellyfin avviste innlogginga") }
+                    updateDraft { copy(saving = false, error = error.readableMessage() ?: "Jellyfin avviste innlogginga") }
                     return@launch
                 }
             } else null
@@ -1117,7 +1128,7 @@ class ReelstackViewModel(
                 state = ConnectionState.TESTING,
             )
             val companion = if (companionUrl != null) {
-                runCatching {
+                attempt {
                     withContext(Dispatchers.IO) {
                         val otherKind = if (draft.kind == ServiceKind.SEERR) ServiceKind.JELLYFIN else ServiceKind.SEERR
                         val auth = if (otherKind == ServiceKind.SEERR) container.seerrAuthenticationClient.authenticate(companionUrl, draft.username.trim(), draft.password)
@@ -1132,8 +1143,7 @@ class ReelstackViewModel(
                         other
                     }
                 }.getOrElse { error ->
-                    if (error is kotlinx.coroutines.CancellationException) throw error
-                    updateDraft { copy(saving = false, error = "Ingen tilkoplingar vart endra. ${error.message ?: "Den andre innlogginga feila."} Prøv igjen, eller slå av felles innlogging.") }
+                    updateDraft { copy(saving = false, error = "Ingen tilkoplingar vart endra. ${error.readableMessage() ?: "Den andre innlogginga feila."} Prøv igjen, eller slå av felles innlogging.") }
                     return@launch
                 }
             } else null
@@ -1153,18 +1163,17 @@ class ReelstackViewModel(
             )
         }
         quickConnectJob = viewModelScope.launch {
-            var quickConnect = runCatching {
+            var quickConnect = attempt {
                 withContext(Dispatchers.IO) {
                     if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.initiateQuickConnect(normalizedUrl)
                     else container.jellyfinAuthenticationClient.initiateQuickConnect(normalizedUrl)
                 }
             }.getOrElse { error ->
-                if (error is kotlinx.coroutines.CancellationException) throw error
                 updateDraft {
                     copy(
                         saving = false,
                         quickConnectWaiting = false,
-                        error = error.message ?: "Fekk ikkje starta Quick Connect",
+                        error = error.readableMessage() ?: "Fekk ikkje starta Quick Connect",
                     )
                 }
                 return@launch
@@ -1181,7 +1190,7 @@ class ReelstackViewModel(
             repeat(QUICK_CONNECT_MAX_POLLS) {
                 if (quickConnect.authenticated) {
                     updateDraft { copy(saving = true, quickConnectWaiting = false, error = null) }
-                    val credentials = runCatching {
+                    val credentials = attempt {
                         withContext(Dispatchers.IO) {
                             if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.authenticateWithQuickConnect(normalizedUrl, quickConnect)
                             else container.jellyfinAuthenticationClient.authenticateWithQuickConnect(
@@ -1190,12 +1199,11 @@ class ReelstackViewModel(
                             )
                         }
                     }.getOrElse { error ->
-                        if (error is kotlinx.coroutines.CancellationException) throw error
                         updateDraft {
                             copy(
                                 saving = false,
                                 quickConnectWaiting = false,
-                                error = error.message ?: "Quick Connect vart ikkje fullført",
+                                error = error.readableMessage() ?: "Quick Connect vart ikkje fullført",
                             )
                         }
                         return@launch
@@ -1219,7 +1227,7 @@ class ReelstackViewModel(
                 }
 
                 delay(QUICK_CONNECT_POLL_INTERVAL_MS)
-                quickConnect = runCatching {
+                quickConnect = attempt {
                     withContext(Dispatchers.IO) {
                         if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.quickConnectState(normalizedUrl, quickConnect)
                         else container.jellyfinAuthenticationClient.quickConnectState(
@@ -1228,12 +1236,11 @@ class ReelstackViewModel(
                         )
                     }
                 }.getOrElse { error ->
-                    if (error is kotlinx.coroutines.CancellationException) throw error
                     updateDraft {
                         copy(
                             saving = false,
                             quickConnectWaiting = false,
-                            error = error.message ?: "Mista kontakten med Quick Connect",
+                            error = error.readableMessage() ?: "Mista kontakten med Quick Connect",
                         )
                     }
                     return@launch
@@ -1262,19 +1269,17 @@ class ReelstackViewModel(
             return container.connectionTester.test(connection)
         }
         if (companion != null) {
-            val otherResult = runCatching { withContext(Dispatchers.IO) { verify(companion) } }
-            if (otherResult.exceptionOrNull() is kotlinx.coroutines.CancellationException) throw otherResult.exceptionOrNull()!!
+            val otherResult = attempt { withContext(Dispatchers.IO) { verify(companion) } }
             if (otherResult.getOrNull()?.success != true) {
                 updateDraft { copy(saving = false, error = "Fekk ikkje stadfesta ${companion.kind.displayName}. Ingen tilkoplingar vart endra.") }
                 return
             }
         }
-        val result = runCatching {
+        val result = attempt {
             withContext(Dispatchers.IO) { verify(candidate) }
         }.getOrElse { error ->
-            if (error is kotlinx.coroutines.CancellationException) throw error
             updateDraft {
-                copy(saving = false, error = error.message ?: "Fekk ikkje kontakt med tenesta")
+                copy(saving = false, error = error.readableMessage() ?: "Fekk ikkje kontakt med tenesta")
             }
             return
         }
@@ -1286,15 +1291,14 @@ class ReelstackViewModel(
 
         // The server accepted us, but the token still has to reach the keystore. If that write
         // fails, say so rather than reporting a connection the app cannot actually reuse.
-        val stored = runCatching {
+        val stored = attempt {
             withContext(Dispatchers.IO) {
                 container.connectionRepository.save(candidate)
                 companion?.let { container.connectionRepository.save(it) }
                 container.mediaSnapshotStore.clear()
             }
         }
-        stored.exceptionOrNull()?.let { error ->
-            if (error is kotlinx.coroutines.CancellationException) throw error
+        stored.exceptionOrNull()?.let {
             updateDraft { copy(saving = false, error = "Fekk ikkje lagra innlogginga trygt på denne eininga. Prøv igjen.") }
             return
         }
