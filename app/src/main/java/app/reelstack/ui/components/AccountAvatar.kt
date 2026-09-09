@@ -74,9 +74,12 @@ fun AccountAvatarButton(
     testTag: String,
     modifier: Modifier = Modifier,
 ) {
+    val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     IconButton(
         onClick = onClick,
-        modifier = modifier.size(48.dp).testTag(testTag).semantics { contentDescription = description },
+        interactionSource = interaction,
+        modifier = modifier.size(48.dp).focusOutline(interaction, androidx.compose.foundation.shape.CircleShape)
+            .testTag(testTag).semantics { contentDescription = description },
     ) {
         AccountAvatar(account, connection, Modifier.size(40.dp))
     }

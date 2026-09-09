@@ -108,6 +108,9 @@ Det finst to ulike emulatorroller. Bland dei aldri.
 |---|---|---|
 | emulator-5560 | Fast `Spole_Review` for innlogging og ekte brukardata | Installer med -r; køyr aldri testpakka her |
 | emulator-5562 | Isolert instrumenteringsemulator | Kan nullstillast av testane; bruk denne for heile Android-testpakken |
+| emulator-5564 | Google TV med ekte Jellyfin-/Seerr-kontoar frå 9. september 2026 | No ei review-eining: aldri nullstill, avinstaller eller køyr instrumentering her |
+
+TV-eininga `Spole_GoogleTV_Test` i `C:/JellyBin/.spole-tv-avds` fekk ekte kontoar av brukaren etter alpha06. Det historiske Test-namnet gir ikkje løyve til destruktive testar. Bevar produksjonspakken `app.reelstack` med signert `install -r`. Bruk 5562 til syntetiske testar. Synleg TV-spegel på Windows brukar scrcpy med `--serial emulator-5564 --force-adb-forward --no-audio`.
 
 Review-emulatoren `emulator-5560` er `Spole_Review` i `C:/JellyBin/.spole-review-avds`, med lagra
 brukar-/appdata. Han skal startast med eksisterande data og oppdaterast med `adb install -r`; ikkje

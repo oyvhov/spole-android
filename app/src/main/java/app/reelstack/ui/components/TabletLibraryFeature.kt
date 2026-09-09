@@ -39,7 +39,8 @@ internal fun tabletFeaturedTitle(series: List<LibraryMedia>, sections: Set<HomeS
 
 /** Static composition: one real library title, no timed carousel or invented recommendation. */
 @Composable
-internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit, modifier: Modifier = Modifier,
+    account: (@Composable () -> Unit)? = null) {
     val shortWindow = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 650
     val actionInteraction = remember { MutableInteractionSource() }
     Box(modifier.fillMaxWidth().heightIn(min = if (shortWindow) 250.dp else 330.dp)
@@ -75,6 +76,13 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                     containerColor = Color.White, contentColor = Ink)) {
                 Text(stringResource(R.string.media_view_details))
                 Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.padding(start = 12.dp).size(18.dp))
+            }
+        }
+        if (account != null) {
+            Box(Modifier.align(Alignment.TopEnd).padding(16.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape).background(Ink)
+                .padding(4.dp).testTag("feature-account-overlay")) {
+                account()
             }
         }
     }

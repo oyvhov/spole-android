@@ -1,6 +1,11 @@
 package app.reelstack
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -40,5 +45,24 @@ class TabletFeatureTest {
         }
         rule.onNodeWithTag("tablet-feature-open").assertIsDisplayed()
         rule.onNodeWithText(media.title).assertIsDisplayed()
+    }
+    @Test fun accountOverlaysArtworkWithoutAddingAHeaderOrOpeningTitle() {
+        var accountOpened = false
+        var titleOpened = false
+        rule.setContent {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(760.dp, 540.dp))) {
+                ReelstackTheme { TabletLibraryFeature(media, { titleOpened = true }, account = {
+                    Button({ accountOpened = true }, Modifier.size(48.dp).testTag("profile")) { Text("P") }
+                }) }
+            }
+        }
+        val feature = rule.onNodeWithTag("tablet-library-feature").fetchSemanticsNode().boundsInRoot
+        val overlay = rule.onNodeWithTag("feature-account-overlay").fetchSemanticsNode().boundsInRoot
+        val title = rule.onNodeWithText(media.title).fetchSemanticsNode().boundsInRoot
+        assertTrue(overlay.top >= feature.top && overlay.bottom < feature.bottom)
+        assertTrue(overlay.left > title.right)
+        rule.onNodeWithTag("profile").assertIsDisplayed().performClick()
+        assertTrue(accountOpened)
+        assertFalse(titleOpened)
     }
 }

@@ -160,13 +160,13 @@ fun HomeScreen(
         LazyColumn(
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
-                top = ReelLayout.PageTop,
+                top = if (featured != null) 16.dp else ReelLayout.PageTop,
                 end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
             modifier = Modifier.fillMaxSize().testTag("home-feed"),
         ) {
-            item {
+            if (featured == null) item {
                 Box(Modifier.padding(end = if (edge) ReelLayout.Gutter else 0.dp)) { HomeHeader(state, onAccountClick, showBrand) }
             }
             if (showSearch) item(key = "search-entry") {
@@ -176,7 +176,9 @@ fun HomeScreen(
             }
             if (featured != null) {
                 item(key = "tablet-feature") {
-                    TabletLibraryFeature(featured, onLibraryClick, Modifier.padding(top = 20.dp, bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp))
+                    TabletLibraryFeature(featured, onLibraryClick,
+                        Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp),
+                        account = { HomeAccountButton(state, onAccountClick) })
                 }
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
@@ -340,8 +342,6 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, show
         animationSpec = tween(durationMillis = 220),
         label = "home-header-reveal",
     )
-    val account = state.preferredHomeAccount()
-    val connection = state.connections.firstOrNull { it.kind == account?.source }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().testTag("home-header").graphicsLayer {
@@ -355,7 +355,15 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, show
                 Text("Spole", color = TextColor, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
             } else Spacer(Modifier.weight(1f))
-        AccountAvatarButton(
+        HomeAccountButton(state, onAccountClick)
+    }
+}
+
+@Composable
+private fun HomeAccountButton(state: ReelstackUiState, onAccountClick: () -> Unit) {
+    val account = state.preferredHomeAccount()
+    val connection = state.connections.firstOrNull { it.kind == account?.source }
+    AccountAvatarButton(
             account = account,
             connection = connection,
             onClick = onAccountClick,
@@ -363,7 +371,6 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, show
                 ?: "Opne kontoinnstillingar",
             testTag = "home-account",
         )
-    }
 }
 
 private fun mediaEmptyMessage(state: ReelstackUiState, source: ServiceKind, emptyMessage: String): String =

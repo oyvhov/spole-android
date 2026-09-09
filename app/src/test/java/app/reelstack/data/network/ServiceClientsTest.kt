@@ -372,12 +372,15 @@ class ServiceClientsTest {
 
     @Test
     fun sonarrFeedLoadsQueueAndUpcomingCalendar() {
+        val now = java.time.Instant.now()
+        val future = now.plus(4, java.time.temporal.ChronoUnit.DAYS)
+        val recent = now.minus(4, java.time.temporal.ChronoUnit.DAYS)
         val transport = RecordingTransport(
             getResponses = mutableListOf(
                 HttpResponse(200, """{"records":[]}"""),
                 HttpResponse(200, """[
-                    {"id":3,"airDateUtc":"2026-09-09T19:00:00Z","series":{"title":"Andor"}},
-                    {"id":2,"airDateUtc":"2026-09-05T19:00:00Z","series":{"title":"Silo"}}
+                    {"id":3,"airDateUtc":"$future","series":{"title":"Andor"}},
+                    {"id":2,"airDateUtc":"$recent","series":{"title":"Silo"}}
                 ]"""),
             ),
         )

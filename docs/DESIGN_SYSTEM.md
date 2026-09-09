@@ -220,6 +220,8 @@ TV uses a two-column service-first welcome layout from 680 dp available width. B
 
 ### Wide content rhythm
 
+- When Home has a wide library feature, the separate header row is omitted. The feature starts at a 16 dp top gutter; a 48 dp account target sits on a small matte circular backing inside the artwork's top trailing corner. Text occupies the opposite column, so the profile does not cover the title or synopsis. The account scrolls with its feature and remains independent from the details action. Without a feature, the normal header remains. The shared avatar button now exposes the standard remote focus outline.
+
 - On wide Home, active sessions use independent 480 dp horizontal cards rather than stretching one session into another full-width hero. Details and playback remain separate focusable actions; pending playback actions cannot repeat.
 - Discover places heading, search and account in one row from 680 dp of available content width. At 2× text size or smaller widths it stacks search underneath. No query or account state is recreated when layout changes.
 - TV content uses the wide canvas from 640 dp after the navigation rail; a 960 dp TV window must not accidentally receive the phone layout because its rail consumes 200 dp.
