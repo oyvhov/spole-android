@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="sidebar_collapse">Minimer menyen</string>
+    <string name="sidebar_expand">Utvid menyen</string>
     <string name="personal_title">Gjer Spole til din</string>
     <string name="personal_scope">Utsjånad og avspeling på denne eininga. Kontoane og rettane dine blir ikkje endra.</string>
     <string name="personal_appearance">Utsjånad</string>

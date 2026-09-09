@@ -1,5 +1,15 @@
 # Spole design system
 
+## Minimerbar sidemeny · alpha04
+
+Alle vindauge med siderad får ei samanhengande matt Surface-flate i full tilgjengeleg apphøgd. Veksleknappen vel 200 dp med ikon/tekst eller 80 dp med berre ikon. Breidda brukar ein 220 ms FastOutSlowIn-overgang; etikettane tonar på 140 ms. Ingen fjør, automatisk opning ved fokus eller flytande meny. Dei same fokusbare kontrollane blir bevarte, ikonkolonna flyttar seg ikkje, og den aktive destinasjonen er uendra. Berre breidda endrar seg.
+
+`SidebarSlot` set innhaldssida si nye breidd éin gong ved veksling. Menyen teiknar over denne flata under overgangen, slik at kunst, gradientar og rutenett ikkje får nye målingar for kvar animasjonsramme. Profilkontrollen held høgre innrykk.
+
+Valet er lokalt og overlever omstart. Utan lagra val er menyen brei frå 1000 dp eller ved TV-konfigurasjon, elles kompakt. Under 640 dp blir mobilnavigasjonen brukt utan å slette det lagra menyvalet. Spole-merket ligg i siderada i begge breidder; profilen held sitt innrykk på innhaldssida.
+
+Kvar kontroll har minst 56 × 58 dp trefflate i kompakt modus, eksplisitt namn for skjermlesar og synleg tastatur-/D-pad-fokus. Veksleknappen er Button, destinasjonane Tab. Retningstastar og Enter brukar vanleg fokusrekkefølgje; Tilbake blir ikkje kapra globalt. [Verifisering](SIDEBAR_ALPHA04.md).
+
 ## Brei meny, innstillingar og video · alpha03
 
 Frå 1000 dp appvindauge får navigasjonen ein 200 dp brei sidemeny. Den kompakte 80 dp rada blir bevart mellom 640 og 999 dp. TV-konfigurasjon vel den breie varianten når siderada er aktiv. Destinasjonar har minst 58 dp høgd, ikon og tekst, matt aksentflate ved val og ein tydeleg 2 dp fokusramme ved tastatur/D-pad. Val er semantisk Tab, ikkje berre farge.

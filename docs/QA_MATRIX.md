@@ -2,7 +2,11 @@
 
 Oppretta 8. september, oppdatert 9. september 2026. Første dokumentasjonsrunde brukte 0.15.1 / 43, commit `265321c`. Nattrunden implementerer appfunksjonar i **0.16.0-alpha01 / 44**. [Gjeldande veikart](../ROADMAP.md).
 
-## Nyaste oppfølging — personleg flyt og nettbrett, alpha03 / 46
+## Nyaste oppfølging — minimerbar sidemeny, alpha04 / 47
+
+[Sidemenyrapporten](SIDEBAR_ALPHA04.md) dokumenterer fullhøgd ikonrad/utvida meny, lagra breiddeval og fjernkontrollførebuing. Teststatus blir ført der; fysisk TV er framleis ope.
+
+## Førre oppfølging — personleg flyt og nettbrett, alpha03 / 46
 
 [Alpha03-rapporten](ROADMAP_BATCH_ALPHA03.md) er nyaste testkjelde: fjerna nettbrettsnarveg til søk, sidestilte episodedetaljar, engelsk konto-/førespurnadsflyt og ingen strekk ved scrollkanten inne i popupane. Utvida med aksent/biletstorleik, automatisk framhald, kant-til-kant mediarader, brei sidemeny, todelte innstillingar og immersive-video. Den gamle halden-peikar-testen er køyrd uendra og fullfører no på nettbrett. Endelege tal og attståande fysisk verifisering står i rapporten.
 

@@ -23,4 +23,5 @@ data class Personalization(
     val accent: AccentPalette = AccentPalette.LIME,
     val artworkSize: ArtworkSize = ArtworkSize.STANDARD,
     val autoResume: Boolean = true,
+    val sidebarExpanded: Boolean? = null,
 )

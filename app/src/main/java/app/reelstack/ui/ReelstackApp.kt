@@ -9,6 +9,16 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.MenuOpen
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -64,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -154,8 +165,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val windowLayout = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
     val wideWindow = windowLayout.useNavigationRail
     val showRail = !state.showOnboarding && wideWindow
-    val expandedRail = showRail && (windowLayout.widthDp >= 1000f ||
-        (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
+    val personalization = app.reelstack.ui.theme.LocalPersonalization.current
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val preferences = remember(appContext) { app.reelstack.data.repository.AppPreferencesRepository(appContext) }
+    val expandedRail = showRail && (personalization.sidebarExpanded ?: (windowLayout.widthDp >= 1000f ||
+        (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION))
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -171,11 +185,14 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         ) { paddingValues ->
             Row(Modifier.fillMaxSize().padding(paddingValues)) {
             if (showRail) {
+                SidebarSlot(expandedRail) {
                 ReelstackNavigationRail(
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
                     expanded = expandedRail,
+                    onExpandedChange = { preferences.personalization = personalization.copy(sidebarExpanded = it) },
                 )
+                }
             }
             Box(Modifier.weight(1f).fillMaxSize()) {
             if (state.showOnboarding) {
@@ -221,7 +238,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         },
                         searchTransitionModifier = searchTransition,
                         showSearch = windowLayout.showHomeSearch,
-                        showBrand = !expandedRail,
+                        showBrand = !showRail,
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
                         state = state,
@@ -343,49 +360,63 @@ private fun ReelstackBottomBar(
 }
 
 @Composable
+internal fun SidebarSlot(expanded: Boolean, content: @Composable () -> Unit) {
+    // Commit the page width once. The rail reveals/clips above it instead of resizing every
+    // poster, gradient and lazy grid on every animation frame.
+    Box(Modifier.width(if (expanded) 200.dp else 80.dp).fillMaxHeight().zIndex(1f).testTag("sidebar-slot")) {
+        Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)) { content() }
+    }
+}
+
+@Composable
 internal fun ReelstackNavigationRail(
     selectedTab: AppTab,
     onSelect: (AppTab) -> Unit,
     expanded: Boolean = false,
+    onExpandedChange: (Boolean) -> Unit = {},
 ) {
-    if (expanded) {
-        Column(Modifier.width(200.dp).fillMaxHeight().background(Ink).testTag("side-navigation")
-            .padding(horizontal = 12.dp, vertical = 24.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Image(painterResource(R.drawable.spole_mark), null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(Primary))
-                Text("Spole", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 10.dp))
-            }
-            Spacer(Modifier.height(38.dp))
-            tabs.forEach { item ->
-                app.reelstack.ui.components.WideDestination(
-                    androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab,
-                    { onSelect(item.tab) }, Modifier.testTag("wide-tab-${item.tab.name}"))
-            }
+    val width by androidx.compose.animation.core.animateDpAsState(
+        if (expanded) 200.dp else 80.dp, tween(220, easing = FastOutSlowInEasing), label = "sidebar-width")
+    val labelAlpha by androidx.compose.animation.core.animateFloatAsState(
+        if (expanded) 1f else 0f, tween(140), label = "sidebar-labels")
+    Column(Modifier.width(width).fillMaxHeight().background(app.reelstack.ui.theme.Surface).clip(RoundedCornerShape(0.dp))
+        .testTag("side-navigation").padding(horizontal = 12.dp, vertical = 24.dp)
+        .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.height(48.dp).padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(painterResource(R.drawable.spole_mark), null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(Primary))
+            Text("Spole", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge,
+                maxLines = 1, modifier = Modifier.padding(start = 10.dp)
+                    .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
         }
-        return
-    }
-    NavigationRail(
-        containerColor = Ink,
-        windowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = Modifier.fillMaxHeight().testTag("side-navigation"),
-    ) {
-        Spacer(Modifier.weight(1f))
+        val toggleLabel = androidx.compose.ui.res.stringResource(if (expanded) R.string.sidebar_collapse else R.string.sidebar_expand)
+        SidebarControl(toggleLabel, if (expanded) Icons.Rounded.MenuOpen else Icons.Rounded.Menu,
+            false, { onExpandedChange(!expanded) }, labelAlpha, Role.Button, Modifier.testTag("sidebar-toggle"))
         tabs.forEach { item ->
-            NavigationRailItem(
-                selected = item.tab == selectedTab,
-                onClick = { onSelect(item.tab) },
-                icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
-                label = { Text(androidx.compose.ui.res.stringResource(item.label), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = Primary,
-                    selectedTextColor = Primary,
-                    indicatorColor = SurfaceRaised,
-                    unselectedIconColor = app.reelstack.ui.theme.Muted,
-                    unselectedTextColor = app.reelstack.ui.theme.Muted,
-                ),
-            )
+            SidebarControl(androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab,
+                { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.testTag("wide-tab-${item.tab.name}"))
         }
-        Spacer(Modifier.weight(1f))
+    }
+}
+
+/** Keep the same focusable nodes and icon positions in both sizes. Only labels fade and clip. */
+@Composable
+private fun SidebarControl(label: String, icon: ImageVector, selected: Boolean,
+    onClick: () -> Unit, labelAlpha: Float, role: Role, modifier: Modifier) {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(16.dp)
+    Row(modifier.fillMaxWidth().heightIn(min = 58.dp).clip(shape)
+        .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+        .border(if (focused) 2.dp else 0.dp, if (focused) Primary else Color.Transparent, shape)
+        .semantics { contentDescription = label }
+        .selectable(selected, role = role, interactionSource = interaction,
+            indication = androidx.compose.foundation.LocalIndication.current, onClick = onClick)
+        .padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = if (selected || focused) Primary else app.reelstack.ui.theme.Muted, modifier = Modifier.size(24.dp))
+        Text(label, color = if (selected || focused) MaterialTheme.colorScheme.onSurface else app.reelstack.ui.theme.Muted,
+            style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 14.dp).wrapContentWidth(Alignment.Start, unbounded = true)
+                .requiredWidth(106.dp).graphicsLayer { alpha = labelAlpha }
+                .clearAndSetSemantics {})
     }
 }

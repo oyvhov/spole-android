@@ -13,16 +13,18 @@ class AppPreferencesRepository(context: Context) {
             accent = app.reelstack.data.model.AccentPalette.decode(preferences.getString("accent_palette", null)),
             artworkSize = app.reelstack.data.model.ArtworkSize.decode(preferences.getString("artwork_size", null)),
             autoResume = preferences.getBoolean("auto_resume", true),
+            sidebarExpanded = if (preferences.contains("sidebar_expanded")) preferences.getBoolean("sidebar_expanded", true) else null,
         )
         set(value) = preferences.edit {
             putString("accent_palette", value.accent.name)
             putString("artwork_size", value.artworkSize.name)
             putBoolean("auto_resume", value.autoResume)
+            value.sidebarExpanded?.let { putBoolean("sidebar_expanded", it) } ?: remove("sidebar_expanded")
         }
 
     fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key in setOf("accent_palette", "artwork_size", "auto_resume")) onChange(personalization)
+            if (key in setOf("accent_palette", "artwork_size", "auto_resume", "sidebar_expanded")) onChange(personalization)
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         onChange(personalization)

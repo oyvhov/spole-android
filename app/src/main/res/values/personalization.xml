@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="sidebar_collapse">Minimise menu</string>
+    <string name="sidebar_expand">Expand menu</string>
     <string name="personal_title">Make it yours</string>
     <string name="personal_scope">Appearance and playback on this device. Your accounts and permissions stay unchanged.</string>
     <string name="personal_appearance">Appearance</string>

@@ -1,6 +1,6 @@
 # Spole — veikart mot 1.0
 
-Oppdatert 9. september 2026. Publisert utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal førehandsversjon: **0.16.0-alpha03 / bygg 46**; ikkje publisert. [Siste arbeidsbolk](docs/ROADMAP_BATCH_ALPHA03.md).
+Oppdatert 9. september 2026. Publisert utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal førehandsversjon: **0.16.0-alpha04 / bygg 47**; ikkje publisert. [Minimerbar sidemeny](docs/SIDEBAR_ALPHA04.md) · [Førre arbeidsbolk](docs/ROADMAP_BATCH_ALPHA03.md).
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.
 

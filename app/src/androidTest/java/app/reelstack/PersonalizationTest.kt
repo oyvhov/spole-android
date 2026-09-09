@@ -117,11 +117,11 @@ class PersonalizationTest {
         try {
             repository.personalization = Personalization()
             rule.setContent { ReelstackTheme { primary = MaterialTheme.colorScheme.primary } }
-            rule.runOnIdle { repository.personalization = Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false) }
+            rule.runOnIdle { repository.personalization = Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false) }
             rule.waitForIdle()
             rule.runOnIdle {
                 assertEquals(Color(AccentPalette.IRIS.argb), primary)
-                assertEquals(Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false),
+                assertEquals(Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false),
                     AppPreferencesRepository(context).personalization)
             }
         } finally {
