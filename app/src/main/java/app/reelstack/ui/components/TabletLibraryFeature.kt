@@ -80,8 +80,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         }
         if (account != null) {
             Box(Modifier.align(Alignment.TopEnd).padding(16.dp)
-                .clip(androidx.compose.foundation.shape.CircleShape).background(Ink)
-                .padding(4.dp).testTag("feature-account-overlay")) {
+                .testTag("feature-account-overlay")) {
                 account()
             }
         }

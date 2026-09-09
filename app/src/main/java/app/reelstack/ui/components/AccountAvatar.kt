@@ -2,6 +2,7 @@ package app.reelstack.ui.components
 
 import app.reelstack.data.repository.DeviceIdentity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -73,6 +74,7 @@ fun AccountAvatarButton(
     description: String,
     testTag: String,
     modifier: Modifier = Modifier,
+    onArtwork: Boolean = false,
 ) {
     val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     IconButton(
@@ -81,6 +83,8 @@ fun AccountAvatarButton(
         modifier = modifier.size(48.dp).focusOutline(interaction, androidx.compose.foundation.shape.CircleShape)
             .testTag(testTag).semantics { contentDescription = description },
     ) {
-        AccountAvatar(account, connection, Modifier.size(40.dp))
+        AccountAvatar(account, connection, Modifier.size(40.dp).then(
+            if (onArtwork) Modifier.border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = .65f), CircleShape)
+            else Modifier))
     }
 }

@@ -14,6 +14,8 @@ Kjeldearbeid etter Claude sin gjennomgang (`6e31ad5`): [Innloggingsspråk og TV-
 
 ## Kvar står vi?
 
+Ny kjeldebolk: [Aktivitetsgalleri, eigne menyikon, profil, logo og TV-detaljar](docs/ACTIVITY_TV_REFINEMENT.md). Visuelt kontrollert med ekte Seerr/Jellyfin-data på TV; 283 JVM- og 21 målretta Android-testar bestod. Ingen ny publisering. Bibliotekretninga er vald: eiga katalogside med paginering og personleg tilgang; ikkje implementert enno.
+
 Ny kjeldebolk: [Oppdatering med fjernkontroll og språk på Heim](docs/HOME_REFRESH_PASS.md). Bibliotekfeltet har òg integrert profiloverlegg, kontrollert med ekte kontoar på TV-emulatoren: [visuell kontroll](docs/TV_HERO_OVERLAY_VERIFICATION.md).
 
 TV-oppsett er no implementert og målretta emulator-testa: [TV-startside og innlogging](docs/TV_SETUP_PASS.md). Reell godkjenning med brukarens konto og fysisk TV står framleis att.

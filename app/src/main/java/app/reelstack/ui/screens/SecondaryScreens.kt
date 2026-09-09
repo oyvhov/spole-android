@@ -583,14 +583,26 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         sourceFilter == ActivityFilter.ALL || event.source == sourceFilter.source
     }
     val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
-    ReelPage {
-    LazyColumn(contentPadding = screenPadding(contentPadding), modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
-        item {
+    ReelPage(media = true) {
+    val wideActivity = app.reelstack.ui.theme.LocalTabletCanvas.current && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.6f
+    val tvActivity = wideActivity && (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    LazyVerticalGrid(columns = GridCells.Adaptive(if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.6f) 280.dp else if (wideActivity) 180.dp else 145.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(if (tvActivity) 16.dp else 28.dp),
+        contentPadding = if (tvActivity) PaddingValues(24.dp) else screenPadding(contentPadding),
+        modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+          Column(Modifier.fillMaxWidth().testTag("activity-heading-block")) {
             val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
             val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                    ScreenHeader("", stringResource(R.string.nav_activity), stringResource(R.string.activity_subtitle))
+                    if (tvActivity) Text(stringResource(R.string.nav_activity), color = TextColor,
+                        fontSize = 30.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                    else ScreenHeader("", stringResource(R.string.nav_activity), stringResource(R.string.activity_subtitle))
+                }
+                if (wideActivity && (state.adminView || state.configuredCount == 0)) {
+                    ActivityScopeMenu(sourceFilter, { savedSourceFilter = it })
                 }
                 AccountAvatarButton(
                     account, connection, onAccountClick,
@@ -609,17 +621,23 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(start = 10.dp))
             }
-            if (state.adminView || state.configuredCount == 0) {
+            if (!wideActivity && (state.adminView || state.configuredCount == 0)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.activity_view), color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     ActivityScopeMenu(sourceFilter, { savedSourceFilter = it })
                 }
             }
+          }
         }
         if (sourceFilter == ActivityFilter.MINE) {
-            item {
-                Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (state.trackedRequests.any { it.availabilityOnly }) stringResource(R.string.activity_following) else stringResource(R.string.activity_requests), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            item(span = { GridItemSpan(maxLineSpan) }) {
+              Column(Modifier.fillMaxWidth().testTag("activity-filter-block")) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) {
+                        if (state.trackedRequests.isNotEmpty()) {
+                            AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) }, { personalFilter = it })
+                        }
+                    }
                     IconButton(onClick = onRefresh, enabled = !state.trackingLoading,
                         modifier = Modifier.testTag("activity-refresh")) {
                         if (state.trackingLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
@@ -628,7 +646,6 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 }
                 state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp)) }
                 if (state.trackedRequests.isNotEmpty()) {
-                    AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) }, { personalFilter = it }, Modifier.padding(top = 4.dp, bottom = 12.dp))
                     if (personalRequests.isEmpty()) Text(stringResource(R.string.activity_empty_filter), color = Muted,
                         modifier = Modifier.padding(vertical = 16.dp))
                 }
@@ -643,6 +660,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 if (state.trackedRequests.isEmpty()) Text(if (state.trackingLoading) stringResource(R.string.activity_loading) else
                     stringResource(R.string.activity_empty),
                     color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 18.dp))
+              }
             }
             items(personalRequests, key = { "follow-${it.key}" }) { request ->
                 app.reelstack.ui.TrackedRequestCard(
@@ -654,17 +672,17 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 )
             }
         } else if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {
-            item { ActivitySkeleton(Modifier.fillMaxWidth()) }
+            item(span = { GridItemSpan(maxLineSpan) }) { ActivitySkeleton(Modifier.fillMaxWidth()) }
         } else if (events.isEmpty()) {
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(vertical = 24.dp)) {
                     Text(stringResource(R.string.activity_no_events), color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text(if (sourceFilter == ActivityFilter.ALL) "Nye oppdateringar dukkar opp her." else "Prøv Alt for å sjå dei andre tenestene.",
+                    Text(stringResource(if (sourceFilter == ActivityFilter.ALL) R.string.activity_updates_here else R.string.activity_try_all),
                         color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         } else {
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(stringResource(R.string.activity_services), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp))
             }
@@ -674,7 +692,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 val group = activityDayGroup(event)
                 if (group != lastGroup) {
                     lastGroup = group
-                    item(key = "group-${event.id}") {
+                    item(key = "group-${event.id}", span = { GridItemSpan(maxLineSpan) }) {
                         Text(group, color = Muted, fontSize = 11.sp, letterSpacing = 1.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(top = 20.dp, bottom = 2.dp).semantics { heading() })
@@ -711,28 +729,32 @@ private fun ActivityScopeMenu(selected: ActivityFilter, onSelect: (ActivityFilte
 
 @Composable
 private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
-    // Episodes carry 16:9 stills and films carry 2:3 posters. A constant frame width keeps every
-    // title on the same left edge while each format keeps its own shape and stays uncropped.
+    // Keep source artwork uncropped; episodes use a wide still instead of a stretched poster.
     val wide = event.mediaType?.equals("Episode", ignoreCase = true) == true
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .focusOutline(interaction, shape)
+            .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
+                role = Role.Button, onClick = onClick).testTag("activity-event-${event.id}"),
     ) {
+      Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f).clip(RoundedCornerShape(14.dp)).background(Ink)) {
         MediaArtwork(
             url = event.artworkUrl,
             fallbackRes = event.artworkRes ?: R.drawable.media_placeholder,
             contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.width(96.dp).aspectRatio(if (wide) 16f / 9f else 2f / 3f)
-                .clip(RoundedCornerShape(10.dp)),
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth().align(Alignment.Center).aspectRatio(if (wide) 16f / 9f else 2f / 3f),
         )
-        Column(modifier = Modifier.weight(1f).padding(start = 16.dp)) {
+      }
+        Column(modifier = Modifier.padding(top = 12.dp, start = 2.dp, end = 2.dp)) {
             Text(event.title, color = TextColor, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 4.dp)) {
                 Icon(
                     if (event.complete) Icons.Rounded.Check else if (event.source == ServiceKind.SEERR) Icons.Rounded.CloudDone else Icons.Rounded.Download,
                     contentDescription = null,
-                    tint = if (event.complete) Success else Primary,
+                    tint = if (event.complete) Success else Muted,
                     modifier = Modifier.padding(top = 1.dp).size(14.dp),
                 )
                 Text(event.detail, color = Muted, fontSize = 12.sp, lineHeight = 17.sp,

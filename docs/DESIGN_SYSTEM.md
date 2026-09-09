@@ -1,5 +1,9 @@
 # Spole design system
 
+## Aktivitets- og TV-oppfølging etter alpha06
+
+Aktivitet brukar eit kantlaust plakatgalleri i staden for grå radkort: 2:3-bilete, 14 dp bilethjørne, status på mørk nedtoning, tittel under og eigne varslingshandlingar. Tilpassa kolonner og større minimumsbreidd ved stor skrift. Menyen brukar originale `SpoleIcons` med felles 24-einings rutenett og 1,8-einings avrunda strekar; inga endring i treffflater, etikettar eller fokussemantikk. Nettbrettlogoen eig menyvekslinga; TV beheld ei eksplisitt menyhandling. Profil over kunst har berre ei tynn lys kant, ingen ekstra svart sirkel. TV-titteldetaljar fyller vindauget med Tilbake øvst til venstre; mobil/nettbrett-panel er uendra. Dette gjeld framfor eldre reglar under. Sjå [designval og avgrensingar](ACTIVITY_TV_REFINEMENT.md).
+
 ## Minimerbar sidemeny · alpha04
 
 Alle vindauge med siderad får ei samanhengande matt Surface-flate i full tilgjengeleg apphøgd. Veksleknappen vel 200 dp med ikon/tekst eller 80 dp med berre ikon. Breidda brukar ein 220 ms FastOutSlowIn-overgang; etikettane tonar på 140 ms. Ingen fjør, automatisk opning ved fokus eller flytande meny. Dei same fokusbare kontrollane blir bevarte, ikonkolonna flyttar seg ikkje, og den aktive destinasjonen er uendra. Berre breidda endrar seg.

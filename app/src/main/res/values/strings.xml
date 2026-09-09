@@ -17,4 +17,8 @@
     <string name="home_source_failed">Could not refresh %1$s. Check the connection in Settings.</string>
     <string name="home_source_partial">%1$s is connected, but this row could not refresh.</string>
     <string name="home_resume_description">Resume %1$s, %2$d percent watched</string>
+    <string name="activity_updates_here">New updates will appear here.</string>
+    <string name="activity_try_all">Choose All to see the other services.</string>
+    <string name="activity_more_options">More options</string>
+    <string name="activity_less_options">Fewer options</string>
 </resources>

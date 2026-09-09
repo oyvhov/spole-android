@@ -16,4 +16,8 @@
     <string name="home_source_failed">Fekk ikkje oppdatert %1$s. Sjekk tilkoplinga i Innstillingar.</string>
     <string name="home_source_partial">%1$s er tilkopla, men denne rada vart ikkje oppdatert.</string>
     <string name="home_resume_description">Hald fram på %1$s, %2$d prosent sett</string>
+    <string name="activity_updates_here">Nye oppdateringar dukkar opp her.</string>
+    <string name="activity_try_all">Vel Alt for å sjå dei andre tenestene.</string>
+    <string name="activity_more_options">Fleire val</string>
+    <string name="activity_less_options">Færre val</string>
 </resources>

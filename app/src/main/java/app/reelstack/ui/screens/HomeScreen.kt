@@ -178,7 +178,7 @@ fun HomeScreen(
                 item(key = "tablet-feature") {
                     TabletLibraryFeature(featured, onLibraryClick,
                         Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp),
-                        account = { HomeAccountButton(state, onAccountClick) })
+                        account = { HomeAccountButton(state, onAccountClick, onArtwork = true) })
                 }
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
@@ -356,7 +356,7 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, show
 }
 
 @Composable
-private fun HomeAccountButton(state: ReelstackUiState, onAccountClick: () -> Unit) {
+private fun HomeAccountButton(state: ReelstackUiState, onAccountClick: () -> Unit, onArtwork: Boolean = false) {
     val account = state.preferredHomeAccount()
     val connection = state.connections.firstOrNull { it.kind == account?.source }
     AccountAvatarButton(
@@ -366,6 +366,7 @@ private fun HomeAccountButton(state: ReelstackUiState, onAccountClick: () -> Uni
             description = account?.let { stringResource(R.string.home_open_account, it.displayName, it.source.displayName) }
                 ?: stringResource(R.string.home_account_settings),
             testTag = "home-account",
+            onArtwork = onArtwork,
         )
 }
 

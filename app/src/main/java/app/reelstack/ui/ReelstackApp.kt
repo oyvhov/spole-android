@@ -1,4 +1,6 @@
 package app.reelstack.ui
+import app.reelstack.ui.components.focusOutline
+import androidx.compose.foundation.clickable
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SharedTransitionLayout
@@ -314,10 +316,10 @@ private data class TabItem(
 )
 
 private val tabs = listOf(
-    TabItem(AppTab.HOME, app.reelstack.R.string.nav_home, Icons.Rounded.Home),
-    TabItem(AppTab.DISCOVER, app.reelstack.R.string.nav_discover, Icons.Rounded.Explore),
-    TabItem(AppTab.ACTIVITY, app.reelstack.R.string.nav_activity, Icons.AutoMirrored.Rounded.ViewList),
-    TabItem(AppTab.SETTINGS, app.reelstack.R.string.nav_settings, Icons.Rounded.Settings),
+    TabItem(AppTab.HOME, app.reelstack.R.string.nav_home, app.reelstack.ui.components.SpoleIcons.Home),
+    TabItem(AppTab.DISCOVER, app.reelstack.R.string.nav_discover, app.reelstack.ui.components.SpoleIcons.Discover),
+    TabItem(AppTab.ACTIVITY, app.reelstack.R.string.nav_activity, app.reelstack.ui.components.SpoleIcons.Activity),
+    TabItem(AppTab.SETTINGS, app.reelstack.R.string.nav_settings, app.reelstack.ui.components.SpoleIcons.Settings),
 )
 
 @Composable
@@ -379,17 +381,26 @@ internal fun ReelstackNavigationRail(
         if (expanded) 200.dp else 80.dp, tween(220, easing = FastOutSlowInEasing), label = "sidebar-width")
     val labelAlpha by androidx.compose.animation.core.animateFloatAsState(
         if (expanded) 1f else 0f, tween(140), label = "sidebar-labels")
+    val tv = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val toggleLabel = androidx.compose.ui.res.stringResource(if (expanded) R.string.sidebar_collapse else R.string.sidebar_expand)
+    val brandInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Column(Modifier.width(width).fillMaxHeight().background(app.reelstack.ui.theme.Surface).clip(RoundedCornerShape(0.dp))
         .testTag("side-navigation").padding(horizontal = 12.dp, vertical = 24.dp)
         .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.height(48.dp).padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).then(if (!tv) Modifier
+            .testTag("sidebar-toggle").semantics { contentDescription = toggleLabel }
+            .clip(RoundedCornerShape(16.dp))
+            .focusOutline(brandInteraction, RoundedCornerShape(16.dp))
+            .clickable(interactionSource = brandInteraction, indication = androidx.compose.foundation.LocalIndication.current,
+                role = Role.Button, onClick = { onExpandedChange(!expanded) }) else Modifier)
+            .padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.spole_mark), null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(Primary))
             Text("Spole", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge,
                 maxLines = 1, modifier = Modifier.padding(start = 10.dp)
                     .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
         }
-        val toggleLabel = androidx.compose.ui.res.stringResource(if (expanded) R.string.sidebar_collapse else R.string.sidebar_expand)
-        SidebarControl(toggleLabel, if (expanded) Icons.Rounded.MenuOpen else Icons.Rounded.Menu,
+        if (tv) SidebarControl(toggleLabel, if (expanded) app.reelstack.ui.components.SpoleIcons.MenuClose else app.reelstack.ui.components.SpoleIcons.Menu,
             false, { onExpandedChange(!expanded) }, labelAlpha, Role.Button, Modifier.testTag("sidebar-toggle"))
         tabs.forEach { item ->
             SidebarControl(androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab,

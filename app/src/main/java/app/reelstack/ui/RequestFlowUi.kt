@@ -42,6 +42,7 @@ import app.reelstack.data.model.*
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.RequestIdentity
 import app.reelstack.ui.components.SheetToolbar
+import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.theme.*
 
 @Composable
@@ -211,35 +212,29 @@ fun TrackedRequestCard(
     val notifyAction by rememberUpdatedState(onNotify)
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifyAction(true) }
     val active = item.stage != RequestStage.AVAILABLE
+    val detailsInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val notifyInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    var options by rememberSaveable(item.key) { mutableStateOf(false) }
     val notificationLabel = stringResource(if (item.notify) R.string.flow_notify_on_title else R.string.flow_notify_off_title, item.title)
-    Surface(
-        color = SurfaceRaised,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("tracked-request-${item.key}"),
-    ) {
+    Box(Modifier.widthIn(max = 300.dp).fillMaxWidth().testTag("tracked-request-${item.key}")) {
         Column {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    Modifier.weight(1f).clickable(onClickLabel = stringResource(R.string.flow_detail_named, item.title), onClick = onDetails)
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    Modifier.fillMaxWidth().focusOutline(detailsInteraction, RoundedCornerShape(14.dp))
+                        .clickable(interactionSource = detailsInteraction, indication = androidx.compose.foundation.LocalIndication.current,
+                            onClickLabel = stringResource(R.string.flow_detail_named, item.title), onClick = onDetails)
+                        .testTag("tracked-details-${item.key}"),
                 ) {
+                  Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(14.dp))) {
                     MediaArtwork(
                         item.artworkUrl, app.reelstack.R.drawable.media_placeholder, null,
-                        Modifier.width(68.dp).height(102.dp).clip(RoundedCornerShape(10.dp)),
-                        ContentScale.Crop, ServiceKind.SEERR,
+                        Modifier.fillMaxSize(), ContentScale.Fit, ServiceKind.SEERR,
                     )
-                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                        Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp,
-                            lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        Text(
-                            (if (item.seasons.isEmpty()) stringResource(R.string.flow_film) else stringResource(R.string.flow_season_numbers, item.seasons.sorted().joinToString(", "))) +
-                                (if (item.is4k) " · 4K" else "") + (if (item.availabilityOnly) " · " + stringResource(R.string.flow_watch_only) else ""),
-                            color = Muted, fontSize = 11.sp, lineHeight = 16.sp,
-                            modifier = Modifier.padding(top = 3.dp),
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 9.dp)) {
+                    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                        0f to androidx.compose.ui.graphics.Color.Transparent,
+                        .6f to androidx.compose.ui.graphics.Color.Transparent,
+                        1f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .94f))))
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)) {
                             Icon(
                                 when (item.stage) {
                                     RequestStage.AVAILABLE -> Icons.Rounded.CheckCircle
@@ -250,7 +245,7 @@ fun TrackedRequestCard(
                                 tint = when (item.stage) {
                                     RequestStage.AVAILABLE -> Success
                                     RequestStage.FAILED, RequestStage.DECLINED -> Warning
-                                    else -> Muted
+                                    else -> androidx.compose.ui.graphics.Color.White
                                 }, modifier = Modifier.size(16.dp),
                             )
                             Text(
@@ -258,24 +253,36 @@ fun TrackedRequestCard(
                                 color = when (item.stage) {
                                     RequestStage.AVAILABLE -> Success
                                     RequestStage.DECLINED, RequestStage.FAILED -> Warning
-                                    else -> MaterialTheme.colorScheme.onSurface
+                                    else -> androidx.compose.ui.graphics.Color.White
                                 },
-                                fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1,
+                                fontSize = 13.sp, lineHeight = 18.sp,
                                 modifier = Modifier.padding(start = 6.dp),
                             )
                         }
-                    }
-                    if (!active) Icon(Icons.Rounded.ChevronRight, stringResource(R.string.flow_details), tint = Muted, modifier = Modifier.size(20.dp))
+                  }
+                  Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp,
+                      lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
+                      overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                      modifier = Modifier.padding(top = 12.dp, start = 2.dp, end = 2.dp))
+                  Text(
+                      (if (item.seasons.isEmpty()) stringResource(R.string.flow_film) else stringResource(R.string.flow_season_numbers, item.seasons.sorted().joinToString(", "))) +
+                          (if (item.is4k) " · 4K" else "") + (if (item.availabilityOnly) " · " + stringResource(R.string.flow_watch_only) else ""),
+                      color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                      modifier = Modifier.padding(top = 4.dp, start = 2.dp, bottom = 8.dp),
+                  )
                 }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (active && !item.availabilityOnly) CompactRequestProgress(item, Modifier.weight(1f).padding(end = 4.dp))
                 if (active) {
                     IconToggleButton(
+                        interactionSource = notifyInteraction,
                         checked = item.notify,
                         onCheckedChange = { enabled ->
                             if (enabled && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context)) {
                                 permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                             } else onNotify(enabled)
                         },
-                        modifier = Modifier.padding(end = 8.dp).semantics {
+                        modifier = Modifier.focusOutline(notifyInteraction, CircleShape).semantics {
                             contentDescription = notificationLabel
                         },
                     ) {
@@ -294,10 +301,14 @@ fun TrackedRequestCard(
                     Text(if (cancelling) stringResource(R.string.flow_removing) else stringResource(R.string.flow_unfollow))
                 }
             } else if (active) {
-                CompactRequestProgress(item, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp))
                 // Withdrawing is only offered once Seerr has given the request an id: without it
                 // there is nothing to withdraw, and a dead button would be worse than none.
                 if (item.requestId != null) {
+                    TextButton(onClick = { options = !options }, modifier = Modifier.testTag("request-options-${item.key}")) {
+                        Text(stringResource(if (options) R.string.activity_less_options else R.string.activity_more_options))
+                    }
+                }
+                if (item.requestId != null && options) {
                     TextButton(
                         onClick = { confirmCancel = true },
                         enabled = !cancelling,

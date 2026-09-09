@@ -26,6 +26,7 @@ internal fun SheetToolbar(
     onClose: () -> Unit,
     enabled: Boolean = true,
     onBack: (() -> Unit)? = null,
+    page: Boolean = false,
 ) {
     val closeFocus = remember { FocusRequester() }
     val closeInteraction = remember { MutableInteractionSource() }
@@ -40,6 +41,17 @@ internal fun SheetToolbar(
         Modifier.fillMaxWidth().testTag("sheet-toolbar").padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.Top,
     ) {
+        if (page) {
+            TextButton(onClick = onBack ?: onClose, enabled = enabled, interactionSource = closeInteraction,
+                modifier = Modifier.heightIn(min = 48.dp).focusRequester(closeFocus)
+                    .focusOutline(closeInteraction, CircleShape).testTag("sheet-close")) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, Modifier.size(24.dp))
+                Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.action_back), Modifier.padding(start = 10.dp))
+            }
+            Text(title, style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 24.dp, top = 14.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Row
+        }
         Box(Modifier.weight(1f).heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
             if (onBack != null) {
                 TextButton(onClick = onBack, enabled = enabled, interactionSource = backInteraction,

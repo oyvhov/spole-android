@@ -41,6 +41,7 @@ internal val LocalSheetKeyboardEntry = staticCompositionLocalOf { false }
 internal fun StableSheetDialog(
     dismissEnabled: Boolean,
     onDismiss: () -> Unit,
+    fullScreen: Boolean = false,
     content: @Composable (entered: Boolean, closing: Boolean, close: () -> Unit) -> Unit,
 ) {
     val progress = remember { Animatable(0f) }
@@ -95,7 +96,7 @@ internal fun StableSheetDialog(
         // geometry. Insets/keyboard can constrain the surface; media responses cannot.
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val policy = WindowLayoutPolicy(maxWidth.value, maxHeight.value)
-            Box(Modifier.fillMaxSize()
+            if (!fullScreen) Box(Modifier.fillMaxSize()
                 .graphicsLayer { alpha = progress.value }
                 .background(Color(0xB8040308))
                 .semantics { contentDescription = dismissLabel }
@@ -107,22 +108,22 @@ internal fun StableSheetDialog(
             BoxWithConstraints(Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .imePadding()) {
-                val sheetHeight = policy.dialogHeightDp(maxHeight.value).dp
+                val sheetHeight = if (fullScreen) maxHeight else policy.dialogHeightDp(maxHeight.value).dp
                 Surface(
                     modifier = Modifier.align(if (policy.useCenteredDialog) Alignment.Center else Alignment.BottomCenter)
-                        .widthIn(max = policy.dialogWidthDp.dp)
-                        .fillMaxWidth().height(sheetHeight).testTag("adaptive-dialog")
+                        .then(if (fullScreen) Modifier else Modifier.widthIn(max = policy.dialogWidthDp.dp))
+                        .fillMaxWidth().height(sheetHeight).testTag(if (fullScreen) "tv-detail-page" else "adaptive-dialog")
                         // Translation is draw-only: it never remeasures the body or retargets
                         // an anchor. A tween cannot bounce past its final position.
                         .graphicsLayer {
-                            translationY = (1f - progress.value) * if (policy.useCenteredDialog) 40.dp.toPx() else size.height
-                            alpha = if (policy.useCenteredDialog) progress.value else 1f
+                            translationY = if (fullScreen) 0f else (1f - progress.value) * if (policy.useCenteredDialog) 40.dp.toPx() else size.height
+                            alpha = if (fullScreen || policy.useCenteredDialog) progress.value else 1f
                         }
                         .semantics {
                             paneTitle = dialogLabel
                             if (dismissEnabled && !closing) dismiss { close(); true }
                         },
-                    shape = if (policy.useCenteredDialog) RoundedCornerShape(28.dp)
+                    shape = if (fullScreen) RoundedCornerShape(0.dp) else if (policy.useCenteredDialog) RoundedCornerShape(28.dp)
                         else RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                     color = app.reelstack.ui.theme.Surface,
                     contentColor = MaterialTheme.colorScheme.onSurface,

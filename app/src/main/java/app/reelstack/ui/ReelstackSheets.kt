@@ -157,7 +157,11 @@ fun ReelstackSheets(
 ) {
     val sheet = state.activeSheet ?: return
     val sheetContentStates = rememberSaveableStateHolder()
-    StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss) { entered, closing, close ->
+    val tvDetails = sheet is AppSheet.TitleDetails &&
+        (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss,
+        fullScreen = tvDetails) { entered, closing, close ->
         val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
         Column(Modifier.fillMaxSize().testTag("sheet-viewport")) {
             if (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails) {
@@ -165,6 +169,7 @@ fun ReelstackSheets(
                     title = if (sheet is AppSheet.SessionDetails) stringResource(R.string.details_playback) else stringResource(R.string.details_title),
                     closeDescription = stringResource(R.string.details_close), onClose = close, enabled = !closing,
                     onBack = if (state.returnToCalendar) onBackToCalendar else null,
+                    page = tvDetails,
                 )
             }
             Box(
@@ -239,14 +244,20 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val isMovie = mediaType == "Movie"
     val usePoster = isMovie || mediaType == "Series" || opening.source == ServiceKind.SEERR
     val visibleFacts = details.facts.filterNot { it == details.source?.displayName }.distinct()
-    Column(
-        Modifier
-            .fillMaxSize()
-            .testTag("detail-scroll")
-            .verticalScroll(scroll)
-            .padding(start = 24.dp, end = 24.dp, bottom = 40.dp),
-    ) {
-        if (usePoster) {
+    val tv = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    app.reelstack.ui.components.DetailReadingLayout(tv, scroll, artwork = {
+        MediaArtwork(opening.artworkUrl, opening.artworkRes, null,
+            Modifier.fillMaxWidth().aspectRatio(if (usePoster) 2f / 3f else 16f / 9f).clip(RoundedCornerShape(16.dp)),
+            ContentScale.Fit, opening.source)
+    }) {
+        if (tv) {
+            opening.source?.let { Text(it.displayName, color = Muted, style = MaterialTheme.typography.labelLarge) }
+            Text(opening.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 36.sp, lineHeight = 42.sp,
+                fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
+            Text(opening.subtitle, color = Muted, style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(top = 10.dp))
+        } else if (usePoster) {
             MoviePosterSummary(
                 title = opening.title,
                 eyebrow = opening.eyebrow,
@@ -275,7 +286,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 DetailTextSkeleton(Modifier.fillMaxWidth())
                 DetailTextSkeleton(Modifier.fillMaxWidth())
             }
-            return@Column
+            return@DetailReadingLayout
         }
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
         IntegratedPlaybackButton(state, details)
@@ -283,7 +294,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             Text(details.title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 20.dp))
         }
-        val remainingFacts = if (usePoster) visibleFacts.filterNot { it in opening.facts.take(4) } else visibleFacts
+        val remainingFacts = if (usePoster && !tv) visibleFacts.filterNot { it in opening.facts.take(4) } else visibleFacts
         // Keep metadata on one predictable rail. A wrapping FlowRow changes the scroll content
         // height when the remote detail response adds a second row of facts.
         Box(Modifier.fillMaxWidth().heightIn(min = 50.dp).padding(top = 16.dp)) {
