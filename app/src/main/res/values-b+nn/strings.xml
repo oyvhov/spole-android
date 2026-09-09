@@ -10,4 +10,10 @@
     <string name="widget_error">Fekk ikkje kontakt</string>
     <string name="widget_check">Sjekk tilkoplinga i Spole.</string>
     <string name="widget_accessibility">Spelar no: %1$s. %2$s</string>
+    <string name="home_refresh_action">Oppdater biblioteket</string>
+    <string name="home_open_account">Opne kontoen til %1$s · %2$s</string>
+    <string name="home_account_settings">Opne kontoinnstillingar</string>
+    <string name="home_source_failed">Fekk ikkje oppdatert %1$s. Sjekk tilkoplinga i Innstillingar.</string>
+    <string name="home_source_partial">%1$s er tilkopla, men denne rada vart ikkje oppdatert.</string>
+    <string name="home_resume_description">Hald fram på %1$s, %2$d prosent sett</string>
 </resources>

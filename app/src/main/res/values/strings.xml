@@ -11,4 +11,10 @@
     <string name="widget_error">Could not connect</string>
     <string name="widget_check">Check your connection in Spole.</string>
     <string name="widget_accessibility">Now playing: %1$s. %2$s</string>
+    <string name="home_refresh_action">Refresh library</string>
+    <string name="home_open_account">Open %1$s’s account · %2$s</string>
+    <string name="home_account_settings">Open account settings</string>
+    <string name="home_source_failed">Could not refresh %1$s. Check the connection in Settings.</string>
+    <string name="home_source_partial">%1$s is connected, but this row could not refresh.</string>
+    <string name="home_resume_description">Resume %1$s, %2$d percent watched</string>
 </resources>

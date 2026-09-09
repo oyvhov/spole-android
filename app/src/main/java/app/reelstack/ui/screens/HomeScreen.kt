@@ -305,7 +305,7 @@ fun HomeScreen(
                     }
                 }
             }
-            item { HomeFreshness(state) }
+            item { HomeFreshness(state, onRefresh) }
         }
       }
     }
@@ -315,7 +315,7 @@ fun HomeScreen(
  * Says how old the feed is. Without it a cache from yesterday is indistinguishable from live data.
  */
 @Composable
-private fun HomeFreshness(state: ReelstackUiState) {
+private fun HomeFreshness(state: ReelstackUiState, onRefresh: () -> Unit) {
     if (state.configuredCount == 0) return
     val text = when {
         state.isRefreshing -> stringResource(R.string.home_refreshing)
@@ -325,12 +325,8 @@ private fun HomeFreshness(state: ReelstackUiState) {
             .format(DateTimeFormatter.ofPattern("HH:mm")))
         else -> stringResource(R.string.home_waiting_refresh)
     }
-    Text(
-        text,
-        color = Muted,
-        fontSize = 12.sp,
-        modifier = Modifier.fillMaxWidth().padding(top = 28.dp, end = mediaEndInset()),
-    )
+    app.reelstack.ui.components.FeedRefreshAction(text, state.isRefreshing, onRefresh,
+        Modifier.fillMaxWidth().padding(top = 28.dp, end = mediaEndInset()))
 }
 
 @Composable
@@ -367,17 +363,18 @@ private fun HomeAccountButton(state: ReelstackUiState, onAccountClick: () -> Uni
             account = account,
             connection = connection,
             onClick = onAccountClick,
-            description = account?.let { "Opne kontoen til ${it.displayName} · ${it.source.displayName}" }
-                ?: "Opne kontoinnstillingar",
+            description = account?.let { stringResource(R.string.home_open_account, it.displayName, it.source.displayName) }
+                ?: stringResource(R.string.home_account_settings),
             testTag = "home-account",
         )
 }
 
+@Composable
 private fun mediaEmptyMessage(state: ReelstackUiState, source: ServiceKind, emptyMessage: String): String =
     if (source in state.failedServices) {
-        "Fekk ikkje oppdatert ${source.displayName}. Sjekk tilkoplinga i Innstillingar."
+        stringResource(R.string.home_source_failed, source.displayName)
     } else if (source in state.serviceWarnings) {
-        "${source.displayName} er tilkopla, men denne rada vart ikkje oppdatert."
+        stringResource(R.string.home_source_partial, source.displayName)
     } else {
         emptyMessage
     }
@@ -717,6 +714,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
         label = "resume-card-press",
     )
     val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
+    val resumeLabel = stringResource(R.string.home_resume_description, media.title, percent)
     Column(
         modifier = Modifier
             .width(cardWidth)
@@ -730,7 +728,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
                 onClick = onClick,
-                onClickLabel = "Hald fram på ${media.title}, $percent prosent sett",
+                onClickLabel = resumeLabel,
             )
             .semantics { role = Role.Button }
             .testTag("resume-card-${media.id}"),

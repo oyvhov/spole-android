@@ -9,6 +9,17 @@ import org.junit.Test
 class LanguageResourcesTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
+    @Test fun homeRefreshAndRecoveryUseSelectedLanguage() {
+        val english = AppLanguages.wrap(context, AppLanguage.ENGLISH)
+        val nynorsk = AppLanguages.wrap(context, AppLanguage.NYNORSK)
+        assertEquals("Refresh library", english.getString(R.string.home_refresh_action))
+        assertEquals("Oppdater biblioteket", nynorsk.getString(R.string.home_refresh_action))
+        assertEquals("Could not refresh Jellyfin. Check the connection in Settings.",
+            english.getString(R.string.home_source_failed, "Jellyfin"))
+        assertEquals("Hald fram på Test, 25 prosent sett",
+            nynorsk.getString(R.string.home_resume_description, "Test", 25))
+    }
+
     @Test fun explicitEnglishAndNynorskSelectRealAndroidResources() {
         val english = AppLanguages.wrap(context, AppLanguage.ENGLISH)
         val nynorsk = AppLanguages.wrap(context, AppLanguage.NYNORSK)
