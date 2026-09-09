@@ -50,6 +50,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -80,6 +83,8 @@ import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -264,7 +269,7 @@ fun DiscoverScreen(
     }
     ReelPage(media = true) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(if (app.reelstack.ui.theme.LocalTabletCanvas.current) 174.dp else 145.dp),
+        columns = GridCells.Adaptive((if (app.reelstack.ui.theme.LocalTabletCanvas.current) 174.dp else 145.dp) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale),
         state = gridState,
         contentPadding = screenPadding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -344,7 +349,7 @@ fun DiscoverScreen(
         }
         if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank()
                 && state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() })) {
-            item(span = { GridItemSpan(maxLineSpan) }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
+            items(8, key = { "discover-loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
         } else if (visible.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
@@ -482,7 +487,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
     val actionable = media.canRequest && allowed
     val actionLabel = if (media.isSeries) stringResource(R.string.media_seasons_named, media.title) else stringResource(R.string.media_add_named, media.title)
     val statusLabel = app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
-    Box(Modifier.fillMaxWidth().heightIn(min = 300.dp).clip(RoundedCornerShape(18.dp)).background(SurfaceRaised)
+    Box(Modifier.fillMaxWidth().heightIn(min = 300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).clip(RoundedCornerShape(18.dp)).background(SurfaceRaised)
         // The card's own action is named so a screen reader can tell it apart from the request
         // button inside it. It must not merge its descendants: that would swallow the button.
         .clickable(onClickLabel = "Vis detaljar for ${media.title}", onClick = onDetails)
@@ -735,6 +740,15 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
     }
 }
 
+private enum class SettingsSection(val label: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    ACCOUNTS(R.string.settings_services, Icons.Rounded.Dns),
+    APPEARANCE(R.string.personal_appearance, Icons.Rounded.Palette),
+    PLAYBACK(R.string.personal_playback, Icons.Rounded.PlayArrow),
+    HOME(R.string.settings_home, Icons.Rounded.Tv),
+    UPDATES(R.string.settings_updates, Icons.Rounded.Notifications),
+    ABOUT(R.string.settings_about, Icons.Rounded.Info),
+}
+
 @Composable
 fun SettingsScreen(
     state: ReelstackUiState,
@@ -746,6 +760,7 @@ fun SettingsScreen(
     onAccountClick: (ServiceKind) -> Unit = onConnectionClick,
 ) {
     var homeExpanded by rememberSaveable { mutableStateOf(false) }
+    val appearanceExpansion = rememberSaveable { mutableStateOf(false) }
     val expandedLabel = stringResource(R.string.state_expanded)
     val collapsedLabel = stringResource(R.string.state_collapsed)
     // A visibility switch for a service that is not connected controls content that cannot exist,
@@ -753,7 +768,25 @@ fun SettingsScreen(
     val connected = { kind: ServiceKind ->
         state.configuredCount == 0 || state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() }
     }
-    ReelPage {
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+    val wide = maxWidth >= 900.dp
+    var section by rememberSaveable { mutableStateOf(SettingsSection.ACCOUNTS) }
+    val visible = { item: SettingsSection -> !wide || section == item }
+    val paneStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    Row(Modifier.fillMaxSize()) {
+    if (wide) Column(Modifier.width(208.dp).fillMaxHeight().padding(start = 16.dp, top = 40.dp, end = 8.dp)
+        .verticalScroll(rememberScrollState()).testTag("settings-categories"),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SettingsSection.entries.forEach { item ->
+            app.reelstack.ui.components.WideDestination(stringResource(item.label), item.icon,
+                selected = section == item, onClick = { section = item },
+                modifier = Modifier.testTag("settings-category-${item.name}"))
+        }
+    }
+    ReelPage(Modifier.weight(1f)) {
+    val paneKey = if (wide) section.name else "ALL"
+    androidx.compose.runtime.key(paneKey) {
+    paneStates.SaveableStateProvider(paneKey) {
     LazyColumn(
         contentPadding = screenPadding(contentPadding),
         modifier = Modifier.fillMaxSize().testTag("settings-feed"),
@@ -764,6 +797,7 @@ fun SettingsScreen(
                 title = stringResource(R.string.nav_settings),
                 lede = stringResource(R.string.settings_subtitle),
             )
+            if (visible(SettingsSection.ACCOUNTS)) {
             SettingsAccounts(state, onAccountClick)
             SettingsSectionTitle(stringResource(R.string.settings_services))
             Text(
@@ -771,8 +805,9 @@ fun SettingsScreen(
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
+            }
         }
-        item {
+        if (visible(SettingsSection.ACCOUNTS)) item {
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                     state.connections.filter { state.canEditConnection(it.kind) }.forEach { connection ->
@@ -782,22 +817,29 @@ fun SettingsScreen(
             }
         }
         item {
+            if (visible(SettingsSection.APPEARANCE)) {
             app.reelstack.ui.components.LanguagePreference()
+            app.reelstack.ui.components.DevicePersonalizationSettings(showPlayback = !wide, expansionState = appearanceExpansion)
+            }
+            if (wide && visible(SettingsSection.PLAYBACK)) {
+                app.reelstack.ui.components.DevicePersonalizationSettings(showAppearance = false)
+            }
+            if (visible(SettingsSection.HOME)) {
             SettingsSectionTitle(stringResource(R.string.settings_home))
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
               Column(Modifier.padding(horizontal = 16.dp)) {
-                Row(Modifier.fillMaxWidth().clickable { homeExpanded = !homeExpanded }
-                    .semantics { stateDescription = if (homeExpanded) expandedLabel else collapsedLabel }
+                Row(Modifier.fillMaxWidth().clickable(enabled = !wide) { homeExpanded = !homeExpanded }
+                    .semantics { stateDescription = if (homeExpanded || wide) expandedLabel else collapsedLabel }
                     .padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Tv, null, tint = PrimarySoft, modifier = Modifier.size(24.dp))
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(stringResource(R.string.settings_customize), color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                         Text(stringResource(R.string.settings_customize_note), color = Muted, fontSize = 12.sp)
                     }
-                    Icon(if (homeExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    if (!wide) Icon(if (homeExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
                         null, tint = Muted)
                 }
-                androidx.compose.animation.AnimatedVisibility(visible = homeExpanded) {
+                androidx.compose.animation.AnimatedVisibility(visible = homeExpanded || wide) {
                   Column {
             HomeSectionRow(HomeSection.NOW_PLAYING, stringResource(R.string.home_now_playing), stringResource(R.string.settings_playback_note), Icons.Rounded.PlayArrow, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.CONTINUE_WATCHING, stringResource(R.string.home_continue), stringResource(R.string.settings_continue_note), Icons.Rounded.History, state, onHomeSectionChange)
@@ -816,6 +858,8 @@ fun SettingsScreen(
                 }
               }
             }
+            }
+            if (visible(SettingsSection.UPDATES)) {
             SettingsSectionTitle(stringResource(R.string.settings_updates))
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
               Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -830,12 +874,19 @@ fun SettingsScreen(
             )
               }
             }
-            PrivacyCard(state)
+            }
+            if (visible(SettingsSection.ACCOUNTS)) PrivacyCard(state)
+            if (visible(SettingsSection.ABOUT)) {
             SettingsSectionTitle(stringResource(R.string.settings_about))
             AppIdentity()
             AttributionCard()
             CrashReportRow()
+            }
         }
+    }
+    }
+    }
+    }
     }
     }
 }

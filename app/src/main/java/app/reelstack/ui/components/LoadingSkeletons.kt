@@ -81,8 +81,8 @@ fun NowPlayingSkeleton(modifier: Modifier = Modifier) {
 @Composable
 fun LibraryRailSkeleton(description: String, wide: Boolean = false, modifier: Modifier = Modifier,
     tabletArtwork: Boolean = app.reelstack.ui.theme.LocalTabletCanvas.current) {
-    val cardWidth = if (wide) { if (tabletArtwork) 292.dp else ReelLayout.EpisodeWidth }
-        else { if (tabletArtwork) 158.dp else ReelLayout.PosterWidth }
+    val cardWidth = (if (wide) { if (tabletArtwork) 292.dp else ReelLayout.EpisodeWidth }
+        else { if (tabletArtwork) 158.dp else ReelLayout.PosterWidth }) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val artworkHeight = if (wide) cardWidth * 9f / 16f else cardWidth * 1.5f
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -119,7 +119,7 @@ fun RecommendationSkeleton(modifier: Modifier = Modifier) {
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar anbefalingar" },
     ) {
         items(3) {
-            ShimmerBlock(Modifier.width(164.dp).height(258.dp), RoundedCornerShape(16.dp))
+            ShimmerBlock(Modifier.width(164.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).height(258.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale), RoundedCornerShape(16.dp))
         }
     }
 }
@@ -132,7 +132,7 @@ fun UpcomingSkeleton(modifier: Modifier = Modifier) {
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar komande utgjevingar" },
     ) {
         items(3) { index ->
-            ShimmerBlock(Modifier.width(280.dp).height(226.dp), RoundedCornerShape(16.dp))
+            ShimmerBlock(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).height(226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale), RoundedCornerShape(16.dp))
         }
     }
 }
@@ -157,14 +157,11 @@ fun IncomingSkeleton(modifier: Modifier = Modifier) {
 
 @Composable
 fun DiscoverSkeleton(modifier: Modifier = Modifier) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar søkjeresultat" },
-    ) {
-        repeat(2) {
-            ShimmerBlock(Modifier.weight(1f).height(316.dp), RoundedCornerShape(18.dp))
-        }
-    }
+    ShimmerBlock(
+        modifier = modifier.height(300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
+            .clearAndSetSemantics { contentDescription = "Lastar søkjeresultat" },
+        shape = RoundedCornerShape(18.dp),
+    )
 }
 
 @Composable

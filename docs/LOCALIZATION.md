@@ -1,6 +1,12 @@
+Alpha03 omfattar òg 20 nynorsk/engelsk-ressursar for utsjånad, avspelingsval og videoens tilpass/fyll-kontroll. Titlar, metadata og språk på videoen blir ikkje endra av aksent- eller biletstorleiksval.
+
 # Språk i Spole
 
 ## Status i nattarbeidet 9. september 2026
+
+Alpha03 flyttar kontooversikt og den personlege førespurnadsflyten til 86 nye tekstressursar og tre
+fleirtalsressursar. `RequestText` omset enum-statusar ved presentasjon; lagra statusar og nettverks-
+reglar er uendra. Sesong-/neste-episode-datoar brukar UI-lokalet. Sjå [arbeidsbolken](ROADMAP_BATCH_ALPHA03.md).
 
 Oppfølging i alpha02: 54 fleire ressursnøklar per språk for Heim, Oppdag-status/handlingar og
 detalj-/avspelingshandlingar. Engelsk er framleis førehandsvising; sjå

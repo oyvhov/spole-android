@@ -660,7 +660,7 @@ private fun AddressExamples(kind: ServiceKind, enabled: Boolean, onUse: (String)
 }
 
 @Composable
-private fun CinematicTitleHero(
+internal fun CinematicTitleHero(
     title: String,
     eyebrow: String,
     subtitle: String,
@@ -669,26 +669,40 @@ private fun CinematicTitleHero(
     source: ServiceKind?,
     portrait: Boolean,
 ) {
-    // Pick the frame from metadata, not from the first decoded frame. Measuring the image and
-    // then changing between a wide and portrait layout while the sheet is entering is visible as
-    // a jump on slower devices. The image itself can still be fit or cropped inside this stable
-    // frame, so the sheet has one geometry from the first frame onward.
-    Column {
-        MediaArtwork(
-            url = artworkUrl, fallbackRes = artworkRes, contentDescription = null,
-            contentScale = if (portrait) ContentScale.Fit else ContentScale.Crop,
-            source = source,
-            crossfadeDurationMillis = 0,
-            modifier = Modifier
-                .then(if (portrait) Modifier.width(190.dp) else Modifier.fillMaxWidth())
-                .aspectRatio(if (portrait) 2f / 3f else 16f / 9f)
-                .clip(RoundedCornerShape(14.dp)).background(Ink),
-        )
-        DetailEyebrow(eyebrow, source, Modifier.padding(top = 16.dp))
-        Text(title, color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 6.dp))
-        if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 14.sp, lineHeight = 20.sp,
-            modifier = Modifier.padding(top = 6.dp))
+    // Frame geometry comes from media metadata and window width, never decoded image size.
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val spacious = maxWidth >= 600.dp
+        val artwork: @Composable () -> Unit = {
+            MediaArtwork(
+                url = artworkUrl, fallbackRes = artworkRes, contentDescription = null,
+                contentScale = if (portrait) ContentScale.Fit else ContentScale.Crop,
+                source = source, crossfadeDurationMillis = 0,
+                modifier = Modifier
+                    .then(if (portrait) Modifier.width(if (spacious) 142.dp else 190.dp)
+                        else if (spacious) Modifier.width(304.dp) else Modifier.fillMaxWidth())
+                    .aspectRatio(if (portrait) 2f / 3f else 16f / 9f)
+                    .clip(RoundedCornerShape(14.dp)).background(Ink).testTag("episode-detail-artwork"),
+            )
+        }
+        val summary: @Composable () -> Unit = {
+            DetailEyebrow(eyebrow, source)
+            Text(title, color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 6.dp))
+            if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 14.sp, lineHeight = 20.sp,
+                modifier = Modifier.padding(top = 6.dp))
+        }
+        if (spacious) {
+            Row(Modifier.testTag("tablet-episode-summary"), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                artwork()
+                Column(Modifier.weight(1f)) { summary() }
+            }
+        } else {
+            Column {
+                artwork()
+                Column(Modifier.padding(top = 16.dp)) { summary() }
+            }
+        }
     }
 }
 

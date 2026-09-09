@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="personal_title">Gjer Spole til din</string>
+    <string name="personal_scope">Utsjånad og avspeling på denne eininga. Kontoane og rettane dine blir ikkje endra.</string>
+    <string name="personal_appearance">Utsjånad</string>
+    <string name="personal_accent">Aksentfarge</string>
+    <string name="personal_lime">Lime</string>
+    <string name="personal_ocean">Hav</string>
+    <string name="personal_iris">Iris</string>
+    <string name="personal_coral">Korall</string>
+    <string name="personal_artwork">Storleik på omslag og bilete</string>
+    <string name="personal_compact">Kompakt</string>
+    <string name="personal_standard">Standard</string>
+    <string name="personal_large">Stor</string>
+    <string name="personal_artwork_note">Gjeld bileta på Heim og rutenettet i Oppdag. Teksten held same lesbare storleik.</string>
+    <string name="personal_playback">Avspeling</string>
+    <string name="personal_resume">Hald fram der eg slapp</string>
+    <string name="personal_resume_note">Start Jellyfin-avspeling frå den lagra posisjonen din. Slå av for å velje mellom å halde fram og å starte på nytt.</string>
+    <string name="personal_reset">Nullstill utsjånad</string>
+    <string name="personal_preview">Førehandsvising av biletstorleik</string>
+    <string name="player_frame_fit">Heile biletet</string>
+    <string name="player_frame_fill">Fyll skjermen</string>
+</resources>

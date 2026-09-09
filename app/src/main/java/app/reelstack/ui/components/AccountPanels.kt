@@ -1,5 +1,9 @@
 package app.reelstack.ui.components
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import app.reelstack.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,7 +51,7 @@ fun SettingsAccounts(state: ReelstackUiState, onConnectionClick: (ServiceKind) -
         .filter { kind -> state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() } }
     if (configured.isEmpty()) return
     Column(Modifier.padding(top = 20.dp)) {
-        Text("Kontoen din", color = TextColor,
+        Text(stringResource(R.string.flow_account_title), color = TextColor,
             fontSize = 21.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold)
         Surface(color = SurfaceRaised, shape = RoundedCornerShape(24.dp),
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp).testTag("settings-accounts"),
@@ -82,10 +86,10 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                     ServiceSymbol(source, Modifier.size(24.dp))
                     Column(Modifier.weight(1f)) {
                         Text(source.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text(if (loading) "Hentar kontoen…" else if (hasError) "Logg inn på nytt" else "Ikkje innlogga",
+                        Text(if (loading) stringResource(R.string.flow_account_loading) else if (hasError) stringResource(R.string.flow_login_again) else stringResource(R.string.flow_signed_out),
                             color = Muted, fontSize = 12.sp)
                     }
-                    if (!loading) AccountAction(onClick, "Logg inn", source)
+                    if (!loading) AccountAction(onClick, stringResource(R.string.flow_login), source)
                 }
                 return@Column
             }
@@ -105,11 +109,11 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                         )
                         Text(if (compact) account.displayName else account.source.displayName, color = Muted, fontSize = 12.sp,
                             modifier = Modifier.padding(top = 3.dp))
-                        if (account.isAdmin && !compact) Text("Administrator", color = Primary, fontSize = 11.sp,
+                        if (account.isAdmin && !compact) Text(stringResource(R.string.flow_admin), color = Primary, fontSize = 11.sp,
                             modifier = Modifier.padding(top = 5.dp))
                     }
                     if (!isSeerr || (account.isPersonal && !overviewOnly)) {
-                        AccountEditButton(onClick, "Endre ${source.displayName}-konto")
+                        AccountEditButton(onClick, stringResource(R.string.flow_account_edit, source.displayName))
                     }
                 }
             } else {
@@ -124,10 +128,10 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                         Text(source.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Text(
                             when {
-                                loading -> "Hentar kontoen…"
-                                hasError -> "Kunne ikkje stadfeste kontoen."
-                                overviewOnly -> "Administratornøkkel · berre oversikt"
-                                else -> "Ikkje innlogga"
+                                loading -> stringResource(R.string.flow_account_loading)
+                                hasError -> stringResource(R.string.flow_account_error)
+                                overviewOnly -> stringResource(R.string.flow_overview_only)
+                                else -> stringResource(R.string.flow_signed_out)
                             },
                             color = if (hasError && !loading) Caution else Muted,
                             fontSize = 13.sp, lineHeight = 19.sp,
@@ -135,16 +139,16 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                         )
                     }
                     if (!loading) {
-                        AccountAction(onClick, if (hasError) "Prøv igjen" else "Logg inn", source)
+                        AccountAction(onClick, if (hasError) stringResource(R.string.flow_retry) else stringResource(R.string.flow_login), source)
                     }
                 }
             }
 
             if (overviewOnly && account != null) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
-                    Text("Administratornøkkel · berre oversikt", color = Muted, fontSize = 12.sp,
+                    Text(stringResource(R.string.flow_overview_only), color = Muted, fontSize = 12.sp,
                         lineHeight = 18.sp, modifier = Modifier.weight(1f))
-                    if (!loading) AccountAction(onClick, "Logg inn", source)
+                    if (!loading) AccountAction(onClick, stringResource(R.string.flow_login), source)
                 }
             }
         }
@@ -157,10 +161,11 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
  */
 @Composable
 private fun AccountAction(onClick: () -> Unit, label: String, source: ServiceKind) {
+    val spokenLabel = stringResource(R.string.flow_service_action, label, source.displayName)
     TextButton(
         onClick = onClick,
         modifier = Modifier.heightIn(min = 48.dp).semantics {
-            contentDescription = "$label på ${source.displayName}"
+            contentDescription = spokenLabel
         },
     ) {
         Text(label, fontSize = 13.sp)
@@ -189,9 +194,9 @@ fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit) {
                 modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
             ) {
                 AccountAvatar(personalAccount, connection, Modifier.size(28.dp))
-                Text("Som ${personalAccount.displayName}", color = TextColor, fontSize = 13.sp, lineHeight = 19.sp,
+                Text(stringResource(R.string.flow_as_person, personalAccount.displayName), color = TextColor, fontSize = 13.sp, lineHeight = 19.sp,
                     maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                AccountEditButton(onSignIn, "Endre konto for førespurnader")
+                AccountEditButton(onSignIn, stringResource(R.string.flow_request_account_edit))
             }
         } else {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -201,10 +206,10 @@ fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit) {
                     }
                     Text(
                         when {
-                            loading -> "Stadfestar kontoen for førespurnader…"
-                            hasError -> "Kunne ikkje stadfeste Seerr-kontoen."
-                            overviewOnly -> "Administratornøkkel · berre oversikt"
-                            else -> "Logg inn for å sende førespurnader som deg."
+                            loading -> stringResource(R.string.flow_request_account_loading)
+                            hasError -> stringResource(R.string.flow_seerr_account_error)
+                            overviewOnly -> stringResource(R.string.flow_overview_only)
+                            else -> stringResource(R.string.flow_personal_login)
                         },
                         color = if (hasError && !loading) Caution else Muted,
                         fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f),
@@ -213,14 +218,14 @@ fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit) {
                 if (!loading) {
                     if (hasError || overviewOnly) {
                         Text(
-                            if (hasError) "Opne innlogginga for å prøve igjen."
-                            else "Logg inn med Jellyfin for å bruke din eigen Seerr-konto.",
+                            if (hasError) stringResource(R.string.flow_open_login)
+                            else stringResource(R.string.flow_jellyfin_identity),
                             color = Muted, fontSize = 12.sp, lineHeight = 18.sp,
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                     TextButton(onClick = onSignIn, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(if (hasError) "Prøv igjen" else "Logg inn med Jellyfin", fontSize = 13.sp)
+                        Text(if (hasError) stringResource(R.string.flow_retry) else stringResource(R.string.flow_jellyfin_login), fontSize = 13.sp)
                     }
                 }
             }

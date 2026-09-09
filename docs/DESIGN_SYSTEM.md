@@ -1,5 +1,33 @@
 # Spole design system
 
+## Brei meny, innstillingar og video · alpha03
+
+Frå 1000 dp appvindauge får navigasjonen ein 200 dp brei sidemeny. Den kompakte 80 dp rada blir bevart mellom 640 og 999 dp. TV-konfigurasjon vel den breie varianten når siderada er aktiv. Destinasjonar har minst 58 dp høgd, ikon og tekst, matt aksentflate ved val og ein tydeleg 2 dp fokusramme ved tastatur/D-pad. Val er semantisk Tab, ikkje berre farge.
+
+Den breie sidemenyen eig Spole-namn og logo; Heim viser berre den innrykte profilkontrollen i toppfeltet. Mobil og kompakt siderad bevarer logoen i Heim. Frittståande tekst må bruke onSurface/Text eksplisitt når han ikkje arvar innhaldsfarge frå ei Surface.
+
+Innstillingar får kategori/innhald når tilgjengeleg breidd etter navigasjon er minst 900 dp. Kategorikolonna er 208 dp; innhaldet har framleis lesbar maksimalbreidd. Kvar kategori bevarer rulleposisjon og opna kontrollar via SaveableStateProvider. Heimval er opne direkte på breitt panel. Smalare vindauge viser alle seksjonane i ei liste.
+
+Video brukar ekte immersive-vising og bevarer ein tilgjengeleg Tilbake-knapp i appen. Systemlinjer kan hentast fram med kantgest. Tilpassa bilete er standard (ingen beskjering); brukaren kan velje zoom/fyll. Zoomvalet overlever rotasjon av spelarskjermen. Dette er ikkje ei erklæring om ferdig Android TV- eller fysisk Samsung-verifisering.
+
+## Personleg utsjånad og mediekant · alpha03
+
+Mediaflata brukar heile attståande vindaugsbreidda etter navigasjonsrada. Horisontale Heim-rader kan rulle heilt til høgrekant på breie vindauge; profil, hovudfelt, tenestemerke og kalenderknapp held 24 dp innrykk. Lesesider har framleis maksimum 840 dp. Dette er vindaugstilpassing, ikkje sertifisert Android TV-støtte.
+
+Utsjånadspanelet er lukka som standard. Fargeval har radioknappsemantikk, namn og hake (ikkje berre farge), med minimum 48 dp trefflate og bryting til fleire rader. Fire aksentpalettar: lime, hav, iris og korall. Mørke matte flater, feilmeldingar, åtvaringar, suksessfargar og tenestelogofargar blir ikkje omdefinerte. Valet oppdaterer MaterialTheme og dei delte Primary/PrimarySoft-tokena med ein gong.
+
+Omslag/bilete: kompakt 0,85×, standard 1× og stor 1,2×. Same faktor i bibliotekrader, framhaldsrader, anbefalingar, utgjevingar, Oppdag-rutenett og tilhøyrande skjelett. Biletforhold blir bevarte, tekst og trefflater blir ikkje skalerte ned. Detaljpanel held fast geometri. Nullstilling gjeld berre utsjånad, ikkje avspeling, kontoar eller heimseksjonar.
+
+Avspeling: «Hald fram der eg slapp» er på som standard, også for eksisterande installasjonar utan eit lagra val. På brukar Jellyfin sin autentiserte posisjon direkte; av spør berre når ein gyldig posisjon finst. Ingen avspeling startar før brukaren sjølv opnar spelaren. Innstillingane er eksplisitt lokale på eininga, ikkje synkroniserte profilval.
+
+## Tablet follow-up · alpha03
+
+Home omits its search shortcut in navigation-rail windows; Discover retains the search field.
+Wide episode details pair fixed-ratio artwork with the title/subtitle instead of stacking a full-width
+image above them. Request panels increase poster size while preserving explicit selection and the
+fixed confirmation footer. Reading popups stop at scroll edges without stretching their contents;
+normal feed scrolling is unchanged. [Pattern states and verification](ROADMAP_BATCH_ALPHA03.md).
+
 ## Tablet polish · alpha02
 
 The wide Home canvas gets one static library feature, selected only from visible episode rows.

@@ -21,6 +21,13 @@ class JellyfinPlayerUiTest {
             }
         }
     }
+    @Test fun pictureCanFillTheScreenAndReturnToUncroppedFit() {
+        screen(PlayerScreenState(busy=false,durationMs=20000))
+        rule.onNodeWithText("Fyll skjermen").performScrollTo().performClick()
+        rule.onNodeWithText("Heile biletet").assertIsDisplayed().performClick()
+        rule.onNodeWithText("Fyll skjermen").assertIsDisplayed()
+        rule.onNodeWithTag("player-close").assertIsDisplayed()
+    }
     @Test fun closeIsAvailableWhileVideoLoads() {
         var closed=false
         screen(PlayerScreenState(),close={closed=true})

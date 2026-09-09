@@ -2,7 +2,11 @@
 
 Oppretta 8. september, oppdatert 9. september 2026. Første dokumentasjonsrunde brukte 0.15.1 / 43, commit `265321c`. Nattrunden implementerer appfunksjonar i **0.16.0-alpha01 / 44**. [Gjeldande veikart](../ROADMAP.md).
 
-## Nyaste oppfølging — nettbrett og engelsk, alpha02 / 45
+## Nyaste oppfølging — personleg flyt og nettbrett, alpha03 / 46
+
+[Alpha03-rapporten](ROADMAP_BATCH_ALPHA03.md) er nyaste testkjelde: fjerna nettbrettsnarveg til søk, sidestilte episodedetaljar, engelsk konto-/førespurnadsflyt og ingen strekk ved scrollkanten inne i popupane. Utvida med aksent/biletstorleik, automatisk framhald, kant-til-kant mediarader, brei sidemeny, todelte innstillingar og immersive-video. Den gamle halden-peikar-testen er køyrd uendra og fullfører no på nettbrett. Endelege tal og attståande fysisk verifisering står i rapporten.
+
+## Førre oppfølging — nettbrett og engelsk, alpha02 / 45
 
 [Nettbrettrapporten](TABLET_POLISH_2026-09-09.md) dokumenterer den nye bibliotekframhevinga, større omslag/detaljplakatar, 54 fleire språkressursar og lokale skjermbilete med ekte kontoar. Desse resultata kjem etter alpha01-runden nedanfor. Fysisk nettbrett og full engelsk omsetjing er framleis ikkje godkjende.
 

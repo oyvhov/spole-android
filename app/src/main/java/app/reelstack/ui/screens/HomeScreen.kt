@@ -129,6 +129,8 @@ fun HomeScreen(
     onDiscoverClick: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
     searchTransitionModifier: Modifier = Modifier,
+    showSearch: Boolean = true,
+    showBrand: Boolean = true,
 ) {
     val configuredMediaSources = state.connections
         .filter { connection ->
@@ -151,32 +153,33 @@ fun HomeScreen(
     ) {
       ReelPage(media = true) {
         val tablet = LocalTabletCanvas.current
+        val edge = app.reelstack.ui.theme.LocalMediaEdgeToEdge.current
         val featured = if (tablet) tabletFeaturedTitle(state.recentSeries, state.homeSections) else null
         LazyColumn(
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
                 top = ReelLayout.PageTop,
-                end = ReelLayout.Gutter,
+                end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
             modifier = Modifier.fillMaxSize().testTag("home-feed"),
         ) {
             item {
-                HomeHeader(state, onAccountClick)
+                Box(Modifier.padding(end = if (edge) ReelLayout.Gutter else 0.dp)) { HomeHeader(state, onAccountClick, showBrand) }
             }
-            item(key = "search-entry") {
+            if (showSearch) item(key = "search-entry") {
                 Box(Modifier.padding(top = 8.dp)) {
                     HomeSearchEntry(onSearchClick, searchTransitionModifier)
                 }
             }
             if (featured != null) {
                 item(key = "tablet-feature") {
-                    TabletLibraryFeature(featured, onLibraryClick, Modifier.padding(top = 20.dp, bottom = 4.dp))
+                    TabletLibraryFeature(featured, onLibraryClick, Modifier.padding(top = 20.dp, bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp))
                 }
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
                 item {
-                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
+                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
                             SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
                             // A count is status, not an action, so it stays out of the accent colour.
                             if (state.sessions.size > 1) Text(androidx.compose.ui.res.pluralStringResource(app.reelstack.R.plurals.home_playback_count, state.sessions.size, state.sessions.size),
@@ -322,12 +325,12 @@ private fun HomeFreshness(state: ReelstackUiState) {
         text,
         color = Muted,
         fontSize = 12.sp,
-        modifier = Modifier.fillMaxWidth().padding(top = 28.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 28.dp, end = mediaEndInset()),
     )
 }
 
 @Composable
-private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit) {
+private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, showBrand: Boolean) {
     var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
@@ -344,12 +347,12 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit) {
             translationY = (1f - reveal) * 24f
         },
     ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+            if (showBrand) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.spole_mark), "Spole-logo",
                     modifier = Modifier.size(34.dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Primary))
                 Text("Spole", color = TextColor, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
-            }
+            } else Spacer(Modifier.weight(1f))
         AccountAvatarButton(
             account = account,
             connection = connection,
@@ -370,6 +373,9 @@ private fun mediaEmptyMessage(state: ReelstackUiState, source: ServiceKind, empt
         emptyMessage
     }
 
+@Composable
+private fun mediaEndInset() = if (app.reelstack.ui.theme.LocalMediaEdgeToEdge.current) ReelLayout.Gutter else 0.dp
+
 /** One size for every section heading on Home. */
 @Composable
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
@@ -383,7 +389,7 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modifier = Modifier) {
-    Row(verticalAlignment = Alignment.Bottom, modifier = modifier.fillMaxWidth().clearAndSetSemantics {
+    Row(verticalAlignment = Alignment.Bottom, modifier = modifier.fillMaxWidth().padding(end = mediaEndInset()).clearAndSetSemantics {
         heading()
         contentDescription = "$title · ${source.displayName}"
     }) {
@@ -413,7 +419,7 @@ private fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modi
 
 @Composable
 private fun RecommendationRail(items: List<DiscoverMedia>, onClick: (String) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(items, key = DiscoverMedia::id) { media ->
             RecommendationCard(media) { onClick(media.id) }
         }
@@ -426,8 +432,8 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
         else app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
     Box(
         Modifier
-            .width(164.dp)
-            .heightIn(min = 258.dp)
+            .width(164.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
+            .heightIn(min = 258.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClickLabel = "Vis detaljar for ${media.title}", onClick = onClick)
             .semantics { role = Role.Button }
@@ -497,7 +503,7 @@ private fun NowPlayingRail(
         )
         return
     }
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items(sessions, key = PlaybackSession::key) { session ->
             NowPlayingCard(
                 session = session,
@@ -641,7 +647,7 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
     // Every card in a rail reserves the same number of title lines, so a rail where each title
     // fits on one line does not leave an empty second line under every card.
     val titleLines = if (items.any { it.title.length > if (wide) 26 else 15 }) 2 else 1
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(modifier = Modifier.fillMaxWidth().testTag("library-rail"), contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             LibraryCard(
                 media = media,
@@ -661,7 +667,7 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
 @Composable
 private fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit) {
     val titleLines = if (items.any { it.title.length > 20 }) 2 else 1
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
             ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30) { onClick(media.id) }
         }
@@ -671,8 +677,8 @@ private fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit) {
 @Composable
 private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, onClick: () -> Unit) {
     val wide = !media.mediaType.equals("Movie", ignoreCase = true)
-    val artworkHeight = ReelLayout.EpisodeHeight
-    val cardWidth = if (wide) ReelLayout.EpisodeWidth else artworkHeight * 2f / 3f
+    val artworkHeight = ReelLayout.EpisodeHeight * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+    val cardWidth = if (wide) artworkHeight * 16f / 9f else artworkHeight * 2f / 3f
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
@@ -750,7 +756,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
 @Composable
 private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, revealDelay: Int, onClick: () -> Unit) {
     val tablet = LocalTabletCanvas.current
-    val cardWidth = if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }
+    val cardWidth = (if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val artworkHeight = if (wide) cardWidth * 9f / 16f else cardWidth * 1.5f
     val artworkShape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val interactionSource = remember { MutableInteractionSource() }
@@ -787,6 +793,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             modifier = Modifier
                 .fillMaxWidth()
                 .height(artworkHeight)
+                .testTag("library-artwork-${media.id}")
                 .clip(artworkShape),
         ) {
             MediaArtwork(
@@ -824,7 +831,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
 
 @Composable
 private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             UpcomingCard(media, revealDelay = index.coerceAtMost(2) * 30) { onClick(media.id) }
         }
@@ -833,7 +840,7 @@ private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) 
 
 @Composable
 private fun RecentReleaseRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             UpcomingCard(media, revealDelay = index.coerceAtMost(2) * 30, recent = true) { onClick(media.id) }
         }
@@ -857,7 +864,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
         label = "upcoming-card-press",
     )
-    Box(Modifier.width(280.dp).heightIn(min = 226.dp).graphicsLayer {
+    Box(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).heightIn(min = 226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).graphicsLayer {
         alpha = reveal; translationY = (1f - reveal) * 18f; scaleX = scale; scaleY = scale
     }.clip(shape).background(SurfaceRaised)
         .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
@@ -891,7 +898,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
  */
 @Composable
 private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth().padding(end = mediaEndInset())) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_upcoming), Modifier.weight(1f).padding(end = 12.dp))
             Surface(
@@ -921,7 +928,7 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
 
 @Composable
 private fun EmptySectionLine(text: String) {
-    Text(text, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
+    Text(text, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp, end = mediaEndInset()))
 }
 
 @Composable

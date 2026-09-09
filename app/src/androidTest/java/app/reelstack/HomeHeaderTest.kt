@@ -58,4 +58,10 @@ class HomeHeaderTest {
         rule.onNodeWithText("Spelar no").assertDoesNotExist()
         rule.onNodeWithTag("home-account").assertIsDisplayed()
     }
+    @Test fun expandedSidebarOwnsBrandWhileHomeKeepsAccountControl() {
+        rule.setContent { ReelstackTheme { HomeScreen(state(), PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}, showBrand = false) } }
+        rule.onNodeWithText("Spole").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Spole-logo").assertDoesNotExist()
+        rule.onNodeWithTag("home-account").assertIsDisplayed()
+    }
 }

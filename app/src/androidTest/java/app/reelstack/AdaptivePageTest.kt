@@ -40,7 +40,7 @@ class AdaptivePageTest {
             }
         }
         rule.waitForIdle()
-        assertEquals(1120f, width, 2f)
+        assertEquals(1280f, width, 2f)
         rule.onNodeWithTag("retained-action").performClick()
         rule.runOnIdle { wide.value = false }
         rule.waitForIdle()
@@ -48,7 +48,7 @@ class AdaptivePageTest {
         rule.onNodeWithText("Clicks 1").assertIsDisplayed()
         rule.runOnIdle { wide.value = true }
         rule.onNodeWithText("Clicks 1").assertIsDisplayed()
-        rule.runOnIdle { assertEquals(1120f, width, 2f) }
+        rule.runOnIdle { assertEquals(1280f, width, 2f) }
     }
 
     @Test fun readingPagesRemainReadableOnAWideTablet() {

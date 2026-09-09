@@ -83,10 +83,11 @@ fun RequestJourney(stage: RequestStage?, modifier: Modifier = Modifier) {
         else -> 0
     }
     val icons = listOf(Icons.Rounded.Schedule, Icons.Rounded.Download, Icons.Rounded.VideoLibrary)
-    val labels = listOf("Førespurd", "Lastar ned", "I biblioteket")
+    val labels = listOf(RequestStage.REQUESTED, RequestStage.DOWNLOADING, RequestStage.AVAILABLE).map { app.reelstack.localization.requestStageLabel(it) }
+    val spoken = if (stage != null) androidx.compose.ui.res.stringResource(R.string.flow_progress, app.reelstack.localization.requestStageLabel(stage))
+        else androidx.compose.ui.res.stringResource(R.string.flow_journey)
     Row(modifier.fillMaxWidth().clearAndSetSemantics {
-        contentDescription = stage?.let { "Framdrift: ${it.label}" }
-            ?: "Førespurd, lastar ned, i biblioteket"
+        contentDescription = spoken
     }, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         labels.forEachIndexed { index, label ->
             val done = index < completed

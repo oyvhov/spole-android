@@ -1,8 +1,8 @@
-# HomeReel layout
+# Spole layout
 
-Current override (roadmap implementation, 9 September 2026, unreleased): media pages expand up to
-1120 dp when their available width after navigation reaches 1000 dp; reading/settings pages stay
-capped at 840 dp. Navigation still switches at a 640 dp window. A wide dialog window (at least
+Current override (alpha03, 9 September 2026, unreleased): media pages fill the available width
+after navigation. Home media rails bleed to the trailing edge on wide windows; profile/header
+controls keep 24 dp padding. Reading/settings pages stay capped at 840 dp. Navigation still switches at a 640 dp window. A wide dialog window (at least
 840 × 480 dp) centres a 720 dp panel capped at 860 dp height. Narrow windows keep the bottom sheet.
 Dialog height is calculated inside safe/IME constraints, independent of metadata. Full physical
 tablet support is not yet verified. See [the roadmap](../ROADMAP.md) and [language implementation](LOCALIZATION.md).
@@ -56,11 +56,12 @@ Four persistent destinations: **Heim**, **Oppdag**, **Aktivitet**, **Innstilling
 
 ## Visual rhythm
 
-Use the existing matte charcoal palette, warm text and restrained lime action color. No glass blur, decorative space background, borders around posters or permanent artwork badges. The source logo/name in each Home heading identifies its rail.
+Use the existing matte charcoal palette, warm text and restrained personal accent (lime by default). No glass blur, decorative space background, borders around posters or permanent artwork badges. The source logo/name in each Home heading identifies its rail.
 
 `ReelLayout` is the shared source for page gutters, top spacing, artwork corner radius, Home movie/episode
 dimensions, the maximum content width and the navigation-rail breakpoint. Every screen wraps its scrolling
-container in `ReelPage`, so a wide window centres one column rather than stretching every row to the edges. Skeletons use the same artwork dimensions. Text may grow with font scaling; do not force titles into fixed pixel-height containers.
+container in `ReelPage`; media fills the window while reading columns stay centered. Personal
+artwork size scales both cards and skeletons without scaling text. Text may grow with font scaling; do not force titles into fixed pixel-height containers.
 
 ## Motion and changing data
 

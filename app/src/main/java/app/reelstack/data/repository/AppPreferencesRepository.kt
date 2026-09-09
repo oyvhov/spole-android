@@ -8,6 +8,27 @@ import app.reelstack.data.model.decodeHomeSections
 class AppPreferencesRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_preferences", Context.MODE_PRIVATE)
 
+    var personalization: app.reelstack.data.model.Personalization
+        get() = app.reelstack.data.model.Personalization(
+            accent = app.reelstack.data.model.AccentPalette.decode(preferences.getString("accent_palette", null)),
+            artworkSize = app.reelstack.data.model.ArtworkSize.decode(preferences.getString("artwork_size", null)),
+            autoResume = preferences.getBoolean("auto_resume", true),
+        )
+        set(value) = preferences.edit {
+            putString("accent_palette", value.accent.name)
+            putString("artwork_size", value.artworkSize.name)
+            putBoolean("auto_resume", value.autoResume)
+        }
+
+    fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key in setOf("accent_palette", "artwork_size", "auto_resume")) onChange(personalization)
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        onChange(personalization)
+        return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
     var onboardingCompleted: Boolean
         get() = preferences.getBoolean("onboarding_completed", false)
         set(value) = preferences.edit { putBoolean("onboarding_completed", value) }

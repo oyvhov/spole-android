@@ -12,8 +12,8 @@ import androidx.core.view.WindowCompat
 val Ink = Color(0xFF101211)
 val Surface = Color(0xFF191C19)
 val SurfaceRaised = Color(0xFF2E332E)
-val Primary = Color(0xFFD5F478)
-val PrimarySoft = Color(0xFFDCE9BD)
+val Primary: Color @Composable get() = MaterialTheme.colorScheme.primary
+val PrimarySoft: Color @Composable get() = MaterialTheme.colorScheme.secondary
 val Text = Color(0xFFF3F3EC)
 val Muted = Color(0xFFA4ADA3)
 val Success = Color(0xFF56D993)
@@ -30,17 +30,17 @@ val Divider = Color(0xFF3D443C)
 val ControlOutline = Color(0xFF646E63)
 
 /** Checked switch track. Lime stays in the thumb so a settings list is not a wall of accent. */
-val SwitchTrackOn = Color(0xFF3C4A28)
+val SwitchTrackOn: Color @Composable get() = MaterialTheme.colorScheme.primaryContainer
 
 private val ReelstackColors = darkColorScheme(
-    primary = Primary,
+    primary = Color(0xFFD5F478),
     onPrimary = Ink,
     primaryContainer = Color(0xFF344024),
-    onPrimaryContainer = PrimarySoft,
-    secondary = PrimarySoft,
+    onPrimaryContainer = Color(0xFFDCE9BD),
+    secondary = Color(0xFFDCE9BD),
     onSecondary = Ink,
     secondaryContainer = SurfaceRaised,
-    onSecondaryContainer = PrimarySoft,
+    onSecondaryContainer = Color(0xFFDCE9BD),
     tertiary = Success,
     onTertiary = Ink,
     tertiaryContainer = SurfaceRaised,
@@ -82,9 +82,19 @@ fun ReelstackTheme(content: @Composable () -> Unit) {
         }
     }
 
+    val personalization = rememberPersonalization()
+    val palette = personalization.accent
+    androidx.compose.runtime.CompositionLocalProvider(LocalPersonalization provides personalization) {
     MaterialTheme(
-        colorScheme = ReelstackColors,
+        colorScheme = ReelstackColors.copy(
+            primary = Color(palette.argb),
+            secondary = Color(palette.softArgb),
+            primaryContainer = Color(palette.containerArgb),
+            onPrimaryContainer = Color(palette.softArgb),
+            onSecondaryContainer = Color(palette.softArgb),
+        ),
         typography = reelstackTypography(),
         content = content,
     )
+    }
 }

@@ -213,8 +213,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             selected = item; compatible = false
             mutable.update { it.copy(title = item.title, subtitle = item.subtitle, browsing = false, choices = emptyList(),
                 positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null) }
-            if (item.resumeMs > 0) mutable.update { it.copy(busy = false, awaitingResume = true) }
-            else prepare(0)
+            val start = playbackStartPosition(item.resumeMs, item.durationMs, item.played,
+                container.preferencesRepository.personalization.autoResume)
+            mutable.update { it.copy(awaitingResume = start == null) }
+            if (start == null) mutable.update { it.copy(busy = false) }
+            else prepare(start)
         }
     }
 

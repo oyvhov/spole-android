@@ -80,18 +80,24 @@ class JellyfinPlayerTest {
         override fun close() { socket.close(); pool.shutdownNow() }
     }
 
-    private fun exercise(hls: Boolean = false, resumeMs: Long = 0, root: String = "film", block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
+    private fun exercise(hls: Boolean = false, resumeMs: Long = 0, root: String = "film", autoResume: Boolean = true, block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
         Server(instrumentation.context.assets, hls, resumeMs).use { server ->
             val connections = (context.applicationContext as ReelstackApplication).container.connectionRepository
             ServiceKind.entries.forEach(connections::delete)
             connections.save(ServiceConnection(ServiceKind.JELLYFIN,"Test",server.base,"fixture","u1"))
+            val preferences = (context.applicationContext as ReelstackApplication).container.preferencesRepository
+            val original = preferences.personalization
+            preferences.personalization = original.copy(autoResume = autoResume)
             try {
                 ActivityScenario.launch<JellyfinPlayerActivity>(Intent(context,JellyfinPlayerActivity::class.java).putExtra("jellyfin_item_id",root)).use { scenario ->
                     block(scenario,server,connections)
                 }
                 waitFor { server.events.any { it.first.endsWith("/Stopped") } || server.rejectVideo }
                 assertTrue(server.requests.none { it.contains("api_key") || it.contains("token=") })
-            } finally { ServiceKind.entries.forEach(connections::delete) }
+            } finally {
+                preferences.personalization = original
+                ServiceKind.entries.forEach(connections::delete)
+            }
         }
     }
     private fun waitFor(timeout: Long = 20_000, condition: () -> Boolean) {
@@ -104,6 +110,18 @@ class JellyfinPlayerTest {
     }
     private fun playing(s: ActivityScenario<JellyfinPlayerActivity>) = waitFor { snapshot(s).let { it.playing && it.positionMs > 600 } }
 
+    @Test fun playbackHidesBothSystemBarsAndKeepsVideoInTheWholeWindow() = exercise { scenario,_,_ ->
+        playing(scenario)
+        waitFor {
+            var hidden = false
+            scenario.onActivity {
+                val insets = androidx.core.view.ViewCompat.getRootWindowInsets(it.window.decorView)
+                hidden = insets != null && !insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.statusBars()) &&
+                    !insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            }
+            hidden
+        }
+    }
     @Test fun directVideoRendersSeeksPausesAndSurvivesRotation() = exercise { scenario,server,_ ->
         playing(scenario)
         assertTrue(server.clientHeaders.isNotEmpty())
@@ -121,6 +139,16 @@ class JellyfinPlayerTest {
     }
     @Test fun androidBackClosesVideoAndReportsStopped() = exercise { scenario,server,_ ->
         playing(scenario)
+        // Decoder readiness precedes the window transition/IME dismissal. Send Back only to
+        // the focused video window, not to the keyboard left by a preceding UI test.
+        waitFor {
+            var ready = false
+            scenario.onActivity {
+                ready = it.hasWindowFocus() && androidx.core.view.ViewCompat.getRootWindowInsets(it.window.decorView)
+                    ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == false
+            }
+            ready
+        }
         instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         waitFor { scenario.state == Lifecycle.State.DESTROYED }
         waitFor { server.events.any { it.first.endsWith("/Stopped") } }
@@ -231,13 +259,25 @@ class JellyfinPlayerTest {
         waitFor { snapshot(scenario).error?.contains("Kontoen er endra") == true }
         assertFalse(snapshot(scenario).playing)
     }
-    @Test fun resumeRequiresChoiceAndUsesTheSavedPosition() = exercise(resumeMs=8000) { scenario,server,_ ->
+    @Test fun resumeRequiresChoiceAndUsesTheSavedPosition() = exercise(resumeMs=8000, autoResume=false) { scenario,server,_ ->
         waitFor { snapshot(scenario).awaitingResume }
         assertFalse(snapshot(scenario).playing)
         assertTrue(server.events.isEmpty())
         scenario.onActivity { it.model.resume(false) }
         playing(scenario)
         assertTrue(snapshot(scenario).positionMs>=8000)
+    }
+    @Test fun autoResumeStartsTheVideoAtTheSavedPositionWithoutAPrompt() = exercise(resumeMs=8000) { scenario,server,_ ->
+        playing(scenario)
+        assertFalse(snapshot(scenario).awaitingResume)
+        assertTrue(snapshot(scenario).positionMs >= 8000)
+        waitFor { server.events.any { it.first == "/Sessions/Playing" } }
+    }
+    @Test fun askingStillAllowsAnExplicitFreshStart() = exercise(resumeMs=8000, autoResume=false) { scenario,_,_ ->
+        waitFor { snapshot(scenario).awaitingResume }
+        scenario.onActivity { it.model.resume(true) }
+        playing(scenario)
+        assertTrue(snapshot(scenario).positionMs < 8000)
     }
     @Test fun seriesSelectsSeasonThenOnlyAnAvailableEpisode() = exercise(root="series") { scenario,_,_ ->
         waitFor { snapshot(scenario).choices.isNotEmpty() }

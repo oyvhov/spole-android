@@ -70,13 +70,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            // Do not trigger Android's first-use immersive confirmation over the back button.
-            // Keep system Back/gesture navigation available; video still draws edge-to-edge.
-            hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.ime())
-            show(WindowInsetsCompat.Type.navigationBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
+        enterFullscreen()
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
@@ -107,6 +101,16 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
             }
         }
     }
+    private fun enterFullscreen() {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+        }
+    }
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) enterFullscreen()
+    }
     override fun onStart() { super.onStart(); if (::model.isInitialized) model.foreground() }
     override fun onStop() { if (::model.isInitialized && !isChangingConfigurations) model.background(); super.onStop() }
     companion object {
@@ -127,6 +131,7 @@ fun PlayerScreen(
 ) {
     val showControlsLabel = stringResource(R.string.player_show_controls)
     var controls by remember { mutableStateOf(true) }
+    var fillVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf<PlayerMenu?>(null) }
     var scrubbing by remember { mutableStateOf(false) }
@@ -151,7 +156,11 @@ fun PlayerScreen(
                 isFocusable = false
                 descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
             } },
-            update = { it.player = player },
+            update = {
+                it.player = player
+                it.resizeMode = if (fillVideo) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            },
             onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize().testTag("player-video"),
         )
@@ -261,6 +270,10 @@ fun PlayerScreen(
                             TextButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy) { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null); Text(stringResource(R.string.player_audio)) }
                             TextButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy) { Icon(Icons.Rounded.Subtitles, null); Text(stringResource(R.string.player_subtitles_button)) }
                             TextButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy) { Icon(Icons.Rounded.Tune, null); Text(stringResource(R.string.player_quality)) }
+                            TextButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.testTag("player-frame-mode")) {
+                                Icon(if (fillVideo) Icons.Rounded.FitScreen else Icons.Rounded.Fullscreen, null)
+                                Text(stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill))
+                            }
                             IconButton(onClick = onRotate) { Icon(Icons.Rounded.ScreenRotation, stringResource(R.string.player_rotate)) }
                         }
                         Text(if (state.direct) stringResource(R.string.player_direct) else stringResource(R.string.player_transcoded), color = MaterialTheme.colorScheme.onSurfaceVariant,

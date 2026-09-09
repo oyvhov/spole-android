@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="personal_title">Make it yours</string>
+    <string name="personal_scope">Appearance and playback on this device. Your accounts and permissions stay unchanged.</string>
+    <string name="personal_appearance">Appearance</string>
+    <string name="personal_accent">Accent colour</string>
+    <string name="personal_lime">Lime</string>
+    <string name="personal_ocean">Ocean</string>
+    <string name="personal_iris">Iris</string>
+    <string name="personal_coral">Coral</string>
+    <string name="personal_artwork">Poster and picture size</string>
+    <string name="personal_compact">Compact</string>
+    <string name="personal_standard">Standard</string>
+    <string name="personal_large">Large</string>
+    <string name="personal_artwork_note">Applies to Home artwork and the Discover grid. Text stays readable at every size.</string>
+    <string name="personal_playback">Playback</string>
+    <string name="personal_resume">Continue where I left off</string>
+    <string name="personal_resume_note">Start Jellyfin playback at your saved position. Turn off to choose between continuing and starting over.</string>
+    <string name="personal_reset">Reset appearance</string>
+    <string name="personal_preview">Artwork size preview</string>
+    <string name="player_frame_fit">Fit picture</string>
+    <string name="player_frame_fill">Fill screen</string>
+</resources>

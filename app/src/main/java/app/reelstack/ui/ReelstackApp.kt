@@ -15,6 +15,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -146,8 +151,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     // icons across a tablet, and so the content column keeps its own width. Measured from the
     // window, not the device configuration, so split-screen is handled correctly.
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Ink)) {
-    val wideWindow = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useNavigationRail
+    val windowLayout = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
+    val wideWindow = windowLayout.useNavigationRail
     val showRail = !state.showOnboarding && wideWindow
+    val expandedRail = showRail && (windowLayout.widthDp >= 1000f ||
+        (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -166,6 +174,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 ReelstackNavigationRail(
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
+                    expanded = expandedRail,
                 )
             }
             Box(Modifier.weight(1f).fillMaxSize()) {
@@ -211,6 +220,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                             }
                         },
                         searchTransitionModifier = searchTransition,
+                        showSearch = windowLayout.showHomeSearch,
+                        showBrand = !expandedRail,
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
                         state = state,
@@ -332,10 +343,28 @@ private fun ReelstackBottomBar(
 }
 
 @Composable
-private fun ReelstackNavigationRail(
+internal fun ReelstackNavigationRail(
     selectedTab: AppTab,
     onSelect: (AppTab) -> Unit,
+    expanded: Boolean = false,
 ) {
+    if (expanded) {
+        Column(Modifier.width(200.dp).fillMaxHeight().background(Ink).testTag("side-navigation")
+            .padding(horizontal = 12.dp, vertical = 24.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(painterResource(R.drawable.spole_mark), null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(Primary))
+                Text("Spole", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 10.dp))
+            }
+            Spacer(Modifier.height(38.dp))
+            tabs.forEach { item ->
+                app.reelstack.ui.components.WideDestination(
+                    androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab,
+                    { onSelect(item.tab) }, Modifier.testTag("wide-tab-${item.tab.name}"))
+            }
+        }
+        return
+    }
     NavigationRail(
         containerColor = Ink,
         windowInsets = WindowInsets(0, 0, 0, 0),

@@ -1,6 +1,6 @@
 # Spole — veikart mot 1.0
 
-Oppdatert 9. september 2026. Publisert utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal førehandsversjon: **0.16.0-alpha02 / bygg 45**; ikkje publisert. [Nettbrett- og språkoppfølging](docs/TABLET_POLISH_2026-09-09.md).
+Oppdatert 9. september 2026. Publisert utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal førehandsversjon: **0.16.0-alpha03 / bygg 46**; ikkje publisert. [Siste arbeidsbolk](docs/ROADMAP_BATCH_ALPHA03.md).
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.
 
@@ -84,7 +84,7 @@ Verkelege førespurnader kan starte nedlastingar. Slike testar skal bruke eigarg
 
 ### 0.18 — Spole-finishen, språk og nettbrett
 
-- [ ] **Heim:** Integrert, diskret søk som fører naturleg til Oppdag; stabil profil; tydeleg tal ved fleire aktive avspelingar; ingen tom «spelar no»-seksjon.
+- [ ] **Heim:** Integrert, diskret søk på mobil som fører naturleg til Oppdag; nettbrett brukar søket i Oppdag; stabil profil; tydeleg tal ved fleire aktive avspelingar; ingen tom «spelar no»-seksjon.
 - [ ] **Detaljar:** Fast opningsgeometri, reserverte bilet- og tekstområde, roleg skeletonlasting og ein alltid tilgjengeleg lukkeknapp. Sein metadata skal ikkje flytte heile popupen.
 - [ ] **Oppdag:** Eitt tydeleg hovudfilter, sekundærfiltrering ved behov, lesbare statusmerke og handlingar på cover. Ingen ekstra kontorad når profilen kan liggje i toppen.
 - [ ] **Aktivitet:** Ei oversiktleg personleg tidslinje med plakatar, konkrete statusar og neste handling. Førespurnader og følgde titlar skal vere lette å skilje.
@@ -96,7 +96,15 @@ Verkelege førespurnader kan starte nedlastingar. Slike testar skal bruke eigarg
 
 #### Språk — nynorsk og engelsk først, enkelt å utvide
 
-Fullkrava nedanfor står opne der delarbeidet ikkje dekkjer heile kravet. Levert i alpha01:
+Fullkrava nedanfor står opne der delarbeidet ikkje dekkjer heile kravet. Levert i alpha03:
+
+- [x] Fjern søkesnarvegen frå Heim på breie vindauge; bevar søket i Oppdag og snarvegen på mobil.
+- [x] Personlege einingsval for aksent og biletstorleik, med automatisk Jellyfin-framhald som standard.
+- [x] Brei ikon-/tekstmeny, kategori/innhald i Innstillingar og immersive-video med tilpass/fyll-val. Fysisk nettbrett og Android TV er framleis opne krav.
+- [x] Kompakt, sidestilt episodehovud og større plakat i førespurnadspanelet på nettbrett.
+- [x] Flytt kontooversikt, sesongval og personleg førespurnadsframdrift til nynorsk/engelsk-ressursar, inkludert fleirtal og datovisning.
+
+Levert i alpha01:
 
 - [x] Språkveljar med «Følg eininga», nynorsk og engelsk førehandsvising; lagra val og gjenskaping av skjermen er Android-testa.
 - [x] Nynorsk blir bevart ved migrering frå eldre appval eller lagra tilkoplingar; nye installasjonar følgjer eininga.
@@ -121,7 +129,7 @@ Språkgrunnlaget startar parallelt med 0.17, slik at nye tekstar ikkje må flytt
 Levert i alpha01:
 
 - [x] Del vindaugsreglar mellom navigasjon, sider og dialogar; ingen modellbasert nettbrettgjetting.
-- [x] Utvid Heim/Oppdag til opptil 1120 dp når vindauget har plass; hald lesesider på maksimalt 840 dp.
+- [x] Utvid Heim/Oppdag på breie vindauge (alpha03: heile mediebreidda med innrykte profilkontrollar); hald lesesider på maksimalt 840 dp.
 - [x] Vis eit sentrert 720 dp detaljpanel på breie, høge vindauge og eit botnpanel på telefon.
 - [x] Android-regresjonar for sein tekst utan endra panelramme, synleg lukkeknapp med tastatur og bevaring av sidetilstand ved breiddeskifte.
 

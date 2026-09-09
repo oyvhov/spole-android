@@ -11,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+val LocalMediaEdgeToEdge = staticCompositionLocalOf { false }
+
 val LocalTabletCanvas = staticCompositionLocalOf { false }
 
 /** Shared rhythm and artwork dimensions, including loading placeholders. */
@@ -34,8 +36,8 @@ object ReelLayout {
 }
 
 /**
- * Centres a page inside [ReelLayout.ContentMaxWidth]. Screens pass their scrolling container as
- * [content] so the column, not the window, decides how wide a row is allowed to grow.
+ * Media pages fill the available window. Reading pages retain their centered readable column.
+ * Horizontal media rails may bleed to the end edge while headers keep their own inset.
  */
 @Composable
 fun ReelPage(modifier: Modifier = Modifier, media: Boolean = false, content: @Composable () -> Unit) {
@@ -44,7 +46,8 @@ fun ReelPage(modifier: Modifier = Modifier, media: Boolean = false, content: @Co
         val maximum = if (media) policy.mediaMaxWidthDp.dp else ReelLayout.ContentMaxWidth
         val tablet = maxWidth >= 900.dp
         Box(Modifier.widthIn(max = maximum).fillMaxSize()) {
-            CompositionLocalProvider(LocalTabletCanvas provides tablet) { content() }
+            CompositionLocalProvider(LocalTabletCanvas provides tablet,
+                LocalMediaEdgeToEdge provides (media && policy.useNavigationRail)) { content() }
         }
     }
 }
