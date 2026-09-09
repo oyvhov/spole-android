@@ -21,6 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import app.reelstack.R
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
@@ -39,13 +44,12 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /** Stable filter identities; the visible label is a property, not the state. */
-enum class CalendarFilter(val label: String, val source: ServiceKind?) {
-    ALL("Alt", null),
-    MOVIES("Filmar", ServiceKind.RADARR),
-    EPISODES("Episodar", ServiceKind.SONARR),
+enum class CalendarFilter(val labelRes: Int) {
+    ALL(R.string.calendar_all),
+    MOVIES(R.string.calendar_movies),
+    EPISODES(R.string.calendar_episodes),
 }
 
 @Composable
@@ -56,7 +60,14 @@ internal fun UpcomingCalendarSheet(
 ) {
     val today = LocalDate.now()
     val zone = ZoneId.systemDefault()
-    val locale = Locale.forLanguageTag("nn-NO")
+    val locale = LocalConfiguration.current.locales[0]
+    val filterLabels = CalendarFilter.entries.associateWith { stringResource(it.labelRes) }
+    val compactDate = remember(locale) { DateTimeFormatter.ofPattern(
+        android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMd"), locale) }
+    val fullDate = remember(locale) { DateTimeFormatter.ofPattern(
+        android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMMd"), locale) }
+    val agendaDate = remember(locale) { DateTimeFormatter.ofPattern(
+        android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEMMMMd"), locale) }
     var filter by rememberSaveable { mutableStateOf(CalendarFilter.ALL) }
     var selectedDay by rememberSaveable { mutableStateOf<String?>(null) }
     val grouped = remember(items, filter, today, zone) {
@@ -73,13 +84,13 @@ internal fun UpcomingCalendarSheet(
     val agendaState = rememberLazyListState()
     LaunchedEffect(filter, selectedDay) { agendaState.scrollToItem(0) }
     Column(Modifier.fillMaxSize().testTag("calendar")) {
-        SheetToolbar("Kalender", "Lukk kalenderen", onDismiss)
-        Text("Filmar heime og nye episodar", color = Muted, fontSize = 13.sp,
+        SheetToolbar(stringResource(R.string.calendar_title), stringResource(R.string.calendar_close), onDismiss)
+        Text(stringResource(R.string.calendar_subtitle), color = Muted, fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 24.dp))
-        AppFilterRow(CalendarFilter.entries, filter, { it.label }, { filter = it },
+        AppFilterRow(CalendarFilter.entries, filter, { filterLabels.getValue(it) }, { filter = it },
             Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         Text(
-            "${today.format(DateTimeFormatter.ofPattern("d. MMM", locale))} – ${today.plusDays(27).format(DateTimeFormatter.ofPattern("d. MMM", locale))}",
+            stringResource(R.string.calendar_range, today.format(compactDate), today.plusDays(27).format(compactDate)),
             color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 24.dp, bottom = 10.dp),
         )
         LazyRow(
@@ -92,6 +103,9 @@ internal fun UpcomingCalendarSheet(
                 val count = grouped[date]?.size ?: 0
                 val isSelected = selectedDay == date.toString()
                 val isToday = date == today
+                val dateDescription = if (isToday) stringResource(R.string.calendar_today_date, date.format(fullDate)) else date.format(fullDate)
+                val releaseDescription = pluralStringResource(R.plurals.calendar_releases, count, count)
+                val dayDescription = stringResource(R.string.calendar_day_description, dateDescription, releaseDescription)
                 // The strip crosses a month boundary, so the first day of a new month says which
                 // month it belongs to instead of reading as another day of the current one.
                 val newMonth = offset > 0 && date.dayOfMonth == 1
@@ -103,33 +117,33 @@ internal fun UpcomingCalendarSheet(
                     // Today keeps a visible ring when it is not the selected day, so "now" is
                     // always locatable in the strip.
                     border = if (isToday && !isSelected) BorderStroke(1.5.dp, Primary) else null,
-                    modifier = Modifier.width(52.dp).testTag("calendar-day-$offset")
+                    modifier = Modifier.width(IntrinsicSize.Max).widthIn(min = 52.dp).testTag("calendar-day-$offset")
                         .semantics {
                             selected = isSelected
-                            contentDescription = buildString {
-                                if (isToday) append("I dag, ")
-                                append(date.format(DateTimeFormatter.ofPattern("d. MMMM", locale)))
-                                append(", $count utgjevingar")
-                            }
+                            contentDescription = dayDescription
                         },
                 ) {
-                    Column(Modifier.padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.padding(horizontal = 8.dp, vertical = 10.dp).widthIn(min = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             if (newMonth) date.format(DateTimeFormatter.ofPattern("MMM", locale)).removeSuffix(".")
                             else date.format(DateTimeFormatter.ofPattern("EEE", locale)).removeSuffix("."),
                             fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             fontWeight = if (newMonth) FontWeight.SemiBold else FontWeight.Normal,
                         )
-                        Text(date.dayOfMonth.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(date.dayOfMonth.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         Text(if (count > 0) count.toString() else "–", fontSize = 10.sp, lineHeight = 14.sp,
-                            color = if (isSelected) Ink else Muted)
+                            color = if (isSelected) Ink else Muted,
+                            modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
                 }
             }
         }
         Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (selectedDay == null) "${grouped.values.sumOf { it.size }} utgjevingar" else "${shown.values.sumOf { it.size }} denne dagen",
+                if (selectedDay == null) grouped.values.sumOf { it.size }.let { pluralStringResource(R.plurals.calendar_releases, it, it) }
+                else shown.values.sumOf { it.size }.let { pluralStringResource(R.plurals.calendar_day_releases, it, it) },
                 color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f),
             )
             // A reset control that looks like the label beside it is not findable, so it becomes
@@ -142,7 +156,7 @@ internal fun UpcomingCalendarSheet(
                     contentColor = PrimarySoft,
                     border = BorderStroke(1.dp, ControlOutline),
                 ) {
-                    Text("Alle dagar", fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.calendar_all_days), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 11.dp))
                 }
             }
@@ -155,17 +169,17 @@ internal fun UpcomingCalendarSheet(
         ) {
             if (shown.isEmpty()) {
                 item {
-                    Text("Ingen planlagde utgjevingar", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 28.dp))
-                    Text("Prøv ein annan dag eller eit anna filter. Reine kinoutgjevingar blir ikkje viste.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    Text(stringResource(R.string.calendar_empty), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 28.dp))
+                    Text(stringResource(R.string.calendar_empty_hint), color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
             shown.forEach { (date, dayItems) ->
                 item(key = "date-$date") {
                     Text(
                         when (date) {
-                            today -> "I dag"
-                            today.plusDays(1) -> "I morgon"
-                            else -> date.format(DateTimeFormatter.ofPattern("EEEE d. MMMM", locale))
+                            today -> stringResource(R.string.calendar_today)
+                            today.plusDays(1) -> stringResource(R.string.calendar_tomorrow)
+                            else -> date.format(agendaDate)
                                 .replaceFirstChar { it.titlecase(locale) }
                         },
                         fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
@@ -181,8 +195,8 @@ internal fun UpcomingCalendarSheet(
 @Composable
 private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
     val isMovie = media.isMovieRelease
-    val time = Instant.ofEpochMilli(media.airDateEpochMillis).atZone(ZoneId.systemDefault())
-        .format(DateTimeFormatter.ofPattern("HH:mm"))
+    val context = LocalContext.current
+    val time = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(media.airDateEpochMillis))
     Surface(onClick = { onOpen(media.id) }, color = androidx.compose.ui.graphics.Color.Transparent) {
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(88.dp), contentAlignment = Alignment.CenterStart) {
@@ -199,8 +213,8 @@ private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                     Icon(if (isMovie) Icons.Rounded.Movie else Icons.Rounded.Tv, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(12.dp))
                     Text(
-                        if (!isMovie) if (media.source == ServiceKind.SONARR) "${media.source.displayName} · $time" else media.source.displayName
-                        else if ("Fysisk utgjeving" in media.facts) "Fysisk utgjeving" else "Heimeutgjeving",
+                        if (!isMovie) if (media.source == ServiceKind.SONARR) stringResource(R.string.calendar_source_time, media.source.displayName, time) else media.source.displayName
+                        else if ("Fysisk utgjeving" in media.facts) stringResource(R.string.calendar_physical) else stringResource(R.string.calendar_home_release),
                         color = PrimarySoft, fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp),
                     )
                 }

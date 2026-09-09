@@ -20,6 +20,57 @@ class CalendarAndSheetTest {
         artworkRes = R.drawable.media_placeholder, source = source,
     )
 
+    @Test fun englishCalendarUsesPluralCountsAndKeepsSelectedDayAcrossLanguageChange() {
+        val language = mutableStateOf(app.reelstack.localization.AppLanguage.ENGLISH)
+        rule.setContent {
+            val localized = app.reelstack.localization.AppLanguages.wrap(
+                androidx.compose.ui.platform.LocalContext.current, language.value)
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalContext provides localized,
+                androidx.compose.ui.platform.LocalConfiguration provides localized.resources.configuration,
+            ) {
+                ReelstackTheme { UpcomingCalendarSheet(listOf(release("Episode", ServiceKind.SONARR, 1)), {}, {}) }
+            }
+        }
+        rule.onNodeWithContentDescription("Close calendar").assertIsDisplayed()
+        rule.onNodeWithText("1 release").assertIsDisplayed()
+        rule.onNodeWithText("Episodes").performClick()
+        rule.onNodeWithTag("calendar-day-1").performClick().assertIsSelected()
+        rule.onNodeWithText("1 release this day").assertIsDisplayed()
+        rule.onNodeWithText("Tomorrow").assertIsDisplayed()
+        rule.runOnIdle { language.value = app.reelstack.localization.AppLanguage.NYNORSK }
+        rule.onNodeWithContentDescription("Lukk kalenderen").assertIsDisplayed()
+        rule.onNodeWithTag("calendar-day-1").assertIsSelected()
+        rule.onNodeWithText("1 utgjeving denne dagen").assertIsDisplayed()
+        rule.onNodeWithText("I morgon").assertIsDisplayed()
+    }
+
+    @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
+    @Test fun tabletCalendarAtDoubleFontKeepsDateTextAndCloseVisible() {
+        rule.setContent {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(androidx.compose.ui.unit.DpSize(
+                androidx.compose.ui.unit.Dp(1100f), androidx.compose.ui.unit.Dp(900f)))) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
+                        androidx.compose.ui.platform.LocalDensity.current.density, 2f)) {
+                    ReelstackTheme { UpcomingCalendarSheet(emptyList(), {}, {}) }
+                }
+            }
+        }
+        rule.onNodeWithContentDescription("Lukk kalenderen").assertIsDisplayed()
+        rule.onNodeWithTag("calendar-day-0").performClick().assertIsSelected()
+        rule.onNodeWithText("Alle dagar").assertIsDisplayed().performClick()
+        rule.onNodeWithText("Ingen planlagde utgjevingar").assertIsDisplayed()
+        val dateTexts = rule.onAllNodes(hasAnyAncestor(hasTestTag("calendar-day-0")) and
+            SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult), useUnmergedTree = true)
+        org.junit.Assert.assertTrue(dateTexts.fetchSemanticsNodes().isNotEmpty())
+        repeat(dateTexts.fetchSemanticsNodes().size) { index ->
+            val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+            dateTexts[index].performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            layouts.forEach { org.junit.Assert.assertFalse("Date text clipped: ${it.layoutInput.text} ${it.size}", it.hasVisualOverflow) }
+        }
+    }
+
     @Test fun calendarFiltersDatesTypesAndOpensExactEpisode() {
         var opened = ""
         rule.setContent {

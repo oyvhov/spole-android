@@ -8,6 +8,8 @@ Dette er den gjeldande prioriteringsplanen. Versjonsnummera nedanfor er føresle
 
 **Implementeringa er i gang:** Språkval, engelsk førehandsvising, breiare mediesider og vindaugstilpassa detaljpanel er implementerte. Sjå [nattrapporten](docs/OVERNIGHT_REPORT_2026-09-09.md), [språkrettleiinga](docs/LOCALIZATION.md) og [testmatrisa](docs/QA_MATRIX.md). Avkryssing skil mellom automatiske resultat, tidlegare releasekontroll og testar rapporterte av brukaren. Eit avkryssa delpunkt godkjenner ikkje automatisk heile milepålen.
 
+Siste kjeldearbeid etter alpha04: [Kalenderspråk og stor skrift](docs/CALENDAR_LANGUAGE_PASS.md). Ikkje med i den tidlegare bygde alpha04-release-APK-en; ingen ny publisering.
+
 ## Kvar står vi?
 
 | Status | Område |
@@ -95,6 +97,13 @@ Verkelege førespurnader kan starte nedlastingar. Slike testar skal bruke eigarg
 **Ferdig når:** Første og gjenteken opning av detaljar er stabile gjennom minst 20 opne/lukke-rundar med treg datalasting på fysisk telefon. Ei samanliknbar før/etter-måling viser at visuell finish ikkje har gjort scrolling eller oppstart tregare. Kjernehandlingane fungerer med skjermlesar og skriftstorleik 2.0.
 
 #### Språk — nynorsk og engelsk først, enkelt å utvide
+
+Ny, avgrensa kalenderbolk etter alpha04:
+
+- [x] Flytt kalenderens kontrollar, tomtilstandar, datoetikettar og teljingar til nynorsk/engelsk-ressursar; 17 tekstnøklar og to fleirtalsressursar.
+- [x] Test at kalenderen bevarer vald dag og typefilter ved språkbyte. Datorekkjefølgje følgjer UI-språket; klokkevising brukar Android sitt tidsformat.
+- [x] Rett klipt datotekst og test kalenderkontrollar på breitt vindauge med skriftstorleik 2.0.
+- [x] Fullhøgd, lagra og minimerbar sidemeny med fokus-/animasjonstestar vart levert i alpha04. Dette godkjenner ikkje heile TV-milepålen.
 
 Fullkrava nedanfor står opne der delarbeidet ikkje dekkjer heile kravet. Levert i alpha03:
 

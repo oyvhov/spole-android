@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calendar_title">Calendar</string>
+    <string name="calendar_close">Close calendar</string>
+    <string name="calendar_subtitle">Home releases and new episodes</string>
+    <string name="calendar_all">All</string>
+    <string name="calendar_movies">Films</string>
+    <string name="calendar_episodes">Episodes</string>
+    <string name="calendar_range">%1$s – %2$s</string>
+    <string name="calendar_today_date">Today, %1$s</string>
+    <string name="calendar_day_description">%1$s, %2$s</string>
+    <string name="calendar_all_days">All days</string>
+    <string name="calendar_empty">No scheduled releases</string>
+    <string name="calendar_empty_hint">Try another day or filter. Cinema-only releases are not shown.</string>
+    <string name="calendar_today">Today</string>
+    <string name="calendar_tomorrow">Tomorrow</string>
+    <string name="calendar_source_time">%1$s · %2$s</string>
+    <string name="calendar_physical">Physical release</string>
+    <string name="calendar_home_release">Home release</string>
+    <plurals name="calendar_releases">
+        <item quantity="one">%1$d release</item>
+        <item quantity="other">%1$d releases</item>
+    </plurals>
+    <plurals name="calendar_day_releases">
+        <item quantity="one">%1$d release this day</item>
+        <item quantity="other">%1$d releases this day</item>
+    </plurals>
+</resources>

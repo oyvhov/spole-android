@@ -4,6 +4,13 @@ Alpha03 omfattar òg 20 nynorsk/engelsk-ressursar for utsjånad, avspelingsval o
 
 ## Status i nattarbeidet 9. september 2026
 
+Kalenderoppfølging etter alpha04: 17 tekstnøklar og to fleirtalsressursar for kontrollar,
+tomtilstand, dagomtale for skjermlesar og utgjevingstal. Kalenderen brukar UI-lokalet for
+datorekkjefølgje og månads-/dagnamn, og Android sitt tidsformat for episodetidspunkt.
+Dag- og typeval blir bevarte ved språkbyte. Dette omset ikkje metadata/subtitlar frå
+repository eller tenestene og gjer ikkje engelsk til ei komplett omsetjing av appen.
+Sjå [kontrollrapporten](CALENDAR_LANGUAGE_PASS.md).
+
 Alpha03 flyttar kontooversikt og den personlege førespurnadsflyten til 86 nye tekstressursar og tre
 fleirtalsressursar. `RequestText` omset enum-statusar ved presentasjon; lagra statusar og nettverks-
 reglar er uendra. Sesong-/neste-episode-datoar brukar UI-lokalet. Sjå [arbeidsbolken](ROADMAP_BATCH_ALPHA03.md).
