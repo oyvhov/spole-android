@@ -60,15 +60,18 @@ class UiConsistencyTest {
         rule.onNodeWithText("Film A").assertIsDisplayed()
     }
 
+    @OptIn(ExperimentalTestApi::class)
     @Test fun settingsToggleHasOneActionAndShowsLibraryNotifications() {
         var changes = 0
         var changedSection: HomeSection? = null
         rule.setContent {
-            ReelstackTheme {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(androidx.compose.ui.unit.DpSize(412.dp, 900.dp))) {
+              ReelstackTheme {
                 SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, { section, _ ->
                     changes++
                     changedSection = section
                 })
+              }
             }
         }
         rule.onNodeWithText("Emby · Filmar").assertDoesNotExist()

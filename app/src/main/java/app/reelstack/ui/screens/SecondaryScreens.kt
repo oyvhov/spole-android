@@ -1,5 +1,7 @@
 package app.reelstack.ui.screens
 
+import app.reelstack.ui.components.focusOutline
+
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -457,7 +459,7 @@ private fun DiscoverFilterBar(
 private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-            .clickable(onClickLabel = "Vis detaljar for ${media.title}", onClick = onClick)
+            .clickable(onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
             .testTag("library-hit-${media.id}"),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(14.dp)).background(SurfaceRaised)) {
@@ -484,13 +486,17 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
 
 @Composable
 private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
+    val cardInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val actionInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val actionable = media.canRequest && allowed
     val actionLabel = if (media.isSeries) stringResource(R.string.media_seasons_named, media.title) else stringResource(R.string.media_add_named, media.title)
     val statusLabel = app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
     Box(Modifier.fillMaxWidth().heightIn(min = 300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).clip(RoundedCornerShape(18.dp)).background(SurfaceRaised)
         // The card's own action is named so a screen reader can tell it apart from the request
         // button inside it. It must not merge its descendants: that would swallow the button.
-        .clickable(onClickLabel = "Vis detaljar for ${media.title}", onClick = onDetails)
+        .focusOutline(cardInteraction, RoundedCornerShape(18.dp))
+        .clickable(interactionSource = cardInteraction, indication = androidx.compose.foundation.LocalIndication.current,
+            onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onDetails)
         .testTag("discover-cover-${media.id}")) {
         MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)
         Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
@@ -518,10 +524,11 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
                 minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
             if (actionable) {
-                Button(onClick = onRequest, enabled = !requesting,
+                Button(onClick = onRequest, enabled = !requesting, interactionSource = actionInteraction,
                     shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
                     contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)
+                        .focusOutline(actionInteraction, RoundedCornerShape(10.dp))
                         .semantics {
                             contentDescription = actionLabel
                         }) {

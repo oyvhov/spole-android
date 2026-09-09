@@ -96,8 +96,10 @@ class WideNavigationSettingsTest {
     }
     @Test fun pageWidthSettlesOnceWhileTheRailAnimatesAboveIt() {
         var expanded by mutableStateOf(true)
+        var slotWidthPx = 0
         rule.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(1280.dp, 800.dp))) {
+                slotWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { 80.dp.roundToPx() }
                 ReelstackTheme { Row(Modifier.fillMaxSize()) {
                     SidebarSlot(expanded) { ReelstackNavigationRail(AppTab.HOME, {}, expanded, { expanded = it }) }
                     Box(Modifier.weight(1f).fillMaxHeight().testTag("page"))
@@ -108,7 +110,8 @@ class WideNavigationSettingsTest {
         rule.runOnIdle { expanded = false }
         rule.mainClock.advanceTimeBy(64)
         val first = rule.onNodeWithTag("page").fetchSemanticsNode().boundsInRoot
-        rule.onNodeWithTag("sidebar-slot").assertWidthIsEqualTo(80.dp)
+        // ForcedSize may use a fractional density: compare the exact rounded layout pixels.
+        assertEquals(slotWidthPx.toFloat(), rule.onNodeWithTag("sidebar-slot").fetchSemanticsNode().boundsInRoot.width, .01f)
         rule.mainClock.advanceTimeBy(64)
         assertEquals(first, rule.onNodeWithTag("page").fetchSemanticsNode().boundsInRoot)
         rule.mainClock.advanceTimeBy(400)

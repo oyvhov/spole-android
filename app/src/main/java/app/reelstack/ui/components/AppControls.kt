@@ -43,12 +43,14 @@ fun <T> AppFilterRow(
 ) {
     LazyRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(options, key = { it.toString() }) { option ->
+            val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             FilterChip(
+                interactionSource = interaction,
                 selected = option == selected, onClick = { onSelect(option) },
                 label = { Text(label(option), maxLines = 1) }, shape = RoundedCornerShape(10.dp), border = null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceRaised, labelColor = Muted,
                     selectedContainerColor = Primary, selectedLabelColor = Ink),
-                modifier = Modifier.minimumInteractiveComponentSize(),
+                modifier = Modifier.minimumInteractiveComponentSize().focusOutline(interaction, RoundedCornerShape(10.dp)),
             )
         }
     }

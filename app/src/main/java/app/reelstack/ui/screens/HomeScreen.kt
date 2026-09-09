@@ -1,5 +1,7 @@
 package app.reelstack.ui.screens
 
+import app.reelstack.ui.components.focusOutline
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -428,6 +430,7 @@ private fun RecommendationRail(items: List<DiscoverMedia>, onClick: (String) -> 
 
 @Composable
 private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
     val status = if (media.seerrStatus == null && !media.inLibrary && !media.requested) stringResource(R.string.media_check_availability)
         else app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
     Box(
@@ -435,7 +438,9 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             .width(164.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
             .heightIn(min = 258.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClickLabel = "Vis detaljar for ${media.title}", onClick = onClick)
+            .focusOutline(interaction, RoundedCornerShape(16.dp))
+            .clickable(interactionSource = interaction, indication = LocalIndication.current,
+                onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
             .semantics { role = Role.Button }
             .testTag("recommendation-${media.id}"),
     ) {
@@ -549,6 +554,7 @@ private fun NowPlayingCard(
                 scaleY = scale
             }
             .clip(shape)
+            .focusOutline(interactionSource, shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
@@ -712,7 +718,8 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
             .semantics { role = Role.Button }
             .testTag("resume-card-${media.id}"),
     ) {
-        Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))) {
+        Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))
+            .focusOutline(interactionSource, RoundedCornerShape(ReelLayout.ArtworkCorner))) {
             MediaArtwork(
                 url = media.artworkUrl,
                 fallbackRes = media.artworkRes,
@@ -794,7 +801,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .fillMaxWidth()
                 .height(artworkHeight)
                 .testTag("library-artwork-${media.id}")
-                .clip(artworkShape),
+                .clip(artworkShape).focusOutline(interactionSource, artworkShape),
         ) {
             MediaArtwork(
                 url = media.artworkUrl,
@@ -866,7 +873,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
     )
     Box(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).heightIn(min = 226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).graphicsLayer {
         alpha = reveal; translationY = (1f - reveal) * 18f; scaleX = scale; scaleY = scale
-    }.clip(shape).background(SurfaceRaised)
+    }.clip(shape).background(SurfaceRaised).focusOutline(interactionSource, shape)
         .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
         .semantics { role = Role.Button }.testTag("upcoming-cover-${media.id}")) {
         MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)

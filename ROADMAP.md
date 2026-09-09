@@ -264,6 +264,8 @@ Ikkje prioritert: obligatorisk sosial backend, AI-genererte tilrådingar, full R
 
 ## Slik held vi planen oppdatert
 
+- [x] Felles fokusrespons for mediekort og filter utan endra kortgeometri; eigne testar for detaljar versus førespurnad. Sjå [design- og flytrunden](docs/DESIGN_FLOW_PASS.md). Dette kryssar ikkje av full TV-støtte eller fysisk fjernkontrolltest.
+
 Ved kvar release: oppdater utgangspunktet, kryss berre av dokumentert fullførte punkt, lenk til verifiseringa og flytt nye alvorlege feil framfor funksjonsarbeid. Emulator med ekte kontoar blir brukt til manuell kontroll; automatiske testar held fram på isolerte kontoar. Private skjermbilete, innloggingar og tenarnøklar skal ikkje følgje dokumentasjonen.
 
 Teknisk bakgrunn: [arbeidsrettleiing](docs/AI_INSTRUCTIONS.md), [Jellyfin-spelar](docs/JELLYFIN_PLAYER.md), [førespurnadsflyt](docs/REQUEST_FLOW.md) og [tilgangsmodell](docs/VIEWER_ACCESS.md). [Tidlegare produktplan](docs/PRODUCT_PLAN.md) og [tidlegare publiseringsvurdering](docs/PUBLISHING_READINESS.md) er historisk bakgrunn, ikkje fasit på kva som står att i dagens versjon.

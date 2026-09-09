@@ -189,6 +189,14 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 
 ## Accessibility
 
+### Media focus (keyboard and remote)
+
+- Media artwork, recommendations, active playback, Upcoming and Discover reuse `focusOutline` with the clickable's existing interaction source. Shared filter chips and Discover's separate request action use the same treatment.
+- Resting/touch state: no outline. Keyboard focus: 3 dp `onSurface` outline, fading over 110 ms, following the artwork's existing corner shape. This is draw-only: no scale, padding, new focus target or size change.
+- Focus is not selection. Moving between filters does not select them until confirmed. Focusing a title does not open it or request it. Discover's details target and request target remain independently actionable.
+- Existing press feedback remains; disabled request buttons remain disabled. Loading metadata must not affect the focus frame's geometry.
+- Verification and remaining scope: [design and flow pass](DESIGN_FLOW_PASS.md).
+
 - Navigation and primary actions use at least 48 dp touch targets. Interactive rows expose button or switch semantics.
 - Status never relies on color alone; labels describe source, state, and progress.
 - Empty states are short factual messages, not decorative cards.
