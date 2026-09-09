@@ -697,9 +697,36 @@ class ReelstackViewModel(
         val state = _uiState.value
         val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR } ?: return
         val actor = state.accounts[ServiceKind.SEERR]?.takeIf { it.isPersonal } ?: return
-        val scope = container.requestTrackingRepository.scope(connection, actor.id)
-        container.requestTrackingRepository.setNotify(scope, key, enabled)
-        _uiState.update { it.copy(trackedRequests = container.requestTrackingRepository.list(scope)) }
+        // Move the switch now, store it after. This used to run on the caller's thread, which is
+        // the UI one: three parses of the follow list — up to a hundred entries — and a blocking
+        // commit() for a single tap on a bell.
+        _uiState.update { current ->
+            current.copy(
+                trackedRequests = current.trackedRequests.map {
+                    if (it.key == key) it.copy(notify = enabled) else it
+                },
+            )
+        }
+        viewModelScope.launch {
+            val stored = attempt {
+                withContext(Dispatchers.IO) {
+                    val scope = container.requestTrackingRepository.scope(connection, actor.id)
+                    // Read back what is on disk rather than what we asked for, so a write that
+                    // did not happen puts the switch back instead of leaving a lie on screen.
+                    runCatching { container.requestTrackingRepository.setNotify(scope, key, enabled) }
+                    container.requestTrackingRepository.list(scope)
+                }
+            }.getOrNull()
+            _uiState.update { current ->
+                val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+                if (configured?.token != connection.token || configured.baseUrl != connection.baseUrl ||
+                    current.accounts[ServiceKind.SEERR]?.id != actor.id
+                ) {
+                    return@update current
+                }
+                current.copy(trackedRequests = stored ?: current.trackedRequests)
+            }
+        }
     }
 
     fun cancelTrackedRequest(key: String) {
