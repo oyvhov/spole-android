@@ -126,8 +126,6 @@ import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.SheetToolbar
 import app.reelstack.ui.components.StableSheetDialog
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.Constraints
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -345,60 +343,17 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
         // Reserve room for a synopsis, but let large text and explicit expansion grow inside the
         // scroll view. Only the outer sheet has a fixed height; text must never be clipped by it.
-        val overview = details.overview?.takeIf { it.isNotBlank() }
-        var expandedOverview by rememberSaveable(details.key) { mutableStateOf(false) }
-        val textMeasurer = rememberTextMeasurer()
-        Column(
-            Modifier.fillMaxWidth().heightIn(min = 174.dp).padding(start = 6.dp, top = 19.dp, end = 6.dp),
-        ) {
-            Text(
-                when {
+        app.reelstack.ui.components.ExpandableSynopsis(
+            identity = details.key,
+            title = when {
                     isMovie -> stringResource(R.string.details_about_movie)
                     mediaType == "Episode" -> stringResource(R.string.details_about_episode)
                     mediaType == "Series" -> stringResource(R.string.details_about_series)
                     else -> stringResource(R.string.details_about_title)
-                },
-                color = Color.White,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            if (overview != null) {
-                BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                val overviewStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 25.sp)
-                // Measure before placement: onTextLayout + mutableState inserts the button
-                // one frame later and moves everything below it on every first composition.
-                val overviewOverflows = textMeasurer.measure(
-                    overview, style = overviewStyle, maxLines = 4,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    constraints = Constraints(maxWidth = constraints.maxWidth),
-                ).hasVisualOverflow
-                Column {
-                Text(
-                    overview,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = overviewStyle,
-                    maxLines = if (expandedOverview) Int.MAX_VALUE else 4,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-                if (overviewOverflows || expandedOverview) {
-                    TextButton(onClick = { expandedOverview = !expandedOverview },
-                        modifier = Modifier.testTag("overview-expand")) {
-                        Text(if (expandedOverview) stringResource(R.string.details_less) else stringResource(R.string.details_read_more))
-                    }
-                }
-                }
-                }
-            } else if (details.loading) {
-                DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
-            } else {
-                Text(
-                    stringResource(R.string.details_no_overview),
-                    color = Muted,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-        }
+            },
+            overview = details.overview?.takeIf { it.isNotBlank() },
+            loading = details.loading,
+        )
         details.statusTitle?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
                 .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {

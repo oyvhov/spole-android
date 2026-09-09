@@ -264,6 +264,8 @@ Ikkje prioritert: obligatorisk sosial backend, AI-genererte tilrådingar, full R
 
 ## Slik held vi planen oppdatert
 
+- [x] Detaljflyt: synleg startfokus, ikkje-fokusbar bakgrunnsflate og utvidbar omtale med stabilt lesestartpunkt. Regresjonstestar og avgrensingar i [detalj- og leseflyten](docs/SHEET_READING_FLOW.md).
+
 - [x] Felles fokusrespons for mediekort og filter utan endra kortgeometri; eigne testar for detaljar versus førespurnad. Sjå [design- og flytrunden](docs/DESIGN_FLOW_PASS.md). Dette kryssar ikkje av full TV-støtte eller fysisk fjernkontrolltest.
 
 Ved kvar release: oppdater utgangspunktet, kryss berre av dokumentert fullførte punkt, lenk til verifiseringa og flytt nye alvorlege feil framfor funksjonsarbeid. Emulator med ekte kontoar blir brukt til manuell kontroll; automatiske testar held fram på isolerte kontoar. Private skjermbilete, innloggingar og tenarnøklar skal ikkje følgje dokumentasjonen.

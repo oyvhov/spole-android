@@ -189,6 +189,12 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 
 ## Accessibility
 
+### Modal entry and reading anchor
+
+Keyboard/remote entry starts at the visible close control, once per toolbar composition. Touch entry does not request keyboard focus. The dismiss scrim is excluded from keyboard focus but retains touch/accessibility dismissal. Close and Calendar return reuse the shared focus outline. Late metadata never requests focus again.
+
+Synopsis expansion lives beside the heading, before the text, so the focused control stays in view rather than moving below a newly expanded paragraph. Short or missing text has no disclosure. The outer modal still has fixed geometry; only explicit expansion changes the reading content. See [states and verification](SHEET_READING_FLOW.md).
+
 ### Media focus (keyboard and remote)
 
 - Media artwork, recommendations, active playback, Upcoming and Discover reuse `focusOutline` with the clickable's existing interaction source. Shared filter chips and Discover's separate request action use the same treatment.

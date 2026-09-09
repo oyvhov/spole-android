@@ -13,9 +13,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import app.reelstack.R
@@ -31,6 +34,8 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.launch
 
+internal val LocalSheetKeyboardEntry = staticCompositionLocalOf { false }
+
 /** A reading modal: one measured surface, one non-overshooting entrance, no drag anchors. */
 @Composable
 internal fun StableSheetDialog(
@@ -45,6 +50,9 @@ internal fun StableSheetDialog(
     val dismissLatest by rememberUpdatedState(onDismiss)
     val scope = rememberCoroutineScope()
     val hostView = LocalView.current
+    val openerInput = LocalInputModeManager.current
+    // Dialog owns a new Android view; its initial input mode can differ from the opener.
+    val keyboardEntry = remember { openerInput.inputMode == InputMode.Keyboard }
     val dismissLabel = stringResource(R.string.sheet_dismiss)
     val dialogLabel = stringResource(R.string.sheet_title)
     val close = {
@@ -91,6 +99,8 @@ internal fun StableSheetDialog(
                 .graphicsLayer { alpha = progress.value }
                 .background(Color(0xB8040308))
                 .semantics { contentDescription = dismissLabel }
+                // Outside-tap dismissal is not a visible remote-control destination.
+                .focusProperties { canFocus = false }
                 .clickable(enabled = dismissEnabled && !closing,
                     interactionSource = remember { MutableInteractionSource() }, indication = null,
                     onClick = close))
@@ -120,7 +130,8 @@ internal fun StableSheetDialog(
                     Box(Modifier.fillMaxSize().navigationBarsPadding()) {
                         // Reading sheets should stop at the edge, not stretch artwork/text while
                         // the toolbar stays still. Keep overscroll on normal feeds unchanged.
-                        CompositionLocalProvider(androidx.compose.foundation.LocalOverscrollFactory provides null) {
+                        CompositionLocalProvider(androidx.compose.foundation.LocalOverscrollFactory provides null,
+                            LocalSheetKeyboardEntry provides keyboardEntry) {
                             content(entered, closing, close)
                         }
                     }
