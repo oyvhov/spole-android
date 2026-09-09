@@ -32,7 +32,7 @@ internal fun SheetToolbar(
             if (onBack != null) {
                 TextButton(onClick = onBack, enabled = enabled) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, Modifier.size(20.dp))
-                    Text("Kalender", Modifier.padding(start = 8.dp))
+                    Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), Modifier.padding(start = 8.dp))
                 }
             } else {
                 Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2,

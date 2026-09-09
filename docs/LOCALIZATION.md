@@ -2,6 +2,10 @@
 
 ## Status i nattarbeidet 9. september 2026
 
+Oppfølging i alpha02: 54 fleire ressursnøklar per språk for Heim, Oppdag-status/handlingar og
+detalj-/avspelingshandlingar. Engelsk er framleis førehandsvising; sjå
+[nettbrett- og språkoppfølginga](TABLET_POLISH_2026-09-09.md).
+
 Språkgrunnlaget er implementert, med eit fungerande val mellom nynorsk, engelsk og «Følg eininga» i Innstillingar. **Engelsk er ei førehandsvising**, ikkje ei ferdig omsetjing av heile appen.
 
 Migrert i denne bolken: hovudnavigasjon, oppstart/onboarding, hovudoverskrifter og søk på Heim, søk/filter i Oppdag, sentrale aktivitets- og innstillingstekstar, personvern-/krediteringstekstar, widget og dei lokale avspelingskontrollane. Nokre kort, kontopanel, detaljar, førespurnader, nettverksfeil og statusar frå modell/repository har framleis hardkoda nynorsk. Metadata frå tenestene er ikkje maskinomsette.

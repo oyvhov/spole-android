@@ -1,5 +1,7 @@
 package app.reelstack.ui
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.aspectRatio
@@ -161,8 +163,8 @@ fun ReelstackSheets(
         Column(Modifier.fillMaxSize().testTag("sheet-viewport")) {
             if (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails) {
                 SheetToolbar(
-                    title = if (sheet is AppSheet.SessionDetails) "Avspeling" else "Detaljar",
-                    closeDescription = "Lukk detaljane", onClose = close, enabled = !closing,
+                    title = if (sheet is AppSheet.SessionDetails) stringResource(R.string.details_playback) else stringResource(R.string.details_title),
+                    closeDescription = stringResource(R.string.details_close), onClose = close, enabled = !closing,
                     onBack = if (state.returnToCalendar) onBackToCalendar else null,
                 )
             }
@@ -351,10 +353,10 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         ) {
             Text(
                 when {
-                    isMovie -> "Om filmen"
-                    mediaType == "Episode" -> "Om episoden"
-                    mediaType == "Series" -> "Om serien"
-                    else -> "Om tittelen"
+                    isMovie -> stringResource(R.string.details_about_movie)
+                    mediaType == "Episode" -> stringResource(R.string.details_about_episode)
+                    mediaType == "Series" -> stringResource(R.string.details_about_series)
+                    else -> stringResource(R.string.details_about_title)
                 },
                 color = Color.White,
                 fontSize = 17.sp,
@@ -381,7 +383,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 if (overviewOverflows || expandedOverview) {
                     TextButton(onClick = { expandedOverview = !expandedOverview },
                         modifier = Modifier.testTag("overview-expand")) {
-                        Text(if (expandedOverview) "Vis mindre" else "Les heile omtalen")
+                        Text(if (expandedOverview) stringResource(R.string.details_less) else stringResource(R.string.details_read_more))
                     }
                 }
                 }
@@ -390,7 +392,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
             } else {
                 Text(
-                    "Ingen omtale tilgjengeleg.",
+                    stringResource(R.string.details_no_overview),
                     color = Muted,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(top = 8.dp),
@@ -403,7 +405,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 if (details.libraryAvailable) Icon(Icons.Rounded.VideoLibrary, null, tint = Primary, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 else Icon(Icons.Rounded.Schedule, null, tint = Muted, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                    Text(title, color = PrimarySoft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (discoverMedia != null) app.reelstack.localization.localizedSeerrStatus(discoverMedia.seerrStatus, discoverMedia.inLibrary, discoverMedia.requested) else title, color = PrimarySoft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
                 }
             }
@@ -412,7 +414,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
         if (details.cast.isNotEmpty()) {
-            Text("Medverkande", style = MaterialTheme.typography.titleMedium,
+            Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 24.dp, bottom = 14.dp))
             app.reelstack.ui.components.CastRail(details.cast)
         }
@@ -443,10 +445,10 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 }
                 Text(
                     when {
-                        adding -> "Legg til…"
-                        needsAccount -> "Logg inn for å leggje til"
-                        discoverMedia.mediaType == "tv" -> "Sjå sesongar"
-                        else -> "Legg til i mediesamlinga"
+                        adding -> stringResource(R.string.media_adding)
+                        needsAccount -> stringResource(R.string.media_login_add)
+                        discoverMedia.mediaType == "tv" -> stringResource(R.string.media_seasons)
+                        else -> stringResource(R.string.media_add_collection)
                     },
                     modifier = Modifier.padding(start = 8.dp),
                 )
@@ -468,6 +470,9 @@ private fun MoviePosterSummary(
     source: ServiceKind?,
     loading: Boolean,
 ) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val spacious = maxWidth >= 600.dp
+    val posterWidth = if (spacious) 164.dp else 116.dp
     Row(
         verticalAlignment = Alignment.Top,
         modifier = Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 2.dp),
@@ -475,7 +480,7 @@ private fun MoviePosterSummary(
         Surface(
             color = app.reelstack.ui.theme.Ink,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.width(116.dp).height(174.dp).testTag("detail-artwork"),
+            modifier = Modifier.width(posterWidth).height(posterWidth * 1.5f).testTag("detail-artwork"),
         ) {
             MediaArtwork(
                 url = artworkUrl,
@@ -487,13 +492,13 @@ private fun MoviePosterSummary(
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        Column(Modifier.weight(1f).padding(start = 17.dp, top = 7.dp)) {
+        Column(Modifier.weight(1f).padding(start = if (spacious) 28.dp else 17.dp, top = 7.dp)) {
             DetailEyebrow(eyebrow, source)
             Text(
                 title,
                 color = Color.White,
-                fontSize = 25.sp,
-                lineHeight = 27.sp,
+                fontSize = if (spacious) 32.sp else 25.sp,
+                lineHeight = if (spacious) 37.sp else 27.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 4,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -530,6 +535,7 @@ private fun MoviePosterSummary(
             }
         }
     }
+}
 }
 
 
@@ -569,7 +575,7 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
         shape = RoundedCornerShape(14.dp),
     ) {
         Icon(Icons.Rounded.PlayArrow, null, Modifier.size(20.dp))
-        Text(if (details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true)) "Vel episode" else "Spel av i Spole",
+        Text(if (details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true)) stringResource(R.string.media_choose_episode) else stringResource(R.string.media_play_in_spole),
             Modifier.padding(start = 8.dp))
     }
 }
@@ -601,13 +607,13 @@ private fun OpenInServerButton(state: ReelstackUiState, details: ContentDetails)
     ) {
         Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(
-            if (target.packageName != null) target.label else "Opne i ${source.displayName}",
+            if (target.packageName != null) target.label else stringResource(R.string.media_open_server, source.displayName),
             modifier = Modifier.padding(start = 8.dp),
         )
     }
     if (failed) {
         Text(
-            "Fann ingen app som kan opne denne lenkja.",
+            stringResource(R.string.media_no_link_app),
             color = Warning, fontSize = 12.sp, lineHeight = 17.sp,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         )
@@ -782,7 +788,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 14.dp),
             ) {
-                SessionMetric("Avspeling", session.streamMethod, Modifier.weight(1f))
+                SessionMetric(stringResource(R.string.details_playback), session.streamMethod, Modifier.weight(1f))
                 SessionMetric("Kvalitet", session.quality, Modifier.weight(1f))
                 // The value already ends in "att"; repeating it in the label read as "att att".
                 SessionMetric("Tid igjen", session.timeLeft.removeSuffix(" att"), Modifier.weight(1f))

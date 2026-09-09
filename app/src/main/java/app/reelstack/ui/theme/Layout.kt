@@ -5,9 +5,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+
+val LocalTabletCanvas = staticCompositionLocalOf { false }
 
 /** Shared rhythm and artwork dimensions, including loading placeholders. */
 object ReelLayout {
@@ -38,8 +42,9 @@ fun ReelPage(modifier: Modifier = Modifier, media: Boolean = false, content: @Co
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         val policy = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
         val maximum = if (media) policy.mediaMaxWidthDp.dp else ReelLayout.ContentMaxWidth
+        val tablet = maxWidth >= 900.dp
         Box(Modifier.widthIn(max = maximum).fillMaxSize()) {
-            content()
+            CompositionLocalProvider(LocalTabletCanvas provides tablet) { content() }
         }
     }
 }

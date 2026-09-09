@@ -1,6 +1,6 @@
 # Spole — veikart mot 1.0
 
-Oppdatert 9. september 2026. Publisert utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal førehandsversjon: **0.16.0-alpha01 / bygg 44**; ikkje publisert.
+Oppdatert 9. september 2026. Publisert utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal førehandsversjon: **0.16.0-alpha02 / bygg 45**; ikkje publisert. [Nettbrett- og språkoppfølging](docs/TABLET_POLISH_2026-09-09.md).
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.
 

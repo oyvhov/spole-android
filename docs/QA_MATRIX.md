@@ -2,9 +2,13 @@
 
 Oppretta 8. september, oppdatert 9. september 2026. Første dokumentasjonsrunde brukte 0.15.1 / 43, commit `265321c`. Nattrunden implementerer appfunksjonar i **0.16.0-alpha01 / 44**. [Gjeldande veikart](../ROADMAP.md).
 
-## Siste implementeringsrunde — 9. september
+## Nyaste oppfølging — nettbrett og engelsk, alpha02 / 45
 
-Gjeldande resultat og avgrensingar er samla i [nattrapporten](OVERNIGHT_REPORT_2026-09-09.md). Tabellane og sorteringa nedanfor bevarer den første baseline-kontrollen; dei skal ikkje lesast som siste teststatus.
+[Nettbrettrapporten](TABLET_POLISH_2026-09-09.md) dokumenterer den nye bibliotekframhevinga, større omslag/detaljplakatar, 54 fleire språkressursar og lokale skjermbilete med ekte kontoar. Desse resultata kjem etter alpha01-runden nedanfor. Fysisk nettbrett og full engelsk omsetjing er framleis ikkje godkjende.
+
+## Førre implementeringsrunde — 9. september, alpha01 / 44
+
+Resultata for alpha01 er samla i [nattrapporten](OVERNIGHT_REPORT_2026-09-09.md). Tabellane og sorteringa nedanfor bevarer den første baseline-kontrollen; dei skal ikkje lesast som siste teststatus.
 
 - Språkval, engelsk førehandsvising, ressurskontroll og migrering er implementerte. Full engelsk kjerneflyt er enno ikkje godkjend.
 - Nettbrettgrunnlaget har breiare mediesider, sentrerte panel og eigne Android-testar for vindaugsskifte, sein metadata, tastatur og stor skrift.

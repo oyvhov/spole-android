@@ -264,7 +264,7 @@ fun DiscoverScreen(
     }
     ReelPage(media = true) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(145.dp),
+        columns = GridCells.Adaptive(if (app.reelstack.ui.theme.LocalTabletCanvas.current) 174.dp else 145.dp),
         state = gridState,
         contentPadding = screenPadding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -480,7 +480,8 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
 @Composable
 private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
     val actionable = media.canRequest && allowed
-    val statusLabel = seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested)
+    val actionLabel = if (media.isSeries) stringResource(R.string.media_seasons_named, media.title) else stringResource(R.string.media_add_named, media.title)
+    val statusLabel = app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
     Box(Modifier.fillMaxWidth().heightIn(min = 300.dp).clip(RoundedCornerShape(18.dp)).background(SurfaceRaised)
         // The card's own action is named so a screen reader can tell it apart from the request
         // button inside it. It must not merge its descendants: that would swallow the button.
@@ -494,7 +495,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
         Row(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             // A type badge classifies, it does not act, so it stays off the accent colour.
-            Text(if (media.isSeries) "SERIE" else "FILM", color = Color.White, fontSize = 10.sp,
+            Text(if (media.isSeries) stringResource(R.string.media_series) else stringResource(R.string.media_movie), color = Color.White, fontSize = 10.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, maxLines = 1,
                 modifier = Modifier.background(Color.Black.copy(alpha = .68f), RoundedCornerShape(6.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp))
@@ -517,11 +518,11 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                     contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)
                         .semantics {
-                            contentDescription = if (media.isSeries) "Sjå sesongar av ${media.title}" else "Legg til ${media.title}"
+                            contentDescription = actionLabel
                         }) {
                     if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
                     else Icon(if (media.isSeries) Icons.AutoMirrored.Rounded.FormatListBulleted else Icons.Rounded.Add, null, Modifier.size(14.dp))
-                    Text(when { requesting -> "Sender…"; media.isSeries -> "Sjå sesongar"; else -> "Legg til" },
+                    Text(when { requesting -> stringResource(R.string.media_sending); media.isSeries -> stringResource(R.string.media_seasons); else -> stringResource(R.string.media_add) },
                         fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp))
                 }
             } else {

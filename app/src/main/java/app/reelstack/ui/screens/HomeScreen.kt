@@ -50,6 +50,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.res.stringResource
+import app.reelstack.ui.theme.LocalTabletCanvas
+import app.reelstack.ui.components.TabletLibraryFeature
+import app.reelstack.ui.components.tabletFeaturedTitle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -146,6 +150,8 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
       ReelPage(media = true) {
+        val tablet = LocalTabletCanvas.current
+        val featured = if (tablet) tabletFeaturedTitle(state.recentSeries, state.homeSections) else null
         LazyColumn(
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
@@ -161,6 +167,11 @@ fun HomeScreen(
             item(key = "search-entry") {
                 Box(Modifier.padding(top = 8.dp)) {
                     HomeSearchEntry(onSearchClick, searchTransitionModifier)
+                }
+            }
+            if (featured != null) {
+                item(key = "tablet-feature") {
+                    TabletLibraryFeature(featured, onLibraryClick, Modifier.padding(top = 20.dp, bottom = 4.dp))
                 }
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
@@ -184,7 +195,7 @@ fun HomeScreen(
             ) {
                 item {
                     SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_continue), Modifier.padding(top = 24.dp, bottom = 13.dp))
-                    if (state.resume.isEmpty()) LibraryRailSkeleton("Lastar det du held på med", wide = true)
+                    if (state.resume.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
                     else ResumeRail(state.resume, onLibraryClick)
                 }
             }
@@ -197,9 +208,9 @@ fun HomeScreen(
                         val items = state.recentMovies.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
-                                LibraryRailSkeleton("Lastar nyleg lagde til filmar frå ${source.displayName}")
+                                LibraryRailSkeleton(stringResource(R.string.home_loading_movies, source.displayName))
                             } else {
-                                EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til filmar."))
+                                EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_movies)))
                             }
                         } else {
                             LibraryRail(items, onLibraryClick, wide = false)
@@ -217,11 +228,11 @@ fun HomeScreen(
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
                                 LibraryRailSkeleton(
-                                    "Lastar nyleg lagde til seriar frå ${source.displayName}",
+                                    stringResource(R.string.home_loading_series, source.displayName),
                                     wide = true,
                                 )
                             } else {
-                                EmptySectionLine(mediaEmptyMessage(state, source, "Ingen nyleg lagde til episodar."))
+                                EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_episodes)))
                             }
                         } else {
                             LibraryRail(items, onLibraryClick, wide = true)
@@ -232,12 +243,12 @@ fun HomeScreen(
             if (HomeSection.RECOMMENDATIONS in state.homeSections) {
                 item {
                     SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = 28.dp, bottom = 4.dp))
-                    Text("Handplukka historier å oppdage", color = Muted, fontSize = 12.sp,
+                    Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp,
                         modifier = Modifier.padding(bottom = 12.dp))
                     if (state.recommendations.isEmpty() && state.isRefreshing) {
                         RecommendationSkeleton()
                     } else if (state.recommendations.isEmpty()) {
-                        EmptySectionLine("GitHub-lista med anbefalingar er tom eller utilgjengeleg.")
+                        EmptySectionLine(stringResource(R.string.home_recommendations_empty))
                     } else {
                         RecommendationRail(state.recommendations.take(8), onDiscoverClick)
                     }
@@ -248,7 +259,7 @@ fun HomeScreen(
                     Column(Modifier.padding(top = 28.dp, bottom = 13.dp)) {
                         SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
                         Text(
-                            "Nett utgjeve · i biblioteka dine",
+                            stringResource(R.string.home_releases_note),
                             color = Muted,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
@@ -259,7 +270,7 @@ fun HomeScreen(
                         if (state.isRefreshing && state.configuredCount > 0) {
                             UpcomingSkeleton()
                         } else {
-                            EmptySectionLine(state.recentReleasesError ?: "Ingen nye digitale filmutgjevingar eller episodar i biblioteka dine dei siste 28 dagane.")
+                            EmptySectionLine(state.recentReleasesError ?: stringResource(R.string.home_releases_empty))
                         }
                     } else {
                         RecentReleaseRail(state.recentReleases, onUpcomingClick)
@@ -278,8 +289,8 @@ fun HomeScreen(
                             UpcomingSkeleton()
                         } else {
                             EmptySectionLine(state.upcomingError ?: if (!hasQueueConnection)
-                                "Kalenderkjelda er ikkje kopla til enno."
-                            else "Ingen komande utgjevingar med kjend dato dei neste 28 dagane.")
+                                stringResource(R.string.home_calendar_disconnected)
+                            else stringResource(R.string.home_upcoming_empty))
                         }
                     } else {
                         UpcomingRail(state.upcoming, onUpcomingClick)
@@ -300,12 +311,12 @@ fun HomeScreen(
 private fun HomeFreshness(state: ReelstackUiState) {
     if (state.configuredCount == 0) return
     val text = when {
-        state.isRefreshing -> "Oppdaterer…"
-        state.lastUpdatedEpochMillis != null -> "Sist oppdatert kl. " + Instant
+        state.isRefreshing -> stringResource(R.string.home_refreshing)
+        state.lastUpdatedEpochMillis != null -> stringResource(R.string.home_updated_at, Instant
             .ofEpochMilli(state.lastUpdatedEpochMillis)
             .atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("HH:mm"))
-        else -> "Ventar på første oppdatering"
+            .format(DateTimeFormatter.ofPattern("HH:mm")))
+        else -> stringResource(R.string.home_waiting_refresh)
     }
     Text(
         text,
@@ -411,8 +422,8 @@ private fun RecommendationRail(items: List<DiscoverMedia>, onClick: (String) -> 
 
 @Composable
 private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
-    val status = if (media.seerrStatus == null && !media.inLibrary && !media.requested) "Sjå tilgjenge"
-        else seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested)
+    val status = if (media.seerrStatus == null && !media.inLibrary && !media.requested) stringResource(R.string.media_check_availability)
+        else app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
     Box(
         Modifier
             .width(164.dp)
@@ -438,7 +449,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                if (media.isSeries) "SERIE" else "FILM",
+                if (media.isSeries) stringResource(R.string.media_series) else stringResource(R.string.media_movie),
                 color = Color.White,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -738,8 +749,9 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
 
 @Composable
 private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, revealDelay: Int, onClick: () -> Unit) {
-    val cardWidth = if (wide) ReelLayout.EpisodeWidth else ReelLayout.PosterWidth
-    val artworkHeight = if (wide) ReelLayout.EpisodeHeight else ReelLayout.PosterHeight
+    val tablet = LocalTabletCanvas.current
+    val cardWidth = if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }
+    val artworkHeight = if (wide) cardWidth * 9f / 16f else cardWidth * 1.5f
     val artworkShape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -862,8 +874,8 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 70.dp)) {
             Text(if (recent) {
-                if (media.mediaType.equals("Movie", true)) "NY FILM" else "NY EPISODE"
-            } else if (media.mediaType.equals("Movie", true)) "HEIMEUTGJEVING" else "NY EPISODE",
+                if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_new_movie) else stringResource(R.string.media_new_episode)
+            } else if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_home_release) else stringResource(R.string.media_new_episode),
                 color = Color.White.copy(alpha = .8f), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text(media.title, color = Color.White, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
@@ -898,7 +910,7 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
             }
         }
         Text(
-            "Heimeutgjevingar og nye episodar",
+            stringResource(R.string.home_upcoming_note),
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp,

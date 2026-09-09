@@ -79,15 +79,17 @@ fun NowPlayingSkeleton(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun LibraryRailSkeleton(description: String, wide: Boolean = false, modifier: Modifier = Modifier) {
+fun LibraryRailSkeleton(description: String, wide: Boolean = false, modifier: Modifier = Modifier,
+    tabletArtwork: Boolean = app.reelstack.ui.theme.LocalTabletCanvas.current) {
+    val cardWidth = if (wide) { if (tabletArtwork) 292.dp else ReelLayout.EpisodeWidth }
+        else { if (tabletArtwork) 158.dp else ReelLayout.PosterWidth }
+    val artworkHeight = if (wide) cardWidth * 9f / 16f else cardWidth * 1.5f
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         userScrollEnabled = false,
         modifier = modifier.clearAndSetSemantics { contentDescription = description },
     ) {
         items(3) { index ->
-            val cardWidth = if (wide) ReelLayout.EpisodeWidth else ReelLayout.PosterWidth
-            val artworkHeight = if (wide) ReelLayout.EpisodeHeight else ReelLayout.PosterHeight
             Column(Modifier.width(cardWidth)) {
                 ShimmerBlock(
                     modifier = Modifier.fillMaxWidth().height(artworkHeight),

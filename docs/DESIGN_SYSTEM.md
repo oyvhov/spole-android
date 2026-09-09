@@ -1,5 +1,13 @@
 # Spole design system
 
+## Tablet polish · alpha02
+
+The wide Home canvas gets one static library feature, selected only from visible episode rows.
+Real artwork and synopsis lead; a quiet white action opens details, never playback. No automatic
+carousel or invented recommendation. Tablet posters/episodes and Discover cells are larger, and
+wide detail panels give the uncropped poster and title more space. The fallback is a subdued film
+frame, not the old house mark. See [states and verification](TABLET_POLISH_2026-09-09.md).
+
 ## Roadmap implementation · 9 September 2026 (unreleased)
 
 - Tablet media pages have a wider canvas while long-form/settings content keeps a readable column.
