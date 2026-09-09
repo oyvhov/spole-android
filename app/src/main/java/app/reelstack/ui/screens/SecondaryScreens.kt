@@ -282,13 +282,14 @@ fun DiscoverScreen(
             Column {
                 val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
                 val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                app.reelstack.ui.components.DiscoverHeader(heading = {
+                    Column {
                         Text(stringResource(R.string.nav_discover), color = TextColor, style = MaterialTheme.typography.displaySmall,
                             modifier = Modifier.padding(top = 6.dp))
                         Text(stringResource(R.string.discover_subtitle), color = Muted, fontSize = 13.sp,
                             lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
                     }
+                }, account = {
                     AccountAvatarButton(
                         account = account,
                         connection = connection,
@@ -298,8 +299,7 @@ fun DiscoverScreen(
                         testTag = "discover-account",
                         modifier = Modifier.padding(top = 2.dp),
                     )
-                }
-                Box(Modifier.fillMaxWidth().padding(top = 18.dp)) {
+                }, search = {
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = onSearch,
@@ -328,7 +328,7 @@ fun DiscoverScreen(
                     modifier = searchTransitionModifier.fillMaxWidth().focusRequester(searchFocus)
                         .testTag("discover-search"),
                 )
-                }
+                })
                 DiscoverFilterBar(filter, libraryFilter, { filter = it }, { libraryFilter = it },
                     Modifier.padding(top = 12.dp))
             }
@@ -411,7 +411,9 @@ private fun DiscoverFilterBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(DiscoverFilter.entries, key = { "type-${it.name}" }) { option ->
+            val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             FilterChip(
+                interactionSource = interaction,
                 selected = option == type,
                 onClick = { onType(option) },
                 label = { Text(option.localizedLabel(), maxLines = 1) },
@@ -420,12 +422,14 @@ private fun DiscoverFilterBar(
                     containerColor = SurfaceRaised, labelColor = Muted,
                     selectedContainerColor = Primary, selectedLabelColor = Ink,
                 ),
-                modifier = Modifier.minimumInteractiveComponentSize(),
+                modifier = Modifier.minimumInteractiveComponentSize().focusOutline(interaction, RoundedCornerShape(10.dp)),
             )
         }
         item(key = "library-status") {
+            val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             Box {
                 FilterChip(
+                    interactionSource = interaction,
                     selected = library != LibraryFilter.ALL,
                     onClick = { statusOpen = true },
                     label = { Text(if (library == LibraryFilter.ALL) stringResource(R.string.filter_status) else library.localizedLabel(), maxLines = 1) },
@@ -435,7 +439,7 @@ private fun DiscoverFilterBar(
                         containerColor = SurfaceRaised, labelColor = Muted,
                         selectedContainerColor = Primary, selectedLabelColor = Ink,
                     ),
-                    modifier = Modifier.minimumInteractiveComponentSize().testTag("discover-status-filter"),
+                    modifier = Modifier.minimumInteractiveComponentSize().focusOutline(interaction, RoundedCornerShape(10.dp)).testTag("discover-status-filter"),
                 )
                 DropdownMenu(expanded = statusOpen, onDismissRequest = { statusOpen = false },
                     containerColor = SurfaceRaised) {

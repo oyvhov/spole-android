@@ -210,6 +210,14 @@ Synopsis expansion lives beside the heading, before the text, so the focused con
 
 ## Setup and authentication
 
+### Wide content rhythm
+
+- On wide Home, active sessions use independent 480 dp horizontal cards rather than stretching one session into another full-width hero. Details and playback remain separate focusable actions; pending playback actions cannot repeat.
+- Discover places heading, search and account in one row from 680 dp of available content width. At 2× text size or smaller widths it stacks search underneath. No query or account state is recreated when layout changes.
+- TV content uses the wide canvas from 640 dp after the navigation rail; a 960 dp TV window must not accidentally receive the phone layout because its rail consumes 200 dp.
+- Short windows use a more compact library feature. Artwork stays decorative, with text and a clearly focused details action. No timed carousel or animated height calibration.
+- Verification and remaining scope: [wide content and Google TV pass](WIDE_CONTENT_TV_PASS.md).
+
 - Ordinary users have a personal experience, without role-limit banners or administrator overview filters. Only verified Seerr administrators see the administrator role label, shared queue and cross-user Activity filters. Permissions are enforced before data becomes UI state, not only by hiding controls.
 
 - Existing configured users enter Home directly. New users choose a service or explicitly opt into demo data; preview content is cleared when the first service connects.

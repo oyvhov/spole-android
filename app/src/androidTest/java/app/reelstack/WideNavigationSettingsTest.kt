@@ -63,9 +63,11 @@ class WideNavigationSettingsTest {
             } }
         }
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        val initialHeight = rule.onNodeWithTag("side-navigation").fetchSemanticsNode().boundsInRoot.height
         rule.onNodeWithTag("sidebar-toggle").performSemanticsAction(SemanticsActions.RequestFocus)
             .performKeyInput { pressKey(Key.Enter) }
-        rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp).assertHeightIsEqualTo(600.dp)
+        rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
+        assertEquals(initialHeight, rule.onNodeWithTag("side-navigation").fetchSemanticsNode().boundsInRoot.height, 1f)
         rule.onNodeWithTag("sidebar-toggle").assertIsFocused().assertContentDescriptionEquals("Utvid menyen")
             .performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("wide-tab-HOME").assertIsFocused().assertContentDescriptionEquals("Heim")
@@ -73,7 +75,8 @@ class WideNavigationSettingsTest {
         rule.onNodeWithTag("wide-tab-DISCOVER").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         rule.runOnIdle { assertEquals(AppTab.DISCOVER, selected) }
         rule.onNodeWithTag("sidebar-toggle").performClick()
-        rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(200.dp).assertHeightIsEqualTo(600.dp)
+        rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(200.dp)
+        assertEquals(initialHeight, rule.onNodeWithTag("side-navigation").fetchSemanticsNode().boundsInRoot.height, 1f)
         rule.onNodeWithTag("wide-tab-DISCOVER").assertIsSelected()
     }
     @Test fun widthAnimatesWithoutMovingTheIconColumnOrChangingHeight() {

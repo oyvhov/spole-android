@@ -44,7 +44,9 @@ fun ReelPage(modifier: Modifier = Modifier, media: Boolean = false, content: @Co
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         val policy = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
         val maximum = if (media) policy.mediaMaxWidthDp.dp else ReelLayout.ContentMaxWidth
-        val tablet = maxWidth >= 900.dp
+        val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+            android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+        val tablet = maxWidth >= 900.dp || (television && maxWidth >= 640.dp)
         Box(Modifier.widthIn(max = maximum).fillMaxSize()) {
             CompositionLocalProvider(LocalTabletCanvas provides tablet,
                 LocalMediaEdgeToEdge provides (media && policy.useNavigationRail)) { content() }

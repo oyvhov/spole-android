@@ -15,7 +15,7 @@ import java.net.ServerSocket
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 
-/** Only synthetic accounts on emulator-5562. Actual AVC/AAC/HLS/VTT decoding over loopback HTTP. */
+/** Only synthetic accounts on isolated test devices. Actual decoding over loopback HTTP. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class JellyfinPlayerTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
@@ -109,6 +109,30 @@ class JellyfinPlayerTest {
         var value=PlayerScreenState(); s.onActivity { value=it.model.state.value }; return value
     }
     private fun playing(s: ActivityScenario<JellyfinPlayerActivity>) = waitFor { snapshot(s).let { it.playing && it.positionMs > 600 } }
+
+    @Test fun googleTvRemoteControlsRealVideoAndBackReturnsSafely() {
+        org.junit.Assume.assumeTrue(context.getSystemService(android.app.UiModeManager::class.java)
+            .currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
+        exercise { scenario, server, _ ->
+            playing(scenario)
+            waitFor { var focused = false; scenario.onActivity { focused = it.hasWindowFocus() }; focused }
+            scenario.onActivity { assertTrue("Real decoder must produce video", it.model.player.videoSize.width > 0) }
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MEDIA_PAUSE)
+            waitFor { !snapshot(scenario).playing }
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MEDIA_PAUSE)
+            assertFalse(snapshot(scenario).playing)
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MEDIA_PLAY)
+            waitFor { snapshot(scenario).playing }
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            // TV Back first dismisses visible controls; the next Back exits playback.
+            instrumentation.waitForIdleSync()
+            assertNotEquals(Lifecycle.State.DESTROYED, scenario.state)
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            waitFor { scenario.state == Lifecycle.State.DESTROYED }
+            waitFor { server.events.any { it.first.endsWith("/Stopped") } }
+            assertEquals(1, server.events.count { it.first == "/Sessions/Playing" })
+        }
+    }
 
     @Test fun playbackHidesBothSystemBarsAndKeepsVideoInTheWholeWindow() = exercise { scenario,_,_ ->
         playing(scenario)

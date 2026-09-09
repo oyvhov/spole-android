@@ -496,6 +496,16 @@ private fun NowPlayingRail(
     onOpen: (String) -> Unit,
     onPlaybackToggle: (String) -> Unit,
 ) {
+    if (LocalTabletCanvas.current) {
+        LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(sessions, key = PlaybackSession::key) { session ->
+                app.reelstack.ui.components.CompactSessionCard(session, pendingSessionKey == session.key,
+                    controlsLocked = pendingSessionKey != null, onOpen = { onOpen(session.key) },
+                    onToggle = { onPlaybackToggle(session.key) }, modifier = Modifier.width(480.dp))
+            }
+        }
+        return
+    }
     if (sessions.size == 1) {
         val session = sessions.single()
         NowPlayingCard(
