@@ -1,8 +1,9 @@
 name: Bygg og test
 
+# Every branch, not only main. Arbeidet skjer på langlivde feature-greiner — 0.14.2 til og med
+# 0.15.1 vart tagga og publiserte utan nokon gong å nå main, så CI såg ingenting av dei.
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 

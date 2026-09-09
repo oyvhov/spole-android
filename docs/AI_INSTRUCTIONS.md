@@ -106,12 +106,13 @@ Det finst to ulike emulatorroller. Bland dei aldri.
 
 | Serial | Rolle | Viktig regel |
 |---|---|---|
-| emulator-5560 | Vanleg review-emulator med ekte brukardata | Installer med -r; slett aldri data; køyr aldri testpakka her |
+| emulator-5560 | Fast `Spole_Review` for innlogging og ekte brukardata | Installer med -r; køyr aldri testpakka her |
 | emulator-5562 | Isolert instrumenteringsemulator | Kan nullstillast av testane; bruk denne for heile Android-testpakken |
 
-Review-emulatoren `emulator-5560` er den vanlege `Tunet_Test`-AVD-en med lagra brukar-/appdata. Han skal
-alltid startast med eksisterande data og oppdaterast med `adb install -r`; ikkje avinstaller, nullstill eller
-køyr instrumenteringstestar der. Dersom 5560 ikkje er tilgjengeleg, skal visuell review gjerast med
+Review-emulatoren `emulator-5560` er `Spole_Review` i `C:/JellyBin/.spole-review-avds`, med lagra
+brukar-/appdata. Han skal startast med eksisterande data og oppdaterast med `adb install -r`; ikkje
+avinstaller, nullstill eller køyr instrumenteringstestar der utan at brukaren uttrykkeleg ber om det.
+Dersom 5560 ikkje er tilgjengeleg, skal visuell review gjerast med
 demodata på den isolerte `HomeReel_Instrumentation` på 5562, og det skal seiast tydeleg i verifiseringa
 kva som faktisk vart testa.
 
@@ -119,6 +120,12 @@ Denne namngjevne AVD-en er òg den felles, varige Android-eininga for andre AI-v
 same AVD-namn og ADB-serien `emulator-5560`, ikkje lage ein ny tilfeldig eining. Quick Boot og den
 eksisterande `userdata-qemu.img` bevarer appar og innloggingar mellom økter. Ved ein hengande eller
 låst AVD skal prosessar og låsefiler undersøkast først; aldri bruk `-wipe-data` som reparasjon.
+
+Start den synlege, permanente review-emulatoren frå PowerShell:
+
+~~~powershell
+wsl.exe -u root -e bash -lc 'export ANDROID_AVD_HOME=/mnt/c/JellyBin/.spole-review-avds; /home/oyvhov/Android/Sdk/emulator/emulator -avd Spole_Review -port 5560 -gpu swiftshader'
+~~~
 
 Emulatoren må startast i same kommando som du brukar han. Startar du han i ein eigen bakgrunnsjobb, blir
 prosessen teken ned når det skallet avsluttar, og neste ADB-kommando finn ingen einingar. Bruk `-gpu
@@ -266,33 +273,46 @@ git add <relevante filer>
 git commit -m "Fix Emby account login verification"
 ~~~
 
-GitHub-repoet `oyvhov/reelstack-android` er privat. Release-lenkjer krev difor innlogging som eigar, og
+GitHub-repoet `oyvhov/spole-android` er privat. Release-lenkjer krev difor innlogging som eigar, og
 kan ikkje delast som ei open nedlastingslenkje. Ikkje vis til releasen som «offentleg tilgjengeleg».
 
 ### Ny app-release
 
 1. Oppdater versionCode og versionName i app/build.gradle.kts.
 2. Oppdater docs/release-vX.Y.Z.md og lag docs/VERIFICATION_vX.Y.Z.md.
-3. Bygg rein APK og køyr alle testane.
+3. Bygg rein release-APK med `assembleRelease` og køyr alle testane.
 4. Verifiser signering, pakkenamn, versjon og hash.
 5. Lag ein annotated tag som samsvarer med versjonen.
 6. Push branch og tag atomisk.
-7. Last opp APK og SHA256SUMS.txt som ein publisert GitHub Release.
+7. Last opp APK, SHA256SUMS.txt og `mapping.txt` som ein publisert GitHub Release.
 8. Verifiser at releasen ikkje er draft, at APK-en kan lastast ned, og at GitHub-digest samsvarer med lokal hash.
 
 Eksempel:
 
 ~~~powershell
-$releaseApk = "app/build/release-vX.Y.Z/Spole-vX.Y.Z-debug.apk"
+$releaseApk = "app/build/release-vX.Y.Z/Spole-vX.Y.Z.apk"
+./gradlew.bat assembleRelease
 New-Item -ItemType Directory -Force -Path "app/build/release-vX.Y.Z" | Out-Null
-Copy-Item -LiteralPath "app/build/outputs/apk/debug/app-debug.apk" -Destination $releaseApk -Force
+Copy-Item -LiteralPath "app/build/outputs/apk/release/app-release.apk" -Destination $releaseApk -Force
+Copy-Item -LiteralPath "app/build/outputs/mapping/release/mapping.txt" -Destination "app/build/release-vX.Y.Z/mapping-vX.Y.Z.txt" -Force
 Get-FileHash -Algorithm SHA256 $releaseApk
 git tag -a vX.Y.Z -m "Spole X.Y.Z"
 git push --atomic origin main vX.Y.Z
-gh release create vX.Y.Z $releaseApk "app/build/release-vX.Y.Z/SHA256SUMS.txt" --repo oyvhov/reelstack-android --title "Spole X.Y.Z" --notes-file "docs/release-vX.Y.Z.md" --latest
+gh release create vX.Y.Z $releaseApk "app/build/release-vX.Y.Z/SHA256SUMS.txt" "app/build/release-vX.Y.Z/mapping-vX.Y.Z.txt" --repo oyvhov/spole-android --title "Spole X.Y.Z" --notes-file "docs/release-vX.Y.Z.md" --latest
 ~~~
 
+**Aldri debug-APK i ein release.** Debug-varianten har `applicationId = app.reelstack.debug` og eiga
+debug-signering, så han er ein *annan app* enn den installerte `app.reelstack` og kan ikkje oppdatere
+han. Han er dessutan `debuggable`, slik at kven som helst med ADB kan lese ut innhaldet i
+`EncryptedTokenStore`. Eksempelet over bygde debug-APK heilt fram til 9. september 2026; det stod i
+motstrid til regelen i seksjon 3 og er retta her.
+
 Ikkje legg release-APK i Git dersom app/build/ er ignorert. GitHub Release er nedlastingspunktet.
+
+**`mapping.txt` er ikkje valfritt.** Produksjonsbygg køyrer R8 med `isMinifyEnabled = true`, så ein
+stack trace frå ein publisert versjon er uleseleg utan mappinga for nøyaktig den versjonen. Fila
+ligg berre i `app/build/`, som er gitignorert og blir sletta av `clean`. Blir ho ikkje lasta opp
+med releasen, er ho borte for godt, og ein krasjrapport frå ein brukar kan aldri tydast.
 
 Fast informasjon som skal returnerast til brukaren etter publisering:
 

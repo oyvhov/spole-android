@@ -21,12 +21,12 @@
 - Lint: **0 feil, 20 åtvaringar**.
 - Debug-, Android-test- og produksjonsbygg bestod.
 
-## Emulator med ekte kontoar
+## Emulator
 
-Den permanente `Tunet_Test`-AVD-en vart starta utan sletting eller avinstallering. Gamle låsefiler vart
-flytta til tryggleikskopiar, men emulatorprosessoren stoppa under oppstart og eininga vart verande
-fråkopla. Ekte kontoar og `userdata-qemu.img` vart ikkje endra. Det vart derfor ikkje påstått nokon
-manuell kontroll med ekte kødata i denne utgåva. Krasjtilfellet er i staden dekt ende-til-ende av den
+Etter publisering gav brukaren uttrykkeleg løyve til å forkaste dei gamle emulatordataa. Ein rein,
+permanent `Spole_Review` vart derfor starta på port 5560, og produksjons-APK 0.12.4 vart installert og
+opna på førstegongsoppsettet. Denne AVD-en er no den felles eininga for framtidig innlogging og review.
+Ingen ekte kontoar var logga inn under denne kontrollen. Krasjtilfellet er dekt ende-til-ende av den
 isolerte emulatoren med to samtidige køpostar som deler tredjeparts-ID.
 
 ## Produksjonsfil
