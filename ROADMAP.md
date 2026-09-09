@@ -172,6 +172,26 @@ Eigaravklaringar og butikkarbeid startar parallelt med 0.16, sidan dei kan ta ti
 
 **Planlagt leveranse, ikkje berre ein idé.** Føreslegen rekkefølgje er mobil/nettbrett 1.0 først og eiga TV-beta fram mot 1.1. Kartlegging og prototype kan starte under 0.18. Dette er ikkje ein datoavtale.
 
+### Brukarvald hovudreferanse: Wholphin
+
+[Wholphin](https://github.com/damontecres/Wholphin) skal vere ein sentral referanse for TV-opplevinga. Brukaren framheva appen 9. september 2026. Første gjennomgang gjeld README, utviklardokumentasjon og utvalde UI-komponentar ved revisjon `0b995b5404aba166a7931ade67ab1bc256f8418b`; ikkje testing av Wholphin i køyrande TV-app.
+
+Dokumenterte mønster som er relevante: justerbare mediarader og biletformat, sidemeny med snarvegar, Seerr i oppdaginga, profilvern, D-pad-spoling og trickplay. [Funksjonsoversikt](https://github.com/damontecres/Wholphin/blob/0b995b5404aba166a7931ade67ab1bc256f8418b/README.md). Detaljhovudet samlar tittel/logo, kortmetadata, sjanger, strauminfo og utvidbar omtale; fokus på omtalen tek henne inn i synsfeltet. [MovieDetailsHeader](https://github.com/damontecres/Wholphin/blob/0b995b5404aba166a7931ade67ab1bc256f8418b/app/src/main/java/com/github/damontecres/wholphin/ui/detail/movie/MovieDetailsHeader.kt). Sjølv plasshaldar-/feilrader er fokusbare, slik at dei kan navigerast forbi med fjernkontrollen. [FocusableItemRow](https://github.com/damontecres/Wholphin/blob/0b995b5404aba166a7931ade67ab1bc256f8418b/app/src/main/java/com/github/damontecres/wholphin/ui/components/FocusableItemRow.kt).
+
+For Spole betyr dette følgjande planlagde prioriteringar, ikkje ferdige funksjonar:
+
+- **TV-heim og sidemeny:** store omslag/thumbnails, tydeleg radstruktur og lett tilgang til bibliotek, Oppdag og profil. Bevar separate Jellyfin-/Emby-rader og brukarens val av seksjonar.
+- **Fokus før pynt:** synleg fokus med varsam animasjon utan å flytte nabokort. Hugs rad og tittel ved Tilbake; sein metadata eller bilete skal ikkje flytte fokus. Lasting og feil må ikkje bli fokusfeller.
+- **Detaljar for sofaavstand:** filmatisk kunst, ryddig metadata og tydelege hovudhandlingar. Sesongval, delvis tilgjenge og personleg Seerr-førespurnad skal fungere utan berøring.
+- **TV-spelar:** retningstastar for spoling, gode lyd-/tekstval, rask kontrollvising og føreseieleg Tilbake. Trickplay og kapittel er vidare forbetringar når serveren tilbyr data, ikkje føresetnader for avspeling.
+- **Personleg, delt skjerm:** enkel Quick Connect, synleg aktiv profil og vern mot utilsikta kontobyte. Same rettar og eigne førespurnader som på mobil.
+
+Spole skal behalde sitt eige matte uttrykk, logo, fargeval og fleirtenesteflyt. Ingen Wholphin-kode, grafikk eller nye avspelingsmotorar er tekne inn i denne dokumentasjonsendringa; eventuell kodegjenbruk krev eiga lisens-/avhengigheitsvurdering.
+
+- [ ] Før TV-prototypen blir godkjend: samanlikn Heim → detaljar → avspeling → Tilbake i Wholphin og Spole på TV, med fjernkontroll og ekte kontodata. Noter fokus, respons, lesbarheit og tilbakeføring; ikkje godkjenn på statiske skjermbilete åleine.
+
+### Leveranse og verifisering
+
 - [ ] Lag ei TV-tilpassa navigasjonsflate med store mediebilete, lesbar tekst på avstand og synleg fokus. Gjenbruk repository, kontorettar, språkressursar og spelarlogikk der det passar.
 - [ ] Gjer heile flyten mogleg med retningstastar, OK, Tilbake og medieknappar: Heim → søk → detaljar → sesongval → avspeling. Hugs fokus når ein kjem tilbake til ei rad, og unngå fokusfeller i dialogar.
 - [ ] Tilpass innlogging til sofaen: tydeleg Quick Connect-kode der tenesta støttar det, og eit fungerande skjermtastatur som alternativ. Ikkje føreset at Jellyfin-innlogging automatisk gir Seerr-tilgang. Eventuell QR-kode skal ikkje innehalde passord eller varige tilgangsteikn.
