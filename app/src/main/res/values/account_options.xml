@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_sign_out_title">Sign out of %1$s?</string>
+    <string name="account_sign_out_note">Your sign-in is removed from Spole on this device. Other services stay signed in. We remember the server address for next time.</string>
+    <string name="account_cancel">Cancel</string>
+    <string name="account_edit">Change</string>
+    <string name="account_api_key">API key</string>
+    <string name="account_token">API key or access token</string>
+    <string name="account_also">Also sign in to %1$s</string>
+    <string name="account_address_for">Address for %1$s</string>
+    <string name="account_companion_consent">The same username and password are sent to both addresses you choose. Seerr must be linked to this Jellyfin server. Existing accounts for these two services will be replaced.</string>
+    <string name="account_http_warning">This address uses unencrypted HTTP. Prefer HTTPS.</string>
+    <string name="account_arr_key_hint">Find the API key under Settings → General → Security on the server.</string>
+    <string name="account_seerr_key_hint">Find the API key under Settings → General in Seerr.</string>
+    <string name="account_media_key_hint">Find the API key in the server dashboard.</string>
+    <string name="account_advanced">Advanced options</string>
+    <string name="account_advanced_hide">Hide advanced options</string>
+    <string name="account_connection_name">Connection name</string>
+    <string name="account_profile_id">Profile ID (optional)</string>
+    <string name="account_profile_hint">Leave blank to select a profile automatically. Server permissions determine access.</string>
+    <string name="account_alternate">Alternate address (optional)</string>
+    <string name="account_alternate_hint">Used automatically when the usual address is unavailable, for example away from home.</string>
+    <string name="account_signed_in">%1$s is signed in</string>
+    <string name="account_connected">%1$s is connected</string>
+    <string name="account_show_login">Show sign-in and account options</string>
+    <string name="account_hide_login">Hide sign-in options</string>
+    <string name="account_show_connection">Show connection options</string>
+    <string name="account_hide_connection">Hide connection options</string>
+</resources>

@@ -104,6 +104,8 @@ Verkelege førespurnader kan starte nedlastingar. Slike testar skal bruke eigarg
 
 #### Språk — nynorsk og engelsk først, enkelt å utvide
 
+- [x] Etter alpha06: flytt 27 kontoval-/samtykke-/utloggingstekstar til nynorsk og engelsk; felles kontofokus og trygg Avbryt-først ved fjernkontroll. Stor-skrift-regresjonstest for utloggingsdialog. [Kontovalbolken](docs/ACCOUNT_OPTIONS_PASS.md). Nettverksfeil er ikkje ferdig omsette.
+
 - [x] Etter alpha05: 33 nynorsk/engelsk-ressursar for sentrale innloggingssteg, kontofelt, innsending og Quick Connect. Engelsk konto-oppsett og TV-rettleiing er emulator-testa; feil frå nettverkslaget og attståande avanserte val er ikkje ferdig omsette.
 
 Ny, avgrensa kalenderbolk etter alpha04:
@@ -215,7 +217,7 @@ Avgrensa TV-forarbeid etter alpha05 (ikkje fullført TV-milepåle):
 - [x] Fokus tilbake til spel/pause og fokusramme på transportknappane. Tilbake skjuler først kontrollane under avspeling, deretter forlèt ein spelaren. Mobilens Tilbake-flyt er uendra.
 - [x] Quick Connect har større TV-kode og nynorsk/engelsk forklaring for godkjenning frå telefon/datamaskin. Ingen automatisk deling av konto eller tilgangsteikn.
 
-Testgrunnlaget er isolerte UI-/regeltestar, ikkje fysisk TV eller ein komplett TV-systememulator. TV-startpunkt/banner blir ikkje aktivert før kjerneflyten fungerer utan berøring.
+Oppdatert testgrunnlag: isolerte UI-/regeltestar og faktisk videodekoding på Google TV API 36-systememulator. TV-oppsett og kontoflyt er òg testa med fjernkontroll og stor tekst. Fysisk TV og reell kontogodkjenning står att. TV-startpunkt/banner blir ikkje aktivert før heile kjerneflyten er verifisert utan berøring.
 
 - [ ] Lag ei TV-tilpassa navigasjonsflate med store mediebilete, lesbar tekst på avstand og synleg fokus. Gjenbruk repository, kontorettar, språkressursar og spelarlogikk der det passar.
 - [ ] Gjer heile flyten mogleg med retningstastar, OK, Tilbake og medieknappar: Heim → søk → detaljar → sesongval → avspeling. Hugs fokus når ein kjem tilbake til ei rad, og unngå fokusfeller i dialogar.

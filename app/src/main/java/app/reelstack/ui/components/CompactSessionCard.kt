@@ -55,7 +55,8 @@ internal fun CompactSessionCard(session: PlaybackSession, pending: Boolean, cont
                     .testTag("compact-session-toggle-${session.key}")) {
                 if (pending) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                 else Icon(if (session.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
-                    stringResource(if (session.paused) R.string.player_play else R.string.player_pause))
+                    stringResource(if (session.paused) R.string.player_play else R.string.player_pause),
+                    tint = MaterialTheme.colorScheme.onSurface)
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically,

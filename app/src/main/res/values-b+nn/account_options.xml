@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_sign_out">Logg ut</string>
+    <string name="account_sign_out_title">Logg ut av %1$s?</string>
+    <string name="account_sign_out_note">Innlogginga blir fjerna frå Spole på denne eininga. Dei andre tenestene er framleis innlogga. Vi hugsar tenaradressa til neste gong.</string>
+    <string name="account_cancel">Avbryt</string>
+    <string name="account_edit">Endre</string>
+    <string name="account_api_key">API-nøkkel</string>
+    <string name="account_token">API-nøkkel eller tilgangsteikn</string>
+    <string name="account_also">Logg inn på %1$s òg</string>
+    <string name="account_address_for">Adresse til %1$s</string>
+    <string name="account_companion_consent">Same brukarnamn og passord blir sende til begge adressene du har valt. Seerr må vere knytt til denne Jellyfin-tenaren. Eksisterande kontoar på desse to tenestene blir bytte ut.</string>
+    <string name="account_http_warning">Denne adressa brukar HTTP utan kryptering. Bruk helst HTTPS.</string>
+    <string name="account_arr_key_hint">Du finn API-nøkkelen under Settings → General → Security på tenaren.</string>
+    <string name="account_seerr_key_hint">Du finn API-nøkkelen under Settings → General i Seerr.</string>
+    <string name="account_media_key_hint">Du finn API-nøkkelen i kontrollpanelet til tenaren.</string>
+    <string name="account_advanced">Avanserte val</string>
+    <string name="account_advanced_hide">Skjul avanserte val</string>
+    <string name="account_connection_name">Namn på tilkoplinga</string>
+    <string name="account_profile_id">Profil-ID (valfri)</string>
+    <string name="account_profile_hint">La stå tomt for automatisk profilval. Tenarrettane avgjer tilgangen.</string>
+    <string name="account_alternate">Andre adresse (valfri)</string>
+    <string name="account_alternate_hint">Brukt automatisk når den vanlege adressa ikkje svarar, til dømes når du ikkje er heime.</string>
+    <string name="account_signed_in">%1$s er innlogga</string>
+    <string name="account_connected">%1$s er tilkopla</string>
+    <string name="account_show_login">Vis innlogginga og kontoval</string>
+    <string name="account_hide_login">Skjul innlogginga</string>
+    <string name="account_show_connection">Vis tilkoplinga og kontoval</string>
+    <string name="account_hide_connection">Skjul tilkoplinga</string>
+</resources>

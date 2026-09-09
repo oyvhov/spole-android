@@ -866,17 +866,10 @@ internal fun ConnectionEditorSheet(
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
         Text(stringResource(if (credentialsStep) R.string.login_account_hint else R.string.login_address_hint), color = Muted, fontSize = 14.sp)
         if (configured) {
-            TextButton(onClick = { confirmSignOut = true }, enabled = !draft.saving) { Text("Logg ut", color = Warning) }
+            ConnectionTextAction(stringResource(R.string.account_sign_out), { confirmSignOut = true }, enabled = !draft.saving, warning = true)
         }
         if (confirmSignOut) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { confirmSignOut = false },
-                title = { Text("Logg ut av ${draft.kind.displayName}?") },
-                text = { Text("Innlogginga blir fjerna frå Spole på denne eininga. Dei andre tenestene er framleis innlogga. Vi hugsar tenaradressa til neste gong.") },
-                confirmButton = { TextButton(onClick = { confirmSignOut = false; onRemove() }) { Text("Logg ut", color = Warning) } },
-                dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Avbryt") } },
-                containerColor = SurfaceRaised, shape = RoundedCornerShape(28.dp),
-            )
+            SignOutConfirmation(draft.kind, { confirmSignOut = false }, { confirmSignOut = false; onRemove() })
         }
         Spacer(Modifier.height(20.dp))
         if (!credentialsStep) {
@@ -917,7 +910,7 @@ internal fun ConnectionEditorSheet(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(draft.url, color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f),
                 maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            TextButton(onClick = { credentialsStep = false }, enabled = !draft.saving) { Text("Endre") }
+            ConnectionTextAction(stringResource(R.string.account_edit), { credentialsStep = false }, enabled = !draft.saving)
         }
         if (draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR) ||
             (draft.kind == ServiceKind.EMBY && (advanced || draft.authMode == ConnectionAuthMode.API_KEY))) {
@@ -926,7 +919,7 @@ internal fun ConnectionEditorSheet(
                 listOfNotNull(
                     (ConnectionAuthMode.QUICK_CONNECT to "Quick Connect").takeIf { draft.kind != ServiceKind.EMBY },
                     ConnectionAuthMode.ACCOUNT to stringResource(if (draft.kind == ServiceKind.SEERR) R.string.login_jellyfin_account else R.string.login_username),
-                    (ConnectionAuthMode.API_KEY to "API-nøkkel").takeIf { advanced || draft.authMode == ConnectionAuthMode.API_KEY },
+                    (ConnectionAuthMode.API_KEY to stringResource(R.string.account_api_key)).takeIf { advanced || draft.authMode == ConnectionAuthMode.API_KEY },
                 ).forEach { (mode, label) ->
                     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     FilterChip(selected = draft.authMode == mode, onClick = { onAuthModeChange(mode) },
@@ -979,11 +972,11 @@ internal fun ConnectionEditorSheet(
                         .then(Modifier.toggleableLogin(!draft.saving, draft.alsoConnect) { onCompanionLoginChange(it, draft.companionUrl) })
                         .padding(horizontal = 12.dp, vertical = 6.dp)) {
                     androidx.compose.material3.Checkbox(checked = draft.alsoConnect, onCheckedChange = null, enabled = !draft.saving)
-                    Text("Logg inn på $otherName òg", color = Primary, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
+                    Text(stringResource(R.string.account_also, otherName), color = Primary, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
                 }
                 if (draft.alsoConnect) {
                     OutlinedTextField(value = draft.companionUrl,
-                        onValueChange = { onCompanionLoginChange(true, it) }, label = { Text("Adresse til $otherName") },
+                        onValueChange = { onCompanionLoginChange(true, it) }, label = { Text(stringResource(R.string.account_address_for, otherName)) },
                         enabled = !draft.saving, singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
@@ -992,10 +985,10 @@ internal fun ConnectionEditorSheet(
                         ),
                         shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                         modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
-                    Text("Same brukarnamn og passord blir sende til begge adressene du har valt. Seerr må vere knytt til denne Jellyfin-tenaren. Eksisterande kontoar på desse to tenestene blir bytte ut.",
+                    Text(stringResource(R.string.account_companion_consent),
                         color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
                     if (runCatching { EndpointValidator.isCleartext(draft.companionUrl) }.getOrDefault(false)) {
-                        Text("Denne adressa brukar HTTP utan kryptering. Bruk helst HTTPS.", color = Warning, fontSize = 12.sp)
+                        Text(stringResource(R.string.account_http_warning), color = Warning, fontSize = 12.sp)
                     }
                 }
             }
@@ -1003,7 +996,7 @@ internal fun ConnectionEditorSheet(
         if (!usesAccount && !usesQuickConnect) {
             OutlinedTextField(
                 value = draft.token, onValueChange = onTokenChange,
-                label = { Text("API-nøkkel eller tilgangsteikn") },
+                label = { Text(stringResource(R.string.account_token)) },
                 enabled = !draft.saving, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -1013,23 +1006,22 @@ internal fun ConnectionEditorSheet(
                 shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
-            Text(when (draft.kind) {
-                ServiceKind.RADARR, ServiceKind.SONARR -> "Du finn API-nøkkelen under Settings → General → Security på tenaren."
-                ServiceKind.SEERR -> "Du finn API-nøkkelen under Settings → General i Seerr."
-                else -> "Du finn API-nøkkelen i kontrollpanelet til tenaren."
-            }, color = Muted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp))
+            Text(stringResource(when (draft.kind) {
+                ServiceKind.RADARR, ServiceKind.SONARR -> R.string.account_arr_key_hint
+                ServiceKind.SEERR -> R.string.account_seerr_key_hint
+                else -> R.string.account_media_key_hint
+            }), color = Muted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp))
         }
-        TextButton(onClick = { advanced = !advanced }, enabled = !draft.saving) {
-            Text(if (advanced) "Skjul avanserte val" else "Avanserte val", fontSize = 12.sp)
-        }
+        ConnectionTextAction(stringResource(if (advanced) R.string.account_advanced_hide else R.string.account_advanced),
+            { advanced = !advanced }, enabled = !draft.saving)
         if (advanced) {
             OutlinedTextField(value = draft.name, onValueChange = onNameChange,
-                label = { Text("Namn på tilkoplinga") }, singleLine = true, enabled = !draft.saving,
+                label = { Text(stringResource(R.string.account_connection_name)) }, singleLine = true, enabled = !draft.saving,
                 shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(), modifier = Modifier.fillMaxWidth())
             if (!usesAccount && !usesQuickConnect && (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY)) {
                 OutlinedTextField(value = draft.userId, onValueChange = onUserIdChange,
-                    label = { Text("Profil-ID (valfri)") }, singleLine = true, enabled = !draft.saving,
-                    supportingText = { Text("Tomt felt vel automatisk ein profil med alle bibliotek.") },
+                    label = { Text(stringResource(R.string.account_profile_id)) }, singleLine = true, enabled = !draft.saving,
+                    supportingText = { Text(stringResource(R.string.account_profile_hint)) },
                     shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
             }
@@ -1037,10 +1029,10 @@ internal fun ConnectionEditorSheet(
             // outside. The token belongs to the server, so one sign-in covers both.
             OutlinedTextField(
                 value = draft.alternateUrl, onValueChange = onAlternateUrlChange,
-                label = { Text("Andre adresse (valfri)") }, singleLine = true, enabled = !draft.saving,
+                label = { Text(stringResource(R.string.account_alternate)) }, singleLine = true, enabled = !draft.saving,
                 placeholder = { Text("https://spole.dømet.no") },
                 supportingText = {
-                    Text("Brukt automatisk når den vanlege adressa ikkje svarar, til dømes når du ikkje er heime.")
+                    Text(stringResource(R.string.account_alternate_hint))
                 },
                 keyboardOptions = KeyboardOptions(
                     capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
@@ -1074,7 +1066,7 @@ internal fun ConnectionEditorSheet(
             }, modifier = Modifier.padding(start = if (draft.saving) 10.dp else 0.dp))
         }
         if (draft.saving) {
-            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Avbryt") }
+            ConnectionTextAction(stringResource(R.string.account_cancel), onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
         }
         }
@@ -1085,18 +1077,23 @@ internal fun ConnectionEditorSheet(
 @Composable
 private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onToggle: () -> Unit) {
     val isAccount = kind == ServiceKind.JELLYFIN || kind == ServiceKind.EMBY || kind == ServiceKind.SEERR
-    val stateText = if (isAccount) "${kind.displayName} er innlogga" else "${kind.displayName} er tilkopla"
-    val subject = if (isAccount) "innlogginga" else "tilkoplinga"
+    val stateText = stringResource(if (isAccount) R.string.account_signed_in else R.string.account_connected, kind.displayName)
+    val actionText = stringResource(if (isAccount) {
+        if (expanded) R.string.account_hide_login else R.string.account_show_login
+    } else if (expanded) R.string.account_hide_connection else R.string.account_show_connection)
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(180), label = "connection-details-arrow")
     Surface(
         color = Success.copy(alpha = .09f),
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
             .testTag("connected-service-summary")
-            .clickable(onClickLabel = if (expanded) "Skjul $subject" else "Vis $subject", onClick = onToggle)
+            .focusOutline(interaction, RoundedCornerShape(18.dp))
+            .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
+                onClickLabel = actionText, onClick = onToggle)
             .semantics {
                 role = Role.Button
-                contentDescription = "$stateText. ${if (expanded) "Skjul" else "Vis"} $subject"
+                contentDescription = "$stateText. $actionText"
             },
     ) {
         Row(
@@ -1112,7 +1109,7 @@ private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onTogg
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(stateText, color = Success, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (expanded) "Skjul $subject" else "Vis $subject og kontoval",
+                    actionText,
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp),
                 )
             }
