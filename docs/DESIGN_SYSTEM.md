@@ -210,6 +210,10 @@ Synopsis expansion lives beside the heading, before the text, so the focused con
 
 ## Setup and authentication
 
+### TV first-run setup
+
+TV uses a two-column service-first welcome layout from 680 dp available width. Branding and short remote guidance occupy the left pane; independently scrolling service actions occupy the right. Jellyfin receives initial focus only once; a configured setup initially focuses Continue instead. Service cards, auxiliary buttons and login actions reuse the shared draw-only focus outline. No enlargement, timed carousel or height animation is introduced. At narrow widths the layout stacks and remains scrollable. The TV Quick Connect panel uses numbered phone-approval instructions and a readable code; clipboard copying remains optional. See [verification and limits](TV_SETUP_PASS.md).
+
 ### Wide content rhythm
 
 - On wide Home, active sessions use independent 480 dp horizontal cards rather than stretching one session into another full-width hero. Details and playback remain separate focusable actions; pending playback actions cannot repeat.

@@ -50,7 +50,7 @@ class LoginExperienceTest {
             }
         }
         rule.onNodeWithText("Waiting for approval").assertIsDisplayed()
-        rule.onNodeWithText("Open Jellyfin on your phone or computer.", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Open Jellyfin on your phone", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Copy code").performClick()
         rule.onNodeWithText("Copied").assertIsDisplayed()
     }

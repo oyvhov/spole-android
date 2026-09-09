@@ -45,6 +45,12 @@ fun WelcomeScreen(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    if (television) {
+        TvWelcomeScreen(state, onConnect, onContinue, modifier)
+        return
+    }
     val ready = state.configuredCount > 0
     var advancedServices by rememberSaveable { mutableStateOf(false) }
     ReelPage {

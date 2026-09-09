@@ -1,4 +1,5 @@
 package app.reelstack.ui
+import app.reelstack.ui.components.focusOutline
 
 import androidx.compose.ui.res.stringResource
 
@@ -590,25 +591,26 @@ private fun exampleAddress(kind: ServiceKind): String = when (kind) {
 @Composable
 private fun AddressExamples(kind: ServiceKind, enabled: Boolean, onUse: (String) -> Unit) {
     val example = exampleAddress(kind)
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        Text("Slik ser ei adresse ut", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.login_example_title), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         Surface(
             onClick = { onUse(example) },
             enabled = enabled,
+            interactionSource = interaction,
             color = SurfaceRaised,
             contentColor = PrimarySoft,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.padding(top = 8.dp).testTag("address-example"),
+            modifier = Modifier.padding(top = 8.dp).focusOutline(interaction, RoundedCornerShape(12.dp)).testTag("address-example"),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 10.dp)) {
                 Text(example, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Text("Bruk", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp))
+                Text(stringResource(R.string.login_example_use), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp))
             }
         }
         Text(
-            "Det er den same adressa du opnar ${kind.displayName} med i nettlesaren, på same nett som tenaren. " +
-                "Utanfrå treng du ei HTTPS-adresse gjennom din eigen proxy.",
+            stringResource(R.string.login_example_detail, kind.displayName),
             color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 10.dp),
         )
     }
@@ -829,10 +831,18 @@ internal fun ConnectionEditorSheet(
     var showPassword by remember { mutableStateOf(false) }
     var addressError by remember { mutableStateOf<String?>(null) }
     var confirmSignOut by remember { mutableStateOf(false) }
+    val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val continueInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val submitInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val focus = LocalFocusManager.current
     val nextStep: () -> Unit = {
         runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
-            .onSuccess { onUrlChange(it); credentialsStep = true; focus.clearFocus() }
+            .onSuccess {
+                onUrlChange(it)
+                if (television && !configured && draft.kind == ServiceKind.SEERR) onAuthModeChange(ConnectionAuthMode.QUICK_CONNECT)
+                credentialsStep = true; focus.clearFocus()
+            }
             .onFailure { addressError = it.message }
     }
     Column(Modifier.fillMaxSize()) {
@@ -888,7 +898,7 @@ internal fun ConnectionEditorSheet(
             // Material hides the placeholder until the field has focus, so the example that
             // people actually need has to live outside the field. Tapping it fills the field.
             AddressExamples(draft.kind, enabled = !draft.saving) { addressError = null; onUrlChange(it) }
-            Button(onClick = nextStep, enabled = draft.url.isNotBlank(),
+            Button(onClick = nextStep, enabled = draft.url.isNotBlank(), interactionSource = continueInteraction,
                 shape = RoundedCornerShape(14.dp),
                 // Material's default disabled fill is 12 % of onSurface, which on this page is
                 // indistinguishable from a container. An outline keeps it readable as a button
@@ -898,7 +908,8 @@ internal fun ConnectionEditorSheet(
                     disabledContentColor = Muted,
                 ),
                 border = if (draft.url.isBlank()) androidx.compose.foundation.BorderStroke(1.dp, app.reelstack.ui.theme.ControlOutline) else null,
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 54.dp)) {
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 54.dp)
+                    .focusOutline(continueInteraction, RoundedCornerShape(14.dp)).testTag("connection-continue")) {
                 Text(stringResource(R.string.login_continue), fontWeight = FontWeight.Bold)
             }
             return@Column
@@ -917,7 +928,10 @@ internal fun ConnectionEditorSheet(
                     ConnectionAuthMode.ACCOUNT to stringResource(if (draft.kind == ServiceKind.SEERR) R.string.login_jellyfin_account else R.string.login_username),
                     (ConnectionAuthMode.API_KEY to "API-nøkkel").takeIf { advanced || draft.authMode == ConnectionAuthMode.API_KEY },
                 ).forEach { (mode, label) ->
+                    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     FilterChip(selected = draft.authMode == mode, onClick = { onAuthModeChange(mode) },
+                        interactionSource = interaction,
+                        modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(10.dp)),
                         enabled = !draft.saving, label = { Text(label, fontSize = 12.sp) },
                         shape = RoundedCornerShape(10.dp), border = null, colors = connectionChipColors())
                 }
@@ -932,6 +946,7 @@ internal fun ConnectionEditorSheet(
                 value = draft.username, onValueChange = onUsernameChange,
                 label = { Text(stringResource(R.string.login_username)) }, enabled = !draft.saving, singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }),
                 shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
@@ -1039,10 +1054,12 @@ internal fun ConnectionEditorSheet(
         draft.error?.let { MessageCard(it, warning = false) }
         Button(
             onClick = { focus.clearFocus(); onTestAndSave() },
+            interactionSource = submitInteraction,
             enabled = !draft.saving && (usesQuickConnect || if (usesAccount) draft.username.isNotBlank() else draft.token.isNotBlank()),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp)
+                .focusOutline(submitInteraction, RoundedCornerShape(14.dp)).testTag("connection-submit"),
         ) {
             if (draft.saving) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
             Text(when {
@@ -1113,6 +1130,10 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     var copied by remember(draft.quickConnectCode) { mutableStateOf(false) }
+    if (television) {
+        TvQuickConnectPanel(draft)
+        return
+    }
     AnimatedContent(
         targetState = draft.quickConnectCode,
         transitionSpec = { (fadeIn() togetherWith fadeOut()).using(SizeTransform(clip = false)) },

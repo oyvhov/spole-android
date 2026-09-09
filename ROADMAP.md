@@ -14,6 +14,8 @@ Kjeldearbeid etter Claude sin gjennomgang (`6e31ad5`): [Innloggingsspråk og TV-
 
 ## Kvar står vi?
 
+TV-oppsett er no implementert og målretta emulator-testa: [TV-startside og innlogging](docs/TV_SETUP_PASS.md). Reell godkjenning med brukarens konto og fysisk TV står framleis att.
+
 Ny kjeldebolk: [Breitt innhald og ekte Google TV-test](docs/WIDE_CONTENT_TV_PASS.md). Kompakt Spelar no, samla Oppdag-topp og betre TV-breidde. 16 målretta testar bestod på eit ekte Google TV-systembilete, inkludert videodekoding og fjernkontroll. Full TV-innlogging, launcher og fysisk TV-test står att; dette godkjenner ikkje heile TV-milepålen.
 
 | Status | Område |

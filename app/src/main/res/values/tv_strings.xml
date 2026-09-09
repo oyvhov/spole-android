@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_example_title">Example server address</string>
+    <string name="login_example_use">Use</string>
+    <string name="login_example_detail">Use the address you open %1$s with in your browser on the same network. For remote access, use your own HTTPS server address.</string>
+    <string name="tv_setup_intro">Choose your service to get started. You can add more later.</string>
+    <string name="tv_setup_remote">Use the arrow keys to choose and OK to open. Back closes the sign-in window.</string>
+    <string name="tv_setup_jellyfin">Library and playback · Quick Connect</string>
+    <string name="tv_setup_seerr">Discover films and series · add with your account</string>
+    <string name="tv_quick_steps">1. Open Jellyfin on your phone and sign in to the same server.\n2. Choose Quick Connect in the user menu.\n3. Enter this code. Your TV signs in automatically.</string>
+    <string name="tv_quick_ready">Sign in with your phone</string>
+    <string name="tv_quick_hint">Create a code and approve it in Jellyfin on your phone. No password typing with your remote.</string>
+</resources>
