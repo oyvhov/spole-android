@@ -1,6 +1,6 @@
 # Spole — veikart mot 1.0
 
-Oppdatert 9. september 2026. Publisert utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal førehandsversjon: **0.16.0-alpha04 / bygg 47**; ikkje publisert. [Minimerbar sidemeny](docs/SIDEBAR_ALPHA04.md) · [Førre arbeidsbolk](docs/ROADMAP_BATCH_ALPHA03.md).
+Oppdatert 9. september 2026. Publisert utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal testversjon: **0.16.0-alpha05 / bygg 48**; ikkje publisert på GitHub. [Test-APK](docs/TEST_APK_ALPHA05.md) · [Minimerbar sidemeny](docs/SIDEBAR_ALPHA04.md) · [Førre arbeidsbolk](docs/ROADMAP_BATCH_ALPHA03.md).
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.
 
@@ -8,7 +8,7 @@ Dette er den gjeldande prioriteringsplanen. Versjonsnummera nedanfor er føresle
 
 **Implementeringa er i gang:** Språkval, engelsk førehandsvising, breiare mediesider og vindaugstilpassa detaljpanel er implementerte. Sjå [nattrapporten](docs/OVERNIGHT_REPORT_2026-09-09.md), [språkrettleiinga](docs/LOCALIZATION.md) og [testmatrisa](docs/QA_MATRIX.md). Avkryssing skil mellom automatiske resultat, tidlegare releasekontroll og testar rapporterte av brukaren. Eit avkryssa delpunkt godkjenner ikkje automatisk heile milepålen.
 
-Siste kjeldearbeid etter alpha04: [Kalenderspråk og stor skrift](docs/CALENDAR_LANGUAGE_PASS.md). Ikkje med i den tidlegare bygde alpha04-release-APK-en; ingen ny publisering.
+Siste kjeldearbeid etter alpha04: [Kalenderspråk og stor skrift](docs/CALENDAR_LANGUAGE_PASS.md). Med i den lokale alpha05-test-APK-en; ingen ny GitHub-publisering.
 
 ## Kvar står vi?
 
