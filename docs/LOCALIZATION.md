@@ -4,6 +4,12 @@ Alpha03 omfattar òg 20 nynorsk/engelsk-ressursar for utsjånad, avspelingsval o
 
 ## Status i nattarbeidet 9. september 2026
 
+Etter alpha05/Claude-review: 24 ressursar for sentrale innloggingssteg og kontofelt, og ni
+for Quick Connect, inkludert TV-rettleiing. Passord, innloggingsmetode og innsending brukar
+dei same callbackane og tilgangsreglane som før. Nettverksfeil, utlogging/avanserte val og
+fleire modelltekstar står framleis att; dette er ikkje komplett engelsk innlogging.
+Sjå [TV-/språkbolken](TV_LANGUAGE_PASS.md).
+
 Kalenderoppfølging etter alpha04: 17 tekstnøklar og to fleirtalsressursar for kontrollar,
 tomtilstand, dagomtale for skjermlesar og utgjevingstal. Kalenderen brukar UI-lokalet for
 datorekkjefølgje og månads-/dagnamn, og Android sitt tidsformat for episodetidspunkt.

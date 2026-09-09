@@ -16,6 +16,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.border
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
@@ -128,7 +134,12 @@ fun PlayerScreen(
     onMore: () -> Unit, onAudio: (Int) -> Unit, onSubtitle: (Int) -> Unit, onQuality: (Int) -> Unit, onExternal: () -> Unit,
     onResume: (Boolean) -> Unit = {},
     onRotate: () -> Unit = {},
+    isTelevision: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION,
 ) {
+    val videoFocus = remember { FocusRequester() }
+    val playFocus = remember { FocusRequester() }
+    var consumedRemoteKey by remember { mutableIntStateOf(-1) }
     val showControlsLabel = stringResource(R.string.player_show_controls)
     var controls by remember { mutableStateOf(true) }
     var fillVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
@@ -147,9 +158,56 @@ fun PlayerScreen(
             controls = false
         }
     }
-    BackHandler { if (menu != null) menu = null else onClose() }
+    LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu) {
+        if (isTelevision && menu == null && !state.browsing) {
+            if (!showControls) videoFocus.requestFocus()
+            else if (!state.busy && !state.awaitingResume && state.error == null) playFocus.requestFocus()
+        }
+    }
+    BackHandler {
+        if (menu != null) menu = null
+        else if (isTelevision && showControls && canHide) controls = false
+        else onClose()
+    }
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-    Box(Modifier.fillMaxSize().background(Color.Black).testTag("jellyfin-player")) {
+    Box(Modifier.fillMaxSize().background(Color.Black).testTag("jellyfin-player")
+        .onPreviewKeyEvent { event ->
+            if (!isTelevision) return@onPreviewKeyEvent false
+            val native = event.nativeKeyEvent
+            if (native.action == android.view.KeyEvent.ACTION_UP && consumedRemoteKey == native.keyCode) {
+                consumedRemoteKey = -1
+                return@onPreviewKeyEvent true
+            }
+            if (native.action != android.view.KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
+            val key = when (native.keyCode) {
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER,
+                android.view.KeyEvent.KEYCODE_NUMPAD_ENTER, android.view.KeyEvent.KEYCODE_BUTTON_A -> RemotePlaybackKey.SELECT
+                android.view.KeyEvent.KEYCODE_DPAD_UP -> RemotePlaybackKey.UP
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> RemotePlaybackKey.DOWN
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> RemotePlaybackKey.LEFT
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> RemotePlaybackKey.RIGHT
+                android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> RemotePlaybackKey.TOGGLE
+                android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> RemotePlaybackKey.PLAY
+                android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> RemotePlaybackKey.PAUSE
+                android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> RemotePlaybackKey.REWIND
+                android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> RemotePlaybackKey.FORWARD
+                else -> return@onPreviewKeyEvent false
+            }
+            interaction++
+            if (native.repeatCount > 0 && consumedRemoteKey == native.keyCode) return@onPreviewKeyEvent true
+            val action = remotePlaybackAction(key, showControls, state.playing,
+                state.busy || state.browsing || state.awaitingResume || state.error != null || menu != null)
+            if (action == RemotePlaybackAction.DEFAULT) return@onPreviewKeyEvent false
+            consumedRemoteKey = native.keyCode
+            if (action != RemotePlaybackAction.IGNORE) controls = true
+            when (action) {
+                RemotePlaybackAction.TOGGLE -> onToggle()
+                RemotePlaybackAction.REWIND -> onSeek((state.positionMs - 10_000).coerceAtLeast(0))
+                RemotePlaybackAction.FORWARD -> if (state.durationMs > 0) onSeek((state.positionMs + 10_000).coerceAtMost(state.durationMs))
+                else -> Unit
+            }
+            true
+        }.focusRequester(videoFocus).focusable(enabled = isTelevision)) {
         if (!state.browsing && player != null) AndroidView(
             factory = { context -> PlayerView(context).apply {
                 useController = false; this.player = player; setKeepContentOnPlayerReset(false)
@@ -239,15 +297,15 @@ fun PlayerScreen(
                     } else {
                         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
                             verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { interaction++; onSeek(state.positionMs - 10_000) }, enabled = !state.busy) {
+                            IconButton(onClick = { interaction++; onSeek(state.positionMs - 10_000) }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision)) {
                                 Icon(Icons.Rounded.Replay10, stringResource(R.string.player_rewind), Modifier.size(32.dp))
                             }
-                            FilledIconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy, modifier = Modifier.size(72.dp).testTag("player-toggle")) {
+                            FilledIconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy, modifier = Modifier.size(72.dp).remoteFocus(isTelevision).focusRequester(playFocus).testTag("player-toggle")) {
                                 if (state.busy) CircularProgressIndicator(Modifier.size(30.dp), strokeWidth = 2.dp)
                                 else Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                                     if (state.playing) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(36.dp))
                             }
-                            IconButton(onClick = { interaction++; onSeek(state.positionMs + 10_000) }, enabled = !state.busy) {
+                            IconButton(onClick = { interaction++; onSeek(state.positionMs + 10_000) }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision)) {
                                 Icon(Icons.Rounded.Forward10, stringResource(R.string.player_forward), Modifier.size(32.dp))
                             }
                         }
@@ -274,7 +332,7 @@ fun PlayerScreen(
                                 Icon(if (fillVideo) Icons.Rounded.FitScreen else Icons.Rounded.Fullscreen, null)
                                 Text(stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill))
                             }
-                            IconButton(onClick = onRotate) { Icon(Icons.Rounded.ScreenRotation, stringResource(R.string.player_rotate)) }
+                            if (!isTelevision) IconButton(onClick = onRotate) { Icon(Icons.Rounded.ScreenRotation, stringResource(R.string.player_rotate)) }
                         }
                         Text(if (state.direct) stringResource(R.string.player_direct) else stringResource(R.string.player_transcoded), color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelMedium)
@@ -310,6 +368,13 @@ fun PlayerScreen(
         }
     }
     }
+}
+
+@Composable
+private fun Modifier.remoteFocus(enabled: Boolean): Modifier {
+    var focused by remember { mutableStateOf(false) }
+    return if (!enabled) this else onFocusChanged { focused = it.isFocused }
+        .border(if (focused) 3.dp else 0.dp, if (focused) MaterialTheme.colorScheme.onSurface else Color.Transparent, CircleShape)
 }
 
 @Composable

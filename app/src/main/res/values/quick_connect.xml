@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quick_login_without_password">Sign in without a password</string>
+    <string name="quick_seerr_intro">Approve the code in Jellyfin to sign in to Seerr. Requires a Seerr version with Quick Connect.</string>
+    <string name="quick_jellyfin_intro">Approve the code in a Jellyfin app where you are already signed in.</string>
+    <string name="quick_waiting">Waiting for approval</string>
+    <string name="quick_finishing">Finishing sign-in</string>
+    <string name="quick_copy">Copy code</string>
+    <string name="quick_copied">Copied</string>
+    <string name="quick_instructions">Open Jellyfin where you are signed in. Go to Settings → Quick Connect and enter the code. You can also use a browser on this device.</string>
+    <string name="quick_tv_instructions">Open Jellyfin on your phone or computer. Go to Settings → Quick Connect and enter the code shown on your TV. Keep this screen open while you approve.</string>
+</resources>

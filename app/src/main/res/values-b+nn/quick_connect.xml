@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quick_login_without_password">Logg inn utan passord</string>
+    <string name="quick_seerr_intro">Godkjenn koden i Jellyfin for å logge inn på Seerr. Krev ein Seerr-versjon med Quick Connect.</string>
+    <string name="quick_jellyfin_intro">Godkjenn koden i ein Jellyfin-app der du allereie er innlogga.</string>
+    <string name="quick_waiting">Ventar på godkjenning</string>
+    <string name="quick_finishing">Fullfører innlogginga</string>
+    <string name="quick_copy">Kopier kode</string>
+    <string name="quick_copied">Kopiert</string>
+    <string name="quick_instructions">Opne Jellyfin der du er innlogga. Gå til Innstillingar → Quick Connect og skriv inn koden. Du kan òg bruke nettlesaren på denne eininga.</string>
+    <string name="quick_tv_instructions">Opne Jellyfin på telefonen eller datamaskina. Gå til Innstillingar → Quick Connect og skriv inn koden frå TV-en. Hald denne skjermen open medan du godkjenner.</string>
+</resources>

@@ -18,6 +18,43 @@ class LoginExperienceTest {
     @get:Rule val rule = createComposeRule()
     private fun draft(kind: ServiceKind) = ConnectionDraft(kind, kind.displayName, "https://media.example", "", authMode = ConnectionAuthMode.ACCOUNT)
 
+    @Test fun englishAccountSetupShowsTranslatedStepsAndFields() {
+        val value = mutableStateOf(draft(ServiceKind.EMBY))
+        rule.setContent {
+            val localized = app.reelstack.localization.AppLanguages.wrap(androidx.compose.ui.platform.LocalContext.current,
+                app.reelstack.localization.AppLanguage.ENGLISH)
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalContext provides localized,
+                androidx.compose.ui.platform.LocalConfiguration provides localized.resources.configuration) {
+                ReelstackTheme { ConnectionEditorSheet(value.value, false, {}, {},
+                    { value.value = value.value.copy(url = it) }, {}, {}, {}, {}, {}, {}, {}) }
+            }
+        }
+        rule.onNodeWithText("Sign in to Emby").assertIsDisplayed()
+        rule.onNodeWithText("STEP 1 OF 2 · FIND YOUR SERVER").assertIsDisplayed()
+        rule.onNodeWithText("Continue").performScrollTo().performClick()
+        rule.onNode(hasText("Username") and hasSetTextAction()).assertIsDisplayed()
+        rule.onNode(hasText("Password") and hasSetTextAction()).assertIsDisplayed()
+        rule.onNodeWithContentDescription("Show password").assertIsDisplayed()
+    }
+
+    @Test fun televisionQuickConnectExplainsApprovalOnAnotherDeviceInEnglish() {
+        rule.setContent {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val configuration = android.content.res.Configuration(androidx.compose.ui.platform.LocalConfiguration.current).apply {
+                uiMode = (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK.inv()) or android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+                setLocale(java.util.Locale.ENGLISH)
+            }
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalContext provides context.createConfigurationContext(configuration),
+                androidx.compose.ui.platform.LocalConfiguration provides configuration) {
+                ReelstackTheme { QuickConnectPanel(draft(ServiceKind.SEERR).copy(quickConnectCode = "123456", quickConnectWaiting = true)) }
+            }
+        }
+        rule.onNodeWithText("Waiting for approval").assertIsDisplayed()
+        rule.onNodeWithText("Open Jellyfin on your phone or computer.", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Copy code").performClick()
+        rule.onNodeWithText("Copied").assertIsDisplayed()
+    }
+
     @Test fun uppercaseAddressIsNormalizedBeforeCredentialsStep() {
         val value = mutableStateOf(draft(ServiceKind.EMBY).copy(url = "HTTPS://EMBY.EXAMPLE.COM/Media/"))
         rule.setContent { ReelstackTheme {

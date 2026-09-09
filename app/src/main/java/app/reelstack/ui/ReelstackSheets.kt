@@ -881,7 +881,7 @@ internal fun ConnectionEditorSheet(
             .onFailure { addressError = it.message }
     }
     Column(Modifier.fillMaxSize()) {
-        SheetToolbar(if (configured) draft.kind.displayName else "Logg inn på ${draft.kind.displayName}", "Lukk", onDismiss)
+        SheetToolbar(if (configured) draft.kind.displayName else stringResource(R.string.login_service, draft.kind.displayName), stringResource(R.string.action_close), onDismiss)
     Column(
         Modifier.weight(1f).testTag("connection-scroll").verticalScroll(rememberScrollState())
             .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
@@ -896,11 +896,10 @@ internal fun ConnectionEditorSheet(
         ) {
         Column {
         // A step marker only helps when it says how many steps there are.
-        Text(if (configured) "TILKOPLING" else if (credentialsStep) "STEG 2 AV 2 · LOGG INN" else "STEG 1 AV 2 · FINN TENAREN",
+        Text(stringResource(if (configured) R.string.login_connection else if (credentialsStep) R.string.login_step_credentials else R.string.login_step_address),
             color = Muted, fontSize = 11.sp, letterSpacing = 1.4.sp,
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-        Text(if (credentialsStep) "Bruk kontoen din. Vi tek vare på resten."
-            else "Bruk adressa du vanlegvis opnar i nettlesaren.", color = Muted, fontSize = 14.sp)
+        Text(stringResource(if (credentialsStep) R.string.login_account_hint else R.string.login_address_hint), color = Muted, fontSize = 14.sp)
         if (configured) {
             TextButton(onClick = { confirmSignOut = true }, enabled = !draft.saving) { Text("Logg ut", color = Warning) }
         }
@@ -918,8 +917,8 @@ internal fun ConnectionEditorSheet(
         if (!credentialsStep) {
             OutlinedTextField(
                 value = draft.url, onValueChange = { addressError = null; onUrlChange(it) },
-                label = { Text("Tenaradresse") }, placeholder = { Text(exampleAddress(draft.kind)) },
-                supportingText = { Text(addressError ?: "Ta med port eller undermappe dersom tenaren din brukar det.") },
+                label = { Text(stringResource(R.string.login_address)) }, placeholder = { Text(exampleAddress(draft.kind)) },
+                supportingText = { Text(addressError ?: stringResource(R.string.login_address_detail)) },
                 isError = addressError != null,
                 singleLine = true, shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                 keyboardOptions = KeyboardOptions(
@@ -945,7 +944,7 @@ internal fun ConnectionEditorSheet(
                 ),
                 border = if (draft.url.isBlank()) androidx.compose.foundation.BorderStroke(1.dp, app.reelstack.ui.theme.ControlOutline) else null,
                 modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 54.dp)) {
-                Text("Hald fram", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.login_continue), fontWeight = FontWeight.Bold)
             }
             return@Column
         }
@@ -960,7 +959,7 @@ internal fun ConnectionEditorSheet(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 listOfNotNull(
                     (ConnectionAuthMode.QUICK_CONNECT to "Quick Connect").takeIf { draft.kind != ServiceKind.EMBY },
-                    ConnectionAuthMode.ACCOUNT to if (draft.kind == ServiceKind.SEERR) "Jellyfin-konto" else "Brukarnamn",
+                    ConnectionAuthMode.ACCOUNT to stringResource(if (draft.kind == ServiceKind.SEERR) R.string.login_jellyfin_account else R.string.login_username),
                     (ConnectionAuthMode.API_KEY to "API-nøkkel").takeIf { advanced || draft.authMode == ConnectionAuthMode.API_KEY },
                 ).forEach { (mode, label) ->
                     FilterChip(selected = draft.authMode == mode, onClick = { onAuthModeChange(mode) },
@@ -976,20 +975,20 @@ internal fun ConnectionEditorSheet(
         if (usesAccount) {
             OutlinedTextField(
                 value = draft.username, onValueChange = onUsernameChange,
-                label = { Text("Brukarnamn") }, enabled = !draft.saving, singleLine = true,
+                label = { Text(stringResource(R.string.login_username)) }, enabled = !draft.saving, singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             OutlinedTextField(
                 value = draft.password, onValueChange = onPasswordChange,
-                label = { Text("Passord") }, supportingText = { Text("Kan stå tomt for ein konto utan passord.") },
+                label = { Text(stringResource(R.string.login_password)) }, supportingText = { Text(stringResource(R.string.login_empty_password)) },
                 enabled = !draft.saving, singleLine = true,
                 visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     IconButton(onClick = { showPassword = !showPassword }) {
                         Icon(if (showPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                            if (showPassword) "Skjul passord" else "Vis passord")
+                            stringResource(if (showPassword) R.string.login_hide_password else R.string.login_show_password))
                     }
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -999,8 +998,8 @@ internal fun ConnectionEditorSheet(
                 shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
-            Text(if (draft.kind == ServiceKind.SEERR) "Bruk Jellyfin-kontoen din. Seerr sjekkar innlogginga og brukar dine vanlege rettar. Passordet blir aldri lagra."
-                else "Bruk den lokale ${draft.kind.displayName}-kontoen din. Passordet blir aldri lagra.",
+            Text(if (draft.kind == ServiceKind.SEERR) stringResource(R.string.login_seerr_account_hint)
+                else stringResource(R.string.login_local_account_hint, draft.kind.displayName),
                 color = Muted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp))
             if (supportsJellyfinLogin) {
                 val otherName = if (draft.kind == ServiceKind.SEERR) "Jellyfin" else "Seerr"
@@ -1092,14 +1091,14 @@ internal fun ConnectionEditorSheet(
         ) {
             if (draft.saving) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
             Text(when {
-                draft.saving && usesQuickConnect && draft.quickConnectCode != null -> "Ventar på godkjenning…"
-                draft.saving && usesQuickConnect -> "Lagar kode…"
-                draft.saving -> "Koplar til…"
-                usesQuickConnect && draft.quickConnectCode != null -> "Lag ny kode"
-                usesQuickConnect -> "Start Quick Connect"
-                usesAccount && draft.alsoConnect -> "Logg inn på begge"
-                usesAccount -> "Logg inn"
-                else -> "Kople til"
+                draft.saving && usesQuickConnect && draft.quickConnectCode != null -> stringResource(R.string.quick_waiting)
+                draft.saving && usesQuickConnect -> stringResource(R.string.login_creating_code)
+                draft.saving -> stringResource(R.string.login_connecting)
+                usesQuickConnect && draft.quickConnectCode != null -> stringResource(R.string.login_new_code)
+                usesQuickConnect -> stringResource(R.string.login_start_quick)
+                usesAccount && draft.alsoConnect -> stringResource(R.string.login_both)
+                usesAccount -> stringResource(R.string.login_sign_in)
+                else -> stringResource(R.string.login_connect)
             }, modifier = Modifier.padding(start = if (draft.saving) 10.dp else 0.dp))
         }
         if (draft.saving) {
@@ -1156,6 +1155,8 @@ private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onTogg
 @Composable
 internal fun QuickConnectPanel(draft: ConnectionDraft) {
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     var copied by remember(draft.quickConnectCode) { mutableStateOf(false) }
     AnimatedContent(
         targetState = draft.quickConnectCode,
@@ -1187,14 +1188,13 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                     }
                     Column(Modifier.padding(start = 14.dp)) {
                         Text(
-                            "Logg inn utan passord",
+                            stringResource(R.string.quick_login_without_password),
                             color = Color.White,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            if (draft.kind == ServiceKind.SEERR) "Godkjenn koden i Jellyfin for å logge inn på Seerr. Krev ein Seerr-versjon med Quick Connect."
-                            else "Godkjenn koden i ein Jellyfin-app der du allereie er innlogga.",
+                            stringResource(if (draft.kind == ServiceKind.SEERR) R.string.quick_seerr_intro else R.string.quick_jellyfin_intro),
                             color = Muted,
                             fontSize = 12.sp,
                             lineHeight = 16.sp,
@@ -1210,7 +1210,7 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(7.dp).background(Primary, CircleShape))
                         Text(
-                            if (draft.quickConnectWaiting) "Ventar på godkjenning" else "Fullfører innlogginga",
+                            stringResource(if (draft.quickConnectWaiting) R.string.quick_waiting else R.string.quick_finishing),
                             color = PrimarySoft,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -1220,16 +1220,16 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                     Text(
                         code.chunked(3).joinToString("  "),
                         color = Color.White,
-                        fontSize = 32.sp,
+                        fontSize = if (television) 44.sp else 32.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 3.sp,
                         modifier = Modifier.padding(top = 10.dp),
                     )
                     TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true }) {
-                        Text(if (copied) "Kopiert" else "Kopier kode")
+                        Text(stringResource(if (copied) R.string.quick_copied else R.string.quick_copy))
                     }
                     Text(
-                        "Opne Jellyfin der du er innlogga. Gå til Innstillingar → Quick Connect og lim inn koden. Du kan bruke nettlesaren på denne mobilen òg.",
+                        stringResource(if (television) R.string.quick_tv_instructions else R.string.quick_instructions),
                         color = Muted,
                         fontSize = 12.sp,
                         lineHeight = 17.sp,

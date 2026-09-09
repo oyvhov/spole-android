@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_service">Logg inn på %1$s</string>
+    <string name="login_connection">TILKOPLING</string>
+    <string name="login_step_credentials">STEG 2 AV 2 · LOGG INN</string>
+    <string name="login_step_address">STEG 1 AV 2 · FINN TENAREN</string>
+    <string name="login_account_hint">Bruk kontoen din. Vi tek vare på resten.</string>
+    <string name="login_address_hint">Bruk adressa du vanlegvis opnar i nettlesaren.</string>
+    <string name="login_address">Tenaradresse</string>
+    <string name="login_address_detail">Ta med port eller undermappe dersom tenaren din brukar det.</string>
+    <string name="login_continue">Hald fram</string>
+    <string name="login_jellyfin_account">Jellyfin-konto</string>
+    <string name="login_username">Brukarnamn</string>
+    <string name="login_password">Passord</string>
+    <string name="login_empty_password">Kan stå tomt for ein konto utan passord.</string>
+    <string name="login_hide_password">Skjul passord</string>
+    <string name="login_show_password">Vis passord</string>
+    <string name="login_seerr_account_hint">Bruk Jellyfin-kontoen din. Seerr sjekkar innlogginga og brukar dine vanlege rettar. Passordet blir aldri lagra.</string>
+    <string name="login_local_account_hint">Bruk den lokale %1$s-kontoen din. Passordet blir aldri lagra.</string>
+    <string name="login_creating_code">Lagar kode…</string>
+    <string name="login_connecting">Koplar til…</string>
+    <string name="login_new_code">Lag ny kode</string>
+    <string name="login_start_quick">Start Quick Connect</string>
+    <string name="login_both">Logg inn på begge</string>
+    <string name="login_sign_in">Logg inn</string>
+    <string name="login_connect">Kople til</string>
+</resources>

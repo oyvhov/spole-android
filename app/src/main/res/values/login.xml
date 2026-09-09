@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_service">Sign in to %1$s</string>
+    <string name="login_connection">CONNECTION</string>
+    <string name="login_step_credentials">STEP 2 OF 2 · SIGN IN</string>
+    <string name="login_step_address">STEP 1 OF 2 · FIND YOUR SERVER</string>
+    <string name="login_account_hint">Use your account. We will handle the rest.</string>
+    <string name="login_address_hint">Use the address you normally open in your browser.</string>
+    <string name="login_address">Server address</string>
+    <string name="login_address_detail">Include the port or subfolder if your server uses one.</string>
+    <string name="login_continue">Continue</string>
+    <string name="login_jellyfin_account">Jellyfin account</string>
+    <string name="login_username">Username</string>
+    <string name="login_password">Password</string>
+    <string name="login_empty_password">Leave blank if your account has no password.</string>
+    <string name="login_hide_password">Hide password</string>
+    <string name="login_show_password">Show password</string>
+    <string name="login_seerr_account_hint">Use your Jellyfin account. Seerr verifies your sign-in and uses your normal permissions. Your password is never stored.</string>
+    <string name="login_local_account_hint">Use your local %1$s account. Your password is never stored.</string>
+    <string name="login_creating_code">Creating code…</string>
+    <string name="login_connecting">Connecting…</string>
+    <string name="login_new_code">Create new code</string>
+    <string name="login_start_quick">Start Quick Connect</string>
+    <string name="login_both">Sign in to both</string>
+    <string name="login_sign_in">Sign in</string>
+    <string name="login_connect">Connect</string>
+</resources>

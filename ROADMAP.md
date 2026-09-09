@@ -10,6 +10,8 @@ Dette er den gjeldande prioriteringsplanen. Versjonsnummera nedanfor er føresle
 
 Siste kjeldearbeid etter alpha04: [Kalenderspråk og stor skrift](docs/CALENDAR_LANGUAGE_PASS.md). Med i den lokale alpha05-test-APK-en; ingen ny GitHub-publisering.
 
+Kjeldearbeid etter Claude sin gjennomgang (`6e31ad5`): [Innloggingsspråk og TV-spelarkontrollar](docs/TV_LANGUAGE_PASS.md). Ikkje med i den tidlegare alpha05-APK-en.
+
 ## Kvar står vi?
 
 | Status | Område |
@@ -97,6 +99,8 @@ Verkelege førespurnader kan starte nedlastingar. Slike testar skal bruke eigarg
 **Ferdig når:** Første og gjenteken opning av detaljar er stabile gjennom minst 20 opne/lukke-rundar med treg datalasting på fysisk telefon. Ei samanliknbar før/etter-måling viser at visuell finish ikkje har gjort scrolling eller oppstart tregare. Kjernehandlingane fungerer med skjermlesar og skriftstorleik 2.0.
 
 #### Språk — nynorsk og engelsk først, enkelt å utvide
+
+- [x] Etter alpha05: 33 nynorsk/engelsk-ressursar for sentrale innloggingssteg, kontofelt, innsending og Quick Connect. Engelsk konto-oppsett og TV-rettleiing er emulator-testa; feil frå nettverkslaget og attståande avanserte val er ikkje ferdig omsette.
 
 Ny, avgrensa kalenderbolk etter alpha04:
 
@@ -200,6 +204,14 @@ Spole skal behalde sitt eige matte uttrykk, logo, fargeval og fleirtenesteflyt. 
 - [ ] Før TV-prototypen blir godkjend: samanlikn Heim → detaljar → avspeling → Tilbake i Wholphin og Spole på TV, med fjernkontroll og ekte kontodata. Noter fokus, respons, lesbarheit og tilbakeføring; ikkje godkjenn på statiske skjermbilete åleine.
 
 ### Leveranse og verifisering
+
+Avgrensa TV-forarbeid etter alpha05 (ikkje fullført TV-milepåle):
+
+- [x] TV-spelaren handterer OK, piltastar og eigne medieknappar når kontrollane er skjulte; synlege kontrollar brukar vanleg fokusnavigasjon. Ein knappesekvens utløyser ikkje to handlingar.
+- [x] Fokus tilbake til spel/pause og fokusramme på transportknappane. Tilbake skjuler først kontrollane under avspeling, deretter forlèt ein spelaren. Mobilens Tilbake-flyt er uendra.
+- [x] Quick Connect har større TV-kode og nynorsk/engelsk forklaring for godkjenning frå telefon/datamaskin. Ingen automatisk deling av konto eller tilgangsteikn.
+
+Testgrunnlaget er isolerte UI-/regeltestar, ikkje fysisk TV eller ein komplett TV-systememulator. TV-startpunkt/banner blir ikkje aktivert før kjerneflyten fungerer utan berøring.
 
 - [ ] Lag ei TV-tilpassa navigasjonsflate med store mediebilete, lesbar tekst på avstand og synleg fokus. Gjenbruk repository, kontorettar, språkressursar og spelarlogikk der det passar.
 - [ ] Gjer heile flyten mogleg med retningstastar, OK, Tilbake og medieknappar: Heim → søk → detaljar → sesongval → avspeling. Hugs fokus når ein kjem tilbake til ei rad, og unngå fokusfeller i dialogar.
