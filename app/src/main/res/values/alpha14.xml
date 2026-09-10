@@ -1,0 +1,3 @@
+<resources>
+    <string name="home_resume_retry">Could not load your library completely. Retrying automatically.</string>
+</resources>

@@ -12,6 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 
+/** TV artwork owns focus feedback; a Material state layer must never tint its caption. */
+@Composable
+internal fun mediaCardIndication(): androidx.compose.foundation.Indication? {
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val television = configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    return if (television) null else androidx.compose.foundation.LocalIndication.current
+}
+
 /** Draw-only keyboard focus. No permanent poster border, scale, added focus target or layout shift. */
 @Composable
 internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape): Modifier {

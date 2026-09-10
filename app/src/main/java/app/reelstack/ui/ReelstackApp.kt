@@ -157,6 +157,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             if (viewModel.uiState.value.selectedTab == AppTab.HOME || viewModel.uiState.value.activeSheet is AppSheet.SessionDetails) {
                 while (true) {
+                    if (viewModel.uiState.value.selectedTab == AppTab.HOME) viewModel.retryIncompleteHomeFeed()
                     viewModel.refreshPlayback()
                     kotlinx.coroutines.delay(if (viewModel.uiState.value.sessions.isEmpty()) 15_000L else 5_000L)
                 }

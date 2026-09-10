@@ -44,6 +44,13 @@ class ViewerAccessTest {
         assertTrue(MediaServerClient(transport).sessions(connection, ViewerAccess(true, emptyMap())).isEmpty())
         assertTrue(transport.urls.isEmpty())
     }
+    @Test fun missingLibraryIdentityIsRecoverableNotSuccessfulEmptyFeed() {
+        val transport = Transport { error("Must not fetch another viewer's library") }
+        val feed = MediaServerClient(transport).feed(connection, ViewerAccess(true, emptyMap()))
+        assertTrue(feed.resume.isEmpty())
+        assertNotNull(feed.warning)
+        assertTrue(transport.urls.isEmpty())
+    }
     @Test fun sharedAdminMediaTokenDoesNotElevateOrdinarySeerrUser() {
         val access = ViewerAccess(true, mapOf(ServiceKind.SEERR to seerr, ServiceKind.JELLYFIN to media.copy(id = "admin", isAdmin = true)))
         assertFalse(access.isAdmin)

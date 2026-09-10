@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.0-alpha14 · Mediekort og påliteleg innlasting
+
+- Mobilradene går heilt til skjermkanten; overskrifter, søk og siste kort har framleis luft.
+- TV-fokus fargar ikkje lenger bakgrunnen rundt tittelen. Berre mediebiletet får ramma, med vald avrunding.
+- Retta S-konturen i Android TV-banneret.
+- Ufullstendig profil-/biblioteklasting får automatisk nytt forsøk på Heim. «Hald fram å sjå» forklarer innlastingsfeil i staden for å forsvinne.
+- Sjå [rettingar og årsaker](docs/TV_MEDIA_REFINEMENT_ALPHA14.md).
+
 ## 0.16.0-alpha13 · Appoppdateringar, bibliotek og betre TV-utforming
 
 - Automatisk GitHub-sjekk, oppdateringsvarsel, nedlasting og signaturkontroll. Android ber om godkjenning før installasjon.

@@ -173,6 +173,7 @@ class ReelstackViewModel(
         private set
 
     private var refreshJob: Job? = null
+    private var lastFeedAttemptMillis = -60_000L
     private var libraryChoicesJob: Job? = null
     private var libraryJob: Job? = null
     private var searchJob: Job? = null
@@ -1099,6 +1100,13 @@ class ReelstackViewModel(
         if (key != null && key.startsWith("jellyfin-")) openLibraryDetails(key)
     }
 
+    /** Recover transient startup/profile failures while Home remains open, including on TV. */
+    fun retryIncompleteHomeFeed() {
+        val state = _uiState.value
+        if (shouldRetryHomeFeed(state.failedServices, state.serviceWarnings.keys, state.isRefreshing,
+                android.os.SystemClock.elapsedRealtime() - lastFeedAttemptMillis)) refreshLiveData()
+    }
+
     fun refreshLiveData(userInitiated: Boolean = false) {
         refreshAccounts()
         refreshTrackedRequests()
@@ -1145,6 +1153,7 @@ class ReelstackViewModel(
         }
 
         val refreshFingerprint = container.mediaFingerprint(state.connections)
+        lastFeedAttemptMillis = android.os.SystemClock.elapsedRealtime()
         _uiState.update { it.copy(isRefreshing = true) }
         refreshJob = viewModelScope.launch {
             val outcome = attempt {

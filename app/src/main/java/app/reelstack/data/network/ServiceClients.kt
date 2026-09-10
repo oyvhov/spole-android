@@ -277,7 +277,8 @@ class MediaServerClient(
             ?: runCatching { currentUserId(connection) }.getOrNull()
             ?: runCatching { preferredAvailableUserId(connection) }.getOrNull() else null
         if (userId == null && !allowFallback) {
-            return MediaServerFeed(sessions = sessions, recentMovies = emptyList(), recentSeries = emptyList())
+            return MediaServerFeed(sessions = sessions, recentMovies = emptyList(), recentSeries = emptyList(),
+                warning = "Bibliotekprofilen kunne ikkje stadfestast. Prøver igjen.")
         }
 
         val encodedUserId = userId?.let(::encodePathSegment)

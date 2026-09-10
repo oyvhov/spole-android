@@ -8,7 +8,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -158,6 +157,9 @@ fun HomeScreen(
         val combine = personalization.showNextUp && personalization.combineContinueWatching &&
             HomeSection.CONTINUE_WATCHING in state.homeSections
         val continueItems = if (combine) app.reelstack.data.model.combinedWatching(state.resume, state.nextUp) else state.resume
+        val incompleteMedia = (state.failedServices + state.serviceWarnings.keys).any {
+            it == ServiceKind.JELLYFIN || it == ServiceKind.EMBY
+        }
         val tablet = LocalTabletCanvas.current
         val edge = app.reelstack.ui.theme.LocalMediaEdgeToEdge.current
         val featured = if (tablet && personalization.showHero) tabletFeaturedTitle(state.recentSeries, state.homeSections) else null
@@ -174,7 +176,7 @@ fun HomeScreen(
                 Box(Modifier.padding(end = if (edge) ReelLayout.Gutter else 0.dp)) { HomeHeader(state, onAccountClick, showBrand) }
             }
             if (showSearch) item(key = "search-entry") {
-                Box(Modifier.padding(top = 8.dp)) {
+                Box(Modifier.padding(top = 8.dp, end = mediaEndInset())) {
                     HomeSearchEntry(onSearchClick, searchTransitionModifier)
                 }
             }
@@ -202,11 +204,13 @@ fun HomeScreen(
                 }
             }
             if (HomeSection.CONTINUE_WATCHING in state.homeSections &&
-                (continueItems.isNotEmpty() || (state.isRefreshing && state.configuredCount > 0))
+                (continueItems.isNotEmpty() || incompleteMedia || (state.isRefreshing && state.configuredCount > 0))
             ) {
                 item {
                     SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                    if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
+                    if (continueItems.isEmpty() && !state.isRefreshing && incompleteMedia)
+                        EmptySectionLine(stringResource(R.string.home_resume_retry))
+                    else if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
                     else ResumeRail(continueItems, onLibraryClick)
                 }
             }
@@ -454,7 +458,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             .heightIn(min = 258.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
             .clip(RoundedCornerShape(16.dp))
             .focusOutline(interaction, RoundedCornerShape(16.dp))
-            .clickable(interactionSource = interaction, indication = LocalIndication.current,
+            .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
             .semantics { role = Role.Button }
             .testTag("recommendation-${media.id}"),
@@ -585,7 +589,7 @@ private fun NowPlayingCard(
             .focusOutline(interactionSource, shape)
             .clickable(
                 interactionSource = interactionSource,
-                indication = LocalIndication.current,
+                indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClick = onOpen,
             ),
     ) {
@@ -741,7 +745,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
             }
             .clickable(
                 interactionSource = interactionSource,
-                indication = LocalIndication.current,
+                indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClick = onClick,
                 onClickLabel = resumeLabel,
             )
@@ -821,7 +825,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             }
             .clickable(
                 interactionSource = interactionSource,
-                indication = LocalIndication.current,
+                indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClick = onClick,
             )
             .semantics { role = Role.Button },
@@ -904,7 +908,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
     Box(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).heightIn(min = 226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).graphicsLayer {
         alpha = reveal; translationY = (1f - reveal) * 18f; scaleX = scale; scaleY = scale
     }.clip(shape).background(SurfaceRaised).focusOutline(interactionSource, shape)
-        .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
+        .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(), onClick = onClick)
         .semantics { role = Role.Button }.testTag("upcoming-cover-${media.id}")) {
         MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(

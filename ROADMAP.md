@@ -1,6 +1,6 @@
 # Spole — veikart mot 1.0
 
-Oppdatert 10. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny testutgåve: **0.16.0-alpha13 / bygg 56**, publisert på offentleg GitHub med oppdateringsstøtte frå alpha12 (Android-installasjonsflyten er ikkje ferdig verifisert; sjå rapporten). [Release-notat](docs/release-v0.16.0-alpha13.md) · [Release-flyt](docs/RELEASE_WORKFLOW.md) · [Oppdateringar og bibliotek](docs/UPDATES_LIBRARY_ALPHA12.md) · [Codec, 4K og lyd](docs/PLAYBACK_CAPABILITIES_ALPHA11.md) · [TV-innstillingar, tema og sjårekkefølgje](docs/SETTINGS_THEMES_ALPHA10.md) · [Dei 13 TV-/bibliotekpunkta](docs/TV_REFINEMENT_ALPHA09.md) · [Historikk og kvotar](docs/ROADMAP_HISTORY_RULES.md).
+Oppdatert 10. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**. Ny testutgåve: **0.16.0-alpha14 / bygg 57**, med rettingar av mobilkant, TV-fokus, TV-banner og gjeninnlasting av sjåvidare-data. [Release-notat](docs/release-v0.16.0-alpha14.md) · [Verifikasjon](docs/VERIFICATION_v0.16.0-alpha14.md) · [Release-flyt](docs/RELEASE_WORKFLOW.md) · [Rettar og årsaker](docs/TV_MEDIA_REFINEMENT_ALPHA14.md).
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.
 

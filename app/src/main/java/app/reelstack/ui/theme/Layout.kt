@@ -56,7 +56,7 @@ fun ReelPage(modifier: Modifier = Modifier, media: Boolean = false, content: @Co
         val tablet = policy.useTabletCanvas || (television && policy.useNavigationRail)
         Box(Modifier.widthIn(max = maximum).fillMaxSize()) {
             CompositionLocalProvider(LocalTabletCanvas provides tablet,
-                LocalMediaEdgeToEdge provides (media && policy.useNavigationRail)) { content() }
+                LocalMediaEdgeToEdge provides media) { content() }
         }
     }
 }

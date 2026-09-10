@@ -232,7 +232,7 @@ fun TrackedRequestCard(
         Column {
                 Column(
                     Modifier.fillMaxWidth()
-                        .clickable(enabled = detailsEnabled, interactionSource = detailsInteraction, indication = androidx.compose.foundation.LocalIndication.current,
+                        .clickable(enabled = detailsEnabled, interactionSource = detailsInteraction, indication = app.reelstack.ui.components.mediaCardIndication(),
                             onClickLabel = stringResource(R.string.flow_detail_named, item.title), onClick = onDetails)
                         .testTag("tracked-details-${item.key}"),
                 ) {

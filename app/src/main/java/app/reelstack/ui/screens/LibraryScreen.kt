@@ -2,6 +2,7 @@ package app.reelstack.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,10 +59,11 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
             items(state.libraryEntries, key = { it.id }) { entry ->
                 val interaction = remember { MutableInteractionSource() }
                 val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
-                Card(onClick = { onOpen(entry.id) }, interactionSource = interaction, shape = androidx.compose.ui.graphics.RectangleShape,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background,
-                        contentColor = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.fillMaxWidth().testTag("library-item-${entry.id}")) {
+                Column(modifier = Modifier.fillMaxWidth()
+                    .clickable(interactionSource = interaction,
+                        indication = app.reelstack.ui.components.mediaCardIndication(),
+                        role = Role.Button, onClick = { onOpen(entry.id) })
+                    .testTag("library-item-${entry.id}")) {
                     Box(Modifier.fillMaxWidth().aspectRatio(if (wideCards) 16f / 9f else 2f / 3f)
                         .focusOutline(interaction, shape).clip(shape).testTag("library-art-${entry.id}")) {
                         MediaArtwork(entry.artworkUrl, R.drawable.media_placeholder, null, Modifier.fillMaxSize(), source = ServiceKind.JELLYFIN)
@@ -70,7 +72,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                                 .align(androidx.compose.ui.Alignment.BottomCenter))
                         }
                     }
-                    Text(entry.title, modifier = Modifier.padding(top = 10.dp, start = 4.dp, end = 4.dp),
+                    Text(entry.title, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(top = 10.dp, start = 4.dp, end = 4.dp),
                         maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                     if (!folders && entry.subtitle.isNotBlank()) Text(entry.subtitle, modifier = Modifier.padding(start = 4.dp, top = 4.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis,

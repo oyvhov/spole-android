@@ -462,12 +462,15 @@ private fun DiscoverFilterBar(
 /** A title you already own: no request action, just the way into its details. */
 @Composable
 private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-            .clickable(onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
+        Modifier.fillMaxWidth()
+            .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
+                onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
             .testTag("library-hit-${media.id}"),
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(14.dp)).background(SurfaceRaised)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)) {
             MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(),
                 ContentScale.Crop, source = media.source)
             Row(
@@ -500,7 +503,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
     Column(Modifier.fillMaxWidth()
         // The card's own action is named so a screen reader can tell it apart from the request
         // button inside it. It must not merge its descendants: that would swallow the button.
-        .clickable(interactionSource = cardInteraction, indication = androidx.compose.foundation.LocalIndication.current,
+        .clickable(interactionSource = cardInteraction, indication = app.reelstack.ui.components.mediaCardIndication(),
             onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onDetails)
         .testTag("discover-cover-${media.id}")) {
       Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(cardInteraction, artworkShape).clip(artworkShape).background(SurfaceRaised)) {
@@ -768,7 +771,7 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
     val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     Column(
         modifier = Modifier.fillMaxWidth()
-            .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
+            .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
                 role = Role.Button, onClick = onClick).testTag("activity-event-${event.id}"),
     ) {
       Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f).focusOutline(interaction, shape).clip(shape).background(Ink)) {

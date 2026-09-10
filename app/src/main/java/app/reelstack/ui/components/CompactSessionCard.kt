@@ -58,7 +58,7 @@ internal fun CompactSessionCard(session: PlaybackSession, pending: Boolean, cont
             .heightIn(min = 182.dp)
             .clip(shape)
             .focusOutline(interaction, shape)
-            .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
+            .clickable(interactionSource = interaction, indication = mediaCardIndication(),
                 onClickLabel = stringResource(R.string.details_playback), onClick = onOpen)
             .testTag("compact-session-${session.key}"),
     ) {
