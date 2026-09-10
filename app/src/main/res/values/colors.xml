@@ -2,7 +2,7 @@
 <resources>
     <color name="reelstack_background">#101211</color>
     <color name="widget_surface">#191C19</color>
-    <color name="widget_text">#F4F5F0</color>
-    <color name="widget_muted">#9DA69B</color>
+    <color name="widget_text">#F3F3EC</color>
+    <color name="widget_muted">#A4ADA3</color>
     <color name="widget_accent">#D5F478</color>
 </resources>

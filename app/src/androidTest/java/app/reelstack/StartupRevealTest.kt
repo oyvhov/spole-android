@@ -105,7 +105,7 @@ class StartupRevealTest {
         rule.onNodeWithText("Appen er open").assertIsDisplayed()
     }
 
-    @Test fun heavyAppCompositionWaitsUntilTheLogoHasFormed() {
+    @Test fun appCompositionStartsWhileTheLogoIsForming() {
         var contentComposed = false
         rule.mainClock.autoAdvance = false
         rule.setContent { ReelstackTheme {
@@ -115,7 +115,7 @@ class StartupRevealTest {
             }
         } }
         rule.mainClock.advanceTimeBy(400)
-        rule.runOnIdle { assertFalse(contentComposed) }
+        rule.runOnIdle { assertTrue(contentComposed) }
         rule.mainClock.advanceTimeBy(1100)
         rule.runOnIdle { assertTrue(contentComposed) }
         rule.mainClock.autoAdvance = true

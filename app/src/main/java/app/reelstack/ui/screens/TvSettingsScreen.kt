@@ -68,7 +68,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
         horizontalArrangement = Arrangement.spacedBy(28.dp)) {
         Column(Modifier.width(192.dp).fillMaxHeight().verticalScroll(rememberScrollState())
             .testTag("settings-categories"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.headlineSmall,
+            Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(start = 12.dp, bottom = 12.dp))
             TvSettingsCategory.entries.forEach { item ->
                 WideDestination(stringResource(item.title), item.icon, category == item,
@@ -148,6 +148,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                             PrivacyCard(state)
                         }
                         TvSettingsCategory.UPDATES -> {
+                            app.reelstack.update.AppUpdateSettings()
                             SettingsToggleRow(stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_note),
                                 state.notificationsEnabled, "settings-notifications", onNotificationsChange)
                             SettingsToggleRow(stringResource(R.string.settings_wifi), stringResource(R.string.settings_wifi_note),

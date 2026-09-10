@@ -41,7 +41,7 @@ class LibraryBrowserUiTest {
         val state = ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
             libraryChoices = listOf(app.reelstack.data.network.RemoteLibraryView("movies", "Filmar", "movies")),
             selectedLibraryIds = setOf("movies"))
-        rule.setContent { ReelstackTheme { app.reelstack.ui.screens.LibraryChoicesDialog(state, {}, {}, { ids, _ -> saved = ids }) } }
+        rule.setContent { ReelstackTheme { app.reelstack.ui.screens.LibraryChoicesDialog(state, {}, {}, { ids, _, _ -> saved = ids }) } }
         rule.onNodeWithTag("library-choice-movies").assertIsOn().performClick().assertIsOff()
         rule.runOnIdle { assertNull(saved) }
         rule.onNodeWithTag("library-selection-save").performClick()

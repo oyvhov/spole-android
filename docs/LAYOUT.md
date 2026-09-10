@@ -1,5 +1,13 @@
 # Spole layout
 
+Current override (alpha13): every width threshold lives in `WindowLayoutPolicy` —
+`useSideBySideMedia` 600, `useNavigationRail` 640, `useInlineHeader` 680, `useCenteredDialog` 840,
+`useTabletCanvas` 900, `expandSidebarByDefault` 1000 dp. A screen never writes its own dp
+comparison. Section headings on a page use `ReelLayout.SectionTop` (26 dp) and
+`ReelLayout.SectionBottom` (13 dp); page titles are `displaySmall` everywhere. Loading skeletons
+take their colour from the theme and their corners from `ReelLayout.ArtworkCorner`. This supersedes
+the threshold numbers quoted below.
+
 Current override (alpha03, 9 September 2026, unreleased): media pages fill the available width
 after navigation. Home media rails bleed to the trailing edge on wide windows; profile/header
 controls keep 24 dp padding. Reading/settings pages stay capped at 840 dp. Navigation still switches at a 640 dp window. A wide dialog window (at least

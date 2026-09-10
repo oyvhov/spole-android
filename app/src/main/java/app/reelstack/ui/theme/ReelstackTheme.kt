@@ -19,15 +19,17 @@ val Muted: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 val Success = Color(0xFF56D993)
 val Caution = Color(0xFFFFC66D)
 val Warning = Color(0xFFFF7A7D)
-val Divider = Color(0xFF3D443C)
+
+/** Follows the chosen mood's hue. See [app.reelstack.data.model.VisualTheme]. */
+val Divider: Color @Composable get() = MaterialTheme.colorScheme.outlineVariant
 
 /**
- * Boundary colour for controls whose fill is too close to the page to identify them on its own.
- * 3.54:1 against [Ink], so a 1 dp edge satisfies WCAG 1.4.11 without lifting the matte surfaces
- * to a light grey. Use it on fields, unselected chips and disabled buttons — not on plain cards,
- * which are containers rather than controls.
+ * Boundary colour for the few controls that already draw an edge — text fields, unselected chips.
+ * At least 3.2:1 against every mood's surface, so those existing edges satisfy WCAG 1.4.11 without
+ * lifting the matte surfaces to a light grey. Never add it to a card or a row: containers are
+ * separated by their fill, not by a line.
  */
-val ControlOutline = Color(0xFF646E63)
+val ControlOutline: Color @Composable get() = MaterialTheme.colorScheme.outline
 
 /** Checked switch track. Lime stays in the thumb so a settings list is not a wall of accent. */
 val SwitchTrackOn: Color @Composable get() = MaterialTheme.colorScheme.primaryContainer
@@ -58,8 +60,8 @@ private val ReelstackColors = darkColorScheme(
     surfaceContainer = Color(0xFF191C19),
     surfaceContainerHigh = Color(0xFF2E332E),
     surfaceContainerHighest = Color(0xFF2E332E),
-    outline = ControlOutline,
-    outlineVariant = Divider,
+    outline = Color(app.reelstack.data.model.VisualTheme.FOREST.outline),
+    outlineVariant = Color(app.reelstack.data.model.VisualTheme.FOREST.divider),
     inverseSurface = Text,
     inverseOnSurface = Color(0xFF101211),
     inversePrimary = Color(0xFF415522),
@@ -96,8 +98,10 @@ fun ReelstackTheme(content: @Composable () -> Unit) {
             surfaceContainerLowest = background, surfaceContainerLow = surface,
             surfaceContainer = surface, surfaceContainerHigh = raised, surfaceContainerHighest = raised,
             secondaryContainer = raised, tertiaryContainer = raised,
-            onSurfaceVariant = if (personalization.highContrast) Color(0xFFDBE0DD) else Color(0xFFA4ADA3),
-            outline = if (personalization.highContrast) Color(0xFFAFB8B0) else ControlOutline,
+            // Neutrals follow the mood's own hue, so a divider in MIDNIGHT is not a forest grey.
+            onSurfaceVariant = Color(if (personalization.highContrast) mood.mutedHigh else mood.muted),
+            outline = Color(if (personalization.highContrast) mood.outlineHigh else mood.outline),
+            outlineVariant = Color(mood.divider),
             primary = Color(palette.argb),
             secondary = Color(palette.softArgb),
             primaryContainer = Color(palette.containerArgb),

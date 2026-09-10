@@ -258,7 +258,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (tv) {
             opening.source?.let { Text(it.displayName, color = Muted, style = MaterialTheme.typography.labelLarge) }
             Text(opening.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 36.sp, lineHeight = 42.sp,
-                fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
+                fontWeight = FontWeight.Bold, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))
             Text(opening.subtitle, color = Muted, style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(top = 10.dp))
         } else if (usePoster) {
@@ -294,6 +294,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
         IntegratedPlaybackButton(state, details)
+        if (tv) TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
         if (details.title != opening.title) {
             Text(details.title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 20.dp))
@@ -307,7 +308,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 Text(
                     details.genres.take(4).joinToString(" · "),
                     color = PrimarySoft,
-                    fontSize = 12.sp,
+                    fontSize = 12.sp, lineHeight = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 3,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -355,13 +356,13 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 if (details.libraryAvailable) Icon(Icons.Rounded.VideoLibrary, null, tint = Primary, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 else Icon(Icons.Rounded.Schedule, null, tint = Muted, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                    Text(if (discoverMedia != null) app.reelstack.localization.localizedSeerrStatus(discoverMedia.seerrStatus, discoverMedia.inLibrary, discoverMedia.requested) else title, color = PrimarySoft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (discoverMedia != null) app.reelstack.localization.localizedSeerrStatus(discoverMedia.seerrStatus, discoverMedia.inLibrary, discoverMedia.requested) else title, color = PrimarySoft, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
                     details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
                 }
             }
         }
         details.error?.let {
-            Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
+            Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 12.dp))
         }
         if (details.cast.isNotEmpty()) {
             Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
@@ -369,7 +370,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             app.reelstack.ui.components.CastRail(details.cast)
         }
         OpenInServerButton(state, details)
-        if (discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
+        if (!tv && discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
             state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
             val adding = discoverMedia.id in state.requestingMediaIds
             val connectedSeerr = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() }
@@ -382,8 +383,10 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Primary,
                     contentColor = Ink,
-                    disabledContainerColor = Color(0xFF2A473B),
-                    disabledContentColor = Color(0xFFC9F4DB),
+                    // Follows the chosen accent. These used to be fixed greens, so a coral or
+                    // iris accent had a green disabled state.
+                    disabledContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
                 modifier = Modifier.fillMaxWidth().padding(top = 22.dp).heightIn(min = 56.dp),
             ) {
@@ -409,6 +412,27 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
 }
 
 @Composable
+private fun TvTitleRequestAction(state: ReelstackUiState, key: String, onAddMedia: (String) -> Unit, onAccount: () -> Unit) {
+    val media = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == key } ?: return
+    if (!media.canRequest || !(state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let {
+            media.mediaType == "tv" || !it.isPersonal || it.canRequestType(media.mediaType ?: "movie") } == true)) return
+    val adding = media.id in state.requestingMediaIds
+    val needsAccount = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() } && state.accounts[ServiceKind.SEERR]?.isPersonal != true
+    val focus = remember(key) { FocusRequester() }
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    LaunchedEffect(key) { androidx.compose.runtime.withFrameNanos { }; focus.requestFocus() }
+    Button(onClick = { if (needsAccount) onAccount() else onAddMedia(media.id) }, enabled = !adding,
+        interactionSource = interaction, shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.padding(top = 16.dp).widthIn(min = 220.dp).heightIn(min = 52.dp)
+            .focusRequester(focus).focusOutline(interaction, RoundedCornerShape(16.dp))
+            .testTag("tv-title-request")) {
+        Icon(if (media.mediaType == "tv") Icons.AutoMirrored.Rounded.FormatListBulleted else Icons.Rounded.Add, null)
+        Text(stringResource(when { adding -> R.string.media_adding; needsAccount -> R.string.media_login_add;
+            media.mediaType == "tv" -> R.string.media_seasons; else -> R.string.media_add_collection }), Modifier.padding(start = 10.dp))
+    }
+}
+
+@Composable
 private fun MoviePosterSummary(
     title: String,
     eyebrow: String,
@@ -421,7 +445,7 @@ private fun MoviePosterSummary(
     loading: Boolean,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-    val spacious = maxWidth >= 600.dp
+    val spacious = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useSideBySideMedia
     val posterWidth = if (spacious) 164.dp else 116.dp
     Row(
         verticalAlignment = Alignment.Top,
@@ -600,7 +624,7 @@ private fun AddressExamples(kind: ServiceKind, enabled: Boolean, onUse: (String)
     val example = exampleAddress(kind)
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        Text(stringResource(R.string.login_example_title), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.login_example_title), color = Muted, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold)
         Surface(
             onClick = { onUse(example) },
             enabled = enabled,
@@ -612,8 +636,8 @@ private fun AddressExamples(kind: ServiceKind, enabled: Boolean, onUse: (String)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(example, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Text(stringResource(R.string.login_example_use), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp))
+                Text(example, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.login_example_use), color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 12.dp))
             }
         }
         Text(
@@ -635,7 +659,7 @@ internal fun CinematicTitleHero(
 ) {
     // Frame geometry comes from media metadata and window width, never decoded image size.
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val spacious = maxWidth >= 600.dp
+        val spacious = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useSideBySideMedia
         val artwork: @Composable () -> Unit = {
             MediaArtwork(
                 url = artworkUrl, fallbackRes = artworkRes, contentDescription = null,
@@ -675,7 +699,7 @@ private fun DetailPill(text: String) {
     Text(
         text = text,
         color = MaterialTheme.colorScheme.onSurface,
-        fontSize = 12.sp,
+        fontSize = 12.sp, lineHeight = 17.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
@@ -724,7 +748,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                 Text(
                     if (session.paused) "På pause" else "Spelar no",
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 12.sp, lineHeight = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 7.dp),
                 )
@@ -735,7 +759,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                 Text(
                     "${session.source?.displayName ?: "Medietenar"} · ${session.userName} · ${session.deviceName}".uppercase(),
                     color = PrimarySoft,
-                    fontSize = 12.sp,
+                    fontSize = 12.sp, lineHeight = 17.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
@@ -744,7 +768,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                Text(session.subtitle, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                Text(session.subtitle, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
                 LinearProgressIndicator(
                     progress = { session.progress.coerceIn(0f, 1f) },
                     color = Primary,
@@ -801,11 +825,11 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
 @Composable
 private fun SessionMetric(label: String, value: String, modifier: Modifier) {
     Column(modifier.padding(horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label.uppercase(), color = Muted, fontSize = 11.sp)
+        Text(label.uppercase(), color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
         Text(
             value,
             color = app.reelstack.ui.theme.Text,
-            fontSize = 12.sp,
+            fontSize = 12.sp, lineHeight = 17.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
             maxLines = 2,
@@ -868,9 +892,9 @@ internal fun ConnectionEditorSheet(
         Column {
         // A step marker only helps when it says how many steps there are.
         Text(stringResource(if (configured) R.string.login_connection else if (credentialsStep) R.string.login_step_credentials else R.string.login_step_address),
-            color = Muted, fontSize = 11.sp, letterSpacing = 1.4.sp,
+            color = Muted, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.4.sp,
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-        Text(stringResource(if (credentialsStep) R.string.login_account_hint else R.string.login_address_hint), color = Muted, fontSize = 14.sp)
+        Text(stringResource(if (credentialsStep) R.string.login_account_hint else R.string.login_address_hint), color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
         if (configured) {
             ConnectionTextAction(stringResource(R.string.account_sign_out), { confirmSignOut = true }, enabled = !draft.saving, warning = true)
         }
@@ -914,7 +938,7 @@ internal fun ConnectionEditorSheet(
             return@Column
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(draft.url, color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f),
+            Text(draft.url, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f),
                 maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             ConnectionTextAction(stringResource(R.string.account_edit), { credentialsStep = false }, enabled = !draft.saving)
         }
@@ -931,7 +955,7 @@ internal fun ConnectionEditorSheet(
                     FilterChip(selected = draft.authMode == mode, onClick = { onAuthModeChange(mode) },
                         interactionSource = interaction,
                         modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(10.dp)),
-                        enabled = !draft.saving, label = { Text(label, fontSize = 12.sp) },
+                        enabled = !draft.saving, label = { Text(label, fontSize = 12.sp, lineHeight = 17.sp) },
                         shape = RoundedCornerShape(10.dp), border = null, colors = connectionChipColors())
                 }
             }
@@ -978,7 +1002,7 @@ internal fun ConnectionEditorSheet(
                         .then(Modifier.toggleableLogin(!draft.saving, draft.alsoConnect) { onCompanionLoginChange(it, draft.companionUrl) })
                         .padding(horizontal = 12.dp, vertical = 6.dp)) {
                     androidx.compose.material3.Checkbox(checked = draft.alsoConnect, onCheckedChange = null, enabled = !draft.saving)
-                    Text(stringResource(R.string.account_also, otherName), color = Primary, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
+                    Text(stringResource(R.string.account_also, otherName), color = Primary, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(start = 10.dp))
                 }
                 if (draft.alsoConnect) {
                     OutlinedTextField(value = draft.companionUrl,
@@ -994,7 +1018,7 @@ internal fun ConnectionEditorSheet(
                     Text(stringResource(R.string.account_companion_consent),
                         color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
                     if (runCatching { EndpointValidator.isCleartext(draft.companionUrl) }.getOrDefault(false)) {
-                        Text(stringResource(R.string.account_http_warning), color = Warning, fontSize = 12.sp)
+                        Text(stringResource(R.string.account_http_warning), color = Warning, fontSize = 12.sp, lineHeight = 17.sp)
                     }
                 }
             }
@@ -1126,7 +1150,7 @@ private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onTogg
                 Icon(Icons.Rounded.CheckCircle, null, tint = Success, modifier = Modifier.size(22.dp))
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(stateText, color = Success, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(stateText, color = Success, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
                 Text(
                     actionText,
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp),
@@ -1182,7 +1206,7 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                         Text(
                             stringResource(R.string.quick_login_without_password),
                             color = Color.White,
-                            fontSize = 15.sp,
+                            fontSize = 15.sp, lineHeight = 20.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
@@ -1204,7 +1228,7 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                         Text(
                             stringResource(if (draft.quickConnectWaiting) R.string.quick_waiting else R.string.quick_finishing),
                             color = PrimarySoft,
-                            fontSize = 12.sp,
+                            fontSize = 12.sp, lineHeight = 17.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(start = 7.dp),
                         )

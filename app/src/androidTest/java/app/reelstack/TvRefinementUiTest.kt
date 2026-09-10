@@ -133,7 +133,7 @@ class TvRefinementUiTest {
         var saved: Set<String>? = null
         rule.setContent { Tv(2f) {
             LibraryChoicesDialog(ReelstackUiState(libraryChoices = choices, selectedLibraryIds = choices.map { it.id }.toSet()),
-                {}, {}, { _, pins -> saved = pins })
+                {}, {}, { _, pins, _ -> saved = pins })
         } }
         rule.onNodeWithTag("library-selection-save").assertIsDisplayed()
         rule.onNodeWithTag("library-pin-library-1").performScrollTo().performClick()

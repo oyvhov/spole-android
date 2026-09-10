@@ -114,6 +114,7 @@ Dette er ei oppfølgingsliste, ikkje ein tryggleiksgaranti eller godkjenning av 
 
 ## Nettbrett og TV: kartlagd grunnlag
 
-- `ReelLayout` brukar 640 dp som grense for sidenavigasjon og 840 dp som maksimal innhaldsbreidd. `ReelstackApp` vurderer vindaugsbreidda, ikkje berre einingsmodellen. Dette gjer nettbrettarbeidet til vidareutvikling og testing, ikkje ein ny app frå null.
-- Det gjeldande manifestet har vanleg mobilstartpunkt, men ikkje TV-startpunkt eller TV-banner. Det er heller ikkje erklært ei full TV-flyt utan krav om berøringsskjerm. Mobilinstallasjon på ei TV-eining ville ikkje dokumentert TV-støtte.
+- `ReelLayout` brukar 840 dp som maksimal lesebreidd; `WindowLayoutPolicy` eig grensene for navigasjon og lerret. `ReelstackApp` vurderer vindaugsbreidda, ikkje berre einingsmodellen. Dette gjer nettbrettarbeidet til vidareutvikling og testing, ikkje ein ny app frå null.
+- Manifestet har frå alpha13 `LEANBACK_LAUNCHER`, `android:banner` (320 x 180 dp) og valfri berøringsskjerm og Leanback, slik at appen kan installerast og finnast på Google TV. Dette er pakking, ikkje bestått TV-test: oppstart frå TV-startskjermen, fjernkontrollflyt frå kald start og langvarig avspeling på fysisk eining står framleis att.
+- `ReelstackApp` byggjer på `WindowLayoutPolicy`, som frå alpha13 eig alle seks brytpunkta (600/640/680/840/900/1000 dp). Tidlegare låg fire av dei hardkoda i skjermane.
 - Nettbrett er krav før 1.0. TV får eiga planlagd leveranse mot 1.1, med felles tenestelogikk og ei fjernkontrolltilpassa presentasjonsflate. Ingen TV-kompatibilitet blir annonsert før eigne testar er bestått.

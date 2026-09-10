@@ -78,6 +78,16 @@ class AppPreferencesRepository(context: Context) {
         }.toString()) }
     }
 
+    fun libraryIcons(connection: app.reelstack.data.model.ServiceConnection): Map<String, app.reelstack.data.model.LibraryIcon> = runCatching {
+        Json.parseToJsonElement(preferences.getString("icons_" + libraryKey(connection), "{}")!!).jsonObject.mapNotNull { (key, value) ->
+            app.reelstack.data.model.LibraryIcon.entries.find { it.name == value.jsonPrimitive.content }?.let { key to it }
+        }.toMap()
+    }.getOrDefault(emptyMap())
+
+    fun setLibraryIcons(connection: app.reelstack.data.model.ServiceConnection, icons: Map<String, app.reelstack.data.model.LibraryIcon>) {
+        preferences.edit { putString("icons_" + libraryKey(connection), buildJsonObject { icons.forEach { (id, icon) -> put(id, icon.name) } }.toString()) }
+    }
+
     fun includesLibrary(connection: app.reelstack.data.model.ServiceConnection,
         view: app.reelstack.data.network.RemoteLibraryView): Boolean =
         selectedLibraryIds(connection)?.contains(view.id) ?: !app.reelstack.data.model.isExcludedHomeLibrary(view.name)

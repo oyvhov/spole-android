@@ -19,6 +19,13 @@ val LocalTabletCanvas = staticCompositionLocalOf { false }
 object ReelLayout {
     val Gutter = 24.dp
     val PageTop = 32.dp
+
+    /**
+     * One rhythm for every section heading on a page. Home used to mix 24/25/28 above and
+     * 4/12/13 below for headings at the same level; the differences were nobody's decision.
+     */
+    val SectionTop = 26.dp
+    val SectionBottom = 13.dp
     val ArtworkCorner: androidx.compose.ui.unit.Dp @Composable get() = LocalPersonalization.current.artworkCorners.radius.dp
     val PosterWidth = 132.dp
     val PosterHeight = 198.dp
@@ -46,7 +53,7 @@ fun ReelPage(modifier: Modifier = Modifier, media: Boolean = false, content: @Co
         val maximum = if (media) policy.mediaMaxWidthDp.dp else ReelLayout.ContentMaxWidth
         val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
             android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-        val tablet = maxWidth >= 900.dp || (television && maxWidth >= 640.dp)
+        val tablet = policy.useTabletCanvas || (television && policy.useNavigationRail)
         Box(Modifier.widthIn(max = maximum).fillMaxSize()) {
             CompositionLocalProvider(LocalTabletCanvas provides tablet,
                 LocalMediaEdgeToEdge provides (media && policy.useNavigationRail)) { content() }

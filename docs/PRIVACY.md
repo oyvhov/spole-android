@@ -52,6 +52,8 @@ dit — appen nektar å feste tenesteteikn til noko som ikkje er tenaren din.
 og kva fil du bad om. Ingenting om deg blir sendt. Rada kan slåast av i Innstillingar →
 Tilpass framsida → Anbefalingar, og då blir fila ikkje henta.
 
+**Til `api.github.com` og GitHub sine release-adresser**: appen kan sjekke nye offisielle Spole-utgåver ved oppstart, høgst kvar tolvte time. GitHub får IP-adresse og appversjon, men ingen mediekontoar, tilgangsteikn eller bibliotekdata. Automatisk sjekk kan slåast av i Innstillingar → Oppdateringar. APK-en blir berre lasta ned når du vel det; sjekksum, pakkenamn, versjon og signeringssertifikat blir kontrollerte før Android ber om installasjonsgodkjenning. Nedlastinga ligg i appen sitt private mellomlager og kan fjernast av Android.
+
 Ingen andre adresser blir kontakta.
 
 ## Einings-ID

@@ -1,5 +1,73 @@
 # Spole design system
 
+## Tokenlaget etter designgjennomgangen · alpha13
+
+Denne bolken gjeld framfor alle eldre skildringar under.
+
+**Typografi.** `reelstackTypography()` definerer no alle tolv nivåa appen refererer. Tidlegare var
+sju definerte, og dei fem andre — `bodySmall`, `headlineLarge`, `headlineMedium`, `titleSmall`,
+`labelMedium` — fall stille tilbake til Material sine Roboto-standardar med Regular vekt og positiv
+bokstavavstand. Det er motsett av denne skalaen, og det gjorde at sidetittelen på Bibliotek stod i
+ein annan skrifttype enn Oppdag. Ein stil som blir brukt, skal vere definert her; legg til nivået
+i staden for å setje `fontSize` direkte.
+
+**Sidetittel.** Éin storleik for heile nivået: `displaySmall` på Heim, Oppdag, Aktivitet og
+Bibliotek. `headlineSmall` er ikkje ein sidetittel. Etiketten øverst i TV-menyen er ei
+kolonneoverskrift og brukar `titleLarge`, same nivå som alle andre seksjonsoverskrifter.
+
+**Seksjonsrytme.** `ReelLayout.SectionTop` (26 dp) og `ReelLayout.SectionBottom` (13 dp) eig
+avstanden over og under kvar seksjonsoverskrift. Heim brukte 24/25/28 over og 4/12/13 under for
+overskrifter på same nivå; forskjellane var ikkje valde.
+
+**Nøytralar følgjer stemninga.** `VisualTheme` ber no sine eigne `muted`, `mutedHigh`, `outline`,
+`outlineHigh` og `divider`. Dei var faste skogsgrå (fargetone ~114°), så MIDNIGHT (223°) og
+PLUM (276°) fekk grøne skiljelinjer og grøn dempa tekst. Kvar stemning held same lysstyrke på si
+eiga fargetone; FOREST er uendra, så standardvalet ser likt ut som før. `Divider` og
+`ControlOutline` er no visningar av `outlineVariant` og `outline` i temaet, ikkje konstantar. Ingen
+ny farge skal skrivast som literal i UI-laget.
+
+**Ingen kantar på behaldarar.** Innstillingsrader er kontrollar, men dei blir identifiserte av si
+eiga handling — sjevronen i aksentfarge eller Material-brytaren — ikkje av ein strek. Dei ligg no på
+`surfaceVariant` i staden for `surface`, som løftar dei frå 1,09:1 til 1,46:1 mot sida. Kantlinje
+høyrer berre til der ein kontroll teiknar ei ramme frå før: tekstfelt og uvalde chips.
+`ControlOutline` er minst 3,2:1 mot kvar stemning si flate. Legg aldri ein kant på eit kort eller ei
+rad for å skilje henne ut; bruk flatenivået.
+
+**Lasteskjelett høyrer til sida dei står på.** Skjeletta tek farge frå `surfaceVariant` og
+`onSurfaceVariant`, og hjørna følgjer `ReelLayout.ArtworkCorner` slik kunstflata dei erstattar gjer.
+Tekstlinje-plasshaldarar held sine små faste radiusar.
+
+**Brytpunkt bur i `WindowLayoutPolicy`.** Alle seks: `useSideBySideMedia` 600, `useNavigationRail`
+640, `useInlineHeader` 680, `useCenteredDialog` 840, `useTabletCanvas` 900,
+`expandSidebarByDefault` 1000. Dei låg tidlegare spreidde over sju filer, så banda mellom dei var
+restar og ikkje valde tilstandar. Skriv aldri ei ny dp-grense inn i ein skjerm.
+
+**Botnlinja toler stor skrift.** Etikettane brukar `labelSmall` og to linjer. «Innstillingar» er 13
+teikn i ein femdel av telefonbreidda; ved 2× skrift held ikkje éi linje, og ellipse er framleis
+klipping. Bomma har ingen fast høgd, så den andre linja er gratis.
+
+**Widgeten følgjer appen.** «Spelar no» les personaliseringa og teiknar stemninga og aksenten
+brukaren valde. Fargeressursane i `colors.xml` er berre reservverdiar for FOREST-standarden, og dei
+er no identiske med tokena — ikkje nesten-variantar av dei.
+
+**TV-pakking.** Manifestet har `LEANBACK_LAUNCHER`, `android:banner` og valfri berøringsskjerm og
+Leanback. Utan desse er heile TV-laget utilgjengeleg fordi appen ikkje kjem på startskjermen. Dette
+er pakking, ikkje ei erklæring om fullført Google TV-verifisering — sjå [QA-matrisa](QA_MATRIX.md).
+
+**Jellyfin-identitet.** Økta melder `Sessions/Capabilities/Full` ved verifisering, slik at Spole kan
+veljast som mål for «spel på» frå andre klientar. Einingsnamnet er `Build.MODEL`, ikkje «Android»,
+så telefon, nettbrett og TV er til å skilje frå kvarandre i Jellyfin sitt dashbord.
+
+Full gjennomgang med målingar: [designgjennomgang 10. september 2026](DESIGN_REVIEW_2026-09-10.md).
+
+## Bibliotek, fokus og oppdateringar i alpha12
+
+Bibliotekvalet brukar matte temaflater, eit tilpassa rutenett på TV og éin kolonne på telefon eller ved stor skrift. Lagre og Avbryt ligg fast utanfor den rullbare lista. Inkludering, snarveg og ikon er separate val; berre Lagre endrar preferansane. Bibliotekfilter har tilsvarande fast handlingsrad.
+
+Mediekort med tekst under kunst har fokusramma berre rundt kunstflata. Ramma og klippinga brukar same valde avrunding; teksten skal ikkje klippast av kortet sine hjørne. TV-tittelsida plasserer den primære avspelings- eller førespurnadshandlinga før omtalen. Fysisk Tilbake eig TV-navigeringa, medan telefon beheld synlege tilbakehandlingar.
+
+Oppdateringar brukar eit diskret heimvarsel og ein avgrensa dialog med versjonsnotat, framdrift og fast handlingsrad. Sjekk, Last ned eller Installer får første TV-fokus etter tilstanden. Oppstartskunsten kan animerast medan innhaldet lastar, men må ha avgrensa ventetid og skjerme skjulte kontrollar. Desse reglane gjeld framfor eldre TV-beskrivingar under. Sjå [alpha12-rapporten](UPDATES_LIBRARY_ALPHA12.md).
+
 ## Aktivitets- og TV-oppfølging etter alpha06
 
 Aktivitet brukar eit kantlaust plakatgalleri i staden for grå radkort: 2:3-bilete, 14 dp bilethjørne, status på mørk nedtoning, tittel under og eigne varslingshandlingar. Tilpassa kolonner og større minimumsbreidd ved stor skrift. Menyen brukar originale `SpoleIcons` med felles 24-einings rutenett og 1,8-einings avrunda strekar; inga endring i treffflater, etikettar eller fokussemantikk. Nettbrettlogoen eig menyvekslinga; TV beheld ei eksplisitt menyhandling. Profil over kunst har berre ei tynn lys kant, ingen ekstra svart sirkel. TV-titteldetaljar fyller vindauget med Tilbake øvst til venstre; mobil/nettbrett-panel er uendra. Dette gjeld framfor eldre reglar under. Sjå [designval og avgrensingar](ACTIVITY_TV_REFINEMENT.md).
@@ -28,7 +96,7 @@ Video brukar ekte immersive-vising og bevarer ein tilgjengeleg Tilbake-knapp i a
 
 Mediaflata brukar heile attståande vindaugsbreidda etter navigasjonsrada. Horisontale Heim-rader kan rulle heilt til høgrekant på breie vindauge; profil, hovudfelt, tenestemerke og kalenderknapp held 24 dp innrykk. Lesesider har framleis maksimum 840 dp. Dette er vindaugstilpassing, ikkje sertifisert Android TV-støtte.
 
-Utsjånadspanelet er lukka som standard. Fargeval har radioknappsemantikk, namn og hake (ikkje berre farge), med minimum 48 dp trefflate og bryting til fleire rader. Fire aksentpalettar: lime, hav, iris og korall. Mørke matte flater, feilmeldingar, åtvaringar, suksessfargar og tenestelogofargar blir ikkje omdefinerte. Valet oppdaterer MaterialTheme og dei delte Primary/PrimarySoft-tokena med ein gong.
+Utsjånadspanelet er lukka som standard. Fargeval har radioknappsemantikk, namn og hake (ikkje berre farge), med minimum 48 dp trefflate og bryting til fleire rader. Åtte aksentpalettar: lime, hav, iris, korall, gull, mynte, rose og perle. Mørke matte flater, feilmeldingar, åtvaringar, suksessfargar og tenestelogofargar blir ikkje omdefinerte. Valet oppdaterer MaterialTheme og dei delte Primary/PrimarySoft-tokena med ein gong.
 
 Omslag/bilete: kompakt 0,85×, standard 1× og stor 1,2×. Same faktor i bibliotekrader, framhaldsrader, anbefalingar, utgjevingar, Oppdag-rutenett og tilhøyrande skjelett. Biletforhold blir bevarte, tekst og trefflater blir ikkje skalerte ned. Detaljpanel held fast geometri. Nullstilling gjeld berre utsjånad, ikkje avspeling, kontoar eller heimseksjonar.
 
@@ -166,7 +234,7 @@ Home is a service-agnostic media feed. Service names explain provenance, but nev
 ## Tokens and motion
 
 - Matte charcoal `Ink` is the page foundation; raised surfaces use solid `SurfaceRaised`. No space backdrop, blur, glass panels, or decorative gradients.
-- `SurfaceRaised` alone is 1.5:1 against `Ink`, which is below WCAG 1.4.11's 3:1 for identifying a control. Controls whose fill cannot carry that on its own — text fields, unselected chips, disabled buttons — take a 1 dp `ControlOutline` edge (3.5:1 against `Ink`). Plain cards are containers, not controls, and stay borderless.
+- `SurfaceRaised` alone is 1.5:1 against `Ink`. A control is identified by its own action — the accent chevron, the switch, the button fill — not by a line drawn round its row. Only controls that already draw a frame (text fields, unselected chips) take the 1 dp `ControlOutline` edge, which is at least 3.2:1 against every mood surface. Cards and rows stay borderless and are separated by surface level. See the alpha13 section above.
 - Warm white carries titles and hierarchy. Lime is reserved for selection, progress and direct actions. Service logos retain their original colours.
 - Lime never carries passive information. Counts, type badges, source names and status labels are `Muted` or warm white; a checked switch puts lime in the thumb and a dim olive in the track, so a list of preferences is not the loudest surface in the app.
 - Coral marks a problem the reader can act on. A title waiting in a queue is a normal state and stays neutral.
@@ -226,7 +294,7 @@ TV uses a two-column service-first welcome layout from 680 dp available width. B
 
 - When Home has a wide library feature, the separate header row is omitted. The feature starts at a 16 dp top gutter; a 48 dp account target sits on a small matte circular backing inside the artwork's top trailing corner. Text occupies the opposite column, so the profile does not cover the title or synopsis. The account scrolls with its feature and remains independent from the details action. Without a feature, the normal header remains. The shared avatar button now exposes the standard remote focus outline.
 
-- On wide Home, active sessions use independent 480 dp horizontal cards rather than stretching one session into another full-width hero. Details and playback remain separate focusable actions; pending playback actions cannot repeat.
+- On wide Home, active sessions are artwork cards in a rail — the phone hero at rail scale, 16:9 with the scrim, title over the bottom and the progress bar on the artwork's own edge — rather than stretching one session into another full-width hero. They used to be grey `SurfaceRaised` plates with a side thumbnail, which made Now playing the only carded row on a page of borderless artwork and gave each card a different height. Every line is single-line, so a rail measures the same at any font scale. Details and playback remain separate focusable actions; pending playback actions cannot repeat.
 - Discover places heading, search and account in one row from 680 dp of available content width. At 2× text size or smaller widths it stacks search underneath. No query or account state is recreated when layout changes.
 - TV content uses the wide canvas from 640 dp after the navigation rail; a 960 dp TV window must not accidentally receive the phone layout because its rail consumes 200 dp.
 - Short windows use a more compact library feature. Artwork stays decorative, with text and a clearly focused details action. No timed carousel or animated height calibration.

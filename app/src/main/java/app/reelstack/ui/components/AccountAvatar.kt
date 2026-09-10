@@ -57,7 +57,7 @@ fun AccountAvatar(account: ServiceAccount?, connection: ServiceConnection?, modi
     }
     Box(modifier.clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
         val initial = account?.displayName?.trim()?.firstOrNull()?.uppercase()
-        if (initial != null) Text(initial, color = Primary, fontSize = 20.sp)
+        if (initial != null) Text(initial, color = Primary, fontSize = 20.sp, lineHeight = 24.sp)
         else Icon(Icons.Rounded.Person, contentDescription = null, tint = Muted, modifier = Modifier.size(24.dp))
         image?.let { data ->
             AsyncImage(model = data, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

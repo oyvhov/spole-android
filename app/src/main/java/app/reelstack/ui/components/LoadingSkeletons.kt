@@ -26,21 +26,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import app.reelstack.ui.theme.ReelLayout
 
-private val SkeletonBase = Color(0xFF232723)
-private val SkeletonGlow = Color(0xFF75806D)
-
+/**
+ * A skeleton stands in for content on the page it appears on, so it takes its colours from the
+ * chosen mood. These used to be fixed forest greys, which meant every refresh in MIDNIGHT, CINEMA
+ * or PLUM shimmered green against a ground that was not.
+ */
 @Composable
 private fun ShimmerBlock(
     modifier: Modifier,
-    shape: Shape = RoundedCornerShape(12.dp),
+    shape: Shape = RoundedCornerShape(ReelLayout.ArtworkCorner),
 ) {
+    val skeletonBase = MaterialTheme.colorScheme.surfaceVariant
+    val skeletonGlow = MaterialTheme.colorScheme.onSurfaceVariant
     val transition = rememberInfiniteTransition(label = "skeleton-shimmer")
     val progress by transition.animateFloat(
         initialValue = -1f,
@@ -58,7 +62,7 @@ private fun ShimmerBlock(
                 val start = Offset(size.width * (progress - 1f), 0f)
                 val end = Offset(size.width * progress, size.height)
                 val brush = Brush.linearGradient(
-                    colors = listOf(SkeletonBase, SkeletonGlow.copy(alpha = 0.32f), SkeletonBase),
+                    colors = listOf(skeletonBase, skeletonGlow.copy(alpha = 0.26f), skeletonBase),
                     start = start,
                     end = end,
                 )
@@ -74,7 +78,7 @@ fun NowPlayingSkeleton(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .height(292.dp)
             .clearAndSetSemantics { contentDescription = "Lastar aktive avspelingar" },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(ReelLayout.ArtworkCorner),
     )
 }
 
@@ -119,7 +123,7 @@ fun RecommendationSkeleton(modifier: Modifier = Modifier) {
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar anbefalingar" },
     ) {
         items(3) {
-            ShimmerBlock(Modifier.width(164.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).height(258.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale), RoundedCornerShape(16.dp))
+            ShimmerBlock(Modifier.width(164.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).height(258.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale), RoundedCornerShape(ReelLayout.ArtworkCorner))
         }
     }
 }
@@ -132,7 +136,7 @@ fun UpcomingSkeleton(modifier: Modifier = Modifier) {
         modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar komande utgjevingar" },
     ) {
         items(3) { index ->
-            ShimmerBlock(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).height(226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale), RoundedCornerShape(16.dp))
+            ShimmerBlock(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).height(226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale), RoundedCornerShape(ReelLayout.ArtworkCorner))
         }
     }
 }
@@ -144,7 +148,7 @@ fun IncomingSkeleton(modifier: Modifier = Modifier) {
     ) {
         repeat(2) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-                ShimmerBlock(Modifier.size(width = 66.dp, height = 82.dp), RoundedCornerShape(13.dp))
+                ShimmerBlock(Modifier.size(width = 66.dp, height = 82.dp), RoundedCornerShape(ReelLayout.ArtworkCorner))
                 Column(Modifier.padding(start = 16.dp)) {
                     ShimmerBlock(Modifier.width(170.dp).height(15.dp), RoundedCornerShape(8.dp))
                     ShimmerBlock(Modifier.padding(top = 9.dp).width(92.dp).height(10.dp), RoundedCornerShape(5.dp))
@@ -160,7 +164,7 @@ fun DiscoverSkeleton(modifier: Modifier = Modifier) {
     ShimmerBlock(
         modifier = modifier.height(300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
             .clearAndSetSemantics { contentDescription = "Lastar søkjeresultat" },
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(ReelLayout.ArtworkCorner),
     )
 }
 
@@ -171,7 +175,7 @@ fun ActivitySkeleton(modifier: Modifier = Modifier) {
     ) {
         repeat(3) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                ShimmerBlock(Modifier.size(width = 72.dp, height = 96.dp), RoundedCornerShape(15.dp))
+                ShimmerBlock(Modifier.size(width = 72.dp, height = 96.dp), RoundedCornerShape(ReelLayout.ArtworkCorner))
                 Column(Modifier.padding(start = 16.dp)) {
                     ShimmerBlock(Modifier.width(64.dp).height(9.dp), RoundedCornerShape(5.dp))
                     ShimmerBlock(Modifier.padding(top = 9.dp).width(174.dp).height(15.dp), RoundedCornerShape(8.dp))

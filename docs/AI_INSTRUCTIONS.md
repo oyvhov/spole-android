@@ -2,6 +2,10 @@
 
 Dette dokumentet er arbeidsmanualen for ein AI-agent som skal utvikle, teste, feilsøke og publisere Spole. Det er skrive for dette prosjektet, ikkje som generelle Android-råd.
 
+## Start emulatorane med ekte data
+
+Bruk `pwsh -NoProfile -File C:\JellyBin\reelstack-android\scripts\Start-SpoleEmulators.ps1`. Skriptet startar dei eksisterande innlogga TV- og mobilprofilane, finn WSL-adressa, ventar på Android/nettverk og viser appvindauga. Det bevarer kontoar og appdata. Sjå [full oppstarts- og feilsøkingsguide](EMULATORS_WITH_REAL_DATA.md) for enkeltprofilar, loggar og kontroll av ekte innhald. Ikkje forveksle desse profilane med dei isolerte instrumenteringsprofilane.
+
 ## 1. Produktet og faste føringar
 
 Spole er ein innfødd Android-app for eit sjølvhosta mediesystem. Appen samlar Jellyfin, Emby, Seerr, Radarr og Sonarr i éi roleg og moderne oppleving.
@@ -259,6 +263,8 @@ Alle trykkbare handlingar skal ha:
 
 ## 8. Versjonering, commit og GitHub-publisering
 
+**Gjeldande flyt:** følg [RELEASE_WORKFLOW.md](RELEASE_WORKFLOW.md) for bygg, signatur, tag, kladd, GitHub-digest og ende-til-ende-test av oppdatering frå førre versjon. Denne guiden gjeld framfor eldre eksempel under. Alpha/beta er prerelease, ikkje stabil latest.
+
 Publiser berre når brukaren ber om publisering, eller når den etablerte oppgåva uttrykkeleg krev ein ny release. Dokumentasjonsendringar åleine treng ikkje ny APK-release.
 
 ### Før commit
@@ -276,8 +282,7 @@ git add <relevante filer>
 git commit -m "Fix Emby account login verification"
 ~~~
 
-GitHub-repoet `oyvhov/spole-android` er privat. Release-lenkjer krev difor innlogging som eigar, og
-kan ikkje delast som ei open nedlastingslenkje. Ikkje vis til releasen som «offentleg tilgjengeleg».
+GitHub-repoet `oyvhov/spole-android` er offentleg frå 10. september 2026. Publiserte release-assets kan lastast ned utan innlogging; kladdar er ikkje synlege for appen.
 
 ### Ny app-release
 
@@ -290,19 +295,7 @@ kan ikkje delast som ei open nedlastingslenkje. Ikkje vis til releasen som «off
 7. Last opp APK, SHA256SUMS.txt og `mapping.txt` som ein publisert GitHub Release.
 8. Verifiser at releasen ikkje er draft, at APK-en kan lastast ned, og at GitHub-digest samsvarer med lokal hash.
 
-Eksempel:
-
-~~~powershell
-$releaseApk = "app/build/release-vX.Y.Z/Spole-vX.Y.Z.apk"
-./gradlew.bat assembleRelease
-New-Item -ItemType Directory -Force -Path "app/build/release-vX.Y.Z" | Out-Null
-Copy-Item -LiteralPath "app/build/outputs/apk/release/app-release.apk" -Destination $releaseApk -Force
-Copy-Item -LiteralPath "app/build/outputs/mapping/release/mapping.txt" -Destination "app/build/release-vX.Y.Z/mapping-vX.Y.Z.txt" -Force
-Get-FileHash -Algorithm SHA256 $releaseApk
-git tag -a vX.Y.Z -m "Spole X.Y.Z"
-git push --atomic origin main vX.Y.Z
-gh release create vX.Y.Z $releaseApk "app/build/release-vX.Y.Z/SHA256SUMS.txt" "app/build/release-vX.Y.Z/mapping-vX.Y.Z.txt" --repo oyvhov/spole-android --title "Spole X.Y.Z" --notes-file "docs/release-vX.Y.Z.md" --latest
-~~~
+Den konkrete PowerShell-flyten for bygg, gjeldande release-grein, signering, kladd, publisering og kontroll ligg i [RELEASE_WORKFLOW.md](RELEASE_WORKFLOW.md). Bruk denne i staden for å anta at release-greina heiter main.
 
 **Aldri debug-APK i ein release.** Debug-varianten har `applicationId = app.reelstack.debug` og eiga
 debug-signering, så han er ein *annan app* enn den installerte `app.reelstack` og kan ikkje oppdatere

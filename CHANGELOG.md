@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.16.0-alpha13 · Appoppdateringar, bibliotek og betre TV-utforming
+
+- Automatisk GitHub-sjekk, oppdateringsvarsel, nedlasting og signaturkontroll. Android ber om godkjenning før installasjon.
+- Nytt bibliotekval med eigne menyikon, fleire bibliotekfilter og fokusramme rundt kunst i staden for teksten under.
+- Førespurnadsknappen er synleg og fokusert tidleg på TV-detaljsida. Ny oppstartsanimasjon medan innhaldet lastar.
+- Oppstartsverktøy for TV-/mobilemulatorane med lagra kontoar, og dokumentert release-flyt for framtidige oppdateringar.
+
+- Skrifta har éin skala. Fem nivå som blei brukte utan å vere definerte — mellom dei sidetittelen på Bibliotek — fall før dette tilbake til Material sine Roboto-standardar. Bibliotek og Oppdag står no i same skrift.
+- Éin sidetittelstorleik på Heim, Oppdag, Aktivitet og Bibliotek. TV-menyetiketten er ei kolonneoverskrift, ikkje ein sidetittel.
+- Seksjonsoverskrifter på Heim har éin rytme. Åtte overskrifter på same nivå hadde tre ulike toppavstandar og tre ulike botnavstandar.
+- Bakgrunnsstemningane tek med seg nøytralane sine. Skiljelinjer, kantar og dempa tekst var faste skogsgrå, så MIDNIGHT og PLUM fekk grøne strekar mot blå og lilla flater. FOREST er uendra.
+- Lasteskjelett følgjer stemninga og hjørnevalet i staden for å skimre grønt i alle tema.
+- Innstillingsrader ligg på ei tydelegare flate. Ingen nye kantlinjer.
+- «Spelar no»-widgeten følgjer stemninga og aksenten du valde i Utsjånad.
+- Botnlinja klipper ikkje lenger «Innstillingar» ved stor skrift.
+- Deaktivert send-knapp følgjer aksentfargen i staden for å vere grøn uansett val.
+- Appen kan installerast og finnast på Google TV: TV-startpunkt, TV-banner og valfri berøringsskjerm. TV-testing på fysisk eining står framleis att.
+- Jellyfin ser kva eininga heiter — «Pixel 6», ikkje «Android» — så telefon, nettbrett og TV er til å skilje i dashbordet.
+- Spole melder støtte for videoavspeling. Mottak av fjernstyringskommandoar er ikkje implementert og blir ikkje annonsert som støtta.
+- «Spelar no» på nettbrett og TV er kunstkort som resten av framsida, ikkje grå plater med ulik høgd.
+- Alle brytpunkt for vindaugsbreidd er samla i `WindowLayoutPolicy`.
+
 ## 0.15.1 · Animert Spole-logo og raskare avspelingskontrollar
 
 - Oppstarten formar den eksisterande Spole-logoen over namnet: to filmruter glir på plass før midtstykket bind dei saman.

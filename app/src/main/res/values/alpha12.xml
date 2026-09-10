@@ -1,0 +1,76 @@
+<resources>
+    <string name="update_title">App updates</string>
+    <string name="update_available">Spole %1$s is ready</string>
+    <string name="update_auto">Check automatically</string>
+    <string name="update_auto_hint">Look for a new GitHub release when the app opens, at most twice a day.</string>
+    <string name="update_previews">Preview releases</string>
+    <string name="update_previews_hint">Include alpha, beta and release candidates.</string>
+    <string name="update_banner_hint">See what is new and update when it suits you.</string>
+    <string name="update_view">View update</string>
+    <string name="update_later">Later</string>
+    <string name="update_close">Close</string>
+    <string name="update_size">Download · %1$.1f MB</string>
+    <string name="update_no_notes">Improvements and fixes for Spole.</string>
+    <string name="update_intro">Updates come directly from the official Spole releases on GitHub.</string>
+    <string name="update_progress">Downloading · %1$d%%</string>
+    <string name="update_cancel">Cancel download</string>
+    <string name="update_install">Install update</string>
+    <string name="update_download">Download update</string>
+    <string name="update_check">Check now</string>
+    <string name="update_install_hint">Your accounts and settings are kept. Android asks you before installing.</string>
+    <string name="update_current">No newer compatible release is available on this channel.</string>
+    <string name="update_network_error">Could not reach GitHub or finish the download. Try again.</string>
+    <string name="update_invalid">The update could not be verified. Nothing was installed.</string>
+    <string name="update_storage_error">Could not save the update. Check free storage and try again.</string>
+    <string name="update_permission">Allow Spole to install updates, then return here and choose Install update.</string>
+    <string name="update_install_error">Android could not open this installer. Check installation permission and try again.</string>
+    <string name="update_access_error">The release is unavailable. Try again later.</string>
+    <string name="update_rate_error">GitHub is limiting requests. Wait a while before checking again.</string>
+    <string name="library_choice_intro">Your libraries, your home screen. Choose content and add shortcuts to the menu.</string>
+    <plurals name="library_selected_count"><item quantity="one">%1$d selected</item><item quantity="other">%1$d selected</item></plurals>
+    <string name="library_include_hint">Show in Library, home rows and search</string>
+    <string name="library_icon">Menu icon</string>
+    <string name="library_filters">Filter and sort</string>
+    <string name="library_reset">Reset</string>
+    <string name="library_search">Search this library</string>
+    <string name="library_sort">Sort by</string>
+    <string name="library_descending">Descending order</string>
+    <string name="library_watch_status">Watch status</string>
+    <string name="library_favourites">Favourites only</string>
+    <string name="library_resolution">Video resolution</string>
+    <string name="library_genre">Genre (library name, e.g. Drama)</string>
+    <string name="library_year">Production year</string>
+    <string name="library_apply">Show results</string>
+    <string-array name="library_icons">
+        <item>Library</item>
+        <item>Movies</item>
+        <item>Series</item>
+        <item>Kids</item>
+        <item>Documentary</item>
+        <item>Music</item>
+        <item>Concerts</item>
+        <item>Animation</item>
+        <item>Sport</item>
+        <item>Favourites</item>
+    </string-array>
+    <string-array name="library_sorts">
+        <item>Title</item>
+        <item>Date added</item>
+        <item>Year</item>
+        <item>Rating</item>
+        <item>Runtime</item>
+        <item>Last played</item>
+    </string-array>
+    <string-array name="library_watched">
+        <item>All</item>
+        <item>Unwatched</item>
+        <item>Watched</item>
+        <item>In progress</item>
+    </string-array>
+    <string-array name="library_resolutions">
+        <item>All</item>
+        <item>SD</item>
+        <item>HD / Full HD</item>
+        <item>4K</item>
+    </string-array>
+</resources>

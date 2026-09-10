@@ -99,6 +99,9 @@ data class ReelstackUiState(
     val libraryChoices: List<app.reelstack.data.network.RemoteLibraryView> = emptyList(),
     val selectedLibraryIds: Set<String> = emptySet(),
     val libraryShortcuts: List<Pair<String, String>> = emptyList(),
+    val libraryIcons: Map<String, app.reelstack.data.model.LibraryIcon> = emptyMap(),
+    val libraryFilters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters(),
+    val libraryFacets: app.reelstack.data.model.LibraryFacets = app.reelstack.data.model.LibraryFacets(),
     val libraryChoicesOpen: Boolean = false,
     val libraryChoicesLoading: Boolean = false,
     val libraryChoicesError: String? = null,
@@ -212,19 +215,22 @@ class ReelstackViewModel(
         _uiState.update { it.copy(libraryChoicesOpen = false) }
     }
 
-    fun saveLibraryChoices(ids: Set<String>, shortcuts: Set<String> = _uiState.value.libraryShortcuts.map { it.first }.toSet()) {
+    fun saveLibraryChoices(ids: Set<String>, shortcuts: Set<String> = _uiState.value.libraryShortcuts.map { it.first }.toSet(),
+        icons: Map<String, app.reelstack.data.model.LibraryIcon> = _uiState.value.libraryIcons) {
         val state = _uiState.value
         if (!state.libraryChoicesOpen || state.libraryChoicesLoading || state.libraryChoicesError != null) return
         val connection = state.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() } ?: return
         container.preferencesRepository.setSelectedLibraryIds(connection, ids.intersect(state.libraryChoices.map { it.id }.toSet()))
         val pinned = state.libraryChoices.filter { it.id in shortcuts && it.id in ids }.map { it.id to it.name }
         container.preferencesRepository.setLibraryShortcuts(connection, pinned)
+        val savedIcons = icons.filterKeys { key -> state.libraryChoices.any { it.id == key } }
+        container.preferencesRepository.setLibraryIcons(connection, savedIcons)
         refreshJob?.cancel()
         refreshJob = null
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
         searchJob?.cancel()
-        _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned,
+        _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned, libraryIcons = savedIcons,
             libraryPath = emptyList(), libraryEntries = emptyList(), libraryDetailMedia = null,
             resume = emptyList(), nextUp = emptyList(), recentMovies = emptyList(), recentSeries = emptyList(), recentReleases = emptyList(),
             librarySearchResults = emptyList(), isSearching = false, hasCachedData = false) }
@@ -244,6 +250,12 @@ class ReelstackViewModel(
             libraryEntries = if (more) it.libraryEntries else emptyList()) }
         libraryJob = viewModelScope.launch {
             try {
+                val facetJob = async(Dispatchers.IO) {
+                    if (path.isEmpty()) app.reelstack.data.model.LibraryFacets()
+                    else if (state.libraryFacets.parentId == path.last().first) state.libraryFacets
+                    else runCatching { container.mediaServerClient.libraryFacets(connection, path.last().first) }
+                        .getOrDefault(app.reelstack.data.model.LibraryFacets())
+                }
                 val entries = withContext(Dispatchers.IO) {
                     if (path.isEmpty()) container.mediaServerClient.browseLibraries(connection).filter { container.preferencesRepository.includesLibrary(connection, it) }.map { view ->
                         app.reelstack.data.network.RemoteLibraryItem(view.id, view.name, "", null, "CollectionFolder", view.id,
@@ -251,11 +263,12 @@ class ReelstackViewModel(
                     } else {
                         val catalogueType = if (path.size == 1) state.libraryCollectionType ?:
                             container.mediaServerClient.browseLibraries(connection).firstOrNull { it.id == path.first().first }?.collectionType else null
-                        container.mediaServerClient.browseLibrary(connection, path.last().first, offset, catalogueType)
+                        container.mediaServerClient.browseLibrary(connection, path.last().first, offset, catalogueType, state.libraryFilters)
                     }
                 }
+                val facets = facetJob.await()
                 if (!isActive || _uiState.value.connections.none { it.kind == connection.kind && it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId }) return@launch
-                _uiState.update { it.copy(libraryLoading = false,
+                _uiState.update { it.copy(libraryLoading = false, libraryFacets = facets,
                     libraryEntries = ((if (more) it.libraryEntries else emptyList()) + entries).distinctBy { entry -> entry.id },
                     libraryOffset = offset + entries.size, libraryHasMore = path.isNotEmpty() && entries.size == 60) }
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
@@ -266,7 +279,12 @@ class ReelstackViewModel(
     }
 
     fun libraryBack() {
-        _uiState.update { it.copy(libraryPath = it.libraryPath.dropLast(1)) }
+        _uiState.update { it.copy(libraryPath = it.libraryPath.dropLast(1), libraryFilters = app.reelstack.data.model.LibraryFilters()) }
+        browseLibrary()
+    }
+
+    fun filterLibrary(filters: app.reelstack.data.model.LibraryFilters) {
+        _uiState.update { it.copy(libraryFilters = filters) }
         browseLibrary()
     }
 
@@ -274,7 +292,8 @@ class ReelstackViewModel(
         val entry = _uiState.value.libraryEntries.firstOrNull { it.id == id } ?: return
         if (entry.isFolder) {
             _uiState.update { it.copy(libraryPath = it.libraryPath + (entry.id to entry.title),
-                libraryCollectionType = if (it.libraryPath.isEmpty()) entry.collectionType else it.libraryCollectionType) }
+                libraryCollectionType = if (it.libraryPath.isEmpty()) entry.collectionType else it.libraryCollectionType,
+                libraryFilters = app.reelstack.data.model.LibraryFilters()) }
             browseLibrary()
         } else {
             val media = LibraryMedia("jellyfin-${entry.id}", entry.title, entry.subtitle, entry.progress,
@@ -907,7 +926,8 @@ class ReelstackViewModel(
 
     fun openLibraryShortcut(id: String) {
         val shortcut = _uiState.value.libraryShortcuts.firstOrNull { it.first == id } ?: return
-        _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shortcut), libraryCollectionType = null) }
+        _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shortcut), libraryCollectionType = null,
+            libraryFilters = app.reelstack.data.model.LibraryFilters(), libraryFacets = app.reelstack.data.model.LibraryFacets()) }
         browseLibrary()
     }
 
@@ -1190,6 +1210,8 @@ class ReelstackViewModel(
                     nextUp = snapshot.nextUp,
                     libraryShortcuts = connectionsNow.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
                         ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
+                    libraryIcons = connectionsNow.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+                        ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
                     recentMovies = snapshot.recentMovies,
                     recentSeries = snapshot.recentSeries,
                     // Release metadata does not require administrator queue credentials.
@@ -1600,7 +1622,7 @@ class ReelstackViewModel(
         )
         _uiState.update { state ->
             state.copy(
-                libraryChoicesOpen = false, libraryChoices = emptyList(), libraryShortcuts = emptyList(), libraryDetailMedia = null, libraryEntries = emptyList(), libraryPath = emptyList(), libraryLoading = false, libraryHasMore = false, libraryError = null,
+                libraryChoicesOpen = false, libraryChoices = emptyList(), libraryShortcuts = emptyList(), libraryIcons = emptyMap(), libraryFacets = app.reelstack.data.model.LibraryFacets(), libraryFilters = app.reelstack.data.model.LibraryFilters(), libraryDetailMedia = null, libraryEntries = emptyList(), libraryPath = emptyList(), libraryLoading = false, libraryHasMore = false, libraryError = null,
                 requestHistory = app.reelstack.data.model.RequestHistoryState(), showRequestHistory = false,
                 connections = state.connections.map { if (it.kind == saved.kind) saved else if (it.kind == companion?.kind) companion.copy(state = ConnectionState.CONNECTED) else it },
                 accounts = state.accounts - saved.kind - listOfNotNull(companion?.kind).toSet(),
@@ -1650,7 +1672,7 @@ class ReelstackViewModel(
         container.mediaSnapshotStore.clear()
         _uiState.update {
             it.copy(
-                libraryChoicesOpen = false, libraryChoices = emptyList(), libraryShortcuts = emptyList(), libraryDetailMedia = null, libraryEntries = emptyList(), libraryPath = emptyList(), libraryLoading = false, libraryHasMore = false, libraryError = null,
+                libraryChoicesOpen = false, libraryChoices = emptyList(), libraryShortcuts = emptyList(), libraryIcons = emptyMap(), libraryFacets = app.reelstack.data.model.LibraryFacets(), libraryFilters = app.reelstack.data.model.LibraryFilters(), libraryDetailMedia = null, libraryEntries = emptyList(), libraryPath = emptyList(), libraryLoading = false, libraryHasMore = false, libraryError = null,
                 requestHistory = app.reelstack.data.model.RequestHistoryState(), showRequestHistory = false,
                 connections = remaining,
                 showOnboarding = signedOutEverywhere,
@@ -1720,6 +1742,8 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         connections = connections,
         libraryShortcuts = connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
             ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
+        libraryIcons = connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+            ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
         sessions = when {
             hasMediaServer && cached != null -> cached.sessions
             hasMediaServer -> emptyList()

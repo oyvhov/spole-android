@@ -35,7 +35,7 @@ import app.reelstack.ui.theme.LocalPersonalization
 internal fun SettingsActionRow(title: String, summary: String, tag: String, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(14.dp)
-    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).background(MaterialTheme.colorScheme.surface, shape)
+    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).background(MaterialTheme.colorScheme.surfaceVariant, shape)
         .focusOutline(interaction, shape)
         .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
             role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 18.dp, vertical = 12.dp),
@@ -53,7 +53,7 @@ internal fun SettingsActionRow(title: String, summary: String, tag: String, onCl
 internal fun SettingsToggleRow(title: String, summary: String, checked: Boolean, tag: String, onChange: (Boolean) -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(14.dp)
-    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).background(MaterialTheme.colorScheme.surface, shape)
+    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).background(MaterialTheme.colorScheme.surfaceVariant, shape)
         .focusOutline(interaction, shape).toggleable(checked, role = Role.Switch, interactionSource = interaction,
             indication = androidx.compose.foundation.LocalIndication.current, onValueChange = onChange)
         .testTag(tag).padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -140,7 +140,7 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
 internal fun ThemePreview(value: Personalization) {
     val description = stringResource(R.string.personal_preview)
     val accent = Color(value.accent.argb)
-    val focus = if (value.focusStyle == FocusStyle.ACCENT) accent else Color(0xFFF3F3EC)
+    val focus = if (value.focusStyle == FocusStyle.ACCENT) accent else app.reelstack.ui.theme.Text
     val shape = RoundedCornerShape(value.artworkCorners.radius.dp)
     Row(Modifier.fillMaxWidth().background(Color(value.visualTheme.background), RoundedCornerShape(18.dp))
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
@@ -153,9 +153,9 @@ internal fun ThemePreview(value: Personalization) {
             Box(Modifier.size(64.dp * scale, 40.dp * scale).background(accent.copy(alpha = .6f), shape))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Spole", color = Color(0xFFF3F3EC), style = MaterialTheme.typography.titleLarge)
+            Text("Spole", color = app.reelstack.ui.theme.Text, style = MaterialTheme.typography.titleLarge)
             Box(Modifier.fillMaxWidth(.65f).height(5.dp).background(accent, RoundedCornerShape(3.dp)))
-            Text(stringResource(R.string.theme_saved_live), color = if(value.highContrast) Color(0xFFDBE0DD) else Color(0xFFA4ADA3),
+            Text(stringResource(R.string.theme_saved_live), color = Color(if (value.highContrast) value.visualTheme.mutedHigh else value.visualTheme.muted),
                 style = MaterialTheme.typography.bodySmall)
         }
     }

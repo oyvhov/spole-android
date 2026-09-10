@@ -85,13 +85,13 @@ internal fun UpcomingCalendarSheet(
     LaunchedEffect(filter, selectedDay) { agendaState.scrollToItem(0) }
     Column(Modifier.fillMaxSize().testTag("calendar")) {
         SheetToolbar(stringResource(R.string.calendar_title), stringResource(R.string.calendar_close), onDismiss)
-        Text(stringResource(R.string.calendar_subtitle), color = Muted, fontSize = 13.sp,
+        Text(stringResource(R.string.calendar_subtitle), color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
             modifier = Modifier.padding(horizontal = 24.dp))
         AppFilterRow(CalendarFilter.entries, filter, { filterLabels.getValue(it) }, { filter = it },
             Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         Text(
             stringResource(R.string.calendar_range, today.format(compactDate), today.plusDays(27).format(compactDate)),
-            color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 24.dp, bottom = 10.dp),
+            color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 24.dp, bottom = 10.dp),
         )
         LazyRow(
             contentPadding = PaddingValues(horizontal = 24.dp),
@@ -127,11 +127,11 @@ internal fun UpcomingCalendarSheet(
                         Text(
                             if (newMonth) date.format(DateTimeFormatter.ofPattern("MMM", locale)).removeSuffix(".")
                             else date.format(DateTimeFormatter.ofPattern("EEE", locale)).removeSuffix("."),
-                            fontSize = 12.sp,
+                            fontSize = 12.sp, lineHeight = 17.sp,
                             modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             fontWeight = if (newMonth) FontWeight.SemiBold else FontWeight.Normal,
                         )
-                        Text(date.dayOfMonth.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                        Text(date.dayOfMonth.toString(), fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         Text(if (count > 0) count.toString() else "–", fontSize = 10.sp, lineHeight = 14.sp,
                             color = if (isSelected) Ink else Muted,
@@ -144,7 +144,7 @@ internal fun UpcomingCalendarSheet(
             Text(
                 if (selectedDay == null) grouped.values.sumOf { it.size }.let { pluralStringResource(R.plurals.calendar_releases, it, it) }
                 else shown.values.sumOf { it.size }.let { pluralStringResource(R.plurals.calendar_day_releases, it, it) },
-                color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f),
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f),
             )
             // A reset control that looks like the label beside it is not findable, so it becomes
             // a chip once there is actually something to reset.
@@ -156,7 +156,7 @@ internal fun UpcomingCalendarSheet(
                     contentColor = PrimarySoft,
                     border = BorderStroke(1.dp, ControlOutline),
                 ) {
-                    Text(stringResource(R.string.calendar_all_days), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.calendar_all_days), fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 11.dp))
                 }
             }
@@ -170,7 +170,7 @@ internal fun UpcomingCalendarSheet(
             if (shown.isEmpty()) {
                 item {
                     Text(stringResource(R.string.calendar_empty), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 28.dp))
-                    Text(stringResource(R.string.calendar_empty_hint), color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    Text(stringResource(R.string.calendar_empty_hint), color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
             shown.forEach { (date, dayItems) ->
@@ -182,7 +182,7 @@ internal fun UpcomingCalendarSheet(
                             else -> date.format(agendaDate)
                                 .replaceFirstChar { it.titlecase(locale) }
                         },
-                        fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
                     )
                 }
@@ -208,14 +208,14 @@ private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
                 )
             }
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(media.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(media.subtitle.replace(" · TBA", ""), color = Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+                Text(media.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(media.subtitle.replace(" · TBA", ""), color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                     Icon(if (isMovie) Icons.Rounded.Movie else Icons.Rounded.Tv, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(12.dp))
                     Text(
                         if (!isMovie) if (media.source == ServiceKind.SONARR) stringResource(R.string.calendar_source_time, media.source.displayName, time) else media.source.displayName
                         else if ("Fysisk utgjeving" in media.facts) stringResource(R.string.calendar_physical) else stringResource(R.string.calendar_home_release),
-                        color = PrimarySoft, fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp),
+                        color = PrimarySoft, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 5.dp),
                     )
                 }
             }

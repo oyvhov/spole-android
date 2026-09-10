@@ -47,7 +47,7 @@ Spole samlar medietenestene dine i ein innfødd Android-app. Eit mørkt, roleg u
 2. Installer på Android 8.0 eller nyare.
 3. Legg til tenesteadressene dine og logg inn. Du kan òg prøve demovisninga først.
 
-Du treng eigne medietenester; Spole leverer ikkje filmar eller seriar. Repoet er privat, så nedlasting krev GitHub-tilgang. Oppdateringar kan installerast over eksisterande app.
+Du treng eigne medietenester; Spole leverer ikkje filmar eller seriar. Repoet er offentleg, og nedlasting krev ikkje GitHub-innlogging. Oppdateringar kan installerast over eksisterande app. Frå alpha12 kan appen sjekke GitHub-utgåver, laste ned og kontrollere APK-en før Android ber om installasjonsgodkjenning.
 
 ## Personvern
 
@@ -55,7 +55,7 @@ Spole sender medieførespurnadene dine berre til adressene du sjølv skriv inn. 
 utviklaren — det finst ingen tenar å sende det til. Innloggingar blir lagra kryptert på eininga.
 
 Utanom dine eigne tenarar kontaktar appen to adresser: TMDB for plakatar, og GitHub for
-tilrådingslista. Begge får berre IP-adressa di og kva fil du bad om.
+tilrådingslista og appoppdateringar. Tenestene får IP-adressa di og kva ressurs du bad om; oppdateringssjekken sender òg Spole-versjonen. Kontoopplysningar frå medietenestene blir ikkje sende til GitHub.
 
 [Heile personvernerklæringa](docs/PRIVACY.md)
 
@@ -75,6 +75,8 @@ Bygd med Kotlin og Jetpack Compose. Opne prosjektet i Android Studio, eller bygg
 .\gradlew.bat testDebugUnitTest lintDebug
 ```
 
-[Arbeidsrettleiing](docs/AI_INSTRUCTIONS.md) · [Veikart](ROADMAP.md) · [Tilgang og personvern](docs/VIEWER_ACCESS.md) · [Personvern](docs/PRIVACY.md) · [Design og logo](docs/SPOLE_BRAND.md) · [Publiseringsklarheit](docs/PUBLISHING_READINESS.md)
+[Arbeidsrettleiing](docs/AI_INSTRUCTIONS.md) · [Start emulatorar med ekte data](docs/EMULATORS_WITH_REAL_DATA.md) · [Veikart](ROADMAP.md) · [Tilgang og personvern](docs/VIEWER_ACCESS.md) · [Personvern](docs/PRIVACY.md) · [Design og logo](docs/SPOLE_BRAND.md) · [Publiseringsklarheit](docs/PUBLISHING_READINESS.md)
+
+[Release-flyt for APK og oppdateringar i appen](docs/RELEASE_WORKFLOW.md) — bygg, signatur, GitHub-publisering og kontroll av oppdatering frå førre versjon.
 
 </details>

@@ -1,6 +1,6 @@
 # Spole — veikart mot 1.0
 
-Oppdatert 10. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal testversjon: **0.16.0-alpha11 / bygg 54**. [Testversjon og kontroll](docs/VERIFICATION_v0.16.0-alpha11.md) · [Codec, 4K og lyd](docs/PLAYBACK_CAPABILITIES_ALPHA11.md) · [TV-innstillingar, tema og sjårekkefølgje](docs/SETTINGS_THEMES_ALPHA10.md) · [Dei 13 TV-/bibliotekpunkta](docs/TV_REFINEMENT_ALPHA09.md) · [Historikk og kvotar](docs/ROADMAP_HISTORY_RULES.md). Ingen ny GitHub-publisering.
+Oppdatert 10. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny testutgåve: **0.16.0-alpha13 / bygg 56**, klargjord for offentleg GitHub-publisering med oppdatering frå alpha12. [Release-notat](docs/release-v0.16.0-alpha13.md) · [Release-flyt](docs/RELEASE_WORKFLOW.md) · [Oppdateringar og bibliotek](docs/UPDATES_LIBRARY_ALPHA12.md) · [Codec, 4K og lyd](docs/PLAYBACK_CAPABILITIES_ALPHA11.md) · [TV-innstillingar, tema og sjårekkefølgje](docs/SETTINGS_THEMES_ALPHA10.md) · [Dei 13 TV-/bibliotekpunkta](docs/TV_REFINEMENT_ALPHA09.md) · [Historikk og kvotar](docs/ROADMAP_HISTORY_RULES.md).
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.
 
@@ -13,6 +13,8 @@ Siste kjeldearbeid etter alpha04: [Kalenderspråk og stor skrift](docs/CALENDAR_
 Kjeldearbeid etter Claude sin gjennomgang (`6e31ad5`): [Innloggingsspråk og TV-spelarkontrollar](docs/TV_LANGUAGE_PASS.md). Ikkje med i den tidlegare alpha05-APK-en.
 
 ## Kvar står vi?
+
+Alpha12 gir oppdateringssjekk og kontrollert APK-nedlasting frå GitHub, eit nytt bibliotekval med ti snarvegikon, serverbaserte filter/sorteringar og fokusramme rundt kunstflata. TV-førespurnader får handling og fokus før omtalen, og oppstarten lastar framsida under logoanimasjonen. [Omfang og avgrensingar](docs/UPDATES_LIBRARY_ALPHA12.md).
 
 Alpha11 erstattar den faste mobilprofilen i spelaren med oppdaging av eininga sine dekodarar, HDR-skjerm og lydutgang. Direkte avspeling og eventuell kopiering av video blir kontrollert mot den faktiske fila; unødvendig omkoding ved lyd-/tekstbyte og den gamle bitrategrensa på kabla TV er fjerna. Fysisk 4K/HDR og HDMI/eARC må framleis verifiserast på aktuelt utstyr. [Omfang og avgrensingar](docs/PLAYBACK_CAPABILITIES_ALPHA11.md).
 

@@ -14,6 +14,7 @@ import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.ViewerAccess
 import app.reelstack.data.network.RemotePlayback
+import app.reelstack.data.repository.AppPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -110,10 +111,26 @@ class NowPlayingWidget : AppWidgetProvider() {
             setTextViewText(R.id.widget_primary, primary)
             setTextViewText(R.id.widget_secondary, secondary)
             setTextViewText(R.id.widget_heading, heading ?: context.getString(R.string.widget_title))
+            applyTheme(context)
             setContentDescription(R.id.widget_root, context.getString(R.string.widget_accessibility, primary, secondary))
             // Tapping opens the app; tapping again after it is open just refreshes the widget.
             setOnClickPendingIntent(R.id.widget_root, openAppIntent(context))
         }
+
+    /**
+     * The widget sits next to the app on the same home screen, so it follows the same mood and
+     * accent. The XML colours are only the first-frame fallback for the FOREST default; the real
+     * values are the ones the user picked in Utsjånad.
+     */
+    private fun RemoteViews.applyTheme(context: Context) {
+        val personalization = AppPreferencesRepository(context.applicationContext).personalization
+        val mood = personalization.visualTheme
+        setInt(R.id.widget_plate, "setColorFilter", mood.surface.toInt())
+        setTextColor(R.id.widget_primary, WIDGET_TEXT)
+        setTextColor(R.id.widget_secondary, mood.muted.toInt())
+        setTextColor(R.id.widget_heading, mood.muted.toInt())
+        setInt(R.id.widget_mark, "setColorFilter", personalization.accent.argb.toInt())
+    }
 
     private fun openAppIntent(context: Context): PendingIntent = PendingIntent.getActivity(
         context,
@@ -123,6 +140,9 @@ class NowPlayingWidget : AppWidgetProvider() {
     )
 
     companion object {
+        /** The app's warm white, matching ui.theme.Text. Not a second near-white. */
+        private val WIDGET_TEXT = 0xFFF3F3EC.toInt()
+
         const val ACTION_REFRESH = "app.reelstack.widget.REFRESH"
 
         /**

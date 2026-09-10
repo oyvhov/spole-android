@@ -31,7 +31,7 @@ fun CastRail(cast: List<CastMember>) {
                         MediaArtwork(person.portraitUrl, R.drawable.media_placeholder, null, Modifier.matchParentSize())
                     } else {
                         Text(person.name.split(' ').filter(String::isNotBlank).take(2).map { it.first() }.joinToString(""),
-                            color = Muted, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+                            color = Muted, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)
                     }
                 }
                 Text(person.name, style = MaterialTheme.typography.labelMedium, maxLines = 3,

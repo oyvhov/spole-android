@@ -463,7 +463,22 @@ class MediaServerClient(
         return libraryViews(connection, encodePathSegment(user)).map { it.copy(artworkUrl = artworkUrl(connection, it.id)) }
     }
 
-    fun browseLibrary(connection: ServiceConnection, parentId: String, offset: Int = 0, collectionType: String? = null): List<RemoteLibraryItem> {
+    fun libraryFacets(connection: ServiceConnection, parentId: String): app.reelstack.data.model.LibraryFacets {
+        require(connection.kind == ServiceKind.JELLYFIN && parentId.isNotBlank())
+        val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
+        require(!user.isNullOrBlank())
+        val response = transport.get(EndpointValidator.resolve(connection.baseUrl,
+            "Items/Filters?userId=${encodePathSegment(user)}&ParentId=${encodePathSegment(parentId)}"), headers(connection, deviceId))
+        response.requireSuccess(connection.kind)
+        val root = Json.parseToJsonElement(response.body).jsonObject
+        fun values(key: String) = (root[key] as? kotlinx.serialization.json.JsonArray).orEmpty()
+            .mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf(String::isNotBlank) }.distinct()
+        return app.reelstack.data.model.LibraryFacets(parentId, values("Genres").sorted(),
+            values("Years").filter { it.toIntOrNull() in 1800..2200 }.sortedDescending())
+    }
+
+    fun browseLibrary(connection: ServiceConnection, parentId: String, offset: Int = 0, collectionType: String? = null,
+        filters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters()): List<RemoteLibraryItem> {
         require(connection.kind == ServiceKind.JELLYFIN && parentId.isNotBlank() && offset >= 0)
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
         require(!user.isNullOrBlank()) { "Profil-ID manglar" }
@@ -474,7 +489,7 @@ class MediaServerClient(
             else -> null
         }
         val query = "userId=${encodePathSegment(user)}&ParentId=${encodePathSegment(parentId)}" +
-            "&Recursive=${catalogueType != null}&StartIndex=$offset&Limit=60&SortBy=SortName&SortOrder=Ascending" +
+            "&Recursive=${catalogueType != null}&StartIndex=$offset&Limit=60" + filters.query() +
             (catalogueType?.let { "&IncludeItemTypes=$it" } ?: "") +
             "&Fields=Overview,Genres,ProviderIds&EnableUserData=true&IsMissing=false"
         return getItems(connection, listOf("Items?$query"))
@@ -1004,8 +1019,21 @@ private fun headers(
     ServiceKind.RADARR, ServiceKind.SONARR -> mapOf("X-Api-Key" to connection.token)
 }
 
+/**
+ * What Jellyfin shows in Dashboard → Devices and in the active-session list. Every Spole install
+ * used to report the literal string "Android", so a phone, a tablet and a Google TV on one account
+ * were three identical rows and there was no way to tell which screen was playing. The id already
+ * separates them; the name is what a person reads. Quotes and control characters are stripped
+ * because the value goes into a quoted header field.
+ */
+internal fun jellyfinDeviceName(): String =
+    android.os.Build.MODEL.orEmpty().filterNot { it == '"' || it == '\\' || it.isISOControl() }
+        .trim().take(48).ifBlank { "Android" }
+
 internal fun jellyfinAuthorization(deviceId: String, token: String? = null): String = buildString {
-    append("MediaBrowser Client=\"Spole\", Device=\"Android\", ")
+    append("MediaBrowser Client=\"Spole\", Device=\"")
+    append(jellyfinDeviceName())
+    append("\", ")
     append("DeviceId=\"")
     append(deviceId)
     append("\", Version=\"")

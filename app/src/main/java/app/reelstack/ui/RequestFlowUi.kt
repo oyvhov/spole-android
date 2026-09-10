@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -65,11 +66,18 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
     }
     val busy = draft.sending || draft.savingWatch != null
     val hasSelection = !isSeries || draft.selected.isNotEmpty()
+    val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val confirmFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(ready, television) {
+        if (television && ready && !isSeries && canAdd && draft.error == null && draft.rules?.canRequest != false && !draft.quotaExceeded) {
+            androidx.compose.runtime.withFrameNanos { }; confirmFocus.requestFocus()
+        }
+    }
     Column(Modifier.fillMaxSize().testTag("request-composer")) {
         SheetToolbar(if (isSeries) stringResource(R.string.flow_seasons) else stringResource(R.string.flow_new_request), stringResource(R.string.flow_close_request), onDismiss, enabled = !draft.sending)
         Column(Modifier.weight(1f).testTag("request-scroll").verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val posterWidth = if (maxWidth >= 600.dp) 132.dp else 82.dp
+            val posterWidth = if (app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useSideBySideMedia) 132.dp else 82.dp
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MediaArtwork(draft.media.artworkUrl, draft.media.artworkRes, null,
                     Modifier.width(posterWidth).height(posterWidth * 1.5f).clip(RoundedCornerShape(10.dp)), ContentScale.Fit, ServiceKind.SEERR)
@@ -86,7 +94,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             if (!ready) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 24.dp).testTag("seasons-loading"),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(stringResource(R.string.flow_checking), color = Muted, fontSize = 13.sp)
+                    Text(stringResource(R.string.flow_checking), color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
                     repeat(3) {
                         Box(Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(12.dp)).background(SurfaceRaised))
                     }
@@ -157,7 +165,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 .padding(vertical = 8.dp).testTag("request-notification"), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.NotificationsActive, null, tint = Primary, modifier = Modifier.size(22.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(stringResource(R.string.flow_notify_ready), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.flow_notify_ready), fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
                     Text(if (isSeries) stringResource(R.string.flow_notify_seasons) else stringResource(R.string.flow_notify_movie),
                         color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                 }
@@ -175,14 +183,14 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                     color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
             }
             draft.error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp))
+                Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 14.dp))
                 TextButton(onClick = onRetry, enabled = !draft.sending) { Text(stringResource(R.string.flow_recheck)) }
             }
             Spacer(Modifier.height(18.dp))
         }
         Column(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 24.dp, vertical = 12.dp)) {
             if (state.configuredCount == 0) Text(stringResource(R.string.flow_preview), color = Muted,
-                fontSize = 11.sp, modifier = Modifier.padding(bottom = 10.dp))
+                fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(bottom = 10.dp))
             if (isSeries && ready && draft.error == null && (!canAdd || draft.seasons.none { it.canRequest })) {
                 TextButton(onClick = onDismiss, enabled = !draft.sending, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) { Text(stringResource(R.string.flow_done)) }
             } else Button(onClick = {
@@ -190,7 +198,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                     permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else onConfirm()
             }, enabled = ready && !busy && canAdd && draft.rules?.canRequest != false && !draft.quotaExceeded && draft.error == null && hasSelection,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("confirm-request")) {
+                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).focusRequester(confirmFocus).testTag("confirm-request")) {
                 if (draft.sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Ink)
                 Text(if (draft.sending) stringResource(R.string.flow_sending) else if (isSeries && draft.selected.isEmpty()) stringResource(R.string.flow_choose_seasons)
                     else if (isSeries) pluralStringResource(R.plurals.flow_send_seasons, draft.selected.size, draft.selected.size) else stringResource(R.string.flow_send),
@@ -223,12 +231,12 @@ fun TrackedRequestCard(
     Box(Modifier.widthIn(max = 300.dp).fillMaxWidth().testTag("tracked-request-${item.key}")) {
         Column {
                 Column(
-                    Modifier.fillMaxWidth().focusOutline(detailsInteraction, artworkShape)
+                    Modifier.fillMaxWidth()
                         .clickable(enabled = detailsEnabled, interactionSource = detailsInteraction, indication = androidx.compose.foundation.LocalIndication.current,
                             onClickLabel = stringResource(R.string.flow_detail_named, item.title), onClick = onDetails)
                         .testTag("tracked-details-${item.key}"),
                 ) {
-                  Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(artworkShape)) {
+                  Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(detailsInteraction, artworkShape).clip(artworkShape)) {
                     MediaArtwork(
                         item.artworkUrl, app.reelstack.R.drawable.media_placeholder, null,
                         Modifier.fillMaxSize(), ContentScale.Fit, ServiceKind.SEERR,
@@ -320,11 +328,11 @@ fun TrackedRequestCard(
                     ) {
                         if (cancelling) {
                             CircularProgressIndicator(Modifier.size(14.dp), color = Warning, strokeWidth = 2.dp)
-                            Text(stringResource(R.string.flow_withdrawing), color = Muted, fontSize = 13.sp,
+                            Text(stringResource(R.string.flow_withdrawing), color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
                                 modifier = Modifier.padding(start = 8.dp))
                         } else {
                             Icon(Icons.Rounded.Close, null, tint = Warning, modifier = Modifier.size(16.dp))
-                            Text(stringResource(R.string.flow_withdraw), color = Warning, fontSize = 13.sp,
+                            Text(stringResource(R.string.flow_withdraw), color = Warning, fontSize = 13.sp, lineHeight = 18.sp,
                                 modifier = Modifier.padding(start = 6.dp))
                         }
                     }
@@ -374,7 +382,7 @@ private fun CompactRequestProgress(item: TrackedRequest, modifier: Modifier = Mo
                 maxLines = 2, modifier = Modifier.weight(1f))
             if (item.seasons.isNotEmpty() && item.availableSeasons.isNotEmpty()) {
                 Text(pluralStringResource(R.plurals.flow_season_fraction, item.seasons.size, item.availableSeasons.size, item.seasons.size), color = PrimarySoft,
-                    fontSize = 11.sp, modifier = Modifier.padding(start = 12.dp))
+                    fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(start = 12.dp))
             }
         }
     }

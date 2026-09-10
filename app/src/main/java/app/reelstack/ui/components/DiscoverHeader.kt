@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 internal fun DiscoverHeader(heading: @Composable () -> Unit, account: @Composable () -> Unit,
     search: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("discover-header")) {
-        val inline = maxWidth >= 680.dp && LocalDensity.current.fontScale < 1.6f
+        val inline = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useInlineHeader && LocalDensity.current.fontScale < 1.6f
         if (inline) {
             Row(Modifier.fillMaxWidth().testTag("discover-header-wide"),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {

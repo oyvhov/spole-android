@@ -22,11 +22,26 @@ enum class ArtworkSize(val scale: Float) {
     }
 }
 
-enum class VisualTheme(val background: Long, val surface: Long, val raised: Long) {
-    FOREST(0xFF101211, 0xFF191C19, 0xFF2E332E),
-    MIDNIGHT(0xFF0D111B, 0xFF151D2D, 0xFF26334B),
-    CINEMA(0xFF000000, 0xFF101010, 0xFF292929),
-    PLUM(0xFF17111B, 0xFF231A29, 0xFF392D41);
+/**
+ * A mood owns its neutrals as well as its surfaces. Muted text, control edges and dividers used to
+ * be fixed forest greys (hue ~114°), so choosing MIDNIGHT (223°) or PLUM (276°) left every divider
+ * and every secondary label green against a blue or purple ground. Each mood now carries the same
+ * lightness at its own hue; FOREST keeps its exact previous values, so the default is unchanged.
+ */
+enum class VisualTheme(
+    val background: Long,
+    val surface: Long,
+    val raised: Long,
+    val muted: Long,
+    val mutedHigh: Long,
+    val outline: Long,
+    val outlineHigh: Long,
+    val divider: Long,
+) {
+    FOREST(0xFF101211, 0xFF191C19, 0xFF2E332E, 0xFFA4ADA3, 0xFFDBE0DD, 0xFF646E63, 0xFFAFB8B0, 0xFF3D443C),
+    MIDNIGHT(0xFF0D111B, 0xFF151D2D, 0xFF26334B, 0xFFA3A6AE, 0xFFDCDDE0, 0xFF6B6E76, 0xFFB1B3B9, 0xFF3C3E44),
+    CINEMA(0xFF000000, 0xFF101010, 0xFF292929, 0xFFA8A8A8, 0xFFDEDEDE, 0xFF696969, 0xFFB5B5B5, 0xFF404040),
+    PLUM(0xFF17111B, 0xFF231A29, 0xFF392D41, 0xFFA9A3AE, 0xFFDEDCE0, 0xFF716B76, 0xFFB6B1B9, 0xFF413C44);
     companion object { fun decode(value: String?) = entries.firstOrNull { it.name == value } ?: FOREST }
 }
 

@@ -63,6 +63,14 @@ class JellyfinPlaybackTest {
         fixture.user="someone-else"; assertTrue(runCatching { client.verify(connection) }.isFailure)
         fixture.user="u1"; fixture.allowed=false; assertTrue(runCatching { client.verify(connection) }.isFailure)
     }
+    @Test fun verifiedPlaybackDoesNotAdvertiseUnimplementedRemoteControls() {
+        val fixture = Fixture()
+        JellyfinPlaybackClient(fixture, "device").verify(connection)
+        assertTrue(fixture.path.endsWith("/Sessions/Capabilities/Full"))
+        assertEquals(JsonPrimitive(false), fixture.posted["SupportsMediaControl"])
+        assertTrue(fixture.posted.getValue("SupportedCommands").jsonArray.isEmpty())
+        assertEquals(listOf(JsonPrimitive("Video")), fixture.posted.getValue("PlayableMediaTypes").jsonArray.toList())
+    }
     @Test fun selectsDirectPlayAndKeepsSecretsOutOfPlanString() {
         val plan=JellyfinPlaybackClient(Fixture(),"device").prepare(connection,"u1",movie,4_000_000)
         assertTrue(plan.direct); assertFalse(plan.url.contains("synthetic-token")); assertFalse(plan.toString().contains("https"))

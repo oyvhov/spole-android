@@ -315,7 +315,7 @@ fun DiscoverScreen(
                             }
                         }
                     },
-                    placeholder = { Text(stringResource(R.string.home_search), fontSize = 14.sp) },
+                    placeholder = { Text(stringResource(R.string.home_search), fontSize = 14.sp, lineHeight = 20.sp) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     shape = RoundedCornerShape(20.dp),
@@ -337,7 +337,7 @@ fun DiscoverScreen(
         if (state.librarySearchResults.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(top = 4.dp)) {
-                    Text(stringResource(R.string.search_libraries), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.search_libraries), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
                     Text(stringResource(R.string.search_ready), color = Muted, fontSize = 12.sp,
                         lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
                 }
@@ -346,7 +346,7 @@ fun DiscoverScreen(
                 LibraryHitCard(media) { onLibraryDetails(media.id) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(stringResource(R.string.search_add_new), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                Text(stringResource(R.string.search_add_new), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
             }
         }
@@ -477,14 +477,14 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Rounded.CheckCircle, null, tint = Success, modifier = Modifier.size(12.dp))
-                Text("I biblioteket", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                Text("I biblioteket", color = Color.White, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold,
                     maxLines = 1, modifier = Modifier.padding(start = 5.dp))
             }
         }
         Text(media.title, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
             lineHeight = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 8.dp))
-        Text(media.subtitle, color = Muted, fontSize = 12.sp, maxLines = 1,
+        Text(media.subtitle, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
     }
 }
@@ -497,13 +497,13 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
     val actionable = media.canRequest && allowed
     val actionLabel = if (media.isSeries) stringResource(R.string.media_seasons_named, media.title) else stringResource(R.string.media_add_named, media.title)
     val statusLabel = app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
-    Box(Modifier.fillMaxWidth().heightIn(min = 300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).clip(artworkShape).background(SurfaceRaised)
+    Column(Modifier.fillMaxWidth()
         // The card's own action is named so a screen reader can tell it apart from the request
         // button inside it. It must not merge its descendants: that would swallow the button.
-        .focusOutline(cardInteraction, artworkShape)
         .clickable(interactionSource = cardInteraction, indication = androidx.compose.foundation.LocalIndication.current,
             onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onDetails)
         .testTag("discover-cover-${media.id}")) {
+      Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(cardInteraction, artworkShape).clip(artworkShape).background(SurfaceRaised)) {
         MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)
         Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
             0f to Color.Transparent, .35f to Color.Transparent, .68f to Color.Black.copy(alpha = .64f), 1f to Color.Black.copy(alpha = .96f))))
@@ -512,7 +512,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
         Row(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             // A type badge classifies, it does not act, so it stays off the accent colour.
-            Text(if (media.isSeries) stringResource(R.string.media_series) else stringResource(R.string.media_movie), color = Color.White, fontSize = 10.sp,
+            Text(if (media.isSeries) stringResource(R.string.media_series) else stringResource(R.string.media_movie), color = Color.White, fontSize = 10.sp, lineHeight = 14.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, maxLines = 1,
                 modifier = Modifier.background(Color.Black.copy(alpha = .68f), RoundedCornerShape(6.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp))
@@ -525,8 +525,9 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                     modifier = Modifier.background(Color.Black.copy(alpha = .75f), CircleShape).padding(7.dp).size(19.dp))
             }
         }
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 58.dp)) {
-            Text(media.metadata, color = Color.White.copy(alpha = .82f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      }
+        Column(Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, bottom = 12.dp, top = 10.dp)) {
+            Text(media.metadata, color = Color.White.copy(alpha = .82f), fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
                 minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
             if (actionable) {
@@ -541,7 +542,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                     if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
                     else Icon(if (media.isSeries) Icons.AutoMirrored.Rounded.FormatListBulleted else Icons.Rounded.Add, null, Modifier.size(14.dp))
                     Text(when { requesting -> stringResource(R.string.media_sending); media.isSeries -> stringResource(R.string.media_seasons); else -> stringResource(R.string.media_add) },
-                        fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp))
+                        fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 5.dp))
                 }
             } else {
                 // Nothing to do here beyond opening the card, so this is a status line, not a button.
@@ -608,7 +609,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
                     if (tvActivity) Text(stringResource(R.string.nav_activity), color = TextColor,
-                        fontSize = 30.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                        fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
                     else ScreenHeader("", stringResource(R.string.nav_activity), stringResource(R.string.activity_subtitle))
                 }
                 if (wideActivity && (state.adminView || state.configuredCount == 0)) {
@@ -633,7 +634,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
             }
             if (!wideActivity && (state.adminView || state.configuredCount == 0)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.activity_view), color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.activity_view), color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f))
                     ActivityScopeMenu(sourceFilter, { savedSourceFilter = it })
                 }
             }
@@ -659,7 +660,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                         else Icon(Icons.Rounded.Refresh, stringResource(R.string.activity_refresh), tint = Primary)
                     }
                 }
-                state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp)) }
+                state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 12.dp)) }
                 if (state.trackingError == null && personalRequests.any { it.statusCheckFailed }) {
                     Text(stringResource(R.string.tv_unavailable_status), color = Muted,
                         modifier = Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
@@ -683,7 +684,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 }
                 if (state.trackedRequests.any { it.notify } && (!state.notificationsEnabled || !app.reelstack.background.LibraryNotifications.allowed(context))) {
                     Text(if (!state.notificationsEnabled) stringResource(R.string.activity_notifications_off) else
-                        stringResource(R.string.activity_android_notifications_off), color = Caution, fontSize = 12.sp)
+                        stringResource(R.string.activity_android_notifications_off), color = Caution, fontSize = 12.sp, lineHeight = 17.sp)
                     if (state.notificationsEnabled) TextButton(onClick = {
                         context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
@@ -708,14 +709,14 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         } else if (events.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(vertical = 24.dp)) {
-                    Text(stringResource(R.string.activity_no_events), color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.activity_no_events), color = TextColor, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
                     Text(stringResource(if (sourceFilter == ActivityFilter.ALL) R.string.activity_updates_here else R.string.activity_try_all),
-                        color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                        color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         } else {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(stringResource(R.string.activity_services), color = TextColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                Text(stringResource(R.string.activity_services), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp))
             }
             // Group by day so a long feed can be skimmed instead of read as one undifferentiated list.
@@ -725,7 +726,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 if (group != lastGroup) {
                     lastGroup = group
                     item(key = "group-${event.id}", span = { GridItemSpan(maxLineSpan) }) {
-                        Text(group, color = Muted, fontSize = 11.sp, letterSpacing = 1.sp,
+                        Text(group, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(top = 20.dp, bottom = 2.dp).semantics { heading() })
                     }
@@ -767,11 +768,10 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
     val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     Column(
         modifier = Modifier.fillMaxWidth()
-            .focusOutline(interaction, shape)
             .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
                 role = Role.Button, onClick = onClick).testTag("activity-event-${event.id}"),
     ) {
-      Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f).clip(shape).background(Ink)) {
+      Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f).focusOutline(interaction, shape).clip(shape).background(Ink)) {
         MediaArtwork(
             url = event.artworkUrl,
             fallbackRes = event.artworkRes ?: R.drawable.media_placeholder,
@@ -842,7 +842,7 @@ fun SettingsScreen(
         state.configuredCount == 0 || state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() }
     }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
-    val wide = maxWidth >= 900.dp
+    val wide = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useTabletCanvas
     var section by rememberSaveable { mutableStateOf(SettingsSection.ACCOUNTS) }
     val visible = { item: SettingsSection -> !wide || section == item }
     val paneStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
@@ -913,8 +913,8 @@ fun SettingsScreen(
                     .padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Tv, null, tint = PrimarySoft, modifier = Modifier.size(24.dp))
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text(stringResource(R.string.settings_customize), color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                        Text(stringResource(R.string.settings_customize_note), color = Muted, fontSize = 12.sp)
+                        Text(stringResource(R.string.settings_customize), color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp)
+                        Text(stringResource(R.string.settings_customize_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                     }
                     if (!wide) Icon(if (homeExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
                         null, tint = Muted)
@@ -941,6 +941,7 @@ fun SettingsScreen(
             }
             if (visible(SettingsSection.UPDATES)) {
             SettingsSectionTitle(stringResource(R.string.settings_updates))
+            app.reelstack.update.AppUpdateSettings()
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
               Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             PreferenceRow(Icons.Rounded.Notifications, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_note),
@@ -1016,7 +1017,7 @@ internal fun CrashReportRow() {
     Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp),
         modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text(stringResource(R.string.crash_title), color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(stringResource(R.string.crash_title), color = TextColor, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
             Text(
                 stringResource(R.string.crash_note),
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp),
@@ -1032,11 +1033,11 @@ internal fun CrashReportRow() {
                             shareLabel,
                         ),
                     )
-                }) { Text(shareLabel, color = Primary, fontSize = 13.sp) }
+                }) { Text(shareLabel, color = Primary, fontSize = 13.sp, lineHeight = 18.sp) }
                 TextButton(onClick = {
                     app.reelstack.diagnostics.CrashReporter.clear(context)
                     report = null
-                }) { Text(stringResource(R.string.action_delete), color = Muted, fontSize = 13.sp) }
+                }) { Text(stringResource(R.string.action_delete), color = Muted, fontSize = 13.sp, lineHeight = 18.sp) }
             }
         }
     }
@@ -1059,7 +1060,7 @@ internal fun PrivacyCard(state: ReelstackUiState) {
             Icon(Icons.Rounded.Security, contentDescription = null, tint = Success,
                 modifier = Modifier.padding(top = 1.dp).size(24.dp))
             Column(Modifier.padding(start = 12.dp)) {
-                Text(stringResource(R.string.privacy_title), color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.privacy_title), color = TextColor, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.privacy_tokens),
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
                 if (configured.isNotEmpty()) Text(
@@ -1089,11 +1090,11 @@ internal fun AppIdentity() {
             modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)),
         )
         Column(Modifier.padding(start = 13.dp)) {
-            Text("Spole", color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text("Spole", color = TextColor, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
                 color = Muted,
-                fontSize = 12.sp,
+                fontSize = 12.sp, lineHeight = 17.sp,
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
@@ -1102,7 +1103,7 @@ internal fun AppIdentity() {
 
 @Composable
 private fun SettingsSectionTitle(text: String) {
-    Text(text, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+    Text(text, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium,
         modifier = Modifier.padding(top = 26.dp, bottom = 10.dp, start = 4.dp).semantics { heading() })
 }
 
@@ -1122,7 +1123,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             ServiceSymbol(connection.kind, Modifier.size(20.dp))
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(connection.kind.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(connection.kind.displayName, color = TextColor, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 when (connection.state) {
                     ConnectionState.CONNECTED -> if (hasWarning) connection.detail else stringResource(R.string.service_connected)
@@ -1136,7 +1137,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
                     hasError -> Warning
                     else -> Muted
                 },
-                fontSize = 12.sp,
+                fontSize = 12.sp, lineHeight = 17.sp,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )

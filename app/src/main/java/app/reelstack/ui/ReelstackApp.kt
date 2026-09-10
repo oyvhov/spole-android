@@ -1,5 +1,6 @@
 package app.reelstack.ui
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.vector
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusGroup
@@ -212,7 +213,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         }
     }
     val expandedRail = showRail && if (tvRail) tvRailFocused else
-        (personalization.sidebarExpanded ?: (windowLayout.widthDp >= 1000f))
+        (personalization.sidebarExpanded ?: windowLayout.expandSidebarByDefault)
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -240,6 +241,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         else if (!railEntryRequested) moveIntoContent = true
                     },
                     shortcuts = state.libraryShortcuts,
+                    libraryIcons = state.libraryIcons,
                     selectedLibraryId = state.libraryPath.firstOrNull()?.first.takeIf { state.selectedTab == AppTab.LIBRARY },
                     onLibrarySelect = { id ->
                         focusManager.clearFocus()
@@ -310,7 +312,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         searchReady = navigation.currentState == AppTab.DISCOVER && !navigation.isRunning,
                         onSearchFocusConsumed = { pendingSearchFocus = false },
                     )
-                    AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary, viewModel::openLibraryEntry, viewModel::libraryBack)
+                    AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary, viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary)
                     AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
                         viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
                         viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
@@ -366,6 +368,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     )
     if (state.libraryChoicesOpen) app.reelstack.ui.screens.LibraryChoicesDialog(state,
         viewModel::closeLibraryChoices, viewModel::openLibraryChoices, viewModel::saveLibraryChoices)
+    app.reelstack.update.AppUpdateHost(state.selectedTab == AppTab.HOME && state.activeSheet == null && !state.showOnboarding && !state.libraryChoicesOpen)
 }
 
 private data class TabItem(
@@ -401,10 +404,13 @@ private fun ReelstackBottomBar(
                     onClick = { onSelect(item.tab) },
                     icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
                     label = {
+                        // "Innstillingar" is 13 characters in a fifth of a phone's width. At 2x
+                        // font scale one line cannot hold it, and an ellipsis is still clipping.
+                        // The bar has no fixed height, so a second line is free.
                         Text(
                             androidx.compose.ui.res.stringResource(item.label),
-                            fontSize = 10.sp,
-                            maxLines = 1,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,
                         )
@@ -438,6 +444,7 @@ internal fun ReelstackNavigationRail(
     onExpandedChange: (Boolean) -> Unit = {},
     onFocusWithin: (Boolean) -> Unit = {},
     shortcuts: List<Pair<String, String>> = emptyList(),
+    libraryIcons: Map<String, app.reelstack.data.model.LibraryIcon> = emptyMap(),
     selectedLibraryId: String? = null,
     onLibrarySelect: (String) -> Unit = {},
 ) {
@@ -467,7 +474,7 @@ internal fun ReelstackNavigationRail(
         }
         app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
             if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
-                SidebarControl(name, app.reelstack.ui.components.SpoleIcons.Library, selectedLibraryId == id,
+                SidebarControl(name, (libraryIcons[id] ?: app.reelstack.data.model.LibraryIcon.LIBRARY).vector(), selectedLibraryId == id,
                     { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.testTag("wide-library-$id"))
             }
             SidebarControl(androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab &&

@@ -12,6 +12,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -33,7 +35,7 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
     val reveal = remember { Animatable(if (formed || !opening) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!opening) return@LaunchedEffect
-        if (!formed) reveal.animateTo(1f, tween(if (slow) 1250 else 600, easing = androidx.compose.animation.core.LinearEasing))
+        if (!formed) reveal.animateTo(1f, tween(if (slow) 1650 else 800, easing = androidx.compose.animation.core.LinearEasing))
         formed = true
         // Let the expensive home composition settle behind a completed, stationary mark.
         // The ViewModel has already started its network refresh independently of this UI.
@@ -44,9 +46,9 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
     }
     Box(Modifier.fillMaxSize()) {
         // Loading continues, but TalkBack must not focus controls hidden by the cover.
-        if (formed || !opening) {
-            Box(if (opening) Modifier.clearAndSetSemantics {} else Modifier) { content() }
-        }
+        // Compose immediately: image requests and network data load throughout the animation.
+        Box(if (opening) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
+            .onPreviewKeyEvent { true } else Modifier) { content() }
         AnimatedVisibility(visible = opening, exit = fadeOut(tween(240))) {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)

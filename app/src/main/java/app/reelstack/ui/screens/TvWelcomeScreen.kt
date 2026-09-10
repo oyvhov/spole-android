@@ -37,12 +37,12 @@ internal fun TvWelcomeScreen(state: ReelstackUiState, onConnect: (ServiceKind) -
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocus() }
     BoxWithConstraints(modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp)) {
-        val wide = maxWidth >= 680.dp
+        val wide = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useInlineHeader
         val introduction: @Composable () -> Unit = {
             Column(Modifier.padding(end = if (wide) 24.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Image(painterResource(R.drawable.spole_mark), null, Modifier.size(40.dp))
-                    Text("Spole", color = MaterialTheme.colorScheme.onSurface, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text("Spole", color = MaterialTheme.colorScheme.onSurface, fontSize = 26.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(stringResource(if (ready) R.string.welcome_title_ready else R.string.welcome_title),
                     color = MaterialTheme.colorScheme.onSurface, fontSize = 36.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold)
@@ -69,7 +69,7 @@ internal fun TvWelcomeScreen(state: ReelstackUiState, onConnect: (ServiceKind) -
                             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             ServiceSymbol(kind, Modifier.size(28.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(kind.displayName, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                                Text(kind.displayName, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
                                 Text(stringResource(if (connected) R.string.welcome_connected else when (kind) {
                                     ServiceKind.JELLYFIN -> R.string.tv_setup_jellyfin
                                     ServiceKind.EMBY -> R.string.welcome_emby

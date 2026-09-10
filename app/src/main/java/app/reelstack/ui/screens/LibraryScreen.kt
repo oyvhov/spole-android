@@ -27,7 +27,8 @@ import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.focusOutline
 
 @Composable
-fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit) {
+fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
+    onFilter: (app.reelstack.data.model.LibraryFilters) -> Unit = {}) {
     BackHandler(state.libraryPath.isNotEmpty() && state.activeSheet == null) { onBack() }
     val connected = state.connections.any { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
     val tv = LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
@@ -47,8 +48,9 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                         state.libraryPath.dropLast(1).map { it.second }).joinToString("  /  "),
                         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
                     Text(state.libraryPath.lastOrNull()?.second ?: stringResource(R.string.nav_library),
-                        color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.headlineLarge)
+                        color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.displaySmall)
                     if (folders) Text(stringResource(R.string.tv_library_intro), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!folders) LibraryFilterBar(state.libraryFilters, onFilter, state.libraryFacets)
                     if (!tv && !folders) TextButton(onClick = onBack) { Text(stringResource(R.string.library_back)) }
                 }
             }
@@ -56,11 +58,12 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
             items(state.libraryEntries, key = { it.id }) { entry ->
                 val interaction = remember { MutableInteractionSource() }
                 val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
-                Card(onClick = { onOpen(entry.id) }, interactionSource = interaction, shape = shape,
+                Card(onClick = { onOpen(entry.id) }, interactionSource = interaction, shape = androidx.compose.ui.graphics.RectangleShape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background,
                         contentColor = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.fillMaxWidth().focusOutline(interaction, shape).testTag("library-item-${entry.id}")) {
-                    Box(Modifier.fillMaxWidth().aspectRatio(if (wideCards) 16f / 9f else 2f / 3f).clip(shape)) {
+                    modifier = Modifier.fillMaxWidth().testTag("library-item-${entry.id}")) {
+                    Box(Modifier.fillMaxWidth().aspectRatio(if (wideCards) 16f / 9f else 2f / 3f)
+                        .focusOutline(interaction, shape).clip(shape).testTag("library-art-${entry.id}")) {
                         MediaArtwork(entry.artworkUrl, R.drawable.media_placeholder, null, Modifier.fillMaxSize(), source = ServiceKind.JELLYFIN)
                         entry.progress?.takeIf { it > 0f }?.let { progress ->
                             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(4.dp)
@@ -87,52 +90,4 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
             }
         }
     }
-}
-
-@Composable
-internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit, onRetry: () -> Unit,
-    onSave: (Set<String>, Set<String>) -> Unit) {
-    var selected by remember(state.libraryChoices, state.selectedLibraryIds) { mutableStateOf(state.selectedLibraryIds) }
-    var pinned by remember(state.libraryShortcuts) { mutableStateOf(state.libraryShortcuts.map { it.first }.toSet()) }
-    AlertDialog(onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.library_manage)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.library_selection_help))
-                if (state.libraryChoicesLoading) CircularProgressIndicator()
-                else if (state.libraryChoicesError != null) {
-                    Text(state.libraryChoicesError)
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.library_retry)) }
-                } else {
-                    Row {
-                        TextButton(onClick = { selected = state.libraryChoices.mapTo(mutableSetOf()) { it.id } }) { Text(stringResource(R.string.library_all)) }
-                        TextButton(onClick = { selected = emptySet() }) { Text(stringResource(R.string.library_none)) }
-                    }
-                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                        items(state.libraryChoices, key = { it.id }) { view ->
-                            Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("library-choice-${view.id}")
-                                .toggleable(value = view.id in selected, role = Role.Checkbox,
-                                    onValueChange = { enabled -> selected = if (enabled) selected + view.id else selected - view.id })
-                                .padding(vertical = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                Checkbox(checked = view.id in selected, onCheckedChange = null)
-                                Text(view.name, Modifier.weight(1f).padding(start = 8.dp))
-                            }
-                            if (view.id in selected) Row(Modifier.fillMaxWidth().padding(start = 32.dp).heightIn(min = 48.dp)
-                                .testTag("library-pin-${view.id}").toggleable(view.id in pinned, role = Role.Checkbox,
-                                    onValueChange = { enabled -> pinned = if (enabled) pinned + view.id else pinned - view.id }),
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                Checkbox(view.id in pinned, null)
-                                Text(stringResource(R.string.tv_pin_library), style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
-                    if (selected.isEmpty()) Text(stringResource(R.string.library_none_help))
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(selected, pinned.intersect(selected)) }, enabled = !state.libraryChoicesLoading && state.libraryChoicesError == null,
-                modifier = Modifier.testTag("library-selection-save")) { Text(stringResource(R.string.library_save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.library_cancel)) } })
 }

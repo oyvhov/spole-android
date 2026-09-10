@@ -1,0 +1,76 @@
+<resources>
+    <string name="update_title">Appoppdateringar</string>
+    <string name="update_available">Spole %1$s er klar</string>
+    <string name="update_auto">Sjekk automatisk</string>
+    <string name="update_auto_hint">Sjå etter ny GitHub-utgåve når appen opnar, høgst to gonger dagleg.</string>
+    <string name="update_previews">Testutgåver</string>
+    <string name="update_previews_hint">Ta med alpha, beta og førehandsutgåver.</string>
+    <string name="update_banner_hint">Sjå kva som er nytt, og oppdater når det passar.</string>
+    <string name="update_view">Sjå oppdatering</string>
+    <string name="update_later">Seinare</string>
+    <string name="update_close">Lukk</string>
+    <string name="update_size">Nedlasting · %1$.1f MB</string>
+    <string name="update_no_notes">Forbetringar og rettingar for Spole.</string>
+    <string name="update_intro">Oppdateringar kjem direkte frå dei offisielle Spole-utgåvene på GitHub.</string>
+    <string name="update_progress">Lastar ned · %1$d%%</string>
+    <string name="update_cancel">Avbryt nedlasting</string>
+    <string name="update_install">Installer oppdatering</string>
+    <string name="update_download">Last ned oppdatering</string>
+    <string name="update_check">Sjekk no</string>
+    <string name="update_install_hint">Kontoar og innstillingar blir bevarte. Android ber deg godkjenne installasjonen.</string>
+    <string name="update_current">Ingen nyare kompatibel utgåve er tilgjengeleg på denne kanalen.</string>
+    <string name="update_network_error">Fekk ikkje kontakt med GitHub eller fullført nedlastinga. Prøv igjen.</string>
+    <string name="update_invalid">Oppdateringa kunne ikkje stadfestast. Ingenting vart installert.</string>
+    <string name="update_storage_error">Kunne ikkje lagre oppdateringa. Sjekk ledig lagringsplass og prøv igjen.</string>
+    <string name="update_permission">Tillat at Spole installerer oppdateringar. Gå deretter tilbake og vel Installer oppdatering.</string>
+    <string name="update_install_error">Android kunne ikkje opne installasjonen. Sjekk installasjonsløyvet og prøv igjen.</string>
+    <string name="update_access_error">Utgåva er utilgjengeleg. Prøv igjen seinare.</string>
+    <string name="update_rate_error">GitHub avgrensar førespurnader. Vent litt før du sjekkar igjen.</string>
+    <string name="library_choice_intro">Dine bibliotek, di framside. Vel innhaldet og legg snarvegar i menyen.</string>
+    <plurals name="library_selected_count"><item quantity="one">%1$d vald</item><item quantity="other">%1$d valde</item></plurals>
+    <string name="library_include_hint">Vis i Bibliotek, heimrader og søk</string>
+    <string name="library_icon">Menyikon</string>
+    <string name="library_filters">Filter og sortering</string>
+    <string name="library_reset">Nullstill</string>
+    <string name="library_search">Søk i dette biblioteket</string>
+    <string name="library_sort">Sorter etter</string>
+    <string name="library_descending">Fallande rekkjefølgje</string>
+    <string name="library_watch_status">Visingsstatus</string>
+    <string name="library_favourites">Berre favorittar</string>
+    <string name="library_resolution">Videooppløysing</string>
+    <string name="library_genre">Sjanger (namnet i biblioteket, t.d. Drama)</string>
+    <string name="library_year">Produksjonsår</string>
+    <string name="library_apply">Vis resultat</string>
+    <string-array name="library_icons">
+        <item>Bibliotek</item>
+        <item>Filmar</item>
+        <item>Seriar</item>
+        <item>Barn</item>
+        <item>Dokumentar</item>
+        <item>Musikk</item>
+        <item>Konsertar</item>
+        <item>Animasjon</item>
+        <item>Sport</item>
+        <item>Favorittar</item>
+    </string-array>
+    <string-array name="library_sorts">
+        <item>Tittel</item>
+        <item>Dato lagt til</item>
+        <item>Årstal</item>
+        <item>Vurdering</item>
+        <item>Speletid</item>
+        <item>Sist spelt</item>
+    </string-array>
+    <string-array name="library_watched">
+        <item>Alle</item>
+        <item>Ikkje sett</item>
+        <item>Sett</item>
+        <item>Påbyrja</item>
+    </string-array>
+    <string-array name="library_resolutions">
+        <item>Alle</item>
+        <item>SD</item>
+        <item>HD / Full HD</item>
+        <item>4K</item>
+    </string-array>
+</resources>

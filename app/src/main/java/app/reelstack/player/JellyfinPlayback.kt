@@ -90,6 +90,8 @@ class JellyfinPlaybackClient(
         require(!user.obj("Policy").flag("IsDisabled") && user.obj("Policy")["EnableMediaPlayback"] != JsonPrimitive(false)) {
             "Denne Jellyfin-kontoen har ikkje løyve til å spele av."
         }
+        // Best effort: an older server that does not know the endpoint must not block playback.
+        runCatching { announceCapabilities(connection) }
         return id
     }
 
@@ -152,6 +154,17 @@ class JellyfinPlaybackClient(
         }
         return PlaybackPlan(item, mediaSourceId, session, safePlaybackUrl(c.baseUrl, url), direct, tracks("Audio"), subtitles,
             selectedAudio, selectedSubtitle, subtitleUrl)
+    }
+
+    /** Playback support is separate from receiving remote commands. Until a remote-command
+     * receiver exists, do not advertise Spole as a controllable "Play on" target. */
+    fun announceCapabilities(c: ServiceConnection) {
+        post(c, "Sessions/Capabilities/Full", buildJsonObject {
+            put("PlayableMediaTypes", buildJsonArray { add("Video") })
+            put("SupportedCommands", buildJsonArray { })
+            put("SupportsMediaControl", false)
+            put("SupportsPersistentIdentifier", true)
+        })
     }
 
     fun report(c: ServiceConnection, plan: PlaybackPlan, event: String, positionMs: Long, paused: Boolean) {

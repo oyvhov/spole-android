@@ -24,15 +24,15 @@ internal fun TvQuickConnectPanel(draft: ConnectionDraft) {
     Surface(color = SurfaceRaised, shape = RoundedCornerShape(18.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("tv-quick-panel")) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.tv_quick_ready), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.tv_quick_ready), fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
             Text(draft.quickConnectCode?.chunked(3)?.joinToString("  ") ?: "— — —  — — —",
-                fontSize = 36.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold,
+                fontSize = 36.sp, lineHeight = 40.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("tv-quick-code"))
             Text(stringResource(if (draft.quickConnectCode == null) R.string.tv_quick_hint else R.string.tv_quick_steps),
                 color = Muted, fontSize = 16.sp, lineHeight = 23.sp)
             if (draft.quickConnectCode != null) Text(stringResource(
                 if (draft.quickConnectWaiting) R.string.quick_waiting else R.string.quick_finishing),
-                color = Muted, fontSize = 14.sp)
+                color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
             draft.quickConnectCode?.let { code ->
                 TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true },
                     interactionSource = interaction,

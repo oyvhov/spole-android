@@ -62,7 +62,7 @@ fun WelcomeScreen(
         item {
             app.reelstack.ui.components.SpoleWelcomeArt(Modifier.padding(bottom = 24.dp))
             Text(if (ready) stringResource(R.string.welcome_ready) else stringResource(R.string.welcome_start), color = Muted,
-                fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.Bold)
+                fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.Bold)
             Text(if (ready) stringResource(R.string.welcome_title_ready) else stringResource(R.string.welcome_title),
                 color = TextColor, fontSize = 48.sp, lineHeight = 50.sp, letterSpacing = (-2).sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
@@ -108,7 +108,7 @@ fun WelcomeScreen(
                         if (connected) {
                             Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(20.dp))
                         } else {
-                            Text(stringResource(R.string.action_connect), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            Text(stringResource(R.string.action_connect), fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold,
                                 color = if (primary) app.reelstack.ui.theme.Ink else PrimarySoft)
                         }
                     }
@@ -137,7 +137,7 @@ fun WelcomeScreen(
                 TextButton(onClick = onContinue,
                     colors = ButtonDefaults.textButtonColors(contentColor = Muted),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 10.dp)) {
-                    Text(stringResource(R.string.welcome_demo), fontSize = 13.sp)
+                    Text(stringResource(R.string.welcome_demo), fontSize = 13.sp, lineHeight = 18.sp)
                 }
             }
             Text(stringResource(R.string.welcome_storage),

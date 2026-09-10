@@ -85,9 +85,9 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     ServiceSymbol(source, Modifier.size(24.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(source.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(source.displayName, color = TextColor, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
                         Text(if (loading) stringResource(R.string.flow_account_loading) else if (hasError) stringResource(R.string.flow_login_again) else stringResource(R.string.flow_signed_out),
-                            color = Muted, fontSize = 12.sp)
+                            color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                     }
                     if (!loading) AccountAction(onClick, stringResource(R.string.flow_login), source)
                 }
@@ -107,9 +107,9 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(if (compact) account.displayName else account.source.displayName, color = Muted, fontSize = 12.sp,
+                        Text(if (compact) account.displayName else account.source.displayName, color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                             modifier = Modifier.padding(top = 3.dp))
-                        if (account.isAdmin && !compact) Text(stringResource(R.string.flow_admin), color = Primary, fontSize = 11.sp,
+                        if (account.isAdmin && !compact) Text(stringResource(R.string.flow_admin), color = Primary, fontSize = 11.sp, lineHeight = 16.sp,
                             modifier = Modifier.padding(top = 5.dp))
                     }
                     if (!isSeerr || (account.isPersonal && !overviewOnly)) {
@@ -125,7 +125,7 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                         ServiceSymbol(source, Modifier.size(24.dp))
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(source.displayName, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(source.displayName, color = TextColor, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
                         Text(
                             when {
                                 loading -> stringResource(R.string.flow_account_loading)
@@ -168,7 +168,7 @@ private fun AccountAction(onClick: () -> Unit, label: String, source: ServiceKin
             contentDescription = spokenLabel
         },
     ) {
-        Text(label, fontSize = 13.sp)
+        Text(label, fontSize = 13.sp, lineHeight = 18.sp)
     }
 }
 
@@ -225,7 +225,7 @@ fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit) {
                         )
                     }
                     TextButton(onClick = onSignIn, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(if (hasError) stringResource(R.string.flow_retry) else stringResource(R.string.flow_jellyfin_login), fontSize = 13.sp)
+                        Text(if (hasError) stringResource(R.string.flow_retry) else stringResource(R.string.flow_jellyfin_login), fontSize = 13.sp, lineHeight = 18.sp)
                     }
                 }
             }

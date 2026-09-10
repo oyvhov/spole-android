@@ -2,6 +2,7 @@ package app.reelstack.ui.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -10,6 +11,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
@@ -57,11 +61,32 @@ internal fun SpoleFormationMark(progress: () -> Float, modifier: Modifier = Modi
 
 @Composable
 internal fun SpoleStartupArt(progress: () -> Float, modifier: Modifier = Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    val accent = MaterialTheme.colorScheme.primary
+    Box(modifier, contentAlignment = Alignment.Center) {
+      Canvas(Modifier.size(380.dp).graphicsLayer { alpha = (1f - formationPhase(progress(), .72f, 1f)) }) {
+        val p = progress().coerceIn(0f, 1f)
+        val enter = formationPhase(p, 0f, .35f)
+        val settle = formationPhase(p, .15f, .9f)
+        val radius = size.minDimension * (.2f + .3f * settle)
+        drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = .12f * enter), accent.copy(alpha = 0f))), radius, center)
+        // Twelve strips frame a projector-like sweep and settle into the original Spole mark.
+        repeat(12) { index ->
+            val angle = (index * 30f + (1f - settle) * 65f) * Math.PI / 180
+            val distance = size.minDimension * (.46f - .3f * settle)
+            val point = Offset(center.x + kotlin.math.cos(angle).toFloat() * distance, center.y + kotlin.math.sin(angle).toFloat() * distance)
+            drawLine(accent.copy(alpha = .34f * enter), point,
+                Offset(point.x + kotlin.math.cos(angle).toFloat() * 16.dp.toPx(), point.y + kotlin.math.sin(angle).toFloat() * 16.dp.toPx()),
+                strokeWidth = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        }
+        drawArc(accent.copy(alpha = .45f * enter), -90f + 280f * p, 90f * enter,
+            false, Offset(center.x - radius, center.y - radius), Size(radius * 2, radius * 2),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+      }
+      Column(horizontalAlignment = Alignment.CenterHorizontally) {
         SpoleFormationMark(progress)
         Spacer(Modifier.height(20.dp))
         Text(
-            "Spole", fontSize = 52.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2).sp,
+            "Spole", fontSize = 52.sp, lineHeight = 58.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2).sp,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.testTag("startup-wordmark").graphicsLayer {
                 val wordmark = formationPhase(progress(), .34f, .90f)
@@ -69,6 +94,7 @@ internal fun SpoleStartupArt(progress: () -> Float, modifier: Modifier = Modifie
                 translationY = (1f - wordmark) * 6.dp.toPx()
             },
         )
+      }
     }
 }
 

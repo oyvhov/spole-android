@@ -187,11 +187,11 @@ fun HomeScreen(
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
                 item {
-                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
+                        Row(Modifier.fillMaxWidth().padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
                             SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
                             // A count is status, not an action, so it stays out of the accent colour.
                             if (state.sessions.size > 1) Text(androidx.compose.ui.res.pluralStringResource(app.reelstack.R.plurals.home_playback_count, state.sessions.size, state.sessions.size),
-                                color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 12.dp, bottom = 2.dp))
+                                color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(start = 12.dp, bottom = 2.dp))
                         }
                         NowPlayingRail(
                             sessions = state.sessions,
@@ -205,14 +205,14 @@ fun HomeScreen(
                 (continueItems.isNotEmpty() || (state.isRefreshing && state.configuredCount > 0))
             ) {
                 item {
-                    SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(top = 24.dp, bottom = 13.dp))
+                    SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
                     if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
                     else ResumeRail(continueItems, onLibraryClick)
                 }
             }
             if (personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
                 item(key = "next-up") {
-                    SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = 24.dp, bottom = 13.dp))
+                    SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
                     ResumeRail(state.nextUp, onLibraryClick)
                 }
             }
@@ -221,7 +221,7 @@ fun HomeScreen(
                     val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_MOVIES else HomeSection.JELLYFIN_MOVIES
                     if (section !in state.homeSections) return@forEach
                     item(key = "recent-movies-${source.name}") {
-                        MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = 24.dp, bottom = 13.dp))
+                        MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
                         val items = state.recentMovies.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
@@ -240,7 +240,7 @@ fun HomeScreen(
                     val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_SERIES else HomeSection.JELLYFIN_SERIES
                     if (section !in state.homeSections) return@forEach
                     item(key = "recent-series-${source.name}") {
-                        MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = 24.dp, bottom = 13.dp))
+                        MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
                         val items = state.recentSeries.filter { it.source == source }
                         if (items.isEmpty()) {
                             if (state.isRefreshing) {
@@ -259,8 +259,8 @@ fun HomeScreen(
             }
             if (HomeSection.RECOMMENDATIONS in state.homeSections) {
                 item {
-                    SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = 28.dp, bottom = 4.dp))
-                    Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp,
+                    SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = ReelLayout.SectionTop, bottom = 4.dp))
+                    Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                         modifier = Modifier.padding(bottom = 12.dp))
                     if (state.recommendations.isEmpty() && state.isRefreshing) {
                         RecommendationSkeleton()
@@ -273,7 +273,7 @@ fun HomeScreen(
             }
             if (HomeSection.RECENT_RELEASES in state.homeSections) {
                 item {
-                    Column(Modifier.padding(top = 28.dp, bottom = 13.dp)) {
+                    Column(Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom)) {
                         SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
                         Text(
                             stringResource(R.string.home_releases_note),
@@ -299,7 +299,7 @@ fun HomeScreen(
                 item {
                     UpcomingSectionTitle(
                         onCalendarClick = onCalendarClick,
-                        modifier = Modifier.padding(top = 25.dp, bottom = 13.dp),
+                        modifier = Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom),
                     )
                     if (state.upcoming.isEmpty()) {
                         if (state.isRefreshing && state.configuredCount > 0) {
@@ -358,7 +358,7 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, show
             if (showBrand) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.spole_mark), "Spole-logo",
                     modifier = Modifier.size(34.dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Primary))
-                Text("Spole", color = TextColor, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
+                Text("Spole", color = TextColor, fontSize = 24.sp, lineHeight = 29.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
             } else Spacer(Modifier.weight(1f))
         HomeAccountButton(state, onAccountClick)
@@ -426,7 +426,7 @@ private fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modi
             Text(
                 text = source.displayName,
                 color = Muted,
-                fontSize = 12.sp,
+                fontSize = 12.sp, lineHeight = 17.sp,
                 maxLines = 1,
                 modifier = Modifier.padding(start = 7.dp),
             )
@@ -477,7 +477,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             Text(
                 if (media.isSeries) stringResource(R.string.media_series) else stringResource(R.string.media_movie),
                 color = Color.White,
-                fontSize = 10.sp,
+                fontSize = 10.sp, lineHeight = 14.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = .6.sp,
                 modifier = Modifier.background(Color.Black.copy(alpha = .66f), RoundedCornerShape(6.dp))
@@ -494,11 +494,11 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             }
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 54.dp)) {
-            Text(media.metadata, color = Color.White.copy(alpha = .78f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(media.metadata, color = Color.White.copy(alpha = .78f), fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 20.sp,
                 fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp))
-            Text(status, color = PrimarySoft, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            Text(status, color = PrimarySoft, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 5.dp))
         }
     }
@@ -512,11 +512,14 @@ private fun NowPlayingRail(
     onPlaybackToggle: (String) -> Unit,
 ) {
     if (LocalTabletCanvas.current) {
-        LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        // 16:9 at the card's own minimum height, and it follows the artwork-size preference like
+        // every other rail. The old 480 dp was sized for a horizontal plate that no longer exists.
+        val width = 324.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+        LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(sessions, key = PlaybackSession::key) { session ->
                 app.reelstack.ui.components.CompactSessionCard(session, pendingSessionKey == session.key,
                     controlsLocked = pendingSessionKey != null, onOpen = { onOpen(session.key) },
-                    onToggle = { onPlaybackToggle(session.key) }, modifier = Modifier.width(480.dp))
+                    onToggle = { onPlaybackToggle(session.key) }, modifier = Modifier.width(width))
             }
         }
         return
@@ -611,12 +614,12 @@ private fun NowPlayingCard(
                 "${session.userName} · ${session.deviceName}",
                 color = PrimarySoft,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
+                fontSize = 12.sp, lineHeight = 17.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(session.title, color = Color.White, fontSize = 29.sp, lineHeight = 31.sp, letterSpacing = (-1.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(session.subtitle, color = app.reelstack.ui.theme.Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 2.dp), maxLines = 1)
+            Text(session.subtitle, color = app.reelstack.ui.theme.Muted, fontSize = 15.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 2.dp), maxLines = 1)
             Spacer(Modifier.height(13.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LinearProgressIndicator(
@@ -627,12 +630,12 @@ private fun NowPlayingCard(
                     gapSize = 0.dp,
                     modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                 )
-                Text(session.timeLeft, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp))
+                Text(session.timeLeft, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 12.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
                 Column(Modifier.weight(1f).padding(end = 6.dp)) {
-                    Text(session.streamMethod, color = TextColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(session.quality, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp)
+                    Text(session.streamMethod, color = TextColor, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(session.quality, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp)
                 }
                 Surface(
                     onClick = onPlaybackToggle,
@@ -766,7 +769,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
         }
         Text(
             media.title,
-            color = Color.White,
+            color = TextColor,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             lineHeight = 19.sp,
@@ -841,7 +844,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
         }
         Text(
             media.title,
-            color = Color.White,
+            color = TextColor,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             lineHeight = 19.sp,
@@ -910,18 +913,18 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         Row(Modifier.align(Alignment.TopStart).padding(14.dp).background(Color.Black.copy(alpha = .76f), CircleShape)
             .padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Schedule, null, tint = Primary, modifier = Modifier.size(14.dp))
-            Text(media.dateLabel, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            Text(media.dateLabel, color = Color.White, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 6.dp))
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 70.dp)) {
             Text(if (recent) {
                 if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_new_movie) else stringResource(R.string.media_new_episode)
             } else if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_home_release) else stringResource(R.string.media_new_episode),
-                color = Color.White.copy(alpha = .8f), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                color = Color.White.copy(alpha = .8f), fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text(media.title, color = Color.White, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
             Text(media.subtitle.replace(" · TBA", ""), color = Color.White.copy(alpha = .85f),
-                fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
+                fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
         }
     }
 }
@@ -946,7 +949,7 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
                     modifier = Modifier.heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
                     Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
+                    Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
                 }
             }
         }
@@ -962,7 +965,7 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
 
 @Composable
 private fun EmptySectionLine(text: String) {
-    Text(text, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp, end = mediaEndInset()))
+    Text(text, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp, end = mediaEndInset()))
 }
 
 @Composable
@@ -983,9 +986,9 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
             modifier = Modifier.size(width = 66.dp, height = 82.dp).clip(RoundedCornerShape(13.dp)),
         )
         Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
-            Text(media.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(media.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp)
             // Source is provenance, not an action, so it stays neutral.
-            Text(media.source.displayName, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+            Text(media.source.displayName, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
                 Icon(
                     if (media.state == IncomingState.DOWNLOADING) Icons.Rounded.Download else Icons.Rounded.Schedule,
@@ -994,7 +997,7 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
                     tint = if (media.state == IncomingState.DOWNLOADING) Primary else Muted,
                     modifier = Modifier.size(18.dp),
                 )
-                Text(media.status, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
+                Text(media.status, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 6.dp))
             }
             media.progress?.let { progress ->
                 Box(Modifier.fillMaxWidth().padding(top = 8.dp).height(4.dp).clip(CircleShape).background(SurfaceRaised)) {

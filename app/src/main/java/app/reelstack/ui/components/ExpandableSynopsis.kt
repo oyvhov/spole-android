@@ -34,7 +34,7 @@ internal fun ExpandableSynopsis(identity: String, title: String, overview: Strin
         val actionMaxWidth = maxWidth * .48f
         Column {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 17.sp,
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 17.sp, lineHeight = 23.sp,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 if (canExpand || expanded) {
                     TextButton(onClick = { expanded = !expanded }, interactionSource = interaction,
@@ -49,7 +49,7 @@ internal fun ExpandableSynopsis(identity: String, title: String, overview: Strin
                     maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 8.dp).testTag("overview-text"))
                 loading -> DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
-                else -> Text(stringResource(R.string.details_no_overview), color = Muted, fontSize = 14.sp,
+                else -> Text(stringResource(R.string.details_no_overview), color = Muted, fontSize = 14.sp, lineHeight = 20.sp,
                     modifier = Modifier.padding(top = 8.dp))
             }
         }
