@@ -89,7 +89,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Release-kladd feila.' }
 
 Dette eksempelet er for ei testutgåve. For ei ferdig stabil utgåve: ikkje bruk `--prerelease`, og vel `--latest=true`. Aldri flytt ein publisert tag eller byt ut APK-en bak same versjon; lag ny versjon og versjonskode ved feil.
 
-Kontroller kladden med `gh api repos/oyvhov/spole-android/releases/tags/$tag`: nøyaktig éin APK, `state=uploaded`, riktig byte-storleik og `digest` lik `sha256:$hash`. Stadfest også at taggen peikar på `$commit`. Dersom GitHub ikkje har gitt asseten ein digest enno, vent og les metadata på nytt før publisering.
+Kontroller kladden med `gh release view $tag --repo oyvhov/spole-android --json tagName,isDraft,assets`: nøyaktig éin APK, `state=uploaded`, riktig byte-storleik og `digest` lik `sha256:$hash`. Tag-endepunktet i REST kan returnere 404 for ein kladd. Dersom du treng rå REST-data, finn den numeriske release-ID-en i den autentiserte release-lista og bruk `gh api repos/oyvhov/spole-android/releases/ID`. Stadfest også at taggen peikar på `$commit`. Dersom GitHub ikkje har gitt asseten ein digest enno, vent og les metadata på nytt før publisering.
 
 ## 5. Publiser og prøv den ekte oppdateringa
 

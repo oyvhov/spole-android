@@ -34,6 +34,16 @@ Alpha12 har versjonskode 55 og oppdateringsklienten. Alpha13 har høgare kode 56
 
 Automatisk sjekk brukar tolv timars mellomrom; Sjekk no går utanom dette. Alpha13 er prerelease, slik at Testutgåver må vere på. Android krev stadfesting av installasjonen.
 
+## Publisert artefakt
+
+Release-taggen `v0.16.0-alpha13` peikar på commit `502757d48d505587aaf894cdd407e38425cab4ef`. Grein og annotert tag vart pusha atomisk. GitHub-releasen er publisert, offentleg og markert som testutgåve; den stabile «latest»-utgåva er ikkje erstatta.
+
+Før publisering vart APK-storleik, uploaded-status og GitHub sin SHA-256-digest kontrollerte i kladden. Etter publisering vart release-lista henta utan autentisering. Ho inneheld alpha13 med éin APK og rett digest. Både den offentlege nedlastingslenkja og API-asset-endepunktet som appen brukar (`Accept: application/octet-stream`) vart lasta ned utan autentisering. Begge filene har nøyaktig same SHA-256 som den lokalt signerte APK-en. R8-mapping, kontrollsum og kjeldecommit er òg publiserte assets.
+
+Dette stadfestar den offentlege distribusjonen som oppdateraren treng. Android sin installasjonsdialog og bevaring av kontoar under sjølve oppgraderinga er framleis ikkje testa i denne runden på grunn av WSL-feilen over.
+
+Eit siste forsøk etter publisering stadfesta at oppstartsskriptet kan starte den lagra mobilprofilen, vente på validert nettverk og opne `app.reelstack`. Pakka på profilen vart avlesen som alpha12 / kode 55. WSL/adb stoppa igjen før oppdateringsmenyen kunne kontrollerast. Oppstartsskriptet fekk òg ei retting slik at WSL-flagg ikkje blir unødvendig siterte ved bakgrunnsoppstart; den retta oppstarten fullførte.
+
 ## Avgrensingar
 
 Emulatorresultat dekkjer ikkje alle fysiske TV-ar, fjernkontrollar eller maskinvarekodekar. Mottak av «spel på»-kommandoar er ikkje levert. Automatisk gjenoppretting av tomme rader akkurat under ein kald emulator-nettverksovergang er ikkje stadfesta som løyst; kontrollerte profilar blir starta etter at nettverket er klart.
