@@ -24,6 +24,38 @@ class TabletFeatureTest {
         artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN,
         overview = "A detailed description. ".repeat(30))
 
+    @Test fun carouselCrossfadesWithoutMovingActionAndOpensDisplayedTitle() {
+        var opened: String? = null
+        val next = media.copy(id = "second", title = "Second series", overview = "Short description")
+        rule.mainClock.autoAdvance = false
+        rule.setContent { ReelstackTheme { TabletLibraryFeature(media, { opened = it }, candidates = listOf(media, next)) } }
+        rule.mainClock.advanceTimeBy(1_000)
+        val before = rule.onNodeWithTag("tablet-feature-open").fetchSemanticsNode().boundsInRoot
+        rule.mainClock.advanceTimeBy(9_000)
+        rule.onNodeWithText(next.title).assertIsDisplayed()
+        val after = rule.onNodeWithTag("tablet-feature-open").fetchSemanticsNode().boundsInRoot
+        assertEquals(before, after)
+        rule.onNodeWithText("Jellyfin").assertIsDisplayed()
+        rule.onNodeWithText("Frå Jellyfin-biblioteket ditt").assertDoesNotExist()
+        rule.onNodeWithTag("tablet-feature-open").performClick()
+        assertEquals(next.id, opened)
+    }
+
+    @Test fun carouselPausesWhileRemoteFocusIsOnTheAction() {
+        rule.mainClock.autoAdvance = false
+        rule.setContent { ReelstackTheme {
+            val input = androidx.compose.ui.platform.LocalInputModeManager.current
+            androidx.compose.runtime.SideEffect { input.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+            TabletLibraryFeature(media, {}, candidates = listOf(media, media.copy(id = "second", title = "Second series")))
+        } }
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.onNodeWithTag("tablet-feature-open").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+        rule.onNodeWithTag("tablet-feature-open").assertIsFocused()
+        rule.mainClock.advanceTimeBy(20_000)
+        rule.onNodeWithText(media.title).assertIsDisplayed()
+        rule.onNodeWithText("Second series").assertDoesNotExist()
+    }
+
     @Test fun featureOpensExactLibraryItemWithoutPlayback() {
         var opened: String? = null
         rule.setContent {

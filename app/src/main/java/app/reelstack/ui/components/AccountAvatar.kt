@@ -84,7 +84,7 @@ fun AccountAvatarButton(
             .testTag(testTag).semantics { contentDescription = description },
     ) {
         AccountAvatar(account, connection, Modifier.size(40.dp).then(
-            if (onArtwork) Modifier.border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = .65f), CircleShape)
+            if (onArtwork) Modifier.border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = .18f), CircleShape)
             else Modifier))
     }
 }

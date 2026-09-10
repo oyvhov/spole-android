@@ -54,7 +54,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.res.stringResource
 import app.reelstack.ui.theme.LocalTabletCanvas
 import app.reelstack.ui.components.TabletLibraryFeature
-import app.reelstack.ui.components.tabletFeaturedTitle
+import app.reelstack.ui.components.tabletFeaturedTitles
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -162,11 +162,17 @@ fun HomeScreen(
         }
         val tablet = LocalTabletCanvas.current
         val edge = app.reelstack.ui.theme.LocalMediaEdgeToEdge.current
-        val featured = if (tablet && personalization.showHero) tabletFeaturedTitle(state.recentSeries, state.homeSections) else null
+        val features = if (tablet && personalization.showHero) tabletFeaturedTitles(state.recentSeries, state.homeSections) else emptyList()
+        val featured = features.firstOrNull()
+        val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
+        val featureVisible by remember { androidx.compose.runtime.derivedStateOf {
+            feedState.layoutInfo.visibleItemsInfo.any { it.key == "tablet-feature" }
+        } }
         LazyColumn(
+            state = feedState,
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
-                top = if (featured != null) 16.dp else ReelLayout.PageTop,
+                top = ReelLayout.PageTop,
                 end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
@@ -184,7 +190,8 @@ fun HomeScreen(
                 item(key = "tablet-feature") {
                     TabletLibraryFeature(featured, onLibraryClick,
                         Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp),
-                        account = { HomeAccountButton(state, onAccountClick, onArtwork = true) })
+                        account = { HomeAccountButton(state, onAccountClick, onArtwork = true) },
+                        candidates = features, rotationEnabled = featureVisible && state.activeSheet == null)
                 }
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {

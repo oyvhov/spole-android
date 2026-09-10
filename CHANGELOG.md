@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.0-alpha15 · Roigare TV-toppfelt
+
+- Felles toppmarg, mindre tittel og diskret «Sjå meir»-knapp.
+- Tenestelogo og namn erstattar «Frå biblioteket ditt».
+- Mjuk rotasjon mellom opptil tre ulike seriar, utan episoderepetisjonar. Pausar ved fokus, skjult felt, detaljar eller bakgrunn.
+- Stabil teksthøgd og handlingsknapp gjennom overgangane, og dempa profilring.
+
 ## 0.16.0-alpha14 · Mediekort og påliteleg innlasting
 
 - Mobilradene går heilt til skjermkanten; overskrifter, søk og siste kort har framleis luft.
