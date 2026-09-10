@@ -19,6 +19,10 @@ Dato: 10. september 2026. Pakke `app.reelstack`, versjonskode 57.
 - versionName `0.16.0-alpha14`, versionCode 57, minSdk 26, targetSdk 36, ikkje debuggable.
 - R8-mapping og kontrollsum arkiverte i `app/build/release-v0.16.0-alpha14`.
 
+## Publisering
+
+Annotert tag `v0.16.0-alpha14` og release-kjelda `fccdcb5` vart pusha atomisk. GitHub-releasen er offentleg, publisert og markert som testutgåve. Ho inneheld éin universal-APK, R8-mapping, SHA256SUMS og SOURCE_COMMIT. GitHub-digest og byte-storleik vart kontrollerte før publisering. Etterpå vart både den offentlege nedlastingslenkja og API-asset-endepunktet som appen brukar lasta ned utan autentisering; begge kontrollsummane samsvarar med den signerte lokale APK-en.
+
 ## Visuell kontroll og grenser
 
 Den lagra mobilprofilen `Spole_Review` (5560) vart oppgradert med signert `install -r` frå alpha12 / kode 55 til alpha14. Installeringa returnerte Success. Etter oppstart viste den eksisterande kontoen ekte titlar i både «Hald fram å sjå» og «Neste episode», utan ny innlogging. Dette stadfestar at konto/data vart bevarte og at produksjonsbygget hentar innhaldet. Det er ikkje ei kunstig injisert nettverksfeil eller ein test av GitHub-installasjonsdialogen.
