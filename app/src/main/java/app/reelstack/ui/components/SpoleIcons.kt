@@ -33,14 +33,17 @@ object SpoleIcons {
         moveTo(15.5f, 8.5f); lineTo(13f, 13f); lineTo(8.5f, 15.5f)
         lineTo(11f, 11f); close()
     }
+    val Library = glyph("Library") {
+        moveTo(4f, 4f); lineTo(4f, 20f); lineTo(9f, 20f); lineTo(9f, 4f); close()
+        moveTo(13f, 4f); lineTo(18f, 3f); lineTo(21f, 19f); lineTo(16f, 20f); close()
+    }
     val Activity = glyph("Activity") {
-        moveTo(4f, 4f); lineTo(4f, 20f)
-        moveTo(2f, 7f); lineTo(6f, 7f)
-        moveTo(2f, 16f); lineTo(6f, 16f)
-        moveTo(10f, 4f); lineTo(20f, 4f); lineTo(20f, 10f); lineTo(10f, 10f); close()
-        moveTo(10f, 15f); lineTo(14f, 15f)
-        moveTo(10f, 20f); lineTo(12f, 20f)
-        moveTo(16f, 18f); lineTo(18f, 20f); lineTo(22f, 15f)
+        moveTo(4f, 6f); lineTo(5f, 6f)
+        moveTo(9f, 6f); lineTo(20f, 6f)
+        moveTo(4f, 12f); lineTo(5f, 12f)
+        moveTo(9f, 12f); lineTo(20f, 12f)
+        moveTo(4f, 18f); lineTo(5f, 18f)
+        moveTo(9f, 18f); lineTo(16f, 18f)
     }
     val Settings = glyph("Settings") {
         moveTo(5f, 3f); lineTo(5f, 6f); moveTo(5f, 12f); lineTo(5f, 21f)

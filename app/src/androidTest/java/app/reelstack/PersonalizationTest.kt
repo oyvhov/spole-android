@@ -102,8 +102,10 @@ class PersonalizationTest {
         }
         rule.onNodeWithTag("auto-resume").performScrollTo().assertIsOn().performClick().assertIsOff()
         rule.onNodeWithTag("appearance-expand").performScrollTo().performClick()
-        rule.onNodeWithTag("accent-OCEAN").performScrollTo().performClick().assertIsSelected()
-        rule.onNodeWithTag("artwork-LARGE").performScrollTo().performClick().assertIsSelected()
+        rule.onNodeWithTag("theme-choice-accent").performScrollTo().performClick()
+        rule.onNodeWithTag("accent-OCEAN").performScrollTo().performClick()
+        rule.onNodeWithTag("theme-choice-artwork").performScrollTo().performClick()
+        rule.onNodeWithTag("artwork-LARGE").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(Personalization(AccentPalette.OCEAN, ArtworkSize.LARGE, false), value) }
         rule.onNodeWithTag("appearance-reset").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(Personalization(autoResume = false), value) }

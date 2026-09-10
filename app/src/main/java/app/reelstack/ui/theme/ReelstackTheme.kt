@@ -9,13 +9,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-val Ink = Color(0xFF101211)
-val Surface = Color(0xFF191C19)
-val SurfaceRaised = Color(0xFF2E332E)
+val Ink: Color @Composable get() = MaterialTheme.colorScheme.background
+val Surface: Color @Composable get() = MaterialTheme.colorScheme.surface
+val SurfaceRaised: Color @Composable get() = MaterialTheme.colorScheme.surfaceVariant
 val Primary: Color @Composable get() = MaterialTheme.colorScheme.primary
 val PrimarySoft: Color @Composable get() = MaterialTheme.colorScheme.secondary
 val Text = Color(0xFFF3F3EC)
-val Muted = Color(0xFFA4ADA3)
+val Muted: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 val Success = Color(0xFF56D993)
 val Caution = Color(0xFFFFC66D)
 val Warning = Color(0xFFFF7A7D)
@@ -34,37 +34,37 @@ val SwitchTrackOn: Color @Composable get() = MaterialTheme.colorScheme.primaryCo
 
 private val ReelstackColors = darkColorScheme(
     primary = Color(0xFFD5F478),
-    onPrimary = Ink,
+    onPrimary = Color(0xFF101211),
     primaryContainer = Color(0xFF344024),
     onPrimaryContainer = Color(0xFFDCE9BD),
     secondary = Color(0xFFDCE9BD),
-    onSecondary = Ink,
-    secondaryContainer = SurfaceRaised,
+    onSecondary = Color(0xFF101211),
+    secondaryContainer = Color(0xFF2E332E),
     onSecondaryContainer = Color(0xFFDCE9BD),
     tertiary = Success,
-    onTertiary = Ink,
-    tertiaryContainer = SurfaceRaised,
+    onTertiary = Color(0xFF101211),
+    tertiaryContainer = Color(0xFF2E332E),
     onTertiaryContainer = Success,
-    background = Ink,
+    background = Color(0xFF101211),
     onBackground = Text,
-    surface = Surface,
+    surface = Color(0xFF191C19),
     onSurface = Text,
-    surfaceVariant = SurfaceRaised,
-    onSurfaceVariant = Muted,
-    surfaceDim = Ink,
-    surfaceBright = SurfaceRaised,
-    surfaceContainerLowest = Ink,
-    surfaceContainerLow = Surface,
-    surfaceContainer = Surface,
-    surfaceContainerHigh = SurfaceRaised,
-    surfaceContainerHighest = SurfaceRaised,
+    surfaceVariant = Color(0xFF2E332E),
+    onSurfaceVariant = Color(0xFFA4ADA3),
+    surfaceDim = Color(0xFF101211),
+    surfaceBright = Color(0xFF2E332E),
+    surfaceContainerLowest = Color(0xFF101211),
+    surfaceContainerLow = Color(0xFF191C19),
+    surfaceContainer = Color(0xFF191C19),
+    surfaceContainerHigh = Color(0xFF2E332E),
+    surfaceContainerHighest = Color(0xFF2E332E),
     outline = ControlOutline,
     outlineVariant = Divider,
     inverseSurface = Text,
-    inverseOnSurface = Ink,
+    inverseOnSurface = Color(0xFF101211),
     inversePrimary = Color(0xFF415522),
     error = Warning,
-    onError = Ink,
+    onError = Color(0xFF101211),
     errorContainer = Color(0xFF43282A),
     onErrorContainer = Color(0xFFFFDADC),
 )
@@ -84,9 +84,20 @@ fun ReelstackTheme(content: @Composable () -> Unit) {
 
     val personalization = rememberPersonalization()
     val palette = personalization.accent
+    val mood = personalization.visualTheme
+    val background = Color(mood.background)
+    val surface = Color(mood.surface)
+    val raised = Color(mood.raised)
     androidx.compose.runtime.CompositionLocalProvider(LocalPersonalization provides personalization) {
     MaterialTheme(
         colorScheme = ReelstackColors.copy(
+            background = background, surface = surface, surfaceVariant = raised,
+            surfaceDim = background, surfaceBright = raised,
+            surfaceContainerLowest = background, surfaceContainerLow = surface,
+            surfaceContainer = surface, surfaceContainerHigh = raised, surfaceContainerHighest = raised,
+            secondaryContainer = raised, tertiaryContainer = raised,
+            onSurfaceVariant = if (personalization.highContrast) Color(0xFFDBE0DD) else Color(0xFFA4ADA3),
+            outline = if (personalization.highContrast) Color(0xFFAFB8B0) else ControlOutline,
             primary = Color(palette.argb),
             secondary = Color(palette.softArgb),
             primaryContainer = Color(palette.containerArgb),
@@ -94,7 +105,11 @@ fun ReelstackTheme(content: @Composable () -> Unit) {
             onSecondaryContainer = Color(palette.softArgb),
         ),
         typography = reelstackTypography(),
-        content = content,
+        content = {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.material3.LocalContentColor provides Text,
+            ) { content() }
+        },
     )
     }
 }

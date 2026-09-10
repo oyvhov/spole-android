@@ -94,6 +94,10 @@ class MediaSnapshotStoreTest {
                     "https://media.example/Items/series-1/Images/Primary",
                 ),
             ),
+            resume = listOf(LibraryMedia("resume", "Paused", "", .4f, R.drawable.media_placeholder,
+                ServiceKind.JELLYFIN, lastActivityEpochMillis = 1000)),
+            nextUp = listOf(LibraryMedia("next", "Next", "", null, R.drawable.media_placeholder,
+                ServiceKind.JELLYFIN, lastActivityEpochMillis = 2000)),
             upcoming = emptyList(),
             recentReleases = listOf(
                 UpcomingMedia(
@@ -132,6 +136,9 @@ class MediaSnapshotStoreTest {
 
         assertEquals(emptyList<PlaybackSession>(), restored?.sessions)
         assertEquals("The Odyssey", restored?.recentMovies?.single()?.title)
+        assertEquals(1000L, restored?.resume?.single()?.lastActivityEpochMillis)
+        assertEquals(2000L, restored?.nextUp?.single()?.lastActivityEpochMillis)
+        assertEquals(listOf("next", "resume"), app.reelstack.data.model.combinedWatching(restored!!.resume, restored.nextUp).map { it.id })
         assertEquals(R.drawable.media_placeholder, restored?.recentMovies?.single()?.artworkRes)
         assertEquals(6, restored?.discover?.single()?.seerrStatus)
         assertEquals(false, restored?.discover?.single()?.canRequest)

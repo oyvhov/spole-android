@@ -24,6 +24,7 @@ class MediaRefreshWorker(
             runCatching { container.requestTrackingRepository.refresh(it) }
         }
 
+        val fingerprint = container.mediaFingerprint(connections)
         val snapshot = runCatching {
             container.mediaSyncRepository.refresh(
                 connections = connections,
@@ -36,7 +37,7 @@ class MediaRefreshWorker(
             runCatching {
                 container.mediaSnapshotStore.save(
                     snapshot,
-                    app.reelstack.data.repository.MediaSnapshotStore.fingerprint(connections),
+                    fingerprint,
                 )
             }
         }

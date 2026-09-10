@@ -104,6 +104,8 @@ data class LibraryMedia(
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val mediaType: String = "Video",
+    /** Playback activity, never the date a file was added to the library. */
+    val lastActivityEpochMillis: Long? = null,
 )
 
 data class UpcomingMedia(
@@ -222,6 +224,9 @@ data class ContentDetails(
     val statusTitle: String? = null,
     val statusDescription: String? = null,
     val libraryAvailable: Boolean = false,
+    val progress: Float? = null,
+    val remainingMinutes: Int? = null,
+    val quality: List<String> = emptyList(),
     val cast: List<CastMember> = emptyList(),
 )
 

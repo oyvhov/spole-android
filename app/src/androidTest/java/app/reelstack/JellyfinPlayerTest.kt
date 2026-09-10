@@ -32,18 +32,28 @@ class JellyfinPlayerTest {
         init { pool.execute { while (!socket.isClosed) runCatching { val client = socket.accept(); pool.execute {
             client.use { conn -> runCatching {
                 conn.soTimeout = 5000
-                val reader = conn.getInputStream().bufferedReader()
-                val line = reader.readLine() ?: return@runCatching
+                val reader = conn.getInputStream().buffered()
+                fun readHeaderLine(): String? {
+                    val bytes = java.io.ByteArrayOutputStream()
+                    while (true) {
+                        val next = reader.read()
+                        if (next < 0) return if (bytes.size() == 0) null else bytes.toString("UTF-8").trimEnd('\r')
+                        if (next == 10) return bytes.toString("UTF-8").trimEnd('\r')
+                        bytes.write(next)
+                    }
+                }
+                val line = readHeaderLine() ?: return@runCatching
                 val path = line.split(' ')[1]
                 requests += path
                 val headers = mutableMapOf<String,String>()
-                while (true) { val value = reader.readLine() ?: break; if (value.isBlank()) break
+                while (true) { val value = readHeaderLine() ?: break; if (value.isBlank()) break
                     headers[value.substringBefore(':').lowercase()] = value.substringAfter(':').trim() }
                 clientHeaders += headers["authorization"].orEmpty()
-                val chars = CharArray(headers["content-length"]?.toIntOrNull() ?: 0)
+                // HTTP Content-Length counts UTF-8 bytes, not characters (e.g. the profile's middle dot).
+                val chars = ByteArray(headers["content-length"]?.toIntOrNull() ?: 0)
                 var count = 0
                 while (count < chars.size) { val n = reader.read(chars, count, chars.size-count); if (n < 0) break; count += n }
-                val body = if (chars.isEmpty()) JsonObject(emptyMap()) else Json.parseToJsonElement(String(chars)).jsonObject
+                val body = if (chars.isEmpty()) JsonObject(emptyMap()) else Json.parseToJsonElement(chars.toString(Charsets.UTF_8)).jsonObject
                 var status = 200
                 var contentType = "application/json"
                 var bytes = when {
@@ -56,7 +66,7 @@ class JellyfinPlayerTest {
                         events += path to body
                         val direct = !hls && body["EnableDirectPlay"] != JsonPrimitive(false)
                         val sub = (body["SubtitleStreamIndex"] as? JsonPrimitive)?.intOrNull ?: 2
-                        """{"PlaySessionId":"session${events.size}","MediaSources":[{"Id":"source","SupportsDirectPlay":$direct,"TranscodingUrl":"/hls/master.m3u8?api_key=fixture","DefaultAudioStreamIndex":1,"DefaultSubtitleStreamIndex":$sub,"MediaStreams":[{"Index":1,"Type":"Audio","DisplayTitle":"English","Language":"eng"},{"Index":3,"Type":"Audio","DisplayTitle":"Norsk","Language":"nor"},{"Index":2,"Type":"Subtitle","DisplayTitle":"Norsk tekst","Language":"nor","Codec":"srt","IsTextSubtitleStream":true}]}]}""".toByteArray()
+                        """{"PlaySessionId":"session${events.size}","MediaSources":[{"Id":"source","SupportsDirectPlay":$direct,"TranscodingUrl":"/hls/master.m3u8?api_key=fixture","DefaultAudioStreamIndex":1,"DefaultSubtitleStreamIndex":$sub,"MediaStreams":[{"Index":0,"Type":"Video","Codec":"h264","Profile":"baseline","Width":640,"Height":360,"BitDepth":8,"VideoRangeType":"SDR","AverageFrameRate":24},{"Index":1,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"English","Language":"eng"},{"Index":3,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"Norsk","Language":"nor"},{"Index":2,"Type":"Subtitle","DisplayTitle":"Norsk tekst","Language":"nor","Codec":"srt","IsTextSubtitleStream":true}]}]}""".toByteArray()
                     }
                     path.startsWith("/Sessions/Playing") -> { events += path to body; status = if (rejectReports) 503 else 204; byteArrayOf() }
                     path.contains("/Subtitles/") -> { contentType="text/vtt"; assets.open("player/subtitle.vtt").use { it.readBytes() } }
@@ -125,7 +135,17 @@ class JellyfinPlayerTest {
             waitFor { snapshot(scenario).playing }
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
             // TV Back first dismisses visible controls; the next Back exits playback.
-            instrumentation.waitForIdleSync()
+            waitFor {
+                val automation = instrumentation.uiAutomation
+                automation.clearCache()
+                fun hasPause(node: android.view.accessibility.AccessibilityNodeInfo?): Boolean {
+                    node ?: return false
+                    if (node.contentDescription?.toString() == context.getString(R.string.player_pause)) return true
+                    return (0 until node.childCount).any { hasPause(node.getChild(it)) }
+                }
+                val root = automation.rootInActiveWindow
+                root != null && !hasPause(root)
+            }
             assertNotEquals(Lifecycle.State.DESTROYED, scenario.state)
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
             waitFor { scenario.state == Lifecycle.State.DESTROYED }
@@ -200,7 +220,7 @@ class JellyfinPlayerTest {
         }
         playing(scenario)
         waitFor { find("Set på pause") != null }
-        waitFor(8_000) { find("Set på pause") == null && find("Tilbake") != null }
+        waitFor(8_000) { find("Set på pause") == null && find("Tilbake") == null }
         val bounds = android.graphics.Rect()
         scenario.onActivity { it.window.decorView.getGlobalVisibleRect(bounds) }
         tap(bounds.left + bounds.width() * .85f,bounds.top + bounds.height() * .35f)
@@ -210,8 +230,12 @@ class JellyfinPlayerTest {
         waitFor { !snapshot(scenario).playing }
         assertTrue(snapshot(scenario).error == null)
     }
-    @Test fun onScreenBackWorksAfterTransportControlsHide() = exercise { scenario,server,_ ->
+    @Test fun onScreenBackReturnsOnlyWhenTransportControlsAreShown() = exercise { scenario,server,_ ->
         val automation = instrumentation.uiAutomation
+        fun root(): android.view.accessibility.AccessibilityNodeInfo? {
+            if (android.os.Build.VERSION.SDK_INT >= 33) automation.clearCache()
+            return automation.rootInActiveWindow
+        }
         playing(scenario)
         SystemClock.sleep(3_900) // Real auto-hide deadline, not the Compose test clock.
         fun findBack(node: android.view.accessibility.AccessibilityNodeInfo): android.view.accessibility.AccessibilityNodeInfo? {
@@ -222,19 +246,30 @@ class JellyfinPlayerTest {
             }
             return null
         }
+        assertNull(root()?.let(::findBack))
+        val window = android.graphics.Rect()
+        scenario.onActivity { it.window.decorView.getGlobalVisibleRect(window) }
+        val revealTime = SystemClock.uptimeMillis()
+        for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+            val event = android.view.MotionEvent.obtain(revealTime, SystemClock.uptimeMillis(), action,
+                window.left + window.width() * .75f, window.top + window.height() * .4f, 0)
+            event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            try { automation.injectInputEvent(event, true) } finally { event.recycle() }
+        }
         // UiAutomation's accessibility service connects asynchronously on first use.
         var back: android.view.accessibility.AccessibilityNodeInfo? = null
         waitFor(5_000) {
-            back = automation.rootInActiveWindow?.let(::findBack)
+            back = root()?.let(::findBack)
             back != null
         }
-        assertNotNull("Back must remain available while video plays", back)
+        assertNotNull("Back must be available with the on-screen controls", back)
         val bounds = android.graphics.Rect()
         back!!.getBoundsInScreen(bounds)
         val time = SystemClock.uptimeMillis()
         for (action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
             val event = android.view.MotionEvent.obtain(time,SystemClock.uptimeMillis(),action,
                 bounds.exactCenterX(),bounds.exactCenterY(),0)
+            event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
             try { assertTrue(instrumentation.uiAutomation.injectInputEvent(event,true)) } finally { event.recycle() }
         }
         waitFor { scenario.state == Lifecycle.State.DESTROYED }

@@ -24,6 +24,7 @@ import app.reelstack.data.model.ServiceAccount
 import app.reelstack.data.model.canRequestType
 import app.reelstack.data.model.RequestDraft
 import app.reelstack.data.model.RequestSeason
+import app.reelstack.data.model.quotaExceeded
 import app.reelstack.data.model.TrackedRequest
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
@@ -39,9 +40,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-enum class AppTab { HOME, DISCOVER, ACTIVITY, SETTINGS }
+enum class AppTab { HOME, LIBRARY, DISCOVER, ACTIVITY, SETTINGS }
 
 enum class ConnectionAuthMode { QUICK_CONNECT, ACCOUNT, API_KEY }
 
@@ -82,6 +84,7 @@ data class ReelstackUiState(
     val loadingAccounts: Set<ServiceKind> = emptySet(),
     val sessions: List<PlaybackSession> = demoSessions(),
     val resume: List<LibraryMedia> = demoResume(),
+    val nextUp: List<LibraryMedia> = emptyList(),
     val recentMovies: List<LibraryMedia> = demoRecentMovies(),
     val recentSeries: List<LibraryMedia> = demoRecentSeries(),
     val upcoming: List<UpcomingMedia> = demoUpcoming(),
@@ -93,6 +96,20 @@ data class ReelstackUiState(
     val recommendations: List<DiscoverMedia> = demoRecommendations(),
     val searchResults: List<DiscoverMedia> = emptyList(),
     /** Hits from your own Jellyfin/Emby libraries, shown above the Seerr results. */
+    val libraryChoices: List<app.reelstack.data.network.RemoteLibraryView> = emptyList(),
+    val selectedLibraryIds: Set<String> = emptySet(),
+    val libraryShortcuts: List<Pair<String, String>> = emptyList(),
+    val libraryChoicesOpen: Boolean = false,
+    val libraryChoicesLoading: Boolean = false,
+    val libraryChoicesError: String? = null,
+    val libraryDetailMedia: LibraryMedia? = null,
+    val libraryEntries: List<app.reelstack.data.network.RemoteLibraryItem> = emptyList(),
+    val libraryPath: List<Pair<String, String>> = emptyList(),
+    val libraryCollectionType: String? = null,
+    val libraryLoading: Boolean = false,
+    val libraryError: String? = null,
+    val libraryOffset: Int = 0,
+    val libraryHasMore: Boolean = false,
     val librarySearchResults: List<LibraryMedia> = emptyList(),
     val searchPage: Int = 1,
     val searchHasMore: Boolean = false,
@@ -121,6 +138,8 @@ data class ReelstackUiState(
     val returnToCalendar: Boolean = false,
     val requestDraft: RequestDraft? = null,
     val trackedRequests: List<TrackedRequest> = emptyList(),
+    val requestHistory: app.reelstack.data.model.RequestHistoryState = app.reelstack.data.model.RequestHistoryState(),
+    val showRequestHistory: Boolean = false,
     val trackingError: String? = null,
     val trackingLoading: Boolean = false,
     /** Keys of follows currently being withdrawn, so a card cannot be cancelled twice. */
@@ -151,18 +170,120 @@ class ReelstackViewModel(
         private set
 
     private var refreshJob: Job? = null
+    private var libraryChoicesJob: Job? = null
+    private var libraryJob: Job? = null
     private var searchJob: Job? = null
     private var quickConnectJob: Job? = null
     private var connectionJob: Job? = null
     private var accountsJob: Job? = null
     private var trackingJob: Job? = null
+    private var historyJob: Job? = null
     private var requestDraftJob: Job? = null
 
     init {
         refreshLiveData()
     }
 
-    fun selectTab(tab: AppTab) = _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false) }
+    fun selectTab(tab: AppTab) {
+        _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false) }
+        if (tab == AppTab.LIBRARY) browseLibrary(false)
+    }
+
+    fun openLibraryChoices() {
+        val connection = _uiState.value.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() } ?: return
+        libraryChoicesJob?.cancel()
+        _uiState.update { it.copy(libraryChoicesOpen = true, libraryChoicesLoading = true, libraryChoicesError = null, libraryChoices = emptyList()) }
+        libraryChoicesJob = viewModelScope.launch {
+            try {
+                val choices = withContext(Dispatchers.IO) { container.mediaServerClient.browseLibraries(connection) }
+                if (!isActive) return@launch
+                _uiState.update { it.copy(libraryChoicesLoading = false, libraryChoices = choices,
+                    selectedLibraryIds = choices.filter { view -> container.preferencesRepository.includesLibrary(connection, view) }.mapTo(mutableSetOf()) { view -> view.id }) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+            } catch (error: Exception) {
+                _uiState.update { it.copy(libraryChoicesLoading = false,
+                    libraryChoicesError = error.readableMessage() ?: container.appContext.getString(R.string.library_failed)) }
+            }
+        }
+    }
+
+    fun closeLibraryChoices() {
+        libraryChoicesJob?.cancel()
+        _uiState.update { it.copy(libraryChoicesOpen = false) }
+    }
+
+    fun saveLibraryChoices(ids: Set<String>, shortcuts: Set<String> = _uiState.value.libraryShortcuts.map { it.first }.toSet()) {
+        val state = _uiState.value
+        if (!state.libraryChoicesOpen || state.libraryChoicesLoading || state.libraryChoicesError != null) return
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() } ?: return
+        container.preferencesRepository.setSelectedLibraryIds(connection, ids.intersect(state.libraryChoices.map { it.id }.toSet()))
+        val pinned = state.libraryChoices.filter { it.id in shortcuts && it.id in ids }.map { it.id to it.name }
+        container.preferencesRepository.setLibraryShortcuts(connection, pinned)
+        refreshJob?.cancel()
+        refreshJob = null
+        libraryChoicesJob?.cancel()
+        libraryJob?.cancel()
+        searchJob?.cancel()
+        _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned,
+            libraryPath = emptyList(), libraryEntries = emptyList(), libraryDetailMedia = null,
+            resume = emptyList(), nextUp = emptyList(), recentMovies = emptyList(), recentSeries = emptyList(), recentReleases = emptyList(),
+            librarySearchResults = emptyList(), isSearching = false, hasCachedData = false) }
+        browseLibrary()
+        refreshLiveData()
+        if (state.searchQuery.isNotBlank()) setSearchQuery(state.searchQuery)
+    }
+
+    fun browseLibrary(more: Boolean = false) {
+        if (more && (_uiState.value.libraryLoading || !_uiState.value.libraryHasMore)) return
+        libraryJob?.cancel()
+        val state = _uiState.value
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.baseUrl.isNotBlank() && it.token.isNotBlank() } ?: return
+        val path = state.libraryPath
+        val offset = if (more) state.libraryOffset else 0
+        _uiState.update { it.copy(libraryLoading = true, libraryError = null,
+            libraryEntries = if (more) it.libraryEntries else emptyList()) }
+        libraryJob = viewModelScope.launch {
+            try {
+                val entries = withContext(Dispatchers.IO) {
+                    if (path.isEmpty()) container.mediaServerClient.browseLibraries(connection).filter { container.preferencesRepository.includesLibrary(connection, it) }.map { view ->
+                        app.reelstack.data.network.RemoteLibraryItem(view.id, view.name, "", null, "CollectionFolder", view.id,
+                            artworkUrl = view.artworkUrl, isFolder = true, collectionType = view.collectionType)
+                    } else {
+                        val catalogueType = if (path.size == 1) state.libraryCollectionType ?:
+                            container.mediaServerClient.browseLibraries(connection).firstOrNull { it.id == path.first().first }?.collectionType else null
+                        container.mediaServerClient.browseLibrary(connection, path.last().first, offset, catalogueType)
+                    }
+                }
+                if (!isActive || _uiState.value.connections.none { it.kind == connection.kind && it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId }) return@launch
+                _uiState.update { it.copy(libraryLoading = false,
+                    libraryEntries = ((if (more) it.libraryEntries else emptyList()) + entries).distinctBy { entry -> entry.id },
+                    libraryOffset = offset + entries.size, libraryHasMore = path.isNotEmpty() && entries.size == 60) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+            } catch (error: Exception) {
+                if (isActive) _uiState.update { it.copy(libraryLoading = false, libraryError = error.readableMessage() ?: container.appContext.getString(R.string.library_failed)) }
+            }
+        }
+    }
+
+    fun libraryBack() {
+        _uiState.update { it.copy(libraryPath = it.libraryPath.dropLast(1)) }
+        browseLibrary()
+    }
+
+    fun openLibraryEntry(id: String) {
+        val entry = _uiState.value.libraryEntries.firstOrNull { it.id == id } ?: return
+        if (entry.isFolder) {
+            _uiState.update { it.copy(libraryPath = it.libraryPath + (entry.id to entry.title),
+                libraryCollectionType = if (it.libraryPath.isEmpty()) entry.collectionType else it.libraryCollectionType) }
+            browseLibrary()
+        } else {
+            val media = LibraryMedia("jellyfin-${entry.id}", entry.title, entry.subtitle, entry.progress,
+                R.drawable.media_placeholder, ServiceKind.JELLYFIN, entry.artworkUrl, entry.id,
+                entry.overview, entry.facts, entry.genres, entry.mediaType)
+            _uiState.update { it.copy(libraryDetailMedia = media) }
+            openLibraryDetails(media.id)
+        }
+    }
 
     fun completeOnboarding() {
         container.preferencesRepository.onboardingCompleted = true
@@ -227,7 +348,7 @@ class ReelstackViewModel(
 
     fun openLibraryDetails(id: String) {
         val state = _uiState.value
-        val media = (state.resume + state.recentMovies + state.recentSeries + state.librarySearchResults)
+        val media = (state.resume + state.nextUp + state.recentMovies + state.recentSeries + state.librarySearchResults + listOfNotNull(state.libraryDetailMedia))
             .firstOrNull { it.id == id } ?: return
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
@@ -250,6 +371,7 @@ class ReelstackViewModel(
                     loading = connection != null && media.remoteId != null,
                     statusTitle = "I biblioteket",
                     libraryAvailable = true,
+                    progress = media.progress,
                     statusDescription = "Registrert i ${media.source.displayName}.",
                 ),
             )
@@ -276,6 +398,9 @@ class ReelstackViewModel(
                                 facts = (remote.facts + details.facts).distinct(),
                                 genres = (remote.genres + details.genres).distinct(),
                                 artworkUrl = remote.artworkUrl ?: details.artworkUrl,
+                                progress = remote.progress ?: details.progress,
+                                remainingMinutes = remote.remainingMinutes,
+                                quality = remote.quality,
                                 loading = false,
                             ),
                         )
@@ -418,7 +543,8 @@ class ReelstackViewModel(
     }
 
     fun openActivityDetails(id: String) {
-        _uiState.value.trackedRequests.firstOrNull { it.key == id }?.let { tracked ->
+        (_uiState.value.trackedRequests + _uiState.value.requestHistory.items).firstOrNull { it.key == id }?.let { tracked ->
+            if (tracked.mediaId <= 0 || tracked.mediaType !in setOf("movie", "tv")) return
             val media = app.reelstack.data.model.DiscoverMedia(
                 id = "seerr-${tracked.mediaType}-${tracked.mediaId}", title = tracked.title,
                 metadata = if (tracked.mediaType == "tv") "Serie" else "Film", artworkRes = R.drawable.media_placeholder,
@@ -612,11 +738,15 @@ class ReelstackViewModel(
         }
         requestDraftJob = viewModelScope.launch {
             val result = attempt { withContext(Dispatchers.IO) {
+                val rules = async {
+                    attempt { container.requestRulesClient.load(requireNotNull(connection),
+                        requireNotNull(state.accounts[ServiceKind.SEERR]).id, media.mediaType ?: "movie") }.getOrNull()
+                }
                 val remote = container.mediaSyncRepository.details(requireNotNull(connection), media)
                 val watched = state.accounts[ServiceKind.SEERR]?.let { actor ->
                     media.remoteId?.let { remoteId -> container.requestTrackingRepository.watchedSeasons(connection, actor.id, remoteId) }
                 }.orEmpty()
-                remote to watched
+                Triple(remote, watched, rules.await())
             } }
             if (!isActive) return@launch
             _uiState.update { current ->
@@ -624,11 +754,11 @@ class ReelstackViewModel(
                 if (current.activeSheet != AppSheet.RequestComposer) return@update current
                 val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
                 if (configured?.token != connection?.token || configured?.baseUrl != connection?.baseUrl) return@update current
-                current.copy(requestDraft = result.fold(onSuccess = { (remote, watched) ->
+                current.copy(requestDraft = result.fold(onSuccess = { (remote, watched, rules) ->
                     // No implicit "all seasons", including future or undated returning seasons.
                     draft.copy(loading = false, seasons = remote.seasons, selected = emptySet(),
                         mediaStatus = remote.seerrStatus, nextEpisode = remote.nextEpisode,
-                        watchedSeasons = watched,
+                        watchedSeasons = watched, rules = rules,
                         error = when {
                             remote.seerrStatus == 6 -> "Tittelen er blokkert av administratoren."
                             media.mediaType == "tv" && remote.seasons.isEmpty() -> "Seerr gav ingen sesongar. Prøv igjen seinare."
@@ -654,6 +784,7 @@ class ReelstackViewModel(
 
     fun confirmRequest() {
         val draft = _uiState.value.requestDraft ?: return
+        if (draft.quotaExceeded || draft.rules?.canRequest == false) return
         if (draft.loading || draft.sending || draft.savingWatch != null || draft.error != null || (draft.media.mediaType == "tv" && draft.selected.isEmpty())) return
         sendRequest(draft.media.id)
     }
@@ -765,6 +896,62 @@ class ReelstackViewModel(
                     else result.exceptionOrNull()?.readableMessage()
                         ?: "Fekk ikkje trekt tilbake førespurnaden. Prøv igjen.",
                 )
+            }
+        }
+    }
+
+    fun openRequestHistory() {
+        _uiState.update { it.copy(showRequestHistory = true) }
+        if (!_uiState.value.requestHistory.loaded) loadRequestHistory(false)
+    }
+
+    fun openLibraryShortcut(id: String) {
+        val shortcut = _uiState.value.libraryShortcuts.firstOrNull { it.first == id } ?: return
+        _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shortcut), libraryCollectionType = null) }
+        browseLibrary()
+    }
+
+    fun closeRequestHistory() {
+        historyJob?.cancel()
+        _uiState.update { it.copy(showRequestHistory = false, requestHistory = it.requestHistory.copy(loading = false)) }
+    }
+
+    fun loadRequestHistory(more: Boolean) {
+        val state = _uiState.value
+        if (state.requestHistory.loading || (more && !state.requestHistory.hasMore)) return
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() }
+        val actor = state.accounts[ServiceKind.SEERR]?.takeIf { it.isPersonal }
+        if (connection == null || actor == null) {
+            _uiState.update { it.copy(requestHistory = app.reelstack.data.model.RequestHistoryState(
+                error = container.appContext.getString(R.string.history_sign_in))) }
+            return
+        }
+        historyJob?.cancel()
+        val starting = if (more) state.requestHistory else app.reelstack.data.model.RequestHistoryState()
+        _uiState.update { it.copy(requestHistory = state.requestHistory.copy(loading = true, error = null)) }
+        historyJob = viewModelScope.launch {
+            try {
+                val page = withContext(Dispatchers.IO) {
+                    container.requestHistoryRepository.load(connection, actor.id, starting.nextOffset) { ensureActive() }
+                }
+                ensureActive()
+                val current = _uiState.value
+                val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+                if (configured?.token != connection.token || configured.identity != connection.identity ||
+                    !configured.sessionCookie || current.accounts[ServiceKind.SEERR]?.id != actor.id) {
+                    _uiState.update { it.copy(requestHistory = app.reelstack.data.model.RequestHistoryState(
+                        error = container.appContext.getString(R.string.history_sign_in))) }
+                    return@launch
+                }
+                val updated = starting.append(page.items, page.nextOffset, page.hasMore, page.total)
+                _uiState.update { it.copy(requestHistory = updated) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+            } catch (_: app.reelstack.data.repository.HistoryIdentityChangedException) {
+                _uiState.update { it.copy(requestHistory = app.reelstack.data.model.RequestHistoryState(
+                    error = container.appContext.getString(R.string.history_sign_in))) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(requestHistory = state.requestHistory.copy(loading = false, retryFromStart = !more,
+                    error = container.appContext.getString(R.string.history_failed))) }
             }
         }
     }
@@ -885,6 +1072,13 @@ class ReelstackViewModel(
         }
     }
 
+    /** Returning from playback must refresh personal progress and the next episode too. */
+    fun returnedToApp() {
+        refreshLiveData()
+        val key = (_uiState.value.activeSheet as? AppSheet.TitleDetails)?.key
+        if (key != null && key.startsWith("jellyfin-")) openLibraryDetails(key)
+    }
+
     fun refreshLiveData(userInitiated: Boolean = false) {
         refreshAccounts()
         refreshTrackedRequests()
@@ -902,6 +1096,7 @@ class ReelstackViewModel(
                 it.copy(
                     sessions = demoSessions(),
                     resume = demoResume(),
+                    nextUp = emptyList(),
                     recentMovies = demoRecentMovies(),
                     recentSeries = demoRecentSeries(),
                     upcoming = demoUpcoming(),
@@ -929,6 +1124,7 @@ class ReelstackViewModel(
             return
         }
 
+        val refreshFingerprint = container.mediaFingerprint(state.connections)
         _uiState.update { it.copy(isRefreshing = true) }
         refreshJob = viewModelScope.launch {
             val outcome = attempt {
@@ -945,7 +1141,7 @@ class ReelstackViewModel(
                         withContext(Dispatchers.IO) {
                             container.mediaSnapshotStore.save(
                                 snapshot,
-                                app.reelstack.data.repository.MediaSnapshotStore.fingerprint(_uiState.value.connections),
+                                refreshFingerprint,
                             )
                         }
                     }
@@ -964,6 +1160,7 @@ class ReelstackViewModel(
                 }
                 return@launch
             }
+            if (!isActive || container.mediaFingerprint(_uiState.value.connections) != refreshFingerprint) return@launch
             // A service that only answered on its alternate address keeps that address next time.
             if (snapshot.switchedToAlternate.isNotEmpty()) {
                 attempt {
@@ -990,6 +1187,9 @@ class ReelstackViewModel(
                     sessions = snapshot.sessions,
                     // Do not retain library data after the current profile or library scope fails verification.
                     resume = snapshot.resume,
+                    nextUp = snapshot.nextUp,
+                    libraryShortcuts = connectionsNow.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+                        ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
                     recentMovies = snapshot.recentMovies,
                     recentSeries = snapshot.recentSeries,
                     // Release metadata does not require administrator queue credentials.
@@ -1078,6 +1278,9 @@ class ReelstackViewModel(
                             accountErrors = if (result.isSuccess) current.accountErrors - connection.kind else current.accountErrors +
                                 (connection.kind to "Fekk ikkje stadfesta kontoen. Sjekk innlogginga eller prøv å oppdatere igjen."),
                             loadingAccounts = current.loadingAccounts - connection.kind,
+                            requestHistory = if (connection.kind == ServiceKind.SEERR &&
+                                (result.isFailure || result.getOrNull()?.id != current.accounts[ServiceKind.SEERR]?.id))
+                                app.reelstack.data.model.RequestHistoryState() else current.requestHistory,
                         )
                     }
                 }
@@ -1385,8 +1588,11 @@ class ReelstackViewModel(
         }
         refreshJob?.cancel()
         refreshJob = null
+        libraryChoicesJob?.cancel()
+        libraryJob?.cancel()
         searchJob?.cancel()
         trackingJob?.cancel()
+        historyJob?.cancel()
         val saved = candidate.copy(
             state = ConnectionState.CONNECTED,
             latencyMs = result.latencyMs,
@@ -1394,6 +1600,8 @@ class ReelstackViewModel(
         )
         _uiState.update { state ->
             state.copy(
+                libraryChoicesOpen = false, libraryChoices = emptyList(), libraryShortcuts = emptyList(), libraryDetailMedia = null, libraryEntries = emptyList(), libraryPath = emptyList(), libraryLoading = false, libraryHasMore = false, libraryError = null,
+                requestHistory = app.reelstack.data.model.RequestHistoryState(), showRequestHistory = false,
                 connections = state.connections.map { if (it.kind == saved.kind) saved else if (it.kind == companion?.kind) companion.copy(state = ConnectionState.CONNECTED) else it },
                 accounts = state.accounts - saved.kind - listOfNotNull(companion?.kind).toSet(),
                 trackedRequests = if (saved.kind == ServiceKind.SEERR || companion?.kind == ServiceKind.SEERR) emptyList() else state.trackedRequests,
@@ -1401,6 +1609,7 @@ class ReelstackViewModel(
                 adminView = false,
                 sessions = emptyList(),
                 resume = emptyList(),
+                nextUp = emptyList(),
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
                 upcoming = emptyList(),
@@ -1428,9 +1637,12 @@ class ReelstackViewModel(
         quickConnectJob?.cancel()
         accountsJob?.cancel()
         trackingJob?.cancel()
+        libraryChoicesJob?.cancel()
+        libraryJob?.cancel()
         searchJob?.cancel()
         refreshJob?.cancel()
         refreshJob = null
+        historyJob?.cancel()
         container.connectionRepository.signOut(kind)
         val remaining = container.connectionRepository.list()
         val signedOutEverywhere = remaining.none { it.baseUrl.isNotBlank() }
@@ -1438,6 +1650,8 @@ class ReelstackViewModel(
         container.mediaSnapshotStore.clear()
         _uiState.update {
             it.copy(
+                libraryChoicesOpen = false, libraryChoices = emptyList(), libraryShortcuts = emptyList(), libraryDetailMedia = null, libraryEntries = emptyList(), libraryPath = emptyList(), libraryLoading = false, libraryHasMore = false, libraryError = null,
+                requestHistory = app.reelstack.data.model.RequestHistoryState(), showRequestHistory = false,
                 connections = remaining,
                 showOnboarding = signedOutEverywhere,
                 adminView = false,
@@ -1445,6 +1659,7 @@ class ReelstackViewModel(
                 activity = emptyList(),
                 incoming = emptyList(),
                 resume = emptyList(),
+                nextUp = emptyList(),
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
                 upcoming = emptyList(),
@@ -1496,13 +1711,15 @@ private fun initialState(container: AppContainer): ReelstackUiState {
     // identities and library exclusions are revalidated before anything is exposed.
     val cached = runCatching {
         container.mediaSnapshotStore.read(
-            app.reelstack.data.repository.MediaSnapshotStore.fingerprint(connections),
+            container.mediaFingerprint(connections),
         )
     }.getOrNull()
 
     return ReelstackUiState(
         showOnboarding = configuredKinds.isEmpty() && !container.preferencesRepository.onboardingCompleted,
         connections = connections,
+        libraryShortcuts = connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+            ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
         sessions = when {
             hasMediaServer && cached != null -> cached.sessions
             hasMediaServer -> emptyList()
@@ -1518,6 +1735,7 @@ private fun initialState(container: AppContainer): ReelstackUiState {
             hasMediaServer -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoRecentMovies() else emptyList()
         },
+        nextUp = if (hasMediaServer) cached?.nextUp.orEmpty() else emptyList(),
         recentSeries = when {
             hasMediaServer && cached != null -> cached.recentSeries
             hasMediaServer -> emptyList()

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_open">View request history</string>
+    <string name="history_title">Request history</string>
+    <string name="history_description">Your requests in Seerr, newest first. Open a title for details. Browsing does not turn on notifications.</string>
+    <string name="history_back">Back to Activity</string>
+    <string name="history_refresh">Refresh history</string>
+    <string name="history_more">Load older requests</string>
+    <string name="history_loading">Loading your requests…</string>
+    <string name="history_retry">Try again</string>
+    <string name="history_empty">You have no requests in Seerr yet.</string>
+    <string name="history_end">You have reached the end of your history.</string>
+    <string name="history_failed">Could not load this page. Check your connection and try again.</string>
+    <string name="history_sign_in">Sign in to your personal Seerr account to view request history.</string>
+    <plurals name="history_count_total">
+        <item quantity="one">%1$d of %2$d request loaded</item>
+        <item quantity="other">%1$d of %2$d requests loaded</item>
+    </plurals>
+    <plurals name="history_count">
+        <item quantity="one">%1$d request loaded</item>
+        <item quantity="other">%1$d requests loaded</item>
+    </plurals>
+    <string name="history_untitled">Request #%1$d</string>
+</resources>

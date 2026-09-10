@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rules_unknown">Seerr will confirm approval requirements when you send.</string>
+    <string name="rules_no_permission">Your account cannot request this media type.</string>
+    <string name="rules_approval_required">This request needs administrator approval before it can proceed.</string>
+    <string name="rules_automatic_approval">Your account has automatic approval. This does not mean the title is ready to watch.</string>
+    <string name="rules_unlimited">Seerr reports no request quota for this media type.</string>
+    <string name="rules_quota_unknown">Quota unavailable. Seerr will check your allowance when you send.</string>
+    <string name="rules_exceeded">This selection exceeds your remaining quota. Choose fewer seasons or check your allowance again later.</string>
+    <string name="rules_movie_exhausted">Your movie quota is used up. Check your allowance again later.</string>
+    <string name="rules_no_period">This quota has no rolling time period.</string>
+    <string name="rules_recheck">Check status again</string>
+    <plurals name="rules_movies_remaining">
+        <item quantity="one">%d movie request remaining</item>
+        <item quantity="other">%d movie requests remaining</item>
+    </plurals>
+    <plurals name="rules_seasons_remaining">
+        <item quantity="one">%d season remaining</item>
+        <item quantity="other">%d seasons remaining</item>
+    </plurals>
+    <plurals name="rules_period">
+        <item quantity="one">Seerr counts requests over the last %d day.</item>
+        <item quantity="other">Seerr counts requests over the last %d days.</item>
+    </plurals>
+</resources>

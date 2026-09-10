@@ -41,6 +41,7 @@ data class CachedMediaRow(
     val inLibrary: Boolean = false,
     val requested: Boolean = false,
     val seerrStatus: Int?,
+    val lastActivityEpochMillis: Long? = null,
 )
 
 @Entity(tableName = "cache_meta")
@@ -50,7 +51,7 @@ data class CacheMetaRow(
     val refreshedAtEpochMillis: Long,
 )
 
-enum class CacheSection { RESUME, RECENT_MOVIES, RECENT_SERIES, UPCOMING, RECENT_RELEASES, DISCOVER, RECOMMENDATIONS }
+enum class CacheSection { RESUME, NEXT_UP, RECENT_MOVIES, RECENT_SERIES, UPCOMING, RECENT_RELEASES, DISCOVER, RECOMMENDATIONS }
 
 @Dao
 interface CacheDao {
@@ -92,7 +93,7 @@ interface CacheDao {
     }
 }
 
-@Database(entities = [CachedMediaRow::class, CacheMetaRow::class], version = 1, exportSchema = false)
+@Database(entities = [CachedMediaRow::class, CacheMetaRow::class], version = 2, exportSchema = false)
 abstract class CacheDatabase : RoomDatabase() {
     abstract fun cacheDao(): CacheDao
 

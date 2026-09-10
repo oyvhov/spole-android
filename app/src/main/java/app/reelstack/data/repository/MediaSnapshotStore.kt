@@ -21,6 +21,7 @@ data class CachedMediaSnapshot(
     val recentMovies: List<LibraryMedia>,
     val recentSeries: List<LibraryMedia>,
     val resume: List<LibraryMedia> = emptyList(),
+    val nextUp: List<LibraryMedia> = emptyList(),
     val upcoming: List<UpcomingMedia>,
     val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
@@ -48,6 +49,7 @@ class MediaSnapshotStore(context: Context) {
         runCatching {
             val rows = buildList {
                 addAll(libraryRows(fingerprint, CacheSection.RESUME, snapshot.resume))
+                addAll(libraryRows(fingerprint, CacheSection.NEXT_UP, snapshot.nextUp))
                 addAll(libraryRows(fingerprint, CacheSection.RECENT_MOVIES, snapshot.recentMovies))
                 addAll(libraryRows(fingerprint, CacheSection.RECENT_SERIES, snapshot.recentSeries))
                 addAll(upcomingRows(fingerprint, CacheSection.UPCOMING, snapshot.upcoming))
@@ -69,6 +71,7 @@ class MediaSnapshotStore(context: Context) {
         CachedMediaSnapshot(
             sessions = emptyList(),
             resume = library(fingerprint, CacheSection.RESUME),
+            nextUp = library(fingerprint, CacheSection.NEXT_UP),
             recentMovies = library(fingerprint, CacheSection.RECENT_MOVIES),
             recentSeries = library(fingerprint, CacheSection.RECENT_SERIES),
             upcoming = upcoming(fingerprint, CacheSection.UPCOMING),
@@ -116,6 +119,7 @@ class MediaSnapshotStore(context: Context) {
         items.take(CACHE_ITEM_LIMIT).mapIndexed { index, item ->
             row(fingerprint, section, index, item.id, item.title, item.subtitle, item.source, item.mediaType).copy(
                 progress = item.progress,
+                lastActivityEpochMillis = item.lastActivityEpochMillis,
                 artworkUrl = item.artworkUrl,
                 remoteId = item.remoteId,
                 overview = item.overview,
@@ -174,6 +178,7 @@ class MediaSnapshotStore(context: Context) {
         title = row.title,
         subtitle = row.subtitle.nynorskLegacyText(),
         progress = row.progress,
+        lastActivityEpochMillis = row.lastActivityEpochMillis,
         artworkRes = R.drawable.media_placeholder,
         source = kind(row.source),
         artworkUrl = row.artworkUrl,
@@ -244,7 +249,7 @@ class MediaSnapshotStore(context: Context) {
         private const val SEPARATOR = "\u001F"
 
         /** Bump when the feed rules change, so an older copy is dropped instead of shown. */
-        private const val SCHEMA = 3
+        private const val SCHEMA = 5
 
         /**
          * Identifies the exact set of signed-in services a cached feed belongs to. Any change of

@@ -274,8 +274,7 @@ fun PlayerScreen(
                     listOf(Color.Black.copy(alpha = .65f), Color.Transparent, Color.Black.copy(alpha = .85f))
                     else listOf(Color.Transparent, Color.Transparent)))
                 .safeDrawingPadding()) {
-                // Back is always reachable and never scrolls away with the transport controls.
-                PlayerHeader(state.title, state.subtitle, onClose, showTitle = showControls)
+                if (showControls) PlayerHeader(state.title, state.subtitle, onClose, showBack = !isTelevision)
             AnimatedVisibility(visible = showControls, enter = fadeIn(tween(90)), exit = fadeOut(tween(140)),
                 modifier = Modifier.weight(1f).testTag("player-controls")) {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -350,7 +349,8 @@ fun PlayerScreen(
                     val options = when (title) {
                         PlayerMenu.AUDIO -> state.audio.map { it.index to it.label }
                         PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }
-                        else -> listOf(0 to stringResource(R.string.player_auto), 4_000_000 to stringResource(R.string.player_medium_data), 2_000_000 to stringResource(R.string.player_low_data))
+                        else -> listOf(0 to stringResource(R.string.player_auto), 80_000_000 to stringResource(R.string.player_quality_ultra),
+                            20_000_000 to stringResource(R.string.player_quality_high), 4_000_000 to stringResource(R.string.player_medium_data), 2_000_000 to stringResource(R.string.player_low_data))
                     }
                     Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState())) {
                         options.forEach { (id, label) ->
@@ -378,9 +378,10 @@ private fun Modifier.remoteFocus(enabled: Boolean): Modifier {
 }
 
 @Composable
-private fun PlayerHeader(title: String, subtitle: String, onClose: () -> Unit, showTitle: Boolean = true) {
+private fun PlayerHeader(title: String, subtitle: String, onClose: () -> Unit, showTitle: Boolean = true,
+    showBack: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) != android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) {
     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
-        IconButton(onClick = onClose, modifier = Modifier.size(48.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-close")) {
+        if (showBack) IconButton(onClick = onClose, modifier = Modifier.size(48.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-close")) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back))
         }
         Column(Modifier.weight(1f).padding(start = 12.dp, top = 10.dp)

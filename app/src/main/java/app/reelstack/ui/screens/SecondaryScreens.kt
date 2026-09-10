@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import app.reelstack.ui.components.AppFilterRow
 import app.reelstack.ui.components.ServiceSymbol
 import app.reelstack.data.model.canRequest
+import app.reelstack.data.model.hasTitleMetadata
 import app.reelstack.data.model.canRequestType
 import app.reelstack.data.model.seerrStatusLabel
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -490,15 +491,16 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
 
 @Composable
 private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
+    val artworkShape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     val cardInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val actionInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val actionable = media.canRequest && allowed
     val actionLabel = if (media.isSeries) stringResource(R.string.media_seasons_named, media.title) else stringResource(R.string.media_add_named, media.title)
     val statusLabel = app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
-    Box(Modifier.fillMaxWidth().heightIn(min = 300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).clip(RoundedCornerShape(18.dp)).background(SurfaceRaised)
+    Box(Modifier.fillMaxWidth().heightIn(min = 300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).clip(artworkShape).background(SurfaceRaised)
         // The card's own action is named so a screen reader can tell it apart from the request
         // button inside it. It must not merge its descendants: that would swallow the button.
-        .focusOutline(cardInteraction, RoundedCornerShape(18.dp))
+        .focusOutline(cardInteraction, artworkShape)
         .clickable(interactionSource = cardInteraction, indication = androidx.compose.foundation.LocalIndication.current,
             onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onDetails)
         .testTag("discover-cover-${media.id}")) {
@@ -557,7 +559,12 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
 @Composable
 fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit,
                    onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {},
-                   onAccountClick: () -> Unit = {}, onCancelRequest: (String) -> Unit = {}) {
+                   onAccountClick: () -> Unit = {}, onCancelRequest: (String) -> Unit = {},
+                   onHistory: () -> Unit = {}, onCloseHistory: () -> Unit = {}, onLoadHistory: (Boolean) -> Unit = {}) {
+    if (state.showRequestHistory) {
+        RequestHistoryScreen(state.requestHistory, onDetails, onCloseHistory, onLoadHistory)
+        return
+    }
     val context = androidx.compose.ui.platform.LocalContext.current
     var savedSourceFilter by rememberSaveable {
         mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) ActivityFilter.MINE else ActivityFilter.ALL)
@@ -572,6 +579,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         stringResource(R.string.filter_count, choice.localizedLabel(), count)
     }
     var personalFilter by rememberSaveable { mutableStateOf(PersonalActivityFilter.ALL) }
+    var showUnresolved by rememberSaveable { mutableStateOf(false) }
     val personalRequests = state.trackedRequests.filter {
         when (personalFilter) {
             PersonalActivityFilter.ALL -> true
@@ -579,6 +587,8 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
             PersonalActivityFilter.IN_PROGRESS -> it.stage != app.reelstack.data.model.RequestStage.AVAILABLE
         }
     }
+    val unresolved = personalRequests.filterNot { it.hasTitleMetadata }
+    val resolved = personalRequests.filter { it.hasTitleMetadata }
     val events = state.activity.filter { event ->
         sourceFilter == ActivityFilter.ALL || event.source == sourceFilter.source
     }
@@ -632,6 +642,11 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         if (sourceFilter == ActivityFilter.MINE) {
             item(span = { GridItemSpan(maxLineSpan) }) {
               Column(Modifier.fillMaxWidth().testTag("activity-filter-block")) {
+                if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() }) {
+                    TextButton(onClick = onHistory, modifier = Modifier.testTag("open-request-history")) {
+                        Text(stringResource(R.string.history_open))
+                    }
+                }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) {
                         if (state.trackedRequests.isNotEmpty()) {
@@ -645,6 +660,23 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     }
                 }
                 state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp)) }
+                if (state.trackingError == null && personalRequests.any { it.statusCheckFailed }) {
+                    Text(stringResource(R.string.tv_unavailable_status), color = Muted,
+                        modifier = Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+                }
+                if (unresolved.isNotEmpty()) {
+                    Text(androidx.compose.ui.res.pluralStringResource(R.plurals.tv_unresolved, unresolved.size, unresolved.size), color = Muted,
+                        style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
+                    TextButton(onClick = { showUnresolved = !showUnresolved }, modifier = Modifier.testTag("unresolved-toggle")) {
+                        Text(stringResource(if (showUnresolved) R.string.tv_hide_unresolved else R.string.tv_show_unresolved))
+                    }
+                    if (showUnresolved) unresolved.forEach { request ->
+                        TextButton(onClick = { onDetails(request.key) }, modifier = Modifier.testTag("unresolved-${request.key}")) {
+                            Text(stringResource(R.string.tv_request_number, request.requestId ?: request.mediaId) + " · " +
+                                app.reelstack.localization.requestStageLabel(request.stage))
+                        }
+                    }
+                }
                 if (state.trackedRequests.isNotEmpty()) {
                     if (personalRequests.isEmpty()) Text(stringResource(R.string.activity_empty_filter), color = Muted,
                         modifier = Modifier.padding(vertical = 16.dp))
@@ -662,7 +694,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 18.dp))
               }
             }
-            items(personalRequests, key = { "follow-${it.key}" }) { request ->
+            items(resolved, key = { "follow-${it.key}" }) { request ->
                 app.reelstack.ui.TrackedRequestCard(
                     request,
                     { onDetails(request.key) },
@@ -732,14 +764,14 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
     // Keep source artwork uncropped; episodes use a wide still instead of a stretched poster.
     val wide = event.mediaType?.equals("Episode", ignoreCase = true) == true
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     Column(
         modifier = Modifier.fillMaxWidth()
             .focusOutline(interaction, shape)
             .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
                 role = Role.Button, onClick = onClick).testTag("activity-event-${event.id}"),
     ) {
-      Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f).clip(RoundedCornerShape(14.dp)).background(Ink)) {
+      Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f).clip(shape).background(Ink)) {
         MediaArtwork(
             url = event.artworkUrl,
             fallbackRes = event.artworkRes ?: R.drawable.media_placeholder,
@@ -791,7 +823,15 @@ fun SettingsScreen(
     onWifiOnlyChange: (Boolean) -> Unit,
     onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit = onConnectionClick,
+    onManageLibraries: () -> Unit = {},
 ) {
+    val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    if (television) {
+        TvSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
+            onHomeSectionChange, onAccountClick, onManageLibraries)
+        return
+    }
     var homeExpanded by rememberSaveable { mutableStateOf(false) }
     val appearanceExpansion = rememberSaveable { mutableStateOf(false) }
     val expandedLabel = stringResource(R.string.state_expanded)
@@ -853,11 +893,18 @@ fun SettingsScreen(
             if (visible(SettingsSection.APPEARANCE)) {
             app.reelstack.ui.components.LanguagePreference()
             app.reelstack.ui.components.DevicePersonalizationSettings(showPlayback = !wide, expansionState = appearanceExpansion)
+            app.reelstack.ui.components.NavigationPersonalizationSettings()
             }
             if (wide && visible(SettingsSection.PLAYBACK)) {
                 app.reelstack.ui.components.DevicePersonalizationSettings(showAppearance = false)
             }
             if (visible(SettingsSection.HOME)) {
+            if (state.connections.any { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }) {
+                TextButton(onClick = onManageLibraries, modifier = Modifier.testTag("library-manage")) {
+                    Text(stringResource(R.string.library_manage))
+                }
+                Text(stringResource(R.string.library_selection_help), color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
             SettingsSectionTitle(stringResource(R.string.settings_home))
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
               Column(Modifier.padding(horizontal = 16.dp)) {
@@ -930,7 +977,7 @@ fun SettingsScreen(
  * and marks to an app none of them endorses.
  */
 @Composable
-private fun AttributionCard() {
+internal fun AttributionCard() {
     Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp),
         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
         Column(Modifier.padding(16.dp)) {
@@ -957,7 +1004,7 @@ private fun AttributionCard() {
  * crashed is a permanent reminder of a problem the user does not have.
  */
 @Composable
-private fun CrashReportRow() {
+internal fun CrashReportRow() {
     val context = LocalContext.current
     var report by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
@@ -1000,7 +1047,7 @@ private fun CrashReportRow() {
  * secrets are encrypted.
  */
 @Composable
-private fun PrivacyCard(state: ReelstackUiState) {
+internal fun PrivacyCard(state: ReelstackUiState) {
     val configured = state.connections.filter { it.baseUrl.isNotBlank() }
     val cleartext = configured.filter { it.baseUrl.startsWith("http://", ignoreCase = true) }
     Surface(
@@ -1031,7 +1078,7 @@ private fun PrivacyCard(state: ReelstackUiState) {
 }
 
 @Composable
-private fun AppIdentity() {
+internal fun AppIdentity() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(bottom = 26.dp),

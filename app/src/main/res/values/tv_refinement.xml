@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_pin_library">Add to sidebar</string>
+    <string name="tv_library_intro">Your libraries. Pick one to explore.</string>
+    <string name="tv_library_empty">No titles to show. Check your library selection in Settings.</string>
+    <string name="tv_customize">Navigation and content</string>
+    <string name="tv_menu_help">Change the order or hide pages. Home and Settings always remain available. Your accounts and permissions stay unchanged.</string>
+    <string name="tv_move_up">Move %s up</string>
+    <string name="tv_move_down">Move %s down</string>
+    <string name="tv_next_up">Next up</string>
+    <string name="tv_combine_continue">Combine Next up and Continue watching</string>
+    <string name="tv_show_hero">Show featured artwork on Home</string>
+    <string name="tv_show_ratings">Show ratings in details</string>
+    <string name="tv_show_quality">Show video and audio quality in details</string>
+    <string name="tv_slow_startup">Calm startup animation</string>
+    <string name="tv_reset_menu">Reset menu</string>
+    <string name="tv_resume">Resume</string>
+    <string name="tv_progress">%1$d%% watched · %2$s remaining</string>
+    <string name="tv_progress_percent">%d%% watched</string>
+    <plurals name="tv_unresolved">
+        <item quantity="one">%d request is waiting for title information. Your follow is preserved.</item>
+        <item quantity="other">%d requests are waiting for title information. Your follows are preserved.</item>
+    </plurals>
+    <string name="tv_show_unresolved">Show unfinished titles</string>
+    <string name="tv_hide_unresolved">Hide unfinished titles</string>
+    <string name="tv_request_number">Request #%d</string>
+    <string name="tv_continue_combined">Continue watching · Next up</string>
+    <string name="tv_rating">Rating</string>
+    <string name="tv_unavailable_status">Last update unavailable</string>
+</resources>

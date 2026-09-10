@@ -29,7 +29,7 @@ class RequestTrackingRepository(
     }
 
     fun put(scope: String, item: TrackedRequest) = synchronized(lock) {
-        val items = (list(scope).filterNot { it.key == item.key } + item).sortedByDescending { it.updatedAt }.take(100)
+        val items = retainTrackedRequests(list(scope).filterNot { it.key == item.key } + item)
         preferences.edit().putString(scope, JsonArray(items.map(::encode)).toString()).commit()
     }
 
@@ -131,7 +131,7 @@ class RequestTrackingRepository(
                         it.seasons == request.seasons && it.is4k == request.is4k
                 }
                 put(scope, TrackedRequest(key, id, request.mediaType, request.title ?: if (request.mediaType == "tv") "Serie" else "Film",
-                    request.artworkUrl, request.seasons, notify = localWatch?.notify ?: false, stage = RequestStage.UNKNOWN, is4k = request.is4k,
+                    request.artworkUrl, request.seasons, notify = localWatch?.notify ?: false, stage = request.snapshotProgress().stage, is4k = request.is4k,
                     updatedAt = runCatching { java.time.Instant.parse(request.createdAt).toEpochMilli() }.getOrDefault(0),
                     requestId = request.id, notifiedStages = localWatch?.notifiedStages.orEmpty(), notified = localWatch?.notified ?: false,
                     readyNotificationOnly = localWatch != null))
@@ -139,6 +139,20 @@ class RequestTrackingRepository(
             }
         }
         val current = list(scope)
+        // Repair older imports using the request-list response even when their detail lookup is
+        // outside this refresh's bounded enrichment batch. Never replace a confirmed state with unknown.
+        current.forEach { item ->
+            val request = remote.firstOrNull { !item.availabilityOnly && it.remoteId == item.mediaId &&
+                it.mediaType == item.mediaType && it.seasons == item.seasons && it.is4k == item.is4k } ?: return@forEach
+            val progress = request.snapshotProgress()
+            if (item.stage == RequestStage.UNKNOWN || !item.hasTitleMetadata) put(scope, item.copy(
+                title = request.title?.takeIf(String::isNotBlank) ?: item.title,
+                artworkUrl = request.artworkUrl ?: item.artworkUrl,
+                stage = if (progress.stage != RequestStage.UNKNOWN) progress.stage else item.stage,
+                percent = progress.percent ?: item.percent,
+                requestId = request.id,
+            ))
+        }
         // Round-robin keeps a large account from starving older follows. No redundant synopsis lookup.
         val targets = current.sortedBy { it.checkedAt }.take(20)
         val detailCache = mutableMapOf<Pair<String, Int>, Result<RemoteMediaDetails>>()
@@ -160,12 +174,18 @@ class RequestTrackingRepository(
                         stage = progress.stage, percent = progress.percent,
                         availableSeasons = (if (item.is4k) detail.seasons4k else detail.seasons)
                             .filter { it.number in item.seasons && it.status == 5 }.map { it.number }.toSet())
-                }, onFailure = { item.copy(stage = RequestStage.UNKNOWN, percent = null) })
-                var saved = updated.copy(checkedAt = System.currentTimeMillis(),
+                }, onFailure = {
+                    // A failed metadata lookup does not invalidate the last confirmed state.
+                    val snapshot = matching?.snapshotProgress()
+                    val authoritative = snapshot?.stage in setOf(RequestStage.AVAILABLE, RequestStage.DECLINED, RequestStage.FAILED)
+                    item.copy(stage = if (authoritative || item.stage == RequestStage.UNKNOWN) snapshot?.stage ?: item.stage else item.stage,
+                        percent = if (authoritative) snapshot?.percent else item.percent)
+                })
+                var saved = updated.copy(checkedAt = System.currentTimeMillis(), statusCheckFailed = result.isFailure,
                     requestId = matching?.id ?: updated.requestId)
                 // Recheck the configured account before notifying: a switched/removed session must stay silent.
                 val active = ConnectionRepository(context).list().firstOrNull { it.kind == ServiceKind.SEERR }
-                val event = if ((updated.availabilityOnly || updated.readyNotificationOnly) && updated.stage != RequestStage.AVAILABLE) null else when (updated.stage) {
+                val event = if (result.isFailure || ((updated.availabilityOnly || updated.readyNotificationOnly) && updated.stage != RequestStage.AVAILABLE)) null else when (updated.stage) {
                     RequestStage.AVAILABLE -> app.reelstack.background.NotificationEvent.READY
                     RequestStage.DOWNLOADING -> app.reelstack.background.NotificationEvent.DOWNLOADING
                     RequestStage.FAILED, RequestStage.DECLINED -> app.reelstack.background.NotificationEvent.FAILED
@@ -190,6 +210,12 @@ class RequestTrackingRepository(
         return scope to list(scope)
     }
 
+    private fun app.reelstack.data.network.RemoteRequest.snapshotProgress(): RequestProgress = when (status) {
+        3 -> RequestProgress(RequestStage.DECLINED)
+        4 -> RequestProgress(RequestStage.FAILED)
+        else -> requestProgress(mediaStatus, availableSeasons, seasons, downloads, status)
+    }
+
     private fun encode(item: TrackedRequest) = buildJsonObject {
         put("key", item.key); put("id", item.mediaId); put("type", item.mediaType); put("title", item.title)
         item.artworkUrl?.let { put("art", it) }; put("seasons", JsonArray(item.seasons.sorted().map(::JsonPrimitive)))
@@ -198,6 +224,7 @@ class RequestTrackingRepository(
         put("checked", item.checkedAt); put("is4k", item.is4k)
         put("availabilityOnly", item.availabilityOnly)
         put("readyNotificationOnly", item.readyNotificationOnly)
+        put("statusCheckFailed", item.statusCheckFailed)
         item.requestId?.let { put("requestId", it) }
         put("notifiedStages", item.notifiedStages.sorted().joinToString(","))
         put("available", JsonArray(item.availableSeasons.sorted().map(::JsonPrimitive)))
@@ -216,6 +243,7 @@ class RequestTrackingRepository(
         requestId = item["requestId"]?.jsonPrimitive?.intOrNull,
         availabilityOnly = item["availabilityOnly"]?.jsonPrimitive?.booleanOrNull == true,
         readyNotificationOnly = item["readyNotificationOnly"]?.jsonPrimitive?.booleanOrNull == true,
+        statusCheckFailed = item["statusCheckFailed"]?.jsonPrimitive?.booleanOrNull == true,
         // A follow saved before per-stage alerts only knew it had announced availability.
         notifiedStages = item["notifiedStages"]?.jsonPrimitive?.content
             ?.split(',')?.filter(String::isNotBlank)?.toSet()

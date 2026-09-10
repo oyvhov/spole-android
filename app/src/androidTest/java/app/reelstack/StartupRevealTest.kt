@@ -116,7 +116,7 @@ class StartupRevealTest {
         } }
         rule.mainClock.advanceTimeBy(400)
         rule.runOnIdle { assertFalse(contentComposed) }
-        rule.mainClock.advanceTimeBy(850)
+        rule.mainClock.advanceTimeBy(1100)
         rule.runOnIdle { assertTrue(contentComposed) }
         rule.mainClock.autoAdvance = true
     }

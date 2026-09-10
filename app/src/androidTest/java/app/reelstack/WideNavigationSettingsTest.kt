@@ -28,9 +28,38 @@ class WideNavigationSettingsTest {
         rule.onNodeWithTag("wide-tab-HOME").assertIsSelected()
         rule.onNodeWithTag("wide-tab-HOME").performSemanticsAction(SemanticsActions.RequestFocus).assertIsFocused()
         rule.onNodeWithTag("wide-tab-HOME").performKeyInput { pressKey(Key.DirectionDown) }
+        rule.onNodeWithTag("wide-tab-LIBRARY").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("wide-tab-DISCOVER").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         rule.runOnIdle { assertEquals(AppTab.DISCOVER, selected) }
         rule.onNodeWithTag("wide-tab-SETTINGS").performClick().assertIsSelected()
+    }
+    @Test fun tvRailExpandsOnLeftAndCollapsesOnRightWithoutToggle() {
+        var expanded by mutableStateOf(false)
+        lateinit var inputMode: androidx.compose.ui.input.InputModeManager
+        rule.setContent {
+            val config = android.content.res.Configuration(androidx.compose.ui.platform.LocalConfiguration.current).apply {
+                uiMode = (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK.inv()) or android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+            }
+            inputMode = androidx.compose.ui.platform.LocalInputModeManager.current
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides config) {
+                ReelstackTheme { Row(Modifier.fillMaxSize()) {
+                    SidebarSlot(false) { ReelstackNavigationRail(AppTab.HOME, {}, expanded, onFocusWithin = { expanded = it }) }
+                    androidx.compose.material3.Button(onClick = {}, modifier = Modifier.padding(start = 160.dp).testTag("tv-content")) {
+                        androidx.compose.material3.Text("Content")
+                    }
+                } }
+            }
+        }
+        rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        rule.onNodeWithTag("sidebar-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("tv-content").performSemanticsAction(SemanticsActions.RequestFocus)
+            .performKeyInput { pressKey(Key.DirectionLeft) }
+        rule.runOnIdle { assertTrue(expanded) }
+        rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(200.dp)
+        rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionRight) }
+        rule.onNodeWithTag("tv-content").assertIsFocused()
+        rule.runOnIdle { assertFalse(expanded) }
+        rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
     }
     @Test fun tabletSettingsHasIndependentPanesAndReturnsToOneColumnInSmallWindows() {
         var width by mutableStateOf(1280.dp)
@@ -43,11 +72,11 @@ class WideNavigationSettingsTest {
         rule.onNodeWithTag("appearance-expand").assertDoesNotExist()
         rule.onNodeWithTag("settings-category-APPEARANCE").performClick().assertIsSelected()
         rule.onNodeWithTag("appearance-expand").performScrollTo().performClick()
-        rule.onNodeWithTag("accent-OCEAN").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("theme-choice-accent").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("settings-category-ABOUT").performClick()
         rule.onNodeWithTag("appearance-expand").assertDoesNotExist()
         rule.onNodeWithTag("settings-category-APPEARANCE").performClick()
-        rule.onNodeWithTag("accent-OCEAN").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("theme-choice-accent").performScrollTo().assertIsDisplayed()
         rule.runOnIdle { width = 412.dp }
         rule.onNodeWithTag("settings-categories").assertDoesNotExist()
         rule.onNodeWithTag("appearance-expand").performScrollTo().assertIsDisplayed()
@@ -58,9 +87,14 @@ class WideNavigationSettingsTest {
         lateinit var inputMode: androidx.compose.ui.input.InputModeManager
         rule.setContent {
             inputMode = androidx.compose.ui.platform.LocalInputModeManager.current
+            val configuration = android.content.res.Configuration(androidx.compose.ui.platform.LocalConfiguration.current).apply {
+                uiMode = (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK.inv()) or android.content.res.Configuration.UI_MODE_TYPE_NORMAL
+            }
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides configuration) {
             ReelstackTheme { Box(Modifier.height(600.dp)) {
                 ReelstackNavigationRail(selected, { selected = it }, expanded, { expanded = it })
             } }
+            }
         }
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
         val initialHeight = rule.onNodeWithTag("side-navigation").fetchSemanticsNode().boundsInRoot.height
@@ -72,6 +106,7 @@ class WideNavigationSettingsTest {
             .performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("wide-tab-HOME").assertIsFocused().assertContentDescriptionEquals("Heim")
             .performKeyInput { pressKey(Key.DirectionDown) }
+        rule.onNodeWithTag("wide-tab-LIBRARY").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("wide-tab-DISCOVER").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         rule.runOnIdle { assertEquals(AppTab.DISCOVER, selected) }
         rule.onNodeWithTag("sidebar-toggle").performClick()

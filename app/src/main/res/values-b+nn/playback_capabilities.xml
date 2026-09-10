@@ -1,0 +1,4 @@
+<resources>
+    <string name="player_quality_ultra">Svært høg · opptil 80 Mbit/s</string>
+    <string name="player_quality_high">Høg · opptil 20 Mbit/s</string>
+</resources>

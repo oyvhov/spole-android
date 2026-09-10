@@ -50,12 +50,17 @@ data class RemoteLibraryItem(
     val premiereDate: String? = null,
     val available: Boolean = true,
     val tmdbId: Int? = null,
+    val isFolder: Boolean = false,
+    val collectionType: String? = null,
+    val seriesId: String? = null,
+    val lastActivityEpochMillis: Long? = null,
 )
 
 data class RemoteLibraryView(
     val id: String,
     val name: String,
     val collectionType: String?,
+    val artworkUrl: String? = null,
 )
 
 data class RemoteQueueItem(
@@ -127,6 +132,9 @@ data class RemoteMediaDetails(
     val seasons4k: List<app.reelstack.data.model.RequestSeason> = emptyList(),
     val downloads4k: List<app.reelstack.data.model.RequestDownload> = emptyList(),
     val nextEpisode: app.reelstack.data.model.SeriesNextEpisode? = null,
+    val progress: Float? = null,
+    val remainingMinutes: Int? = null,
+    val quality: List<String> = emptyList(),
 )
 
 data class RemoteRequest(
@@ -228,7 +236,8 @@ object ServicePayloadParser {
             val artwork = libraryArtwork(item, id, mediaType)
             RemoteLibraryItem(
                 id = id,
-                title = series ?: name,
+                isFolder = item["IsFolder"]?.jsonPrimitive?.booleanOrNull == true || mediaType in setOf("Series", "Season", "BoxSet", "Folder", "CollectionFolder", "MusicAlbum", "MusicArtist"),
+                title = if (mediaType == "Season") name else series ?: name,
                 subtitle = listOfNotNull(episodeLabel, name.takeIf { series != null }, year?.toString().takeIf { series == null })
                     .distinct()
                     .joinToString(" · ")
@@ -241,6 +250,9 @@ object ServicePayloadParser {
                         }
                     },
                 progress = progress,
+                seriesId = item.string("SeriesId") ?: item.string("seriesId"),
+                lastActivityEpochMillis = (userData?.string("LastPlayedDate") ?: userData?.string("lastPlayedDate"))
+                    ?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() },
                 mediaType = mediaType,
                 artworkItemId = artwork.itemId,
                 artworkImageType = artwork.imageType,
@@ -505,6 +517,32 @@ object ServicePayloadParser {
         val item = json.parseToJsonElement(payload) as? JsonObject ?: return RemoteMediaDetails(null, null)
         val runtime = item.long("RunTimeTicks") ?: item.long("runTimeTicks")
         val mediaType = item.string("Type") ?: item.string("type") ?: "Video"
+        val userData = item.obj("UserData")
+        val position = userData?.long("PlaybackPositionTicks")
+        val progress = if (runtime != null && runtime > 0 && position != null)
+            (position.toDouble() / runtime).toFloat().coerceIn(0f, 1f)
+        else userData?.get("PlayedPercentage")?.jsonPrimitive?.contentOrNull?.toFloatOrNull()?.div(100)?.coerceIn(0f, 1f)
+        val streams = item.array("MediaStreams").ifEmpty {
+            (item.array("MediaSources").firstOrNull() as? JsonObject)?.array("MediaStreams").orEmpty()
+        }.mapNotNull { it as? JsonObject }
+        val video = streams.firstOrNull { it.string("Type").equals("Video", true) }
+        val audio = streams.firstOrNull { it.string("Type").equals("Audio", true) }
+        val width = video?.int("Width") ?: item.int("Width") ?: 0
+        val height = video?.int("Height") ?: item.int("Height") ?: 0
+        val quality = buildList {
+            when {
+                width >= 3800 || height >= 2100 -> add("4K")
+                width >= 1900 || height >= 1000 -> add("1080p")
+                width >= 1200 || height >= 700 -> add("720p")
+                height > 0 -> add("${height}p")
+            }
+            video?.string("VideoRangeType")?.takeIf { it.isNotBlank() && !it.equals("SDR", true) }?.let(::add)
+            video?.string("Codec")?.takeIf(String::isNotBlank)?.uppercase(java.util.Locale.ROOT)?.let(::add)
+            audio?.string("Codec")?.takeIf(String::isNotBlank)?.uppercase(java.util.Locale.ROOT)?.let { codec ->
+                val channels = when (val count = audio.int("Channels")) { 8 -> "7.1"; 6 -> "5.1"; 2 -> "2.0"; 1 -> "1.0"; else -> count?.toString() }
+                add(listOfNotNull(codec, channels).joinToString(" "))
+            }
+        }
         return RemoteMediaDetails(
             title = item.string("Name") ?: item.string("name"),
             artworkUrl = null,
@@ -512,6 +550,10 @@ object ServicePayloadParser {
                 ?: item.array("Taglines").firstOrNull()?.jsonPrimitive?.contentOrNull,
             overview = item.string("Overview") ?: item.string("overview"),
             facts = libraryFacts(item, mediaType, runtime),
+            progress = progress,
+            remainingMinutes = if (runtime != null && runtime > 0 && position != null)
+                kotlin.math.ceil((runtime - position).coerceAtLeast(0).toDouble() / TICKS_PER_MINUTE).toInt() else null,
+            quality = quality,
             genres = stringArray(item, "Genres", "genres"),
             cast = item.array("People").mapNotNull {
                 val person = it as? JsonObject ?: return@mapNotNull null

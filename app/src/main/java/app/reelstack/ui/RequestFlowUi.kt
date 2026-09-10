@@ -81,6 +81,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             }
             }
             RequestIdentity(state, onAccount)
+            if (ready && state.configuredCount > 0) RequestPreflight(draft, onRetry)
             if (!isSeries) app.reelstack.ui.components.RequestJourney(null, Modifier.padding(top = 20.dp, bottom = 8.dp))
             if (!ready) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 24.dp).testTag("seasons-loading"),
@@ -188,7 +189,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 if (draft.notify && state.notificationsEnabled && state.configuredCount > 0 && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context))
                     permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else onConfirm()
-            }, enabled = ready && !busy && canAdd && draft.error == null && hasSelection,
+            }, enabled = ready && !busy && canAdd && draft.rules?.canRequest != false && !draft.quotaExceeded && draft.error == null && hasSelection,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("confirm-request")) {
                 if (draft.sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Ink)
                 Text(if (draft.sending) stringResource(R.string.flow_sending) else if (isSeries && draft.selected.isEmpty()) stringResource(R.string.flow_choose_seasons)
@@ -206,6 +207,8 @@ fun TrackedRequestCard(
     onNotify: (Boolean) -> Unit,
     onCancel: () -> Unit = {},
     cancelling: Boolean = false,
+    showActions: Boolean = true,
+    detailsEnabled: Boolean = true,
 ) {
     val context = LocalContext.current
     var confirmCancel by rememberSaveable(item.key) { mutableStateOf(false) }
@@ -214,17 +217,18 @@ fun TrackedRequestCard(
     val active = item.stage != RequestStage.AVAILABLE
     val detailsInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val notifyInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val artworkShape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     var options by rememberSaveable(item.key) { mutableStateOf(false) }
     val notificationLabel = stringResource(if (item.notify) R.string.flow_notify_on_title else R.string.flow_notify_off_title, item.title)
     Box(Modifier.widthIn(max = 300.dp).fillMaxWidth().testTag("tracked-request-${item.key}")) {
         Column {
                 Column(
-                    Modifier.fillMaxWidth().focusOutline(detailsInteraction, RoundedCornerShape(14.dp))
-                        .clickable(interactionSource = detailsInteraction, indication = androidx.compose.foundation.LocalIndication.current,
+                    Modifier.fillMaxWidth().focusOutline(detailsInteraction, artworkShape)
+                        .clickable(enabled = detailsEnabled, interactionSource = detailsInteraction, indication = androidx.compose.foundation.LocalIndication.current,
                             onClickLabel = stringResource(R.string.flow_detail_named, item.title), onClick = onDetails)
                         .testTag("tracked-details-${item.key}"),
                 ) {
-                  Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(14.dp))) {
+                  Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(artworkShape)) {
                     MediaArtwork(
                         item.artworkUrl, app.reelstack.R.drawable.media_placeholder, null,
                         Modifier.fillMaxSize(), ContentScale.Fit, ServiceKind.SEERR,
@@ -271,8 +275,8 @@ fun TrackedRequestCard(
                       modifier = Modifier.padding(top = 4.dp, start = 2.dp, bottom = 8.dp),
                   )
                 }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (active && !item.availabilityOnly) CompactRequestProgress(item, Modifier.weight(1f).padding(end = 4.dp))
+            if (showActions) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (active && !item.availabilityOnly && item.stage != RequestStage.UNKNOWN) CompactRequestProgress(item, Modifier.weight(1f).padding(end = 4.dp))
                 if (active) {
                     IconToggleButton(
                         interactionSource = notifyInteraction,
@@ -293,14 +297,14 @@ fun TrackedRequestCard(
                     }
                 }
             }
-            if (item.availabilityOnly) {
+            if (showActions && item.availabilityOnly) {
                 if (active) Text(stringResource(R.string.flow_watching_note), color = Muted, fontSize = 12.sp,
                     lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 12.dp))
                 TextButton(onClick = onCancel, enabled = !cancelling,
                     modifier = Modifier.padding(start = 4.dp).testTag("remove-watch-${item.key}")) {
                     Text(if (cancelling) stringResource(R.string.flow_removing) else stringResource(R.string.flow_unfollow))
                 }
-            } else if (active) {
+            } else if (showActions && active) {
                 // Withdrawing is only offered once Seerr has given the request an id: without it
                 // there is nothing to withdraw, and a dead button would be worse than none.
                 if (item.requestId != null) {

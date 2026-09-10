@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_library">Library</string>
+    <string name="library_empty">No items here</string>
+    <string name="library_connect">Connect Jellyfin in Settings to open your library.</string>
+    <string name="library_more">Load more</string>
+    <string name="library_retry">Try again</string>
+    <string name="library_back">Back</string>
+    <string name="library_failed">Could not load the library. Please try again.</string>
+    <string name="library_manage">Choose libraries</string>
+    <string name="library_selection_help">Choose which Jellyfin libraries to load and show in Library, New films, New series, Continue watching and library search.</string>
+    <string name="library_all">All</string>
+    <string name="library_none">None</string>
+    <string name="library_none_help">No Jellyfin library content will be loaded while none are selected.</string>
+    <string name="library_save">Save</string>
+    <string name="library_cancel">Cancel</string>
+</resources>

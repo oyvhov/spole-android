@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_pin_library">Legg til i sidemenyen</string>
+    <string name="tv_library_intro">Biblioteka dine. Vel eitt for å utforske.</string>
+    <string name="tv_library_empty">Ingen titlar å vise. Sjekk bibliotekvalet i Innstillingar.</string>
+    <string name="tv_customize">Meny og innhald</string>
+    <string name="tv_menu_help">Endre rekkjefølgja eller skjul sider. Heim og Innstillingar er alltid tilgjengelege. Kontoar og rettar blir ikkje endra.</string>
+    <string name="tv_move_up">Flytt %s opp</string>
+    <string name="tv_move_down">Flytt %s ned</string>
+    <string name="tv_next_up">Neste episode</string>
+    <string name="tv_combine_continue">Slå saman Neste episode og Hald fram å sjå</string>
+    <string name="tv_show_hero">Vis stort tittelbilete på Heim</string>
+    <string name="tv_show_ratings">Vis vurderingar i detaljar</string>
+    <string name="tv_show_quality">Vis bilete- og lydkvalitet i detaljar</string>
+    <string name="tv_slow_startup">Roleg oppstartsanimasjon</string>
+    <string name="tv_reset_menu">Nullstill menyen</string>
+    <string name="tv_resume">Hald fram</string>
+    <string name="tv_progress">%1$d%% sett · %2$s att</string>
+    <string name="tv_progress_percent">%d%% sett</string>
+    <plurals name="tv_unresolved">
+        <item quantity="one">%d førespurnad ventar på tittelinformasjon. Følgja di er bevart.</item>
+        <item quantity="other">%d førespurnader ventar på tittelinformasjon. Følgjane dine er bevarte.</item>
+    </plurals>
+    <string name="tv_show_unresolved">Vis ufullstendige titlar</string>
+    <string name="tv_hide_unresolved">Skjul ufullstendige titlar</string>
+    <string name="tv_request_number">Førespurnad #%d</string>
+    <string name="tv_continue_combined">Hald fram å sjå · Neste episode</string>
+    <string name="tv_rating">Vurdering</string>
+    <string name="tv_unavailable_status">Siste oppdatering er utilgjengeleg</string>
+</resources>

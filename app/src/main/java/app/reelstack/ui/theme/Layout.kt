@@ -19,7 +19,7 @@ val LocalTabletCanvas = staticCompositionLocalOf { false }
 object ReelLayout {
     val Gutter = 24.dp
     val PageTop = 32.dp
-    val ArtworkCorner = 12.dp
+    val ArtworkCorner: androidx.compose.ui.unit.Dp @Composable get() = LocalPersonalization.current.artworkCorners.radius.dp
     val PosterWidth = 132.dp
     val PosterHeight = 198.dp
     val EpisodeWidth = 248.dp

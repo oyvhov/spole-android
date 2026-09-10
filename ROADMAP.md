@@ -1,6 +1,6 @@
 # Spole — veikart mot 1.0
 
-Oppdatert 9. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny testversjon: **0.16.0-alpha06 / bygg 49**. [Testversjon og kontroll](docs/VERIFICATION_v0.16.0-alpha06.md) · [Minimerbar sidemeny](docs/SIDEBAR_ALPHA04.md) · [Førre arbeidsbolk](docs/ROADMAP_BATCH_ALPHA03.md).
+Oppdatert 10. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**, commit `265321c`. Ny lokal testversjon: **0.16.0-alpha11 / bygg 54**. [Testversjon og kontroll](docs/VERIFICATION_v0.16.0-alpha11.md) · [Codec, 4K og lyd](docs/PLAYBACK_CAPABILITIES_ALPHA11.md) · [TV-innstillingar, tema og sjårekkefølgje](docs/SETTINGS_THEMES_ALPHA10.md) · [Dei 13 TV-/bibliotekpunkta](docs/TV_REFINEMENT_ALPHA09.md) · [Historikk og kvotar](docs/ROADMAP_HISTORY_RULES.md). Ingen ny GitHub-publisering.
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.
 
@@ -14,7 +14,19 @@ Kjeldearbeid etter Claude sin gjennomgang (`6e31ad5`): [Innloggingsspråk og TV-
 
 ## Kvar står vi?
 
-Ny kjeldebolk: [Aktivitetsgalleri, eigne menyikon, profil, logo og TV-detaljar](docs/ACTIVITY_TV_REFINEMENT.md). Visuelt kontrollert med ekte Seerr/Jellyfin-data på TV; 283 JVM- og 21 målretta Android-testar bestod. Ingen ny publisering. Bibliotekretninga er vald: eiga katalogside med paginering og personleg tilgang; ikkje implementert enno.
+Alpha11 erstattar den faste mobilprofilen i spelaren med oppdaging av eininga sine dekodarar, HDR-skjerm og lydutgang. Direkte avspeling og eventuell kopiering av video blir kontrollert mot den faktiske fila; unødvendig omkoding ved lyd-/tekstbyte og den gamle bitrategrensa på kabla TV er fjerna. Fysisk 4K/HDR og HDMI/eARC må framleis verifiserast på aktuelt utstyr. [Omfang og avgrensingar](docs/PLAYBACK_CAPABILITIES_ALPHA11.md).
+
+Alpha10 vidarefører TV-arbeidet med eit eige innstillingsoppsett i sju kategoriar, fjernkontrollstyrt panelnavigasjon og enklare redigering av menyen. Fire bakgrunnar, åtte aksentfargar og val for kortform, storleik, fokus og kontrast gir større visuell tilpassing. Den kombinerte Hald fram å sjå / Neste episode-rada blir sortert etter siste sjåaktivitet på tvers av dei to listene. [Omfang og kjende avgrensingar](docs/SETTINGS_THEMES_ALPHA10.md).
+
+Alpha09 tek tak i brukarens TV-bilete: katalog med faktiske film-/serietitlar, bibliotekval i Innstillingar, Next Up, menyrekkefølgje/skjuling/biblioteksnarvegar, mindre statusstøy, betre avspelingsdetaljar og fast innloggingshandling på TV. [Omfang og avgjerder for alle 13 punkt](docs/TV_REFINEMENT_ALPHA09.md). Dette er vidare arbeid i dei planlagde milepålane, ikkje ei godkjenning av heile TV- eller 1.0-leveransen.
+
+Alpha09 er bygd og signert: 312 einingstestar, 221 ulike utførte telefon-testar og 15 målretta TV-testar bestod, med atterkøyringar dokumenterte i verifikasjonsrapporten. Signert oppgradering og visuell kontroll er gjennomførte på begge emulatorane med ekte kontoar; fysisk TV og langvarig avspeling står att.
+
+Tidlegare kjeldebolk: [Aktivitetsgalleri, eigne menyikon, profil, logo og TV-detaljar](docs/ACTIVITY_TV_REFINEMENT.md). Visuelt kontrollert med ekte Seerr/Jellyfin-data på TV; 283 JVM- og 21 målretta Android-testar bestod då.
+
+Bibliotek er no implementert som eiga Jellyfin-side med mapper, paginering og lagra val per tenar/profil. Valet styrer innlasting og bibliotekrader på Heim, inkludert nye filmar og seriar. TV-menyen opnar ved fokus frå venstre utan eigen minimerknapp. Sjå [bibliotekbolken](docs/LIBRARY_TV_NAVIGATION.md).
+
+Neste del av 0.17 er implementert: eiga side for personleg Seerr-historikk utover 100 førespurnader, og kvote-/godkjenningsinformasjon før sending. Lesing opprettar ingen følgjar eller varsel. [Omfang, feiltilstandar og avgrensingar](docs/ROADMAP_HISTORY_RULES.md).
 
 Ny kjeldebolk: [Oppdatering med fjernkontroll og språk på Heim](docs/HOME_REFRESH_PASS.md). Bibliotekfeltet har òg integrert profiloverlegg, kontrollert med ekte kontoar på TV-emulatoren: [visuell kontroll](docs/TV_HERO_OVERLAY_VERIFICATION.md).
 
@@ -68,6 +80,7 @@ Små feilrettingar kan publiserast mellom milepålane. Kritiske feil i tilgang, 
 - [x] Køyr einingstestane på nytt utan gjenbruk av testresultat: **253/253 bestod**, 8. september 2026.
 - [x] Full Android-testpakke bestod på 0.15.1: **127/127**. Dette er den tidlegare releasekontrollen, ikkje ei ny køyring i denne arbeidsrunden.
 - [x] Ny implementeringskontroll på alpha01: **269/269 einingstestar, 138/138 Android-testar og 46/46 ekstra breiddetestar**. Signert oppdatering frå 0.15.1 og språkbyte med bevarte ekte kontoar er kontrollert på review-emulatoren. Sjå [nattrapporten](docs/OVERNIGHT_REPORT_2026-09-09.md).
+- [x] Alpha08: **305 JVM-testar og 214 utførte Android-testar bestod etter avklaring og omkøyring av råka testklassar**. Fem TV-testar gjeld ikkje telefonprofilen. Signert oppdatering alpha07 → alpha08 bevarer språkvalet. [Resultat, første feil og avgrensingar](docs/VERIFICATION_v0.16.0-alpha08.md).
 - [x] Registrer brukartest på to fysiske telefonar: **Pixel 9 Pro XL** og **truleg OnePlus**. Stadfesta av brukaren 8. september 2026; detaljert omfang er enno ukjent.
 - [ ] Fullfør fysisk testprotokoll med appversjon, Android-/tenarversjon, andre telefonmodell, scenario og resultat. Stadfest dekning av ein telefon med meir avgrensa yting; dette er ikkje kjent frå «OnePlus» åleine.
 - [ ] Køyr minst éi samanhengande 60-minutts avspeling på kvar telefon. Test direkteavspeling, HLS/omkoding, lyd, tekst, spoling, skjuling av kontrollar, Tilbake og rotasjon.
@@ -82,8 +95,9 @@ Små feilrettingar kan publiserast mellom milepålane. Kritiske feil i tilgang, 
 ### 0.17 — Heile den personlege flyten
 
 - [ ] Verifiser førespurnad → eventuell godkjenning → faktisk nedlasting → import → tilgjengeleg i bibliotek → varsel, med kontrollerte ekte tenester.
-- [ ] Fullfør tydeleg kvote- og godkjenningsinformasjon før sending. Bruk berre handlingar Seerr støttar og kontoen har rett til.
-- [ ] Gå gjennom søk med fleire resultatsider og personleg historikk. Utvid historikken der dagens avgrensingar skjuler eldre førespurnader; eksisterande søkepaginering skal ikkje byggjast på nytt.
+- [x] Implementer kvote- og godkjenningsinformasjon før sending frå verifisert Seerr-profil og eiga kvote. Filmkvote tel filmar, seriekvote tel valde sesongar. Stadfesta overskriding stoppar sending; manglande kvotedata blir tydeleg ukjend. Isolerte regel-/UI-testar, også engelsk og skrift 2.0: [dokumentasjon](docs/ROADMAP_HISTORY_RULES.md).
+- [x] Utvid personleg historikk med sider på 20, last eldre, oppdatering, deduplisering, feil og retry. Testa 125 førespurnader, utlogging under henting og endra serverprofil. Aktive følgjar/varsel blir ikkje lenger kasta ved lagringsgrensa på 100.
+- [ ] Verifiser kvotar og godkjenning mot eigargodkjend ekte Seerr-konto, inkludert kvoteendring mellom opning og sending. Gå gjennom eksisterande søkepaginering og historikken mot ekte tenar. Automatiske testdata erstattar ikkje denne kontrollen.
 - [ ] Test manglande sesongar, delvis tilgjengelege seriar, komande episodar og seriar som held fram. Behald «følg utan ny førespurnad» og unngå duplikat. Ikkje lov automatisk framtidig innhenting utan stadfesting.
 - [ ] Vis bibliotekstatus på anbefalingar før detaljopning, med sikre ID-treff, tydeleg ukjend status og robust handtering når GitHub-katalogen ikkje kan hentast.
 - [ ] Test «Nyleg tilgjengeleg» med digital dato innanfor 28 dagar og faktisk bibliotektilgang. Gamle filmar som nett er importerte, skal ikkje bli nye utgjevingar. Manglande dato skal ikkje diktast opp.

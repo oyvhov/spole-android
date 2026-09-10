@@ -1,0 +1,4 @@
+<resources>
+    <string name="player_quality_ultra">Very high · up to 80 Mbit/s</string>
+    <string name="player_quality_high">High · up to 20 Mbit/s</string>
+</resources>

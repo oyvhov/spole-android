@@ -44,6 +44,7 @@ data class MediaSyncSnapshot(
     val recentMovies: List<LibraryMedia>,
     val recentSeries: List<LibraryMedia>,
     val resume: List<LibraryMedia> = emptyList(),
+    val nextUp: List<LibraryMedia> = emptyList(),
     val upcoming: List<UpcomingMedia>,
     val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
@@ -195,6 +196,9 @@ class MediaSyncRepository(
             recentMovies = interleave(mediaPayloads.map { payload ->
                 payload.feed.recentMovies.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
+            nextUp = interleave(mediaPayloads.map { payload ->
+                payload.feed.nextUp.map { item -> libraryMedia(item, payload.kind) }
+            }).distinctBy { it.id }.take(24),
             recentSeries = interleave(mediaPayloads.map { payload ->
                 payload.feed.recentSeries.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
@@ -368,6 +372,7 @@ class MediaSyncRepository(
         facts = item.facts,
         genres = item.genres,
         mediaType = item.mediaType,
+        lastActivityEpochMillis = item.lastActivityEpochMillis,
     )
 
     private fun incomingMedia(item: RemoteQueueItem) = IncomingMedia(

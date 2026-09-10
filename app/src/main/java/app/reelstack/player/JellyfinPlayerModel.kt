@@ -9,6 +9,7 @@ import androidx.media3.common.*
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import app.reelstack.AppContainer
 import app.reelstack.data.model.*
@@ -38,7 +39,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private val mutable = MutableStateFlow(PlayerScreenState())
     val state = mutable.asStateFlow()
     private val deviceId = DeviceIdentity.get(container.appContext)
-    private val client = JellyfinPlaybackClient(deviceId = deviceId)
+    private val deviceCapabilities = AndroidPlaybackCapabilities(container.appContext)
+    private val client = JellyfinPlaybackClient(deviceId = deviceId,
+        capabilities = deviceCapabilities::snapshot, sourceSupported = deviceCapabilities::canDirectPlay,
+        videoSupported = deviceCapabilities::canDecodeVideo)
     private var connection: ServiceConnection? = null
     private var seerrConnection: ServiceConnection? = null
     private var userId = ""
@@ -59,7 +63,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private val reports = Channel<Report>(Channel.UNLIMITED)
     private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
 
-    val player: ExoPlayer = ExoPlayer.Builder(container.appContext).build().apply {
+    val player: ExoPlayer = ExoPlayer.Builder(container.appContext,
+        DefaultRenderersFactory(container.appContext).setEnableDecoderFallback(true)).build().apply {
         setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         setHandleAudioBecomingNoisy(true)
         setSeekBackIncrementMs(10_000)
@@ -101,7 +106,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 // A single codec fallback, never an endless retry loop or a bitrate increase.
                 if (!compatible && error.errorCode in setOf(PlaybackException.ERROR_CODE_DECODING_FAILED,
                         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED, PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-                        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES)) {
+                        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+                        PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED, PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED)) {
                     compatible = true
                     prepare(position, forceCompatible = true, autoplay = playWhenReady)
                 } else {
@@ -256,7 +262,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
 
     private fun autoBitrate(): Int {
         val manager = container.appContext.getSystemService(ConnectivityManager::class.java)
-        return if (manager.getNetworkCapabilities(manager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) 12_000_000 else 4_000_000
+        val network = manager.getNetworkCapabilities(manager.activeNetwork)
+        return automaticPlaybackBitrate(network?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true)
     }
 
     private fun prepare(position: Long, audio: Int? = null, subtitle: Int? = null, forceCompatible: Boolean = compatible, autoplay: Boolean = true) {

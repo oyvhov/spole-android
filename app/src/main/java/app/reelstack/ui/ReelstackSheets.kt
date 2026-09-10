@@ -22,6 +22,10 @@ import app.reelstack.ui.components.ServiceSymbol
 import app.reelstack.data.model.resolvedMediaType
 import app.reelstack.data.model.canRequest
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
@@ -164,7 +168,7 @@ fun ReelstackSheets(
         fullScreen = tvDetails) { entered, closing, close ->
         val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
         Column(Modifier.fillMaxSize().testTag("sheet-viewport")) {
-            if (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails) {
+            if (!tvDetails && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails)) {
                 SheetToolbar(
                     title = if (sheet is AppSheet.SessionDetails) stringResource(R.string.details_playback) else stringResource(R.string.details_title),
                     closeDescription = stringResource(R.string.details_close), onClose = close, enabled = !closing,
@@ -263,7 +267,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 eyebrow = opening.eyebrow,
                 subtitle = opening.subtitle,
                 tagline = opening.tagline,
-                facts = opening.facts.take(4),
+                facts = opening.facts.filter { app.reelstack.ui.theme.LocalPersonalization.current.showRatings || !it.startsWith("★") }.take(4),
                 artworkUrl = opening.artworkUrl,
                 artworkRes = opening.artworkRes,
                 source = opening.source,
@@ -295,31 +299,10 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 modifier = Modifier.padding(top = 20.dp))
         }
         val remainingFacts = if (usePoster && !tv) visibleFacts.filterNot { it in opening.facts.take(4) } else visibleFacts
-        // Keep metadata on one predictable rail. A wrapping FlowRow changes the scroll content
-        // height when the remote detail response adds a second row of facts.
-        Box(Modifier.fillMaxWidth().heightIn(min = 50.dp).padding(top = 16.dp)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            ) {
-                if (remainingFacts.isNotEmpty()) {
-                    remainingFacts.distinct().take(8).forEach { fact -> DetailPill(fact) }
-                } else if (details.loading) {
-                    repeat(2) { index ->
-                        Box(
-                            Modifier
-                                .width(if (index == 0) 62.dp else 86.dp)
-                                .height(30.dp)
-                                .clip(RoundedCornerShape(9.dp))
-                                .background(SurfaceRaised),
-                        )
-                    }
-                }
-            }
-        }
+        app.reelstack.ui.components.PlaybackMetadata(details, remainingFacts)
         // Reserve the two metadata slots before the network response arrives. The placeholders
         // are intentionally quiet; the fixed geometry is what makes the opening feel instant.
-        Box(Modifier.fillMaxWidth().heightIn(min = 31.dp).padding(start = 6.dp, top = 15.dp, end = 6.dp)) {
+        if (!tv || details.genres.isNotEmpty()) Box(Modifier.fillMaxWidth().heightIn(min = 31.dp).padding(start = 6.dp, top = 15.dp, end = 6.dp)) {
             if (details.genres.isNotEmpty()) {
                 Text(
                     details.genres.take(4).joinToString(" · "),
@@ -335,7 +318,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 )
             }
         }
-        if (!usePoster) {
+        if (!usePoster && (!tv || !details.tagline.isNullOrBlank())) {
             Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 6.dp, top = 10.dp, end = 6.dp)) {
                 val tagline = details.tagline?.takeIf(String::isNotBlank)
                 if (tagline != null) {
@@ -366,7 +349,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             overview = details.overview?.takeIf { it.isNotBlank() },
             loading = details.loading,
         )
-        details.statusTitle?.let { title ->
+        details.statusTitle?.takeUnless { details.libraryAvailable && details.source == ServiceKind.JELLYFIN }?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
                 .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
                 if (details.libraryAvailable) Icon(Icons.Rounded.VideoLibrary, null, tint = Primary, modifier = Modifier.padding(top = 3.dp).size(20.dp))
@@ -536,13 +519,26 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
     if (details.source != ServiceKind.JELLYFIN || state.connections.none { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }) return
     val itemId = details.key.removePrefix("jellyfin-").takeIf { it.isNotBlank() && it != details.key } ?: return
     val context = LocalContext.current
+    val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val playFocus = remember(details.key) { FocusRequester() }
+    val inputMode = androidx.compose.ui.platform.LocalInputModeManager.current
+    LaunchedEffect(details.key, television) {
+        if (television) {
+            inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard)
+            androidx.compose.runtime.withFrameNanos { }
+            playFocus.requestFocus()
+        }
+    }
     Button(
         onClick = { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId) },
-        modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 52.dp).testTag("play-in-spole"),
+        modifier = (if (television) Modifier.widthIn(min = 220.dp, max = 360.dp) else Modifier.fillMaxWidth())
+            .padding(top = 20.dp).heightIn(min = 52.dp).focusRequester(playFocus).testTag("play-in-spole"),
         shape = RoundedCornerShape(14.dp),
     ) {
         Icon(Icons.Rounded.PlayArrow, null, Modifier.size(20.dp))
-        Text(if (details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true)) stringResource(R.string.media_choose_episode) else stringResource(R.string.media_play_in_spole),
+        Text(if (details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true)) stringResource(R.string.media_choose_episode)
+            else if ((details.progress ?: 0f) > 0) stringResource(R.string.tv_resume) else stringResource(R.string.player_play),
             Modifier.padding(start = 8.dp))
     }
 }
@@ -845,7 +841,6 @@ internal fun ConnectionEditorSheet(
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val continueInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val submitInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val focus = LocalFocusManager.current
     val nextStep: () -> Unit = {
         runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
@@ -1055,14 +1050,34 @@ internal fun ConnectionEditorSheet(
         }
         draft.warning?.let { MessageCard(it, warning = true) }
         draft.error?.let { MessageCard(it, warning = false) }
+        if (!television) ConnectionSubmit(draft) { focus.clearFocus(); onTestAndSave() }
+        if (draft.saving) {
+            ConnectionTextAction(stringResource(R.string.account_cancel), onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally))
+        }
+        }
+        }
+    }
+    if (television && credentialsStep && (!configured || detailsExpanded)) {
+        Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp, vertical = 12.dp)) {
+            ConnectionSubmit(draft) { focus.clearFocus(); onTestAndSave() }
+        }
+    }
+    }
+}
+
+@Composable
+private fun ConnectionSubmit(draft: ConnectionDraft, onSubmit: () -> Unit) {
+    val usesQuickConnect = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR) && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
+    val usesAccount = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
         Button(
-            onClick = { focus.clearFocus(); onTestAndSave() },
-            interactionSource = submitInteraction,
+            onClick = { onSubmit() },
+            interactionSource = interaction,
             enabled = !draft.saving && (usesQuickConnect || if (usesAccount) draft.username.isNotBlank() else draft.token.isNotBlank()),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
             modifier = Modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp)
-                .focusOutline(submitInteraction, RoundedCornerShape(14.dp)).testTag("connection-submit"),
+                .focusOutline(interaction, RoundedCornerShape(14.dp)).testTag("connection-submit"),
         ) {
             if (draft.saving) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
             Text(when {
@@ -1076,13 +1091,6 @@ internal fun ConnectionEditorSheet(
                 else -> stringResource(R.string.login_connect)
             }, modifier = Modifier.padding(start = if (draft.saving) 10.dp else 0.dp))
         }
-        if (draft.saving) {
-            ConnectionTextAction(stringResource(R.string.account_cancel), onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally))
-        }
-        }
-        }
-    }
-    }
 }
 
 @Composable

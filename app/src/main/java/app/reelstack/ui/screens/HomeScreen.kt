@@ -154,9 +154,13 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
       ReelPage(media = true) {
+        val personalization = app.reelstack.ui.theme.LocalPersonalization.current
+        val combine = personalization.showNextUp && personalization.combineContinueWatching &&
+            HomeSection.CONTINUE_WATCHING in state.homeSections
+        val continueItems = if (combine) app.reelstack.data.model.combinedWatching(state.resume, state.nextUp) else state.resume
         val tablet = LocalTabletCanvas.current
         val edge = app.reelstack.ui.theme.LocalMediaEdgeToEdge.current
-        val featured = if (tablet) tabletFeaturedTitle(state.recentSeries, state.homeSections) else null
+        val featured = if (tablet && personalization.showHero) tabletFeaturedTitle(state.recentSeries, state.homeSections) else null
         LazyColumn(
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
@@ -198,12 +202,18 @@ fun HomeScreen(
                 }
             }
             if (HomeSection.CONTINUE_WATCHING in state.homeSections &&
-                (state.resume.isNotEmpty() || (state.isRefreshing && state.configuredCount > 0))
+                (continueItems.isNotEmpty() || (state.isRefreshing && state.configuredCount > 0))
             ) {
                 item {
-                    SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_continue), Modifier.padding(top = 24.dp, bottom = 13.dp))
-                    if (state.resume.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
-                    else ResumeRail(state.resume, onLibraryClick)
+                    SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(top = 24.dp, bottom = 13.dp))
+                    if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
+                    else ResumeRail(continueItems, onLibraryClick)
+                }
+            }
+            if (personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
+                item(key = "next-up") {
+                    SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = 24.dp, bottom = 13.dp))
+                    ResumeRail(state.nextUp, onLibraryClick)
                 }
             }
             run {
@@ -715,7 +725,8 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
         label = "resume-card-press",
     )
     val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
-    val resumeLabel = stringResource(R.string.home_resume_description, media.title, percent)
+    val resumeLabel = if (percent > 0) stringResource(R.string.home_resume_description, media.title, percent)
+        else "${media.title}, ${media.subtitle}"
     Column(
         modifier = Modifier
             .width(cardWidth)
@@ -746,7 +757,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
             )
             // How far in you are is the whole point of this rail, so it sits on the artwork
             // rather than competing with the title for a line of its own.
-            Box(
+            if (percent > 0) Box(
                 Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp)
                     .background(Color.Black.copy(alpha = 0.55f)),
             ) {

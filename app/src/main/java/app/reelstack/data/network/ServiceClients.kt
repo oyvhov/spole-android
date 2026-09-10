@@ -46,6 +46,7 @@ data class MediaServerFeed(
     val recentSeries: List<RemoteLibraryItem>,
     /** Partly watched titles, newest activity first, straight from the server's own resume list. */
     val resume: List<RemoteLibraryItem> = emptyList(),
+    val nextUp: List<RemoteLibraryItem> = emptyList(),
     val warning: String? = null,
     val recentReleases: List<RemoteUpcomingItem> = emptyList(),
     val releasesFailed: Boolean = false,
@@ -243,6 +244,7 @@ class ServiceConnectionTester(
 class MediaServerClient(
     private val transport: JsonHttpTransport = HttpTransport(),
     private val deviceId: String = "homereel-android",
+    private val includeLibrary: (ServiceConnection, RemoteLibraryView) -> Boolean = { _, view -> !isExcludedHomeLibrary(view.name) },
 ) {
     fun sessions(connection: ServiceConnection, access: ViewerAccess = localAccess(connection)): List<RemotePlayback> {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
@@ -319,6 +321,13 @@ class MediaServerClient(
             releasedAcrossLibraries(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
         }
 
+        val nextUp = if (connection.kind == ServiceKind.JELLYFIN) runCatching {
+            nextUp(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
+        }.getOrElse {
+            warnings += "Neste episode er utilgjengeleg"
+            emptyList()
+        } else emptyList()
+
         if (userId == null && connection.kind == ServiceKind.EMBY) {
             warnings += "Legg til profil-ID for bibliotekradene frå Emby"
         }
@@ -332,6 +341,7 @@ class MediaServerClient(
             recentMovies = movies,
             recentSeries = series,
             resume = resume,
+            nextUp = nextUp,
             warning = warnings.distinct().takeIf { it.isNotEmpty() }?.joinToString(" · "),
             recentReleases = releasesResult.getOrDefault(emptyList()).filter { it.mediaType == "Episode" }
                 .mapNotNull { libraryRelease(it, connection.kind, ReleaseWindow()) },
@@ -354,7 +364,7 @@ class MediaServerClient(
         views: List<RemoteLibraryView> = libraryViews(connection, userId),
     ): List<RemoteLibraryItem> {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
-        val allowed = views.filter { !isExcludedHomeLibrary(it.name) }.take(MAX_LIBRARY_VIEWS)
+        val allowed = views.filter { includeLibrary(connection, it) }
         if (allowed.isEmpty()) return emptyList()
         val query = "Limit=$RESUME_ITEM_LIMIT&Recursive=true&MediaTypes=Video" +
             "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
@@ -368,7 +378,50 @@ class MediaServerClient(
             runCatching { getItems(connection, paths) }.getOrNull()
         }
         check(groups.isNotEmpty()) { "Fekk ikkje henta Hald fram å sjå" }
-        return interleave(groups).distinctBy(RemoteLibraryItem::id).take(RESUME_ITEM_LIMIT)
+        return interleave(groups).distinctBy(RemoteLibraryItem::id)
+            .sortedByDescending { it.lastActivityEpochMillis ?: Long.MIN_VALUE }.take(RESUME_ITEM_LIMIT)
+    }
+
+    /** Ask Jellyfin for the next unwatched episode, scoped before loading to selected libraries. */
+    fun nextUp(
+        connection: ServiceConnection,
+        userId: String,
+        views: List<RemoteLibraryView> = libraryViews(connection, userId),
+    ): List<RemoteLibraryItem> {
+        require(connection.kind == ServiceKind.JELLYFIN)
+        val allowed = views.filter { includeLibrary(connection, it) &&
+            (it.collectionType.isNullOrBlank() || it.collectionType.lowercase(java.util.Locale.ROOT) in setOf("tvshows", "mixed")) }
+        if (allowed.isEmpty()) return emptyList()
+        val groups = allowed.mapNotNull { view ->
+            runCatching {
+                getItems(connection, listOf("Shows/NextUp?UserId=$userId&ParentId=${encodePathSegment(view.id)}" +
+                    "&Limit=24&EnableUserData=true&EnableResumable=false" +
+                    "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1"))
+            }.getOrNull()
+        }
+        check(groups.isNotEmpty()) { "Fekk ikkje henta neste episode" }
+        val episodes = interleave(groups).distinctBy(RemoteLibraryItem::id).take(24)
+        val series = episodes.mapNotNull { it.seriesId }.distinct()
+        if (series.isEmpty()) return episodes
+        // An unwatched episode has no LastPlayedDate of its own. Use this profile's most
+        // recently watched episode in the same series; never substitute DateCreated.
+        // Bound both concurrency and elapsed time so unavailable metadata cannot hold Home.
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(minOf(4, series.size))
+        val dates = try {
+            val jobs = series.map { seriesId -> java.util.concurrent.Callable {
+                seriesId to runCatching {
+                    getItems(connection, listOf("Items?UserId=$userId&ParentId=${encodePathSegment(seriesId)}" +
+                        "&Recursive=true&IncludeItemTypes=Episode&IsPlayed=true&SortBy=DatePlayed&SortOrder=Descending" +
+                        "&Limit=1&EnableUserData=true&EnableImages=false"))
+                        .firstOrNull()?.lastActivityEpochMillis
+                }.getOrNull()
+            } }
+            pool.invokeAll(jobs, 8, java.util.concurrent.TimeUnit.SECONDS)
+                .mapNotNull { runCatching { it.get() }.getOrNull() }.toMap()
+        } finally { pool.shutdownNow() }
+        return episodes.map { item -> item.copy(lastActivityEpochMillis =
+            listOfNotNull(item.lastActivityEpochMillis, dates[item.seriesId]).maxOrNull()) }
+            .sortedByDescending { it.lastActivityEpochMillis ?: Long.MIN_VALUE }
     }
 
     /**
@@ -380,8 +433,8 @@ class MediaServerClient(
         val trimmed = term.trim()
         if (trimmed.isBlank()) return emptyList()
         val userId = ownUserId(connection)?.let(::encodePathSegment) ?: return emptyList()
-        val allowed = libraryViews(connection, userId).filter { !isExcludedHomeLibrary(it.name) }
-            .take(MAX_LIBRARY_VIEWS)
+        val allowed = libraryViews(connection, userId).filter { includeLibrary(connection, it) }
+
         if (allowed.isEmpty()) return emptyList()
         // ProviderIds is what lets the same title be recognised across two servers. Without it a
         // film held on both Jellyfin and Emby arrives as two unrelated items and is shown twice.
@@ -402,6 +455,31 @@ class MediaServerClient(
         return interleave(groups).distinctBy(RemoteLibraryItem::id).take(SEARCH_ITEM_LIMIT)
     }
 
+    /** Full profile-scoped browser; Home exclusions and preview limits do not apply here. */
+    fun browseLibraries(connection: ServiceConnection): List<RemoteLibraryView> {
+        require(connection.kind == ServiceKind.JELLYFIN)
+        val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
+        require(!user.isNullOrBlank()) { "Profil-ID manglar" }
+        return libraryViews(connection, encodePathSegment(user)).map { it.copy(artworkUrl = artworkUrl(connection, it.id)) }
+    }
+
+    fun browseLibrary(connection: ServiceConnection, parentId: String, offset: Int = 0, collectionType: String? = null): List<RemoteLibraryItem> {
+        require(connection.kind == ServiceKind.JELLYFIN && parentId.isNotBlank() && offset >= 0)
+        val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
+        require(!user.isNullOrBlank()) { "Profil-ID manglar" }
+        val catalogueType = when (collectionType?.lowercase(java.util.Locale.ROOT)) {
+            "movies" -> "Movie"
+            "tvshows" -> "Series"
+            "boxsets" -> "BoxSet"
+            else -> null
+        }
+        val query = "userId=${encodePathSegment(user)}&ParentId=${encodePathSegment(parentId)}" +
+            "&Recursive=${catalogueType != null}&StartIndex=$offset&Limit=60&SortBy=SortName&SortOrder=Ascending" +
+            (catalogueType?.let { "&IncludeItemTypes=$it" } ?: "") +
+            "&Fields=Overview,Genres,ProviderIds&EnableUserData=true&IsMissing=false"
+        return getItems(connection, listOf("Items?$query"))
+    }
+
     private fun ownUserId(connection: ServiceConnection): String? = connection.userId.takeIf(String::isNotBlank)
         ?: runCatching { currentUserId(connection) }.getOrNull()
         ?: runCatching { preferredAvailableUserId(connection) }.getOrNull()
@@ -412,8 +490,8 @@ class MediaServerClient(
         views: List<RemoteLibraryView>,
     ): List<RemoteLibraryItem> {
         val window = ReleaseWindow()
-        val relevant = views.filter { !isExcludedHomeLibrary(it.name) && (it.supports("Movie") || it.supports("Episode")) }
-            .take(MAX_LIBRARY_VIEWS)
+        val relevant = views.filter { includeLibrary(connection, it) && (it.supports("Movie") || it.supports("Episode")) }
+
         if (relevant.isEmpty()) return emptyList()
         val groups = relevant.flatMap { view -> listOf("Movie", "Episode").filter { view.supports(it) }.map { view to it } }.mapNotNull { (view, type) ->
             // A movie can reach digital months after cinema. Query candidates, then verify the
@@ -517,7 +595,7 @@ class MediaServerClient(
         views: List<RemoteLibraryView>,
     ): List<RemoteLibraryItem> {
         if (views.isEmpty()) return emptyList()
-        val relevantViews = views.filter { it.supports(itemType) && !isExcludedHomeLibrary(it.name) }.take(MAX_LIBRARY_VIEWS)
+        val relevantViews = views.filter { it.supports(itemType) && includeLibrary(connection, it) }
         // Never fall back to an unscoped query that could reintroduce excluded libraries.
         if (relevantViews.isEmpty()) return emptyList()
         val successfulGroups = relevantViews.mapNotNull { view ->
@@ -615,7 +693,6 @@ class MediaServerClient(
 
     private companion object {
         const val LATEST_ITEM_LIMIT = 12
-        const val MAX_LIBRARY_VIEWS = 12
         const val RESUME_ITEM_LIMIT = 12
         const val SEARCH_ITEM_LIMIT = 24
     }
@@ -804,6 +881,16 @@ class SeerrServiceClient(
         val response = transport.get(EndpointValidator.resolve(connection.baseUrl, "api/v1/request?take=100&skip=0&sort=added&requestedBy=${encode(userId)}"), headers(connection))
         response.requireSuccess(connection.kind)
         return ServicePayloadParser.requests(response.body)
+    }
+
+    /** Personal history is paged only on demand; the background follow poll stays bounded. */
+    fun requestHistory(connection: ServiceConnection, userId: String, offset: Int = 0): RequestHistoryPage {
+        require(connection.kind == ServiceKind.SEERR && connection.sessionCookie)
+        require(userId.toIntOrNull()?.let { it > 0 } == true && offset >= 0)
+        val response = transport.get(EndpointValidator.resolve(connection.baseUrl,
+            "api/v1/request?take=20&skip=$offset&sort=added&sortDirection=desc&requestedBy=${encode(userId)}"), headers(connection))
+        response.requireSuccess(connection.kind)
+        return parseRequestHistoryPage(response.body, userId, offset, 20)
     }
 
     fun request(connection: ServiceConnection, mediaType: String, remoteId: Int, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {

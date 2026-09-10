@@ -1,6 +1,10 @@
 package app.reelstack.ui
 import app.reelstack.ui.components.focusOutline
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusRequester
+import app.reelstack.data.model.visibleMenu
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SharedTransitionLayout
@@ -84,6 +88,9 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -118,14 +125,33 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val tabStates = rememberSaveableStateHolder()
     var pendingSearchFocus by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val tvRail = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    var tvRailFocused by remember { mutableStateOf(false) }
+    var railHasFocus by remember { mutableStateOf(false) }
+    var railEntryRequested by remember { mutableStateOf(false) }
+    var moveIntoContent by remember { mutableStateOf(tvRail) }
+    val contentFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val selectTab: (AppTab) -> Unit = { tab ->
         pendingSearchFocus = false
         focusManager.clearFocus()
         keyboard?.hide()
         viewModel.selectTab(tab)
+        if (tvRail) { tvRailFocused = false; moveIntoContent = true }
     }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        var wasStopped = false
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) wasStopped = true
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_START && wasStopped) {
+                wasStopped = false
+                viewModel.returnedToApp()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     LaunchedEffect(lifecycleOwner, state.selectedTab, state.activeSheet) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             if (viewModel.uiState.value.selectedTab == AppTab.HOME || viewModel.uiState.value.activeSheet is AppSheet.SessionDetails) {
@@ -163,15 +189,30 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     // A wide window moves navigation to a side rail so the bottom bar does not stretch four
     // icons across a tablet, and so the content column keeps its own width. Measured from the
     // window, not the device configuration, so split-screen is handled correctly.
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Ink)) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Ink).onPreviewKeyEvent { event ->
+        if (tvRail && event.key == androidx.compose.ui.input.key.Key.DirectionLeft) {
+            if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) railEntryRequested = true
+            else if (!railHasFocus) railEntryRequested = false
+        }
+        false
+    }) {
     val windowLayout = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
     val wideWindow = windowLayout.useNavigationRail
     val showRail = !state.showOnboarding && wideWindow
     val personalization = app.reelstack.ui.theme.LocalPersonalization.current
     val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val preferences = remember(appContext) { app.reelstack.data.repository.AppPreferencesRepository(appContext) }
-    val expandedRail = showRail && (personalization.sidebarExpanded ?: (windowLayout.widthDp >= 1000f ||
-        (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION))
+    LaunchedEffect(personalization.visibleMenu()) {
+        if (state.selectedTab.name !in personalization.visibleMenu()) selectTab(AppTab.HOME)
+    }
+    LaunchedEffect(moveIntoContent, state.selectedTab, state.showOnboarding, state.libraryLoading) {
+        if (tvRail && moveIntoContent && !state.showOnboarding && state.activeSheet == null) {
+            kotlinx.coroutines.delay(240)
+            if (runCatching { contentFocus.requestFocus() }.getOrDefault(false)) moveIntoContent = false
+        }
+    }
+    val expandedRail = showRail && if (tvRail) tvRailFocused else
+        (personalization.sidebarExpanded ?: (windowLayout.widthDp >= 1000f))
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -187,16 +228,29 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         ) { paddingValues ->
             Row(Modifier.fillMaxSize().padding(paddingValues)) {
             if (showRail) {
-                SidebarSlot(expandedRail) {
+                SidebarSlot(if (tvRail) false else expandedRail) {
                 ReelstackNavigationRail(
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
                     expanded = expandedRail,
+                    onFocusWithin = { hasFocus ->
+                        railHasFocus = hasFocus
+                        tvRailFocused = hasFocus && railEntryRequested
+                        if (!hasFocus) railEntryRequested = false
+                        else if (!railEntryRequested) moveIntoContent = true
+                    },
+                    shortcuts = state.libraryShortcuts,
+                    selectedLibraryId = state.libraryPath.firstOrNull()?.first.takeIf { state.selectedTab == AppTab.LIBRARY },
+                    onLibrarySelect = { id ->
+                        focusManager.clearFocus()
+                        viewModel.openLibraryShortcut(id)
+                        if (tvRail) { tvRailFocused = false; moveIntoContent = true }
+                    },
                     onExpandedChange = { preferences.personalization = personalization.copy(sidebarExpanded = it) },
                 )
                 }
             }
-            Box(Modifier.weight(1f).fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxSize().focusRequester(contentFocus).focusGroup()) {
             if (state.showOnboarding) {
                 WelcomeScreen(
                     state = state,
@@ -256,9 +310,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         searchReady = navigation.currentState == AppTab.DISCOVER && !navigation.isRunning,
                         onSearchFocusConsumed = { pendingSearchFocus = false },
                     )
+                    AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary, viewModel::openLibraryEntry, viewModel::libraryBack)
                     AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
                         viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
-                        viewModel::cancelTrackedRequest)
+                        viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
+                        viewModel::closeRequestHistory, viewModel::loadRequestHistory)
                     AppTab.SETTINGS -> SettingsScreen(
                         state = state,
                         contentPadding = PaddingValues(0.dp),
@@ -266,6 +322,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onNotificationsChange = viewModel::setNotifications,
                         onWifiOnlyChange = viewModel::setWifiOnly,
                         onHomeSectionChange = viewModel::setHomeSectionVisible,
+                        onManageLibraries = viewModel::openLibraryChoices,
                         onAccountClick = { kind ->
                             if (kind == app.reelstack.data.model.ServiceKind.SEERR) viewModel.openSeerrAccount()
                             else viewModel.openSheet(AppSheet.ConnectionEditor(kind))
@@ -307,6 +364,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onConfirmRequest = viewModel::confirmRequest,
         onSeasonWatch = viewModel::setSeasonWatch,
     )
+    if (state.libraryChoicesOpen) app.reelstack.ui.screens.LibraryChoicesDialog(state,
+        viewModel::closeLibraryChoices, viewModel::openLibraryChoices, viewModel::saveLibraryChoices)
 }
 
 private data class TabItem(
@@ -317,6 +376,7 @@ private data class TabItem(
 
 private val tabs = listOf(
     TabItem(AppTab.HOME, app.reelstack.R.string.nav_home, app.reelstack.ui.components.SpoleIcons.Home),
+    TabItem(AppTab.LIBRARY, R.string.nav_library, app.reelstack.ui.components.SpoleIcons.Library),
     TabItem(AppTab.DISCOVER, app.reelstack.R.string.nav_discover, app.reelstack.ui.components.SpoleIcons.Discover),
     TabItem(AppTab.ACTIVITY, app.reelstack.R.string.nav_activity, app.reelstack.ui.components.SpoleIcons.Activity),
     TabItem(AppTab.SETTINGS, app.reelstack.R.string.nav_settings, app.reelstack.ui.components.SpoleIcons.Settings),
@@ -335,7 +395,7 @@ private fun ReelstackBottomBar(
         windowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.navigationBarsPadding().heightIn(min = 76.dp).testTag("bottom-navigation"),
     ) {
-            tabs.forEach { item ->
+            app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
                 NavigationBarItem(
                     selected = item.tab == selectedTab,
                     onClick = { onSelect(item.tab) },
@@ -376,6 +436,10 @@ internal fun ReelstackNavigationRail(
     onSelect: (AppTab) -> Unit,
     expanded: Boolean = false,
     onExpandedChange: (Boolean) -> Unit = {},
+    onFocusWithin: (Boolean) -> Unit = {},
+    shortcuts: List<Pair<String, String>> = emptyList(),
+    selectedLibraryId: String? = null,
+    onLibrarySelect: (String) -> Unit = {},
 ) {
     val width by androidx.compose.animation.core.animateDpAsState(
         if (expanded) 200.dp else 80.dp, tween(220, easing = FastOutSlowInEasing), label = "sidebar-width")
@@ -386,6 +450,7 @@ internal fun ReelstackNavigationRail(
     val toggleLabel = androidx.compose.ui.res.stringResource(if (expanded) R.string.sidebar_collapse else R.string.sidebar_expand)
     val brandInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Column(Modifier.width(width).fillMaxHeight().background(app.reelstack.ui.theme.Surface).clip(RoundedCornerShape(0.dp))
+        .onFocusChanged { if (tv) onFocusWithin(it.hasFocus) }.focusGroup()
         .testTag("side-navigation").padding(horizontal = 12.dp, vertical = 24.dp)
         .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).then(if (!tv) Modifier
@@ -400,10 +465,13 @@ internal fun ReelstackNavigationRail(
                 maxLines = 1, modifier = Modifier.padding(start = 10.dp)
                     .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
         }
-        if (tv) SidebarControl(toggleLabel, if (expanded) app.reelstack.ui.components.SpoleIcons.MenuClose else app.reelstack.ui.components.SpoleIcons.Menu,
-            false, { onExpandedChange(!expanded) }, labelAlpha, Role.Button, Modifier.testTag("sidebar-toggle"))
-        tabs.forEach { item ->
-            SidebarControl(androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab,
+        app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
+            if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
+                SidebarControl(name, app.reelstack.ui.components.SpoleIcons.Library, selectedLibraryId == id,
+                    { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.testTag("wide-library-$id"))
+            }
+            SidebarControl(androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab &&
+                (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }),
                 { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.testTag("wide-tab-${item.tab.name}"))
         }
     }

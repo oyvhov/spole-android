@@ -40,7 +40,7 @@ class JellyfinPlayerUiTest {
         screen(PlayerScreenState(busy=false,playing=true,durationMs=20000))
         rule.mainClock.advanceTimeBy(4_000)
         rule.onNodeWithTag("player-toggle").assertDoesNotExist()
-        rule.onNodeWithTag("player-close").assertIsDisplayed()
+        rule.onNodeWithTag("player-close").assertDoesNotExist()
         rule.onNodeWithTag("player-touch-surface").performTouchInput {
             down(androidx.compose.ui.geometry.Offset(width * .75f, height * .4f))
         }
@@ -49,6 +49,7 @@ class JellyfinPlayerUiTest {
         rule.onNodeWithTag("player-touch-surface").performTouchInput { up() }
         rule.mainClock.advanceTimeBy(120)
         rule.onNodeWithTag("player-toggle").assertIsDisplayed().assertIsEnabled()
+        rule.onNodeWithTag("player-close").assertIsDisplayed()
         rule.mainClock.autoAdvance = true
     }
     @Test fun backStaysPinnedAfterScrollingLargeTextControls() {

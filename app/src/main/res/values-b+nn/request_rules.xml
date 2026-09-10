@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rules_unknown">Seerr stadfestar kravet til godkjenning når du sender.</string>
+    <string name="rules_no_permission">Kontoen din kan ikkje førespørje denne medietypen.</string>
+    <string name="rules_approval_required">Førespurnaden treng godkjenning frå ein administrator før han kan gå vidare.</string>
+    <string name="rules_automatic_approval">Kontoen din har automatisk godkjenning. Det betyr ikkje at tittelen er klar til å sjå.</string>
+    <string name="rules_unlimited">Seerr oppgir inga førespurnadskvote for denne medietypen.</string>
+    <string name="rules_quota_unknown">Kvoten er ukjend. Seerr kontrollerer kvoten når du sender.</string>
+    <string name="rules_exceeded">Valet går over den attverande kvoten. Vel færre sesongar eller sjekk kvoten igjen seinare.</string>
+    <string name="rules_movie_exhausted">Filmkvoten din er brukt opp. Sjekk kvoten igjen seinare.</string>
+    <string name="rules_no_period">Denne kvoten har ingen rullerande tidsperiode.</string>
+    <string name="rules_recheck">Sjekk status på nytt</string>
+    <plurals name="rules_movies_remaining">
+        <item quantity="one">%d filmførespurnad att</item>
+        <item quantity="other">%d filmførespurnader att</item>
+    </plurals>
+    <plurals name="rules_seasons_remaining">
+        <item quantity="one">%d sesong att</item>
+        <item quantity="other">%d sesongar att</item>
+    </plurals>
+    <plurals name="rules_period">
+        <item quantity="one">Seerr tel førespurnader den siste %d dagen.</item>
+        <item quantity="other">Seerr tel førespurnader dei siste %d dagane.</item>
+    </plurals>
+</resources>

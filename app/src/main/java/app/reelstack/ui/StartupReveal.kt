@@ -27,18 +27,19 @@ fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit
 
 @Composable
 internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Composable () -> Unit) {
+    val slow = app.reelstack.ui.theme.LocalPersonalization.current.slowStartup
     var opening by rememberSaveable { mutableStateOf(true) }
     var formed by rememberSaveable { mutableStateOf(false) }
     val reveal = remember { Animatable(if (formed || !opening) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!opening) return@LaunchedEffect
-        if (!formed) reveal.animateTo(1f, tween(820, easing = androidx.compose.animation.core.LinearEasing))
+        if (!formed) reveal.animateTo(1f, tween(if (slow) 1250 else 600, easing = androidx.compose.animation.core.LinearEasing))
         formed = true
         // Let the expensive home composition settle behind a completed, stationary mark.
         // The ViewModel has already started its network refresh independently of this UI.
         withFrameNanos { }
         withFrameNanos { }
-        withTimeoutOrNull(800) { awaitContentReady() }
+        withTimeoutOrNull(if (slow) 1500L else 500L) { awaitContentReady() }
         opening = false
     }
     Box(Modifier.fillMaxSize()) {

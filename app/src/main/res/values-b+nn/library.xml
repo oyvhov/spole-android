@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_library">Bibliotek</string>
+    <string name="library_empty">Ingen element her</string>
+    <string name="library_connect">Kople til Jellyfin i Innstillingar for å opne biblioteket.</string>
+    <string name="library_more">Last fleire</string>
+    <string name="library_retry">Prøv igjen</string>
+    <string name="library_back">Tilbake</string>
+    <string name="library_failed">Fekk ikkje lasta biblioteket. Prøv igjen.</string>
+    <string name="library_manage">Vel bibliotek</string>
+    <string name="library_selection_help">Vel kva Jellyfin-bibliotek som skal lastast og visast i Bibliotek, nye filmar, nye seriar, Hald fram å sjå og biblioteksøket.</string>
+    <string name="library_all">Alle</string>
+    <string name="library_none">Ingen</string>
+    <string name="library_none_help">Inkje Jellyfin-bibliotekinnhald blir lasta når ingen bibliotek er valde.</string>
+    <string name="library_save">Lagre</string>
+    <string name="library_cancel">Avbryt</string>
+</resources>

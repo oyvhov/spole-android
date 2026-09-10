@@ -70,46 +70,15 @@ fun safePlaybackUrl(baseUrl: String, value: String): String {
     return "${resolved.scheme}://${resolved.rawAuthority}${resolved.rawPath}" + (query?.let { "?$it" } ?: "")
 }
 
-/** Conservative phone profile. Unsupported/high-bit-depth media is handled by the server, not guessed. */
-fun phonePlaybackProfile(bitrate: Int): JsonObject = buildJsonObject {
-    put("Name", "Spole Android")
-    put("MaxStreamingBitrate", bitrate)
-    put("MaxStaticBitrate", bitrate)
-    putJsonArray("DirectPlayProfiles") { add(buildJsonObject {
-        put("Type", "Video"); put("Container", "mp4,m4v,mkv,mov")
-        put("VideoCodec", "h264"); put("AudioCodec", "aac,mp3")
-    }) }
-    putJsonArray("TranscodingProfiles") { add(buildJsonObject {
-        put("Type", "Video"); put("Container", "ts"); put("Protocol", "hls")
-        put("VideoCodec", "h264"); put("AudioCodec", "aac"); put("Context", "Streaming")
-        put("MaxAudioChannels", "2"); put("MinSegments", 2); put("SegmentLength", 3)
-        put("CopyTimestamps", false); put("EnableSubtitlesInManifest", false)
-    }) }
-    putJsonArray("CodecProfiles") {
-        add(buildJsonObject {
-            put("Type", "Video"); put("Codec", "h264")
-            putJsonArray("Conditions") {
-                for ((name, value) in listOf("Width" to "1920", "Height" to "1080", "VideoBitDepth" to "8", "VideoLevel" to "42")) {
-                    add(buildJsonObject { put("Condition", "LessThanEqual"); put("Property", name); put("Value", value); put("IsRequired", false) })
-                }
-            }
-        })
-        add(buildJsonObject {
-            put("Type", "VideoAudio")
-            putJsonArray("Conditions") { add(buildJsonObject {
-                put("Condition", "LessThanEqual"); put("Property", "AudioChannels"); put("Value", "2"); put("IsRequired", false)
-            }) }
-        })
-    }
-    putJsonArray("SubtitleProfiles") {
-        add(buildJsonObject { put("Format", "vtt"); put("Method", "External") })
-        for (format in listOf("pgssub", "dvdsub", "dvbsub")) add(buildJsonObject { put("Format", format); put("Method", "Encode") })
-    }
-}
+/** Safe fallback when detection fails or a decoder rejects an advertised format. */
+fun phonePlaybackProfile(bitrate: Int): JsonObject = devicePlaybackProfile(bitrate, DevicePlaybackCapabilities.CONSERVATIVE)
 
 class JellyfinPlaybackClient(
     private val transport: JsonHttpTransport = HttpTransport(connectTimeoutMs = 5_000, readTimeoutMs = 8_000),
     private val deviceId: String,
+    private val capabilities: () -> DevicePlaybackCapabilities = { DevicePlaybackCapabilities.CONSERVATIVE },
+    private val sourceSupported: (JsonObject, Int?) -> Boolean = { _, _ -> true },
+    private val videoSupported: (JsonObject) -> Boolean = { true },
 ) {
     fun headers(connection: ServiceConnection) = mapOf("Authorization" to jellyfinAuthorization(deviceId, connection.token))
 
@@ -137,14 +106,16 @@ class JellyfinPlaybackClient(
     fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,
         audio: Int? = null, subtitle: Int? = null, compatible: Boolean = false, sourceId: String? = null): PlaybackPlan {
         require(item.type in setOf("Movie", "Episode")) { "Vel ein episode først." }
+        val detected = if (compatible) DevicePlaybackCapabilities.CONSERVATIVE else
+            runCatching { capabilities() }.getOrDefault(DevicePlaybackCapabilities.CONSERVATIVE)
         val payload = buildJsonObject {
-            put("UserId", user); put("DeviceProfile", phonePlaybackProfile(bitrate)); put("MaxStreamingBitrate", bitrate)
+            put("UserId", user); put("DeviceProfile", devicePlaybackProfile(bitrate, detected)); put("MaxStreamingBitrate", bitrate)
             // A VOD timeline starting at zero makes Media3 seek positions and server progress identical.
             put("StartTimeTicks", 0); put("IsPlayback", true); put("AutoOpenLiveStream", false)
-            put("EnableDirectPlay", !compatible && audio == null && subtitle == null)
+            put("EnableDirectPlay", !compatible)
             put("EnableDirectStream", false); put("EnableTranscoding", true)
             put("AllowVideoStreamCopy", !compatible); put("AllowAudioStreamCopy", !compatible)
-            put("MaxAudioChannels", 2)
+            put("MaxAudioChannels", detected.maxAudioChannels)
             audio?.let { put("AudioStreamIndex", it) }; subtitle?.let { put("SubtitleStreamIndex", it) }
             sourceId?.let { put("MediaSourceId", it) }
         }
@@ -163,12 +134,16 @@ class JellyfinPlaybackClient(
         }
         val subtitles = tracks("Subtitle")
         val selectedSubtitle = subtitle ?: source.num("DefaultSubtitleStreamIndex")?.toInt() ?: -1
-        val selectedAudio = audio ?: source.num("DefaultAudioStreamIndex")?.toInt()
+        val selectedAudio = audio ?: source.num("DefaultAudioStreamIndex")?.toInt() ?: tracks("Audio").firstOrNull()?.index
         val subtitleTrack = subtitles.firstOrNull { it.index == selectedSubtitle }
-        val direct = source.flag("SupportsDirectPlay") && !compatible && audio == null && subtitle == null
+        val direct = source.flag("SupportsDirectPlay") && !compatible
+        // HLS may still copy video while converting audio. Validate that original video too.
+        if (!compatible && (!videoSupported(source) || direct && !sourceSupported(source, selectedAudio))) {
+            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, true, mediaSourceId)
+        }
         // Image subtitles need burn-in; re-negotiate explicitly instead of silently dropping them.
         if (direct && subtitleTrack != null && !subtitleTrack.isText) {
-            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, compatible, mediaSourceId)
+            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, true, mediaSourceId)
         }
         val url = if (direct) "Videos/${enc(item.id)}/stream?static=true&MediaSourceId=${enc(mediaSourceId)}&PlaySessionId=${enc(session)}" else
             source.str("TranscodingUrl").also { require(it.isNotBlank()) { "Jellyfin kan ikkje tilpasse denne fila. Prøv Jellyfin-appen." } }

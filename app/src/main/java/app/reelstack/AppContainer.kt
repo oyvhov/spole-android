@@ -21,11 +21,16 @@ class AppContainer(context: Context) {
     val jellyfinAuthenticationClient = JellyfinAuthenticationClient(
         deviceId = deviceId,
     )
-    val mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId)
+    val preferencesRepository = AppPreferencesRepository(appContext)
+    val mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId, includeLibrary = preferencesRepository::includesLibrary)
     val mediaSyncRepository = MediaSyncRepository(mediaServerClient = mediaServerClient)
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
-    val preferencesRepository = AppPreferencesRepository(appContext)
+    fun mediaFingerprint(connections: List<app.reelstack.data.model.ServiceConnection>): String =
+        MediaSnapshotStore.fingerprint(connections) + preferencesRepository.librarySelectionFingerprint(connections)
+
     val requestTrackingRepository = app.reelstack.data.repository.RequestTrackingRepository(appContext)
+    val requestHistoryRepository = app.reelstack.data.repository.RequestHistoryRepository()
+    val requestRulesClient = app.reelstack.data.network.RequestRulesClient()
 
     /**
      * The widget runs inside a broadcast receiver, which has seconds rather than the app's
@@ -36,6 +41,7 @@ class AppContainer(context: Context) {
     val widgetMediaServerClient = app.reelstack.data.network.MediaServerClient(
         transport = HttpTransport(connectTimeoutMs = 2_500, readTimeoutMs = 3_500),
         deviceId = deviceId,
+        includeLibrary = preferencesRepository::includesLibrary,
     )
     val widgetAccountProfileClient = app.reelstack.data.network.AccountProfileClient(
         transport = HttpTransport(connectTimeoutMs = 2_500, readTimeoutMs = 3_500),

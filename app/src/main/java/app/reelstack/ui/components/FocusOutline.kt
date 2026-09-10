@@ -17,5 +17,7 @@ import androidx.compose.ui.unit.dp
 internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape): Modifier {
     val focused by source.collectIsFocusedAsState()
     val alpha by animateFloatAsState(if (focused) 1f else 0f, tween(110), label = "focus-outline")
-    return border(3.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = alpha), shape)
+    val style = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle
+    val color = if (style == app.reelstack.data.model.FocusStyle.ACCENT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    return border(if (style == app.reelstack.data.model.FocusStyle.BOLD) 5.dp else 3.dp, color.copy(alpha = alpha), shape)
 }

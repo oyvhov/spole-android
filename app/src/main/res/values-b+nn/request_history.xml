@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_open">Sjå førespurnadshistorikk</string>
+    <string name="history_title">Førespurnadshistorikk</string>
+    <string name="history_description">Dine førespurnader i Seerr, nyaste først. Opne ein tittel for detaljar. Å bla slår ikkje på varsel.</string>
+    <string name="history_back">Tilbake til Aktivitet</string>
+    <string name="history_refresh">Oppdater historikken</string>
+    <string name="history_more">Last eldre førespurnader</string>
+    <string name="history_loading">Hentar førespurnadene dine…</string>
+    <string name="history_retry">Prøv igjen</string>
+    <string name="history_empty">Du har ingen førespurnader i Seerr enno.</string>
+    <string name="history_end">Du har nådd slutten av historikken.</string>
+    <string name="history_failed">Fekk ikkje henta denne sida. Sjekk tilkoplinga og prøv igjen.</string>
+    <string name="history_sign_in">Logg inn med din personlege Seerr-konto for å sjå historikken.</string>
+    <plurals name="history_count_total">
+        <item quantity="one">%1$d av %2$d førespurnad lasta</item>
+        <item quantity="other">%1$d av %2$d førespurnader lasta</item>
+    </plurals>
+    <plurals name="history_count">
+        <item quantity="one">%1$d førespurnad lasta</item>
+        <item quantity="other">%1$d førespurnader lasta</item>
+    </plurals>
+    <string name="history_untitled">Førespurnad #%1$d</string>
+</resources>

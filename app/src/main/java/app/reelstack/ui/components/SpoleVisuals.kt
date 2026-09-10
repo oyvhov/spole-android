@@ -41,6 +41,8 @@ import app.reelstack.ui.theme.*
 @Composable
 fun SpoleWelcomeArt(modifier: Modifier = Modifier) {
     val reveal = remember { Animatable(0f) }
+    val filmColor = SurfaceRaised
+    val holeColor = Ink
     LaunchedEffect(Unit) { reveal.animateTo(1f, tween(480)) }
     Box(modifier.fillMaxWidth().height(148.dp).clip(RoundedCornerShape(24.dp))
         .background(Surface).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
@@ -50,13 +52,13 @@ fun SpoleWelcomeArt(modifier: Modifier = Modifier) {
         }) {
             val stripHeight = size.height * .64f
             rotate(-12f) {
-                drawRoundRect(SurfaceRaised, Offset(-20f, size.height * .18f),
+                drawRoundRect(filmColor, Offset(-20f, size.height * .18f),
                     Size(size.width + 40f, stripHeight), CornerRadius(8.dp.toPx()))
                 val step = 22.dp.toPx()
                 var x = 0f
                 while (x < size.width) {
                     listOf(size.height * .23f, size.height * .70f).forEach { y ->
-                        drawRoundRect(Ink, Offset(x, y), Size(10.dp.toPx(), 5.dp.toPx()), CornerRadius(2.dp.toPx()))
+                        drawRoundRect(holeColor, Offset(x, y), Size(10.dp.toPx(), 5.dp.toPx()), CornerRadius(2.dp.toPx()))
                     }
                     x += step
                 }

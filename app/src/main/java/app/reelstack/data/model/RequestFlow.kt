@@ -101,7 +101,13 @@ data class TrackedRequest(
     val availabilityOnly: Boolean = false,
     /** Keep a ready-only bell's promise even if its watch later merges into an owned request. */
     val readyNotificationOnly: Boolean = false,
+    val statusCheckFailed: Boolean = false,
 )
+
+/** Older imported records used these type labels before Seerr supplied a real title. */
+val TrackedRequest.hasTitleMetadata: Boolean
+    get() = !artworkUrl.isNullOrBlank() || title.trim().lowercase(java.util.Locale.ROOT) !in
+        setOf("", "film", "serie", "movie", "series", "tv")
 
 fun availabilityWatchProgress(
     seasons: List<RequestSeason>, selected: Set<Int>, downloads: List<RequestDownload>, mediaStatus: Int?,
@@ -125,4 +131,5 @@ data class RequestDraft(
     val watchedSeasons: Set<Int> = emptySet(),
     val savingWatch: Int? = null,
     val watchError: String? = null,
+    val rules: RequestRules? = null,
 )

@@ -59,52 +59,7 @@ internal fun PersonalizationSettings(value: Personalization, onChange: (Personal
                     Icon(if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null)
                 }
                 // No animated remeasurement: stable controls remain under the user's finger.
-                if (expanded) {
-                    Text(stringResource(R.string.personal_accent), color = Muted, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
-                    FlowRow(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AccentPalette.entries.forEach { palette ->
-                            val label = stringResource(when (palette) {
-                                AccentPalette.LIME -> R.string.personal_lime
-                                AccentPalette.OCEAN -> R.string.personal_ocean
-                                AccentPalette.IRIS -> R.string.personal_iris
-                                AccentPalette.CORAL -> R.string.personal_coral
-                            })
-                            Row(Modifier.heightIn(min = 48.dp).background(SurfaceRaised, RoundedCornerShape(14.dp))
-                                .selectable(value.accent == palette, role = Role.RadioButton,
-                                    onClick = { onChange(value.copy(accent = palette)) })
-                                .testTag("accent-${palette.name}").padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(24.dp).background(Color(palette.argb), CircleShape), contentAlignment = Alignment.Center) {
-                                    if (value.accent == palette) Icon(Icons.Rounded.Check, null, tint = Ink, modifier = Modifier.size(18.dp))
-                                }
-                                Text(label, Modifier.padding(start = 8.dp), style = MaterialTheme.typography.labelLarge)
-                            }
-                        }
-                    }
-                    Text(stringResource(R.string.personal_artwork), color = Muted, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
-                    FlowRow(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ArtworkSize.entries.forEach { size ->
-                            FilterChip(selected = size == value.artworkSize,
-                                onClick = { onChange(value.copy(artworkSize = size)) },
-                                label = { Text(stringResource(when(size) {
-                                    ArtworkSize.COMPACT -> R.string.personal_compact
-                                    ArtworkSize.STANDARD -> R.string.personal_standard
-                                    ArtworkSize.LARGE -> R.string.personal_large
-                                })) }, modifier = Modifier.heightIn(min = 48.dp).testTag("artwork-${size.name}"))
-                        }
-                    }
-                    val previewLabel = stringResource(R.string.personal_preview)
-                    Row(Modifier.fillMaxWidth().height(100.dp).clearAndSetSemantics { contentDescription = previewLabel },
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val scale = value.artworkSize.scale
-                        Box(Modifier.size(40.dp * scale, 60.dp * scale).background(Primary, RoundedCornerShape(6.dp)))
-                        Box(Modifier.size(80.dp * scale, 45.dp * scale).background(PrimarySoft, RoundedCornerShape(6.dp)))
-                    }
-                    Text(stringResource(R.string.personal_artwork_note), color = Muted, style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { onChange(value.copy(accent = AccentPalette.LIME, artworkSize = ArtworkSize.STANDARD)) },
-                        modifier = Modifier.testTag("appearance-reset")) { Text(stringResource(R.string.personal_reset)) }
-                }
+                if (expanded) VisualThemeSettings(value, onChange)
             }
         }
         if (showPlayback) {

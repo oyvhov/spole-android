@@ -68,7 +68,13 @@ class AccountOptionsTest {
             .performKeyInput { pressKey(Key.DirectionDown) }
         val scrollRange = rule.onNodeWithTag("sign-out-note").fetchSemanticsNode().config[
             androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange]
-        rule.runOnIdle { assertTrue(scrollRange.value() > 0f) }
+        rule.runOnIdle {
+            // AlertDialog owns a separate native window. On a tall phone the whole note fits;
+            // on TV/short windows D-pad must move the overflowing text.
+            if (scrollRange.maxValue() > 0f) assertTrue("D-pad must scroll overflowing text", scrollRange.value() > 0f)
+            else assertEquals(0f, scrollRange.value(), 0f)
+        }
+        rule.onNodeWithTag("sign-out-note").assertIsDisplayed()
         rule.onNodeWithTag("sign-out-cancel").performClick()
     }
 
