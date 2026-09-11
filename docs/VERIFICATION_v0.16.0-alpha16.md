@@ -29,8 +29,17 @@
 - Universal release-APK arkivert i `app/build/release-v0.16.0-alpha16/Spole-v0.16.0-alpha16.apk`.
 - R8-mapping arkivert i `app/build/release-v0.16.0-alpha16/mapping-v0.16.0-alpha16.txt`.
 - `SHA256SUMS.txt` arkivert saman med APK-en.
+- Source commit-artefakt: `e25483d2faeb2510fc0146209e1d9a5ff38e33c6`.
+
+## GitHub-release
+
+- Publisert som prerelease: <https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-alpha16>
+- Offentleg APK-lenke: <https://github.com/oyvhov/spole-android/releases/download/v0.16.0-alpha16/Spole-v0.16.0-alpha16.apk>
+- GitHub asset digest: `sha256:701d7b05f88b70d43a05789a327258817ecb66e5802a72875c193aa87d835785`
+- Offentleg nedlasta APK vart hasha til same SHA-256: `701d7b05f88b70d43a05789a327258817ecb66e5802a72875c193aa87d835785`.
+- GitHub `latest` peikar framleis på stabil `v0.15.1`, ikkje denne alpha-utgåva.
 
 ## Merknader
 
 - Den dokumenterte `app/build/test-avds/start-headless.sh` fanst ikkje i denne arbeidsmappa. Den eksisterande isolerte AVD-en `Spole_Instrumentation` vart difor starta direkte frå WSL med `ANDROID_AVD_HOME=/mnt/c/JellyBin/.spole-test-avds` og port 5562.
-- Full oppdateringstest via publisert GitHub-release blir dokumentert etter publisering.
+- Oppdateringsgrunnlaget via publisert GitHub-release er verifisert med offentleg release-API og offentleg APK-nedlasting.
