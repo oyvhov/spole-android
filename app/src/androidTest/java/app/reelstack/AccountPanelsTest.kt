@@ -139,6 +139,20 @@ class AccountPanelsTest {
         rule.onNodeWithText("Som ${seerr.displayName}").assertDoesNotExist()
     }
 
+    @Test fun failedJellyfinVerificationSaysTheStoredSignInIsStillThere() {
+        var selected: ServiceKind? = null
+        val state = accountState().copy(
+            accounts = mapOf(ServiceKind.SEERR to seerr),
+            accountErrors = mapOf(ServiceKind.JELLYFIN to "Mellombels feil"),
+        )
+        rule.setContent {
+            ReelstackTheme { SettingsAccounts(state, onConnectionClick = { selected = it }) }
+        }
+        rule.onNodeWithText("Innlogginga er lagra · kunne ikkje stadfeste no").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Prøv igjen på Jellyfin").performClick()
+        assertEquals(ServiceKind.JELLYFIN, selected)
+    }
+
     @Test fun jellyfinIdentityAloneDoesNotInventASeerrRequestIdentity() {
         var opened = 0
         val state = accountState().copy(accounts = mapOf(ServiceKind.JELLYFIN to jellyfin))

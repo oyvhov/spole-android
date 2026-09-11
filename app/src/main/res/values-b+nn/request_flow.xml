@@ -3,6 +3,7 @@
     <string name="flow_account_title">Kontoen din</string>
     <string name="flow_account_loading">Hentar kontoen…</string>
     <string name="flow_login_again">Logg inn på nytt</string>
+    <string name="flow_account_saved_unverified">Innlogginga er lagra · kunne ikkje stadfeste no</string>
     <string name="flow_signed_out">Ikkje innlogga</string>
     <string name="flow_login">Logg inn</string>
     <string name="flow_admin">Administrator</string>

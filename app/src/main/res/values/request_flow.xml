@@ -3,6 +3,7 @@
     <string name="flow_account_title">Your account</string>
     <string name="flow_account_loading">Loading account…</string>
     <string name="flow_login_again">Sign in again</string>
+    <string name="flow_account_saved_unverified">Sign-in is saved · could not verify it now</string>
     <string name="flow_signed_out">Not signed in</string>
     <string name="flow_login">Sign in</string>
     <string name="flow_admin">Administrator</string>

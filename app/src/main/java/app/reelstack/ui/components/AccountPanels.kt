@@ -86,10 +86,11 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                     ServiceSymbol(source, Modifier.size(24.dp))
                     Column(Modifier.weight(1f)) {
                         Text(source.displayName, color = TextColor, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
-                        Text(if (loading) stringResource(R.string.flow_account_loading) else if (hasError) stringResource(R.string.flow_login_again) else stringResource(R.string.flow_signed_out),
+                        Text(if (loading) stringResource(R.string.flow_account_loading) else if (hasError) stringResource(R.string.flow_account_saved_unverified) else stringResource(R.string.flow_signed_out),
                             color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                     }
-                    if (!loading) AccountAction(onClick, stringResource(R.string.flow_login), source)
+                    if (!loading) AccountAction(onClick,
+                        stringResource(if (hasError) R.string.flow_retry else R.string.flow_login), source)
                 }
                 return@Column
             }

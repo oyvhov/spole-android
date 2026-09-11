@@ -1617,13 +1617,7 @@ class ReelstackViewModel(
                     else container.jellyfinAuthenticationClient.initiateQuickConnect(normalizedUrl)
                 }
             }.getOrElse { error ->
-                updateDraft {
-                    copy(
-                        saving = false,
-                        quickConnectWaiting = false,
-                        error = error.readableMessage() ?: "Fekk ikkje starta Quick Connect",
-                    )
-                }
+                showQuickConnectFailure(draft.kind, error, "Fekk ikkje starta Quick Connect")
                 return@launch
             }
             updateDraft {
@@ -1647,13 +1641,7 @@ class ReelstackViewModel(
                             )
                         }
                     }.getOrElse { error ->
-                        updateDraft {
-                            copy(
-                                saving = false,
-                                quickConnectWaiting = false,
-                                error = error.readableMessage() ?: "Quick Connect vart ikkje fullført",
-                            )
-                        }
+                        showQuickConnectFailure(draft.kind, error, "Quick Connect vart ikkje fullført")
                         return@launch
                     }
                     verifyAndSaveConnection(
@@ -1684,13 +1672,7 @@ class ReelstackViewModel(
                         )
                     }
                 }.getOrElse { error ->
-                    updateDraft {
-                        copy(
-                            saving = false,
-                            quickConnectWaiting = false,
-                            error = error.readableMessage() ?: "Mista kontakten med Quick Connect",
-                        )
-                    }
+                    showQuickConnectFailure(draft.kind, error, "Mista kontakten med Quick Connect")
                     return@launch
                 }
                 updateDraft { copy(quickConnectCode = quickConnect.code) }
@@ -1703,6 +1685,20 @@ class ReelstackViewModel(
                     error = "Quick Connect-koden gjekk ut. Lag ein ny kode og prøv igjen.",
                 )
             }
+        }
+    }
+
+    private fun showQuickConnectFailure(kind: ServiceKind, error: Throwable, fallback: String) {
+        updateDraft {
+            copy(
+                authMode = if (kind == ServiceKind.SEERR) ConnectionAuthMode.ACCOUNT else authMode,
+                saving = false,
+                quickConnectCode = null,
+                quickConnectWaiting = false,
+                error = if (kind == ServiceKind.SEERR) {
+                    "Quick Connect er ikkje tilgjengeleg her. Logg inn med Jellyfin-kontoen under."
+                } else error.readableMessage() ?: fallback,
+            )
         }
     }
 

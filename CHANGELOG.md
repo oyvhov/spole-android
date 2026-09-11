@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0-alpha17 · Lagra kontoar og tryggare Seerr-innlogging
+
+- Ein mellombels feil ved profilkontrollen blir ikkje lenger vist som om Jellyfin-kontoen er sletta. Innstillingane seier no tydeleg at innlogginga framleis er lagra.
+- Dersom Seerr Quick Connect ikkje er tilgjengeleg, byter innloggingsarket automatisk til Jellyfin-konto og forklarer kva du skal gjere vidare.
+- Oppdateringa er bygd og kontrollert for installasjon over ei eksisterande Spole-utgåve utan sletting av appdata.
+
 ## 0.16.0-alpha16 · Bibliotekhyller, sporval og rolegare TV
 
 - Biblioteka har eigne hyller. Opnar du Filmar eller Seriar, står «Hald fram å sjå» og «Neste episode» for nettopp det biblioteket over rutenettet, med framdrift på biletet. Før fanst dei berre på Heim, blanda på tvers av alle biblioteka.
