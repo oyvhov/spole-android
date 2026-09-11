@@ -30,6 +30,15 @@
 - Android sin `firstInstallTime` var framleis 7. september 2026 etter oppdateringa; berre `lastUpdateTime` endra seg.
 - Appen viste den vanlege heimesida både før og etter oppdateringa, ikkje førstegongsoppsettet. Ingen appdata vart sletta.
 
+## Artefaktar og GitHub-release
+
+- Release-taggen peikar på kjeldecommit `d22fe5e8c8ce6e5a530fef8fbbed6ecad3c47074`.
+- Publisert som prerelease: <https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-alpha17>
+- Offentleg APK-lenke: <https://github.com/oyvhov/spole-android/releases/download/v0.16.0-alpha17/Spole-v0.16.0-alpha17.apk>
+- Releasen er ikkje ein kladd og inneheld nøyaktig éin APK.
+- GitHub asset digest og offentleg nedlasta APK samsvarar med lokal SHA-256: `6479e0d7f78d4e9bf79ee854709eeb72648a1e5c1a97b6b4e4cf9581bd041b13`.
+- GitHub `latest` peikar framleis på stabil `v0.15.1`; alpha17 blir funnen når Testutgåver er på.
+
 ## Merknader
 
 - Rettar kontotilstanden og Seerr-innlogginga som vart rapportert etter oppdatering til alpha16.
