@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0-alpha18 · Lågare og stabil TV-hero
+
+- Heroen på TV er lågare, slik at den første innhaldsrada får plass i det første skjermbiletet.
+- Toppen, tenestenamnet og profilen blir verande synlege når «Sjå meir» får fokus.
+- Lufta over heroen og fram til «Hald fram å sjå» er stramma inn på TV. Mobil og stor tekststorleik beheld fleksibel høgd.
+
 ## 0.16.0-alpha17 · Lagra kontoar og tryggare Seerr-innlogging
 
 - Ein mellombels feil ved profilkontrollen blir ikkje lenger vist som om Jellyfin-kontoen er sletta. Innstillingane seier no tydeleg at innlogginga framleis er lagra.

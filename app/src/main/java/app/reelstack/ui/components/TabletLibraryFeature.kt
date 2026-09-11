@@ -62,12 +62,15 @@ internal fun tabletFeaturedTitles(series: List<LibraryMedia>, sections: Set<Home
 /** The hero title reserves two of these lines whether a logo or a heading fills the slot. */
 private val TITLE_SIZE = 32.sp
 private val TITLE_LINE_HEIGHT = 36.sp
+private val TV_TITLE_SIZE = 26.sp
+private val TV_TITLE_LINE_HEIGHT = 28.sp
 
 /** Stable action and profile targets; only the artwork and metadata crossfade. */
 @Composable
 internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit, modifier: Modifier = Modifier,
     account: (@Composable () -> Unit)? = null,
-    candidates: List<LibraryMedia> = listOf(media), rotationEnabled: Boolean = true) {
+    candidates: List<LibraryMedia> = listOf(media), rotationEnabled: Boolean = true,
+    onFocusWithin: (Boolean) -> Unit = {}) {
     val titles = candidates.ifEmpty { listOf(media) }.take(3)
     val identities = titles.map { it.id }
     var position by remember(identities) { mutableIntStateOf(0) }
@@ -99,13 +102,25 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val compactTelevision = television && density.fontScale < 1.5f
     val featureInteraction = remember { MutableInteractionSource() }
     val actionInteraction = remember { MutableInteractionSource() }
     // The feature was the one artwork surface with a fixed height, so choosing Compact shrank every
     // rail under it and left the hero at full size.
     val heroScale = LocalPersonalization.current.artworkSize.scale
-    Box(modifier.fillMaxWidth().heightIn(min = (if (shortWindow) 250.dp else 330.dp) * heroScale)
-        .onFocusChanged { focused = it.hasFocus }
+    val featureSize = if (compactTelevision) {
+        Modifier.height(250.dp)
+    } else {
+        Modifier.heightIn(min = (if (shortWindow) 250.dp else 330.dp) * heroScale)
+    }
+    val featureSpacing = if (compactTelevision) 4.dp else 10.dp
+    val titleSize = if (compactTelevision) TV_TITLE_SIZE else TITLE_SIZE
+    val titleLineHeight = if (compactTelevision) TV_TITLE_LINE_HEIGHT else TITLE_LINE_HEIGHT
+    Box(modifier.fillMaxWidth().then(featureSize)
+        .onFocusChanged {
+            focused = it.hasFocus
+            onFocusWithin(it.hasFocus)
+        }
         .focusGroup()
         .clip(RoundedCornerShape(24.dp))
         .background(Ink)
@@ -144,10 +159,12 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(
                 0f to Color.Transparent, .65f to Color.Transparent, 1f to Ink.copy(alpha = .6f))))
         }
-        Column(Modifier.fillMaxWidth(.54f).padding(vertical = if (shortWindow) 20.dp else 32.dp, horizontal = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth(.54f).padding(
+            vertical = if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
+            horizontal = 28.dp,
+        ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
           Crossfade(selected, animationSpec = tween(800), label = "feature-caption") { title ->
-           Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+           Column(verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ServiceLogo(title.source, null, Modifier.size(22.dp))
                 Text(title.source.displayName, color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.labelLarge)
@@ -161,7 +178,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             // block was ~24 dp for a wide logo and ~72 dp for a title — and a logo that failed
             // after layout swapped one for the other, which is the jump. Measured at the current
             // font scale so the two stay equal at 2x text as well.
-            val titleSlot = with(LocalDensity.current) { (TITLE_LINE_HEIGHT * 2).toDp() }
+            val titleSlot = with(LocalDensity.current) { (titleLineHeight * 2).toDp() }
             Box(
                 Modifier.fillMaxWidth().heightIn(min = titleSlot),
                 contentAlignment = Alignment.CenterStart,
@@ -177,7 +194,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                             .padding(vertical = 2.dp),
                     )
                 } else {
-                    Text(title.title, color = Color.White, fontSize = TITLE_SIZE, lineHeight = TITLE_LINE_HEIGHT,
+                    Text(title.title, color = Color.White, fontSize = titleSize, lineHeight = titleLineHeight,
                         fontWeight = FontWeight.SemiBold, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -197,8 +214,12 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             val episodeLine = listOfNotNull(numbered, name.takeIf(String::isNotBlank)).joinToString(" – ")
             Text(episodeLine,
                 color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
-                minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(title.overview.orEmpty(), color = Color.White.copy(alpha = .78f), fontSize = 14.sp, lineHeight = 20.sp,
+                minLines = if (compactTelevision) 1 else 2,
+                maxLines = if (compactTelevision) 1 else 2,
+                overflow = TextOverflow.Ellipsis)
+            Text(title.overview.orEmpty(), color = Color.White.copy(alpha = .78f),
+                fontSize = if (compactTelevision) 13.sp else 14.sp,
+                lineHeight = if (compactTelevision) 17.sp else 20.sp,
                 minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
            }
           }

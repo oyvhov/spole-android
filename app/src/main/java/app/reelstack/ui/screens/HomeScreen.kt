@@ -163,10 +163,20 @@ fun HomeScreen(
         }
         val tablet = LocalTabletCanvas.current
         val edge = app.reelstack.ui.theme.LocalMediaEdgeToEdge.current
+        val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+            android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
         val featurePool = state.recentSeries + continueItems + state.nextUp
         val features = if (tablet && personalization.showHero) tabletFeaturedTitles(featurePool, state.homeSections) else emptyList()
         val featured = features.firstOrNull()
         val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
+        var featureFocused by remember { mutableStateOf(false) }
+        LaunchedEffect(featureFocused, television, showSearch) {
+            if (featureFocused && television) {
+                androidx.compose.runtime.withFrameNanos { }
+                feedState.scrollToItem(if (showSearch) 1 else 0)
+            }
+        }
         val featureVisible by remember { androidx.compose.runtime.derivedStateOf {
             feedState.layoutInfo.visibleItemsInfo.any { it.key == "tablet-feature" }
         } }
@@ -174,7 +184,7 @@ fun HomeScreen(
             state = feedState,
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
-                top = ReelLayout.PageTop,
+                top = if (television && featured != null) 16.dp else ReelLayout.PageTop,
                 end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
@@ -193,7 +203,10 @@ fun HomeScreen(
                     TabletLibraryFeature(featured, onLibraryClick,
                         Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp),
                         account = { HomeAccountButton(state, onAccountClick, onArtwork = true) },
-                        candidates = features, rotationEnabled = featureVisible && state.activeSheet == null)
+                        candidates = features,
+                        rotationEnabled = featureVisible && state.activeSheet == null,
+                        onFocusWithin = { featureFocused = it },
+                    )
                 }
             }
             if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
@@ -216,7 +229,10 @@ fun HomeScreen(
                 (continueItems.isNotEmpty() || incompleteMedia || (state.isRefreshing && state.configuredCount > 0))
             ) {
                 item {
-                    SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                    SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(
+                        top = if (television && featured != null) 14.dp else ReelLayout.SectionTop,
+                        bottom = ReelLayout.SectionBottom,
+                    ))
                     if (continueItems.isEmpty() && !state.isRefreshing && incompleteMedia)
                         EmptySectionLine(stringResource(R.string.home_resume_retry))
                     else if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
