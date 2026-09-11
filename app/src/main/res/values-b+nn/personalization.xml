@@ -14,7 +14,6 @@
     <string name="personal_compact">Kompakt</string>
     <string name="personal_standard">Standard</string>
     <string name="personal_large">Stor</string>
-    <string name="personal_artwork_note">Gjeld bileta på Heim og rutenettet i Oppdag. Teksten held same lesbare storleik.</string>
     <string name="personal_playback">Avspeling</string>
     <string name="personal_resume">Hald fram der eg slapp</string>
     <string name="personal_resume_note">Start Jellyfin-avspeling frå den lagra posisjonen din. Slå av for å velje mellom å halde fram og å starte på nytt.</string>

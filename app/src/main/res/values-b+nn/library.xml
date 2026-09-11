@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="nav_library">Bibliotek</string>
-    <string name="library_empty">Ingen element her</string>
     <string name="library_connect">Kople til Jellyfin i Innstillingar for å opne biblioteket.</string>
     <string name="library_more">Last fleire</string>
     <string name="library_retry">Prøv igjen</string>
@@ -14,4 +13,28 @@
     <string name="library_none_help">Inkje Jellyfin-bibliotekinnhald blir lasta når ingen bibliotek er valde.</string>
     <string name="library_save">Lagre</string>
     <string name="library_cancel">Avbryt</string>
+    <string name="library_view">Vising</string>
+    <string name="library_view_grid">Rutenett</string>
+    <string name="library_view_list">Liste</string>
+    <string name="library_size">Kortstorleik</string>
+    <string name="library_size_small">Liten</string>
+    <string name="library_size_medium">Middels</string>
+    <string name="library_size_large">Stor</string>
+    <string name="library_art">Bilete</string>
+    <string name="library_art_auto">Automatisk</string>
+    <string name="library_art_poster">Plakat</string>
+    <string name="library_art_thumb">Thumb</string>
+    <string name="library_art_banner">Banner</string>
+    <string name="library_art_logo">Logo</string>
+    <string name="library_titles">Titlar under biletet</string>
+    <string name="library_display">Vising og storleik</string>
+    <string name="library_titles_on">På</string>
+    <string name="library_titles_off">Av</string>
+    <string name="library_order">Rekkjefølgje</string>
+    <string name="library_descending_on">Synkande</string>
+    <string name="library_descending_off">Stigande</string>
+    <string name="library_favourites_on">Berre favorittar</string>
+    <string name="library_favourites_off">Alle</string>
+    <string name="episode_season">Sesong %1$d</string>
+    <string name="episode_number">Episode %1$d</string>
 </resources>

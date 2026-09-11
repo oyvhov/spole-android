@@ -223,6 +223,32 @@ class MediaSyncRepository(
         )
     }
 
+    /** One library's own shelves, already mapped for the screen. */
+    fun libraryShelves(connection: ServiceConnection, view: app.reelstack.data.network.RemoteLibraryView):
+        Pair<List<LibraryMedia>, List<LibraryMedia>> {
+        val (resume, nextUp) = mediaServerClient.libraryShelves(connection, view)
+        return resume.map { libraryMedia(it, connection.kind) } to nextUp.map { libraryMedia(it, connection.kind) }
+    }
+
+    /**
+     * The three writes a card offers.
+     *
+     * All of them belong to the server: a local "hidden" or "favourite" list would disagree with
+     * every other client and be lost on reinstall. The screen updates itself at once and the next
+     * refresh reads back what the server actually stored.
+     */
+    fun clearResume(connection: ServiceConnection, media: LibraryMedia) =
+        mediaServerClient.clearResume(connection, mediaUser(connection), requireNotNull(media.remoteId) { "Tittelen manglar ID" })
+
+    fun setFavourite(connection: ServiceConnection, media: LibraryMedia, favourite: Boolean) =
+        mediaServerClient.setFavourite(connection, mediaUser(connection), requireNotNull(media.remoteId) { "Tittelen manglar ID" }, favourite)
+
+    fun setPlayed(connection: ServiceConnection, media: LibraryMedia, played: Boolean) =
+        mediaServerClient.setPlayed(connection, mediaUser(connection), requireNotNull(media.remoteId) { "Tittelen manglar ID" }, played)
+
+    private fun mediaUser(connection: ServiceConnection): String =
+        requireNotNull(mediaServerClient.userIdentity(connection)) { "Fann ikkje profilen på ${connection.kind.displayName}" }
+
     fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {
         val remoteId = requireNotNull(media.remoteId) { "Tittelen manglar medie-ID frå Seerr" }
         val mediaType = requireNotNull(media.mediaType) { "Tittelen manglar medietype frå Seerr" }
@@ -363,16 +389,22 @@ class MediaSyncRepository(
         id = "${source.name.lowercase()}-${item.id}",
         title = item.title,
         subtitle = item.subtitle,
+        season = item.season,
+        episode = item.episode,
         progress = item.progress,
         artworkRes = R.drawable.media_placeholder,
         source = source,
         artworkUrl = item.artworkUrl,
+        logoUrl = item.logoUrl,
         remoteId = item.id,
         overview = item.overview,
         facts = item.facts,
         genres = item.genres,
         mediaType = item.mediaType,
         lastActivityEpochMillis = item.lastActivityEpochMillis,
+        libraryId = item.libraryId,
+        favourite = item.favourite,
+        played = item.played,
     )
 
     private fun incomingMedia(item: RemoteQueueItem) = IncomingMedia(

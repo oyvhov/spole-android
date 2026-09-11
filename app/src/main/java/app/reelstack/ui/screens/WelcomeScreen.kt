@@ -9,13 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Tv
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -106,7 +101,7 @@ fun WelcomeScreen(
                         }
                         // stringResource(R.string.action_connect) says what happens; a bare plus reads as "add another".
                         if (connected) {
-                            Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(20.dp))
+                            Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(20.dp))
                         } else {
                             Text(stringResource(R.string.action_connect), fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold,
                                 color = if (primary) app.reelstack.ui.theme.Ink else PrimarySoft)

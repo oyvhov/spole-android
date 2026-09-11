@@ -24,27 +24,23 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>) {
     val preferences = LocalPersonalization.current
     val visibleFacts = facts.filter { preferences.showRatings || !it.startsWith("★") }
     val quality = if (preferences.showQuality) details.quality else emptyList()
-    if (visibleFacts.isNotEmpty() || quality.isNotEmpty()) FlowRow(
-        Modifier.fillMaxWidth().padding(top = 16.dp).testTag("playback-metadata"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    val line = (visibleFacts + quality).distinct()
+    // One quiet line, not a wall of plates. Seven raised chips reading "2026 · 51 min · 720p"
+    // gave the running time the same weight as the Play button, and how long a film is has never
+    // been the reason anyone opened the page.
+    if (line.isNotEmpty()) Row(
+        Modifier.fillMaxWidth().padding(top = 14.dp).testTag("playback-metadata"),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        (visibleFacts + quality).distinct().forEach { fact ->
-            val rating = fact.startsWith("★")
-            Row(Modifier.clip(RoundedCornerShape(8.dp)).background(SurfaceRaised)
-                .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (rating) Icon(Icons.Rounded.Star, stringResource(R.string.tv_rating),
-                    tint = androidx.compose.ui.graphics.Color(0xFFFFD36D), modifier = Modifier.size(18.dp).padding(end = 3.dp))
-                Text(fact.removePrefix("★").trim(), color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.labelLarge)
-            }
-        }
-    }
-    val progress = details.progress?.coerceIn(0f, 1f) ?: 0f
-    if (progress > 0) Column(Modifier.fillMaxWidth().padding(top = 18.dp).testTag("detail-progress")) {
-        Text(if (details.remainingMinutes != null) stringResource(R.string.tv_progress, (progress * 100).toInt(), "${details.remainingMinutes} min")
-            else stringResource(R.string.tv_progress_percent, (progress * 100).toInt()),
-            color = Muted, style = MaterialTheme.typography.bodyMedium)
-        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(5.dp),
-            color = Primary, trackColor = SurfaceRaised)
+        val rating = line.firstOrNull { it.startsWith("★") }
+        if (rating != null) Icon(Icons.Rounded.Star, stringResource(R.string.tv_rating),
+            tint = androidx.compose.ui.graphics.Color(0xFFFFD36D), modifier = Modifier.size(16.dp).padding(end = 5.dp))
+        Text(
+            line.joinToString("  ·  ") { it.removePrefix("★").trim() },
+            color = Muted,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
     }
 }

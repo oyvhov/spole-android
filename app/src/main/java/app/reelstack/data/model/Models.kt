@@ -104,8 +104,21 @@ data class LibraryMedia(
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val mediaType: String = "Video",
+    val logoUrl: String? = null,
     /** Playback activity, never the date a file was added to the library. */
     val lastActivityEpochMillis: Long? = null,
+    /** Numbers, so the screen can write them in the reader's language. */
+    val season: Int? = null,
+    val episode: Int? = null,
+    /**
+     * Which Jellyfin library this came from. Resume and Next up are already fetched one library at
+     * a time; keeping the answer means a library page can show its own shelf instead of Home's
+     * mixture of every library at once.
+     */
+    val libraryId: String? = null,
+    /** The server's own flags, so a card can offer the opposite of what is already true. */
+    val favourite: Boolean = false,
+    val played: Boolean = false,
 )
 
 data class UpcomingMedia(
@@ -228,6 +241,37 @@ data class ContentDetails(
     val remainingMinutes: Int? = null,
     val quality: List<String> = emptyList(),
     val cast: List<CastMember> = emptyList(),
+    /** Numbers, so the page can write them in the reader's language rather than as "S19 E09". */
+    val season: Int? = null,
+    val episode: Int? = null,
+    /** The server's flags for this profile, so the page can offer the opposite of what is true. */
+    val favourite: Boolean = false,
+    val played: Boolean = false,
+    /** Set while a write is in flight, so the two controls cannot be pressed into a race. */
+    val updating: Boolean = false,
+    /**
+     * What the file actually contains. A detail page that lists the running time and the codec but
+     * not the languages leaves the one question a household with subtitles actually asks — can we
+     * watch this in Norwegian — unanswered until playback has already started.
+     */
+    val audioTracks: List<MediaTrack> = emptyList(),
+    val subtitleTracks: List<MediaTrack> = emptyList(),
+    /** More than one file for the same title: a 4K and a 1080p cut, a director's edition. */
+    val versions: List<String> = emptyList(),
+)
+
+/**
+ * One audio or subtitle stream, named the way the server names it.
+ *
+ * [index] is the server's stream index, which is what playback has to be asked for, so a choice
+ * made on the detail page survives the trip into the player unchanged.
+ */
+data class MediaTrack(
+    val index: Int,
+    val label: String,
+    val language: String? = null,
+    val isDefault: Boolean = false,
+    val forced: Boolean = false,
 )
 
 data class ActivityEvent(

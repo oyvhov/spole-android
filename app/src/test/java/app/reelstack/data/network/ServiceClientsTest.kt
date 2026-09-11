@@ -188,7 +188,9 @@ class ServiceClientsTest {
         assertTrue(transport.urls[3].contains("IncludeItemTypes=Episode"))
         assertTrue(transport.urls[3].contains("GroupItems=false"))
         assertEquals(
-            "https://media.example.com/Items/episode-1/Images/Thumb?maxWidth=960&quality=90",
+            // The tag is part of the address on purpose: it is Jellyfin's content hash, so a
+            // replaced image gets a new URL and the cached copy stops being served.
+            "https://media.example.com/Items/episode-1/Images/Thumb?maxWidth=960&quality=90&tag=wide-tag",
             feed.recentSeries.single().artworkUrl,
         )
         assertTrue(transport.headers.all { it["Authorization"].orEmpty().contains("Token=\"secret\"") })
@@ -443,6 +445,16 @@ class ServiceClientsTest {
         assertTrue(transport.lastUrl.contains("/api/v1/search?query=Dune%20Part%20Two"))
         assertTrue(transport.lastUrl.contains("page=1"))
         assertEquals("seerr-secret", transport.lastHeaders["X-Api-Key"])
+    }
+
+    @Test
+    fun resolvesMediaServerLogoUrl() {
+        val client = MediaServerClient(RecordingTransport())
+        val connection = connection(ServiceKind.JELLYFIN, "secret")
+        assertEquals(
+            "https://media.example.com/Items/item%2042/Images/Logo?maxWidth=800&quality=90",
+            client.logoUrl(connection, "item 42"),
+        )
     }
 
     private fun connection(kind: ServiceKind, token: String) = ServiceConnection(

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_action_failed">Fekk ikkje lagra dette på tenaren. Prøv igjen.</string>
+    <string name="library_menu_order">Rekkjefølgje i menyen</string>
+    <string name="library_remove_resume">Fjern frå Hald fram å sjå</string>
+    <string name="library_favourite_add">Legg til i favorittar</string>
+    <string name="library_favourite_remove">Fjern frå favorittar</string>
+    <string name="library_played_mark">Marker som sett</string>
+    <string name="library_played_unmark">Marker som usett</string>
+    <string name="library_card_hint">Hald inne eit kort for fleire val</string>
+    <string name="library_card_options">Fleire val for %s</string>
+    <string name="detail_version">Versjon</string>
+    <string name="episode_short">Ep %1$d</string>
+    <string name="detail_minutes_left">%1$d min att</string>
+    <string name="detail_change">Endre</string>
+</resources>

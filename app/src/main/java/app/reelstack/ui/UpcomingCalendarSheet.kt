@@ -10,9 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -211,7 +209,7 @@ private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
                 Text(media.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(media.subtitle.replace(" · TBA", ""), color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-                    Icon(if (isMovie) Icons.Rounded.Movie else Icons.Rounded.Tv, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(12.dp))
+                    Icon(if (isMovie) app.reelstack.ui.components.SpoleIcons.Movie else app.reelstack.ui.components.SpoleIcons.Screen, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(12.dp))
                     Text(
                         if (!isMovie) if (media.source == ServiceKind.SONARR) stringResource(R.string.calendar_source_time, media.source.displayName, time) else media.source.displayName
                         else if ("Fysisk utgjeving" in media.facts) stringResource(R.string.calendar_physical) else stringResource(R.string.calendar_home_release),

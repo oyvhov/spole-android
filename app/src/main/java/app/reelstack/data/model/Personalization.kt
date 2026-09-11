@@ -51,7 +51,16 @@ enum class ArtworkCorners(val radius: Int) {
 }
 
 enum class FocusStyle { WHITE, ACCENT, BOLD;
-    companion object { fun decode(value: String?) = entries.firstOrNull { it.name == value } ?: WHITE }
+    companion object {
+        /**
+         * Focus is the only orientation a D-pad user has, and a 3 dp ring is six pixels on a
+         * 1080p panel — a hairline from three metres away. Television therefore starts at BOLD.
+         * A stored choice always wins, so nobody's setting is overridden; this only decides what
+         * happens before anyone has chosen.
+         */
+        fun decode(value: String?, television: Boolean = false) =
+            entries.firstOrNull { it.name == value } ?: if (television) BOLD else WHITE
+    }
 }
 
 /** Device-local display choices, never account permissions or credentials. */

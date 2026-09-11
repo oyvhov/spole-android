@@ -3,8 +3,6 @@ package app.reelstack.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,10 +58,10 @@ internal fun NavigationOptions(value: Personalization, showHeader: Boolean = tru
                         onChange(value.copy(menuOrder = moved))
                     }
                     IconButton(onClick = { move(index - 1) }, enabled = index > 0, modifier = Modifier.testTag("menu-up-$name")) {
-                        Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.tv_move_up, label))
+                        Icon(app.reelstack.ui.components.SpoleIcons.ChevronUp, stringResource(R.string.tv_move_up, label))
                     }
                     IconButton(onClick = { move(index + 1) }, enabled = index < order.lastIndex, modifier = Modifier.testTag("menu-down-$name")) {
-                        Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.tv_move_down, label))
+                        Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, stringResource(R.string.tv_move_down, label))
                     }
                 }
             } }

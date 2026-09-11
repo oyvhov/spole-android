@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="widget_title">Spelar no</string>
     <string name="widget_description">Viser kva som spelar på Jellyfin og Emby akkurat no.</string>
     <string name="widget_loading">Hentar…</string>
@@ -15,7 +15,7 @@
     <string name="home_account_settings">Opne kontoinnstillingar</string>
     <string name="home_source_failed">Fekk ikkje oppdatert %1$s. Sjekk tilkoplinga i Innstillingar.</string>
     <string name="home_source_partial">%1$s er tilkopla, men denne rada vart ikkje oppdatert.</string>
-    <string name="home_resume_description">Hald fram på %1$s, %2$d prosent sett</string>
+    <string name="home_resume_description" tools:ignore="PluralsCandidate">Hald fram på %1$s, %2$d prosent sett</string>
     <string name="activity_updates_here">Nye oppdateringar dukkar opp her.</string>
     <string name="activity_try_all">Vel Alt for å sjå dei andre tenestene.</string>
     <string name="activity_more_options">Fleire val</string>

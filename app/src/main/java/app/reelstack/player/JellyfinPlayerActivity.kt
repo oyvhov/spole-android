@@ -62,12 +62,19 @@ import androidx.media3.ui.PlayerView
 import app.reelstack.ReelstackApplication
 import app.reelstack.ui.theme.ReelstackTheme
 import app.reelstack.ui.components.NativeClientLauncher
+import app.reelstack.ui.components.MediaArtwork
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import app.reelstack.data.model.ServiceKind
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private enum class PlayerMenu(val label: Int) {
     AUDIO(R.string.player_audio_tracks), SUBTITLES(R.string.player_subtitles), QUALITY(R.string.player_quality)
 }
-
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
     internal lateinit var model: JellyfinPlayerModel
@@ -84,11 +91,15 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         })[JellyfinPlayerModel::class.java]
         val id = intent.getStringExtra(ITEM_ID).orEmpty()
         if (id.isBlank() || id.length > 128) { finish(); return }
+        // What the title page promised. -1 is a real subtitle value ("off"), so absence has to be
+        // something else; absent still means "whatever the server would have picked".
+        val preferredAudio = intent.getIntExtra(AUDIO_INDEX, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
+        val preferredSubtitle = intent.getIntExtra(SUBTITLE_INDEX, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
         // Covers Back during the first frame too; the screen's menu handler takes precedence later.
         onBackPressedDispatcher.addCallback(this) { if (!model.back()) finish() }
         setContent {
             ReelstackTheme {
-                LaunchedEffect(id) { model.open(id) }
+                LaunchedEffect(id) { model.open(id, preferredAudio, preferredSubtitle) }
                 val state by model.state.collectAsStateWithLifecycle()
                 DisposableEffect(state.playing, state.busy) {
                     if (state.playing || state.busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -121,7 +132,15 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
     override fun onStop() { if (::model.isInitialized && !isChangingConfigurations) model.background(); super.onStop() }
     companion object {
         private const val ITEM_ID = "jellyfin_item_id"
-        fun open(context: Context, itemId: String) = context.startActivity(Intent(context, JellyfinPlayerActivity::class.java).putExtra(ITEM_ID, itemId))
+        private const val AUDIO_INDEX = "jellyfin_audio_index"
+        private const val SUBTITLE_INDEX = "jellyfin_subtitle_index"
+        fun open(context: Context, itemId: String, audioIndex: Int? = null, subtitleIndex: Int? = null) =
+            context.startActivity(
+                Intent(context, JellyfinPlayerActivity::class.java).putExtra(ITEM_ID, itemId).apply {
+                    audioIndex?.let { putExtra(AUDIO_INDEX, it) }
+                    subtitleIndex?.let { putExtra(SUBTITLE_INDEX, it) }
+                },
+            )
     }
 }
 
@@ -146,6 +165,9 @@ fun PlayerScreen(
     var interaction by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf<PlayerMenu?>(null) }
     var scrubbing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var remoteSeekTargetMs by remember { mutableStateOf<Long?>(null) }
+    var remoteSeekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val accessibility = LocalAccessibilityManager.current
     val canHide = state.playing && !state.busy && state.error == null && !state.ended && !state.awaitingResume
     val showControls = controls || !canHide || menu != null
@@ -202,8 +224,26 @@ fun PlayerScreen(
             if (action != RemotePlaybackAction.IGNORE) controls = true
             when (action) {
                 RemotePlaybackAction.TOGGLE -> onToggle()
-                RemotePlaybackAction.REWIND -> onSeek((state.positionMs - 10_000).coerceAtLeast(0))
-                RemotePlaybackAction.FORWARD -> if (state.durationMs > 0) onSeek((state.positionMs + 10_000).coerceAtMost(state.durationMs))
+                RemotePlaybackAction.REWIND -> {
+                    val target = ((remoteSeekTargetMs ?: state.positionMs) - 10_000).coerceAtLeast(0)
+                    remoteSeekTargetMs = target
+                    onSeek(target)
+                    remoteSeekJob?.cancel()
+                    remoteSeekJob = scope.launch {
+                        delay(2200)
+                        remoteSeekTargetMs = null
+                    }
+                }
+                RemotePlaybackAction.FORWARD -> if (state.durationMs > 0) {
+                    val target = ((remoteSeekTargetMs ?: state.positionMs) + 10_000).coerceAtMost(state.durationMs)
+                    remoteSeekTargetMs = target
+                    onSeek(target)
+                    remoteSeekJob?.cancel()
+                    remoteSeekJob = scope.launch {
+                        delay(2200)
+                        remoteSeekTargetMs = null
+                    }
+                }
                 else -> Unit
             }
             true
@@ -253,7 +293,7 @@ fun PlayerScreen(
                         Surface(onClick = { if (!state.busy) onChoose(item) }, enabled = !state.busy,
                             shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
                             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(if (item.type == "Season") Icons.Rounded.VideoLibrary else Icons.Rounded.PlayArrow, null)
+                                Icon(if (item.type == "Season") app.reelstack.ui.components.SpoleIcons.Movie else app.reelstack.ui.components.SpoleIcons.Play, null)
                                 Column(Modifier.weight(1f).padding(start = 16.dp)) {
                                     Text(if (item.type == "Episode") item.subtitle else item.title, style = MaterialTheme.typography.titleMedium)
                                     Text(when { item.played -> stringResource(R.string.player_watched); item.resumeMs > 0 -> stringResource(R.string.player_resume, playbackTime(item.resumeMs))
@@ -296,15 +336,37 @@ fun PlayerScreen(
                     } else {
                         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
                             verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { interaction++; onSeek(state.positionMs - 10_000) }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision)) {
+                            IconButton(onClick = {
+                                interaction++
+                                val target = ((remoteSeekTargetMs ?: state.positionMs) - 10_000).coerceAtLeast(0)
+                                remoteSeekTargetMs = target
+                                onSeek(target)
+                                remoteSeekJob?.cancel()
+                                remoteSeekJob = scope.launch {
+                                    delay(2200)
+                                    remoteSeekTargetMs = null
+                                }
+                            }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision)) {
                                 Icon(Icons.Rounded.Replay10, stringResource(R.string.player_rewind), Modifier.size(32.dp))
                             }
                             FilledIconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy, modifier = Modifier.size(72.dp).remoteFocus(isTelevision).focusRequester(playFocus).testTag("player-toggle")) {
                                 if (state.busy) CircularProgressIndicator(Modifier.size(30.dp), strokeWidth = 2.dp)
-                                else Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                else Icon(if (state.playing) app.reelstack.ui.components.SpoleIcons.Pause else app.reelstack.ui.components.SpoleIcons.Play,
                                     if (state.playing) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(36.dp))
                             }
-                            IconButton(onClick = { interaction++; onSeek(state.positionMs + 10_000) }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision)) {
+                            IconButton(onClick = {
+                                interaction++
+                                if (state.durationMs > 0) {
+                                    val target = ((remoteSeekTargetMs ?: state.positionMs) + 10_000).coerceAtMost(state.durationMs)
+                                    remoteSeekTargetMs = target
+                                    onSeek(target)
+                                    remoteSeekJob?.cancel()
+                                    remoteSeekJob = scope.launch {
+                                        delay(2200)
+                                        remoteSeekTargetMs = null
+                                    }
+                                }
+                            }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision)) {
                                 Icon(Icons.Rounded.Forward10, stringResource(R.string.player_forward), Modifier.size(32.dp))
                             }
                         }
@@ -313,7 +375,19 @@ fun PlayerScreen(
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (!state.awaitingResume) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
                         var dragging by remember { mutableStateOf<Float?>(null) }
-                        Slider(value = dragging ?: state.positionMs.toFloat().coerceIn(0f, state.durationMs.coerceAtLeast(1).toFloat()),
+                        val previewPositionMs = dragging?.toLong() ?: remoteSeekTargetMs
+                        if (previewPositionMs != null && state.durationMs > 0) {
+                            TimelineThumbnailPreview(
+                                previewPositionMs = previewPositionMs,
+                                durationMs = state.durationMs,
+                                chapters = state.chapters,
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(bottom = 12.dp)
+                                    .testTag("player-timeline-preview"),
+                            )
+                        }
+                        Slider(value = dragging ?: remoteSeekTargetMs?.toFloat() ?: state.positionMs.toFloat().coerceIn(0f, state.durationMs.coerceAtLeast(1).toFloat()),
                             thumb = { Box(Modifier.size(12.dp).background(MaterialTheme.colorScheme.primary, CircleShape)) },
                             track = { SliderDefaults.Track(it, modifier = Modifier.height(4.dp), thumbTrackGapSize = 0.dp) },
                             onValueChange = { dragging = it; scrubbing = true; interaction++ },
@@ -321,12 +395,12 @@ fun PlayerScreen(
                             valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(), enabled = !state.busy && state.error == null && state.durationMs > 0,
                             modifier = Modifier.testTag("player-timeline"))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(playbackTime(dragging?.toLong() ?: state.positionMs)); Text(playbackTime(state.durationMs))
+                            Text(playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs)); Text(playbackTime(state.durationMs))
                         }
                         FlowRow(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy) { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null); Text(stringResource(R.string.player_audio)) }
                             TextButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy) { Icon(Icons.Rounded.Subtitles, null); Text(stringResource(R.string.player_subtitles_button)) }
-                            TextButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy) { Icon(Icons.Rounded.Tune, null); Text(stringResource(R.string.player_quality)) }
+                            TextButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Tune, null); Text(stringResource(R.string.player_quality)) }
                             TextButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.testTag("player-frame-mode")) {
                                 Icon(if (fillVideo) Icons.Rounded.FitScreen else Icons.Rounded.Fullscreen, null)
                                 Text(stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill))
@@ -359,7 +433,7 @@ fun PlayerScreen(
                                 when (title) { PlayerMenu.AUDIO -> onAudio(id); PlayerMenu.SUBTITLES -> onSubtitle(id); else -> onQuality(id) }
                                 menu = null; interaction++
                             }, modifier = Modifier.fillMaxWidth()) {
-                                if (selected) Icon(Icons.Rounded.Check, null, Modifier.padding(end = 8.dp))
+                                if (selected) Icon(app.reelstack.ui.components.SpoleIcons.Done, null, Modifier.padding(end = 8.dp))
                                 Text(label, Modifier.weight(1f))
                             }
                         }
@@ -382,13 +456,79 @@ private fun PlayerHeader(title: String, subtitle: String, onClose: () -> Unit, s
     showBack: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) != android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) {
     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
         if (showBack) IconButton(onClick = onClose, modifier = Modifier.size(48.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-close")) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back))
+            Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, stringResource(R.string.action_back))
         }
         Column(Modifier.weight(1f).padding(start = 12.dp, top = 10.dp)
             .graphicsLayer { alpha = if (showTitle) 1f else 0f }
             .then(if (showTitle) Modifier else Modifier.clearAndSetSemantics {})) {
             Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+internal fun TimelineThumbnailPreview(
+    previewPositionMs: Long,
+    durationMs: Long,
+    chapters: List<PlaybackChapter>,
+    modifier: Modifier = Modifier,
+) {
+    val currentChapter = chapters.lastOrNull { it.startPositionMs <= previewPositionMs }
+    Surface(
+        modifier = modifier
+            .width(180.dp)
+            .shadow(elevation = 12.dp, shape = RoundedCornerShape(12.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.95f),
+    ) {
+        Column(
+            modifier = Modifier.padding(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (currentChapter?.imageUrl != null) {
+                    MediaArtwork(
+                        url = currentChapter.imageUrl,
+                        contentDescription = currentChapter.name,
+                        contentScale = ContentScale.Crop,
+                        source = ServiceKind.JELLYFIN,
+                        fallbackRes = 0,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Icon(
+                        imageVector = app.reelstack.ui.components.SpoleIcons.Movie,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = playbackTime(previewPositionMs),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (!currentChapter?.name.isNullOrBlank()) {
+                Text(
+                    text = currentChapter.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
         }
     }
 }

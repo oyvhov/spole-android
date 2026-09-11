@@ -106,4 +106,23 @@ class JellyfinPlaybackTest {
         assertEquals(JsonPrimitive("h264"), profile.objects("DirectPlayProfiles").first()["VideoCodec"])
         assertEquals("1:02:03",playbackTime(3_723_000)); assertEquals("0:00",playbackTime(-1))
     }
+    @Test fun parsesChaptersWithAccurateTimeAndThumbnails() {
+        val json = """{
+            "Id":"film123",
+            "Type":"Movie",
+            "Name":"Dune",
+            "Chapters":[
+                {"Name":"Prolog","StartPositionTicks":0,"ImageTag":"tag1"},
+                {"Name":"Arrakis","StartPositionTicks":1200000000,"ImageTag":"tag2"}
+            ]
+        }"""
+        val item = parsePlayable(obj(json), baseUrl = "https://media.example/jellyfin")
+        assertEquals(2, item.chapters.size)
+        assertEquals("Prolog", item.chapters[0].name)
+        assertEquals(0L, item.chapters[0].startPositionMs)
+        assertEquals("https://media.example/jellyfin/Items/film123/Images/Chapter/0?maxWidth=320&quality=85&tag=tag1", item.chapters[0].imageUrl)
+        assertEquals("Arrakis", item.chapters[1].name)
+        assertEquals(120000L, item.chapters[1].startPositionMs)
+        assertEquals("https://media.example/jellyfin/Items/film123/Images/Chapter/1?maxWidth=320&quality=85&tag=tag2", item.chapters[1].imageUrl)
+    }
 }

@@ -9,6 +9,28 @@ import kotlinx.serialization.json.*
 class AppPreferencesRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_preferences", Context.MODE_PRIVATE)
 
+    /** Read once: the device does not become a television while the app is running. */
+    private val television: Boolean =
+        (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+
+    /**
+     * View, card size and image type per library, the way Jellyfin keeps them. Stored by library id
+     * so a film library and a recordings library can differ, and read back with defaults when the
+     * library is new.
+     */
+    fun libraryDisplay(libraryId: String): app.reelstack.data.model.LibraryDisplay =
+        app.reelstack.data.model.LibraryDisplay.decode(
+            preferences.getString(displayKey(libraryId), null),
+        )
+
+    fun setLibraryDisplay(libraryId: String, display: app.reelstack.data.model.LibraryDisplay) {
+        if (libraryId.isBlank()) return
+        preferences.edit { putString(displayKey(libraryId), display.encode()) }
+    }
+
+    private fun displayKey(libraryId: String) = "library_display." + libraryId
+
     var personalization: app.reelstack.data.model.Personalization
         get() = app.reelstack.data.model.Personalization(
             accent = app.reelstack.data.model.AccentPalette.decode(preferences.getString("accent_palette", null)),
@@ -25,7 +47,7 @@ class AppPreferencesRepository(context: Context) {
             slowStartup = preferences.getBoolean("slow_startup", true),
             visualTheme = app.reelstack.data.model.VisualTheme.decode(preferences.getString("visual_theme", null)),
             artworkCorners = app.reelstack.data.model.ArtworkCorners.decode(preferences.getString("artwork_corners", null)),
-            focusStyle = app.reelstack.data.model.FocusStyle.decode(preferences.getString("focus_style", null)),
+            focusStyle = app.reelstack.data.model.FocusStyle.decode(preferences.getString("focus_style", null), television),
             highContrast = preferences.getBoolean("high_contrast", false),
         )
         set(value) = preferences.edit {

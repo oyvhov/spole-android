@@ -45,7 +45,7 @@ internal fun SheetToolbar(
             TextButton(onClick = onBack ?: onClose, enabled = enabled, interactionSource = closeInteraction,
                 modifier = Modifier.heightIn(min = 48.dp).focusRequester(closeFocus)
                     .focusOutline(closeInteraction, CircleShape).testTag("sheet-close")) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, Modifier.size(24.dp))
+                Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, null, Modifier.size(24.dp))
                 Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.action_back), Modifier.padding(start = 10.dp))
             }
             Text(title, style = MaterialTheme.typography.titleMedium,
@@ -56,7 +56,7 @@ internal fun SheetToolbar(
             if (onBack != null) {
                 TextButton(onClick = onBack, enabled = enabled, interactionSource = backInteraction,
                     modifier = Modifier.focusOutline(backInteraction, CircleShape)) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, Modifier.size(20.dp))
+                    Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, null, Modifier.size(20.dp))
                     Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), Modifier.padding(start = 8.dp))
                 }
             } else {
@@ -68,7 +68,7 @@ internal fun SheetToolbar(
             modifier = Modifier.size(48.dp).focusRequester(closeFocus)
                 .focusOutline(closeInteraction, CircleShape).testTag("sheet-close")) {
             Box(Modifier.size(36.dp).background(SurfaceRaised, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Close, closeDescription, Modifier.size(20.dp))
+                Icon(app.reelstack.ui.components.SpoleIcons.Close, closeDescription, Modifier.size(20.dp))
             }
         }
     }

@@ -9,9 +9,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -56,7 +53,7 @@ internal fun PersonalizationSettings(value: Personalization, onChange: (Personal
                     Box(Modifier.size(26.dp).background(Color(value.accent.argb), CircleShape))
                     Text(stringResource(R.string.personal_appearance), modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
                         style = MaterialTheme.typography.titleMedium)
-                    Icon(if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null)
+                    Icon(if (expanded) app.reelstack.ui.components.SpoleIcons.ChevronUp else app.reelstack.ui.components.SpoleIcons.ChevronDown, null)
                 }
                 // No animated remeasurement: stable controls remain under the user's finger.
                 if (expanded) VisualThemeSettings(value, onChange)

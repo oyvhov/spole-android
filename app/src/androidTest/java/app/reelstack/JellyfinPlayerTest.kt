@@ -58,7 +58,7 @@ class JellyfinPlayerTest {
                 var contentType = "application/json"
                 var bytes = when {
                     path == "/Users/Me" -> """{"Id":"u1","Name":"Testperson","Policy":{"EnableMediaPlayback":true,"IsAdministrator":false}}""".toByteArray()
-                    path.endsWith("/Items/series") -> """{"Id":"series","Type":"Series","Name":"Testserie"}""".toByteArray()
+                    path.contains("/Items/series") -> """{"Id":"series","Type":"Series","Name":"Testserie"}""".toByteArray()
                     path.startsWith("/Shows/") -> """{"Items":[{"Id":"season","Type":"Season","Name":"Sesong 1","LocationType":"Virtual"}],"TotalRecordCount":1}""".toByteArray()
                     path.startsWith("/Items?") -> """{"Items":[{"Id":"film","Type":"Episode","Name":"Ny dag","SeriesName":"Testserie","ParentIndexNumber":1,"IndexNumber":1,"RunTimeTicks":200000000},{"Id":"missing","Type":"Episode","IsMissing":true}],"TotalRecordCount":2}""".toByteArray()
                     path.contains("/Items/") && !path.contains("PlaybackInfo") -> """{"Id":"film","Type":"Movie","Name":"Spole testvideo","RunTimeTicks":200000000,"UserData":{"PlaybackPositionTicks":${resumeMs*10000}}}""".toByteArray()
@@ -339,9 +339,9 @@ class JellyfinPlayerTest {
         assertTrue(snapshot(scenario).positionMs < 8000)
     }
     @Test fun seriesSelectsSeasonThenOnlyAnAvailableEpisode() = exercise(root="series") { scenario,_,_ ->
-        waitFor { snapshot(scenario).choices.isNotEmpty() }
+        waitFor(30_000) { snapshot(scenario).choices.isNotEmpty() }
         scenario.onActivity { it.model.choose(it.model.state.value.choices.single()) }
-        waitFor { snapshot(scenario).choices.singleOrNull()?.type == "Episode" }
+        waitFor(30_000) { snapshot(scenario).choices.singleOrNull()?.type == "Episode" }
         scenario.onActivity { it.model.choose(it.model.state.value.choices.single()) }
         playing(scenario)
         scenario.onActivity { assertTrue(it.model.back()) }

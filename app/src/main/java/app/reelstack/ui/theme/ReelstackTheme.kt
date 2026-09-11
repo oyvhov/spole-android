@@ -108,6 +108,13 @@ fun ReelstackTheme(content: @Composable () -> Unit) {
             onPrimaryContainer = Color(palette.softArgb),
             onSecondaryContainer = Color(palette.softArgb),
         ),
+        shapes = androidx.compose.material3.Shapes(
+            extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(ReelShapes.ExtraSmall),
+            small = androidx.compose.foundation.shape.RoundedCornerShape(ReelShapes.Small),
+            medium = androidx.compose.foundation.shape.RoundedCornerShape(ReelShapes.Medium),
+            large = androidx.compose.foundation.shape.RoundedCornerShape(ReelShapes.Large),
+            extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(ReelShapes.ExtraLarge),
+        ),
         typography = reelstackTypography(),
         content = {
             androidx.compose.runtime.CompositionLocalProvider(

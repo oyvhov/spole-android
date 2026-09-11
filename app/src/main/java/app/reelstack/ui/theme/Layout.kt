@@ -43,6 +43,22 @@ object ReelLayout {
 }
 
 /**
+ * Five steps, and every corner in the app is one of them.
+ *
+ * The app had sixteen radii in a hundred-odd hardcoded calls, three of which (13, 15, 18 dp) did
+ * nothing their neighbour did not already do — they only made elements that should match, not
+ * match. These feed `MaterialTheme.shapes` as well, so a Material component no longer falls back
+ * to Material's own corner values.
+ */
+object ReelShapes {
+    val ExtraSmall = 4.dp
+    val Small = 8.dp
+    val Medium = 12.dp
+    val Large = 16.dp
+    val ExtraLarge = 24.dp
+}
+
+/**
  * Media pages fill the available window. Reading pages retain their centered readable column.
  * Horizontal media rails may bleed to the end edge while headers keep their own inset.
  */

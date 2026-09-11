@@ -6,8 +6,8 @@ import app.reelstack.data.model.LibraryIcon
 
 internal fun LibraryIcon.vector() = when(this) {
     LibraryIcon.LIBRARY -> SpoleIcons.Library
-    LibraryIcon.MOVIES -> Icons.Rounded.Movie
-    LibraryIcon.SERIES -> Icons.Rounded.Tv
+    LibraryIcon.MOVIES -> app.reelstack.ui.components.SpoleIcons.Movie
+    LibraryIcon.SERIES -> app.reelstack.ui.components.SpoleIcons.Screen
     LibraryIcon.KIDS -> Icons.Rounded.ChildCare
     LibraryIcon.DOCUMENTARY -> Icons.Rounded.Public
     LibraryIcon.MUSIC -> Icons.Rounded.MusicNote

@@ -53,12 +53,11 @@ class Alpha12UiTest {
             rule.onNodeWithTag("library-item-film").assertIsFocused()
         }
     }
-    @Test fun filtersApplyTogetherAndCancelDoesNotChangeTheQuery() {
+    @Test fun inlineFiltersApplyImmediately() {
         var applied = LibraryFilters()
         rule.setContent { ReelstackTheme { LibraryFilterBar(applied, { applied = it }, LibraryFacets("library", listOf("Drama"), listOf("2026"))) } }
         rule.onNodeWithTag("library-filters").performClick()
-        rule.onNodeWithTag("library-favourites").performScrollTo().performClick()
-        rule.onNodeWithTag("library-filter-apply").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("library-favourites").performClick()
         rule.runOnIdle { assertTrue(applied.favourites) }
     }
     @Test fun libraryIconsAreSavedOnlyWithTheSelection() {

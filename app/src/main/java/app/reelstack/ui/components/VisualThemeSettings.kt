@@ -12,8 +12,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,7 +43,7 @@ internal fun SettingsActionRow(title: String, summary: String, tag: String, onCl
             if (summary.isNotBlank()) Text(summary, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 3.dp))
         }
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.primary)
+        Icon(app.reelstack.ui.components.SpoleIcons.ChevronRight, null, tint = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -93,7 +91,7 @@ private fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefix
                         if (swatch != null) Box(Modifier.size(26.dp).background(swatch(option), RoundedCornerShape(7.dp))
                             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(7.dp)))
                         Text(label(option), Modifier.weight(1f))
-                        if (option == selected) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        if (option == selected) Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -142,8 +140,8 @@ internal fun ThemePreview(value: Personalization) {
     val accent = Color(value.accent.argb)
     val focus = if (value.focusStyle == FocusStyle.ACCENT) accent else app.reelstack.ui.theme.Text
     val shape = RoundedCornerShape(value.artworkCorners.radius.dp)
-    Row(Modifier.fillMaxWidth().background(Color(value.visualTheme.background), RoundedCornerShape(18.dp))
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
+    Row(Modifier.fillMaxWidth().background(Color(value.visualTheme.background), RoundedCornerShape(16.dp))
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
         .padding(20.dp).clearAndSetSemantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

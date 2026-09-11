@@ -21,7 +21,7 @@ internal fun TvQuickConnectPanel(draft: ConnectionDraft) {
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     var copied by remember(draft.quickConnectCode) { mutableStateOf(false) }
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    Surface(color = SurfaceRaised, shape = RoundedCornerShape(18.dp),
+    Surface(color = SurfaceRaised, shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("tv-quick-panel")) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.tv_quick_ready), fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)

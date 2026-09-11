@@ -4,7 +4,6 @@
     <string name="tv_library_intro">Your libraries. Pick one to explore.</string>
     <string name="tv_library_empty">No titles to show. Check your library selection in Settings.</string>
     <string name="tv_customize">Navigation and content</string>
-    <string name="tv_menu_help">Change the order or hide pages. Home and Settings always remain available. Your accounts and permissions stay unchanged.</string>
     <string name="tv_move_up">Move %s up</string>
     <string name="tv_move_down">Move %s down</string>
     <string name="tv_next_up">Next up</string>
@@ -15,8 +14,6 @@
     <string name="tv_slow_startup">Calm startup animation</string>
     <string name="tv_reset_menu">Reset menu</string>
     <string name="tv_resume">Resume</string>
-    <string name="tv_progress">%1$d%% watched · %2$s remaining</string>
-    <string name="tv_progress_percent">%d%% watched</string>
     <plurals name="tv_unresolved">
         <item quantity="one">%d request is waiting for title information. Your follow is preserved.</item>
         <item quantity="other">%d requests are waiting for title information. Your follows are preserved.</item>

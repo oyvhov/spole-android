@@ -54,6 +54,26 @@ data class RemoteLibraryItem(
     val collectionType: String? = null,
     val seriesId: String? = null,
     val lastActivityEpochMillis: Long? = null,
+    val logoItemId: String? = null,
+    val logoUrl: String? = null,
+    /**
+     * Jellyfin's content hash for the chosen image. It belongs in the address: replacing a poster
+     * on the server changes the tag, which changes the URL, which is what makes an image cache
+     * update itself. Without it the address is identical before and after, and the old picture is
+     * served for as long as the cache keeps it.
+     */
+    val artworkTag: String? = null,
+    val logoTag: String? = null,
+    /**
+     * Kept as numbers rather than baked into [subtitle]. "S06 E13" is a filename, not something a
+     * person reads, and only the UI knows the language it has to be written in.
+     */
+    val season: Int? = null,
+    val episode: Int? = null,
+    /** Set by the caller that asked one library for this item, never read from the payload. */
+    val libraryId: String? = null,
+    val favourite: Boolean = false,
+    val played: Boolean = false,
 )
 
 data class RemoteLibraryView(
@@ -135,6 +155,11 @@ data class RemoteMediaDetails(
     val progress: Float? = null,
     val remainingMinutes: Int? = null,
     val quality: List<String> = emptyList(),
+    val favourite: Boolean = false,
+    val played: Boolean = false,
+    val audioTracks: List<app.reelstack.data.model.MediaTrack> = emptyList(),
+    val subtitleTracks: List<app.reelstack.data.model.MediaTrack> = emptyList(),
+    val versions: List<String> = emptyList(),
 )
 
 data class RemoteRequest(
@@ -216,7 +241,10 @@ object ServicePayloadParser {
             val item = element as? JsonObject ?: return@mapNotNull null
             val id = item.string("Id") ?: item.string("id") ?: return@mapNotNull null
             val name = item.string("Name") ?: item.string("name") ?: return@mapNotNull null
-            val series = item.string("SeriesName") ?: item.string("seriesName")
+            // Jellyfin can answer with an empty SeriesName, and an empty string is not a name:
+            // taking it at face value left one card on the shelf showing nothing but its episode
+            // number. Blank means absent, and absent falls back to the item's own name.
+            val series = (item.string("SeriesName") ?: item.string("seriesName"))?.takeIf(String::isNotBlank)
             val season = item.int("ParentIndexNumber") ?: item.int("parentIndexNumber")
             val episode = item.int("IndexNumber") ?: item.int("indexNumber")
             val mediaType = item.string("Type") ?: item.string("type") ?: "Video"
@@ -238,7 +266,10 @@ object ServicePayloadParser {
                 id = id,
                 isFolder = item["IsFolder"]?.jsonPrimitive?.booleanOrNull == true || mediaType in setOf("Series", "Season", "BoxSet", "Folder", "CollectionFolder", "MusicAlbum", "MusicArtist"),
                 title = if (mediaType == "Season") name else series ?: name,
-                subtitle = listOfNotNull(episodeLabel, name.takeIf { series != null }, year?.toString().takeIf { series == null })
+                // The year belongs to a film or a series, never to an episode: "Sesong 19 · Episode
+                // 9 – 2025" reads as though the year were the episode's name.
+                subtitle = listOfNotNull(episodeLabel, name.takeIf { series != null },
+                    year?.toString().takeIf { series == null && episodeLabel == null })
                     .distinct()
                     .joinToString(" · ")
                     .ifBlank {
@@ -256,6 +287,11 @@ object ServicePayloadParser {
                 mediaType = mediaType,
                 artworkItemId = artwork.itemId,
                 artworkImageType = artwork.imageType,
+                artworkTag = artwork.tag,
+                season = season,
+                episode = episode,
+                logoItemId = libraryLogo(item, id)?.itemId,
+                logoTag = libraryLogo(item, id)?.tag,
                 overview = item.string("Overview") ?: item.string("overview"),
                 facts = libraryFacts(item, mediaType, runtime),
                 genres = stringArray(item, "Genres", "genres"),
@@ -266,6 +302,10 @@ object ServicePayloadParser {
                 available = item["IsMissing"]?.jsonPrimitive?.booleanOrNull != true &&
                     item["IsPlaceHolder"]?.jsonPrimitive?.booleanOrNull != true &&
                     !item.string("LocationType").equals("Virtual", ignoreCase = true),
+                favourite = userData?.get("IsFavorite")?.jsonPrimitive?.booleanOrNull == true ||
+                    userData?.get("isFavorite")?.jsonPrimitive?.booleanOrNull == true,
+                played = userData?.get("Played")?.jsonPrimitive?.booleanOrNull == true ||
+                    userData?.get("played")?.jsonPrimitive?.booleanOrNull == true,
             )
         }
     }
@@ -555,6 +595,14 @@ object ServicePayloadParser {
                 kotlin.math.ceil((runtime - position).coerceAtLeast(0).toDouble() / TICKS_PER_MINUTE).toInt() else null,
             quality = quality,
             genres = stringArray(item, "Genres", "genres"),
+            favourite = userData?.get("IsFavorite")?.jsonPrimitive?.booleanOrNull == true,
+            played = userData?.get("Played")?.jsonPrimitive?.booleanOrNull == true,
+            audioTracks = mediaTracks(streams, "Audio"),
+            subtitleTracks = mediaTracks(streams, "Subtitle"),
+            // Only worth naming when there is a choice to make. A single file is just "the file".
+            versions = item.array("MediaSources").mapNotNull { source ->
+                (source as? JsonObject)?.string("Name")?.takeIf(String::isNotBlank)
+            }.distinct().takeIf { it.size > 1 }.orEmpty(),
             cast = item.array("People").mapNotNull {
                 val person = it as? JsonObject ?: return@mapNotNull null
                 if (!person.string("Type").equals("Actor", ignoreCase = true)) return@mapNotNull null
@@ -563,6 +611,30 @@ object ServicePayloadParser {
             }.distinctBy { it.name }.take(16),
         )
     }
+
+    /**
+     * Streams of one kind, named the way a reader would name them.
+     *
+     * `DisplayTitle` is the server's own label ("Norsk - AC3 5.1") and is what Jellyfin's own
+     * clients show, so it is preferred; the language and the index are only fallbacks for a file
+     * whose streams were never tagged.
+     */
+    private fun mediaTracks(streams: List<JsonObject>, type: String): List<app.reelstack.data.model.MediaTrack> =
+        streams.filter { it.string("Type").equals(type, ignoreCase = true) }.mapNotNull { stream ->
+            val index = stream.int("Index") ?: return@mapNotNull null
+            val language = stream.string("DisplayLanguage")?.takeIf(String::isNotBlank)
+                ?: stream.string("Language")?.takeIf(String::isNotBlank)
+            app.reelstack.data.model.MediaTrack(
+                index = index,
+                label = stream.string("DisplayTitle")?.takeIf(String::isNotBlank)
+                    ?: stream.string("Title")?.takeIf(String::isNotBlank)
+                    ?: language
+                    ?: "$type ${index + 1}",
+                language = language,
+                isDefault = stream["IsDefault"]?.jsonPrimitive?.booleanOrNull == true,
+                forced = stream["IsForced"]?.jsonPrimitive?.booleanOrNull == true,
+            )
+        }
 
     private fun playbackSession(element: JsonElement): RemotePlayback? {
         val session = element as? JsonObject ?: return null
@@ -751,29 +823,54 @@ object ServicePayloadParser {
             ?.takeIf { url -> url.startsWith("https://", ignoreCase = true) }
     }
 
+    /** Case-insensitive lookup, because Jellyfin and Emby disagree about capitalisation. */
+    private fun JsonObject?.tag(type: String): String? =
+        this?.keys?.firstOrNull { it.equals(type, ignoreCase = true) }?.let { this.string(it) }
+
     private fun libraryArtwork(item: JsonObject, id: String, mediaType: String): LibraryArtwork {
         val imageTags = item.obj("ImageTags") ?: item.obj("imageTags")
         val hasOwnThumb = imageTags?.keys?.any { it.equals("Thumb", ignoreCase = true) } == true
         val isSeriesArtwork = mediaType.equals("episode", ignoreCase = true) ||
             mediaType.equals("series", ignoreCase = true)
         if (isSeriesArtwork) {
-            if (hasOwnThumb) return LibraryArtwork(id, "Thumb")
+            if (hasOwnThumb) return LibraryArtwork(id, "Thumb", imageTags.tag("Thumb"))
             (item.string("ParentThumbItemId") ?: item.string("parentThumbItemId"))?.let {
-                return LibraryArtwork(it, "Thumb")
+                return LibraryArtwork(it, "Thumb",
+                    item.string("ParentThumbImageTag") ?: item.string("parentThumbImageTag"))
             }
             val seriesId = item.string("SeriesId") ?: item.string("seriesId")
-            val hasSeriesThumb = item.string("SeriesThumbImageTag") != null ||
-                item.string("seriesThumbImageTag") != null ||
-                item.string("ParentThumbImageTag") != null ||
-                item.string("parentThumbImageTag") != null
-            if (seriesId != null && hasSeriesThumb) return LibraryArtwork(seriesId, "Thumb")
+            val seriesThumbTag = item.string("SeriesThumbImageTag") ?: item.string("seriesThumbImageTag")
+                ?: item.string("ParentThumbImageTag") ?: item.string("parentThumbImageTag")
+            if (seriesId != null && seriesThumbTag != null) {
+                return LibraryArtwork(seriesId, "Thumb", seriesThumbTag)
+            }
         }
+        val seriesId = item.string("SeriesId") ?: item.string("seriesId")
+        val primaryItemId = item.string("PrimaryImageItemId") ?: item.string("primaryImageItemId")
         return LibraryArtwork(
-            itemId = item.string("SeriesId") ?: item.string("seriesId")
-                ?: item.string("PrimaryImageItemId") ?: item.string("primaryImageItemId")
-                ?: id,
+            itemId = seriesId ?: primaryItemId ?: id,
             imageType = "Primary",
+            // The tag has to belong to the item the address points at, or it is worse than none.
+            tag = when {
+                seriesId != null -> item.string("SeriesPrimaryImageTag") ?: item.string("seriesPrimaryImageTag")
+                primaryItemId != null -> item.string("PrimaryImageTag") ?: item.string("primaryImageTag")
+                else -> imageTags.tag("Primary")
+            },
         )
+    }
+
+    private fun libraryLogo(item: JsonObject, id: String): LibraryArtwork? {
+        val imageTags = item.obj("ImageTags") ?: item.obj("imageTags")
+        val hasOwnLogo = imageTags?.keys?.any { it.equals("Logo", ignoreCase = true) } == true
+        if (hasOwnLogo) return LibraryArtwork(id, "Logo", imageTags.tag("Logo"))
+        val seriesId = item.string("SeriesId") ?: item.string("seriesId")
+        val seriesLogoTag = item.string("SeriesLogoImageTag") ?: item.string("seriesLogoImageTag")
+            ?: item.string("ParentLogoImageTag") ?: item.string("parentLogoImageTag")
+        if (seriesId != null && seriesLogoTag != null) return LibraryArtwork(seriesId, "Logo", seriesLogoTag)
+        val parentLogoId = item.string("ParentLogoItemId") ?: item.string("parentLogoItemId")
+            ?: return null
+        return LibraryArtwork(parentLogoId, "Logo",
+            item.string("ParentLogoImageTag") ?: item.string("parentLogoImageTag"))
     }
 
     private const val TICKS_PER_MINUTE = 600_000_000L
@@ -784,5 +881,5 @@ object ServicePayloadParser {
         val originalIndex: Int,
     )
 
-    private data class LibraryArtwork(val itemId: String, val imageType: String)
+    private data class LibraryArtwork(val itemId: String, val imageType: String, val tag: String? = null)
 }

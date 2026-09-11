@@ -8,10 +8,17 @@ import java.net.URI
 import java.net.URLDecoder
 import java.net.URLEncoder
 
+data class PlaybackChapter(
+    val name: String,
+    val startPositionMs: Long,
+    val imageUrl: String? = null,
+)
+
 data class PlayableItem(
     val id: String, val title: String, val type: String,
     val subtitle: String = "", val durationMs: Long = 0, val resumeMs: Long = 0,
     val played: Boolean = false,
+    val chapters: List<PlaybackChapter> = emptyList(),
 )
 
 data class PlaybackTrack(val index: Int, val label: String, val language: String?, val isText: Boolean = false)
@@ -32,7 +39,7 @@ internal fun JsonObject.flag(key: String) = (get(key) as? JsonPrimitive)?.boolea
 internal fun JsonObject.obj(key: String) = get(key) as? JsonObject ?: JsonObject(emptyMap())
 internal fun JsonObject.objects(key: String) = (get(key) as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
 
-fun parsePlayable(item: JsonObject): PlayableItem {
+fun parsePlayable(item: JsonObject, baseUrl: String? = null): PlayableItem {
     val type = item.str("Type")
     require(type in setOf("Movie", "Episode", "Series", "Season")) { "Denne medietypen kan ikkje spelast her." }
     require(type in setOf("Series", "Season") || !item.flag("IsMissing") && item.str("LocationType") != "Virtual") { "Denne episoden ligg ikkje i biblioteket enno." }
@@ -44,8 +51,20 @@ fun parsePlayable(item: JsonObject): PlayableItem {
         item.num("ParentIndexNumber")?.let { "S%02d".format(it) },
         item.num("IndexNumber")?.let { "E%02d".format(it) },
     ).joinToString(" ") + " · " + item.str("Name") else ""
+    val chapters = item.objects("Chapters").mapIndexedNotNull { index, chapterObj ->
+        val name = chapterObj.str("Name").ifBlank { "Kapittel ${index + 1}" }
+        val startTicks = chapterObj.num("StartPositionTicks") ?: 0L
+        val startMs = (startTicks / 10_000).coerceAtLeast(0)
+        val imageTag = chapterObj.str("ImageTag")
+        val imageUrl = if (baseUrl != null) {
+            "${baseUrl.trimEnd('/')}/Items/${enc(id)}/Images/Chapter/$index?maxWidth=320&quality=85" +
+                (if (imageTag.isNotBlank()) "&tag=${enc(imageTag)}" else "")
+        } else null
+        PlaybackChapter(name, startMs, imageUrl)
+    }
     return PlayableItem(id, if (type == "Episode") item.str("SeriesName").ifBlank { item.str("Name") } else item.str("Name"),
-        type, subtitle, duration, if (user.flag("Played") || duration > 0 && resume >= duration) 0 else resume, user.flag("Played"))
+        type, subtitle, duration, if (user.flag("Played") || duration > 0 && resume >= duration) 0 else resume, user.flag("Played"),
+        chapters = chapters)
 }
 
 /** Same-origin, same-base-path only; remove server-generated credentials before Media3 sees a URI. */
@@ -95,14 +114,15 @@ class JellyfinPlaybackClient(
         return id
     }
 
-    fun item(c: ServiceConnection, user: String, id: String) = parsePlayable(read(c, "Users/${enc(user)}/Items/${enc(id)}"))
+    fun item(c: ServiceConnection, user: String, id: String) =
+        parsePlayable(read(c, "Users/${enc(user)}/Items/${enc(id)}?Fields=Chapters"), c.baseUrl)
 
     fun children(c: ServiceConnection, user: String, parent: PlayableItem, start: Int = 0): Pair<List<PlayableItem>, Boolean> {
         val path = if (parent.type == "Series") "Shows/${enc(parent.id)}/Seasons?userId=${enc(user)}" else
-            "Items?userId=${enc(user)}&ParentId=${enc(parent.id)}&IncludeItemTypes=Episode&SortBy=IndexNumber&SortOrder=Ascending"
+            "Items?userId=${enc(user)}&ParentId=${enc(parent.id)}&IncludeItemTypes=Episode&SortBy=IndexNumber&SortOrder=Ascending&Fields=Chapters"
         val json = read(c, "$path&IsMissing=false&EnableUserData=true&StartIndex=$start&Limit=100")
         val items = json.objects("Items")
-        return items.mapNotNull { runCatching { parsePlayable(it) }.getOrNull() } to (start + items.size < (json.num("TotalRecordCount") ?: 0))
+        return items.mapNotNull { runCatching { parsePlayable(it, c.baseUrl) }.getOrNull() } to (start + items.size < (json.num("TotalRecordCount") ?: 0))
     }
 
     fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,

@@ -4,7 +4,6 @@
     <string name="tv_library_intro">Biblioteka dine. Vel eitt for å utforske.</string>
     <string name="tv_library_empty">Ingen titlar å vise. Sjekk bibliotekvalet i Innstillingar.</string>
     <string name="tv_customize">Meny og innhald</string>
-    <string name="tv_menu_help">Endre rekkjefølgja eller skjul sider. Heim og Innstillingar er alltid tilgjengelege. Kontoar og rettar blir ikkje endra.</string>
     <string name="tv_move_up">Flytt %s opp</string>
     <string name="tv_move_down">Flytt %s ned</string>
     <string name="tv_next_up">Neste episode</string>
@@ -15,8 +14,6 @@
     <string name="tv_slow_startup">Roleg oppstartsanimasjon</string>
     <string name="tv_reset_menu">Nullstill menyen</string>
     <string name="tv_resume">Hald fram</string>
-    <string name="tv_progress">%1$d%% sett · %2$s att</string>
-    <string name="tv_progress_percent">%d%% sett</string>
     <plurals name="tv_unresolved">
         <item quantity="one">%d førespurnad ventar på tittelinformasjon. Følgja di er bevart.</item>
         <item quantity="other">%d førespurnader ventar på tittelinformasjon. Følgjane dine er bevarte.</item>

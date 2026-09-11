@@ -21,12 +21,13 @@ import app.reelstack.data.network.jellyfinAuthorization
 @Composable
 fun MediaArtwork(
     url: String?,
-    @DrawableRes fallbackRes: Int,
+    @DrawableRes fallbackRes: Int = 0,
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     source: ServiceKind? = null,
     crossfadeDurationMillis: Int = 260,
+    onError: (() -> Unit)? = null,
     /**
      * Reports width / height once the image is decoded. A caller that has to pick between a wide
      * and a portrait frame cannot know which it has been given until then — services return a
@@ -35,14 +36,14 @@ fun MediaArtwork(
     onAspectRatio: ((Float) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val fallback = painterResource(fallbackRes)
+    val fallback = if (fallbackRes != 0) painterResource(fallbackRes) else null
     val motionEnabled = Settings.Global.getFloat(context.contentResolver,
         Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
     val fadeDuration = if (motionEnabled) crossfadeDurationMillis else 0
     val model = remember(url, fallbackRes, source, fadeDuration) {
         runCatching {
             val builder = ImageRequest.Builder(context)
-                .data(url ?: fallbackRes)
+                .data(url ?: fallbackRes.takeIf { it != 0 })
                 .crossfade(fadeDuration)
             if (url != null && (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY)) {
                 val connection = (context.applicationContext as? ReelstackApplication)
@@ -67,7 +68,7 @@ fun MediaArtwork(
             builder.build()
         }.getOrElse {
             ImageRequest.Builder(context)
-                .data(fallbackRes)
+                .apply { if (fallbackRes != 0) data(fallbackRes) }
                 .build()
         }
     }
@@ -78,6 +79,7 @@ fun MediaArtwork(
         error = fallback,
         fallback = fallback,
         contentScale = contentScale,
+        onError = onError?.let { callback -> { callback() } },
         onSuccess = onAspectRatio?.let { report ->
             { state ->
                 val image = state.result.image

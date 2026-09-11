@@ -39,7 +39,7 @@ fun HomeSearchEntry(onClick: () -> Unit, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(Icons.Rounded.Search, contentDescription = null, tint = Muted, modifier = Modifier.size(21.dp))
+            Icon(app.reelstack.ui.components.SpoleIcons.Search, contentDescription = null, tint = Muted, modifier = Modifier.size(21.dp))
             Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_search), color = Muted, fontSize = 14.sp,
                 lineHeight = 20.sp, modifier = Modifier.weight(1f))
         }

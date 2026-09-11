@@ -15,7 +15,10 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
     artwork: @Composable () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     if (tv) {
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp)) {
-            val artworkWidth = minOf(230.dp, maxHeight * .62f)
+            // The left column held a 230 dp thumbnail against a metre of empty black. The picture
+            // is the one thing on a title page that wants the room, so it takes as much of it as
+            // the reading column can spare.
+            val artworkWidth = minOf(340.dp, maxWidth * .34f, maxHeight * .62f)
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(32.dp),
                 verticalAlignment = Alignment.Top) {
                 Box(Modifier.width(artworkWidth).testTag("tv-detail-artwork")) { artwork() }

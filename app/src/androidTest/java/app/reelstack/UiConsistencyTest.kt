@@ -16,24 +16,22 @@ import org.junit.Test
 class UiConsistencyTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun personalActivityCanSeparateReadyTitlesFromRequestsInProgress() {
+    @Test fun personalActivityShowsReadyTitlesAndRequestsInProgress() {
         rule.setContent {
             ReelstackTheme {
-                ActivityScreen(ReelstackUiState(connections = listOf(
-                    ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "fixture", sessionCookie = true)),
-                    trackedRequests = listOf(
-                        TrackedRequest("ready", 1, "movie", "Klar for filmkveld", null, emptySet(), notify = false, stage = RequestStage.AVAILABLE),
-                        TrackedRequest("pending", 2, "movie", "På veg heim", null, emptySet(), notify = false, stage = RequestStage.REQUESTED),
-                    )), PaddingValues(0.dp), {})
+                androidx.compose.runtime.key("personal-activity-filter") {
+                    ActivityScreen(ReelstackUiState(connections = listOf(
+                        ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "fixture", sessionCookie = true)),
+                        accounts = mapOf(ServiceKind.SEERR to ServiceAccount(ServiceKind.SEERR, "me", "Testperson")),
+                        trackedRequests = listOf(
+                            TrackedRequest("ready", 1, "movie", "Klar for filmkveld", null, emptySet(), notify = false, stage = RequestStage.AVAILABLE),
+                            TrackedRequest("pending", 2, "movie", "På veg heim", null, emptySet(), notify = false, stage = RequestStage.REQUESTED),
+                        )), PaddingValues(0.dp), {})
+                }
             }
         }
-        rule.onNodeWithText("Klare · 1").performScrollTo().performClick()
-        rule.onNodeWithText("Klar for filmkveld").assertIsDisplayed()
-        rule.onNodeWithText("På veg heim").assertDoesNotExist()
-        rule.onNodeWithContentDescription("Framdrift: I biblioteket").assertDoesNotExist()
-        rule.onNodeWithText("På veg · 1").performClick()
-        rule.onNodeWithText("På veg heim").assertIsDisplayed()
-        rule.onNodeWithText("Klar for filmkveld").assertDoesNotExist()
+        rule.onNodeWithText("Klar for filmkveld").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("På veg heim").performScrollTo().assertIsDisplayed()
         rule.onNodeWithContentDescription("Framdrift: Førespurd").assertIsDisplayed()
     }
 

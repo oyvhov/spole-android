@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -113,7 +112,7 @@ internal fun CompactSessionCard(session: PlaybackSession, pending: Boolean, cont
                         if (pending) CircularProgressIndicator(Modifier.size(21.dp), color = Ink, strokeWidth = 2.dp)
                         else AnimatedContent(session.paused, label = "compact-play-pause") { paused ->
                             Icon(
-                                if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                                if (paused) app.reelstack.ui.components.SpoleIcons.Play else app.reelstack.ui.components.SpoleIcons.Pause,
                                 stringResource(if (paused) R.string.player_play else R.string.player_pause),
                                 modifier = Modifier.size(24.dp),
                             )

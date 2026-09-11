@@ -14,7 +14,6 @@
     <string name="personal_compact">Compact</string>
     <string name="personal_standard">Standard</string>
     <string name="personal_large">Large</string>
-    <string name="personal_artwork_note">Applies to Home artwork and the Discover grid. Text stays readable at every size.</string>
     <string name="personal_playback">Playback</string>
     <string name="personal_resume">Continue where I left off</string>
     <string name="personal_resume_note">Start Jellyfin playback at your saved position. Turn off to choose between continuing and starting over.</string>

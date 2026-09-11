@@ -34,13 +34,11 @@
     <string name="library_reset">Nullstill</string>
     <string name="library_search">Søk i dette biblioteket</string>
     <string name="library_sort">Sorter etter</string>
-    <string name="library_descending">Fallande rekkjefølgje</string>
     <string name="library_watch_status">Visingsstatus</string>
     <string name="library_favourites">Berre favorittar</string>
     <string name="library_resolution">Videooppløysing</string>
     <string name="library_genre">Sjanger (namnet i biblioteket, t.d. Drama)</string>
     <string name="library_year">Produksjonsår</string>
-    <string name="library_apply">Vis resultat</string>
     <string-array name="library_icons">
         <item>Bibliotek</item>
         <item>Filmar</item>

@@ -3,8 +3,14 @@
     Google TV's launcher banner: 320 x 180 dp, drawn at the required 16:9 so the launcher never
     letterboxes it. The mark is the unchanged production vector on the app's own charcoal, scaled
     and placed by group transform rather than redrawn — a banner is not a new logo.
+
+    VectorRaster is suppressed on purpose: lint asks for vectors under 200x200 because most are
+    icons, but a launcher banner has to be exactly 320x180 dp. It is drawn once, by the launcher,
+    from a handful of paths — the cost lint is guarding against does not apply here.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="VectorRaster"
     android:width="320dp" android:height="180dp"
     android:viewportWidth="320" android:viewportHeight="180">
 

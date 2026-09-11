@@ -376,12 +376,40 @@ class MediaServerClient(
                 ServiceKind.JELLYFIN -> listOf("UserItems/Resume?userId=$userId&$scoped", "Users/$userId/Items/Resume?$scoped")
                 else -> listOf("Users/$userId/Items/Resume?$scoped")
             }
-            runCatching { getItems(connection, paths) }.getOrNull()
+            runCatching { getItems(connection, paths).map { it.copy(libraryId = view.id) } }.getOrNull()
         }
         check(groups.isNotEmpty()) { "Fekk ikkje henta Hald fram å sjå" }
         return interleave(groups).distinctBy(RemoteLibraryItem::id)
             .sortedByDescending { it.lastActivityEpochMillis ?: Long.MIN_VALUE }.take(RESUME_ITEM_LIMIT)
     }
+
+    /**
+     * One library's own "Continue watching" and "Next up".
+     *
+     * [feed] asks every library at once and interleaves twelve cards out of the lot, which is right
+     * for Home and wrong for a library page: open Films and you want the films you have not
+     * finished, not three of them behind two episodes from a different library. Same requests,
+     * one view.
+     */
+    fun libraryShelves(
+        connection: ServiceConnection,
+        view: RemoteLibraryView,
+    ): Pair<List<RemoteLibraryItem>, List<RemoteLibraryItem>> {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val userId = userIdentity(connection)?.let(::encodePathSegment)
+            ?: return emptyList<RemoteLibraryItem>() to emptyList()
+        // A shelf is an extra, never a reason for the page itself to fail.
+        val resume = runCatching { resume(connection, userId, listOf(view)) }.getOrDefault(emptyList())
+        val next = if (connection.kind == ServiceKind.JELLYFIN) {
+            runCatching { nextUp(connection, userId, listOf(view)) }.getOrDefault(emptyList())
+        } else emptyList()
+        return resume to next
+    }
+
+    /** The signed-in profile on this server, resolved the way the feed resolves it. */
+    fun userIdentity(connection: ServiceConnection): String? =
+        connection.userId.takeIf(String::isNotBlank)
+            ?: runCatching { currentUserId(connection) }.getOrNull()
 
     /** Ask Jellyfin for the next unwatched episode, scoped before loading to selected libraries. */
     fun nextUp(
@@ -398,6 +426,7 @@ class MediaServerClient(
                 getItems(connection, listOf("Shows/NextUp?UserId=$userId&ParentId=${encodePathSegment(view.id)}" +
                     "&Limit=24&EnableUserData=true&EnableResumable=false" +
                     "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1"))
+                    .map { it.copy(libraryId = view.id) }
             }.getOrNull()
         }
         check(groups.isNotEmpty()) { "Fekk ikkje henta neste episode" }
@@ -489,9 +518,16 @@ class MediaServerClient(
             "boxsets" -> "BoxSet"
             else -> null
         }
+        // A collection is its own library in this app, so it has no business appearing between the
+        // films. Jellyfin returns BoxSet children from a movie library whenever the server is set
+        // to display collections there, and relying on the library reporting its own type is not
+        // enough: an unknown type meant no item filter at all, and everything in the folder came
+        // through. Excluding it explicitly holds either way.
+        val browsingCollections = collectionType?.lowercase(java.util.Locale.ROOT) == "boxsets"
         val query = "userId=${encodePathSegment(user)}&ParentId=${encodePathSegment(parentId)}" +
             "&Recursive=${catalogueType != null}&StartIndex=$offset&Limit=60" + filters.query() +
             (catalogueType?.let { "&IncludeItemTypes=$it" } ?: "") +
+            (if (browsingCollections) "" else "&ExcludeItemTypes=BoxSet") +
             "&Fields=Overview,Genres,ProviderIds&EnableUserData=true&IsMissing=false"
         return getItems(connection, listOf("Items?$query"))
     }
@@ -538,6 +574,91 @@ class MediaServerClient(
             "{}",
         )
         response.requireSuccess(connection.kind)
+    }
+
+    /**
+     * Marks a title watched or unwatched on the media server.
+     *
+     * Spole could already *filter* on watched state but never change it, so an episode skipped by
+     * accident, or a film finished on another screen, had to be tidied up in a different client.
+     * The state belongs to the server, so this writes there and lets the next refresh read it back
+     * rather than keeping a local guess.
+     *
+     * Jellyfin 10.9 moved these to `UserPlayedItems`; Emby and older Jellyfin keep the user-scoped
+     * path. Both are tried, the same way the resume list already is.
+     */
+    fun setPlayed(connection: ServiceConnection, userId: String, itemId: String, played: Boolean) =
+        setUserItemState(connection, userId, itemId, played, "PlayedItems")
+
+    /** Same contract as [setPlayed], for the favourite flag the library filter already reads. */
+    fun setFavourite(connection: ServiceConnection, userId: String, itemId: String, favourite: Boolean) =
+        setUserItemState(connection, userId, itemId, favourite, "FavoriteItems")
+
+    private fun setUserItemState(
+        connection: ServiceConnection,
+        userId: String,
+        itemId: String,
+        enabled: Boolean,
+        collection: String,
+    ) {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        require(userId.isNotBlank()) { "Manglar profil-ID for denne tenesta." }
+        val item = encodePathSegment(itemId)
+        val user = encodePathSegment(userId)
+        val paths = when (connection.kind) {
+            ServiceKind.JELLYFIN -> listOf("User$collection/$item", "Users/$user/$collection/$item")
+            else -> listOf("Users/$user/$collection/$item")
+        }
+        var last: HttpResponse? = null
+        paths.forEach { path ->
+            val url = EndpointValidator.resolve(connection.baseUrl, path)
+            val response = contacting(connection.kind.displayName) {
+                if (enabled) transport.post(url, headers(connection, deviceId), "{}")
+                else transport.delete(url, headers(connection, deviceId))
+            }
+            if (response.statusCode in 200..299) return
+            // Only a missing endpoint is worth retrying on the older path. A rejected token or a
+            // forbidden item means the same thing on both.
+            if (response.statusCode != 404) { response.requireSuccess(connection.kind); return }
+            last = response
+        }
+        last?.requireSuccess(connection.kind)
+    }
+
+    /**
+     * Takes a title out of "Continue watching".
+     *
+     * The resume list is the server's, built from the saved playback position, so the only honest
+     * way to remove something is to clear that position — a local "hidden" list would reappear on
+     * every other client and come back on the next reinstall. Jellyfin 10.9 exposes the write as
+     * user data, older Jellyfin and Emby keep the user-scoped path, and a server that knows
+     * neither still accepts a stop report at position zero, which is exactly what a client that
+     * played the file to the end would have sent.
+     */
+    fun clearResume(connection: ServiceConnection, userId: String, itemId: String) {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        require(userId.isNotBlank()) { "Manglar profil-ID for denne tenesta." }
+        val item = encodePathSegment(itemId)
+        val user = encodePathSegment(userId)
+        val cleared = buildJsonObject { put("PlaybackPositionTicks", 0L); put("PlayedPercentage", 0.0) }.toString()
+        val stopped = buildJsonObject { put("ItemId", itemId); put("PositionTicks", 0L) }.toString()
+        val attempts = buildList {
+            if (connection.kind == ServiceKind.JELLYFIN) add("UserItems/$item/UserData" to cleared)
+            add("Users/$user/Items/$item/UserData" to cleared)
+            add("Sessions/Playing/Stopped" to stopped)
+        }
+        var last: HttpResponse? = null
+        attempts.forEach { (path, payload) ->
+            val response = contacting(connection.kind.displayName) {
+                transport.post(EndpointValidator.resolve(connection.baseUrl, path), headers(connection, deviceId), payload)
+            }
+            if (response.statusCode in 200..299) return
+            // Only "this server does not have that endpoint" is worth trying the next shape for.
+            // A rejected token or a forbidden item means the same thing on all three.
+            if (response.statusCode !in setOf(400, 404, 405)) { response.requireSuccess(connection.kind); return }
+            last = response
+        }
+        last?.requireSuccess(connection.kind)
     }
 
     fun details(connection: ServiceConnection, itemId: String): RemoteMediaDetails {
@@ -637,7 +758,10 @@ class MediaServerClient(
                 in 200..299 -> return ServicePayloadParser.libraryItems(response.body).map { item ->
                     item.copy(
                         artworkUrl = item.artworkItemId?.let {
-                            artworkUrl(connection, it, item.artworkImageType)
+                            artworkUrl(connection, it, item.artworkImageType, item.artworkTag)
+                        },
+                        logoUrl = item.logoItemId?.let {
+                            logoUrl(connection, it, item.logoTag)
                         },
                     )
                 }
@@ -657,7 +781,7 @@ class MediaServerClient(
         parentId: String? = null,
     ): List<String> {
         val query = "Limit=12&Fields=Overview,Genres,PrimaryImageAspectRatio,Studios,Taglines" +
-            "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb" +
+            "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Logo" +
             "&IncludeItemTypes=$itemType&GroupItems=$groupItems" +
             parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty()
         return when (kind) {
@@ -675,14 +799,34 @@ class MediaServerClient(
         }
     }
 
-    private fun artworkUrl(connection: ServiceConnection, itemId: String, imageType: String = "Primary"): String =
+    fun logoUrl(connection: ServiceConnection, itemId: String, tag: String? = null): String =
+        EndpointValidator.resolve(
+            connection.baseUrl,
+            "Items/${encodePathSegment(itemId)}/Images/Logo?maxWidth=800&quality=90" + tagParameter(tag),
+        )
+
+    /**
+     * Jellyfin's image tag is a content hash, so appending it is what makes a replaced picture
+     * appear. Without it the address never changes and the cached copy is served for as long as it
+     * survives eviction — which is why refreshing in the app did nothing after changing art on the
+     * server.
+     */
+    private fun tagParameter(tag: String?): String =
+        tag?.takeIf(String::isNotBlank)?.let { "&tag=" + encodePathSegment(it) }.orEmpty()
+
+    private fun artworkUrl(
+        connection: ServiceConnection,
+        itemId: String,
+        imageType: String = "Primary",
+        tag: String? = null,
+    ): String =
         EndpointValidator.resolve(
             connection.baseUrl,
             if (imageType.equals("Thumb", ignoreCase = true)) {
                 "Items/${encodePathSegment(itemId)}/Images/Thumb?maxWidth=960&quality=90"
             } else {
                 "Items/${encodePathSegment(itemId)}/Images/Primary?maxHeight=720&quality=90"
-            },
+            } + tagParameter(tag),
         )
 
     private fun verifyConnection(connection: ServiceConnection) {

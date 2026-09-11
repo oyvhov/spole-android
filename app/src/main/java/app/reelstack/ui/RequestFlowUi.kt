@@ -121,7 +121,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                                     color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 3.dp))
                             }
                             if (season.canRequest && canAdd) Checkbox(checked = season.number in draft.selected, onCheckedChange = null, enabled = enabled)
-                            else if (!season.canWatch) Icon(if (season.status == 5) Icons.Rounded.CheckCircle else Icons.Rounded.Info,
+                            else if (!season.canWatch) Icon(if (season.status == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.Info,
                                 null, tint = if (season.status == 5) Success else Muted, modifier = Modifier.size(24.dp).padding(end = 2.dp))
                         }
                         if (season.canWatch && draft.mediaStatus != 6 && state.accounts[ServiceKind.SEERR]?.isPersonal == true) {
@@ -138,7 +138,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                                     contentDescription = watchLabel
                                 }) {
                                 if (draft.savingWatch == season.number) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                                else Icon(if (watched) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsNone,
+                                else Icon(if (watched) app.reelstack.ui.components.SpoleIcons.Bell else Icons.Rounded.NotificationsNone,
                                     null, tint = if (watched) Primary else Muted)
                             }
                         }
@@ -163,7 +163,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             HorizontalDivider(Modifier.padding(vertical = 18.dp), color = SurfaceRaised)
             Row(Modifier.fillMaxWidth().toggleable(draft.notify, enabled = !draft.sending, role = Role.Checkbox, onValueChange = onNotify)
                 .padding(vertical = 8.dp).testTag("request-notification"), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.NotificationsActive, null, tint = Primary, modifier = Modifier.size(22.dp))
+                Icon(app.reelstack.ui.components.SpoleIcons.Bell, null, tint = Primary, modifier = Modifier.size(22.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(stringResource(R.string.flow_notify_ready), fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
                     Text(if (isSeries) stringResource(R.string.flow_notify_seasons) else stringResource(R.string.flow_notify_movie),
@@ -249,10 +249,10 @@ fun TrackedRequestCard(
                             modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)) {
                             Icon(
                                 when (item.stage) {
-                                    RequestStage.AVAILABLE -> Icons.Rounded.CheckCircle
-                                    RequestStage.DOWNLOADING -> Icons.Rounded.Download
+                                    RequestStage.AVAILABLE -> app.reelstack.ui.components.SpoleIcons.DoneCircle
+                                    RequestStage.DOWNLOADING -> app.reelstack.ui.components.SpoleIcons.Download
                                     RequestStage.FAILED, RequestStage.DECLINED -> Icons.Rounded.ErrorOutline
-                                    else -> Icons.Rounded.Schedule
+                                    else -> app.reelstack.ui.components.SpoleIcons.Clock
                                 }, null,
                                 tint = when (item.stage) {
                                     RequestStage.AVAILABLE -> Success
@@ -299,7 +299,7 @@ fun TrackedRequestCard(
                         },
                     ) {
                         Icon(
-                            if (item.notify) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
+                            if (item.notify) app.reelstack.ui.components.SpoleIcons.Bell else Icons.Rounded.NotificationsOff,
                             null, tint = if (item.notify) Primary else Muted,
                         )
                     }
@@ -331,7 +331,7 @@ fun TrackedRequestCard(
                             Text(stringResource(R.string.flow_withdrawing), color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
                                 modifier = Modifier.padding(start = 8.dp))
                         } else {
-                            Icon(Icons.Rounded.Close, null, tint = Warning, modifier = Modifier.size(16.dp))
+                            Icon(app.reelstack.ui.components.SpoleIcons.Close, null, tint = Warning, modifier = Modifier.size(16.dp))
                             Text(stringResource(R.string.flow_withdraw), color = Warning, fontSize = 13.sp, lineHeight = 18.sp,
                                 modifier = Modifier.padding(start = 6.dp))
                         }

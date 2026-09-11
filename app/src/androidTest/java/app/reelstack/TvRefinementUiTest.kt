@@ -130,7 +130,7 @@ class TvRefinementUiTest {
         org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
             .getSystemService(android.app.UiModeManager::class.java).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
         val choices = (1..12).map { app.reelstack.data.network.RemoteLibraryView("library-$it", "Bibliotek $it", "movies") }
-        var saved: Set<String>? = null
+        var saved: List<String>? = null
         rule.setContent { Tv(2f) {
             LibraryChoicesDialog(ReelstackUiState(libraryChoices = choices, selectedLibraryIds = choices.map { it.id }.toSet()),
                 {}, {}, { _, pins, _ -> saved = pins })
@@ -138,7 +138,7 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("library-selection-save").assertIsDisplayed()
         rule.onNodeWithTag("library-pin-library-1").performScrollTo().performClick()
         rule.onNodeWithTag("library-selection-save").assertIsDisplayed().performClick()
-        rule.runOnIdle { assertEquals(setOf("library-1"), saved) }
+        rule.runOnIdle { assertEquals(listOf("library-1"), saved) }
         capture("alpha09-tv-library-settings-large")
     }
 }

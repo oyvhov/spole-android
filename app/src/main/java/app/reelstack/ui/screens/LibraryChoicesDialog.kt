@@ -26,9 +26,12 @@ import app.reelstack.ui.components.*
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit, onRetry: () -> Unit,
-    onSave: (Set<String>, Set<String>, Map<String, LibraryIcon>) -> Unit) {
+    onSave: (Set<String>, List<String>, Map<String, LibraryIcon>) -> Unit) {
     var selected by remember(state.libraryChoices, state.selectedLibraryIds) { mutableStateOf(state.selectedLibraryIds) }
-    var pinned by remember(state.libraryShortcuts) { mutableStateOf(state.libraryShortcuts.map { it.first }.toSet()) }
+    // A list, not a set: the menu shows these in the order they are given, and the order is the
+    // reader's to choose. Appending on pin and removing on unpin keeps a newly pinned library at
+    // the end rather than silently back in the server's order.
+    var pinned by remember(state.libraryShortcuts) { mutableStateOf(state.libraryShortcuts.map { it.first }) }
     var icons by remember(state.libraryIcons) { mutableStateOf(state.libraryIcons) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth(.94f).fillMaxHeight(.9f),
@@ -40,6 +43,31 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
                     TextButton(onClick = { selected = emptySet() }) { Text(stringResource(R.string.library_none)) }
                 }
                 Text(stringResource(R.string.library_choice_intro), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                if (pinned.size > 1) {
+                    Text(stringResource(R.string.library_menu_order), style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 4.dp))
+                    Column(Modifier.fillMaxWidth().testTag("library-order")) {
+                        pinned.forEachIndexed { index, id ->
+                            val name = state.libraryChoices.firstOrNull { it.id == id }?.name ?: id
+                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("library-order-$id"),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                fun move(target: Int) {
+                                    pinned = pinned.toMutableList().apply { removeAt(index); add(target, id) }
+                                }
+                                IconButton(onClick = { move(index - 1) }, enabled = index > 0,
+                                    modifier = Modifier.testTag("library-order-up-$id")) {
+                                    Icon(SpoleIcons.ChevronUp, stringResource(R.string.tv_move_up, name))
+                                }
+                                IconButton(onClick = { move(index + 1) }, enabled = index < pinned.lastIndex,
+                                    modifier = Modifier.testTag("library-order-down-$id")) {
+                                    Icon(SpoleIcons.ChevronDown, stringResource(R.string.tv_move_down, name))
+                                }
+                            }
+                        }
+                    }
+                }
                 LazyVerticalGrid(columns = GridCells.Adaptive(300.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)),
                     modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -61,7 +89,8 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 8.dp)) {
                                         FilterChip(selected = view.id in pinned, onClick = {
                                             pinned = if (view.id in pinned) pinned - view.id else pinned + view.id
-                                        }, label = { Text(stringResource(R.string.tv_pin_library)) }, modifier = Modifier.testTag("library-pin-${view.id}"))
+                                        }, label = { Text(stringResource(R.string.tv_pin_library)) },
+                                            modifier = Modifier.testTag("library-pin-${view.id}"))
                                         if (view.id in pinned) LibraryIconPicker(icon) { icons = icons + (view.id to it) }
                                     }
                                 }
@@ -73,7 +102,7 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                     Text(androidx.compose.ui.res.pluralStringResource(R.plurals.library_selected_count, selected.size, selected.size), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
                     OutlinedButton(onClick = onDismiss) { Text(stringResource(R.string.library_cancel)) }
-                    Button(onClick = { onSave(selected, pinned.intersect(selected), state.libraryChoices.associate { view ->
+                    Button(onClick = { onSave(selected, pinned.filter { it in selected }, state.libraryChoices.associate { view ->
                         view.id to (icons[view.id] ?: when(view.collectionType) { "movies" -> LibraryIcon.MOVIES; "tvshows" -> LibraryIcon.SERIES; "music" -> LibraryIcon.MUSIC; else -> LibraryIcon.LIBRARY }) }) },
                         enabled = !state.libraryChoicesLoading && state.libraryChoicesError == null,
                         modifier = Modifier.testTag("library-selection-save")) { Text(stringResource(R.string.library_save)) }

@@ -9,10 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.VideoLibrary
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -84,7 +81,7 @@ fun RequestJourney(stage: RequestStage?, modifier: Modifier = Modifier) {
         RequestStage.AVAILABLE -> 2
         else -> 0
     }
-    val icons = listOf(Icons.Rounded.Schedule, Icons.Rounded.Download, Icons.Rounded.VideoLibrary)
+    val icons = listOf(app.reelstack.ui.components.SpoleIcons.Clock, app.reelstack.ui.components.SpoleIcons.Download, app.reelstack.ui.components.SpoleIcons.Movie)
     val labels = listOf(RequestStage.REQUESTED, RequestStage.DOWNLOADING, RequestStage.AVAILABLE).map { app.reelstack.localization.requestStageLabel(it) }
     val spoken = if (stage != null) androidx.compose.ui.res.stringResource(R.string.flow_progress, app.reelstack.localization.requestStageLabel(stage))
         else androidx.compose.ui.res.stringResource(R.string.flow_journey)
@@ -97,7 +94,7 @@ fun RequestJourney(stage: RequestStage?, modifier: Modifier = Modifier) {
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape)
                     .background(if (done || active) Primary else Divider))
-                Icon(if (done) Icons.Rounded.Check else icons[index], null,
+                Icon(if (done) app.reelstack.ui.components.SpoleIcons.Done else icons[index], null,
                     tint = if (done) Success else if (active) MaterialTheme.colorScheme.onSurface else Muted,
                     modifier = Modifier.padding(top = 12.dp, bottom = 6.dp).size(19.dp))
                 Text(label, color = if (done || active) MaterialTheme.colorScheme.onSurface else Muted,

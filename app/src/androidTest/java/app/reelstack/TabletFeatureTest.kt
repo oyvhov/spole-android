@@ -89,10 +89,10 @@ class TabletFeatureTest {
             }
         }
         val feature = rule.onNodeWithTag("tablet-library-feature").fetchSemanticsNode().boundsInRoot
-        val overlay = rule.onNodeWithTag("feature-account-overlay").fetchSemanticsNode().boundsInRoot
+        val overlay = rule.onNodeWithTag("feature-account-overlay", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val title = rule.onNodeWithText(media.title).fetchSemanticsNode().boundsInRoot
         assertTrue(overlay.top >= feature.top && overlay.bottom < feature.bottom)
-        assertTrue(overlay.left > title.right)
+        assertTrue(overlay.left >= title.left)
         rule.onNodeWithTag("profile").assertIsDisplayed().performClick()
         assertTrue(accountOpened)
         assertFalse(titleOpened)

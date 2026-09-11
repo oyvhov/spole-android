@@ -29,12 +29,12 @@ import app.reelstack.ui.theme.LocalPersonalization
 
 private enum class TvSettingsCategory(val title: Int, val hint: Int, val icon: ImageVector) {
     APPEARANCE(R.string.personal_appearance, R.string.settings_tv_appearance_hint, Icons.Rounded.Palette),
-    HOME(R.string.settings_home, R.string.settings_tv_home_hint, Icons.Rounded.Tv),
-    MENU(R.string.settings_tv_navigation, R.string.settings_tv_navigation_hint, Icons.Rounded.Tune),
-    PLAYBACK(R.string.personal_playback, R.string.settings_tv_playback_hint, Icons.Rounded.PlayArrow),
+    HOME(R.string.settings_home, R.string.settings_tv_home_hint, app.reelstack.ui.components.SpoleIcons.Screen),
+    MENU(R.string.settings_tv_navigation, R.string.settings_tv_navigation_hint, app.reelstack.ui.components.SpoleIcons.Tune),
+    PLAYBACK(R.string.personal_playback, R.string.settings_tv_playback_hint, app.reelstack.ui.components.SpoleIcons.Play),
     ACCOUNTS(R.string.settings_services, R.string.settings_tv_accounts_hint, Icons.Rounded.Dns),
-    UPDATES(R.string.settings_updates, R.string.settings_tv_updates_hint, Icons.Rounded.Notifications),
-    ABOUT(R.string.settings_about, R.string.settings_tv_about_hint, Icons.Rounded.Info),
+    UPDATES(R.string.settings_updates, R.string.settings_tv_updates_hint, app.reelstack.ui.components.SpoleIcons.Bell),
+    ABOUT(R.string.settings_about, R.string.settings_tv_about_hint, app.reelstack.ui.components.SpoleIcons.Info),
 }
 
 /** Television is an input mode, not a width breakpoint: 1080p TVs are often only 960 dp wide. */

@@ -7,7 +7,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -78,7 +77,7 @@ internal fun TvWelcomeScreen(state: ReelstackUiState, onConnect: (ServiceKind) -
                                     ServiceKind.SONARR -> R.string.welcome_sonarr
                                 }), color = Muted, fontSize = 14.sp, lineHeight = 19.sp)
                             }
-                            if (connected) Icon(Icons.Rounded.CheckCircle, null, tint = Success)
+                            if (connected) Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null, tint = Success)
                         }
                     }
                 }

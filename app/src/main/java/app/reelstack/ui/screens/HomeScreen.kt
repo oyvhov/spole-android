@@ -8,8 +8,13 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,14 +39,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudDone
-import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -132,6 +132,7 @@ fun HomeScreen(
     searchTransitionModifier: Modifier = Modifier,
     showSearch: Boolean = true,
     showBrand: Boolean = true,
+    cardActions: MediaCardActions? = null,
 ) {
     val configuredMediaSources = state.connections
         .filter { connection ->
@@ -162,7 +163,8 @@ fun HomeScreen(
         }
         val tablet = LocalTabletCanvas.current
         val edge = app.reelstack.ui.theme.LocalMediaEdgeToEdge.current
-        val features = if (tablet && personalization.showHero) tabletFeaturedTitles(state.recentSeries, state.homeSections) else emptyList()
+        val featurePool = state.recentSeries + continueItems + state.nextUp
+        val features = if (tablet && personalization.showHero) tabletFeaturedTitles(featurePool, state.homeSections) else emptyList()
         val featured = features.firstOrNull()
         val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
         val featureVisible by remember { androidx.compose.runtime.derivedStateOf {
@@ -218,13 +220,14 @@ fun HomeScreen(
                     if (continueItems.isEmpty() && !state.isRefreshing && incompleteMedia)
                         EmptySectionLine(stringResource(R.string.home_resume_retry))
                     else if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
-                    else ResumeRail(continueItems, onLibraryClick)
+                    else ResumeRail(continueItems, onLibraryClick, cardActions)
                 }
             }
             if (personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
                 item(key = "next-up") {
                     SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                    ResumeRail(state.nextUp, onLibraryClick)
+                    // Next up has no resume point of its own; the other two writes still apply.
+                    ResumeRail(state.nextUp, onLibraryClick, cardActions?.copy(canRemoveFromResume = false))
                 }
             }
             run {
@@ -497,7 +500,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             Spacer(Modifier.weight(1f))
             if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
                 Icon(
-                    if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.CloudDone,
+                    if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else Icons.Rounded.CloudDone,
                     contentDescription = null,
                     tint = app.reelstack.ui.theme.Success,
                     modifier = Modifier.background(Color.Black.copy(alpha = .72f), CircleShape).padding(6.dp).size(18.dp),
@@ -667,7 +670,7 @@ private fun NowPlayingCard(
                         } else {
                             AnimatedContent(session.paused, label = "play-pause") { paused ->
                                 Icon(
-                                    if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                                    if (paused) app.reelstack.ui.components.SpoleIcons.Play else app.reelstack.ui.components.SpoleIcons.Pause,
                                     contentDescription = if (paused) "Hald fram avspelinga" else "Set avspelinga på pause",
                                     modifier = Modifier.size(26.dp),
                                 )
@@ -680,7 +683,7 @@ private fun NowPlayingCard(
                     onClick = onOpen,
                     modifier = Modifier.size(52.dp).background(SurfaceRaised.copy(alpha = 0.92f), CircleShape),
                 ) {
-                    Icon(Icons.Rounded.Tune, contentDescription = "Avspelingsdetaljar", tint = TextColor)
+                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, contentDescription = "Avspelingsdetaljar", tint = TextColor)
                 }
             }
         }
@@ -710,17 +713,33 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
  * an episode stays a wide still — while a shared artwork height keeps every title on one baseline.
  */
 @Composable
-private fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit) {
+internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null) {
     val titleLines = if (items.any { it.title.length > 20 }) 2 else 1
     LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
-            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30) { onClick(media.id) }
+            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30, actions = actions) { onClick(media.id) }
         }
     }
 }
 
+/**
+ * The three things a card can do besides open.
+ *
+ * Passed as one object because a rail either offers all of them or none: a card with "favourite"
+ * but no way to clear a stalled resume point is the half-measure that sent people back to the
+ * Jellyfin app in the first place.
+ */
+data class MediaCardActions(
+    val onRemoveFromResume: (LibraryMedia) -> Unit,
+    val onFavourite: (LibraryMedia, Boolean) -> Unit,
+    val onPlayed: (LibraryMedia, Boolean) -> Unit,
+    /** Off for shelves where a resume point is not what the card represents. */
+    val canRemoveFromResume: Boolean = true,
+)
+
 @Composable
-private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, onClick: () -> Unit) {
+private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
+    actions: MediaCardActions? = null, onClick: () -> Unit) {
     val wide = !media.mediaType.equals("Movie", ignoreCase = true)
     val artworkHeight = ReelLayout.EpisodeHeight * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val cardWidth = if (wide) artworkHeight * 16f / 9f else artworkHeight * 2f / 3f
@@ -733,32 +752,40 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
         animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
         label = "resume-card-reveal",
     )
+    val focused by interactionSource.collectIsFocusedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.965f else 1f,
-        animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
-        label = "resume-card-press",
+        targetValue = if (focused) 1.08f else if (pressed) 0.965f else 1f,
+        animationSpec = spring(stiffness = 380f, dampingRatio = 0.75f),
+        label = "resume-card-spring",
     )
+    var menuOpen by remember(media.id) { mutableStateOf(false) }
     val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
     val resumeLabel = if (percent > 0) stringResource(R.string.home_resume_description, media.title, percent)
         else "${media.title}, ${media.subtitle}"
     Column(
         modifier = Modifier
             .width(cardWidth)
+            .zIndex(if (focused) 10f else 0f)
             .graphicsLayer {
                 alpha = reveal
                 translationY = (1f - reveal) * 30f
                 scaleX = scale
                 scaleY = scale
             }
-            .clickable(
+            .combinedClickable(
                 interactionSource = interactionSource,
                 indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClick = onClick,
                 onClickLabel = resumeLabel,
+                // Holding the card is the one gesture a remote and a finger share, so the options
+                // cost no focus stop on television and no visible clutter anywhere.
+                onLongClick = actions?.let { { menuOpen = true } },
+                onLongClickLabel = stringResource(R.string.library_card_options, media.title),
             )
             .semantics { role = Role.Button }
             .testTag("resume-card-${media.id}"),
     ) {
+        if (actions != null) MediaCardMenu(media, actions, menuOpen) { menuOpen = false }
         Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))
             .focusOutline(interactionSource, RoundedCornerShape(ReelLayout.ArtworkCorner))) {
             MediaArtwork(
@@ -790,13 +817,40 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int, o
             modifier = Modifier.padding(top = 9.dp),
         )
         Text(
-            media.subtitle,
+            app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle),
             color = Muted,
             fontSize = 12.sp,
             maxLines = 2,
             lineHeight = 17.sp,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+}
+
+/**
+ * What holding a card offers.
+ *
+ * Written as the opposite of what is already true, so the menu states the outcome rather than the
+ * setting: an unwatched title offers "Mark as watched", a favourite offers to stop being one.
+ */
+@Composable
+private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: Boolean, onDismiss: () -> Unit) {
+    DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
+        if (actions.canRemoveFromResume) DropdownMenuItem(
+            text = { Text(stringResource(R.string.library_remove_resume)) },
+            onClick = { onDismiss(); actions.onRemoveFromResume(media) },
+            modifier = Modifier.testTag("card-remove-resume"),
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(if (media.favourite) R.string.library_favourite_remove else R.string.library_favourite_add)) },
+            onClick = { onDismiss(); actions.onFavourite(media, !media.favourite) },
+            modifier = Modifier.testTag("card-favourite"),
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(if (media.played) R.string.library_played_unmark else R.string.library_played_mark)) },
+            onClick = { onDismiss(); actions.onPlayed(media, !media.played) },
+            modifier = Modifier.testTag("card-played"),
         )
     }
 }
@@ -809,6 +863,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
     val artworkShape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val focused by interactionSource.collectIsFocusedAsState()
     var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
@@ -817,13 +872,14 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
         label = "library-card-reveal",
     )
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.965f else 1f,
-        animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
-        label = "library-card-press",
+        targetValue = if (focused) 1.08f else if (pressed) 0.965f else 1f,
+        animationSpec = spring(stiffness = 380f, dampingRatio = 0.75f),
+        label = "library-card-spring",
     )
     Column(
         modifier = Modifier
             .width(cardWidth)
+            .zIndex(if (focused) 10f else 0f)
             .graphicsLayer {
                 alpha = reveal
                 translationY = (1f - reveal) * 30f
@@ -866,7 +922,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             modifier = Modifier.padding(top = 9.dp),
         )
         Text(
-            media.subtitle,
+            app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle),
             color = Muted,
             fontSize = 12.sp,
             maxLines = if (wide) 2 else 1,
@@ -923,7 +979,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
             .7f to Color.Black.copy(alpha = .62f), 1f to Color.Black.copy(alpha = .94f))))
         Row(Modifier.align(Alignment.TopStart).padding(14.dp).background(Color.Black.copy(alpha = .76f), CircleShape)
             .padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Schedule, null, tint = Primary, modifier = Modifier.size(14.dp))
+            Icon(app.reelstack.ui.components.SpoleIcons.Clock, null, tint = Primary, modifier = Modifier.size(14.dp))
             Text(media.dateLabel, color = Color.White, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 6.dp))
         }
@@ -994,7 +1050,7 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
             fallbackRes = media.artworkRes,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.size(width = 66.dp, height = 82.dp).clip(RoundedCornerShape(13.dp)),
+            modifier = Modifier.size(width = 66.dp, height = 82.dp).clip(RoundedCornerShape(12.dp)),
         )
         Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
             Text(media.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp)
@@ -1002,7 +1058,7 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
             Text(media.source.displayName, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
                 Icon(
-                    if (media.state == IncomingState.DOWNLOADING) Icons.Rounded.Download else Icons.Rounded.Schedule,
+                    if (media.state == IncomingState.DOWNLOADING) app.reelstack.ui.components.SpoleIcons.Download else app.reelstack.ui.components.SpoleIcons.Clock,
                     contentDescription = null,
                     // Waiting in a queue is a normal state, not a problem the user must act on.
                     tint = if (media.state == IncomingState.DOWNLOADING) Primary else Muted,

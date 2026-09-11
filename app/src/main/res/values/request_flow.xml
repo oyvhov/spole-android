@@ -48,7 +48,6 @@
     <string name="flow_film">Film</string>
     <string name="flow_season_numbers">Season %1$s</string>
     <string name="flow_watch_only">Notifications only</string>
-    <string name="flow_details">View details</string>
     <string name="flow_notify_on_title">Notifications on for %1$s</string>
     <string name="flow_notify_off_title">Notifications off for %1$s</string>
     <string name="flow_watching_note">Following library status in Seerr. No new request.</string>

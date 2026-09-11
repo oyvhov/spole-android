@@ -25,6 +25,9 @@ data class WindowLayoutPolicy(val widthDp: Float, val heightDp: Float) {
 
     /** Only the initial state of the sidebar; a stored user choice always wins. */
     val expandSidebarByDefault: Boolean get() = widthDp >= 1000f
+
+    /** A short window gets the compact Home feature, so the rails below it stay reachable. */
+    val useCompactFeature: Boolean get() = heightDp < 650f
     // Media fills the remaining window; only reading pages keep a maximum column width.
     val mediaMaxWidthDp: Float get() = widthDp
     val dialogWidthDp: Float get() = if (useCenteredDialog) 720f else 640f

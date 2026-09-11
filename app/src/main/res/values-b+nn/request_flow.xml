@@ -48,7 +48,6 @@
     <string name="flow_film">Film</string>
     <string name="flow_season_numbers">Sesong %1$s</string>
     <string name="flow_watch_only">Berre varsel</string>
-    <string name="flow_details">Vis detaljar</string>
     <string name="flow_notify_on_title">Varsel på for %1$s</string>
     <string name="flow_notify_off_title">Varsel av for %1$s</string>
     <string name="flow_watching_note">Følgjer bibliotekstatus i Seerr. Ingen ny førespurnad.</string>

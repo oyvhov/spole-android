@@ -147,8 +147,6 @@
     <string name="activity_partial_error">Noko kunne ikkje oppdaterast. Sjå Innstillingar.</string>
     <string name="activity_waiting">Ventar på første oppdatering</string>
     <string name="activity_view">Vising</string>
-    <string name="activity_following">Det du følgjer</string>
-    <string name="activity_requests">Førespurnadene dine</string>
     <string name="activity_refresh">Oppdater førespurnadene</string>
     <string name="filter_count">%1$s · %2$d</string>
     <string name="activity_empty_filter">Ingen førespurnader i dette filteret.</string>
@@ -159,8 +157,6 @@
     <string name="activity_empty">Førespurnader frå den personlege Seerr-kontoen din kjem her. Finn ein tittel i Oppdag for å starte.</string>
     <string name="activity_services">Tenesteaktivitet</string>
     <string name="activity_no_events">Ingen hendingar her enno</string>
-    <string name="tablet_library_feature">Frå %1$s-biblioteket ditt</string>
-    <string name="media_view_details">Utforsk tittelen</string>
     <string name="home_loading_resume">Lastar det du held på med</string>
     <string name="home_loading_movies">Lastar nyleg lagde til filmar frå %1$s</string>
     <string name="home_loading_series">Lastar nyleg lagde til seriar frå %1$s</string>
@@ -207,7 +203,6 @@
     <string name="status_removed">Fjerna frå biblioteket</string>
     <string name="status_requestable">Kan leggjast til</string>
     <string name="media_choose_episode">Vel episode</string>
-    <string name="media_play_in_spole">Spel av i Spole</string>
     <string name="media_open_server">Opne i %1$s</string>
     <string name="media_no_link_app">Fann ingen app som kan opne denne lenkja.</string>
     <string name="media_login_add">Logg inn for å leggje til</string>

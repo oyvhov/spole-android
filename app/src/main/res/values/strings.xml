@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">Spole</string>
     <string name="widget_title">Now playing</string>
     <string name="widget_description">Shows what is playing on Jellyfin and Emby right now.</string>
@@ -16,7 +16,11 @@
     <string name="home_account_settings">Open account settings</string>
     <string name="home_source_failed">Could not refresh %1$s. Check the connection in Settings.</string>
     <string name="home_source_partial">%1$s is connected, but this row could not refresh.</string>
-    <string name="home_resume_description">Resume %1$s, %2$d percent watched</string>
+    <!--
+        PluralsCandidate is suppressed: "percent" does not inflect in English, and "prosent"
+        does not in Nynorsk either. A plural resource here would be two identical strings.
+    -->
+    <string name="home_resume_description" tools:ignore="PluralsCandidate">Resume %1$s, %2$d percent watched</string>
     <string name="activity_updates_here">New updates will appear here.</string>
     <string name="activity_try_all">Choose All to see the other services.</string>
     <string name="activity_more_options">More options</string>

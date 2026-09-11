@@ -6,6 +6,54 @@ enum class LibrarySort(val api: String) { TITLE("SortName"), ADDED("DateCreated"
 enum class LibraryWatched { ALL, UNWATCHED, WATCHED, IN_PROGRESS }
 enum class LibraryResolution { ALL, SD, HD, UHD }
 enum class LibraryIcon { LIBRARY, MOVIES, SERIES, KIDS, DOCUMENTARY, MUSIC, CONCERT, ANIMATION, SPORT, FAVOURITES }
+/**
+ * How a library is drawn, as opposed to what it contains.
+ *
+ * Jellyfin keeps view, card size and image type per library, and people expect that: a film library
+ * wants posters, a recordings library wants thumbs, and the size that suits a phone is not the size
+ * that suits a television. These are display choices, so they are stored on the device and never
+ * sent to the server.
+ */
+enum class LibraryView { GRID, LIST }
+
+enum class LibraryCardSize(val scale: Float) { SMALL(.8f), MEDIUM(1f), LARGE(1.25f) }
+
+/**
+ * Which image a card asks the server for. `AUTO` follows the media type — posters for films and
+ * series, thumbs for episodes — which is right often enough that most libraries never change it.
+ */
+enum class LibraryArtType(val api: String?, val ratio: Float) {
+    AUTO(null, 2f / 3f),
+    POSTER("Primary", 2f / 3f),
+    THUMB("Thumb", 16f / 9f),
+    BANNER("Banner", 1000f / 185f),
+    LOGO("Logo", 16f / 9f),
+}
+
+/** Saved per library, keyed by the library's own id. */
+data class LibraryDisplay(
+    val view: LibraryView = LibraryView.GRID,
+    val size: LibraryCardSize = LibraryCardSize.MEDIUM,
+    val artType: LibraryArtType = LibraryArtType.AUTO,
+    /** Titles under the artwork. Off gives a denser wall of covers, which some people prefer. */
+    val showTitles: Boolean = true,
+) {
+    fun encode(): String = listOf(view.name, size.name, artType.name, showTitles).joinToString("|")
+
+    companion object {
+        fun decode(value: String?): LibraryDisplay {
+            val parts = value?.split('|').orEmpty()
+            if (parts.size < 4) return LibraryDisplay()
+            return LibraryDisplay(
+                view = LibraryView.entries.firstOrNull { it.name == parts[0] } ?: LibraryView.GRID,
+                size = LibraryCardSize.entries.firstOrNull { it.name == parts[1] } ?: LibraryCardSize.MEDIUM,
+                artType = LibraryArtType.entries.firstOrNull { it.name == parts[2] } ?: LibraryArtType.AUTO,
+                showTitles = parts[3].toBooleanStrictOrNull() ?: true,
+            )
+        }
+    }
+}
+
 data class LibraryFacets(val parentId: String = "", val genres: List<String> = emptyList(), val years: List<String> = emptyList())
 data class LibraryFilters(val sort: LibrarySort = LibrarySort.TITLE, val descending: Boolean = false,
     val watched: LibraryWatched = LibraryWatched.ALL, val favourites: Boolean = false,
@@ -34,3 +82,17 @@ data class LibraryFilters(val sort: LibrarySort = LibrarySort.TITLE, val descend
         year.toIntOrNull()?.takeIf { it in 1800..2200 }?.let { parameter("Years", it.toString()) }
     }
 }
+
+/**
+ * What a single library shows above its grid.
+ *
+ * Kept apart from Home's resume list on purpose: Home answers "what was I watching", a library page
+ * answers "what was I watching *here*", and blending the two is what made every library page look
+ * like the same wall of covers.
+ */
+data class LibraryShelves(
+    val libraryId: String = "",
+    val resume: List<LibraryMedia> = emptyList(),
+    val nextUp: List<LibraryMedia> = emptyList(),
+    val loading: Boolean = false,
+)

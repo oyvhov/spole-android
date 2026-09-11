@@ -1,6 +1,12 @@
 package app.reelstack.ui.screens
 
 import app.reelstack.ui.components.focusOutline
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
@@ -15,7 +21,6 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,14 +34,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import app.reelstack.ui.components.AppFilterRow
@@ -45,7 +50,6 @@ import app.reelstack.data.model.canRequest
 import app.reelstack.data.model.hasTitleMetadata
 import app.reelstack.data.model.canRequestType
 import app.reelstack.data.model.seerrStatusLabel
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,19 +76,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Info
@@ -115,7 +114,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
@@ -247,14 +248,46 @@ fun DiscoverScreen(
             gridState.scrollToItem(0)
         }
     }
+    val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val filterFocus = remember { FocusRequester() }
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    // Claim the first focus for the type filters. Guarding the search shortcut was not enough: the
+    // field is the first focusable element on the screen, so the focus system handed it the remote
+    // by itself and the on-screen keyboard came with it.
+    //
+    // The filter bar lives in a lazy header, so a fixed two-frame wait asked before it was attached
+    // and the request failed silently. Keep asking until it lands, then stop — bounded, so a screen
+    // where the bar never appears does not spin.
+    LaunchedEffect(television) {
+        if (!television) return@LaunchedEffect
+        repeat(40) {
+            withFrameNanos { }
+            if (runCatching { filterFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+    LaunchedEffect(searchOpen) {
+        if (television && searchOpen) {
+            withFrameNanos { }
+            runCatching { searchFocus.requestFocus() }
+            keyboard?.show()
+        }
+    }
     LaunchedEffect(prepareSearch, searchReady) {
         if (prepareSearch && searchReady) {
             gridState.scrollToItem(0)
             // Let the lazy header attach before focusing. This is frame-driven, not a timer
             // that drifts from the transition on a slow device or with animations disabled.
             withFrameNanos { }
-            searchFocus.requestFocus()
-            keyboard?.show()
+            // Never on television. A remote has no keyboard, so grabbing the field throws the
+            // on-screen one over the content the moment Discover opens — and getting rid of it
+            // costs a Back press before anything can be browsed. The field is still there to be
+            // chosen deliberately.
+            if (!television) {
+                searchFocus.requestFocus()
+                keyboard?.show()
+            }
             onSearchFocusConsumed()
         }
     }
@@ -301,23 +334,41 @@ fun DiscoverScreen(
                         modifier = Modifier.padding(top = 2.dp),
                     )
                 }, search = {
-                OutlinedTextField(
+                // The box is always on screen. On television it is a button that looks exactly like
+                // the field until it is chosen, because focusing a real text field is what summons
+                // the on-screen keyboard — and the shell hands focus to the first element in the
+                // content every time a tab is opened. Pressing it swaps in the field below, focused
+                // and with the keyboard, which is the only moment a remote user wants either.
+                if (television && !searchOpen) TvSearchBox(
+                    query = state.searchQuery,
+                    // The same requester as the field it stands in for, so the link from the filter
+                    // row below always has something attached to point at.
+                    modifier = searchTransitionModifier.focusRequester(searchFocus)
+                        .focusProperties { down = filterFocus },
+                    onClear = { onSearch("") },
+                    onOpen = { searchOpen = true },
+                )
+                else OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = onSearch,
                     singleLine = true,
-                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Search, contentDescription = null) },
                     trailingIcon = {
                         if (state.isSearching) {
                             CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                         } else if (state.searchQuery.isNotEmpty()) {
                             IconButton(onClick = { onSearch("") }) {
-                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.search_clear))
+                                Icon(app.reelstack.ui.components.SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
                             }
                         }
                     },
                     placeholder = { Text(stringResource(R.string.home_search), fontSize = 14.sp, lineHeight = 20.sp) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        focusManager.clearFocus()
+                        // Back to the button, so the keyboard goes with it and the results are visible.
+                        if (television) searchOpen = false
+                    }),
                     shape = RoundedCornerShape(20.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Primary,
@@ -330,8 +381,19 @@ fun DiscoverScreen(
                         .testTag("discover-search"),
                 )
                 })
-                DiscoverFilterBar(filter, libraryFilter, { filter = it }, { libraryFilter = it },
-                    Modifier.padding(top = 12.dp))
+                Row(
+                    Modifier.padding(top = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // On a wide television header the search box sits beside the heading, far to
+                    // the right of these chips: nothing is directly above them, so a plain Up press
+                    // finds nothing at all. The link says where Up goes instead of leaving it to
+                    // geometry that does not line up.
+                    DiscoverFilterBar(filter, libraryFilter, { filter = it }, { libraryFilter = it },
+                        Modifier.focusRequester(filterFocus).focusGroup()
+                            .then(if (television) Modifier.focusProperties { up = searchFocus } else Modifier))
+                }
             }
         }
         if (state.librarySearchResults.isNotEmpty()) {
@@ -399,6 +461,33 @@ fun DiscoverScreen(
 }
 
 @Composable
+private fun TvSearchBox(query: String, modifier: Modifier, onClear: () -> Unit, onOpen: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(SurfaceRaised)
+            .border(1.dp, app.reelstack.ui.theme.ControlOutline, shape)
+            .focusOutline(interaction, shape)
+            .clickable(interactionSource = interaction, indication = LocalIndication.current,
+                role = Role.Button, onClick = onOpen)
+            .padding(start = 16.dp, end = 6.dp)
+            .testTag("discover-search"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(app.reelstack.ui.components.SpoleIcons.Search, null, tint = Muted, modifier = Modifier.size(20.dp))
+        Text(
+            query.ifBlank { stringResource(R.string.home_search) },
+            color = if (query.isBlank()) Muted else TextColor,
+            fontSize = 14.sp, lineHeight = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 12.dp),
+        )
+        if (query.isNotBlank()) IconButton(onClick = onClear, modifier = Modifier.testTag("discover-search-clear")) {
+            Icon(app.reelstack.ui.components.SpoleIcons.Close, stringResource(R.string.search_clear), tint = Muted)
+        }
+    }
+}
+
+@Composable
 private fun DiscoverFilterBar(
     type: DiscoverFilter,
     library: LibraryFilter,
@@ -448,7 +537,7 @@ private fun DiscoverFilterBar(
                         DropdownMenuItem(
                             text = { Text(option.localizedLabel()) },
                             leadingIcon = if (option == library) {
-                                { Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(18.dp)) }
+                                { Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                             } else null,
                             onClick = { onLibrary(option); statusOpen = false },
                         )
@@ -463,9 +552,21 @@ private fun DiscoverFilterBar(
 @Composable
 private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.08f else if (pressed) 0.965f else 1f,
+        animationSpec = spring(stiffness = 380f, dampingRatio = 0.75f),
+        label = "hit-card-spring",
+    )
     val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     Column(
         Modifier.fillMaxWidth()
+            .zIndex(if (focused) 10f else 0f)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
             .testTag("library-hit-${media.id}"),
@@ -479,7 +580,7 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
                     .padding(horizontal = 7.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.CheckCircle, null, tint = Success, modifier = Modifier.size(12.dp))
+                Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null, tint = Success, modifier = Modifier.size(12.dp))
                 Text("I biblioteket", color = Color.White, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold,
                     maxLines = 1, modifier = Modifier.padding(start = 5.dp))
             }
@@ -496,11 +597,23 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
 private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
     val artworkShape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     val cardInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by cardInteraction.collectIsPressedAsState()
+    val focused by cardInteraction.collectIsFocusedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.08f else if (pressed) 0.965f else 1f,
+        animationSpec = spring(stiffness = 380f, dampingRatio = 0.75f),
+        label = "discover-card-spring",
+    )
     val actionInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val actionable = media.canRequest && allowed
     val actionLabel = if (media.isSeries) stringResource(R.string.media_seasons_named, media.title) else stringResource(R.string.media_add_named, media.title)
     val statusLabel = app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
     Column(Modifier.fillMaxWidth()
+        .zIndex(if (focused) 10f else 0f)
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
         // The card's own action is named so a screen reader can tell it apart from the request
         // button inside it. It must not merge its descendants: that would swallow the button.
         .clickable(interactionSource = cardInteraction, indication = app.reelstack.ui.components.mediaCardIndication(),
@@ -521,7 +634,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                     .padding(horizontal = 8.dp, vertical = 4.dp))
             Spacer(Modifier.weight(1f))
             if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
-                Icon(if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.CloudDone,
+                Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else Icons.Rounded.CloudDone,
                     // Labelled only when no status line follows below, so it is never read twice.
                     contentDescription = if (actionable) statusLabel else null,
                     tint = if (media.inLibrary || media.seerrStatus == 5) Success else Color.White,
@@ -543,7 +656,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                             contentDescription = actionLabel
                         }) {
                     if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
-                    else Icon(if (media.isSeries) Icons.AutoMirrored.Rounded.FormatListBulleted else Icons.Rounded.Add, null, Modifier.size(14.dp))
+                    else Icon(if (media.isSeries) app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add, null, Modifier.size(14.dp))
                     Text(when { requesting -> stringResource(R.string.media_sending); media.isSeries -> stringResource(R.string.media_seasons); else -> stringResource(R.string.media_add) },
                         fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 5.dp))
                 }
@@ -551,7 +664,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                 // Nothing to do here beyond opening the card, so this is a status line, not a button.
                 Row(verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(top = 8.dp)) {
-                    Icon(if (media.inLibrary || media.seerrStatus == 5) Icons.Rounded.CheckCircle else Icons.Rounded.Schedule,
+                    Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.Clock,
                         null, tint = if (media.inLibrary || media.seerrStatus == 5) Success else Muted, modifier = Modifier.size(13.dp))
                     Text(statusLabel, color = Color.White.copy(alpha = .82f), fontSize = 12.sp, maxLines = 2,
                         lineHeight = 16.sp, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
@@ -601,8 +714,16 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     val wideActivity = app.reelstack.ui.theme.LocalTabletCanvas.current && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.6f
     val tvActivity = wideActivity && (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    LazyVerticalGrid(columns = GridCells.Adaptive(if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.6f) 280.dp else if (wideActivity) 180.dp else 145.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(if (tvActivity) 16.dp else 28.dp),
+    // Activity was the one grid that ignored the artwork-size preference, so choosing Compact
+    // shrank every other wall of covers in the app except this one.
+    val activityScale = app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+    // The same cell and gap as Discover. Activity used 180 dp against Discover's 174 and a 20 dp
+    // gap against 16, so its posters came out visibly larger than every other wall in the app.
+    LazyVerticalGrid(columns = GridCells.Adaptive(
+        (if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.6f) 280.dp
+        else if (wideActivity) 174.dp else 145.dp) * activityScale,
+    ),
+        horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(if (tvActivity) 16.dp else 28.dp),
         contentPadding = if (tvActivity) PaddingValues(24.dp) else screenPadding(contentPadding),
         modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -611,8 +732,11 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
             val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    // One page-title level everywhere. This used to be an inline 30 sp SemiBold on
+                    // television while Discover next door was displaySmall, so the two screens had
+                    // visibly different headings at the same level.
                     if (tvActivity) Text(stringResource(R.string.nav_activity), color = TextColor,
-                        fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                        style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 4.dp))
                     else ScreenHeader("", stringResource(R.string.nav_activity), stringResource(R.string.activity_subtitle))
                 }
                 if (wideActivity && (state.adminView || state.configuredCount == 0)) {
@@ -646,16 +770,24 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         if (sourceFilter == ActivityFilter.MINE) {
             item(span = { GridItemSpan(maxLineSpan) }) {
               Column(Modifier.fillMaxWidth().testTag("activity-filter-block")) {
-                if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() }) {
-                    TextButton(onClick = onHistory, modifier = Modifier.testTag("open-request-history")) {
-                        Text(stringResource(R.string.history_open))
-                    }
-                }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) {
                         if (state.trackedRequests.isNotEmpty()) {
-                            AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) }, { personalFilter = it })
+                            AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) },
+                                { personalFilter = it }, optionTag = { "activity-personal-${it.name}" })
                         }
+                    }
+                    // On the same line as the filters and built from the same chip, because a row of
+                    // controls that all do the same kind of thing should look the same. It is not a
+                    // filter, though, so it stands after a wider gap and carries a chevron: the
+                    // filters change this page, this one leaves it.
+                    if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() }) {
+                        app.reelstack.ui.components.AppNavigationChip(
+                            text = stringResource(R.string.history_open),
+                            tag = "open-request-history",
+                            modifier = Modifier.padding(start = 16.dp, end = 4.dp),
+                            onClick = onHistory,
+                        )
                     }
                     IconButton(onClick = onRefresh, enabled = !state.trackingLoading,
                         modifier = Modifier.testTag("activity-refresh")) {
@@ -754,7 +886,7 @@ private fun ActivityScopeMenu(selected: ActivityFilter, onSelect: (ActivityFilte
                 DropdownMenuItem(
                     text = { Text(option.localizedLabel()) },
                     leadingIcon = if (option == selected) {
-                        { Icon(Icons.Rounded.Check, null, tint = Primary, modifier = Modifier.size(18.dp)) }
+                        { Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
                     onClick = { onSelect(option); expanded = false },
                 )
@@ -787,7 +919,7 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
             Text(event.title, color = TextColor, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 4.dp)) {
                 Icon(
-                    if (event.complete) Icons.Rounded.Check else if (event.source == ServiceKind.SEERR) Icons.Rounded.CloudDone else Icons.Rounded.Download,
+                    if (event.complete) app.reelstack.ui.components.SpoleIcons.Done else if (event.source == ServiceKind.SEERR) Icons.Rounded.CloudDone else app.reelstack.ui.components.SpoleIcons.Download,
                     contentDescription = null,
                     tint = if (event.complete) Success else Muted,
                     modifier = Modifier.padding(top = 1.dp).size(14.dp),
@@ -811,10 +943,10 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
 private enum class SettingsSection(val label: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     ACCOUNTS(R.string.settings_services, Icons.Rounded.Dns),
     APPEARANCE(R.string.personal_appearance, Icons.Rounded.Palette),
-    PLAYBACK(R.string.personal_playback, Icons.Rounded.PlayArrow),
-    HOME(R.string.settings_home, Icons.Rounded.Tv),
-    UPDATES(R.string.settings_updates, Icons.Rounded.Notifications),
-    ABOUT(R.string.settings_about, Icons.Rounded.Info),
+    PLAYBACK(R.string.personal_playback, app.reelstack.ui.components.SpoleIcons.Play),
+    HOME(R.string.settings_home, app.reelstack.ui.components.SpoleIcons.Screen),
+    UPDATES(R.string.settings_updates, app.reelstack.ui.components.SpoleIcons.Bell),
+    ABOUT(R.string.settings_about, app.reelstack.ui.components.SpoleIcons.Info),
 }
 
 @Composable
@@ -914,27 +1046,27 @@ fun SettingsScreen(
                 Row(Modifier.fillMaxWidth().clickable(enabled = !wide) { homeExpanded = !homeExpanded }
                     .semantics { stateDescription = if (homeExpanded || wide) expandedLabel else collapsedLabel }
                     .padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Tv, null, tint = PrimarySoft, modifier = Modifier.size(24.dp))
+                    Icon(app.reelstack.ui.components.SpoleIcons.Screen, null, tint = PrimarySoft, modifier = Modifier.size(24.dp))
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(stringResource(R.string.settings_customize), color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp)
                         Text(stringResource(R.string.settings_customize_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                     }
-                    if (!wide) Icon(if (homeExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    if (!wide) Icon(if (homeExpanded) app.reelstack.ui.components.SpoleIcons.ChevronUp else app.reelstack.ui.components.SpoleIcons.ChevronDown,
                         null, tint = Muted)
                 }
                 androidx.compose.animation.AnimatedVisibility(visible = homeExpanded || wide) {
                   Column {
-            HomeSectionRow(HomeSection.NOW_PLAYING, stringResource(R.string.home_now_playing), stringResource(R.string.settings_playback_note), Icons.Rounded.PlayArrow, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.NOW_PLAYING, stringResource(R.string.home_now_playing), stringResource(R.string.settings_playback_note), app.reelstack.ui.components.SpoleIcons.Play, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.CONTINUE_WATCHING, stringResource(R.string.home_continue), stringResource(R.string.settings_continue_note), Icons.Rounded.History, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.RECOMMENDATIONS, stringResource(R.string.home_recommendations), stringResource(R.string.settings_recommendations_note), Icons.Rounded.Explore, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECENT_RELEASES, stringResource(R.string.home_recent_releases), stringResource(R.string.settings_releases_note), Icons.Rounded.Schedule, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECENT_RELEASES, stringResource(R.string.home_recent_releases), stringResource(R.string.settings_releases_note), app.reelstack.ui.components.SpoleIcons.Clock, state, onHomeSectionChange)
             if (connected(ServiceKind.JELLYFIN)) {
-                HomeSectionRow(HomeSection.JELLYFIN_MOVIES, stringResource(R.string.settings_movies, "Jellyfin"), stringResource(R.string.settings_movies_note), Icons.Rounded.Movie, state, onHomeSectionChange)
-                HomeSectionRow(HomeSection.JELLYFIN_SERIES, stringResource(R.string.settings_series, "Jellyfin"), stringResource(R.string.settings_episodes_note), Icons.Rounded.Tv, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.JELLYFIN_MOVIES, stringResource(R.string.settings_movies, "Jellyfin"), stringResource(R.string.settings_movies_note), app.reelstack.ui.components.SpoleIcons.Movie, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.JELLYFIN_SERIES, stringResource(R.string.settings_series, "Jellyfin"), stringResource(R.string.settings_episodes_note), app.reelstack.ui.components.SpoleIcons.Screen, state, onHomeSectionChange)
             }
             if (connected(ServiceKind.EMBY)) {
-                HomeSectionRow(HomeSection.EMBY_MOVIES, stringResource(R.string.settings_movies, "Emby"), stringResource(R.string.settings_movies_note), Icons.Rounded.Movie, state, onHomeSectionChange)
-                HomeSectionRow(HomeSection.EMBY_SERIES, stringResource(R.string.settings_series, "Emby"), stringResource(R.string.settings_episodes_note), Icons.Rounded.Tv, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.EMBY_MOVIES, stringResource(R.string.settings_movies, "Emby"), stringResource(R.string.settings_movies_note), app.reelstack.ui.components.SpoleIcons.Movie, state, onHomeSectionChange)
+                HomeSectionRow(HomeSection.EMBY_SERIES, stringResource(R.string.settings_series, "Emby"), stringResource(R.string.settings_episodes_note), app.reelstack.ui.components.SpoleIcons.Screen, state, onHomeSectionChange)
             }
             HomeSectionRow(HomeSection.UPCOMING, stringResource(R.string.home_upcoming), stringResource(R.string.settings_upcoming_note), Icons.Rounded.CalendarMonth, state, onHomeSectionChange)
                   }
@@ -947,7 +1079,7 @@ fun SettingsScreen(
             app.reelstack.update.AppUpdateSettings()
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
               Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            PreferenceRow(Icons.Rounded.Notifications, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_note),
+            PreferenceRow(app.reelstack.ui.components.SpoleIcons.Bell, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_note),
                 state.notificationsEnabled, onNotificationsChange)
             PreferenceRow(
                 icon = Icons.Rounded.Wifi,
@@ -1146,7 +1278,7 @@ private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
             )
         }
         Icon(
-            if (connected && !hasWarning) Icons.Rounded.CheckCircle else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            if (connected && !hasWarning) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.ChevronRight,
             contentDescription = null,
             tint = when {
                 hasWarning -> Caution

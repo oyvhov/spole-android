@@ -34,13 +34,11 @@
     <string name="library_reset">Reset</string>
     <string name="library_search">Search this library</string>
     <string name="library_sort">Sort by</string>
-    <string name="library_descending">Descending order</string>
     <string name="library_watch_status">Watch status</string>
     <string name="library_favourites">Favourites only</string>
     <string name="library_resolution">Video resolution</string>
     <string name="library_genre">Genre (library name, e.g. Drama)</string>
     <string name="library_year">Production year</string>
-    <string name="library_apply">Show results</string>
     <string-array name="library_icons">
         <item>Library</item>
         <item>Movies</item>

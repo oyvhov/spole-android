@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.16.0-alpha16 · Bibliotekhyller, sporval og rolegare TV
+
+- Biblioteka har eigne hyller. Opnar du Filmar eller Seriar, står «Hald fram å sjå» og «Neste episode» for nettopp det biblioteket over rutenettet, med framdrift på biletet. Før fanst dei berre på Heim, blanda på tvers av alle biblioteka.
+- Hald inne eit kort for å fjerne det frå Hald fram å sjå, gjere det til favoritt eller markere det som sett. Alt blir skrive til Jellyfin, så dei andre klientane dine ser det same.
+- Tittelsidene viser lydspor, undertekstar og versjon før du trykkjer på Spel. Valet følgjer med inn i spelaren. Ein film med 43 tekstspor står som éi linje — «Undertekstar  English - SUBRIP  Endre» — og heile lista ligg bak «Endre».
+- Tittelsida er stramma inn. Framdrifta ligg inni «Hald fram · 16 min att» i staden for på ei linje for seg med prosent under, sett og favoritt er ein hake og eit hjarte utan tekst, dei sju metadataplatene er blitt éi dempa linje, og episodebiletet har fått plassen som stod tom ved sida av.
+- «Marker som sett» og «Legg til i favorittar» står på sjølve tittelsida, ikkje berre bak eit langt trykk. Spole kunne filtrere på begge frå før, men ikkje setje dei.
+- Ingen ring rundt heile helten på framsida lenger. På TV er det «Sjå meir»-knappen som tek fokus, så markeringa har storleiken til ein knapp og ikkje til eit heilt bilete.
+- Biblioteksnarvegane i menyen kan flyttast opp og ned. Rekkjefølgja blir lagra og brukt slik du la ho.
+- Søkefeltet i Oppdag er alltid synleg på TV, men tek ikkje fokus lenger. Det er ein knapp med same form som feltet, og blir feltet — med tastatur — når du vel det.
+- «Sjå førespurnadshistorikk» ligg på same linje som aktivitetsfiltera, som same knapp. Ein pil skil han frå filtera: dei endrar sida, han forlèt ho.
+- «S19 E09» blir skrive ut: «Sesong 19 - Ep 9», og med episodenamn «Sesong 6 - Ep 11 · Hvilken Side Er Du På? – Del 1». Kortlister, rutenett og detaljsider brukar same setning; helten har plass og skriv «Episode 13» i fullt ord.
+- Eit tomt serienamn frå Jellyfin gjorde at eitt kort på hylla stod heilt utan tittel. Blankt er ikkje eit namn lenger.
+- Produksjonsåret står ikkje lenger i episodelinja, der det las som om året var episodenamnet.
+
+- Byter du plakat eller klarlogo i Jellyfin, kjem det nye biletet fram i appen. Før var biletadressa den same før og etter, så det gamle biletet vart vist uansett kor mange gonger du oppdaterte.
+- Bibliotekfilter og vising ligg no på sida i staden for i ein popup. Å opne filtera på TV sende tastaturet opp over halve dialogen; det skjer ikkje lenger.
+- Du kan velje vising, kortstorleik og bilettype (plakat, thumb, banner, logo) per bibliotek, slik Jellyfin har det. Valet blir hugsa for kvart bibliotek for seg.
+- Titlar under omslaga kan slåast av for ein tettare vegg av bilete.
+- Filtervala slår inn med ein gong. Søket sender når du er ferdig å skrive, ikkje for kvar bokstav.
+- Helten på framsida hoppa når eit klarlogo mangla og tittelen tok over. Begge deler får no same reserverte høgd, også ved stor skrift.
+
+- Lint er køyrd for første gong: 0 feil, og åtvaringane er nede frå 58 til 46. Ni ubrukte strengressursar er fjerna, og to unntak er dokumenterte med grunngjeving i koden.
+- Heim-funksjonen på nettbrett las skjermhøgda i staden for vindaugshøgda, og fekk difor feil oppsett i delt skjerm. Terskelen ligg no i `WindowLayoutPolicy` saman med dei andre.
+- Ny automatisk kontroll av omsetjingar: manglande strengar, ulike formatparameter og ulike mengdeformer mellom nynorsk og engelsk feilar no i testane i staden for ved køyring.
+
 ## 0.16.0-alpha15 · Roigare TV-toppfelt
 
 - Felles toppmarg, mindre tittel og diskret «Sjå meir»-knapp.

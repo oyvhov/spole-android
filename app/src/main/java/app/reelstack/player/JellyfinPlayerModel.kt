@@ -31,6 +31,8 @@ data class PlayerScreenState(
     val audioIndex: Int? = null, val subtitleIndex: Int = -1, val direct: Boolean = true,
     val quality: Int = 0,
     val awaitingResume: Boolean = false,
+    val chapters: List<PlaybackChapter> = emptyList(),
+    val itemId: String = "",
 )
 
 /** Owns one local player, not a remote session controller. Survives rotation; never plays in the background. */
@@ -59,6 +61,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var request: Job? = null
     private var generation = 0
     private var bufferingSince = 0L
+    private var preferredAudio: Int? = null
+    private var preferredSubtitle: Int? = null
     private val reporter = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val reports = Channel<Report>(Channel.UNLIMITED)
     private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
@@ -167,9 +171,16 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun open(id: String) {
+    /**
+     * [audio] and [subtitle] are what the title page chose before playback started. They apply
+     * only until a plan exists: from then on the player's own menus are the authority, so changing
+     * quality or stepping to the next episode does not quietly undo a choice made inside the player.
+     */
+    fun open(id: String, audio: Int? = null, subtitle: Int? = null) {
         if (rootId.isNotEmpty()) return
         rootId = id
+        preferredAudio = audio
+        preferredSubtitle = subtitle
         loadRoot()
     }
 
@@ -218,7 +229,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         } else {
             selected = item; compatible = false
             mutable.update { it.copy(title = item.title, subtitle = item.subtitle, browsing = false, choices = emptyList(),
-                positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null) }
+                positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id) }
             val start = playbackStartPosition(item.resumeMs, item.durationMs, item.played,
                 container.preferencesRepository.personalization.autoResume)
             mutable.update { it.copy(awaitingResume = start == null) }
@@ -270,8 +281,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         val c = connection ?: return
         val item = selected ?: return
         val previous = plan
-        val audioChoice = audio ?: previous?.audioIndex
-        val subtitleChoice = subtitle ?: previous?.subtitleIndex
+        val audioChoice = audio ?: previous?.audioIndex ?: preferredAudio
+        val subtitleChoice = subtitle ?: previous?.subtitleIndex ?: preferredSubtitle
         request?.cancel()
         val ticket = ++generation
         stopCurrent()

@@ -124,6 +124,15 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val connectionDraft by viewModel.connectionDraft.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
+    // Built once and handed to every rail that shows library cards, so a title offers the same
+    // three choices wherever it appears.
+    val cardActions = remember(viewModel) {
+        app.reelstack.ui.screens.MediaCardActions(
+            onRemoveFromResume = { viewModel.hideFromResume(it.id) },
+            onFavourite = { media, favourite -> viewModel.setMediaFavourite(media.id, favourite) },
+            onPlayed = { media, played -> viewModel.setMediaPlayed(media.id, played) },
+        )
+    }
     var pendingSearchFocus by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val tvRail = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
@@ -298,6 +307,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         searchTransitionModifier = searchTransition,
                         showSearch = windowLayout.showHomeSearch,
                         showBrand = !showRail,
+                        cardActions = cardActions,
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
                         state = state,
@@ -313,7 +323,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         searchReady = navigation.currentState == AppTab.DISCOVER && !navigation.isRunning,
                         onSearchFocusConsumed = { pendingSearchFocus = false },
                     )
-                    AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary, viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary)
+                    AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary,
+                        viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary,
+                        onShelfOpen = viewModel::openLibraryDetails, cardActions = cardActions)
                     AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
                         viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
                         viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
@@ -366,6 +378,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onRequestNotification = viewModel::setRequestNotification,
         onConfirmRequest = viewModel::confirmRequest,
         onSeasonWatch = viewModel::setSeasonWatch,
+        onFavourite = viewModel::setMediaFavourite,
+        onPlayed = viewModel::setMediaPlayed,
     )
     if (state.libraryChoicesOpen) app.reelstack.ui.screens.LibraryChoicesDialog(state,
         viewModel::closeLibraryChoices, viewModel::openLibraryChoices, viewModel::saveLibraryChoices)

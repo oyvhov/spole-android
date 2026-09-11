@@ -107,6 +107,9 @@ data class ReelstackUiState(
     val libraryChoicesError: String? = null,
     val libraryDetailMedia: LibraryMedia? = null,
     val libraryEntries: List<app.reelstack.data.network.RemoteLibraryItem> = emptyList(),
+    val libraryShelves: app.reelstack.data.model.LibraryShelves = app.reelstack.data.model.LibraryShelves(),
+    /** Why the last watched/favourite/remove press did nothing. Cleared on the next attempt. */
+    val mediaActionError: String? = null,
     val libraryPath: List<Pair<String, String>> = emptyList(),
     val libraryCollectionType: String? = null,
     val libraryLoading: Boolean = false,
@@ -176,6 +179,7 @@ class ReelstackViewModel(
     private var lastFeedAttemptMillis = -60_000L
     private var libraryChoicesJob: Job? = null
     private var libraryJob: Job? = null
+    private var shelfJob: Job? = null
     private var searchJob: Job? = null
     private var quickConnectJob: Job? = null
     private var connectionJob: Job? = null
@@ -216,13 +220,16 @@ class ReelstackViewModel(
         _uiState.update { it.copy(libraryChoicesOpen = false) }
     }
 
-    fun saveLibraryChoices(ids: Set<String>, shortcuts: Set<String> = _uiState.value.libraryShortcuts.map { it.first }.toSet(),
+    /** [shortcuts] is ordered: the menu shows them in exactly the order it is given. */
+    fun saveLibraryChoices(ids: Set<String>, shortcuts: List<String> = _uiState.value.libraryShortcuts.map { it.first },
         icons: Map<String, app.reelstack.data.model.LibraryIcon> = _uiState.value.libraryIcons) {
         val state = _uiState.value
         if (!state.libraryChoicesOpen || state.libraryChoicesLoading || state.libraryChoicesError != null) return
         val connection = state.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() } ?: return
         container.preferencesRepository.setSelectedLibraryIds(connection, ids.intersect(state.libraryChoices.map { it.id }.toSet()))
-        val pinned = state.libraryChoices.filter { it.id in shortcuts && it.id in ids }.map { it.id to it.name }
+        // The chosen order, not the server's. A menu the reader arranged has to stay arranged.
+        val pinned = shortcuts.distinct().filter { it in ids }
+            .mapNotNull { id -> state.libraryChoices.firstOrNull { it.id == id }?.let { id to it.name } }
         container.preferencesRepository.setLibraryShortcuts(connection, pinned)
         val savedIcons = icons.filterKeys { key -> state.libraryChoices.any { it.id == key } }
         container.preferencesRepository.setLibraryIcons(connection, savedIcons)
@@ -233,6 +240,7 @@ class ReelstackViewModel(
         searchJob?.cancel()
         _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned, libraryIcons = savedIcons,
             libraryPath = emptyList(), libraryEntries = emptyList(), libraryDetailMedia = null,
+            libraryShelves = app.reelstack.data.model.LibraryShelves(),
             resume = emptyList(), nextUp = emptyList(), recentMovies = emptyList(), recentSeries = emptyList(), recentReleases = emptyList(),
             librarySearchResults = emptyList(), isSearching = false, hasCachedData = false) }
         browseLibrary()
@@ -241,6 +249,7 @@ class ReelstackViewModel(
     }
 
     fun browseLibrary(more: Boolean = false) {
+        if (!more) loadLibraryShelves()
         if (more && (_uiState.value.libraryLoading || !_uiState.value.libraryHasMore)) return
         libraryJob?.cancel()
         val state = _uiState.value
@@ -282,6 +291,121 @@ class ReelstackViewModel(
     fun libraryBack() {
         _uiState.update { it.copy(libraryPath = it.libraryPath.dropLast(1), libraryFilters = app.reelstack.data.model.LibraryFilters()) }
         browseLibrary()
+    }
+
+    /**
+     * What this library was left half-watched at.
+     *
+     * Only for the root of one library: inside a series the grid is already the episode list, and a
+     * shelf above it would repeat it. Failures are silent by design — a shelf is an extra, and a
+     * library that cannot produce one should still open.
+     */
+    private fun loadLibraryShelves() {
+        val state = _uiState.value
+        val path = state.libraryPath
+        val library = path.singleOrNull()
+        if (library == null) {
+            shelfJob?.cancel()
+            if (state.libraryShelves != app.reelstack.data.model.LibraryShelves()) {
+                _uiState.update { it.copy(libraryShelves = app.reelstack.data.model.LibraryShelves()) }
+            }
+            return
+        }
+        if (state.libraryShelves.libraryId == library.first && !state.libraryShelves.loading) return
+        val connection = state.connections.firstOrNull {
+            (it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        } ?: return
+        shelfJob?.cancel()
+        _uiState.update { it.copy(libraryShelves = app.reelstack.data.model.LibraryShelves(libraryId = library.first, loading = true)) }
+        shelfJob = viewModelScope.launch {
+            val view = app.reelstack.data.network.RemoteLibraryView(library.first, library.second, _uiState.value.libraryCollectionType)
+            val loaded = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.libraryShelves(connection, view) }
+            }.getOrNull()
+            if (!isActive) return@launch
+            _uiState.update { current ->
+                if (current.libraryShelves.libraryId != library.first) return@update current
+                current.copy(libraryShelves = current.libraryShelves.copy(
+                    resume = loaded?.first.orEmpty(), nextUp = loaded?.second.orEmpty(), loading = false))
+            }
+        }
+    }
+
+    /**
+     * Takes a title off the shelf, on the server.
+     *
+     * The list belongs to Jellyfin, so the write goes there first and the screen follows. Removing
+     * it locally first would look right until the next refresh put it straight back.
+     */
+    fun hideFromResume(id: String) {
+        writeMediaState(id) { connection, media -> container.mediaSyncRepository.clearResume(connection, media) }
+    }
+
+    fun setMediaFavourite(id: String, favourite: Boolean) {
+        writeMediaState(id, favourite = favourite, removeFromResume = false) { connection, media ->
+            container.mediaSyncRepository.setFavourite(connection, media, favourite)
+        }
+    }
+
+    /** Marking something watched also takes it off the resume shelf, the way finishing it would. */
+    fun setMediaPlayed(id: String, played: Boolean) {
+        writeMediaState(id, played = played, removeFromResume = played) { connection, media ->
+            container.mediaSyncRepository.setPlayed(connection, media, played)
+        }
+    }
+
+    fun clearMediaActionError() {
+        if (_uiState.value.mediaActionError != null) _uiState.update { it.copy(mediaActionError = null) }
+    }
+
+    private fun writeMediaState(
+        id: String,
+        favourite: Boolean? = null,
+        played: Boolean? = null,
+        removeFromResume: Boolean = true,
+        write: (ServiceConnection, LibraryMedia) -> Unit,
+    ) {
+        val state = _uiState.value
+        val media = (state.resume + state.nextUp + state.libraryShelves.resume + state.libraryShelves.nextUp +
+            state.recentMovies + state.recentSeries + state.librarySearchResults + listOfNotNull(state.libraryDetailMedia))
+            .firstOrNull { it.id == id } ?: return
+        val connection = state.connections.firstOrNull {
+            it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        } ?: return
+        if (media.remoteId == null) return
+        _uiState.update { it.copy(mediaActionError = null) }
+        viewModelScope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { write(connection, media) } }
+            if (result.isFailure) {
+                _uiState.update { it.copy(mediaActionError = container.appContext.getString(R.string.library_action_failed)) }
+                return@launch
+            }
+            // Flags change everywhere the title appears; only the resume shelves lose the card.
+            fun update(list: List<LibraryMedia>) = list.map { entry ->
+                if (entry.id != id) entry
+                else entry.copy(favourite = favourite ?: entry.favourite, played = played ?: entry.played)
+            }
+            _uiState.update { current ->
+                val drop: (List<LibraryMedia>) -> List<LibraryMedia> =
+                    if (removeFromResume) { list -> list.filterNot { it.id == id } } else ::update
+                current.copy(
+                    resume = drop(current.resume),
+                    nextUp = update(current.nextUp),
+                    recentMovies = update(current.recentMovies),
+                    recentSeries = update(current.recentSeries),
+                    librarySearchResults = update(current.librarySearchResults),
+                    libraryShelves = current.libraryShelves.copy(
+                        resume = drop(current.libraryShelves.resume),
+                        nextUp = update(current.libraryShelves.nextUp),
+                    ),
+                    contentDetails = current.contentDetails?.takeIf { it.key == id }?.copy(
+                        favourite = favourite ?: current.contentDetails.favourite,
+                        played = played ?: current.contentDetails.played,
+                        updating = false,
+                    ) ?: current.contentDetails,
+                )
+            }
+        }
     }
 
     fun filterLibrary(filters: app.reelstack.data.model.LibraryFilters) {
@@ -392,6 +516,10 @@ class ReelstackViewModel(
                     statusTitle = "I biblioteket",
                     libraryAvailable = true,
                     progress = media.progress,
+                    season = media.season,
+                    episode = media.episode,
+                    favourite = media.favourite,
+                    played = media.played,
                     statusDescription = "Registrert i ${media.source.displayName}.",
                 ),
             )
@@ -421,6 +549,11 @@ class ReelstackViewModel(
                                 progress = remote.progress ?: details.progress,
                                 remainingMinutes = remote.remainingMinutes,
                                 quality = remote.quality,
+                                favourite = remote.favourite,
+                                played = remote.played,
+                                audioTracks = remote.audioTracks,
+                                subtitleTracks = remote.subtitleTracks,
+                                versions = remote.versions,
                                 loading = false,
                             ),
                         )
