@@ -34,4 +34,8 @@
 
 ## Artefaktar og GitHub-release
 
-- Release-commit, offentleg lenkje og digest blir fylte inn etter publisering.
+- Release-taggen peikar på kjeldecommit `a57f82de37be3bb42be2370b98cd06c7faf24c23`.
+- Publisert som prerelease: <https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-alpha18>
+- Offentleg APK-lenke: <https://github.com/oyvhov/spole-android/releases/download/v0.16.0-alpha18/Spole-v0.16.0-alpha18.apk>
+- Releasen er ikkje ein kladd og inneheld nøyaktig éin APK.
+- GitHub asset digest og offentleg nedlasta APK samsvarar med lokal SHA-256: `81605056739c0aa7b759f317753c1489ab4edecd193e8bfc86f1f3d31ff11937`.
