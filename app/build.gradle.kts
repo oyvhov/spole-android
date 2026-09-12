@@ -107,15 +107,18 @@ dependencies {
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
+    // core-ktx 1.19 and lifecycle 2.11 both require compileSdk 37, which is a platform decision
+    // and not a dependency one — `checkDebugAarMetadata` refuses the build outright. They stay here
+    // until the compileSdk bump is made deliberately, with the re-verification that deserves.
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.work:work-runtime-ktx:2.11.2")
-    implementation("androidx.room:room-runtime:2.8.4")
-    implementation("androidx.room:room-ktx:2.8.4")
-    ksp("androidx.room:room-compiler:2.8.4")
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -124,14 +127,14 @@ dependencies {
     // Spole draws its own icons. The extended Material set was the last thing pulling a
     // second visual language into the app, and with every glyph now in SpoleIcons there is
     // nothing left that references it.
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
-    implementation("androidx.media3:media3-exoplayer:1.10.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.10.1")
-    implementation("androidx.media3:media3-ui:1.10.1")
-    implementation("androidx.media3:media3-session:1.10.1")
-    implementation("androidx.media3:media3-datasource-okhttp:1.10.1")
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
+    implementation("androidx.media3:media3-ui:1.11.1")
+    implementation("androidx.media3:media3-session:1.11.1")
+    implementation("androidx.media3:media3-datasource-okhttp:1.11.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
