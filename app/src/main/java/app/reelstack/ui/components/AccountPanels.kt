@@ -44,12 +44,17 @@ import app.reelstack.ui.theme.Text as TextColor
  * looked like different things that led to the same sheet.
  */
 @Composable
-fun SettingsAccounts(state: ReelstackUiState, onConnectionClick: (ServiceKind) -> Unit) {
+fun SettingsAccounts(
+    state: ReelstackUiState,
+    onConnectionClick: (ServiceKind) -> Unit,
+    /** Off where the page already wrote the section heading in its own style. */
+    heading: Boolean = true,
+) {
     val configured = listOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY)
         .filter { kind -> state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() } }
     if (configured.isEmpty()) return
     Column(Modifier.padding(top = 20.dp)) {
-        Text(stringResource(R.string.flow_account_title), color = TextColor,
+        if (heading) Text(stringResource(R.string.flow_account_title), color = TextColor,
             fontSize = 21.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold)
         Surface(color = SurfaceRaised, shape = RoundedCornerShape(24.dp),
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp).testTag("settings-accounts"),

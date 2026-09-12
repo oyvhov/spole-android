@@ -40,11 +40,11 @@ fun RequestHistoryScreen(state: RequestHistoryState, onDetails: (String) -> Unit
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val refresh: @Composable () -> Unit = {
-                TextButton(onClick = { onLoad(false) }, enabled = !state.loading,
+                app.reelstack.ui.components.TextColumnButton(onClick = { onLoad(false) }, enabled = !state.loading,
                     modifier = Modifier.testTag("history-refresh")) { Text(stringResource(R.string.history_refresh)) }
             }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                TextButton(onClick = onBack, modifier = Modifier.testTag("history-back")) { Text(stringResource(R.string.history_back)) }
+                app.reelstack.ui.components.TextColumnButton(onClick = onBack, modifier = Modifier.testTag("history-back")) { Text(stringResource(R.string.history_back)) }
                 // On a television the count and the refresh sit on the title's own line. Stacked,
                 // the five lines of this header came to nearly half the screen before one poster.
                 if (television) {

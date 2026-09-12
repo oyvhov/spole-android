@@ -122,7 +122,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                     } else {
                         heading()
                         controls()
-                        TextButton(onClick = onBack) { Text(stringResource(R.string.library_back)) }
+                        app.reelstack.ui.components.TextColumnButton(onClick = onBack) { Text(stringResource(R.string.library_back)) }
                     }
                     state.mediaActionError?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

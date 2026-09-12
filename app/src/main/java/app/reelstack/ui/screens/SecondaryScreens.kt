@@ -778,8 +778,11 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     modifier = Modifier.padding(start = 10.dp))
             }
             if (!wideActivity && (state.adminView || state.configuredCount == 0)) {
-                Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.activity_view), color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f))
+                // A label and the control it names, side by side. The label used to take
+                // `weight(1f)`, which pushed the two to opposite edges of the phone with half a
+                // screen of nothing between them — they read as two unrelated things.
+                Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.activity_view), color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                     ActivityScopeMenu(sourceFilter, { savedSourceFilter = it })
                 }
             }
@@ -788,29 +791,48 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         if (sourceFilter == ActivityFilter.MINE) {
             item(span = { GridItemSpan(maxLineSpan) }) {
               Column(Modifier.fillMaxWidth().testTag("activity-filter-block")) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) {
-                        if (state.trackedRequests.isNotEmpty()) {
-                            AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) },
-                                { personalFilter = it }, optionTag = { "activity-personal-${it.name}" })
-                        }
+                val filters: @Composable () -> Unit = {
+                    if (state.trackedRequests.isNotEmpty()) {
+                        AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) },
+                            { personalFilter = it }, optionTag = { "activity-personal-${it.name}" })
                     }
-                    // On the same line as the filters and built from the same chip, because a row of
-                    // controls that all do the same kind of thing should look the same. It is not a
-                    // filter, though, so it stands after a wider gap and carries a chevron: the
-                    // filters change this page, this one leaves it.
+                }
+                // On the same line as the filters and built from the same chip, because a row of
+                // controls that all do the same kind of thing should look the same. It is not a
+                // filter, though, so it stands after a wider gap and carries a chevron: the
+                // filters change this page, this one leaves it.
+                val history: @Composable () -> Unit = {
                     if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() }) {
                         app.reelstack.ui.components.AppNavigationChip(
                             text = stringResource(R.string.history_open),
                             tag = "open-request-history",
-                            modifier = Modifier.padding(start = 16.dp, end = 4.dp),
+                            modifier = Modifier.padding(end = 4.dp),
                             onClick = onHistory,
                         )
                     }
+                }
+                val refresh: @Composable () -> Unit = {
                     IconButton(onClick = onRefresh, enabled = !state.trackingLoading,
                         modifier = Modifier.testTag("activity-refresh")) {
                         if (state.trackingLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
                         else Icon(app.reelstack.ui.components.SpoleIcons.Refresh, stringResource(R.string.activity_refresh), tint = Primary)
+                    }
+                }
+                // On a phone all of that does not fit on one line: «Sjå førespurnadshistorikk» is a
+                // wide chip, and with the refresh icon beside it the filters were squeezed down to
+                // the first of three — the other two were simply not on the screen. Two lines, with
+                // the filters getting the whole of the first, shows all three again.
+                if (wideActivity) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { filters() }
+                        Box(Modifier.padding(start = 16.dp)) { history() }
+                        refresh()
+                    }
+                } else {
+                    filters()
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { history() }
+                        refresh()
                     }
                 }
                 state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 12.dp)) }
@@ -1024,7 +1046,10 @@ fun SettingsScreen(
                 lede = stringResource(R.string.settings_subtitle),
             )
             if (visible(SettingsSection.ACCOUNTS)) {
-            SettingsAccounts(state, onAccountClick)
+            // The account section is a peer of the others, so it gets the same heading rather than
+            // a 21 sp one of its own: two heading languages on one page read as two pages.
+            SettingsSectionTitle(stringResource(R.string.flow_account_title))
+            SettingsAccounts(state, onAccountClick, heading = false)
             SettingsSectionTitle(stringResource(R.string.settings_services))
             Text(
                 stringResource(R.string.settings_services_note),
@@ -1053,7 +1078,7 @@ fun SettingsScreen(
             }
             if (visible(SettingsSection.HOME)) {
             if (state.connections.any { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }) {
-                TextButton(onClick = onManageLibraries, modifier = Modifier.testTag("library-manage")) {
+                app.reelstack.ui.components.TextColumnButton(onClick = onManageLibraries, modifier = Modifier.testTag("library-manage")) {
                     Text(stringResource(R.string.library_manage))
                 }
                 Text(stringResource(R.string.library_selection_help), color = Muted, style = MaterialTheme.typography.bodySmall)
@@ -1094,9 +1119,12 @@ fun SettingsScreen(
             }
             if (visible(SettingsSection.UPDATES)) {
             SettingsSectionTitle(stringResource(R.string.settings_updates))
-            app.reelstack.update.AppUpdateSettings()
+            // One card for the whole section. The three update rows used to sit outside it, each
+            // carrying its own background with no gap between them, so their rounded corners
+            // collided into a single pinched shape above a properly grouped card.
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
               Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            app.reelstack.update.AppUpdateSettings(grouped = true)
             PreferenceRow(app.reelstack.ui.components.SpoleIcons.Bell, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_note),
                 state.notificationsEnabled, onNotificationsChange)
             PreferenceRow(
@@ -1256,8 +1284,10 @@ internal fun AppIdentity() {
 
 @Composable
 private fun SettingsSectionTitle(text: String) {
+    // No start inset. Every card, paragraph and heading on this page starts at the content edge,
+    // and 4 dp was enough to see: «Kontoen din» began at x=76 and «Tenestene dine» at x=85.
     Text(text, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(top = 26.dp, bottom = 10.dp, start = 4.dp).semantics { heading() })
+        modifier = Modifier.padding(top = 26.dp, bottom = 10.dp).semantics { heading() })
 }
 
 @Composable
@@ -1316,39 +1346,7 @@ private fun PreferenceRow(
     description: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        // Top-aligned: centring an icon against a block that can wrap to three lines leaves the
-        // icon floating in the middle of the text instead of next to its label.
-        verticalAlignment = Alignment.Top,
-        modifier = Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange).padding(vertical = 14.dp),
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(SurfaceRaised),
-        ) {
-            Icon(icon, contentDescription = null, tint = Muted, modifier = Modifier.size(21.dp))
-        }
-        Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
-            Text(label, color = TextColor, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
-            description?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp)) }
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = null,
-            // Lime marks the thumb, not the whole track: a list of switches should not read as
-            // the loudest surface in the app when none of them is an action.
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Primary,
-                checkedTrackColor = app.reelstack.ui.theme.SwitchTrackOn,
-                checkedBorderColor = app.reelstack.ui.theme.SwitchTrackOn,
-                uncheckedThumbColor = app.reelstack.ui.theme.Muted,
-                uncheckedTrackColor = app.reelstack.ui.theme.SurfaceRaised,
-                uncheckedBorderColor = app.reelstack.ui.theme.ControlOutline,
-            ),
-        )
-    }
-}
+) = app.reelstack.ui.components.SettingsPreferenceRow(icon, label, description, checked, null, onCheckedChange)
 
 @Composable
 private fun HomeSectionRow(

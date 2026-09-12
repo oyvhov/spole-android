@@ -31,13 +31,46 @@ import app.reelstack.ui.components.SettingsToggleRow
 internal fun updateModel(): AppUpdateModel = viewModel(factory = ViewModelProvider.AndroidViewModelFactory.getInstance(
     LocalContext.current.applicationContext as Application))
 
+/**
+ * @param grouped draw as rows inside the phone page's section card — icon, label, switch — rather
+ * than as the television panel's free-standing rows. The television lays its rows out with spacing
+ * of its own; the phone page does not, so the free-standing form arrived there as three cards
+ * jammed corner to corner.
+ */
 @Composable
-internal fun AppUpdateSettings() {
+internal fun AppUpdateSettings(grouped: Boolean = false) {
     val model = updateModel()
     val state by model.state.collectAsState()
     // Which version you are on, or which one is waiting, is the row's value.
-    SettingsChoiceRow(stringResource(R.string.update_title),
-        state.release?.let { stringResource(R.string.update_available, it.tag) } ?: "Spole ${BuildConfig.VERSION_NAME}", "app-updates", onClick = model::open)
+    val version = state.release?.let { stringResource(R.string.update_available, it.tag) }
+        ?: "Spole ${BuildConfig.VERSION_NAME}"
+    if (grouped) {
+        app.reelstack.ui.components.SettingsPreferenceAction(
+            icon = app.reelstack.ui.components.SpoleIcons.Update,
+            label = stringResource(R.string.update_title),
+            value = version,
+            tag = "app-updates",
+            onClick = model::open,
+        )
+        app.reelstack.ui.components.SettingsPreferenceRow(
+            icon = app.reelstack.ui.components.SpoleIcons.Refresh,
+            label = stringResource(R.string.update_auto),
+            description = stringResource(R.string.update_auto_hint),
+            checked = state.automatic,
+            tag = "update-auto",
+            onCheckedChange = model::automatic,
+        )
+        app.reelstack.ui.components.SettingsPreferenceRow(
+            icon = app.reelstack.ui.components.SpoleIcons.CloudReady,
+            label = stringResource(R.string.update_previews),
+            description = stringResource(R.string.update_previews_hint),
+            checked = state.previews,
+            tag = "update-previews",
+            onCheckedChange = model::previews,
+        )
+        return
+    }
+    SettingsChoiceRow(stringResource(R.string.update_title), version, "app-updates", onClick = model::open)
     SettingsToggleRow(stringResource(R.string.update_auto), stringResource(R.string.update_auto_hint), state.automatic, "update-auto", model::automatic)
     SettingsToggleRow(stringResource(R.string.update_previews), stringResource(R.string.update_previews_hint), state.previews, "update-previews", model::previews)
 }

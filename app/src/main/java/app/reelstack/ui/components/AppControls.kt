@@ -80,3 +80,26 @@ fun <T> AppFilterRow(
         }
     }
 }
+
+/**
+ * A text button at the head of a text column.
+ *
+ * `TextButton` carries 12 dp of content padding of its own. Between buttons that is right; under a
+ * heading it is wrong — measured on the phone, «Tilbake til Aktivitet» and «Oppdater historikken»
+ * sat at x=110 while the title, the lede and the cards all started at x=76. Shifting the button by
+ * its own padding lines the label up with the column without shrinking the target under a thumb.
+ */
+@Composable
+internal fun TextColumnButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.offset(x = (-12).dp),
+        enabled = enabled,
+        content = content,
+    )
+}
