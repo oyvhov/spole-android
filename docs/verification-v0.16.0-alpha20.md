@@ -32,4 +32,10 @@ Ingen fysisk treg TV var tilgjengeleg. Neste-episode-kortet og overgangsreglane 
 
 Før publisering vart den signerte APK-en installert med `install -r` over alpha19 på den innlogga mobilprofilen 5560. Android stadfesta versjonskode 63. Kontoavatar, ekte bibliotek/favorittar og Skog/Lime-tema vart viste etter oppstart. Første opning kom før emulatornettet var klart; ny opning etter nettverksoppstart lasta ekte innhald.
 
-TV-profilen 5564 står på alpha19 for kontroll av den offentlege nedlastings- og installasjonsflyten etter publisering.
+Utgåva er publisert som prerelease på GitHub, med éin universal-APK, sjekksum, R8-mapping og `SOURCE_COMMIT.txt`. Taggen peikar på `53ae0d18932cb1a65e20dfe94baa3acdea8d31be`.
+
+Den offentlege release-lista vart henta utan autentisering. Ho viste `draft=false`, `prerelease=true`, riktig filstorleik og rett SHA-256-digest. Ei separat offentleg nedlasting hadde nøyaktig same SHA-256 som bygget.
+
+På TV-profilen 5564, med alpha19 framleis installert, vart **Innstillingar → Varsel og oppdatering → Appoppdateringar → Sjekk no** brukt. Appen fann alpha20. **Last ned oppdatering** fullførte kontrollen og viste **Installer oppdatering**. Android bad om installasjonsløyve for Spole; dette vart mellombels gitt til produksjonspakken. Android sin **Update**-dialog vart godkjend. Etter installasjonen stadfesta Android versjonskode 63 og versjonsnamn 0.16.0-alpha20. Installeringa på TV gjekk gjennom appen, ikkje `adb install`. Det mellombelse installasjonsløyvet vart sett tilbake etter kontrollen.
+
+Ved ny opning viste TV-appen same kontoavatar, ekte Jellyfin-innhald, samla hald-fram-/neste-episode-rad og Skog/Korall-tema. Konto og synlege preferansar vart bevarte. Skjermbileta av heile oppdateringsflyten ligg berre i den ignorerte byggmappa.
