@@ -108,6 +108,15 @@ import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * `searchTransitionModifier` is not this screen's modifier and must not be called `modifier`.
+ *
+ * A screen fills the window and takes no modifier of its own; this one is threaded down to the
+ * search field alone, so that the field can keep its identity while Home and Oppdag swap places.
+ * Renaming it would make the signature claim something untrue, so the lint rule is answered here
+ * rather than obeyed.
+ */
+@Suppress("ModifierParameter")
 @Composable
 fun HomeScreen(
     state: ReelstackUiState,
@@ -491,7 +500,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             .semantics { role = Role.Button }
             .testTag("recommendation-${media.id}"),
     ) {
-        MediaArtwork(media.artworkUrl, media.artworkRes, media.title, Modifier.matchParentSize(), ContentScale.Crop)
+        MediaArtwork(media.artworkUrl, media.title, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
         Box(
             Modifier.matchParentSize().background(
                 Brush.verticalGradient(
@@ -1006,7 +1015,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
     }.clip(shape).background(SurfaceRaised).focusOutline(interactionSource, shape)
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(), onClick = onClick)
         .semantics { role = Role.Button }.testTag("upcoming-cover-${media.id}")) {
-        MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)
+        MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(
             0f to Color.Black.copy(alpha = .12f), .35f to Color.Transparent,
             .7f to Color.Black.copy(alpha = .62f), 1f to Color.Black.copy(alpha = .94f))))

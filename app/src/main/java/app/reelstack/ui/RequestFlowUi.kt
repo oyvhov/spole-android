@@ -78,8 +78,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             BoxWithConstraints(Modifier.fillMaxWidth()) {
             val posterWidth = if (app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useSideBySideMedia) 132.dp else 82.dp
             Row(verticalAlignment = Alignment.CenterVertically) {
-                MediaArtwork(draft.media.artworkUrl, draft.media.artworkRes, null,
-                    Modifier.width(posterWidth).height(posterWidth * 1.5f).clip(RoundedCornerShape(10.dp)), ContentScale.Fit, ServiceKind.SEERR)
+                MediaArtwork(draft.media.artworkUrl, null, Modifier.width(posterWidth).height(posterWidth * 1.5f).clip(RoundedCornerShape(10.dp)), fallbackRes = draft.media.artworkRes, ContentScale.Fit, ServiceKind.SEERR)
                 Column(Modifier.weight(1f).padding(start = 16.dp)) {
                     Text(draft.media.title, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
                     Text(if (isSeries) stringResource(R.string.flow_series_intro) else stringResource(R.string.flow_movie_intro), color = Muted,
@@ -236,10 +235,7 @@ fun TrackedRequestCard(
                         .testTag("tracked-details-${item.key}"),
                 ) {
                   Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(detailsInteraction, artworkShape).clip(artworkShape)) {
-                    MediaArtwork(
-                        item.artworkUrl, app.reelstack.R.drawable.media_placeholder, null,
-                        Modifier.fillMaxSize(), ContentScale.Fit, ServiceKind.SEERR,
-                    )
+                    MediaArtwork(item.artworkUrl, null, Modifier.fillMaxSize(), fallbackRes = app.reelstack.R.drawable.media_placeholder, ContentScale.Fit, ServiceKind.SEERR)
                     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
                         0f to androidx.compose.ui.graphics.Color.Transparent,
                         .6f to androidx.compose.ui.graphics.Color.Transparent,

@@ -170,8 +170,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                 val artwork: @Composable (Modifier) -> Unit = { artModifier ->
                     Box(artModifier.aspectRatio(ratio)
                         .focusOutline(interaction, shape).clip(shape).testTag("library-art-${entry.id}")) {
-                        MediaArtwork(display.artType.applyTo(entry.artworkUrl), R.drawable.media_placeholder, null,
-                            Modifier.fillMaxSize(), source = ServiceKind.JELLYFIN)
+                        MediaArtwork(display.artType.applyTo(entry.artworkUrl), null, Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN)
                         entry.progress?.takeIf { it > 0f }?.let { progress ->
                             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(4.dp)
                                 .align(androidx.compose.ui.Alignment.BottomCenter))

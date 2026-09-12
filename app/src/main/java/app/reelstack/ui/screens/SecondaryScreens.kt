@@ -225,6 +225,15 @@ private fun screenPadding(contentPadding: PaddingValues) = PaddingValues(
     bottom = contentPadding.calculateBottomPadding() + 24.dp,
 )
 
+/**
+ * `searchTransitionModifier` is not this screen's modifier and must not be called `modifier`.
+ *
+ * A screen fills the window and takes no modifier of its own; this one is threaded down to the
+ * search field alone, so that the field can keep its identity while Home and Oppdag swap places.
+ * Renaming it would make the signature claim something untrue, so the lint rule is answered here
+ * rather than obeyed.
+ */
+@Suppress("ModifierParameter")
 @Composable
 fun DiscoverScreen(
     state: ReelstackUiState,
@@ -589,8 +598,7 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
             .testTag("library-hit-${media.id}"),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)) {
-            MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(),
-                ContentScale.Crop, source = media.source)
+            MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop, source = media.source)
             Row(
                 Modifier.align(Alignment.TopStart).padding(8.dp)
                     .background(Color.Black.copy(alpha = .72f), RoundedCornerShape(6.dp))
@@ -637,7 +645,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onDetails)
         .testTag("discover-cover-${media.id}")) {
       Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(cardInteraction, artworkShape).clip(artworkShape).background(SurfaceRaised)) {
-        MediaArtwork(media.artworkUrl, media.artworkRes, null, Modifier.matchParentSize(), ContentScale.Crop)
+        MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
         Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
             0f to Color.Transparent, .35f to Color.Transparent, .68f to Color.Black.copy(alpha = .64f), 1f to Color.Black.copy(alpha = .96f))))
         // Badge at the top, text block anchored to the bottom. Alignment rather than a fixed

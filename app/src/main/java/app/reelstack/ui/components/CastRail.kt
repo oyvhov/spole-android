@@ -28,7 +28,7 @@ fun CastRail(cast: List<CastMember>) {
             Column(Modifier.width(92.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(64.dp).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
                     if (person.portraitUrl != null) {
-                        MediaArtwork(person.portraitUrl, R.drawable.media_placeholder, null, Modifier.matchParentSize())
+                        MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(), fallbackRes = R.drawable.media_placeholder)
                     } else {
                         Text(person.name.split(' ').filter(String::isNotBlank).take(2).map { it.first() }.joinToString(""),
                             color = Muted, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)

@@ -228,6 +228,6 @@ private fun LibraryTile(artworkUrl: String?, name: String, onClick: () -> Unit) 
                 onClick = onClick,
             ),
     ) {
-        MediaArtwork(artworkUrl, R.drawable.media_placeholder, name, Modifier.fillMaxSize(), source = ServiceKind.JELLYFIN)
+        MediaArtwork(artworkUrl, name, Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN)
     }
 }

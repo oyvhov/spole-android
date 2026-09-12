@@ -59,11 +59,7 @@ internal fun CompactSessionCard(session: PlaybackSession, pending: Boolean, cont
                 onClickLabel = stringResource(R.string.details_playback), onClick = onOpen)
             .testTag("compact-session-${session.key}"),
     ) {
-        MediaArtwork(
-            session.artworkUrl,
-            if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder,
-            null, Modifier.matchParentSize(), ContentScale.Crop, source = session.source,
-        )
+        MediaArtwork(session.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder, ContentScale.Crop, source = session.source)
         // Legibility only. The same three-stop ramp the phone card uses, so a session looks the
         // same on both form factors.
         Box(

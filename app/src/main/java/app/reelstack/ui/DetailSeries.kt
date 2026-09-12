@@ -215,8 +215,7 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false) {
         // keep the room they need instead of wrapping into a column two characters wide.
         val stillWidth = if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) 104.dp else 148.dp
         Box(Modifier.width(stillWidth).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
-            MediaArtwork(episode.artworkUrl, episode.artworkRes, null, Modifier.fillMaxSize(),
-                ContentScale.Crop, episode.source)
+            MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), fallbackRes = episode.artworkRes, ContentScale.Crop, episode.source)
             if (progress > 0) Box(
                 Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp)
                     .background(Color.Black.copy(alpha = .55f)),

@@ -83,7 +83,7 @@ fun NowPlayingSkeleton(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun LibraryRailSkeleton(description: String, wide: Boolean = false, modifier: Modifier = Modifier,
+fun LibraryRailSkeleton(description: String, modifier: Modifier = Modifier, wide: Boolean = false,
     tabletArtwork: Boolean = app.reelstack.ui.theme.LocalTabletCanvas.current) {
     val cardWidth = (if (wide) { if (tabletArtwork) 292.dp else ReelLayout.EpisodeWidth }
         else { if (tabletArtwork) 158.dp else ReelLayout.PosterWidth }) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale

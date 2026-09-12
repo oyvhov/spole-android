@@ -285,14 +285,10 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             var measured by remember(opening.key) { mutableStateOf<Float?>(null) }
             val slot = measured ?: if (usePoster) 2f / 3f else 16f / 9f
             Box(Modifier.fillMaxWidth().aspectRatio(slot).clip(RoundedCornerShape(16.dp))) {
-                if (measured == null) MediaArtwork(opening.artworkUrl, opening.artworkRes, null,
-                    Modifier.matchParentSize()
+                if (measured == null) MediaArtwork(opening.artworkUrl, null, Modifier.matchParentSize()
                         .blur(34.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
-                        .graphicsLayer { alpha = .45f },
-                    ContentScale.Crop, opening.source)
-                MediaArtwork(opening.artworkUrl, opening.artworkRes, null,
-                    Modifier.matchParentSize(), ContentScale.Fit, opening.source,
-                    onAspectRatio = { ratio -> measured = ratio.coerceIn(0.5f, 2.0f) })
+                        .graphicsLayer { alpha = .45f }, fallbackRes = opening.artworkRes, ContentScale.Crop, opening.source)
+                MediaArtwork(opening.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = opening.artworkRes, ContentScale.Fit, opening.source, onAspectRatio = { ratio -> measured = ratio.coerceIn(0.5f, 2.0f) })
             }
             if (ready) Box(Modifier.graphicsLayer { alpha = metadataAlpha }) { aside() }
         }

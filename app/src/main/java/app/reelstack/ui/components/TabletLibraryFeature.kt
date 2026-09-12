@@ -144,9 +144,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 val opacity by animateFloatAsState(if (title.id == selected.id) 1f else 0f,
                     tween(800), label = "feature-artwork-${title.id}")
                 Box(Modifier.matchParentSize().graphicsLayer { alpha = opacity }) {
-                    MediaArtwork(title.artworkUrl, title.artworkRes, null,
-                        Modifier.align(Alignment.CenterEnd).fillMaxWidth(.72f).fillMaxHeight(),
-                        contentScale = ContentScale.Crop, source = title.source)
+                    MediaArtwork(title.artworkUrl, null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(.72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source)
                 }
               }
             }

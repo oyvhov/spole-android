@@ -21,9 +21,9 @@ import app.reelstack.data.network.jellyfinAuthorization
 @Composable
 fun MediaArtwork(
     url: String?,
-    @DrawableRes fallbackRes: Int = 0,
     contentDescription: String?,
     modifier: Modifier = Modifier,
+    @DrawableRes fallbackRes: Int = 0,
     contentScale: ContentScale = ContentScale.Crop,
     source: ServiceKind? = null,
     crossfadeDurationMillis: Int = 260,
