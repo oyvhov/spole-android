@@ -26,9 +26,8 @@
     <string name="update_install_error">Android kunne ikkje opne installasjonen. Sjekk installasjonsløyvet og prøv igjen.</string>
     <string name="update_access_error">Utgåva er utilgjengeleg. Prøv igjen seinare.</string>
     <string name="update_rate_error">GitHub avgrensar førespurnader. Vent litt før du sjekkar igjen.</string>
-    <string name="library_choice_intro">Dine bibliotek, di framside. Vel innhaldet og legg snarvegar i menyen.</string>
+    <string name="library_choice_intro">Slå på biblioteka du vil ha i Bibliotek, på Heim og i søk. Legg dei du brukar mest i sidemenyen.</string>
     <plurals name="library_selected_count"><item quantity="one">%1$d vald</item><item quantity="other">%1$d valde</item></plurals>
-    <string name="library_include_hint">Vis i Bibliotek, heimrader og søk</string>
     <string name="library_icon">Menyikon</string>
     <string name="library_filters">Filter og sortering</string>
     <string name="library_reset">Nullstill</string>

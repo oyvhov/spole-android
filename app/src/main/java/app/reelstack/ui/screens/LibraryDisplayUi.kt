@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import app.reelstack.R
 import app.reelstack.data.model.LibraryArtType
 import app.reelstack.data.model.LibraryCardSize
@@ -179,7 +180,7 @@ fun Chip(
             // The selected chip sits on the accent, so its label takes the accent's own contrast
             // colour rather than the page's warm white.
             color = if (chosen) MaterialTheme.colorScheme.onPrimary else TextColor,
-            maxLines = 1,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
     }
 }

@@ -13,4 +13,41 @@
     <string name="episode_short">Ep %1$d</string>
     <string name="detail_minutes_left">%1$d min left</string>
     <string name="detail_change">Change</string>
+    <string name="detail_seasons_failed">Could not load the seasons.</string>
+    <string name="detail_episodes_failed">Could not load the episodes.</string>
+    <plurals name="detail_season_episodes">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episodes</item>
+    </plurals>
+    <string name="detail_no_episodes">No episodes here yet.</string>
+    <string name="detail_minutes">%1$d min</string>
+    <string name="detail_loading_episodes">Loading episodes…</string>
+    <string name="theme_noel">Noel · spruce night</string>
+    <string name="theme_halloween">Halloween · aubergine</string>
+    <string name="theme_holly">Holly</string>
+    <string name="theme_pumpkin">Pumpkin</string>
+    <string name="theme_season">Season</string>
+    <string name="theme_season_none">All year</string>
+    <string name="theme_season_christmas">Christmas</string>
+    <string name="theme_season_halloween">Halloween</string>
+    <string name="theme_ornament">Falling snow and embers</string>
+    <string name="theme_ornament_hint">A slow drift over the home feature. Stops on its own when the system has animations turned down.</string>
+    <string name="player_next_episode">Next episode</string>
+    <string name="player_next_play">Play now</string>
+    <string name="player_next_cancel">Cancel (%1$d)</string>
+    <string name="player_skip_intro">Skip intro</string>
+    <string name="player_skip_outro">Skip credits</string>
+    <plurals name="detail_more_episodes">
+        <item quantity="one">%1$d more episode</item>
+        <item quantity="other">%1$d more episodes</item>
+    </plurals>
+    <string name="home_favourites">Favourites</string>
+    <string name="library_peek_loading">loading…</string>
+    <!-- "1 newest" is not English; a library with one title in it has a new one, not a newest. -->
+    <plurals name="library_peek_newest">
+        <item quantity="one">%d new</item>
+        <item quantity="other">%d newest</item>
+    </plurals>
+    <string name="library_peek_open">open</string>
+    <string name="library_peek_progress">%d in progress</string>
 </resources>

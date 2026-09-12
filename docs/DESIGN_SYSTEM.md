@@ -1,5 +1,55 @@
 # Spole design system
 
+## Laget etter TV-gjennomgangen · 12. september 2026
+
+Denne bolken gjeld framfor alle eldre skildringar under.
+
+**Ei tittelside er to kolonnar på TV.** Venstre kolonne er biletet og det som skildrar objektet: år,
+lengd, kvalitet, aldersgrense, vurdering, status, sjangrar, tagline. Høgre kolonne er tittelen,
+handlingane og det ein kan velje — spor, versjon, sesongar, episodar. Regelen er kva slags ting det
+er, ikkje kor mykje plass som er att: ei opplysning høyrer til biletet, ei avgjerd høyrer til
+lesekolonnen.
+
+**Biletet tek si eiga form.** Slotten har ei gissa form til biletet melder si eiga gjennom
+`onAspectRatio`, og då blir ramma biletet sitt. Gissinga er medietypen, som ofte er feil — ein serie
+med eit liggjande «plakat»-bilete mista ein tredel av kolonnen til svarte stolpar. Forholdet er
+klemt til 0,5–2,0 så eit panorama ikkje tek kolonnen med seg, og eit uskarpt utsnitt av same biletet
+fyller mellomrommet til målinga er inne.
+
+**Ein verdi med éin veljar, ikkje ein vegg av chips.** Lydspor, undertekstar og versjon er *éin*
+verdi kvar. Linja seier verdien og held resten bak ein «Endre»-knapp som opnar ei liste. Ein film
+med 43 tekstspor fylte to rader med plater ingen les; fem pluss «39 til» var framleis to rader.
+Eitt spor er ei opplysning og blir vist som tekst — ein einsleg markert chip ser ut som noko ein
+skal trykkje på og gjer ingenting. `TrackChooser` og `TrackFact` i `ReelstackSheets.kt`.
+
+**Forma er etiketten.** Sett og favoritt er runde ikon utan tekst: ein hake og eit hjarte. Hjartet
+finst i to former — `SpoleIcons.Heart` med strek og `HeartFilled` fylt — ikkje éi form i to fargar,
+for på ein mørk side er ein aksentfarga strek og eit aksentfarga fyll same kulør. Teksten høyrer til
+skjermlesaren. `IconAction` i `ReelstackSheets.kt`.
+
+**Framdrift høyrer til kontrollen ho gjeld.** Ei eiga linje med prosent under ein knapp som alt
+heiter «Hald fram» seier det same to gonger, på den høgaste plassen på sida. Stripa ligg i knappen,
+med eit spor under heile breidda så fyllet les som ei måling og ikkje som ein skugge.
+
+**Metadata er éi dempa linje.** Sju opphøgde plater gav lengda same vekt som spel-knappen.
+`PlaybackMetadata` skriv `2026 · 51 min · 720p · H264 · EAC3 5.1` i `bodyMedium` og `Muted`.
+
+**Overskanning på TV.** Ein TV melder ingen innfellingar for ramma rundt sitt eige bilete.
+Fullskjermflater — spelaren — legg til 48 dp vassrett og 27 dp loddrett sjølve. `safeDrawingPadding`
+dekkjer systemfelta ein telefon har og ingenting her.
+
+**Sesongtema er paringar.** `Season` i `Personalization.kt` set `VisualTheme` og `AccentPalette` i
+eitt. Begge halvdelane er vanlege verdiar, så paringa er ein snarveg og ikkje ein modus. Aksentane
+held same 7:1 mot blekket som dei andre åtte; ei pynt får ikkje bøye ein lesbarheitsregel.
+
+**Ornament er valfrie, stille og stoppbare.** `SeasonalOrnament` teiknar berre mjuke prikkar på låg
+dekkevne, over biletet og under kvar kontroll, utan semantikk, og stoppar heilt når stemninga ikkje
+er sesongbasert, når brytaren er av, eller når systemet har skrudd ned animasjonar.
+
+**Rørsle blir lesen éin gong.** `LocalMotionEnabled` ber svaret ned frå temaet. Ingen komponent skal
+lese `Settings.Global.ANIMATOR_DURATION_SCALE` sjølv: det er eit binderkall, og i ein liste blir det
+eitt per element per ramme.
+
 ## Tokenlaget etter designgjennomgangen · alpha13
 
 Denne bolken gjeld framfor alle eldre skildringar under.

@@ -5,8 +5,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,7 +28,7 @@ fun LanguagePreference() {
         color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().testTag("language-picker")) {
         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Rounded.Language, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(app.reelstack.ui.components.SpoleIcons.Language, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.language_title), style = MaterialTheme.typography.titleMedium)
                 Text(languageLabel(selected), style = MaterialTheme.typography.bodyMedium,

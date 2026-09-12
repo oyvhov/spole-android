@@ -5,7 +5,27 @@ import java.net.URLEncoder
 enum class LibrarySort(val api: String) { TITLE("SortName"), ADDED("DateCreated"), YEAR("ProductionYear"), RATING("CommunityRating"), RUNTIME("Runtime"), PLAYED("DatePlayed") }
 enum class LibraryWatched { ALL, UNWATCHED, WATCHED, IN_PROGRESS }
 enum class LibraryResolution { ALL, SD, HD, UHD }
-enum class LibraryIcon { LIBRARY, MOVIES, SERIES, KIDS, DOCUMENTARY, MUSIC, CONCERT, ANIMATION, SPORT, FAVOURITES }
+enum class LibraryIcon {
+    LIBRARY, MOVIES, SERIES, KIDS, DOCUMENTARY, MUSIC, CONCERT, ANIMATION, SPORT, FAVOURITES;
+
+    companion object {
+        /**
+         * The icon a library gets before anybody has chosen one for it.
+         *
+         * The server already says what kind of library it is, so a film library should not have to
+         * be told twice that it holds films. A reader who wants something else still picks it, and
+         * their choice is what the map holds — this is only the answer when the map is silent.
+         */
+        fun forCollection(collectionType: String?): LibraryIcon =
+            when (collectionType?.lowercase(java.util.Locale.ROOT)) {
+                "movies" -> MOVIES
+                "tvshows" -> SERIES
+                "music" -> MUSIC
+                "musicvideos" -> CONCERT
+                else -> LIBRARY
+            }
+    }
+}
 /**
  * How a library is drawn, as opposed to what it contains.
  *

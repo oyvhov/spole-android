@@ -7,7 +7,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
@@ -29,8 +28,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import app.reelstack.data.network.EndpointValidator
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -64,12 +61,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Devices
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -92,6 +83,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -126,6 +118,7 @@ import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.SheetToolbar
 import app.reelstack.ui.components.StableSheetDialog
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,6 +148,7 @@ fun ReelstackSheets(
     onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> },
     onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> },
+    onSeason: (String) -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     val sheetContentStates = rememberSaveableStateHolder()
@@ -185,7 +179,7 @@ fun ReelstackSheets(
                     androidx.compose.runtime.key(details.key) {
                         RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
                             onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered,
-                            onFavourite = onFavourite, onPlayed = onPlayed)
+                            onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason)
                     }
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
@@ -237,7 +231,7 @@ private fun DetailSheetSkeleton() {
 @Composable
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
     scroll: ScrollState, entered: Boolean, onFavourite: (String, Boolean) -> Unit = { _, _ -> },
-    onPlayed: (String, Boolean) -> Unit = { _, _ -> }) {
+    onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {}) {
     val details = state.contentDetails ?: return
     // Freeze the opening artwork and title. Late metadata must not replace or resize the hero.
     val opening = remember(details.key) { details }
@@ -250,10 +244,58 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val visibleFacts = details.facts.filterNot { it == details.source?.displayName }.distinct()
     val tv = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val isSeries = mediaType == "Series"
+    // What describes the object rather than the moment. On television it belongs under the picture,
+    // where a column of black used to be; on a phone there is only one column, so it stays in it.
+    val synopsis: @Composable () -> Unit = {
+        app.reelstack.ui.components.ExpandableSynopsis(
+            identity = details.key,
+            title = when {
+                isMovie -> stringResource(R.string.details_about_movie)
+                mediaType == "Episode" -> stringResource(R.string.details_about_episode)
+                mediaType == "Series" -> stringResource(R.string.details_about_series)
+                else -> stringResource(R.string.details_about_title)
+            },
+            overview = details.overview?.takeIf { it.isNotBlank() },
+            loading = details.loading,
+        )
+    }
+    val castBlock: @Composable () -> Unit = {
+        if (details.cast.isNotEmpty()) {
+            Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 18.dp, bottom = 12.dp))
+            app.reelstack.ui.components.CastRail(details.cast)
+        }
+    }
+    val aside: @Composable () -> Unit = {
+        DetailAside(details, opening, visibleFacts, tv, synopsis.takeIf { tv }, castBlock.takeIf { tv })
+    }
     app.reelstack.ui.components.DetailReadingLayout(tv, scroll, artwork = {
-        MediaArtwork(opening.artworkUrl, opening.artworkRes, null,
-            Modifier.fillMaxWidth().aspectRatio(if (usePoster) 2f / 3f else 16f / 9f).clip(RoundedCornerShape(16.dp)),
-            ContentScale.Fit, opening.source)
+        Column {
+            // The slot needs a shape before the picture arrives or the page would jump as it
+            // loads, and the guess has to be the media type — but the guess is often wrong. A
+            // series whose "poster" is really a landscape card left a third of the column as black
+            // bars. So the guess holds only until the image reports its own proportions, and then
+            // the frame becomes the picture's own; the blurred copy fills the difference in the
+            // meantime, so the first paint is never a pair of black stripes either.
+            //
+            // Clamped, because a panorama or a bookmark-shaped image must not take the column with
+            // it. Below Android 12 `blur` does nothing, and the brief letterbox that leaves is the
+            // behaviour this page always had.
+            var measured by remember(opening.key) { mutableStateOf<Float?>(null) }
+            val slot = measured ?: if (usePoster) 2f / 3f else 16f / 9f
+            Box(Modifier.fillMaxWidth().aspectRatio(slot).clip(RoundedCornerShape(16.dp))) {
+                if (measured == null) MediaArtwork(opening.artworkUrl, opening.artworkRes, null,
+                    Modifier.matchParentSize()
+                        .blur(34.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                        .graphicsLayer { alpha = .45f },
+                    ContentScale.Crop, opening.source)
+                MediaArtwork(opening.artworkUrl, opening.artworkRes, null,
+                    Modifier.matchParentSize(), ContentScale.Fit, opening.source,
+                    onAspectRatio = { ratio -> measured = ratio.coerceIn(0.5f, 2.0f) })
+            }
+            if (ready) Box(Modifier.graphicsLayer { alpha = metadataAlpha }) { aside() }
+        }
     }) {
         if (tv) {
             opening.source?.let { Text(it.displayName, color = Muted, style = MaterialTheme.typography.labelLarge) }
@@ -297,69 +339,26 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // player, so what the page promises is what starts.
         var chosenAudio by remember(details.key) { mutableStateOf<Int?>(null) }
         var chosenSubtitle by remember(details.key) { mutableStateOf<Int?>(null) }
+        var chosenVersion by remember(details.key) { mutableStateOf<String?>(null) }
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
-        TitleActionRow(state, details, chosenAudio, chosenSubtitle, onFavourite, onPlayed)
+        TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed)
+        if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
         if (tv) TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
         if (details.title != opening.title) {
             Text(details.title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 20.dp))
         }
-        // The media type and the padded episode code are both said better above: the eyebrow
-        // names the source, and the line under the title spells the season and episode out.
-        val remainingFacts = (if (usePoster && !tv) visibleFacts.filterNot { it in opening.facts.take(4) } else visibleFacts)
-            .filterNot { it.matches(Regex("^S\\d\\d+ E\\d\\d+$")) }
-            .filterNot { it in setOf("Film", "Serie", "Episode", "Movie", "Series") }
-        app.reelstack.ui.components.PlaybackMetadata(details, remainingFacts)
-        MediaTrackChoices(details, chosenAudio, chosenSubtitle, { chosenAudio = it }, { chosenSubtitle = it })
-        // Reserve the two metadata slots before the network response arrives. The placeholders
-        // are intentionally quiet; the fixed geometry is what makes the opening feel instant.
-        if (!tv || details.genres.isNotEmpty()) Box(Modifier.fillMaxWidth().heightIn(min = 31.dp).padding(start = 6.dp, top = 15.dp, end = 6.dp)) {
-            if (details.genres.isNotEmpty()) {
-                Text(
-                    details.genres.take(4).joinToString(" · "),
-                    color = PrimarySoft,
-                    fontSize = 12.sp, lineHeight = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 3,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-            } else if (details.loading) {
-                Box(
-                    Modifier.width(132.dp).height(8.dp).clip(CircleShape).background(SurfaceRaised),
-                )
-            }
-        }
-        if (!usePoster && (!tv || !details.tagline.isNullOrBlank())) {
-            Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 6.dp, top = 10.dp, end = 6.dp)) {
-                val tagline = details.tagline?.takeIf(String::isNotBlank)
-                if (tagline != null) {
-                    Text(
-                        tagline,
-                        color = app.reelstack.ui.theme.Muted,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        fontStyle = FontStyle.Italic,
-                        maxLines = 2,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                } else if (details.loading) {
-                    Box(Modifier.fillMaxWidth(0.72f).height(9.dp).clip(CircleShape).background(SurfaceRaised))
-                }
-            }
-        }
-        // Reserve room for a synopsis, but let large text and explicit expansion grow inside the
-        // scroll view. Only the outer sheet has a fixed height; text must never be clipped by it.
-        app.reelstack.ui.components.ExpandableSynopsis(
-            identity = details.key,
-            title = when {
-                    isMovie -> stringResource(R.string.details_about_movie)
-                    mediaType == "Episode" -> stringResource(R.string.details_about_episode)
-                    mediaType == "Series" -> stringResource(R.string.details_about_series)
-                    else -> stringResource(R.string.details_about_title)
-            },
-            overview = details.overview?.takeIf { it.isNotBlank() },
-            loading = details.loading,
-        )
+        // A series is not one file, so it has no tracks and no version to pick. What it has is
+        // seasons, and that is the whole point of the page.
+        if (!isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
+            { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
+        // An episode gets the same list, opened on the season it belongs to. The rest of the
+        // season is the thing a reader on an episode page actually wants next, and it is what
+        // used to leave the lower half of a television screen empty.
+        SeriesEpisodes(state.seriesBrowse, details.key, onSeason)
+        // One column on a phone, so both the facts and the synopsis stay in it. On television both
+        // have moved under the picture and this column is only what you can do with the title.
+        if (!tv) { aside(); synopsis() }
         details.statusTitle?.takeUnless { details.libraryAvailable && details.source == ServiceKind.JELLYFIN }?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
                 .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
@@ -374,11 +373,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         details.error?.let {
             Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 12.dp))
         }
-        if (details.cast.isNotEmpty()) {
-            Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 24.dp, bottom = 14.dp))
-            app.reelstack.ui.components.CastRail(details.cast)
-        }
+        // One column on a phone, so the faces stay in it. On television they have moved under the
+        // picture with the rest of what describes the title.
+        if (!tv) castBlock()
         OpenInServerButton(state, details)
         if (!tv && discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
             state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
@@ -562,6 +559,7 @@ private fun TitleActionRow(
     details: ContentDetails,
     audioIndex: Int?,
     subtitleIndex: Int?,
+    versionId: String?,
     onFavourite: (String, Boolean) -> Unit,
     onPlayed: (String, Boolean) -> Unit,
 ) {
@@ -581,7 +579,7 @@ private fun TitleActionRow(
             // as wide as its own label, so a weight there would park the icons a hand's width away
             // across empty space.
             IntegratedPlaybackButton(state, details,
-                if (television) Modifier else Modifier.weight(1f), audioIndex, subtitleIndex)
+                if (television) Modifier else Modifier.weight(1f), audioIndex, subtitleIndex, versionId)
             if (marks) {
                 IconAction(
                     icon = app.reelstack.ui.components.SpoleIcons.DoneCircle,
@@ -631,9 +629,16 @@ private fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, ac
 
 @Composable
 private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDetails,
-    modifier: Modifier = Modifier, audioIndex: Int? = null, subtitleIndex: Int? = null) {
+    modifier: Modifier = Modifier, audioIndex: Int? = null, subtitleIndex: Int? = null,
+    versionId: String? = null) {
     if (details.source != ServiceKind.JELLYFIN || state.connections.none { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }) return
-    val itemId = details.key.removePrefix("jellyfin-").takeIf { it.isNotBlank() && it != details.key } ?: return
+    val key = details.key.removePrefix("jellyfin-").takeIf { it.isNotBlank() && it != details.key } ?: return
+    // A series is not playable, but the episode you are in the middle of is — and that is what
+    // pressing Play on a series page has always meant. The button waits for the episode list
+    // rather than handing the reader over to the player's own browser to start again from zero.
+    val series = details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true)
+    val nextEpisode = state.seriesBrowse.takeIf { it.openedFor == key }?.let(::resumeTarget)
+    val itemId = if (series) nextEpisode?.remoteId ?: return else key
     val context = LocalContext.current
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
@@ -647,10 +652,15 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
         }
     }
     val shape = RoundedCornerShape(14.dp)
-    val progress = details.progress?.coerceIn(0f, 1f) ?: 0f
+    val progress = if (series) nextEpisode?.progress?.coerceIn(0f, 1f) ?: 0f
+        else details.progress?.coerceIn(0f, 1f) ?: 0f
     val label = when {
-        details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true) ->
-            stringResource(R.string.media_choose_episode)
+        // The numbers, not the episode's name: the name is right there in the list underneath,
+        // and a button that grows with the title is a button that moves every time you open one.
+        series -> listOfNotNull(
+            stringResource(if (progress > 0) R.string.tv_resume else R.string.player_play),
+            nextEpisode?.let { app.reelstack.ui.components.episodeLine(it.season, it.episode, "") },
+        ).joinToString(" · ")
         progress > 0 -> listOfNotNull(
             stringResource(R.string.tv_resume),
             details.remainingMinutes?.let { stringResource(R.string.detail_minutes_left, it) },
@@ -659,13 +669,13 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
     }
     Box(modifier.clip(shape)) {
         Button(
-            onClick = { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId, audioIndex, subtitleIndex) },
+            onClick = { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId, audioIndex, subtitleIndex, versionId) },
             modifier = (if (television) Modifier.widthIn(min = 220.dp, max = 420.dp) else Modifier.fillMaxWidth())
                 .heightIn(min = 52.dp).focusRequester(playFocus).testTag("play-in-spole"),
             shape = shape,
         ) {
             Icon(app.reelstack.ui.components.SpoleIcons.Play, null, Modifier.size(20.dp))
-            Text(label, Modifier.padding(start = 8.dp), maxLines = 1)
+            Text(label, Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         // How far in you are, on the control that acts on it. A bar of its own with a percentage
         // caption said the same thing twice, in the loudest place on the page.
@@ -693,8 +703,10 @@ private fun MediaTrackChoices(
     details: ContentDetails,
     audio: Int?,
     subtitle: Int?,
+    version: String?,
     onAudio: (Int?) -> Unit,
     onSubtitle: (Int?) -> Unit,
+    onVersion: (String) -> Unit,
 ) {
     if (details.audioTracks.isEmpty() && details.subtitleTracks.isEmpty() && details.versions.isEmpty()) return
     val selectedAudio = audio ?: details.audioTracks.firstOrNull { it.isDefault }?.index ?: details.audioTracks.firstOrNull()?.index
@@ -721,9 +733,23 @@ private fun MediaTrackChoices(
             selected = selectedSubtitle,
             onSelect = onSubtitle,
         )
-        if (details.versions.size > 1) TrackFact(
-            stringResource(R.string.detail_version), details.versions.joinToString("  ·  "))
+        // More than one file means a real choice, and it was listed but not offered: the page
+        // named both cuts and then started whichever one the server felt like.
+        if (details.versions.size > 1) VersionChooser(details.versions, version, onVersion)
     }
+}
+
+/** Same one-line shape as the track choosers, keyed on the media source id playback needs. */
+@Composable
+private fun VersionChooser(versions: List<app.reelstack.data.model.MediaVersion>, selected: String?, onSelect: (String) -> Unit) {
+    val order = versions.map { it.id }
+    val index = order.indexOf(selected).takeIf { it >= 0 } ?: 0
+    TrackChooser(
+        label = stringResource(R.string.detail_version),
+        tag = "version",
+        options = versions.mapIndexed { position, version -> position to version.name },
+        selected = index,
+    ) { position -> versions.getOrNull(position)?.id?.let(onSelect) }
 }
 
 /** A stated value rather than an offered one: label, then what the file actually has. */
@@ -815,7 +841,7 @@ private fun OpenInServerButton(state: ReelstackUiState, details: ContentDetails)
         colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimarySoft),
         modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 52.dp).testTag("open-in-server"),
     ) {
-        Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(app.reelstack.ui.components.SpoleIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(
             if (target.packageName != null) target.label else stringResource(R.string.media_open_server, source.displayName),
             modifier = Modifier.padding(start = 8.dp),
@@ -1055,7 +1081,7 @@ private fun SessionMetric(label: String, value: String, modifier: Modifier) {
             fontSize = 12.sp, lineHeight = 17.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 2, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 3.dp),
         )
     }
@@ -1203,7 +1229,7 @@ internal fun ConnectionEditorSheet(
                 visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     IconButton(onClick = { showPassword = !showPassword }) {
-                        Icon(if (showPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                        Icon(if (showPassword) app.reelstack.ui.components.SpoleIcons.EyeOff else app.reelstack.ui.components.SpoleIcons.Eye,
                             stringResource(if (showPassword) R.string.login_hide_password else R.string.login_show_password))
                     }
                 },
@@ -1419,7 +1445,7 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            Icons.Rounded.Devices,
+                            app.reelstack.ui.components.SpoleIcons.Devices,
                             contentDescription = null,
                             tint = PrimarySoft,
                             modifier = Modifier.size(22.dp),

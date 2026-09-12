@@ -6,8 +6,6 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,11 +26,11 @@ import app.reelstack.ui.components.*
 import app.reelstack.ui.theme.LocalPersonalization
 
 private enum class TvSettingsCategory(val title: Int, val hint: Int, val icon: ImageVector) {
-    APPEARANCE(R.string.personal_appearance, R.string.settings_tv_appearance_hint, Icons.Rounded.Palette),
+    APPEARANCE(R.string.personal_appearance, R.string.settings_tv_appearance_hint, app.reelstack.ui.components.SpoleIcons.Palette),
     HOME(R.string.settings_home, R.string.settings_tv_home_hint, app.reelstack.ui.components.SpoleIcons.Screen),
     MENU(R.string.settings_tv_navigation, R.string.settings_tv_navigation_hint, app.reelstack.ui.components.SpoleIcons.Tune),
     PLAYBACK(R.string.personal_playback, R.string.settings_tv_playback_hint, app.reelstack.ui.components.SpoleIcons.Play),
-    ACCOUNTS(R.string.settings_services, R.string.settings_tv_accounts_hint, Icons.Rounded.Dns),
+    ACCOUNTS(R.string.settings_services, R.string.settings_tv_accounts_hint, app.reelstack.ui.components.SpoleIcons.Server),
     UPDATES(R.string.settings_updates, R.string.settings_tv_updates_hint, app.reelstack.ui.components.SpoleIcons.Bell),
     ABOUT(R.string.settings_about, R.string.settings_tv_about_hint, app.reelstack.ui.components.SpoleIcons.Info),
 }
@@ -140,10 +138,12 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                                     else -> if (connected) R.string.service_connected else R.string.settings_tv_connection_action
                                 })
                                 val summary = listOfNotNull(state.verifiedPanelAccount(connection.kind)?.displayName, status).joinToString(" · ")
-                                SettingsActionRow(connection.kind.displayName, summary,
+                                // Who is signed in and whether it works is the row's value, so it
+                                // reads across the row rather than hiding under the service name.
+                                SettingsChoiceRow(connection.kind.displayName, summary,
                                     "tv-service-${connection.kind}") { onConnectionClick(connection.kind) }
                                 if (connected && connection.kind == ServiceKind.SEERR)
-                                    SettingsActionRow(stringResource(R.string.settings_tv_account_action), "Seerr", "tv-account-SEERR") { onAccountClick(ServiceKind.SEERR) }
+                                    SettingsChoiceRow(stringResource(R.string.settings_tv_account_action), "Seerr", "tv-account-SEERR") { onAccountClick(ServiceKind.SEERR) }
                             }
                             PrivacyCard(state)
                         }
@@ -179,6 +179,7 @@ private fun TvHomeRows(state: ReelstackUiState, onChange: (HomeSection, Boolean)
                 val title = when(section) {
                     HomeSection.NOW_PLAYING -> stringResource(R.string.home_now_playing)
                     HomeSection.CONTINUE_WATCHING -> stringResource(R.string.home_continue)
+                    HomeSection.FAVOURITES -> stringResource(R.string.home_favourites)
                     HomeSection.RECOMMENDATIONS -> stringResource(R.string.home_recommendations)
                     HomeSection.RECENT_RELEASES -> stringResource(R.string.home_recent_releases)
                     HomeSection.JELLYFIN_MOVIES -> stringResource(R.string.settings_movies, "Jellyfin")

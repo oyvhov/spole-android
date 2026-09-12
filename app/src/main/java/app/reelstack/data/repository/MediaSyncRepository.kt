@@ -45,6 +45,8 @@ data class MediaSyncSnapshot(
     val recentSeries: List<LibraryMedia>,
     val resume: List<LibraryMedia> = emptyList(),
     val nextUp: List<LibraryMedia> = emptyList(),
+    /** What this profile has starred. Empty is the normal state until someone stars something. */
+    val favourites: List<LibraryMedia> = emptyList(),
     val upcoming: List<UpcomingMedia>,
     val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
@@ -199,6 +201,9 @@ class MediaSyncRepository(
             nextUp = interleave(mediaPayloads.map { payload ->
                 payload.feed.nextUp.map { item -> libraryMedia(item, payload.kind) }
             }).distinctBy { it.id }.take(24),
+            favourites = interleave(mediaPayloads.map { payload ->
+                payload.feed.favourites.map { item -> libraryMedia(item, payload.kind) }
+            }).distinctBy { it.id }.take(24),
             recentSeries = interleave(mediaPayloads.map { payload ->
                 payload.feed.recentSeries.map { item -> libraryMedia(item, payload.kind) }
             }).take(24),
@@ -222,6 +227,11 @@ class MediaSyncRepository(
                 "Nokre nye utgjevingar kunne ikkje hentast. Prøv å oppdatere." else null,
         )
     }
+
+    /** The newest titles in one library, already mapped for the screen. */
+    fun libraryPeek(connection: ServiceConnection, view: app.reelstack.data.network.RemoteLibraryView):
+        List<LibraryMedia> =
+        mediaServerClient.libraryPeek(connection, view).map { libraryMedia(it, connection.kind) }
 
     /** One library's own shelves, already mapped for the screen. */
     fun libraryShelves(connection: ServiceConnection, view: app.reelstack.data.network.RemoteLibraryView):
@@ -383,6 +393,8 @@ class MediaSyncRepository(
         artworkUrl = item.artworkUrl,
         sessionId = item.sessionId,
         source = source,
+        season = item.season,
+        episode = item.episode,
     )
 
     private fun libraryMedia(item: RemoteLibraryItem, source: ServiceKind) = LibraryMedia(
@@ -403,9 +415,23 @@ class MediaSyncRepository(
         mediaType = item.mediaType,
         lastActivityEpochMillis = item.lastActivityEpochMillis,
         libraryId = item.libraryId,
+        seriesId = item.seriesId,
         favourite = item.favourite,
         played = item.played,
+        runtimeMinutes = item.runtimeMinutes,
+        childCount = item.childCount,
     )
+
+    /** One series' seasons, or one season's episodes, mapped for the screen. */
+    fun seasons(connection: ServiceConnection, seriesId: String): List<LibraryMedia> =
+        mediaServerClient.seasons(connection, seriesId).map { libraryMedia(it, connection.kind) }
+
+    fun episodes(connection: ServiceConnection, seriesId: String, seasonId: String): List<LibraryMedia> =
+        mediaServerClient.episodes(connection, seriesId, seasonId).map { libraryMedia(it, connection.kind) }
+
+    /** The one episode this series should resume on, as the server sees it. */
+    fun seriesNextUp(connection: ServiceConnection, seriesId: String): LibraryMedia? =
+        mediaServerClient.seriesNextUp(connection, seriesId)?.let { libraryMedia(it, connection.kind) }
 
     private fun incomingMedia(item: RemoteQueueItem) = IncomingMedia(
         id = item.id,

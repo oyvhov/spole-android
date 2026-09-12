@@ -7,10 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -115,7 +111,7 @@ fun WelcomeScreen(
             TextButton(onClick = { advancedServices = !advancedServices },
                 colors = ButtonDefaults.textButtonColors(contentColor = Muted),
                 modifier = Modifier.heightIn(min = 48.dp)) {
-                Icon(if (advancedServices) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                Icon(if (advancedServices) app.reelstack.ui.components.SpoleIcons.ChevronUp else app.reelstack.ui.components.SpoleIcons.ChevronDown,
                     null, Modifier.size(18.dp))
                 Text(if (advancedServices) stringResource(R.string.welcome_hide_admin) else stringResource(R.string.welcome_admin),
                     modifier = Modifier.padding(start = 8.dp))
@@ -125,7 +121,7 @@ fun WelcomeScreen(
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp)) {
                     Text(stringResource(R.string.welcome_open), fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(12.dp))
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null)
+                    Icon(app.reelstack.ui.components.SpoleIcons.ArrowForward, null)
                 }
             } else {
                 // Demo is a fallback, so it stays quieter than connecting a real server.

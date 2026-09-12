@@ -27,16 +27,9 @@ internal fun episodeLine(season: Int?, episode: Int?, subtitle: String): String 
 }
 
 /**
- * The part of the server's line that is actually the episode's name.
- *
- * An episode imported without a title is called "Episode 9" by Jellyfin, and one imported with a
- * title is often called "Episode 9 - Getaway Sticks". Both repeat a number the line has already
- * stated, so the prefix comes off — but only when it is that exact number, or "Episode 9" would
- * eat the start of "Episode 90".
+ * The name out of a server's subtitle line, which carries the number first and the name after a
+ * dot. The cleaning rules themselves live in [app.reelstack.data.model.episodeNameOf], because the
+ * parser applies them to a bare name before any line is built.
  */
-internal fun episodeTitle(subtitle: String, episode: Int?): String {
-    val name = subtitle.substringAfter(" · ", "").trim()
-    if (name.isBlank() || episode == null) return name
-    val numbered = Regex("""^Episode\s*0*$episode(?![0-9])\s*[-–—:.]?\s*""", RegexOption.IGNORE_CASE)
-    return numbered.replace(name, "").trim()
-}
+internal fun episodeTitle(subtitle: String, episode: Int?): String =
+    app.reelstack.data.model.episodeNameOf(subtitle.substringAfter(" · ", ""), episode)

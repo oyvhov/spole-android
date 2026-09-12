@@ -8,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
@@ -27,18 +26,43 @@ fun RequestHistoryScreen(state: RequestHistoryState, onDetails: (String) -> Unit
     BackHandler(onBack = onBack)
     val locale = LocalConfiguration.current.locales[0]
     val dateFormat = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
-    LazyVerticalGrid(columns = GridCells.Adaptive(if (LocalDensity.current.fontScale >= 1.6f) 280.dp else 160.dp),
-        contentPadding = PaddingValues(24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp),
+    val television = LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    // The same cell as Oppdag and Aktivitet. This grid had its own 160 dp, which on a 1080p set
+    // came out as four columns whose captions fell off the bottom edge.
+    LazyVerticalGrid(columns = GridCells.Adaptive(posterCell()),
+        contentPadding = PaddingValues(24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.fillMaxSize().testTag("request-history")) {
         item(key = "heading", span = { GridItemSpan(maxLineSpan) }) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onBack, modifier = Modifier.testTag("history-back")) { Text(stringResource(R.string.history_back)) }
-                Text(stringResource(R.string.history_title), style = MaterialTheme.typography.headlineMedium)
-                Text(stringResource(R.string.history_description), style = MaterialTheme.typography.bodyMedium)
+            val count: @Composable () -> Unit = {
                 Text(if (state.total != null) pluralStringResource(R.plurals.history_count_total, state.total, state.items.size, state.total)
-                    else pluralStringResource(R.plurals.history_count, state.items.size, state.items.size), style = MaterialTheme.typography.bodySmall)
+                    else pluralStringResource(R.plurals.history_count, state.items.size, state.items.size),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            val refresh: @Composable () -> Unit = {
                 TextButton(onClick = { onLoad(false) }, enabled = !state.loading,
                     modifier = Modifier.testTag("history-refresh")) { Text(stringResource(R.string.history_refresh)) }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                TextButton(onClick = onBack, modifier = Modifier.testTag("history-back")) { Text(stringResource(R.string.history_back)) }
+                // On a television the count and the refresh sit on the title's own line. Stacked,
+                // the five lines of this header came to nearly half the screen before one poster.
+                if (television) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        Text(stringResource(R.string.history_title), style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier.weight(1f))
+                        count()
+                        refresh()
+                    }
+                    Text(stringResource(R.string.history_description), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(stringResource(R.string.history_title), style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(R.string.history_description), style = MaterialTheme.typography.bodyMedium)
+                    count()
+                    refresh()
+                }
             }
         }
         items(state.items, key = { it.key }) { item ->

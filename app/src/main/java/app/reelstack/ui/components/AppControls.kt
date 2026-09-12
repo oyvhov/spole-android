@@ -4,14 +4,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.theme.*
 
@@ -48,7 +46,7 @@ fun AppNavigationChip(text: String, tag: String, modifier: Modifier = Modifier, 
     AssistChip(
         onClick = onClick,
         interactionSource = interaction,
-        label = { Text(text, maxLines = 1) },
+        label = { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailingIcon = { Icon(SpoleIcons.ChevronRight, null, Modifier.size(18.dp), tint = Primary) },
         shape = shape,
         border = null,
@@ -72,7 +70,7 @@ fun <T> AppFilterRow(
             FilterChip(
                 interactionSource = interaction,
                 selected = option == selected, onClick = { onSelect(option) },
-                label = { Text(label(option), maxLines = 1) }, shape = RoundedCornerShape(10.dp), border = null,
+                label = { Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis) }, shape = RoundedCornerShape(10.dp), border = null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceRaised, labelColor = Muted,
                     selectedContainerColor = Primary, selectedLabelColor = Ink),
                 modifier = Modifier.minimumInteractiveComponentSize()

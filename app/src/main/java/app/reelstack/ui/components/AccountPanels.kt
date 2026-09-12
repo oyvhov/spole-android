@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -237,7 +235,7 @@ fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit) {
 @Composable
 private fun AccountEditButton(onClick: () -> Unit, description: String) {
     IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
-        Icon(Icons.Rounded.Edit, contentDescription = description, tint = Primary, modifier = Modifier.size(18.dp))
+        Icon(app.reelstack.ui.components.SpoleIcons.Edit, contentDescription = description, tint = Primary, modifier = Modifier.size(18.dp))
     }
 }
 

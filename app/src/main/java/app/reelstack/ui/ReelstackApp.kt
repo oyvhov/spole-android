@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material.icons.rounded.MenuOpen
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -59,11 +57,6 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import app.reelstack.ui.screens.WelcomeScreen
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -165,10 +158,25 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     LaunchedEffect(lifecycleOwner, state.selectedTab, state.activeSheet) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             if (viewModel.uiState.value.selectedTab == AppTab.HOME || viewModel.uiState.value.activeSheet is AppSheet.SessionDetails) {
-                while (true) {
-                    if (viewModel.uiState.value.selectedTab == AppTab.HOME) viewModel.retryIncompleteHomeFeed()
-                    viewModel.refreshPlayback()
-                    kotlinx.coroutines.delay(if (viewModel.uiState.value.sessions.isEmpty()) 15_000L else 5_000L)
+                // Jellyfin will tell us when playback changes, so ask it to. While that channel is
+                // open the loop below is a safety net rather than the source of truth; when it is
+                // not — an older server, a proxy that strips upgrades — nothing is lost but the
+                // saving, and the old cadence comes straight back.
+                try {
+                    viewModel.openSessionChannel()
+                    while (true) {
+                        if (viewModel.uiState.value.selectedTab == AppTab.HOME) viewModel.retryIncompleteHomeFeed()
+                        viewModel.refreshPlayback()
+                        kotlinx.coroutines.delay(
+                            when {
+                                viewModel.sessionChannelLive.value -> 60_000L
+                                viewModel.uiState.value.sessions.isEmpty() -> 15_000L
+                                else -> 5_000L
+                            },
+                        )
+                    }
+                } finally {
+                    viewModel.closeSessionChannel()
                 }
             }
         }
@@ -180,7 +188,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             while (true) {
-                viewModel.refreshTrackedRequests()
+                viewModel.refreshTrackedRequests(background = true)
                 kotlinx.coroutines.delay(
                     if (viewModel.uiState.value.selectedTab == AppTab.ACTIVITY) 30_000L else 300_000L,
                 )
@@ -380,6 +388,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onSeasonWatch = viewModel::setSeasonWatch,
         onFavourite = viewModel::setMediaFavourite,
         onPlayed = viewModel::setMediaPlayed,
+        onSeason = viewModel::selectSeason,
     )
     if (state.libraryChoicesOpen) app.reelstack.ui.screens.LibraryChoicesDialog(state,
         viewModel::closeLibraryChoices, viewModel::openLibraryChoices, viewModel::saveLibraryChoices)
@@ -484,7 +493,7 @@ internal fun ReelstackNavigationRail(
             .padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.spole_mark), null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(Primary))
             Text("Spole", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge,
-                maxLines = 1, modifier = Modifier.padding(start = 10.dp)
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp)
                     .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
         }
         app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->

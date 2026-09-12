@@ -49,6 +49,7 @@ class AppPreferencesRepository(context: Context) {
             artworkCorners = app.reelstack.data.model.ArtworkCorners.decode(preferences.getString("artwork_corners", null)),
             focusStyle = app.reelstack.data.model.FocusStyle.decode(preferences.getString("focus_style", null), television),
             highContrast = preferences.getBoolean("high_contrast", false),
+            seasonalOrnament = preferences.getBoolean("seasonal_ornament", true),
         )
         set(value) = preferences.edit {
             putString("accent_palette", value.accent.name)
@@ -67,13 +68,15 @@ class AppPreferencesRepository(context: Context) {
             putString("artwork_corners", value.artworkCorners.name)
             putString("focus_style", value.focusStyle.name)
             putBoolean("high_contrast", value.highContrast)
+            putBoolean("seasonal_ornament", value.seasonalOrnament)
         }
 
     fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key in setOf("accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "menu_order", "menu_hidden",
                     "show_next_up", "combine_continue", "show_hero", "show_ratings", "show_quality", "slow_startup",
-                    "visual_theme", "artwork_corners", "focus_style", "high_contrast")) onChange(personalization)
+                    "visual_theme", "artwork_corners", "focus_style", "high_contrast",
+                    "seasonal_ornament")) onChange(personalization)
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         onChange(personalization)
@@ -147,7 +150,7 @@ class AppPreferencesRepository(context: Context) {
                 preferences.getInt(KEY_HOME_SECTIONS_VERSION, 0) < HOME_SECTIONS_VERSION
             ) {
                 val migrated = decoded + HomeSection.RECOMMENDATIONS + HomeSection.RECENT_RELEASES +
-                    HomeSection.CONTINUE_WATCHING
+                    HomeSection.CONTINUE_WATCHING + HomeSection.FAVOURITES
                 preferences.edit {
                     putStringSet(KEY_HOME_SECTIONS, migrated.mapTo(mutableSetOf()) { it.name })
                     putInt(KEY_HOME_SECTIONS_VERSION, HOME_SECTIONS_VERSION)
@@ -166,6 +169,9 @@ class AppPreferencesRepository(context: Context) {
         const val KEY_WIFI_ONLY = "wifi_only"
         const val KEY_HOME_SECTIONS = "home_sections"
         const val KEY_HOME_SECTIONS_VERSION = "home_sections_version"
-        const val HOME_SECTIONS_VERSION = 3
+        // 4: Favourites. A section added after someone saved their choices is absent from that
+        // saved set, and absent reads as "off" — so a new row would never appear for anyone who
+        // had ever opened the settings. The version says which additions this install has seen.
+        const val HOME_SECTIONS_VERSION = 4
     }
 }

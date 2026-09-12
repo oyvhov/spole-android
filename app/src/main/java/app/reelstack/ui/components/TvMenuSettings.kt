@@ -26,7 +26,9 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         order.forEachIndexed { index, name -> key(name) {
             val required = name in setOf("HOME", "SETTINGS")
-            SettingsActionRow("${index + 1} · ${names.getValue(name)}", stringResource(when {
+            // "Synleg i menyen" is the row's value, not an explanation of what pressing it does, so
+            // it belongs on the same line as the name — two more pages fit on a television screen.
+            SettingsChoiceRow("${index + 1} · ${names.getValue(name)}", stringResource(when {
                 required -> R.string.settings_menu_required
                 name in value.hiddenMenuItems -> R.string.settings_menu_hidden
                 else -> R.string.settings_menu_visible

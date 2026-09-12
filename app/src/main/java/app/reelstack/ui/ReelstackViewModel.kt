@@ -85,6 +85,7 @@ data class ReelstackUiState(
     val sessions: List<PlaybackSession> = demoSessions(),
     val resume: List<LibraryMedia> = demoResume(),
     val nextUp: List<LibraryMedia> = emptyList(),
+    val favourites: List<LibraryMedia> = emptyList(),
     val recentMovies: List<LibraryMedia> = demoRecentMovies(),
     val recentSeries: List<LibraryMedia> = demoRecentSeries(),
     val upcoming: List<UpcomingMedia> = demoUpcoming(),
@@ -108,6 +109,16 @@ data class ReelstackUiState(
     val libraryDetailMedia: LibraryMedia? = null,
     val libraryEntries: List<app.reelstack.data.network.RemoteLibraryItem> = emptyList(),
     val libraryShelves: app.reelstack.data.model.LibraryShelves = app.reelstack.data.model.LibraryShelves(),
+    /**
+     * What is newest in each library, keyed by library id.
+     *
+     * Only the page that lists the libraries uses this, and it asks once: arrowing between four
+     * libraries must not fire four requests, so the whole map is loaded together and kept.
+     */
+    val libraryPeeks: Map<String, List<LibraryMedia>> = emptyMap(),
+    val libraryPeeksLoading: Boolean = false,
+    /** The open series' seasons and the episodes of the season being looked at. */
+    val seriesBrowse: app.reelstack.data.model.SeriesBrowse = app.reelstack.data.model.SeriesBrowse(),
     /** Why the last watched/favourite/remove press did nothing. Cleared on the next attempt. */
     val mediaActionError: String? = null,
     val libraryPath: List<Pair<String, String>> = emptyList(),
@@ -180,6 +191,24 @@ class ReelstackViewModel(
     private var libraryChoicesJob: Job? = null
     private var libraryJob: Job? = null
     private var shelfJob: Job? = null
+    private var peekJob: Job? = null
+    // Two handles, not one. Loading the seasons ends by opening the first of them, and a single
+    // handle meant that call cancelled the very coroutine it was running inside — correct today
+    // only because nothing suspends between the cancel and the relaunch, which is not a property
+    // anybody should have to verify to change this code.
+    private var seasonsJob: Job? = null
+    private var episodesJob: Job? = null
+    private var playbackJob: Job? = null
+    private var sessionChannel: app.reelstack.data.network.JellyfinSessionSocket.Connection? = null
+    private val sessionChannelState = MutableStateFlow(false)
+
+    /**
+     * Whether the server is pushing playback changes rather than being asked for them.
+     *
+     * The caller reads this to decide how often to poll: a live channel means the poll is only a
+     * safety net, and a dropped one means it is the whole story again.
+     */
+    val sessionChannelLive: StateFlow<Boolean> = sessionChannelState.asStateFlow()
     private var searchJob: Job? = null
     private var quickConnectJob: Job? = null
     private var connectionJob: Job? = null
@@ -241,6 +270,7 @@ class ReelstackViewModel(
         _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned, libraryIcons = savedIcons,
             libraryPath = emptyList(), libraryEntries = emptyList(), libraryDetailMedia = null,
             libraryShelves = app.reelstack.data.model.LibraryShelves(),
+            libraryPeeks = emptyMap(), libraryPeeksLoading = false,
             resume = emptyList(), nextUp = emptyList(), recentMovies = emptyList(), recentSeries = emptyList(), recentReleases = emptyList(),
             librarySearchResults = emptyList(), isSearching = false, hasCachedData = false) }
         browseLibrary()
@@ -281,6 +311,11 @@ class ReelstackViewModel(
                 _uiState.update { it.copy(libraryLoading = false, libraryFacets = facets,
                     libraryEntries = ((if (more) it.libraryEntries else emptyList()) + entries).distinctBy { entry -> entry.id },
                     libraryOffset = offset + entries.size, libraryHasMore = path.isNotEmpty() && entries.size == 60) }
+                // The libraries this listing actually found — not the pinned shortcuts, which are a
+                // menu choice and can be empty while the page still shows every library there is.
+                if (path.isEmpty()) loadLibraryPeeks(entries.map {
+                    app.reelstack.data.network.RemoteLibraryView(it.id, it.title, it.collectionType, it.artworkUrl)
+                })
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (error: Exception) {
                 if (isActive) _uiState.update { it.copy(libraryLoading = false, libraryError = error.readableMessage() ?: container.appContext.getString(R.string.library_failed)) }
@@ -300,6 +335,40 @@ class ReelstackViewModel(
      * shelf above it would repeat it. Failures are silent by design — a shelf is an extra, and a
      * library that cannot produce one should still open.
      */
+    /**
+     * The peek into every library, for the page that lists them.
+     *
+     * Asked once per sign-in and kept: the landing page is arrowed through, not scrolled, and a
+     * request per keypress would make the page feel worse than the four tiles it replaces. Failure
+     * is silent — the tiles are still there, they just have nothing under them.
+     */
+    private fun loadLibraryPeeks(views: List<app.reelstack.data.network.RemoteLibraryView>) {
+        val state = _uiState.value
+        // A library with nothing in it never lands in the map, so "already asked" cannot be read off
+        // the keys. The loading flag covers the request in flight; the map covers the answer.
+        if (views.isEmpty() || state.libraryPeeksLoading || state.libraryPeeks.isNotEmpty()) return
+        val connection = state.connections.firstOrNull {
+            (it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        } ?: return
+        peekJob?.cancel()
+        _uiState.update { it.copy(libraryPeeks = emptyMap(), libraryPeeksLoading = true) }
+        peekJob = viewModelScope.launch {
+            // One request per library, all in flight together, and each row appears the moment its
+            // own answer arrives. Waiting for the slowest library before drawing any of them is how
+            // a page that is mostly ready still feels like it is loading.
+            views.map { view ->
+                async(Dispatchers.IO) { view.id to runCatching { container.mediaSyncRepository.libraryPeek(connection, view) } }
+            }.forEach { pending ->
+                val (id, loaded) = pending.await()
+                if (!isActive) return@launch
+                val items = loaded.getOrNull().orEmpty()
+                if (items.isEmpty()) return@forEach
+                _uiState.update { it.copy(libraryPeeks = it.libraryPeeks + (id to items)) }
+            }
+            if (isActive) _uiState.update { it.copy(libraryPeeksLoading = false) }
+        }
+    }
+
     private fun loadLibraryShelves() {
         val state = _uiState.value
         val path = state.libraryPath
@@ -415,7 +484,11 @@ class ReelstackViewModel(
 
     fun openLibraryEntry(id: String) {
         val entry = _uiState.value.libraryEntries.firstOrNull { it.id == id } ?: return
-        if (entry.isFolder) {
+        // A series is a folder to the server and a *title* to a person. Its detail page carries the
+        // poster, the synopsis, the cast and every episode with its own still and resume point,
+        // which is more than a grid of season posters says after two more presses. Every other kind
+        // of folder — collections, music, the libraries themselves — still opens as a folder.
+        if (entry.isFolder && !entry.mediaType.equals("Series", ignoreCase = true)) {
             _uiState.update { it.copy(libraryPath = it.libraryPath + (entry.id to entry.title),
                 libraryCollectionType = if (it.libraryPath.isEmpty()) entry.collectionType else it.libraryCollectionType,
                 libraryFilters = app.reelstack.data.model.LibraryFilters()) }
@@ -482,7 +555,10 @@ class ReelstackViewModel(
         _uiState.update { it.copy(requestDraft = null) }
         connectionJob?.cancel()
         quickConnectJob?.cancel()
-        _uiState.update { it.copy(activeSheet = null, contentDetails = null, returnToCalendar = false) }
+        seasonsJob?.cancel()
+        episodesJob?.cancel()
+        _uiState.update { it.copy(activeSheet = null, contentDetails = null, returnToCalendar = false,
+            seriesBrowse = app.reelstack.data.model.SeriesBrowse()) }
         connectionDraft.value = null
     }
 
@@ -525,6 +601,7 @@ class ReelstackViewModel(
             )
         }
         if (connection == null || media.remoteId == null) return
+        loadSeasons(connection, media)
         viewModelScope.launch {
             val result = attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
@@ -553,7 +630,9 @@ class ReelstackViewModel(
                                 played = remote.played,
                                 audioTracks = remote.audioTracks,
                                 subtitleTracks = remote.subtitleTracks,
-                                versions = remote.versions,
+                                versions = remote.versions.map { (id, name) ->
+                                    app.reelstack.data.model.MediaVersion(id, name)
+                                },
                                 loading = false,
                             ),
                         )
@@ -562,6 +641,92 @@ class ReelstackViewModel(
                         current.copy(contentDetails = details.copy(loading = false, error = "Fekk ikkje henta alle detaljane"))
                     },
                 )
+            }
+        }
+    }
+
+    /**
+     * A series' seasons, and then the first season's episodes.
+     *
+     * Only for a series: a film has nothing under it, and an episode's siblings belong to the
+     * series page rather than to the episode. The first season is opened straight away, because a
+     * list of season names with nothing under them answers nothing.
+     */
+    private fun loadSeasons(connection: ServiceConnection, media: LibraryMedia) {
+        seasonsJob?.cancel()
+        episodesJob?.cancel()
+        // A series is browsed by its own id; an episode is browsed by its parent's, because the
+        // useful thing on an episode page is the rest of the season it came from — without it the
+        // page was a paragraph of synopsis and half a screen of black.
+        val seriesId = when {
+            media.mediaType.equals("Series", true) -> media.remoteId
+            media.mediaType.equals("Episode", true) -> media.seriesId
+            else -> null
+        }
+        if (seriesId.isNullOrBlank()) {
+            if (_uiState.value.seriesBrowse != app.reelstack.data.model.SeriesBrowse()) {
+                _uiState.update { it.copy(seriesBrowse = app.reelstack.data.model.SeriesBrowse()) }
+            }
+            return
+        }
+        _uiState.update { it.copy(seriesBrowse = app.reelstack.data.model.SeriesBrowse(
+            seriesId = seriesId, openedFor = media.id, loading = true)) }
+        seasonsJob = viewModelScope.launch {
+            val loaded = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.seasons(connection, seriesId) }
+            }
+            if (!isActive || _uiState.value.seriesBrowse.seriesId != seriesId) return@launch
+            // A season carries its own number in IndexNumber, which the parser maps to `episode`;
+            // `season` on a season item is the series' own index and is usually absent. Specials are
+            // season zero and almost never where anyone wants to start, so they go last.
+            val seasons = loaded.getOrDefault(emptyList())
+                .sortedWith(compareBy({ (it.episode ?: 0) == 0 }, { it.episode ?: Int.MAX_VALUE }))
+            _uiState.update {
+                if (it.seriesBrowse.seriesId != seriesId) it
+                else it.copy(seriesBrowse = it.seriesBrowse.copy(
+                    seasons = seasons, loading = false,
+                    error = if (loaded.isFailure) container.appContext.getString(R.string.detail_seasons_failed) else null,
+                ))
+            }
+            // The season the reader is actually in the middle of, when the server knows one.
+            val nextUp = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.seriesNextUp(connection, seriesId) }
+            }.getOrNull()
+            if (isActive && nextUp != null) _uiState.update {
+                if (it.seriesBrowse.seriesId != seriesId) it else it.copy(seriesBrowse = it.seriesBrowse.copy(nextUp = nextUp))
+            }
+            // An episode page opens on its own season, whatever the server thinks comes next in the
+            // series: the reader is looking at episode eight of season seven, not at the series.
+            val opening = media.season?.takeIf { media.mediaType.equals("Episode", true) }
+                ?.let { own -> seasons.firstOrNull { it.episode == own } }
+                ?: nextUp?.let { next -> seasons.firstOrNull { it.episode == next.season } }
+                ?: seasons.firstOrNull()
+            opening?.remoteId?.let { selectSeason(it) }
+        }
+    }
+
+    /** Opens one season. The seasons themselves stay put; only the episode list changes. */
+    fun selectSeason(seasonId: String) {
+        val state = _uiState.value
+        val browse = state.seriesBrowse
+        if (browse.seriesId.isBlank() || browse.selectedSeasonId == seasonId && browse.episodes.isNotEmpty()) return
+        val connection = state.connections.firstOrNull {
+            (it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY) && it.token.isNotBlank()
+        } ?: return
+        val seriesId = browse.seriesId
+        episodesJob?.cancel()
+        _uiState.update { it.copy(seriesBrowse = it.seriesBrowse.copy(selectedSeasonId = seasonId, episodes = emptyList(), loading = true)) }
+        episodesJob = viewModelScope.launch {
+            val loaded = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.episodes(connection, seriesId, seasonId) }
+            }
+            if (!isActive) return@launch
+            _uiState.update {
+                if (it.seriesBrowse.seriesId != seriesId || it.seriesBrowse.selectedSeasonId != seasonId) it
+                else it.copy(seriesBrowse = it.seriesBrowse.copy(
+                    episodes = loaded.getOrDefault(emptyList()), loading = false,
+                    error = if (loaded.isFailure) container.appContext.getString(R.string.detail_episodes_failed) else null,
+                ))
             }
         }
     }
@@ -1110,26 +1275,40 @@ class ReelstackViewModel(
         }
     }
 
-    fun refreshTrackedRequests() {
+    /**
+     * [background] is a poll nobody asked for, so it shows no spinner and, when the answer has not
+     * changed, changes no state at all. A press of the refresh button is the opposite: it must show
+     * that something is happening even when the result turns out identical.
+     */
+    fun refreshTrackedRequests(background: Boolean = false) {
         if (trackingJob?.isActive == true) return
         val state = _uiState.value
         val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() } ?: run {
-            _uiState.update { it.copy(trackedRequests = emptyList(), trackingError = null) }
+            _uiState.update {
+                if (it.trackedRequests.isEmpty() && it.trackingError == null) it
+                else it.copy(trackedRequests = emptyList(), trackingError = null)
+            }
             return
         }
-        _uiState.update { it.copy(trackingLoading = true) }
+        if (!background) _uiState.update { it.copy(trackingLoading = true) }
         trackingJob = viewModelScope.launch {
             val result = attempt { withContext(Dispatchers.IO) { container.requestTrackingRepository.refresh(connection) } }
             if (!isActive) return@launch
             _uiState.update { current ->
                 val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
                 if (configured?.token != connection.token || configured.baseUrl != connection.baseUrl || configured.sessionCookie != connection.sessionCookie) current.copy(trackingLoading = false)
-                else current.copy(trackingLoading = false,
-                    trackedRequests = result.getOrNull()?.second ?: current.trackedRequests,
-                    trackingError = if (result.isFailure) "Fekk ikkje oppdatert førespurnadene. Sjekk Seerr-innlogginga og prøv igjen." else null)
+                else {
+                    val requests = result.getOrNull()?.second ?: current.trackedRequests
+                    val error = if (result.isFailure) "Fekk ikkje oppdatert førespurnadene. Sjekk Seerr-innlogginga og prøv igjen." else null
+                    // Same reasoning as the playback poll: an unchanged answer must not produce a
+                    // new state object, or every screen rebuilds to show what it already showed.
+                    if (!current.trackingLoading && current.trackedRequests == requests && current.trackingError == error) current
+                    else current.copy(trackingLoading = false, trackedRequests = requests, trackingError = error)
+                }
             }
         }
     }
+
 
     private fun sendRequest(id: String) {
         val state = _uiState.value
@@ -1214,15 +1393,62 @@ class ReelstackViewModel(
         }
     }
 
+    /**
+     * Opens Jellyfin's notification channel, if the server offers one.
+     *
+     * The channel is a doorbell: it says that playback changed, and the ordinary access-checked
+     * request answers what changed. Opening twice is a no-op, so a caller may call it on every
+     * lifecycle event without tracking whether it already did.
+     */
+    fun openSessionChannel() {
+        if (sessionChannel != null) return
+        val connection = _uiState.value.connections.firstOrNull {
+            it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank()
+        } ?: return
+        // A channel is an optimisation. If anything about it fails — an old OkHttp, a proxy that
+        // refuses the upgrade, a malformed address — the poll below carries on exactly as before,
+        // and the reader sees nothing at all.
+        sessionChannel = runCatching { container.sessionSocket.connect(
+            connection = connection,
+            onChanged = {
+                // Arrives on the socket's own thread. One refresh at a time: a burst of progress
+                // messages must not become a burst of requests.
+                if (playbackJob?.isActive != true) {
+                    playbackJob = viewModelScope.launch { refreshPlayback() }
+                }
+            },
+            onLost = {
+                sessionChannel = null
+                sessionChannelState.value = false
+            },
+        ) }.getOrNull()
+        sessionChannelState.value = sessionChannel != null
+    }
+
+    fun closeSessionChannel() {
+        sessionChannel?.let { runCatching { it.close() } }
+        sessionChannel = null
+        sessionChannelState.value = false
+    }
+
     suspend fun refreshPlayback() {
         if (refreshJob?.isActive == true) return
         val connections = _uiState.value.connections
         if (connections.none { it.token.isNotBlank() && it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }) return
         val sessions = withContext(Dispatchers.IO) { container.mediaSyncRepository.refreshPlayback(connections) }
         // A response from an account that has since signed out must never repopulate the screen.
+        //
+        // The unchanged case returns `current` rather than a copy of it, and that is the whole
+        // point: the state is one object handed to every screen, so a `copy` with identical
+        // contents still emits a new value and recomposes the entire tree. This poll runs every
+        // five seconds while anything is playing, and nothing is playing most of the time — the
+        // app was rebuilding itself twelve times a minute to arrive at the same picture.
         _uiState.update { current ->
-            if (current.connections != connections || refreshJob?.isActive == true) current
-            else current.copy(sessions = sessions)
+            when {
+                current.connections != connections || refreshJob?.isActive == true -> current
+                current.sessions == sessions -> current
+                else -> current.copy(sessions = sessions)
+            }
         }
     }
 
@@ -1350,6 +1576,7 @@ class ReelstackViewModel(
                     // Do not retain library data after the current profile or library scope fails verification.
                     resume = snapshot.resume,
                     nextUp = snapshot.nextUp,
+                    favourites = snapshot.favourites,
                     libraryShortcuts = connectionsNow.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
                         ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
                     libraryIcons = connectionsNow.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
@@ -1852,6 +2079,11 @@ class ReelstackViewModel(
             require(modelClass.isAssignableFrom(ReelstackViewModel::class.java))
             return ReelstackViewModel(container) as T
         }
+    }
+
+    override fun onCleared() {
+        closeSessionChannel()
+        super.onCleared()
     }
 
     private companion object {

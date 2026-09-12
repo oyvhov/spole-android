@@ -24,6 +24,7 @@ class AppContainer(context: Context) {
     val preferencesRepository = AppPreferencesRepository(appContext)
     val mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId, includeLibrary = preferencesRepository::includesLibrary)
     val mediaSyncRepository = MediaSyncRepository(mediaServerClient = mediaServerClient)
+    val sessionSocket = app.reelstack.data.network.JellyfinSessionSocket(deviceId = deviceId)
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
     fun mediaFingerprint(connections: List<app.reelstack.data.model.ServiceConnection>): String =
         MediaSnapshotStore.fingerprint(connections) + preferencesRepository.librarySelectionFingerprint(connections)

@@ -202,7 +202,6 @@
     <string name="status_added">Added</string>
     <string name="status_removed">Removed from library</string>
     <string name="status_requestable">Can be added</string>
-    <string name="media_choose_episode">Choose episode</string>
     <string name="media_open_server">Open in %1$s</string>
     <string name="media_no_link_app">No app was found to open this link.</string>
     <string name="media_login_add">Sign in to add</string>

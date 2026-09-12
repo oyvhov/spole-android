@@ -1,0 +1,104 @@
+package app.reelstack.player
+
+import app.reelstack.data.model.ConnectionState
+import app.reelstack.data.model.ServiceConnection
+import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.network.HttpResponse
+import app.reelstack.data.network.JsonHttpTransport
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+/**
+ * What plays after an episode finishes.
+ *
+ * The server is asked with `adjacentTo`, which answers with the previous, the current and the next
+ * in one request. That matters at a season boundary: the last episode of season one is followed by
+ * the first of season two, and a client that counted index numbers within a season would have
+ * stopped there and told the viewer the series was over.
+ */
+class NextEpisodeTest {
+
+    private class Answering(private val body: String?) : JsonHttpTransport {
+        var requested: String? = null
+        override fun get(url: String, headers: Map<String, String>): HttpResponse {
+            requested = url
+            return if (body == null) HttpResponse(statusCode = 500, body = "") else HttpResponse(200, body)
+        }
+        override fun post(url: String, headers: Map<String, String>, jsonBody: String) = HttpResponse(204, "")
+        override fun delete(url: String, headers: Map<String, String>) = HttpResponse(204, "")
+    }
+
+    private val connection = ServiceConnection(
+        kind = ServiceKind.JELLYFIN, name = "Jellyfin", baseUrl = "https://media.example",
+        token = "t", userId = "u1", state = ConnectionState.CONNECTED,
+    )
+
+    private fun episode(id: String, season: Int, number: Int, name: String) =
+        """{"Id":"$id","Name":"$name","SeriesName":"Silo","SeriesId":"series-1","Type":"Episode",
+            "ParentIndexNumber":$season,"IndexNumber":$number,"RunTimeTicks":30000000000}"""
+
+    private fun client(body: String?) = JellyfinPlaybackClient(deviceId = "d", transport = Answering(body))
+
+    private val current = PlayableItem(
+        id = "e2", title = "Silo", type = "Episode", subtitle = "S01 E02 · Holston", seriesId = "series-1",
+        season = 1, episode = 2,
+    )
+
+    @Test
+    fun `the episode after the current one is returned`() {
+        val body = """{"Items":[${episode("e1", 1, 1, "Freedom Day")},${episode("e2", 1, 2, "Holston")},
+            ${episode("e3", 1, 3, "Machines")}]}"""
+        val next = client(body).nextEpisode(connection, "u1", current)
+        assertEquals("e3", next?.id)
+        assertEquals(3, next?.episode)
+    }
+
+    /** The point of asking the server: the next episode can be in the next season. */
+    @Test
+    fun `a season boundary is followed through`() {
+        val body = """{"Items":[${episode("e9", 1, 9, "Outside")},${episode("e10", 1, 10, "Finale")},
+            ${episode("n1", 2, 1, "The Engineer")}]}"""
+        val last = current.copy(id = "e10", season = 1, episode = 10)
+        val next = client(body).nextEpisode(connection, "u1", last)
+        assertEquals("n1", next?.id)
+        assertEquals(2, next?.season)
+    }
+
+    @Test
+    fun `the last episode of a series offers nothing`() {
+        val body = """{"Items":[${episode("e9", 1, 9, "Outside")},${episode("e10", 1, 10, "Finale")}]}"""
+        assertNull(client(body).nextEpisode(connection, "u1", current.copy(id = "e10")))
+    }
+
+    @Test
+    fun `a film is never asked about`() {
+        val transport = Answering("""{"Items":[]}""")
+        val film = PlayableItem(id = "m1", title = "Dune", type = "Movie")
+        assertNull(JellyfinPlaybackClient(deviceId = "d", transport = transport).nextEpisode(connection, "u1", film))
+        assertNull("Ingen førespurnad skal ha gått ut", transport.requested)
+    }
+
+    /** An episode whose series the server never named cannot be followed, and must not throw. */
+    @Test
+    fun `a missing series id answers with nothing`() {
+        val transport = Answering("""{"Items":[]}""")
+        val orphan = current.copy(seriesId = "")
+        assertNull(JellyfinPlaybackClient(deviceId = "d", transport = transport).nextEpisode(connection, "u1", orphan))
+        assertNull(transport.requested)
+    }
+
+    @Test
+    fun `a failed request answers with nothing rather than an error`() {
+        assertNull(client(null).nextEpisode(connection, "u1", current))
+    }
+
+    @Test
+    fun `the request names the series and the episode it is adjacent to`() {
+        val transport = Answering("""{"Items":[]}""")
+        JellyfinPlaybackClient(deviceId = "d", transport = transport).nextEpisode(connection, "u1", current)
+        val url = transport.requested.orEmpty()
+        assertEquals(true, url.contains("Shows/series-1/Episodes"))
+        assertEquals(true, url.contains("adjacentTo=e2"))
+    }
+}

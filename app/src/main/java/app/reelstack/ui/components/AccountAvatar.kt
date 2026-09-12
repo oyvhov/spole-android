@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -58,7 +56,7 @@ fun AccountAvatar(account: ServiceAccount?, connection: ServiceConnection?, modi
     Box(modifier.clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
         val initial = account?.displayName?.trim()?.firstOrNull()?.uppercase()
         if (initial != null) Text(initial, color = Primary, fontSize = 20.sp, lineHeight = 24.sp)
-        else Icon(Icons.Rounded.Person, contentDescription = null, tint = Muted, modifier = Modifier.size(24.dp))
+        else Icon(app.reelstack.ui.components.SpoleIcons.Person, contentDescription = null, tint = Muted, modifier = Modifier.size(24.dp))
         image?.let { data ->
             AsyncImage(model = data, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }

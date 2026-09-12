@@ -74,13 +74,16 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
                     if (state.libraryChoicesLoading) item(span = { GridItemSpan(maxLineSpan) }) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     state.libraryChoicesError?.let { error -> item(span = { GridItemSpan(maxLineSpan) }) { Column { Text(error); Button(onClick = onRetry) { Text(stringResource(R.string.library_retry)) } } } }
                     items(state.libraryChoices, key = { it.id }) { view ->
-                        val icon = icons[view.id] ?: when(view.collectionType) { "movies" -> LibraryIcon.MOVIES; "tvshows" -> LibraryIcon.SERIES; "music" -> LibraryIcon.MUSIC; else -> LibraryIcon.LIBRARY }
+                        val icon = icons[view.id] ?: LibraryIcon.forCollection(view.collectionType)
                         Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(icon.vector(), null, Modifier.padding(start = 10.dp).size(28.dp), tint = MaterialTheme.colorScheme.primary)
                                     Box(Modifier.weight(1f)) {
-                                        SettingsToggleRow(view.name, stringResource(R.string.library_include_hint), view.id in selected, "library-choice-${view.id}") {
+                                        // No per-card hint. The same sentence under four cards is
+                                        // not four explanations, it is one sentence repeated; it
+                                        // now sits once at the top where it is read once.
+                                        SettingsToggleRow(view.name, "", view.id in selected, "library-choice-${view.id}") {
                                             selected = if (it) selected + view.id else selected - view.id
                                         }
                                     }
@@ -103,7 +106,7 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
                     Text(androidx.compose.ui.res.pluralStringResource(R.plurals.library_selected_count, selected.size, selected.size), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
                     OutlinedButton(onClick = onDismiss) { Text(stringResource(R.string.library_cancel)) }
                     Button(onClick = { onSave(selected, pinned.filter { it in selected }, state.libraryChoices.associate { view ->
-                        view.id to (icons[view.id] ?: when(view.collectionType) { "movies" -> LibraryIcon.MOVIES; "tvshows" -> LibraryIcon.SERIES; "music" -> LibraryIcon.MUSIC; else -> LibraryIcon.LIBRARY }) }) },
+                        view.id to (icons[view.id] ?: LibraryIcon.forCollection(view.collectionType)) }) },
                         enabled = !state.libraryChoicesLoading && state.libraryChoicesError == null,
                         modifier = Modifier.testTag("library-selection-save")) { Text(stringResource(R.string.library_save)) }
                 }

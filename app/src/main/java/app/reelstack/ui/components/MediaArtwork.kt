@@ -37,34 +37,14 @@ fun MediaArtwork(
 ) {
     val context = LocalContext.current
     val fallback = if (fallbackRes != 0) painterResource(fallbackRes) else null
-    val motionEnabled = Settings.Global.getFloat(context.contentResolver,
-        Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
-    val fadeDuration = if (motionEnabled) crossfadeDurationMillis else 0
+    // One binder call per frame per poster is what this used to be. The theme reads it once.
+    val fadeDuration = if (app.reelstack.ui.theme.LocalMotionEnabled.current) crossfadeDurationMillis else 0
     val model = remember(url, fallbackRes, source, fadeDuration) {
         runCatching {
             val builder = ImageRequest.Builder(context)
                 .data(url ?: fallbackRes.takeIf { it != 0 })
                 .crossfade(fadeDuration)
-            if (url != null && (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY)) {
-                val connection = (context.applicationContext as? ReelstackApplication)
-                    ?.container
-                    ?.connectionRepository
-                    ?.get(source)
-                if (connection != null && connection.token.isNotBlank() &&
-                    url.startsWith("${connection.baseUrl.trimEnd('/')}/")
-                ) {
-                    val headers = NetworkHeaders.Builder()
-                    if (source == ServiceKind.JELLYFIN) {
-                        headers.set(
-                            "Authorization",
-                            jellyfinAuthorization(DeviceIdentity.get(context), connection.token),
-                        )
-                    } else {
-                        headers.set("X-Emby-Token", connection.token)
-                    }
-                    builder.httpHeaders(headers.build())
-                }
-            }
+            if (url != null) MediaAuthHeaders.forUrl(context, source, url)?.let(builder::httpHeaders)
             builder.build()
         }.getOrElse {
             ImageRequest.Builder(context)

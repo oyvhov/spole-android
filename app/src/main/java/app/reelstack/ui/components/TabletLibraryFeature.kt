@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -78,8 +76,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     var focused by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
-    val motion = android.provider.Settings.Global.getFloat(context.contentResolver,
-        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
+    val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
     LaunchedEffect(identities, focused, rotationEnabled, lifecycleOwner, motion) {
         if (titles.size > 1 && !focused && rotationEnabled && motion) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -158,6 +155,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 .72f to Ink.copy(alpha = .18f), 1f to Color.Transparent)))
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(
                 0f to Color.Transparent, .65f to Color.Transparent, 1f to Ink.copy(alpha = .6f))))
+            // Above the artwork and its scrims, under every word and control. Draws nothing at all
+            // unless a season is running and the ornament is switched on.
+            SeasonalOrnament(Modifier.matchParentSize())
         }
         Column(Modifier.fillMaxWidth(.54f).padding(
             vertical = if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
@@ -199,20 +199,24 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 }
             }
             // "S06 E13 · Gjennom Ild Og Vann" reads as a filename. With the numbers carried as
-            // numbers, the hero can write them the way a person says them, on two lines: the
-            // season, then the episode with its name.
-            if (title.season != null) Text(
-                stringResource(R.string.episode_season, title.season),
+            // numbers the hero writes them the way a person says them — and says it in exactly the
+            // words the shelves below use, because the same episode appears in both and two
+            // spellings of one fact on one screen is the kind of thing you cannot stop seeing.
+            val numbers = episodeLine(title.season, title.episode, "")
+            if (numbers.isNotBlank()) Text(
+                numbers,
                 color = Color.White.copy(alpha = .72f),
                 style = MaterialTheme.typography.labelLarge,
             )
-            val numbered = title.episode?.let { stringResource(R.string.episode_number, it) }
-            // A series without episode titles answers with the name "Episode 2", and one with them
-            // answers "Episode 2 - Getaway Sticks". Both repeat the number this line already states,
-            // so the shared helper takes that prefix off and the rest is the name.
-            val name = episodeTitle(title.subtitle, title.episode)
-            val episodeLine = listOfNotNull(numbered, name.takeIf(String::isNotBlank)).joinToString(" – ")
-            Text(episodeLine,
+            // The line under it is the episode's own name — or, for a film, the facts that would
+            // otherwise leave this space blank. A hero that reserves two lines and fills them with
+            // nothing is the wasted space; the film simply has something else to put there.
+            val name = episodeTitle(title.subtitle, title.episode).ifBlank {
+                if (title.season == null && title.episode == null) {
+                    (title.facts + title.genres.take(2)).distinct().take(4).joinToString(" · ")
+                } else ""
+            }
+            Text(name,
                 color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
                 minLines = if (compactTelevision) 1 else 2,
                 maxLines = if (compactTelevision) 1 else 2,
@@ -228,7 +232,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
                 Text(stringResource(R.string.feature_more), style = MaterialTheme.typography.labelLarge)
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.padding(start = 8.dp).size(16.dp))
+                Icon(app.reelstack.ui.components.SpoleIcons.ArrowForward, null, Modifier.padding(start = 8.dp).size(16.dp))
             }
         }
         if (account != null) {

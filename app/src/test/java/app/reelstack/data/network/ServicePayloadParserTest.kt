@@ -85,6 +85,10 @@ class ServicePayloadParserTest {
         assertEquals("session-1", session.sessionId)
         assertEquals("user-9", session.userId)
         assertEquals("S02 E04 · Woe's Hollow", session.subtitle)
+        // The numbers travel as numbers as well. The card on Home writes "Sesong 2 - Ep 4" like
+        // every shelf does; the flat subtitle stays for the places that have no room to.
+        assertEquals(2, session.season)
+        assertEquals(4, session.episode)
         assertEquals("series-1", session.artworkItemId)
         assertEquals(0.5f, session.progress, 0.001f)
         assertEquals("4K", session.quality)

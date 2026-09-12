@@ -13,4 +13,40 @@
     <string name="episode_short">Ep %1$d</string>
     <string name="detail_minutes_left">%1$d min att</string>
     <string name="detail_change">Endre</string>
+    <string name="detail_seasons_failed">Fekk ikkje henta sesongane.</string>
+    <string name="detail_episodes_failed">Fekk ikkje henta episodane.</string>
+    <plurals name="detail_season_episodes">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episodar</item>
+    </plurals>
+    <string name="detail_no_episodes">Ingen episodar her enno.</string>
+    <string name="detail_minutes">%1$d min</string>
+    <string name="detail_loading_episodes">Hentar episodar …</string>
+    <string name="theme_noel">Jul · grankveld</string>
+    <string name="theme_halloween">Halloween · aubergine</string>
+    <string name="theme_holly">Kristtorn</string>
+    <string name="theme_pumpkin">Gresskar</string>
+    <string name="theme_season">Sesong</string>
+    <string name="theme_season_none">Heile året</string>
+    <string name="theme_season_christmas">Jul</string>
+    <string name="theme_season_halloween">Halloween</string>
+    <string name="theme_ornament">Snø og glør</string>
+    <string name="theme_ornament_hint">Ei roleg drift over framsidefeltet. Stoppar av seg sjølv når systemet har skrudd ned animasjonar.</string>
+    <string name="player_next_episode">Neste episode</string>
+    <string name="player_next_play">Spel no</string>
+    <string name="player_next_cancel">Avbryt (%1$d)</string>
+    <string name="player_skip_intro">Hopp over introen</string>
+    <string name="player_skip_outro">Hopp over rulleteksten</string>
+    <plurals name="detail_more_episodes">
+        <item quantity="one">%1$d episode til</item>
+        <item quantity="other">%1$d episodar til</item>
+    </plurals>
+    <string name="home_favourites">Favorittar</string>
+    <string name="library_peek_loading">hentar…</string>
+    <plurals name="library_peek_newest">
+        <item quantity="one">%d ny</item>
+        <item quantity="other">%d nyaste</item>
+    </plurals>
+    <string name="library_peek_open">opne</string>
+    <string name="library_peek_progress">%d på gang</string>
 </resources>

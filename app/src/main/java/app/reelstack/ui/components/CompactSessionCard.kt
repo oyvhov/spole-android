@@ -8,8 +8,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -92,7 +90,9 @@ internal fun CompactSessionCard(session: PlaybackSession, pending: Boolean, cont
                         modifier = Modifier.padding(top = 3.dp),
                     )
                     Text(
-                        session.subtitle, color = Muted, style = MaterialTheme.typography.bodySmall,
+                        // "Sesong 6 - Ep 13", the same words as every other card on the screen.
+                        episodeLine(session.season, session.episode, session.subtitle),
+                        color = Muted, style = MaterialTheme.typography.bodySmall,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
                     )
                 }

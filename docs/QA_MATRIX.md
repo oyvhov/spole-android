@@ -118,3 +118,65 @@ Dette er ei oppfølgingsliste, ikkje ein tryggleiksgaranti eller godkjenning av 
 - Manifestet har frå alpha13 `LEANBACK_LAUNCHER`, `android:banner` (320 x 180 dp) og valfri berøringsskjerm og Leanback, slik at appen kan installerast og finnast på Google TV. Dette er pakking, ikkje bestått TV-test: oppstart frå TV-startskjermen, fjernkontrollflyt frå kald start og langvarig avspeling på fysisk eining står framleis att.
 - `ReelstackApp` byggjer på `WindowLayoutPolicy`, som frå alpha13 eig alle seks brytpunkta (600/640/680/840/900/1000 dp). Tidlegare låg fire av dei hardkoda i skjermane.
 - Nettbrett er krav før 1.0. TV får eiga planlagd leveranse mot 1.1, med felles tenestelogikk og ei fjernkontrolltilpassa presentasjonsflate. Ingen TV-kompatibilitet blir annonsert før eigne testar er bestått.
+
+## TV-gjennomgangen · 12. september 2026
+
+**428 einingstestar, 0 feil. Lint 0 feil, 40 åtvaringar.** Talet er ned frå 46: `tv_progress`,
+`tv_progress_percent`, `detail_tracks_hint`, `media_choose_episode` og `flow_login_again` er fjerna
+saman med koden som brukte dei, `detail_season_episodes` er blitt ei fleirtalsform, seks `UseKtx`
+er retta, og eit `ModifierParameter` er retta ved å flytte `modifier` først blant dei valfrie.
+
+`ObsoleteSdkInt` står att med vilje. `mipmap-anydpi-v26` blei prøvd flytta til `mipmap-anydpi`, og
+ressurslenkinga fann då ikkje `mipmap/ic_spole` i det heile. Kvalifikatoren er tilbake. Ei
+oppfølging må samanlikne vanleg og tematisk ikon på ei eining før ho blir prøvd igjen.
+
+### Kontrollert på den innlogga TV-emulatoren med ekte data
+
+| Flate | Kva som blei sett |
+| --- | --- |
+| Heim | Hero utan ring rundt biletet, «Hald fram å sjå · Neste episode», ny **Favorittar**-rad med brukaren sine eigne favorittar frå Jellyfin |
+| Bibliotek | Hyller per bibliotek, rutenett og listevising, automatisk lasting av neste side, hald-inne-menyen |
+| Serieside | Sesongchips i rett rekkjefølgje, episodar med stillbilete, lengd, framdrift og hake, «Spel av» på rett episode |
+| Filmside | Plakat i full kolonnehøgd, eitt lydspor som tekst, undertekstveljar, sett/favoritt som ikon |
+| Oppdag | Søkefeltet synleg utan å hente tastaturet; `mInputShown=false` målt |
+| Aktivitet | Historikkchipen på filterlinja |
+| Innstillingar | Sesong-rada, ornamentbrytaren, og Jul/Halloween sett på Heim |
+| Spelaren | Overskanningsmargin, «Sesong 19 - Ep 9» i toppen, nye ikon i botnrada, avspeling av ekte fil |
+
+### Skjermgjennomgang på TV — andre bolk, same dag
+
+| Flate | Kva som blei sett |
+| --- | --- |
+| Bibliotek (rot) | Ny landingsside: overskrift per bibliotek med ikon frå samlingstypen, «6 på gang · 14 nyaste», og ei rad som leier med det som er halvsett. Fire bibliotek, alle med innhald |
+| Bibliotek (rutenett) | Tittel og dei tre knappane på same linje; innhaldet startar 134 px høgare enn før |
+| Oppdag | Fem omslag i rada med titlar synlege og toppen av neste rad; søkefeltet framleis utan tastatur til det blir trykt |
+| Oppdag (søk) | «silo» gav eitt bibliotektreff med tittel og årstal innanfor skjermen; toppteksten forsvinn når det står noko i feltet |
+| Aktivitet | Fem omslag, status og framdrift lesbare |
+| Førespurnadshistorikk | Tal og «Oppdater historikken» på tittellinja; namn, type og dato under kvart omslag |
+| Innstillingar | Verdi og fargeprikk til høgre på valrada; sirkelprikken les ikkje lenger som ein avkryssingsboks; førehandsvisinga er tre kort med fokusramme og framdriftsstripe |
+| Episodeside | Sesongstripa rulla til Sesong 7 av 8 og var merkt; episodelista under; omtalen under biletet |
+| Heim | «Sesong 7 - Ep 8» i helten og «Sesong 6 - Ep 17» på Spelar no-korta — same skrivemåte som hyllene |
+
+Fart: målt med Compose-kompilatoren sin eigen rapport før og etter. 35 modellklasser flytta frå
+ustabil til stabil, 85 argument frå identitets- til likskapssamanlikning. Ingen måling av
+bildefrekvens på eininga.
+
+Ein favoritt blei sett og teken bort att for å kontrollere skrivinga; brukaren sine data er
+uendra. Utsjånaden er sett tilbake til Skog og Korall.
+
+### Ikkje kontrollert
+
+- **Mobil.** Detaljsida, handlingsrada og veljarane gjeld alle formfaktorar, men er berre sette på
+  TV. Telefonemulatoren blei ikkje starta: verten hadde under 2 GB ledig, og å starte han ved sida
+  av TV-en har teke ned den innlogga profilen før.
+- **Instrumenterte testar.** Same grunn — dei krev dei isolerte profilane, og å starte ein av dei no
+  ville truleg utløyse OOM-drepinga på den innlogga emulatoren.
+- **Hopp over introen** og **Neste episode**. Tolv einingstestar dekkjer logikken, men biblioteket på
+  denne tenaren har ingen intromerke, og ingen episode blei spelt heilt ut.
+- **Versjonsveljaren** er berre prøvd mot titlar med éi fil.
+- **Emby.** Kodestiane finst og er testa mot ein skripta transport, men ikkje mot ein ekte Emby-tenar.
+  Det gjeld også den nye bibliotekkikken: `Users/{id}/Items/Latest` er med som andre rute, men berre
+  Jellyfin har svart på han her.
+- **Spelaren i denne andre bolken.** Endringane rører ikkje spelaren, og å starte avspeling ville
+  skrive i brukarens eiga historikk på tenaren, så han blei ikkje opna på nytt.
+- **Bildefrekvens.** Stabilitetsarbeidet er målt i kompilatorrapporten, ikkje i frames på eininga.

@@ -35,13 +35,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.CloudDone
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -239,11 +232,20 @@ fun HomeScreen(
                     else ResumeRail(continueItems, onLibraryClick, cardActions)
                 }
             }
+            // The payoff for the heart on every card. A row that is empty until somebody stars
+            // something, and then keeps what they starred in one place.
+            if (HomeSection.FAVOURITES in state.homeSections && state.favourites.isNotEmpty()) {
+                item(key = "favourites") {
+                    SectionTitle(stringResource(R.string.home_favourites),
+                        Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                    LibraryRail(state.favourites, onLibraryClick, wide = false)
+                }
+            }
             if (personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
                 item(key = "next-up") {
                     SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
                     // Next up has no resume point of its own; the other two writes still apply.
-                    ResumeRail(state.nextUp, onLibraryClick, cardActions?.copy(canRemoveFromResume = false))
+                    ResumeRail(state.nextUp, onLibraryClick, cardActions.withoutResumeRemoval())
                 }
             }
             run {
@@ -457,7 +459,7 @@ private fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modi
                 text = source.displayName,
                 color = Muted,
                 fontSize = 12.sp, lineHeight = 17.sp,
-                maxLines = 1,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(start = 7.dp),
             )
         }
@@ -516,7 +518,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             Spacer(Modifier.weight(1f))
             if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
                 Icon(
-                    if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else Icons.Rounded.CloudDone,
+                    if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.CloudReady,
                     contentDescription = null,
                     tint = app.reelstack.ui.theme.Success,
                     modifier = Modifier.background(Color.Black.copy(alpha = .72f), CircleShape).padding(6.dp).size(18.dp),
@@ -649,7 +651,11 @@ private fun NowPlayingCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(session.title, color = Color.White, fontSize = 29.sp, lineHeight = 31.sp, letterSpacing = (-1.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(session.subtitle, color = app.reelstack.ui.theme.Muted, fontSize = 15.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 2.dp), maxLines = 1)
+            // The same "Sesong 6 - Ep 13" every shelf and every detail page writes. This card built
+            // its own "S06 E13" in the parser, so one screen showed a title two ways at once.
+            Text(app.reelstack.ui.components.episodeLine(session.season, session.episode, session.subtitle),
+                color = app.reelstack.ui.theme.Muted, fontSize = 15.sp, lineHeight = 20.sp,
+                modifier = Modifier.padding(top = 2.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(13.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LinearProgressIndicator(
@@ -745,6 +751,17 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
  * but no way to clear a stalled resume point is the half-measure that sent people back to the
  * Jellyfin app in the first place.
  */
+/**
+ * The same three choices, minus the one that does not apply to this shelf.
+ *
+ * Remembered on purpose. `copy` allocates, and a fresh actions object on every recomposition makes
+ * every card in the rail below recompose with it — which defeats the point of the data class being
+ * stable at all. Three shelves were doing exactly that.
+ */
+@Composable
+internal fun MediaCardActions?.withoutResumeRemoval(): MediaCardActions? =
+    remember(this) { this?.copy(canRemoveFromResume = false) }
+
 data class MediaCardActions(
     val onRemoveFromResume: (LibraryMedia) -> Unit,
     val onFavourite: (LibraryMedia, Boolean) -> Unit,
@@ -1031,7 +1048,7 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
-                    Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(app.reelstack.ui.components.SpoleIcons.Calendar, contentDescription = null, modifier = Modifier.size(16.dp))
                     Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
                 }
             }
@@ -1088,6 +1105,6 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
                 }
             }
         }
-        Icon(Icons.AutoMirrored.Rounded.ArrowForwardIos, contentDescription = null, tint = app.reelstack.ui.theme.Muted, modifier = Modifier.size(17.dp))
+        Icon(app.reelstack.ui.components.SpoleIcons.ChevronRight, contentDescription = null, tint = app.reelstack.ui.theme.Muted, modifier = Modifier.size(17.dp))
     }
 }

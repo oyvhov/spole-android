@@ -19,9 +19,29 @@ data class PlayableItem(
     val subtitle: String = "", val durationMs: Long = 0, val resumeMs: Long = 0,
     val played: Boolean = false,
     val chapters: List<PlaybackChapter> = emptyList(),
+    /**
+     * The numbers behind [subtitle]. The player wrote "S03 E01" into its header because that was
+     * the only form it had; with the numbers kept as numbers it can say the same thing the rest of
+     * the app says, in the reader's own language.
+     */
+    val season: Int? = null,
+    val episode: Int? = null,
+    /** Needed to ask the server what comes after this episode. Empty for a film. */
+    val seriesId: String = "",
 )
 
 data class PlaybackTrack(val index: Int, val label: String, val language: String?, val isText: Boolean = false)
+
+/**
+ * A stretch of the file the server has marked: the title sequence, or the closing credits.
+ *
+ * Jellyfin 10.10 answers for this itself; before that the Intro Skipper plugin did, in seconds and
+ * under a different address. Both are asked for, because a household that added the plugin years
+ * ago should not lose the one feature they installed it for by upgrading the app.
+ */
+data class PlaybackSegment(val kind: Kind, val startMs: Long, val endMs: Long) {
+    enum class Kind { INTRO, OUTRO }
+}
 
 /** No secrets or server paths belong in intents, saved state or diagnostic text. */
 data class PlaybackPlan(
@@ -47,9 +67,11 @@ fun parsePlayable(item: JsonObject, baseUrl: String? = null): PlayableItem {
     val duration = ((item.num("RunTimeTicks") ?: 0) / 10_000).coerceAtLeast(0)
     val user = item.obj("UserData")
     val resume = ((user.num("PlaybackPositionTicks") ?: 0) / 10_000).coerceAtLeast(0)
+    val season = item.num("ParentIndexNumber")?.toInt()
+    val episode = item.num("IndexNumber")?.toInt()
     val subtitle = if (type == "Episode") listOfNotNull(
-        item.num("ParentIndexNumber")?.let { "S%02d".format(it) },
-        item.num("IndexNumber")?.let { "E%02d".format(it) },
+        season?.let { "S%02d".format(it) },
+        episode?.let { "E%02d".format(it) },
     ).joinToString(" ") + " · " + item.str("Name") else ""
     val chapters = item.objects("Chapters").mapIndexedNotNull { index, chapterObj ->
         val name = chapterObj.str("Name").ifBlank { "Kapittel ${index + 1}" }
@@ -64,7 +86,8 @@ fun parsePlayable(item: JsonObject, baseUrl: String? = null): PlayableItem {
     }
     return PlayableItem(id, if (type == "Episode") item.str("SeriesName").ifBlank { item.str("Name") } else item.str("Name"),
         type, subtitle, duration, if (user.flag("Played") || duration > 0 && resume >= duration) 0 else resume, user.flag("Played"),
-        chapters = chapters)
+        chapters = chapters, season = season, episode = episode,
+        seriesId = item.str("SeriesId"))
 }
 
 /** Same-origin, same-base-path only; remove server-generated credentials before Media3 sees a URI. */
@@ -116,6 +139,58 @@ class JellyfinPlaybackClient(
 
     fun item(c: ServiceConnection, user: String, id: String) =
         parsePlayable(read(c, "Users/${enc(user)}/Items/${enc(id)}?Fields=Chapters"), c.baseUrl)
+
+    /**
+     * The marked stretches of this item, if anything has marked them.
+     *
+     * Absence is the normal case — most libraries have never been scanned for intros — so every
+     * failure here is silent and the player simply never offers to skip anything.
+     */
+    fun segments(c: ServiceConnection, user: String, itemId: String): List<PlaybackSegment> {
+        val modern = runCatching {
+            read(c, "MediaSegments/${enc(itemId)}?includeSegmentTypes=Intro&includeSegmentTypes=Outro")
+        }.getOrNull()?.objects("Items")?.mapNotNull { entry ->
+            val kind = when (entry.str("Type").lowercase()) {
+                "intro" -> PlaybackSegment.Kind.INTRO
+                "outro", "credits" -> PlaybackSegment.Kind.OUTRO
+                else -> return@mapNotNull null
+            }
+            val start = (entry.num("StartTicks") ?: return@mapNotNull null) / 10_000
+            val end = (entry.num("EndTicks") ?: return@mapNotNull null) / 10_000
+            PlaybackSegment(kind, start.coerceAtLeast(0), end).takeIf { it.endMs > it.startMs }
+        }.orEmpty()
+        if (modern.isNotEmpty()) return modern
+
+        // The plugin's own route, in seconds. `Valid` is its way of saying "nothing found here".
+        val plugin = runCatching { read(c, "Episode/${enc(itemId)}/IntroTimestamps/v1") }.getOrNull()
+            ?: return emptyList()
+        if (!plugin.flag("Valid")) return emptyList()
+        val start = ((plugin["IntroStart"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull() ?: return emptyList())
+        val end = ((plugin["IntroEnd"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull() ?: return emptyList())
+        if (end <= start) return emptyList()
+        return listOf(PlaybackSegment(PlaybackSegment.Kind.INTRO, (start * 1000).toLong(), (end * 1000).toLong()))
+    }
+
+    /**
+     * The episode after this one, in the order the server keeps them.
+     *
+     * `adjacentTo` answers with the previous, the current and the next in one request, which is
+     * both cheaper than listing a season and correct across a season boundary — the last episode of
+     * one season is followed by the first of the next, and a client counting index numbers would
+     * have stopped there. A film, a missing series id or a last episode all answer with null, and
+     * the player simply does not offer anything.
+     */
+    fun nextEpisode(c: ServiceConnection, user: String, item: PlayableItem): PlayableItem? {
+        if (item.type != "Episode" || item.seriesId.isBlank()) return null
+        val json = runCatching {
+            read(c, "Shows/${enc(item.seriesId)}/Episodes?userId=${enc(user)}" +
+                "&adjacentTo=${enc(item.id)}&Fields=Chapters&IsMissing=false&EnableUserData=true")
+        }.getOrNull() ?: return null
+        val items = json.objects("Items")
+        val here = items.indexOfFirst { it.str("Id") == item.id }
+        val next = items.getOrNull(here + 1)?.takeIf { here >= 0 } ?: return null
+        return runCatching { parsePlayable(next, c.baseUrl) }.getOrNull()
+    }
 
     fun children(c: ServiceConnection, user: String, parent: PlayableItem, start: Int = 0): Pair<List<PlayableItem>, Boolean> {
         val path = if (parent.type == "Series") "Shows/${enc(parent.id)}/Seasons?userId=${enc(user)}" else

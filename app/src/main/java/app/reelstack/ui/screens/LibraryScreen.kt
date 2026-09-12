@@ -62,6 +62,29 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
     val showShelves = !folders && state.libraryPath.size == 1 &&
         state.libraryFilters == app.reelstack.data.model.LibraryFilters() &&
         (shelfResume.isNotEmpty() || shelfNextUp.isNotEmpty())
+    // One list, not a fresh one per recomposition: an unstable argument makes the whole landing
+    // page unskippable.
+    val inProgress = remember(state.resume, state.nextUp) { state.resume + state.nextUp }
+    // The root of Bibliotek is a page about libraries, not a grid of four folders — see
+    // [LibraryLanding] for why. Everything below the root is still the grid it always was.
+    if (folders) {
+        LibraryLanding(
+            libraries = state.libraryEntries,
+            peeks = state.libraryPeeks,
+            inProgress = inProgress,
+            icons = state.libraryIcons,
+            loading = state.libraryPeeksLoading || state.libraryLoading,
+            tv = tv,
+            onOpenLibrary = onOpen,
+            onOpenTitle = onShelfOpen,
+            cardActions = cardActions,
+            connected = connected,
+            error = state.libraryError,
+        )
+        return
+    }
+    // Next up is not a resume shelf, so its cards do not offer to clear a resume point.
+    val nextUpActions = cardActions.withoutResumeRemoval()
     val pageStates = rememberSaveableStateHolder()
     pageStates.SaveableStateProvider(state.libraryPath.joinToString("/") { it.first }) {
         val grid = rememberLazyGridState()
@@ -73,14 +96,34 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("library-browser")) {
             item(key = "heading", span = { GridItemSpan(maxLineSpan) }) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (state.libraryPath.isNotEmpty()) Text((listOf(stringResource(R.string.nav_library)) +
+                    // One library deep, the sidebar already says Bibliotek. The trail is worth a
+                    // line only once there is something in it the sidebar cannot say.
+                    if (state.libraryPath.size > 1) Text((listOf(stringResource(R.string.nav_library)) +
                         state.libraryPath.dropLast(1).map { it.second }).joinToString("  /  "),
                         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
-                    Text(state.libraryPath.lastOrNull()?.second ?: stringResource(R.string.nav_library),
-                        color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.displaySmall)
-                    if (folders) Text(stringResource(R.string.tv_library_intro), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (!folders) LibraryFilterBar(state.libraryFilters, onFilter, state.libraryFacets, display, saveDisplay)
-                    if (!tv && !folders) TextButton(onClick = onBack) { Text(stringResource(R.string.library_back)) }
+                    val heading: @Composable () -> Unit = {
+                        Text(state.libraryPath.lastOrNull()?.second ?: stringResource(R.string.nav_library),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            style = MaterialTheme.typography.displaySmall,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    val controls: @Composable () -> Unit = {
+                        LibraryFilterBar(state.libraryFilters, onFilter, state.libraryFacets, display, saveDisplay)
+                    }
+                    // On a television the title and its three controls fit side by side, and the
+                    // line they save is a whole row of covers: stacked, the heading block pushed
+                    // the first row's titles past the bottom edge of a 1080p screen.
+                    if (tv) Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    ) {
+                        heading()
+                        controls()
+                    } else {
+                        heading()
+                        controls()
+                        TextButton(onClick = onBack) { Text(stringResource(R.string.library_back)) }
+                    }
                     state.mediaActionError?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
@@ -97,7 +140,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                     }
                     if (shelfNextUp.isNotEmpty()) {
                         LibraryShelfTitle(stringResource(R.string.tv_next_up), cardActions != null && shelfResume.isEmpty())
-                        ResumeRail(shelfNextUp, onShelfOpen, cardActions?.copy(canRemoveFromResume = false))
+                        ResumeRail(shelfNextUp, onShelfOpen, nextUpActions)
                     }
                 }
             }
@@ -147,13 +190,45 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                 if (listView) {
                     // A row, not a narrow card in a one-column grid. The artwork keeps its own
                     // ratio at a fixed height, so a poster row and a thumb row line up.
+                    //
+                    // A list exists to say more per title than a grid does. On a television the row
+                    // is nearly two metres wide, and a title with a year in it left the other
+                    // three-quarters black — so the facts and the opening of the synopsis go in the
+                    // space the grid could never have given them.
                     Row(
                         card.padding(vertical = 4.dp),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(18.dp),
                     ) {
-                        artwork(Modifier.height(96.dp * size))
-                        Column(Modifier.weight(1f)) { title() }
+                        artwork(Modifier.height(if (tv) 118.dp * size else 96.dp * size))
+                        Column(Modifier.weight(1f)) {
+                            title()
+                            val facts = entry.facts
+                                .filterNot { it in setOf("Film", "Serie", "Episode", "Movie", "Series") }
+                                .filterNot { it.matches(Regex("""^S\d\d+ E\d\d+$""")) }
+                                // The line under the title already carries the year for a film or a
+                                // series; repeating it two lines later reads as a mistake.
+                                .filterNot { it == entry.subtitle }
+                                .take(4)
+                            if (facts.isNotEmpty()) Text(
+                                facts.joinToString("  ·  "),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                            entry.overview?.takeIf(String::isNotBlank)?.let {
+                                Text(
+                                    it,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                )
+                            }
+                        }
                     }
                 } else {
                     Column(card) {
@@ -165,6 +240,13 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                 }
             }
             item(key = "footer", span = { GridItemSpan(maxLineSpan) }) {
+                // Reaching the end of a page is the request. A button at the bottom of sixty covers
+                // asks the reader to confirm something they have already done by scrolling there,
+                // and on a remote it is one more stop between them and the next row of artwork.
+                // The manual button stays for the case the automatic load failed.
+                LaunchedEffect(state.libraryOffset, state.libraryHasMore, state.libraryError) {
+                    if (state.libraryHasMore && !state.libraryLoading && state.libraryError == null) onLoad(true)
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (state.libraryLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     else if (state.libraryError != null) {

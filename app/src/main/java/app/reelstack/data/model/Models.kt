@@ -18,6 +18,7 @@ enum class ConnectionState {
 enum class HomeSection {
     NOW_PLAYING,
     CONTINUE_WATCHING,
+    FAVOURITES,
     RECOMMENDATIONS,
     RECENT_RELEASES,
     JELLYFIN_MOVIES,
@@ -86,6 +87,9 @@ data class PlaybackSession(
     val artworkUrl: String? = null,
     val sessionId: String? = null,
     val source: ServiceKind? = null,
+    /** The numbers behind [subtitle], so the card can spell them the way every shelf does. */
+    val season: Int? = null,
+    val episode: Int? = null,
 ) {
     val key: String
         get() = "${source?.name ?: "DEMO"}:${sessionId ?: "$userName:$deviceName:$title"}"
@@ -110,12 +114,22 @@ data class LibraryMedia(
     /** Numbers, so the screen can write them in the reader's language. */
     val season: Int? = null,
     val episode: Int? = null,
+    /** How long, and for a season how many episodes it holds. */
+    val runtimeMinutes: Int? = null,
+    val childCount: Int? = null,
     /**
      * Which Jellyfin library this came from. Resume and Next up are already fetched one library at
      * a time; keeping the answer means a library page can show its own shelf instead of Home's
      * mixture of every library at once.
      */
     val libraryId: String? = null,
+    /**
+     * The series an episode belongs to, when it is one.
+     *
+     * An episode page shows the rest of its season, and the season list hangs off the series — so
+     * the card has to carry the parent's id or the page would have to guess it from a title.
+     */
+    val seriesId: String? = null,
     /** The server's own flags, so a card can offer the opposite of what is already true. */
     val favourite: Boolean = false,
     val played: Boolean = false,
@@ -257,7 +271,36 @@ data class ContentDetails(
     val audioTracks: List<MediaTrack> = emptyList(),
     val subtitleTracks: List<MediaTrack> = emptyList(),
     /** More than one file for the same title: a 4K and a 1080p cut, a director's edition. */
-    val versions: List<String> = emptyList(),
+    val versions: List<MediaVersion> = emptyList(),
+)
+
+/** One playable file behind a title. The id is what playback has to be asked for. */
+data class MediaVersion(val id: String, val name: String)
+
+/**
+ * The seasons of a series, and the episodes of whichever one is open.
+ *
+ * A series is the one thing in a library that is not a single object, and a detail page that only
+ * offers "choose an episode somewhere else" says nothing about what the series contains. This is
+ * what fills the room under the artwork.
+ */
+data class SeriesBrowse(
+    val seriesId: String = "",
+    /**
+     * The detail page this was loaded for.
+     *
+     * Usually the series itself, but an episode page shows its own season too, and there the key is
+     * the episode's while [seriesId] is the series it belongs to. Screens compare against this, so
+     * neither has to work the other out from an id.
+     */
+    val openedFor: String = "",
+    val seasons: List<LibraryMedia> = emptyList(),
+    /** What the server says comes next in this series, which is where Play should land. */
+    val nextUp: LibraryMedia? = null,
+    val selectedSeasonId: String = "",
+    val episodes: List<LibraryMedia> = emptyList(),
+    val loading: Boolean = false,
+    val error: String? = null,
 )
 
 /**

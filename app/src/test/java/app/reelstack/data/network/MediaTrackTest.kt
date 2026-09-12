@@ -78,13 +78,33 @@ class MediaTrackTest {
         assertTrue(single.versions.isEmpty())
     }
 
+    /** The id travels with the name: playback is asked for by id, and the name is for reading. */
     @Test
     fun `two media sources are offered as versions`() {
         val many = details(
             """{"Id":"f","Name":"N","Type":"Movie","MediaSources":[
                  {"Id":"s1","Name":"Bluray-1080p"},{"Id":"s2","Name":"Remux-2160p"}]}""",
         )
-        assertEquals(listOf("Bluray-1080p", "Remux-2160p"), many.versions)
+        assertEquals(listOf("s1" to "Bluray-1080p", "s2" to "Remux-2160p"), many.versions)
+    }
+
+    /** A source without an id cannot be played, so it is not offered as a choice. */
+    @Test
+    fun `a source without an id is left out`() {
+        val many = details(
+            """{"Id":"f","Name":"N","Type":"Movie","MediaSources":[
+                 {"Id":"s1","Name":"Bluray-1080p"},{"Name":"Nameless"},{"Id":"s2","Name":"Remux-2160p"}]}""",
+        )
+        assertEquals(listOf("s1", "s2"), many.versions.map { it.first })
+    }
+
+    /** A file with no name of its own falls back to its id rather than a blank chip. */
+    @Test
+    fun `an unnamed source is named by its id`() {
+        val many = details(
+            """{"Id":"f","Name":"N","Type":"Movie","MediaSources":[{"Id":"s1"},{"Id":"s2","Name":"4K"}]}""",
+        )
+        assertEquals(listOf("s1" to "s1", "s2" to "4K"), many.versions)
     }
 
     @Test

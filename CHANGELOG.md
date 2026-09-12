@@ -1,5 +1,35 @@
 # Changelog
 
+## Uutgjeve
+
+- Ein serie opnar tittelsida si i staden for eit rutenett av sesongplakatar. Sida viser sesongane, episodane med eige stillbilete, lengd og framdrift, og «Spel av» peiker på den episoden tenaren seier kjem neste.
+- Plassen under mediebiletet er teken i bruk: biletet er større og tek forma til sitt eige innhald, og år, lengd, kvalitet, sjangrar og tagline står under det i staden for å trengje seg inn mellom tittelen og handlingane.
+- **Jul** og **Halloween** som sesongar i Utsjånad. Kvar av dei set bakgrunn og aksent i eitt, med snø som fell eller glør som stig over framsidefeltet. Ornamentet kan slåast av, og stoppar av seg sjølv når systemet har skrudd ned animasjonar.
+- **Favorittar** er ei eiga rad på Heim. Merket du set frå eit kort eller ei tittelside fører endeleg ein stad — og favorittane du alt hadde i Jellyfin står der frå første opning.
+- Spelaren tilbyr **neste episode** når ein episode er ferdig, med tolv sekunds nedteljing du kan avbryte. Han finn han med `adjacentTo`, så det fungerer òg over ein sesongovergang.
+- **Hopp over introen**, når tenaren veit kvar introen er. Både Jellyfin 10.10 sine eigne merke og Intro Skipper-tillegget blir spurde.
+- Spelarkontrollane ligg innanfor TV-en si trygge sone. Før låg dei heilt mot kanten, der mange apparat klipper.
+- Versjonsveljaren på tittelsida startar faktisk den versjonen du vel. Før lista sida begge klippa og starta kva som helst.
+- «Spelar no» blir oppdatert når Jellyfin seier frå, ikkje kvart femte sekund. Pollinga står att som tryggingsnett og kjem tilbake med ein gong om tenaren ikkje har ein slik kanal.
+- Appen brukar mindre tid på seg sjølv: eitt systemkall per ramme per plakat er borte, heile skjermen blir ikkje bygd opp att kvart femte sekund når ingenting har endra seg, og biletlastaren har fått eigen minne- og diskcache.
+- Biblioteket lastar neste side sjølv når du rullar til botnen. Listevisinga viser fakta og opninga av omtalen i staden for å la tre fjerdedelar av rada stå tom.
+- Ein sesong med to hundre episodar opnar like raskt som ein med åtte, og ein episode som aldri blei matcha på tenaren viser ikkje lenger filnamnet sitt som tittel.
+- «S03 E01» er borte frå spelaren òg.
+- **Alle ikon i appen er no Spole sine eigne.** Det var 140 Material-ikon; no er det null, og biblioteket dei kom frå er teke ut av prosjektet.
+- **Bibliotek** er ei side om bibliotek, ikkje fire mappefliser på svart. Kvart bibliotek får ei overskrift du kan trykke og ei rad med det nyaste det held, så du ser kva som er der inne før du opnar det.
+- Kvar bibliotekrad leier med det du er midt i i akkurat det biblioteket, før det nyaste.
+- Fyrste rada på Oppdag og Aktivitet får plass til titlane sine på ein 1080p-skjerm. Fem omslag i staden for fire, og toppen av neste rad er synleg.
+- Biblioteksida si overskrift og dei tre knappane står på same linje på TV. Innhaldet startar ei heil rad høgare.
+- Ei **episodeside viser sesongen sin**: sesongstripa rullar til rett sesong, rada du er på er merkt, og omtalen har flytta under biletet der spalta stø tom.
+- Innstillingar brukar breidda: verdien står til høgre på same linje som valet, med ein fargeprikk ved sida av. Det gjeld menyrekkjefølgja og tenestene dine òg — seks tenester får plass der tre gjorde før. Førehandsvisinga er tre kort på ei hylle i staden for abstrakte klossar.
+- «Sesong 6 - Ep 13» står no overalt — helten, Spelar no-kortet og hyllene skreiv det på tre ulike måtar.
+- Ei avkorta linje ser avkorta ut. Tretten tekstar i appen kutta midt i eit ord utan teikn på at det var meir.
+- Førespurnadshistorikken viser namn, type og dato under kvart omslag. Før stod det fire plakatar utan tekst, fordi overskrifta tok halve skjermen og bilettekstane fall utanfor.
+- Appen byggjer mindre opp att seg sjølv. Ei oppdatering som hentar dei same dataa på nytt kostar no ingenting i staden for å teikne kvart kort om att.
+- Ein episode utan namn heiter «Episode 1», ikkje «1 · Episode 1». Vurderingsstjerna peikar på vurderinga i staden for på årstalet. Medverkande står ved sida av biletet på TV.
+- «Vel bibliotek» seier kva brytaren gjer éin gong øvst i staden for under kvart kort.
+- Sjå [omfang og grunngjeving](docs/TV_REDESIGN_2026-09-12.md).
+
 ## 0.16.0-alpha18 · Lågare og stabil TV-hero
 
 - Heroen på TV er lågare, slik at den første innhaldsrada får plass i det første skjermbiletet.

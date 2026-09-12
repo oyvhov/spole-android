@@ -85,12 +85,16 @@ fun ReelstackTheme(content: @Composable () -> Unit) {
     }
 
     val personalization = rememberPersonalization()
+    val motion = rememberMotionEnabled(LocalView.current.context.applicationContext)
     val palette = personalization.accent
     val mood = personalization.visualTheme
     val background = Color(mood.background)
     val surface = Color(mood.surface)
     val raised = Color(mood.raised)
-    androidx.compose.runtime.CompositionLocalProvider(LocalPersonalization provides personalization) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalPersonalization provides personalization,
+        LocalMotionEnabled provides motion,
+    ) {
     MaterialTheme(
         colorScheme = ReelstackColors.copy(
             background = background, surface = surface, surfaceVariant = raised,

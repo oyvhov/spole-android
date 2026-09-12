@@ -4,8 +4,6 @@ import android.app.Application
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,7 +24,7 @@ import app.reelstack.ui.components.focusOutline
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.reelstack.BuildConfig
 import app.reelstack.R
-import app.reelstack.ui.components.SettingsActionRow
+import app.reelstack.ui.components.SettingsChoiceRow
 import app.reelstack.ui.components.SettingsToggleRow
 
 @Composable
@@ -37,8 +35,9 @@ internal fun updateModel(): AppUpdateModel = viewModel(factory = ViewModelProvid
 internal fun AppUpdateSettings() {
     val model = updateModel()
     val state by model.state.collectAsState()
-    SettingsActionRow(stringResource(R.string.update_title),
-        state.release?.let { stringResource(R.string.update_available, it.tag) } ?: "Spole ${BuildConfig.VERSION_NAME}", "app-updates", model::open)
+    // Which version you are on, or which one is waiting, is the row's value.
+    SettingsChoiceRow(stringResource(R.string.update_title),
+        state.release?.let { stringResource(R.string.update_available, it.tag) } ?: "Spole ${BuildConfig.VERSION_NAME}", "app-updates", onClick = model::open)
     SettingsToggleRow(stringResource(R.string.update_auto), stringResource(R.string.update_auto_hint), state.automatic, "update-auto", model::automatic)
     SettingsToggleRow(stringResource(R.string.update_previews), stringResource(R.string.update_previews_hint), state.previews, "update-previews", model::previews)
 }
@@ -76,7 +75,7 @@ internal fun AppUpdateHost(showBanner: Boolean) {
             color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Icon(Icons.Rounded.SystemUpdate, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(app.reelstack.ui.components.SpoleIcons.Update, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.update_title), style = MaterialTheme.typography.headlineSmall)
                         Text("Spole ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)

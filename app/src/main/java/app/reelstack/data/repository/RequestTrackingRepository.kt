@@ -1,6 +1,7 @@
 package app.reelstack.data.repository
 
 import android.content.Context
+import androidx.core.content.edit
 import app.reelstack.data.model.*
 import app.reelstack.data.network.*
 import app.reelstack.background.LibraryNotifications
@@ -30,7 +31,7 @@ class RequestTrackingRepository(
 
     fun put(scope: String, item: TrackedRequest) = synchronized(lock) {
         val items = retainTrackedRequests(list(scope).filterNot { it.key == item.key } + item)
-        preferences.edit().putString(scope, JsonArray(items.map(::encode)).toString()).commit()
+        preferences.edit(commit = true) { putString(scope, JsonArray(items.map(::encode)).toString()) }
     }
 
     fun setNotify(scope: String, key: String, enabled: Boolean) = synchronized(lock) {
@@ -91,7 +92,7 @@ class RequestTrackingRepository(
 
     private fun removeLocalWatch(scope: String, key: String) = synchronized(lock) {
         val remaining = list(scope).filterNot { it.key == key && it.availabilityOnly }
-        preferences.edit().putString(scope, JsonArray(remaining.map(::encode)).toString()).commit()
+        preferences.edit(commit = true) { putString(scope, JsonArray(remaining.map(::encode)).toString()) }
     }
 
     /** Withdraws the request in Seerr, then drops the local follow so it cannot reappear. */
@@ -107,7 +108,7 @@ class RequestTrackingRepository(
         client.cancelRequest(connection, requestId, userId)
         synchronized(lock) {
             val remaining = list(scope).filterNot { it.key == key }
-            preferences.edit().putString(scope, JsonArray(remaining.map(::encode)).toString()).commit()
+            preferences.edit(commit = true) { putString(scope, JsonArray(remaining.map(::encode)).toString()) }
         }
     }
 

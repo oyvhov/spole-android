@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import androidx.core.net.toUri
 
 /**
  * Hands a title to the media server's own Android client when one is installed, and falls back to
@@ -35,7 +36,7 @@ object NativeClientLauncher {
 
     /** Returns false when nothing could handle the link, so the caller can say so. */
     fun open(context: Context, url: String, packageName: String?): Boolean = runCatching {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         packageName?.let(intent::setPackage)
         context.startActivity(intent)
@@ -45,7 +46,7 @@ object NativeClientLauncher {
         if (packageName == null) false
         else runCatching {
             context.startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
             true
         }.getOrDefault(false)
@@ -53,7 +54,7 @@ object NativeClientLauncher {
 
     private fun nonBrowserHandlers(context: Context, url: String): List<String> {
         val manager = context.packageManager
-        val uri = Uri.parse(url)
+        val uri = url.toUri()
         val scheme = uri.scheme ?: return emptyList()
         val browsers = manager
             .queryIntentActivities(Intent(Intent.ACTION_VIEW, Uri.fromParts(scheme, "", null)), PackageManager.MATCH_ALL)

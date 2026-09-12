@@ -18,8 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import app.reelstack.background.LibraryNotifications
 import app.reelstack.data.model.*
 import app.reelstack.ui.components.MediaArtwork
@@ -138,7 +137,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                                     contentDescription = watchLabel
                                 }) {
                                 if (draft.savingWatch == season.number) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                                else Icon(if (watched) app.reelstack.ui.components.SpoleIcons.Bell else Icons.Rounded.NotificationsNone,
+                                else Icon(if (watched) app.reelstack.ui.components.SpoleIcons.Bell else app.reelstack.ui.components.SpoleIcons.BellOff,
                                     null, tint = if (watched) Primary else Muted)
                             }
                         }
@@ -251,7 +250,7 @@ fun TrackedRequestCard(
                                 when (item.stage) {
                                     RequestStage.AVAILABLE -> app.reelstack.ui.components.SpoleIcons.DoneCircle
                                     RequestStage.DOWNLOADING -> app.reelstack.ui.components.SpoleIcons.Download
-                                    RequestStage.FAILED, RequestStage.DECLINED -> Icons.Rounded.ErrorOutline
+                                    RequestStage.FAILED, RequestStage.DECLINED -> app.reelstack.ui.components.SpoleIcons.Alert
                                     else -> app.reelstack.ui.components.SpoleIcons.Clock
                                 }, null,
                                 tint = when (item.stage) {
@@ -299,7 +298,7 @@ fun TrackedRequestCard(
                         },
                     ) {
                         Icon(
-                            if (item.notify) app.reelstack.ui.components.SpoleIcons.Bell else Icons.Rounded.NotificationsOff,
+                            if (item.notify) app.reelstack.ui.components.SpoleIcons.Bell else app.reelstack.ui.components.SpoleIcons.BellOff,
                             null, tint = if (item.notify) Primary else Muted,
                         )
                     }
@@ -379,7 +378,7 @@ private fun CompactRequestProgress(item: TrackedRequest, modifier: Modifier = Mo
         }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
             Text(app.reelstack.localization.requestStageExplanation(item.stage), color = Muted, fontSize = 11.sp, lineHeight = 16.sp,
-                maxLines = 2, modifier = Modifier.weight(1f))
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             if (item.seasons.isNotEmpty() && item.availableSeasons.isNotEmpty()) {
                 Text(pluralStringResource(R.plurals.flow_season_fraction, item.seasons.size, item.availableSeasons.size, item.seasons.size), color = PrimarySoft,
                     fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(start = 12.dp))

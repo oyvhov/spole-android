@@ -17,10 +17,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,21 +68,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CloudDone
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Dns
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.Wifi
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -211,6 +192,32 @@ private fun ScreenHeader(kicker: String, title: String, lede: String) {
     Text(lede, color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
 }
 
+/**
+ * How wide one cell is on a wall of covers.
+ *
+ * The television is the case that decides this. At 174 dp a 1080p set fits four columns, and four
+ * columns of 2:3 artwork plus their captions come to more than the screen is tall — so the first
+ * row of titles was cut off by the bottom edge on both Oppdag and Aktivitet, and the first row is
+ * the one row every reader sees. 150 dp gives five columns, which leaves room for the captions and
+ * for the top of the next row: that sliver is also how a reader on a remote learns there is more.
+ *
+ * Discover and Activity had drifted apart here (174 against 180, a 16 dp gap against 20) for no
+ * reason anybody decided, so they share one answer now.
+ */
+@Composable
+internal fun posterCell(): androidx.compose.ui.unit.Dp {
+    val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val base = when {
+        androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.6f -> 280.dp
+        television -> 150.dp
+        app.reelstack.ui.theme.LocalTabletCanvas.current -> 174.dp
+        else -> 145.dp
+    }
+    return base * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+}
+
 private fun screenPadding(contentPadding: PaddingValues) = PaddingValues(
     start = ReelLayout.Gutter,
     top = ReelLayout.PageTop,
@@ -305,7 +312,7 @@ fun DiscoverScreen(
     }
     ReelPage(media = true) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive((if (app.reelstack.ui.theme.LocalTabletCanvas.current) 174.dp else 145.dp) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale),
+        columns = GridCells.Adaptive(posterCell()),
         state = gridState,
         contentPadding = screenPadding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -320,7 +327,11 @@ fun DiscoverScreen(
                     Column {
                         Text(stringResource(R.string.nav_discover), color = TextColor, style = MaterialTheme.typography.displaySmall,
                             modifier = Modifier.padding(top = 6.dp))
-                        Text(stringResource(R.string.discover_subtitle), color = Muted, fontSize = 13.sp,
+                        // The lede says what this page is for. Once there is a query in the box the
+                        // reader knows, and on a television those two lines are the difference
+                        // between seeing the first row of hits and seeing the top half of it.
+                        if (state.searchQuery.isBlank()) Text(stringResource(R.string.discover_subtitle),
+                            color = Muted, fontSize = 13.sp,
                             lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
                     }
                 }, account = {
@@ -398,10 +409,16 @@ fun DiscoverScreen(
         }
         if (state.librarySearchResults.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(top = 4.dp)) {
-                    Text(stringResource(R.string.search_libraries), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(R.string.search_ready), color = Muted, fontSize = 12.sp,
-                        lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+                // Heading and note on one line. Stacked, this section spent three lines saying what
+                // the row of covers under it shows anyway.
+                Row(
+                    Modifier.padding(top = 4.dp, bottom = 12.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(stringResource(R.string.search_libraries), color = TextColor, fontSize = 18.sp,
+                        lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.search_ready), color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                 }
             }
             items(state.librarySearchResults, key = { "library-hit-${it.id}" }) { media ->
@@ -506,7 +523,7 @@ private fun DiscoverFilterBar(
                 interactionSource = interaction,
                 selected = option == type,
                 onClick = { onType(option) },
-                label = { Text(option.localizedLabel(), maxLines = 1) },
+                label = { Text(option.localizedLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 shape = RoundedCornerShape(10.dp), border = null,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = SurfaceRaised, labelColor = Muted,
@@ -522,8 +539,8 @@ private fun DiscoverFilterBar(
                     interactionSource = interaction,
                     selected = library != LibraryFilter.ALL,
                     onClick = { statusOpen = true },
-                    label = { Text(if (library == LibraryFilter.ALL) stringResource(R.string.filter_status) else library.localizedLabel(), maxLines = 1) },
-                    trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },
+                    label = { Text(if (library == LibraryFilter.ALL) stringResource(R.string.filter_status) else library.localizedLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    trailingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, Modifier.size(18.dp)) },
                     shape = RoundedCornerShape(10.dp), border = null,
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = SurfaceRaised, labelColor = Muted,
@@ -582,7 +599,7 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
             ) {
                 Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null, tint = Success, modifier = Modifier.size(12.dp))
                 Text("I biblioteket", color = Color.White, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 1, modifier = Modifier.padding(start = 5.dp))
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 5.dp))
             }
         }
         Text(media.title, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
@@ -629,12 +646,12 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             verticalAlignment = Alignment.CenterVertically) {
             // A type badge classifies, it does not act, so it stays off the accent colour.
             Text(if (media.isSeries) stringResource(R.string.media_series) else stringResource(R.string.media_movie), color = Color.White, fontSize = 10.sp, lineHeight = 14.sp,
-                fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, maxLines = 1,
+                fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.background(Color.Black.copy(alpha = .68f), RoundedCornerShape(6.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp))
             Spacer(Modifier.weight(1f))
             if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
-                Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else Icons.Rounded.CloudDone,
+                Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.CloudReady,
                     // Labelled only when no status line follows below, so it is never read twice.
                     contentDescription = if (actionable) statusLabel else null,
                     tint = if (media.inLibrary || media.seerrStatus == 5) Success else Color.White,
@@ -714,15 +731,8 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     val wideActivity = app.reelstack.ui.theme.LocalTabletCanvas.current && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.6f
     val tvActivity = wideActivity && (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    // Activity was the one grid that ignored the artwork-size preference, so choosing Compact
-    // shrank every other wall of covers in the app except this one.
-    val activityScale = app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
-    // The same cell and gap as Discover. Activity used 180 dp against Discover's 174 and a 20 dp
-    // gap against 16, so its posters came out visibly larger than every other wall in the app.
-    LazyVerticalGrid(columns = GridCells.Adaptive(
-        (if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.6f) 280.dp
-        else if (wideActivity) 174.dp else 145.dp) * activityScale,
-    ),
+    // The same cell and gap as Discover, from the one place that decides it.
+    LazyVerticalGrid(columns = GridCells.Adaptive(posterCell()),
         horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(if (tvActivity) 16.dp else 28.dp),
         contentPadding = if (tvActivity) PaddingValues(24.dp) else screenPadding(contentPadding),
         modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
@@ -792,7 +802,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     IconButton(onClick = onRefresh, enabled = !state.trackingLoading,
                         modifier = Modifier.testTag("activity-refresh")) {
                         if (state.trackingLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
-                        else Icon(Icons.Rounded.Refresh, stringResource(R.string.activity_refresh), tint = Primary)
+                        else Icon(app.reelstack.ui.components.SpoleIcons.Refresh, stringResource(R.string.activity_refresh), tint = Primary)
                     }
                 }
                 state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 12.dp)) }
@@ -879,7 +889,7 @@ private fun ActivityScopeMenu(selected: ActivityFilter, onSelect: (ActivityFilte
     Box {
         TextButton(onClick = { expanded = true }, modifier = Modifier.testTag("activity-scope")) {
             Text(selected.localizedLabel(), color = PrimarySoft)
-            Icon(Icons.Rounded.ArrowDropDown, null, tint = PrimarySoft, modifier = Modifier.size(18.dp))
+            Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, tint = PrimarySoft, modifier = Modifier.size(18.dp))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = SurfaceRaised) {
             ActivityFilter.entries.forEach { option ->
@@ -919,7 +929,7 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
             Text(event.title, color = TextColor, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 4.dp)) {
                 Icon(
-                    if (event.complete) app.reelstack.ui.components.SpoleIcons.Done else if (event.source == ServiceKind.SEERR) Icons.Rounded.CloudDone else app.reelstack.ui.components.SpoleIcons.Download,
+                    if (event.complete) app.reelstack.ui.components.SpoleIcons.Done else if (event.source == ServiceKind.SEERR) app.reelstack.ui.components.SpoleIcons.CloudReady else app.reelstack.ui.components.SpoleIcons.Download,
                     contentDescription = null,
                     tint = if (event.complete) Success else Muted,
                     modifier = Modifier.padding(top = 1.dp).size(14.dp),
@@ -941,8 +951,8 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
 }
 
 private enum class SettingsSection(val label: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    ACCOUNTS(R.string.settings_services, Icons.Rounded.Dns),
-    APPEARANCE(R.string.personal_appearance, Icons.Rounded.Palette),
+    ACCOUNTS(R.string.settings_services, app.reelstack.ui.components.SpoleIcons.Server),
+    APPEARANCE(R.string.personal_appearance, app.reelstack.ui.components.SpoleIcons.Palette),
     PLAYBACK(R.string.personal_playback, app.reelstack.ui.components.SpoleIcons.Play),
     HOME(R.string.settings_home, app.reelstack.ui.components.SpoleIcons.Screen),
     UPDATES(R.string.settings_updates, app.reelstack.ui.components.SpoleIcons.Bell),
@@ -1057,8 +1067,8 @@ fun SettingsScreen(
                 androidx.compose.animation.AnimatedVisibility(visible = homeExpanded || wide) {
                   Column {
             HomeSectionRow(HomeSection.NOW_PLAYING, stringResource(R.string.home_now_playing), stringResource(R.string.settings_playback_note), app.reelstack.ui.components.SpoleIcons.Play, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.CONTINUE_WATCHING, stringResource(R.string.home_continue), stringResource(R.string.settings_continue_note), Icons.Rounded.History, state, onHomeSectionChange)
-            HomeSectionRow(HomeSection.RECOMMENDATIONS, stringResource(R.string.home_recommendations), stringResource(R.string.settings_recommendations_note), Icons.Rounded.Explore, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.CONTINUE_WATCHING, stringResource(R.string.home_continue), stringResource(R.string.settings_continue_note), app.reelstack.ui.components.SpoleIcons.Clock, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.RECOMMENDATIONS, stringResource(R.string.home_recommendations), stringResource(R.string.settings_recommendations_note), app.reelstack.ui.components.SpoleIcons.Discover, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.RECENT_RELEASES, stringResource(R.string.home_recent_releases), stringResource(R.string.settings_releases_note), app.reelstack.ui.components.SpoleIcons.Clock, state, onHomeSectionChange)
             if (connected(ServiceKind.JELLYFIN)) {
                 HomeSectionRow(HomeSection.JELLYFIN_MOVIES, stringResource(R.string.settings_movies, "Jellyfin"), stringResource(R.string.settings_movies_note), app.reelstack.ui.components.SpoleIcons.Movie, state, onHomeSectionChange)
@@ -1068,7 +1078,7 @@ fun SettingsScreen(
                 HomeSectionRow(HomeSection.EMBY_MOVIES, stringResource(R.string.settings_movies, "Emby"), stringResource(R.string.settings_movies_note), app.reelstack.ui.components.SpoleIcons.Movie, state, onHomeSectionChange)
                 HomeSectionRow(HomeSection.EMBY_SERIES, stringResource(R.string.settings_series, "Emby"), stringResource(R.string.settings_episodes_note), app.reelstack.ui.components.SpoleIcons.Screen, state, onHomeSectionChange)
             }
-            HomeSectionRow(HomeSection.UPCOMING, stringResource(R.string.home_upcoming), stringResource(R.string.settings_upcoming_note), Icons.Rounded.CalendarMonth, state, onHomeSectionChange)
+            HomeSectionRow(HomeSection.UPCOMING, stringResource(R.string.home_upcoming), stringResource(R.string.settings_upcoming_note), app.reelstack.ui.components.SpoleIcons.Calendar, state, onHomeSectionChange)
                   }
                 }
               }
@@ -1082,7 +1092,7 @@ fun SettingsScreen(
             PreferenceRow(app.reelstack.ui.components.SpoleIcons.Bell, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_note),
                 state.notificationsEnabled, onNotificationsChange)
             PreferenceRow(
-                icon = Icons.Rounded.Wifi,
+                icon = app.reelstack.ui.components.SpoleIcons.Wifi,
                 label = stringResource(R.string.settings_wifi),
                 description = stringResource(R.string.settings_wifi_note),
                 checked = state.wifiOnly,
@@ -1192,7 +1202,7 @@ internal fun PrivacyCard(state: ReelstackUiState) {
         modifier = Modifier.fillMaxWidth().padding(top = 26.dp),
     ) {
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(17.dp)) {
-            Icon(Icons.Rounded.Security, contentDescription = null, tint = Success,
+            Icon(app.reelstack.ui.components.SpoleIcons.Shield, contentDescription = null, tint = Success,
                 modifier = Modifier.padding(top = 1.dp).size(24.dp))
             Column(Modifier.padding(start = 12.dp)) {
                 Text(stringResource(R.string.privacy_title), color = TextColor, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)

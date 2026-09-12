@@ -47,6 +47,8 @@ data class MediaServerFeed(
     /** Partly watched titles, newest activity first, straight from the server's own resume list. */
     val resume: List<RemoteLibraryItem> = emptyList(),
     val nextUp: List<RemoteLibraryItem> = emptyList(),
+    /** What this profile has starred, so the mark on a card leads somewhere. */
+    val favourites: List<RemoteLibraryItem> = emptyList(),
     val warning: String? = null,
     val recentReleases: List<RemoteUpcomingItem> = emptyList(),
     val releasesFailed: Boolean = false,
@@ -337,12 +339,18 @@ class MediaServerClient(
             verifyConnection(connection)
             warnings += "Mediedelane er utilgjengelege"
         }
+        // Favourites are an extra: a server that cannot answer must not cost the whole feed.
+        val favourites = runCatching {
+            favourites(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
+        }.getOrDefault(emptyList())
+
         return MediaServerFeed(
             sessions = sessions,
             recentMovies = movies,
             recentSeries = series,
             resume = resume,
             nextUp = nextUp,
+            favourites = favourites,
             warning = warnings.distinct().takeIf { it.isNotEmpty() }?.joinToString(" · "),
             recentReleases = releasesResult.getOrDefault(emptyList()).filter { it.mediaType == "Episode" }
                 .mapNotNull { libraryRelease(it, connection.kind, ReleaseWindow()) },
@@ -384,6 +392,35 @@ class MediaServerClient(
     }
 
     /**
+     * The titles this profile has marked as favourites.
+     *
+     * Spole could set the flag from a card and from a title page and then had nowhere to show the
+     * result — the mark went to the server and vanished. Scoped to the chosen libraries like every
+     * other feed, so a children's library that is kept off Home stays off it.
+     */
+    fun favourites(
+        connection: ServiceConnection,
+        userId: String,
+        views: List<RemoteLibraryView> = libraryViews(connection, userId),
+    ): List<RemoteLibraryItem> {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val allowed = views.filter { includeLibrary(connection, it) }
+        if (allowed.isEmpty()) return emptyList()
+        // Episodes count too: the card menu can star one, and a mark that leads nowhere is the
+        // thing this row exists to fix.
+        val query = "Recursive=true&Filters=IsFavorite&IncludeItemTypes=Movie,Series,Episode&Limit=24" +
+            "&SortBy=SortName&SortOrder=Ascending&EnableUserData=true&Fields=Overview,Genres" +
+            "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb"
+        val groups = allowed.mapNotNull { view ->
+            runCatching {
+                getItems(connection, listOf("Items?userId=$userId&ParentId=${encodePathSegment(view.id)}&$query"))
+                    .map { it.copy(libraryId = view.id) }
+            }.getOrNull()
+        }
+        return interleave(groups).distinctBy(RemoteLibraryItem::id).take(24)
+    }
+
+    /**
      * One library's own "Continue watching" and "Next up".
      *
      * [feed] asks every library at once and interleaves twelve cards out of the lot, which is right
@@ -404,6 +441,43 @@ class MediaServerClient(
             runCatching { nextUp(connection, userId, listOf(view)) }.getOrDefault(emptyList())
         } else emptyList()
         return resume to next
+    }
+
+    /**
+     * The newest titles in each library, for the page that lists the libraries.
+     *
+     * A list of four folder tiles is a menu, not a library. What a reader wants to know standing in
+     * front of it is what is *in* there — and the server already has an endpoint for exactly that
+     * question, so the page costs one small request per library rather than a full listing.
+     *
+     * One library per call. The page asks for all of them at once and fills each row as its own
+     * answer lands, so a slow library holds up its own row and nothing else.
+     *
+     * A library that fails answers with nothing and keeps its tile: a peek is an extra, never a
+     * reason for the page not to open.
+     */
+    fun libraryPeek(
+        connection: ServiceConnection,
+        view: RemoteLibraryView,
+        limit: Int = LIBRARY_PEEK_LIMIT,
+    ): List<RemoteLibraryItem> {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val userId = userIdentity(connection)?.let(::encodePathSegment) ?: return emptyList()
+        val query = "ParentId=${encodePathSegment(view.id)}&Limit=$limit&EnableUserData=true" +
+            "&Fields=Overview,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
+            "&EnableImageTypes=Primary,Thumb&IsMissing=false"
+        // Latest is the endpoint built for this and it answers with a bare array. Some builds only
+        // have the older user-scoped spelling, and a server with neither still has the ordinary
+        // item query — which is why the generic route is last rather than absent.
+        val items = runCatching {
+            getItems(connection, buildList {
+                if (connection.kind == ServiceKind.JELLYFIN) add("UserItems/Latest?userId=$userId&$query")
+                add("Users/$userId/Items/Latest?$query")
+                add("Items?userId=$userId&$query&Recursive=true&SortBy=DateCreated&SortOrder=Descending" +
+                    "&ExcludeItemTypes=Season,Episode,BoxSet")
+            })
+        }.getOrDefault(emptyList())
+        return items.map { it.copy(libraryId = view.id) }
     }
 
     /** The signed-in profile on this server, resolved the way the feed resolves it. */
@@ -530,6 +604,66 @@ class MediaServerClient(
             (if (browsingCollections) "" else "&ExcludeItemTypes=BoxSet") +
             "&Fields=Overview,Genres,ProviderIds&EnableUserData=true&IsMissing=false"
         return getItems(connection, listOf("Items?$query"))
+    }
+
+    /**
+     * The seasons of a series and the episodes of a season.
+     *
+     * A series page that can only say "choose an episode" and then hand the job to the player is a
+     * dead end: the page knows which series it is and has the room to show the seasons, so it
+     * shows them. `Shows/{id}/Seasons` and `Shows/{id}/Episodes` are Jellyfin's own routes for
+     * exactly this and carry watched state and resume positions with them; the generic `Items`
+     * query is the fallback for a server that does not answer them.
+     */
+    fun seasons(connection: ServiceConnection, seriesId: String): List<RemoteLibraryItem> {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val user = encodePathSegment(requireNotNull(ownUserId(connection)) { "Profil-ID manglar" })
+        val series = encodePathSegment(seriesId)
+        val fields = "&EnableUserData=true&Fields=Overview,ChildCount&EnableImages=true&ImageTypeLimit=1"
+        return getItems(connection, listOf(
+            "Shows/$series/Seasons?userId=$user$fields",
+            "Items?userId=$user&ParentId=$series&IncludeItemTypes=Season&SortBy=IndexNumber$fields",
+        ))
+    }
+
+    fun episodes(connection: ServiceConnection, seriesId: String, seasonId: String): List<RemoteLibraryItem> {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val user = encodePathSegment(requireNotNull(ownUserId(connection)) { "Profil-ID manglar" })
+        val fields = "&EnableUserData=true&Fields=Overview&EnableImages=true&ImageTypeLimit=1" +
+            "&EnableImageTypes=Primary,Thumb"
+        // An empty answer counts as a failure here, not as "this season is empty". `getItems` stops
+        // at the first route that replies at all, and a server that answers the show-scoped route
+        // with 200 and nothing in it would otherwise hide a season that the generic item query can
+        // list perfectly well. A season with no episodes returns empty from both, which is right.
+        listOf(
+            "Shows/${encodePathSegment(seriesId)}/Episodes?userId=$user&seasonId=${encodePathSegment(seasonId)}$fields",
+            "Items?userId=$user&ParentId=${encodePathSegment(seasonId)}&IncludeItemTypes=Episode" +
+                "&SortBy=ParentIndexNumber,IndexNumber&SortOrder=Ascending$fields",
+        ).forEach { path ->
+            val items = runCatching { getItems(connection, listOf(path)) }.getOrDefault(emptyList())
+            if (items.isNotEmpty()) return items
+        }
+        return emptyList()
+    }
+
+    /**
+     * Where this series should resume.
+     *
+     * Asking the server beats reasoning from a season list: Jellyfin already knows whether the
+     * reader is half way through episode four or has never started, and it knows it across every
+     * device they use. A series that has never been touched answers with its first episode.
+     */
+    fun seriesNextUp(connection: ServiceConnection, seriesId: String): RemoteLibraryItem? {
+        require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
+        val user = encodePathSegment(ownUserId(connection) ?: return null)
+        val series = encodePathSegment(seriesId)
+        val fields = "&EnableUserData=true&Fields=Overview&EnableImages=true&ImageTypeLimit=1"
+        return listOf(
+            "Shows/NextUp?userId=$user&seriesId=$series&Limit=1&EnableResumable=true$fields",
+            "UserItems/Resume?userId=$user&ParentId=$series&Limit=1&MediaTypes=Video$fields",
+        ).firstNotNullOfOrNull { path ->
+            runCatching { getItems(connection, listOf(path)) }.getOrDefault(emptyList()).firstOrNull()
+        }
     }
 
     private fun ownUserId(connection: ServiceConnection): String? = connection.userId.takeIf(String::isNotBlank)
@@ -854,6 +988,7 @@ class MediaServerClient(
     private companion object {
         const val LATEST_ITEM_LIMIT = 12
         const val RESUME_ITEM_LIMIT = 12
+        const val LIBRARY_PEEK_LIMIT = 14
         const val SEARCH_ITEM_LIMIT = 24
     }
 }

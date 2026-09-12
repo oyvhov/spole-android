@@ -93,6 +93,14 @@ android {
     }
 }
 
+composeCompiler {
+    // What the collections in this project promise, and why. Reports are off by default; add
+    //   reportsDestination = layout.buildDirectory.dir("compose_reports")
+    //   metricsDestination = layout.buildDirectory.dir("compose_reports")
+    // here and build with --rerun-tasks to measure stability again.
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose_stability.conf"))
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.06.00")
 
@@ -113,7 +121,9 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
+    // Spole draws its own icons. The extended Material set was the last thing pulling a
+    // second visual language into the app, and with every glyph now in SpoleIcons there is
+    // nothing left that references it.
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")

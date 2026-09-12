@@ -33,6 +33,9 @@ data class RemotePlayback(
     val paused: Boolean,
     val artworkItemId: String?,
     val artworkUrl: String? = null,
+    /** Carried as numbers so the screen can write them in the reader's own language. */
+    val season: Int? = null,
+    val episode: Int? = null,
 )
 
 data class RemoteLibraryItem(
@@ -74,6 +77,10 @@ data class RemoteLibraryItem(
     val libraryId: String? = null,
     val favourite: Boolean = false,
     val played: Boolean = false,
+    /** Minutes, for an episode list that wants to say how long each one is. */
+    val runtimeMinutes: Int? = null,
+    /** Episodes in a season, so a season row can say "8 episodar". */
+    val childCount: Int? = null,
 )
 
 data class RemoteLibraryView(
@@ -159,7 +166,8 @@ data class RemoteMediaDetails(
     val played: Boolean = false,
     val audioTracks: List<app.reelstack.data.model.MediaTrack> = emptyList(),
     val subtitleTracks: List<app.reelstack.data.model.MediaTrack> = emptyList(),
-    val versions: List<String> = emptyList(),
+    /** Id and name, because playback is asked for by id and people read the name. */
+    val versions: List<Pair<String, String>> = emptyList(),
 )
 
 data class RemoteRequest(
@@ -265,7 +273,15 @@ object ServicePayloadParser {
             RemoteLibraryItem(
                 id = id,
                 isFolder = item["IsFolder"]?.jsonPrimitive?.booleanOrNull == true || mediaType in setOf("Series", "Season", "BoxSet", "Folder", "CollectionFolder", "MusicAlbum", "MusicArtist"),
-                title = if (mediaType == "Season") name else series ?: name,
+                // Without a series name the card has only the episode's own name to show, and
+                // that name repeats the number printed directly under it. The prefix comes off for
+                // the same reason it comes off the line below; if nothing survives the cleaning,
+                // the raw name is still better than an empty card.
+                title = when {
+                    mediaType == "Season" -> name
+                    series != null -> series
+                    else -> app.reelstack.data.model.episodeNameOf(name, episode).ifBlank { name }
+                },
                 // The year belongs to a film or a series, never to an episode: "Sesong 19 · Episode
                 // 9 – 2025" reads as though the year were the episode's name.
                 subtitle = listOfNotNull(episodeLabel, name.takeIf { series != null },
@@ -302,6 +318,9 @@ object ServicePayloadParser {
                 available = item["IsMissing"]?.jsonPrimitive?.booleanOrNull != true &&
                     item["IsPlaceHolder"]?.jsonPrimitive?.booleanOrNull != true &&
                     !item.string("LocationType").equals("Virtual", ignoreCase = true),
+                runtimeMinutes = runtime?.takeIf { it > 0 }?.let { (it / TICKS_PER_MINUTE).toInt() },
+                childCount = item.int("ChildCount") ?: item.int("childCount")
+                    ?: item.int("RecursiveItemCount") ?: item.int("recursiveItemCount"),
                 favourite = userData?.get("IsFavorite")?.jsonPrimitive?.booleanOrNull == true ||
                     userData?.get("isFavorite")?.jsonPrimitive?.booleanOrNull == true,
                 played = userData?.get("Played")?.jsonPrimitive?.booleanOrNull == true ||
@@ -601,8 +620,10 @@ object ServicePayloadParser {
             subtitleTracks = mediaTracks(streams, "Subtitle"),
             // Only worth naming when there is a choice to make. A single file is just "the file".
             versions = item.array("MediaSources").mapNotNull { source ->
-                (source as? JsonObject)?.string("Name")?.takeIf(String::isNotBlank)
-            }.distinct().takeIf { it.size > 1 }.orEmpty(),
+                val media = source as? JsonObject ?: return@mapNotNull null
+                val sourceId = media.string("Id")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                sourceId to (media.string("Name")?.takeIf(String::isNotBlank) ?: sourceId)
+            }.distinctBy { it.first }.takeIf { it.size > 1 }.orEmpty(),
             cast = item.array("People").mapNotNull {
                 val person = it as? JsonObject ?: return@mapNotNull null
                 if (!person.string("Type").equals("Actor", ignoreCase = true)) return@mapNotNull null
@@ -679,6 +700,8 @@ object ServicePayloadParser {
             artworkItemId = item.string("SeriesId") ?: item.string("seriesId")
                 ?: item.string("PrimaryImageItemId") ?: item.string("primaryImageItemId")
                 ?: item.string("Id") ?: item.string("id"),
+            season = season,
+            episode = episode,
         )
     }
 

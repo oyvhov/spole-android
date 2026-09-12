@@ -33,7 +33,28 @@ data class PlayerScreenState(
     val awaitingResume: Boolean = false,
     val chapters: List<PlaybackChapter> = emptyList(),
     val itemId: String = "",
+    /** The numbers behind [subtitle], so the header can write them out rather than show "S03 E01". */
+    val season: Int? = null,
+    val episode: Int? = null,
+    /**
+     * What follows this episode, and how long is left before it starts on its own. Null means
+     * there is nothing after it — a film, the last episode, or a server that could not say.
+     */
+    val nextEpisode: PlayableItem? = null,
+    val nextEpisodeCountdown: Int? = null,
+    /** Title sequences and closing credits the server has marked, if anything has marked them. */
+    val segments: List<PlaybackSegment> = emptyList(),
 )
+
+/**
+ * The marked stretch the playhead is inside right now, if any.
+ *
+ * A small guard at each end keeps the offer from flickering on and off around the boundary, and
+ * from appearing for the last half second of a title sequence nobody would bother skipping.
+ */
+fun PlayerScreenState.activeSegment(): PlaybackSegment? = segments.firstOrNull { segment ->
+    positionMs >= segment.startMs && positionMs < segment.endMs - 1_500
+}
 
 /** Owns one local player, not a remote session controller. Survives rotation; never plays in the background. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -61,8 +82,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var request: Job? = null
     private var generation = 0
     private var bufferingSince = 0L
+    private var nextEpisodeJob: Job? = null
+    private var countdownJob: Job? = null
     private var preferredAudio: Int? = null
     private var preferredSubtitle: Int? = null
+    private var preferredSource: String? = null
     private val reporter = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val reports = Channel<Report>(Channel.UNLIMITED)
     private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
@@ -83,7 +107,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 bufferingSince = if (playbackState == Player.STATE_BUFFERING) android.os.SystemClock.elapsedRealtime() else 0L
                 mutable.update { it.copy(busy = playbackState == Player.STATE_BUFFERING, ended = playbackState == Player.STATE_ENDED,
                     durationMs = duration.takeIf { value -> value > 0 } ?: it.durationMs) }
-                if (playbackState == Player.STATE_ENDED) { report("/Stopped"); started = false }
+                if (playbackState == Player.STATE_ENDED) {
+                    report("/Stopped"); started = false
+                    startNextEpisodeCountdown()
+                }
             }
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
                 if (started && reason == Player.DISCONTINUITY_REASON_SEEK) report("/Progress")
@@ -176,11 +203,12 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      * only until a plan exists: from then on the player's own menus are the authority, so changing
      * quality or stepping to the next episode does not quietly undo a choice made inside the player.
      */
-    fun open(id: String, audio: Int? = null, subtitle: Int? = null) {
+    fun open(id: String, audio: Int? = null, subtitle: Int? = null, sourceId: String? = null) {
         if (rootId.isNotEmpty()) return
         rootId = id
         preferredAudio = audio
         preferredSubtitle = subtitle
+        preferredSource = sourceId
         loadRoot()
     }
 
@@ -224,17 +252,20 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             if (folders.lastOrNull()?.id != item.id) folders += item
             parent = item; offset = 0; selected = null
             mutable.update { it.copy(title = item.title, subtitle = "Vel ${if (item.type == "Series") "sesong" else "episode"}",
+                season = null, episode = null,
                 choices = emptyList(), browsing = true, hasMore = false, error = null) }
             loadChildren()
         } else {
             selected = item; compatible = false
-            mutable.update { it.copy(title = item.title, subtitle = item.subtitle, browsing = false, choices = emptyList(),
+            mutable.update { it.copy(title = item.title, subtitle = item.subtitle, season = item.season,
+                episode = item.episode, browsing = false, choices = emptyList(),
                 positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id) }
             val start = playbackStartPosition(item.resumeMs, item.durationMs, item.played,
                 container.preferencesRepository.personalization.autoResume)
             mutable.update { it.copy(awaitingResume = start == null) }
             if (start == null) mutable.update { it.copy(busy = false) }
             else prepare(start)
+            loadNextEpisode(item)
         }
     }
 
@@ -292,7 +323,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 val prepared = withContext(Dispatchers.IO) {
                     check(sameAccount())
                     client.prepare(c, userId, item, state.value.quality.takeIf { it > 0 } ?: autoBitrate(),
-                        audioChoice, subtitleChoice, forceCompatible, previous?.sourceId)
+                        // The version the title page picked, until a plan exists and the player owns it.
+                        audioChoice, subtitleChoice, forceCompatible, previous?.sourceId ?: preferredSource)
                 }
                 if (ticket != generation || !sameAccount()) return@launch
                 plan = prepared
@@ -323,6 +355,68 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     error = "Fekk ikkje starta videoen. Kontroller nettet og avspelingsløyva i Jellyfin, eller prøv igjen.") }
             }
         }
+    }
+
+    /**
+     * Loads what comes next while the current episode is still playing, so the offer at the end
+     * appears immediately rather than after a round trip the viewer has to sit and watch.
+     */
+    private fun loadNextEpisode(item: PlayableItem) {
+        nextEpisodeJob?.cancel()
+        mutable.update { it.copy(nextEpisode = null, nextEpisodeCountdown = null, segments = emptyList()) }
+        val c = connection ?: return
+        if (item.type != "Episode") return
+        nextEpisodeJob = viewModelScope.launch {
+            val next = runCatching { withContext(Dispatchers.IO) { client.nextEpisode(c, userId, item) } }.getOrNull()
+            if (!isActive || selected?.id != item.id) return@launch
+            if (next != null) mutable.update { if (it.itemId != item.id) it else it.copy(nextEpisode = next) }
+            val marked = runCatching { withContext(Dispatchers.IO) { client.segments(c, userId, item.id) } }
+                .getOrDefault(emptyList())
+            if (!isActive || selected?.id != item.id || marked.isEmpty()) return@launch
+            mutable.update { if (it.itemId != item.id) it else it.copy(segments = marked) }
+        }
+    }
+
+    /**
+     * Twelve seconds, counted down on screen.
+     *
+     * Long enough to read the title and decide, short enough that a series does not stop dead
+     * between episodes. Anything that puts the viewer back in charge — a press of Cancel, closing
+     * the player, picking a different episode — stops it, and it never starts at all when there is
+     * nothing to play next.
+     */
+    private fun startNextEpisodeCountdown() {
+        countdownJob?.cancel()
+        if (state.value.nextEpisode == null) return
+        countdownJob = viewModelScope.launch {
+            for (second in NEXT_EPISODE_SECONDS downTo 1) {
+                mutable.update { it.copy(nextEpisodeCountdown = second) }
+                delay(1_000)
+                if (!isActive || state.value.nextEpisode == null) return@launch
+            }
+            playNext()
+        }
+    }
+
+    /** Starts the next episode now, whether the countdown ran out or someone pressed the button. */
+    fun playNext() {
+        val next = state.value.nextEpisode ?: return
+        countdownJob?.cancel()
+        mutable.update { it.copy(nextEpisode = null, nextEpisodeCountdown = null) }
+        report("/Stopped"); started = false
+        choose(next)
+    }
+
+    /** Jumps past the title sequence or into the next episode's slot at the end of the credits. */
+    fun skipSegment() {
+        val segment = state.value.activeSegment() ?: return
+        seek(segment.endMs)
+    }
+
+    /** Keeps the player where it is. The offer stays on screen; only the clock stops. */
+    fun cancelNextEpisode() {
+        countdownJob?.cancel()
+        mutable.update { it.copy(nextEpisodeCountdown = null) }
     }
 
     fun retry() { if (connection == null || selected == null && parent == null) loadRoot()
@@ -372,6 +466,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         report("/Stopped"); started = false; plan = null
         player.stop(); player.clearMediaItems()
     }
+    private companion object {
+        const val NEXT_EPISODE_SECONDS = 12
+    }
+
     override fun onCleared() {
         generation++; request?.cancel(); stopCurrent(); mediaSession.release(); player.release(); reports.close()
         super.onCleared()
