@@ -1,6 +1,6 @@
 # Changelog
 
-## Uutgjeve
+## 0.16.0-alpha19 · Biblioteket som ei side, og ein mobil som ligg rett
 
 - Ein serie opnar tittelsida si i staden for eit rutenett av sesongplakatar. Sida viser sesongane, episodane med eige stillbilete, lengd og framdrift, og «Spel av» peiker på den episoden tenaren seier kjem neste.
 - Plassen under mediebiletet er teken i bruk: biletet er større og tek forma til sitt eige innhald, og år, lengd, kvalitet, sjangrar og tagline står under det i staden for å trengje seg inn mellom tittelen og handlingane.
