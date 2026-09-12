@@ -126,6 +126,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                         TvSettingsCategory.PLAYBACK -> {
                             SettingsToggleRow(stringResource(R.string.personal_resume), stringResource(R.string.personal_resume_note),
                                 options.autoResume, "auto-resume") { change(options.copy(autoResume = it)) }
+                            NextEpisodeSettings(options, change)
                             SettingsToggleRow(stringResource(R.string.tv_slow_startup), stringResource(R.string.settings_tv_startup_hint),
                                 options.slowStartup, "slow-startup") { change(options.copy(slowStartup = it)) }
                         }
@@ -165,11 +166,11 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
 }
 
 @Composable
-private fun TvHomeRows(state: ReelstackUiState, onChange: (HomeSection, Boolean) -> Unit) {
+internal fun TvHomeRows(state: ReelstackUiState, onChange: (HomeSection, Boolean) -> Unit) {
     var open by remember { mutableStateOf(false) }
     SettingsActionRow(stringResource(R.string.settings_tv_rows), stringResource(R.string.settings_tv_rows_hint), "tv-home-rows") { open = true }
     if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.settings_tv_rows)) },
-        confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
         text = { Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             HomeSection.entries.filter { it != HomeSection.DOWNLOADS }.filter { section ->
                 val service = when(section) { HomeSection.JELLYFIN_MOVIES, HomeSection.JELLYFIN_SERIES -> ServiceKind.JELLYFIN

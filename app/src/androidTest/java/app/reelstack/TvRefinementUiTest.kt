@@ -30,6 +30,28 @@ import org.junit.Test
 class TvRefinementUiTest {
     @get:Rule val rule = createComposeRule()
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://example.com", "fixture", userId = "me")
+    @Test fun remoteFocusKeepsRailGeometryAndCaptionBaselinesStable() {
+        val titles = listOf("Kort", "Ein mykje lengre serietittel som treng to linjer")
+        val items = titles.mapIndexed { index, title -> LibraryMedia("steady-$index", title, "Episode",
+            artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode") }
+        rule.setContent { Tv {
+            val mode = LocalInputModeManager.current
+            SideEffect { mode.requestInputMode(InputMode.Keyboard) }
+            Box(Modifier.padding(24.dp)) { ResumeRail(items, {}) }
+        } }
+        val first = rule.onNodeWithTag("resume-card-steady-0")
+        val second = rule.onNodeWithTag("resume-card-steady-1")
+        val initial = first.getUnclippedBoundsInRoot()
+        first.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+        rule.waitForIdle()
+        assertEquals(initial, first.getUnclippedBoundsInRoot())
+        assertEquals(first.getUnclippedBoundsInRoot().height, second.getUnclippedBoundsInRoot().height)
+        first.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) }
+        second.assertIsFocused()
+        second.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionLeft) }
+        first.assertIsFocused()
+        assertEquals(initial, first.getUnclippedBoundsInRoot())
+    }
     private fun capture(name: String) {
         val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
@@ -59,10 +81,9 @@ class TvRefinementUiTest {
                     overview = "Ein episode med full omtale.", libraryAvailable = true)), null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         } }
         rule.onNodeWithTag("play-in-spole").assertIsDisplayed().assertIsFocused()
-        rule.onNodeWithText("Hald fram").assertIsDisplayed()
-        rule.onNodeWithText("42% sett · 27 min att").assertIsDisplayed()
-        rule.onNodeWithText("4K").assertIsDisplayed()
-        rule.onNodeWithText("8,5").assertIsDisplayed()
+        rule.onNodeWithTag("play-in-spole").assertTextContains("Hald fram · 27 min att")
+        rule.onNodeWithText("4K", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("8,5", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Detaljar").assertDoesNotExist()
         rule.onNodeWithContentDescription("Tilbake").assertDoesNotExist()
         capture("alpha09-tv-details")

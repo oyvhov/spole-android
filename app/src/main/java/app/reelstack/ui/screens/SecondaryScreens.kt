@@ -581,8 +581,8 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.08f else if (pressed) 0.965f else 1f,
-        animationSpec = spring(stiffness = 380f, dampingRatio = 0.75f),
+        targetValue = if (pressed && app.reelstack.ui.theme.LocalMotionEnabled.current) 0.985f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(120),
         label = "hit-card-spring",
     )
     val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
@@ -611,6 +611,7 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
             }
         }
         Text(media.title, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            minLines = if (app.reelstack.ui.components.isTelevision()) 2 else 1,
             lineHeight = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 8.dp))
         Text(media.subtitle, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1,
@@ -625,8 +626,8 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
     val pressed by cardInteraction.collectIsPressedAsState()
     val focused by cardInteraction.collectIsFocusedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.08f else if (pressed) 0.965f else 1f,
-        animationSpec = spring(stiffness = 380f, dampingRatio = 0.75f),
+        targetValue = if (pressed && app.reelstack.ui.theme.LocalMotionEnabled.current) 0.985f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(120),
         label = "discover-card-spring",
     )
     val actionInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -843,11 +844,11 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 if (unresolved.isNotEmpty()) {
                     Text(androidx.compose.ui.res.pluralStringResource(R.plurals.tv_unresolved, unresolved.size, unresolved.size), color = Muted,
                         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
-                    TextButton(onClick = { showUnresolved = !showUnresolved }, modifier = Modifier.testTag("unresolved-toggle")) {
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { showUnresolved = !showUnresolved }, modifier = Modifier.testTag("unresolved-toggle")) {
                         Text(stringResource(if (showUnresolved) R.string.tv_hide_unresolved else R.string.tv_show_unresolved))
                     }
                     if (showUnresolved) unresolved.forEach { request ->
-                        TextButton(onClick = { onDetails(request.key) }, modifier = Modifier.testTag("unresolved-${request.key}")) {
+                        app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onDetails(request.key) }, modifier = Modifier.testTag("unresolved-${request.key}")) {
                             Text(stringResource(R.string.tv_request_number, request.requestId ?: request.mediaId) + " · " +
                                 app.reelstack.localization.requestStageLabel(request.stage))
                         }
@@ -860,7 +861,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 if (state.trackedRequests.any { it.notify } && (!state.notificationsEnabled || !app.reelstack.background.LibraryNotifications.allowed(context))) {
                     Text(if (!state.notificationsEnabled) stringResource(R.string.activity_notifications_off) else
                         stringResource(R.string.activity_android_notifications_off), color = Caution, fontSize = 12.sp, lineHeight = 17.sp)
-                    if (state.notificationsEnabled) TextButton(onClick = {
+                    if (state.notificationsEnabled) app.reelstack.ui.components.SpoleSecondaryButton(onClick = {
                         context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
                     }) { Text(stringResource(R.string.activity_notifications_open)) }
@@ -917,7 +918,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
 private fun ActivityScopeMenu(selected: ActivityFilter, onSelect: (ActivityFilter) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { expanded = true }, modifier = Modifier.testTag("activity-scope")) {
+        app.reelstack.ui.components.SpoleSecondaryButton(onClick = { expanded = true }, modifier = Modifier.testTag("activity-scope")) {
             Text(selected.localizedLabel(), color = PrimarySoft)
             Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, tint = PrimarySoft, modifier = Modifier.size(18.dp))
         }
@@ -1018,6 +1019,11 @@ fun SettingsScreen(
     }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
     val wide = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useTabletCanvas
+    if (!wide) {
+        MobileSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
+            onHomeSectionChange, onAccountClick, onManageLibraries)
+        return@BoxWithConstraints
+    }
     var section by rememberSaveable { mutableStateOf(SettingsSection.ACCOUNTS) }
     val visible = { item: SettingsSection -> !wide || section == item }
     val paneStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
@@ -1204,7 +1210,7 @@ internal fun CrashReportRow() {
                 color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp),
             )
             Row(Modifier.padding(top = 12.dp)) {
-                TextButton(onClick = {
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = {
                     context.startActivity(
                         android.content.Intent.createChooser(
                             android.content.Intent(android.content.Intent.ACTION_SEND)
@@ -1215,7 +1221,7 @@ internal fun CrashReportRow() {
                         ),
                     )
                 }) { Text(shareLabel, color = Primary, fontSize = 13.sp, lineHeight = 18.sp) }
-                TextButton(onClick = {
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = {
                     app.reelstack.diagnostics.CrashReporter.clear(context)
                     report = null
                 }) { Text(stringResource(R.string.action_delete), color = Muted, fontSize = 13.sp, lineHeight = 18.sp) }
@@ -1265,11 +1271,7 @@ internal fun AppIdentity() {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(bottom = 26.dp),
     ) {
-        Image(
-            painter = painterResource(R.drawable.spole_mark),
-            contentDescription = "Spole-logo",
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)),
-        )
+        app.reelstack.ui.components.SpoleBrandMark(Modifier.size(40.dp), "Spole-logo")
         Column(Modifier.padding(start = 13.dp)) {
             Text("Spole", color = TextColor, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
             Text(

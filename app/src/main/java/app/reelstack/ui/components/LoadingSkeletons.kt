@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,10 @@ private fun ShimmerBlock(
 ) {
     val skeletonBase = MaterialTheme.colorScheme.surfaceVariant
     val skeletonGlow = MaterialTheme.colorScheme.onSurfaceVariant
+    if (!app.reelstack.ui.theme.LocalMotionEnabled.current) {
+        Box(modifier.background(skeletonBase, shape))
+        return
+    }
     val transition = rememberInfiniteTransition(label = "skeleton-shimmer")
     val progress by transition.animateFloat(
         initialValue = -1f,

@@ -1,0 +1,8 @@
+<resources>
+    <string name="settings_mobile_appearance_hint">Tema, jul og Halloween, fargar og språk.</string>
+    <string name="settings_season_title">Sesongtema</string>
+    <string name="season_christmas_greeting">God jul</string>
+    <string name="season_christmas_note">Finn julefilmen din.</string>
+    <string name="season_halloween_greeting">God Halloween</string>
+    <string name="season_halloween_note">Tid for ei skummel filmnatt.</string>
+</resources>

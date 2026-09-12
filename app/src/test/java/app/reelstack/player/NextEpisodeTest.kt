@@ -18,6 +18,37 @@ import org.junit.Test
  * stopped there and told the viewer the series was over.
  */
 class NextEpisodeTest {
+    @Test fun offerStartsAtConfiguredBoundaryAndNeverWithUnknownRuntime() {
+        fun offer(position: Long, duration: Long = 1_800_000, lead: Int = 60) =
+            shouldOfferNextEpisode(true, true, false, false, position, duration, lead)
+        org.junit.Assert.assertFalse(offer(1_739_999))
+        org.junit.Assert.assertTrue(offer(1_740_000))
+        org.junit.Assert.assertFalse(offer(1_740_000, lead = 30))
+        org.junit.Assert.assertFalse(offer(10_000, duration = 0))
+        org.junit.Assert.assertFalse(offer(0, duration = 30_000))
+        org.junit.Assert.assertFalse(offer(1_800_001))
+        org.junit.Assert.assertFalse(offer(1_799_999, lead = 0))
+    }
+
+    @Test fun dismissalDisabledSettingAndMissingNextPreventOfferEvenAtTheEnd() {
+        org.junit.Assert.assertFalse(shouldOfferNextEpisode(true, true, true, true, 1, 1, 60))
+        org.junit.Assert.assertFalse(shouldOfferNextEpisode(true, false, false, true, 1, 1, 60))
+        org.junit.Assert.assertFalse(shouldOfferNextEpisode(false, true, false, true, 1, 1, 60))
+        org.junit.Assert.assertTrue(shouldOfferNextEpisode(true, true, false, true, 0, 0, 0))
+    }
+
+    @Test fun offerStaysOutOfErrorsLoadingBrowsingAndResumePrompts() {
+        val ready = PlayerScreenState(busy = false, positionMs = 95_000, durationMs = 100_000,
+            nextEpisode = PlayableItem("next", "Series", "Episode"))
+        org.junit.Assert.assertTrue(ready.showNextEpisodeOffer())
+        org.junit.Assert.assertFalse(ready.copy(busy = true).showNextEpisodeOffer())
+        org.junit.Assert.assertFalse(ready.copy(error = "Error").showNextEpisodeOffer())
+        org.junit.Assert.assertFalse(ready.copy(browsing = true).showNextEpisodeOffer())
+        org.junit.Assert.assertFalse(ready.copy(awaitingResume = true).showNextEpisodeOffer())
+        org.junit.Assert.assertTrue(ready.copy(ended = true, nextEpisodeOfferEnabled = false,
+            nextEpisodeCountdown = 12).showNextEpisodeOffer())
+        org.junit.Assert.assertFalse(ready.copy(ended = true, nextEpisodeOfferEnabled = false).showNextEpisodeOffer())
+    }
 
     private class Answering(private val body: String?) : JsonHttpTransport {
         var requested: String? = null

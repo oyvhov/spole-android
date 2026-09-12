@@ -79,7 +79,9 @@ class WideNavigationSettingsTest {
         rule.onNodeWithTag("theme-choice-accent").performScrollTo().assertIsDisplayed()
         rule.runOnIdle { width = 412.dp }
         rule.onNodeWithTag("settings-categories").assertDoesNotExist()
-        rule.onNodeWithTag("appearance-expand").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-category-APPEARANCE").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("appearance-expand").assertDoesNotExist()
+        rule.onNodeWithTag("theme-choice-accent").performScrollTo().assertIsDisplayed()
     }
     @Test fun collapsingKeepsFullHeightFocusAndNavigation() {
         var expanded by mutableStateOf(true)

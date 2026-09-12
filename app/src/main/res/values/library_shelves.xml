@@ -30,8 +30,8 @@
     <string name="theme_season_none">All year</string>
     <string name="theme_season_christmas">Christmas</string>
     <string name="theme_season_halloween">Halloween</string>
-    <string name="theme_ornament">Falling snow and embers</string>
-    <string name="theme_ornament_hint">A slow drift over the home feature. Stops on its own when the system has animations turned down.</string>
+    <string name="theme_ornament">Seasonal decorations</string>
+    <string name="theme_ornament_hint">A Santa hat, festive lights and snow – or ghosts, spiders and cobwebs. Movement stops with reduced motion and lightweight TV mode.</string>
     <string name="player_next_episode">Next episode</string>
     <string name="player_next_play">Play now</string>
     <string name="player_next_cancel">Cancel (%1$d)</string>

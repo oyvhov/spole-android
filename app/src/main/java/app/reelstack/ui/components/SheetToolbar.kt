@@ -39,7 +39,7 @@ internal fun SheetToolbar(
         verticalAlignment = Alignment.Top,
     ) {
         if (page) {
-            TextButton(onClick = onBack ?: onClose, enabled = enabled, interactionSource = closeInteraction,
+            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onBack ?: onClose, enabled = enabled, interactionSource = closeInteraction,
                 modifier = Modifier.heightIn(min = 48.dp).focusRequester(closeFocus)
                     .focusOutline(closeInteraction, CircleShape).testTag("sheet-close")) {
                 Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, null, Modifier.size(24.dp))
@@ -51,7 +51,7 @@ internal fun SheetToolbar(
         }
         Box(Modifier.weight(1f).heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
             if (onBack != null) {
-                TextButton(onClick = onBack, enabled = enabled, interactionSource = backInteraction,
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onBack, enabled = enabled, interactionSource = backInteraction,
                     modifier = Modifier.focusOutline(backInteraction, CircleShape)) {
                     Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, null, Modifier.size(20.dp))
                     Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), Modifier.padding(start = 8.dp))

@@ -80,7 +80,7 @@ internal fun SettingsChoiceRow(
         // One line needs room for both halves. A phone is 360 dp wide and "Storleik på omslag og
         // bilete" alone fills it, so below this the value goes back under the title rather than
         // squeezing the question down to an ellipsis.
-        val inline = maxWidth >= 420.dp
+        val inline = maxWidth / androidx.compose.ui.platform.LocalDensity.current.fontScale >= 420.dp
         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).background(MaterialTheme.colorScheme.surfaceVariant, shape)
             .focusOutline(interaction, shape)
             .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
@@ -128,12 +128,12 @@ internal fun SettingsToggleRow(title: String, summary: String, checked: Boolean,
 }
 
 @Composable
-private fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefix: String,
+internal fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefix: String,
     label: @Composable (T) -> String, swatch: ((T) -> Color)? = null, onChange: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
     SettingsChoiceRow(title, label(selected), "theme-choice-$prefix", swatch?.invoke(selected)) { open = true }
     if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text(title) },
-        confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
         text = {
             val selectedFocus = remember { FocusRequester() }
             val tv = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
@@ -163,12 +163,13 @@ private fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefix
 
 @Composable
 internal fun VisualThemeSettings(value: Personalization, onChange: (Personalization) -> Unit) {
+    val television = isTelevision()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ThemePreview(value)
+        if (Season.of(value) == Season.NONE) ThemePreview(value) else SeasonalThemeBanner(options = value)
         // A season is a pairing, not a background: red on a red ground is not Christmas, it is a
         // warning. This row sets the mood and the accent together, and the two rows under it still
         // let anyone pull them apart again.
-        ThemeChoice(stringResource(R.string.theme_season), Season.of(value), Season.entries, "season",
+        ThemeChoice(stringResource(R.string.settings_season_title), Season.of(value), Season.entries, "season",
             { stringResource(when (it) {
                 Season.NONE -> R.string.theme_season_none
                 Season.CHRISTMAS -> R.string.theme_season_christmas
@@ -206,8 +207,11 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
             onChange(value.copy(focusStyle = it)) }
         SettingsToggleRow(stringResource(R.string.theme_contrast), stringResource(R.string.theme_contrast_hint),
             value.highContrast, "theme-contrast") { onChange(value.copy(highContrast = it)) }
-        TextButton(onClick = { onChange(value.copy(accent = AccentPalette.LIME, artworkSize = ArtworkSize.STANDARD,
-            visualTheme = VisualTheme.FOREST, artworkCorners = ArtworkCorners.SOFT, focusStyle = FocusStyle.WHITE,
+        if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_lightweight), stringResource(R.string.tv_lightweight_hint),
+            value.lightweightTv, "tv-lightweight") { onChange(value.copy(lightweightTv = it)) }
+        app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onChange(value.copy(accent = AccentPalette.LIME, artworkSize = ArtworkSize.STANDARD,
+            visualTheme = VisualTheme.FOREST, artworkCorners = ArtworkCorners.SOFT,
+            focusStyle = if (television) FocusStyle.BOLD else FocusStyle.WHITE,
             highContrast = false, seasonalOrnament = true)) },
             modifier = Modifier.testTag("appearance-reset")) { Text(stringResource(R.string.personal_reset)) }
     }

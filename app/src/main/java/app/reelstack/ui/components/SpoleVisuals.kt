@@ -60,7 +60,7 @@ fun SpoleWelcomeArt(modifier: Modifier = Modifier) {
             }
         }
         Box(Modifier.size(88.dp).clip(RoundedCornerShape(24.dp)).background(Ink), contentAlignment = Alignment.Center) {
-            Image(painterResource(R.drawable.spole_mark), null, Modifier.size(48.dp), colorFilter = ColorFilter.tint(Primary))
+            SpoleBrandMark(Modifier.size(48.dp))
         }
     }
 }

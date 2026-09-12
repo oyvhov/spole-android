@@ -27,6 +27,27 @@ import org.junit.Test
 class TvSettingsRedesignTest {
     @get:Rule val rule = createComposeRule()
     private val repository get() = AppPreferencesRepository(InstrumentationRegistry.getInstrumentation().targetContext)
+    @Test fun nextEpisodeTimingAndLightweightModePersistAndRemainReachableAtDoubleText() {
+        val original = repository.personalization
+        try {
+            repository.personalization = Personalization()
+            rule.setContent { Television(2f) { SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, {_,_->}) } }
+            rule.onNodeWithTag("tv-lightweight").performScrollTo().performClick()
+            rule.runOnIdle { assertTrue(repository.personalization.lightweightTv) }
+            rule.onNodeWithTag("settings-category-PLAYBACK").performScrollTo().performClick()
+            rule.onNodeWithTag("theme-choice-next-episode-lead").performScrollTo().performClick()
+            rule.onNodeWithTag("next-episode-lead-120").performScrollTo().performClick()
+            rule.onNodeWithTag("theme-choice-next-episode-delay").performScrollTo().performClick()
+            rule.onNodeWithTag("next-episode-delay-20").performScrollTo().performClick()
+            rule.runOnIdle {
+                assertEquals(120, repository.personalization.nextEpisodeLeadSeconds)
+                assertEquals(20, repository.personalization.nextEpisodeDelaySeconds)
+            }
+            rule.onNodeWithTag("next-episode-auto").performScrollTo().performClick()
+            rule.onNodeWithTag("theme-choice-next-episode-delay").assertDoesNotExist()
+            rule.runOnIdle { assertFalse(repository.personalization.autoPlayNextEpisode) }
+        } finally { rule.runOnIdle { repository.personalization = original } }
+    }
     @Composable private fun Television(fontScale: Float = 1f, content: @Composable () -> Unit) {
         DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(880.dp, 540.dp))) {
             DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) {
@@ -77,7 +98,7 @@ class TvSettingsRedesignTest {
             rule.runOnIdle { assertEquals(expected.copy(visualTheme = VisualTheme.MIDNIGHT, accent = AccentPalette.MINT,
                 artworkCorners = ArtworkCorners.CRISP, focusStyle = FocusStyle.BOLD, highContrast = true), repository.personalization) }
             rule.onNodeWithTag("appearance-reset").performScrollTo().performClick()
-            rule.runOnIdle { assertEquals(expected, repository.personalization) }
+            rule.runOnIdle { assertEquals(expected.copy(focusStyle = FocusStyle.BOLD), repository.personalization) }
         } finally { rule.runOnIdle { repository.personalization = original } }
     }
     @Test fun librarySettingsRemainInHomeAndMenuPanelContainsOnlyNavigationOptions() {

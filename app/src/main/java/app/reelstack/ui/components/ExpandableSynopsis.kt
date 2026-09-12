@@ -37,7 +37,7 @@ internal fun ExpandableSynopsis(identity: String, title: String, overview: Strin
                 Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 17.sp, lineHeight = 23.sp,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 if (canExpand || expanded) {
-                    TextButton(onClick = { expanded = !expanded }, interactionSource = interaction,
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { expanded = !expanded }, interactionSource = interaction,
                         modifier = Modifier.padding(start = 8.dp).widthIn(max = actionMaxWidth)
                             .focusOutline(interaction, CircleShape).testTag("overview-expand")) {
                         Text(stringResource(if (expanded) R.string.details_less else R.string.details_read_more))

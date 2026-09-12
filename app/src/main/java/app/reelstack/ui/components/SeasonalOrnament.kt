@@ -18,16 +18,17 @@ import app.reelstack.ui.theme.LocalPersonalization
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 /**
- * Snow in December and embers in October, drifting over the home feature.
+ * Pine, lights and snow for Christmas; ghosts, webs, spiders and embers for Halloween.
  *
  * This is the one place in Spole that exists purely because it is nice, so it is also the one place
  * that has to be easy to switch off and impossible to get in the way. It draws nothing but soft
  * dots at low opacity, sits above the artwork and below every control, carries no semantics for a
  * screen reader, and stops entirely when the mood is not seasonal, when the ornament is switched
- * off, or when the system has animations turned down — a device with `ANIMATOR_DURATION_SCALE` at
- * zero is telling us that motion is unwelcome, and that applies to decoration first.
+ * off. Reduced motion and lightweight TV mode retain the static illustration but stop particles
+ * and floating ghosts. The drawing clock is limited to roughly twenty updates per second.
  *
  * The particles are generated once from a fixed seed, so the drift is the same every time the
  * screen opens rather than reshuffling under the reader.
@@ -37,7 +38,7 @@ internal fun SeasonalOrnament(modifier: Modifier = Modifier) {
     val personalization = LocalPersonalization.current
     val season = Season.of(personalization)
     if (season == Season.NONE || !personalization.seasonalOrnament) return
-    if (!app.reelstack.ui.theme.LocalMotionEnabled.current) return
+    val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
 
     val flakes = remember(season) {
         val random = Random(season.ordinal * 7919)
@@ -53,13 +54,15 @@ internal fun SeasonalOrnament(modifier: Modifier = Modifier) {
         }
     }
     var time by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(season) {
+    LaunchedEffect(season, motion) {
+        if (!motion) return@LaunchedEffect
         var previous = 0L
         while (true) {
             withFrameMillis { frame ->
                 if (previous != 0L) time += (frame - previous) / 1000f
                 previous = frame
             }
+            delay(50)
         }
     }
 
@@ -68,7 +71,8 @@ internal fun SeasonalOrnament(modifier: Modifier = Modifier) {
     val rising = season == Season.HALLOWEEN
     val tint = if (rising) Color(0xFFFF9A3D) else Color(0xFFE8F2FF)
     Canvas(modifier.clearAndSetSemantics { }) {
-        flakes.forEach { flake ->
+        drawSeasonScene(season, if (motion) time else 0f)
+        if (motion) flakes.forEach { flake ->
             val travelled = (flake.start + time * flake.speed) % 1f
             val y = if (rising) (1f - travelled) * size.height else travelled * size.height
             val drift = sin(time * 0.8f + flake.phase) * flake.sway * size.width

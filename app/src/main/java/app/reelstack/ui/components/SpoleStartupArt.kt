@@ -27,10 +27,7 @@ import app.reelstack.R
 /** One vector master, assembled in three portions. No duplicate logo geometry or bitmap assets. */
 @Composable
 internal fun SpoleFormationMark(progress: () -> Float, modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(R.drawable.spole_mark),
-        contentDescription = null,
-        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary),
+    SpoleBrandMark(
         modifier = modifier.size(84.dp, 112.dp).drawWithContent {
             val amount = progress().coerceIn(0f, 1f)
             if (amount >= 1f) {

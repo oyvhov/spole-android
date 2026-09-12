@@ -34,7 +34,7 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
                 else -> R.string.settings_menu_visible
             }), "menu-option-$name") { editing = name }
         } }
-        TextButton(onClick = { onChange(value.copy(menuOrder = DEFAULT_MENU, hiddenMenuItems = emptySet())) }) {
+        app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onChange(value.copy(menuOrder = DEFAULT_MENU, hiddenMenuItems = emptySet())) }) {
             Text(stringResource(R.string.tv_reset_menu))
         }
     }
@@ -46,10 +46,11 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
             onChange(value.copy(menuOrder = order.toMutableList().apply { removeAt(index); add(target, name) }))
         }
         AlertDialog(onDismissRequest = { editing = null }, title = { Text(label) },
-            confirmButton = { TextButton(onClick = { editing = null }) { Text(stringResource(R.string.action_close)) } },
+            confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { editing = null }) { Text(stringResource(R.string.action_close)) } },
             text = {
                 val editorFocus = remember { FocusRequester() }
-                LaunchedEffect(name) { withFrameNanos { }; editorFocus.requestFocus() }
+                val television = isTelevision()
+                LaunchedEffect(name) { if (television) { withFrameNanos { }; editorFocus.requestFocus() } }
                 Column(Modifier.heightIn(max = 300.dp).focusRequester(editorFocus).focusGroup().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (required) Text(stringResource(R.string.settings_menu_required), style = MaterialTheme.typography.bodyMedium)

@@ -184,7 +184,7 @@ private fun FacetChip(label: String, selected: String, values: List<String>, onS
         text = {
             LazyColumn {
                 items(listOf("") + values) { value ->
-                    TextButton(
+                    app.reelstack.ui.components.SpoleSecondaryButton(
                         onClick = { onSelect(value); open = false },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) { Text(value.ifBlank { all }) }
@@ -192,7 +192,7 @@ private fun FacetChip(label: String, selected: String, values: List<String>, onS
             }
         },
         confirmButton = {
-            TextButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) }
+            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) }
         },
     )
 }

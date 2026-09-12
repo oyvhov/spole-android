@@ -134,6 +134,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     var railEntryRequested by remember { mutableStateOf(false) }
     var moveIntoContent by remember { mutableStateOf(tvRail) }
     val contentFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    var contentHasFocus by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val selectTab: (AppTab) -> Unit = { tab ->
         pendingSearchFocus = false
@@ -224,7 +225,13 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     LaunchedEffect(personalization.visibleMenu()) {
         if (state.selectedTab.name !in personalization.visibleMenu()) selectTab(AppTab.HOME)
     }
-    LaunchedEffect(moveIntoContent, state.selectedTab, state.showOnboarding, state.libraryLoading) {
+    LaunchedEffect(state.isRefreshing) {
+        // Home replaces its header with the feature when the first library response arrives.
+        // Recover only an empty focus path, never move focus away from the remote's current target.
+        if (tvRail && !state.isRefreshing && !contentHasFocus && !tvRailFocused && state.activeSheet == null)
+            moveIntoContent = true
+    }
+    LaunchedEffect(moveIntoContent, state.selectedTab, state.showOnboarding, state.libraryLoading, state.isRefreshing) {
         if (tvRail && moveIntoContent && !state.showOnboarding && state.activeSheet == null) {
             kotlinx.coroutines.delay(240)
             if (runCatching { contentFocus.requestFocus() }.getOrDefault(false)) moveIntoContent = false
@@ -270,7 +277,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 )
                 }
             }
-            Box(Modifier.weight(1f).fillMaxSize().focusRequester(contentFocus).focusGroup()) {
+            Box(Modifier.weight(1f).fillMaxSize().focusRequester(contentFocus)
+                .onFocusChanged { contentHasFocus = it.hasFocus }.focusGroup()) {
             if (state.showOnboarding) {
                 WelcomeScreen(
                     state = state,
@@ -491,7 +499,7 @@ internal fun ReelstackNavigationRail(
             .clickable(interactionSource = brandInteraction, indication = androidx.compose.foundation.LocalIndication.current,
                 role = Role.Button, onClick = { onExpandedChange(!expanded) }) else Modifier)
             .padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.spole_mark), null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(Primary))
+            app.reelstack.ui.components.SpoleBrandMark(Modifier.size(28.dp))
             Text("Spole", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp)
                     .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})

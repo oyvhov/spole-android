@@ -150,8 +150,8 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                 val pressed by interaction.collectIsPressedAsState()
                 val focused by interaction.collectIsFocusedAsState()
                 val scale by animateFloatAsState(
-                    targetValue = if (focused) 1.08f else if (pressed) 0.965f else 1f,
-                    animationSpec = spring(stiffness = 380f, dampingRatio = 0.75f),
+                    targetValue = if (pressed && app.reelstack.ui.theme.LocalMotionEnabled.current) 0.985f else 1f,
+                    animationSpec = androidx.compose.animation.core.tween(120),
                     label = "library-grid-spring",
                 )
                 val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
@@ -179,6 +179,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                 }
                 val title: @Composable () -> Unit = {
                     Text(entry.title, color = MaterialTheme.colorScheme.onBackground,
+                        minLines = if (tv && !listView) 2 else 1,
                         maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                     if (!folders && entry.subtitle.isNotBlank()) Text(
                         app.reelstack.ui.components.episodeLine(entry.season, entry.episode, entry.subtitle),

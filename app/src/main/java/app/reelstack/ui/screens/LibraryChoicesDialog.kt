@@ -39,8 +39,8 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.library_manage), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-                    TextButton(onClick = { selected = state.libraryChoices.mapTo(mutableSetOf()) { it.id } }) { Text(stringResource(R.string.library_all)) }
-                    TextButton(onClick = { selected = emptySet() }) { Text(stringResource(R.string.library_none)) }
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { selected = state.libraryChoices.mapTo(mutableSetOf()) { it.id } }) { Text(stringResource(R.string.library_all)) }
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { selected = emptySet() }) { Text(stringResource(R.string.library_none)) }
                 }
                 Text(stringResource(R.string.library_choice_intro), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                 if (pinned.size > 1) {
@@ -119,14 +119,14 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
 private fun LibraryIconPicker(selected: LibraryIcon, onSelect: (LibraryIcon) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val names = stringArrayResource(R.array.library_icons)
-    TextButton(onClick = { open = true }, modifier = Modifier.testTag("library-icon")) {
+    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = true }, modifier = Modifier.testTag("library-icon")) {
         Icon(selected.vector(), null, Modifier.size(20.dp))
         Text(names[selected.ordinal], Modifier.padding(start = 8.dp))
     }
     if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.library_icon)) },
         text = { LazyColumn { items(LibraryIcon.entries) { icon ->
-            TextButton(onClick = { onSelect(icon); open = false }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onSelect(icon); open = false }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 Icon(icon.vector(), null); Text(names[icon.ordinal], Modifier.weight(1f).padding(start = 16.dp))
             }
-        } } }, confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) } })
+        } } }, confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) } })
 }

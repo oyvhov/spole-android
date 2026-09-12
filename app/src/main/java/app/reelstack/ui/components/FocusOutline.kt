@@ -31,7 +31,8 @@ internal fun mediaCardIndication(): androidx.compose.foundation.Indication? {
 @Composable
 internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow: Boolean = true): Modifier {
     val focused by source.collectIsFocusedAsState()
-    val alphaState = animateFloatAsState(if (focused) 1f else 0f, tween(140), label = "focus-outline")
+    val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
+    val alphaState = animateFloatAsState(if (focused) 1f else 0f, tween(if (motion) 140 else 0), label = "focus-outline")
     val style = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle
     val color = if (style == app.reelstack.data.model.FocusStyle.ACCENT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     val strokeWidthDp = if (style == app.reelstack.data.model.FocusStyle.BOLD) 4.5.dp else 2.5.dp
@@ -47,7 +48,7 @@ internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow
 
         onDrawWithContent {
             val alpha = alphaState.value
-            if (glow && alpha > 0.001f) {
+            if (glow && motion && alpha > 0.001f) {
                 drawOutline(
                     outline = outline,
                     brush = SolidColor(Color.Black.copy(alpha = 0.65f * alpha)),

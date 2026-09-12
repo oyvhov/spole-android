@@ -91,7 +91,7 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                 Text(stringResource(R.string.update_banner_hint), style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = model::open) { Text(stringResource(R.string.update_view)) }
-                    TextButton(onClick = model::later) { Text(stringResource(R.string.update_later)) }
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = model::later) { Text(stringResource(R.string.update_later)) }
                 }
             }
         }
@@ -113,7 +113,7 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                         Text(stringResource(R.string.update_title), style = MaterialTheme.typography.headlineSmall)
                         Text("Spole ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    TextButton(onClick = model::close) { Text(stringResource(R.string.update_close)) }
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = model::close) { Text(stringResource(R.string.update_close)) }
                 }
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     state.release?.let { release ->

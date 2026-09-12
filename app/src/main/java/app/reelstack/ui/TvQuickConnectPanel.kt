@@ -34,7 +34,7 @@ internal fun TvQuickConnectPanel(draft: ConnectionDraft) {
                 if (draft.quickConnectWaiting) R.string.quick_waiting else R.string.quick_finishing),
                 color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
             draft.quickConnectCode?.let { code ->
-                TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true },
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true },
                     interactionSource = interaction,
                     modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(24.dp))) {
                     Text(stringResource(if (copied) R.string.quick_copied else R.string.quick_copy))

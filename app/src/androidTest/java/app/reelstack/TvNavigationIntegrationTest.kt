@@ -32,14 +32,18 @@ class TvNavigationIntegrationTest {
             container.preferencesRepository.personalization = Personalization()
             lateinit var model: ReelstackViewModel
             instrumentation.runOnMainSync { model = ReelstackViewModel(container); store.put("navigation", model) }
-            rule.setContent { ReelstackTheme { ReelstackApp(model) } }
+            rule.setContent {
+                val mode = androidx.compose.ui.platform.LocalInputModeManager.current
+                androidx.compose.runtime.SideEffect { mode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+                ReelstackTheme { ReelstackApp(model) }
+            }
             rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
             rule.onNodeWithTag("wide-tab-HOME").assertIsNotFocused()
             val railTabs = hasTestTag("wide-tab-HOME") or hasTestTag("wide-tab-LIBRARY") or
                 hasTestTag("wide-tab-DISCOVER") or hasTestTag("wide-tab-ACTIVITY") or hasTestTag("wide-tab-SETTINGS")
             repeat(5) {
                 if (rule.onAllNodes(railTabs and isFocused()).fetchSemanticsNodes().isEmpty())
-                    rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionLeft) }
+                    rule.onRoot().performKeyInput { pressKey(Key.DirectionLeft) }
             }
             rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(200.dp)
             rule.onNode(railTabs and isFocused()).assertExists()

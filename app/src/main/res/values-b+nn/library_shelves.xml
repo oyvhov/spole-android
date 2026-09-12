@@ -30,8 +30,8 @@
     <string name="theme_season_none">Heile året</string>
     <string name="theme_season_christmas">Jul</string>
     <string name="theme_season_halloween">Halloween</string>
-    <string name="theme_ornament">Snø og glør</string>
-    <string name="theme_ornament_hint">Ei roleg drift over framsidefeltet. Stoppar av seg sjølv når systemet har skrudd ned animasjonar.</string>
+    <string name="theme_ornament">Sesongpynt</string>
+    <string name="theme_ornament_hint">Nisselue, julelys og snø – eller spøkelse, edderkoppar og spindelvev. Rørslene stoppar med redusert animasjon og Lett TV-modus.</string>
     <string name="player_next_episode">Neste episode</string>
     <string name="player_next_play">Spel no</string>
     <string name="player_next_cancel">Avbryt (%1$d)</string>

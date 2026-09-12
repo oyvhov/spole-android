@@ -73,7 +73,7 @@ internal fun NavigationOptions(value: Personalization, showHeader: Boolean = tru
             PreferenceToggle(R.string.tv_show_quality, value.showQuality, "show-quality") { onChange(value.copy(showQuality = it)) }
             PreferenceToggle(R.string.tv_slow_startup, value.slowStartup, "slow-startup") { onChange(value.copy(slowStartup = it)) }
             }
-            TextButton(onClick = { onChange(value.copy(menuOrder = DEFAULT_MENU, hiddenMenuItems = emptySet())) }) {
+            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onChange(value.copy(menuOrder = DEFAULT_MENU, hiddenMenuItems = emptySet())) }) {
                 Text(stringResource(R.string.tv_reset_menu))
             }
         }

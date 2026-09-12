@@ -1,5 +1,7 @@
 package app.reelstack.ui.components
 
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -99,6 +101,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val featureIntoView = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    LaunchedEffect(focused, television) {
+        if (focused && television) featureIntoView.bringIntoView()
+    }
     val compactTelevision = television && density.fontScale < 1.5f
     val featureInteraction = remember { MutableInteractionSource() }
     val actionInteraction = remember { MutableInteractionSource() }
@@ -114,6 +120,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val titleSize = if (compactTelevision) TV_TITLE_SIZE else TITLE_SIZE
     val titleLineHeight = if (compactTelevision) TV_TITLE_LINE_HEIGHT else TITLE_LINE_HEIGHT
     Box(modifier.fillMaxWidth().then(featureSize)
+        .bringIntoViewRequester(featureIntoView)
         .onFocusChanged {
             focused = it.hasFocus
             onFocusWithin(it.hasFocus)
@@ -139,7 +146,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         .testTag("tablet-library-feature")) {
         Box(Modifier.matchParentSize()) {
             // Keep the three bounded image requests alive so the next slide is already decoded.
-            titles.forEach { title ->
+            (if (motion) titles else listOf(selected)).forEach { title ->
               key(title.id) {
                 val opacity by animateFloatAsState(if (title.id == selected.id) 1f else 0f,
                     tween(800), label = "feature-artwork-${title.id}")
@@ -161,7 +168,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             vertical = if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
             horizontal = 28.dp,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
-          Crossfade(selected, animationSpec = tween(800), label = "feature-caption") { title ->
+          Crossfade(selected, animationSpec = tween(if (motion) 800 else 0), label = "feature-caption") { title ->
            Column(verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ServiceLogo(title.source, null, Modifier.size(22.dp))

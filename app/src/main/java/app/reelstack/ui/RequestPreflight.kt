@@ -37,7 +37,7 @@ internal fun RequestPreflight(draft: RequestDraft, onRetry: () -> Unit) {
         }
         if (draft.quotaExceeded) Text(stringResource(if (draft.media.mediaType == "tv") R.string.rules_exceeded else R.string.rules_movie_exhausted), color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("request-quota-exceeded"))
-        if (quota == null || draft.quotaExceeded) TextButton(onClick = onRetry, enabled = !draft.sending && draft.savingWatch == null) {
+        if (quota == null || draft.quotaExceeded) app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry, enabled = !draft.sending && draft.savingWatch == null) {
             Text(stringResource(R.string.rules_recheck))
         }
     }

@@ -1,0 +1,8 @@
+<resources>
+    <string name="settings_mobile_appearance_hint">Themes, Christmas and Halloween, colours and language.</string>
+    <string name="settings_season_title">Seasonal theme</string>
+    <string name="season_christmas_greeting">Merry Christmas</string>
+    <string name="season_christmas_note">Find your Christmas film.</string>
+    <string name="season_halloween_greeting">Happy Halloween</string>
+    <string name="season_halloween_note">Time for a spooky film night.</string>
+</resources>

@@ -96,7 +96,7 @@ internal fun TextColumnButton(
     enabled: Boolean = true,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
-    TextButton(
+    app.reelstack.ui.components.SpoleSecondaryButton(
         onClick = onClick,
         modifier = modifier.offset(x = (-12).dp),
         enabled = enabled,

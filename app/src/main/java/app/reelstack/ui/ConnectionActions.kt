@@ -27,7 +27,7 @@ import app.reelstack.ui.theme.*
 internal fun ConnectionTextAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, warning: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
-    TextButton(onClick, enabled = enabled, interactionSource = interaction,
+    app.reelstack.ui.components.SpoleSecondaryButton(onClick, enabled = enabled, interactionSource = interaction,
         colors = ButtonDefaults.textButtonColors(contentColor = if (warning) Warning else Primary),
         modifier = modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(24.dp))) {
         Text(label)

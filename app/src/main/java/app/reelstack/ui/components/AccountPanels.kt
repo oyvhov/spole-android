@@ -166,7 +166,7 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
 @Composable
 private fun AccountAction(onClick: () -> Unit, label: String, source: ServiceKind) {
     val spokenLabel = stringResource(R.string.flow_service_action, label, source.displayName)
-    TextButton(
+    app.reelstack.ui.components.SpoleSecondaryButton(
         onClick = onClick,
         modifier = Modifier.heightIn(min = 48.dp).semantics {
             contentDescription = spokenLabel
@@ -228,7 +228,7 @@ fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit) {
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    TextButton(onClick = onSignIn, modifier = Modifier.heightIn(min = 48.dp)) {
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = onSignIn, modifier = Modifier.heightIn(min = 48.dp)) {
                         Text(if (hasError) stringResource(R.string.flow_retry) else stringResource(R.string.flow_jellyfin_login), fontSize = 13.sp, lineHeight = 18.sp)
                     }
                 }

@@ -1,5 +1,7 @@
 package app.reelstack.player
 
+import app.reelstack.ui.components.focusOutline
+
 import androidx.compose.ui.res.stringResource
 import app.reelstack.R
 import android.content.Context
@@ -162,6 +164,7 @@ fun PlayerScreen(
 ) {
     val videoFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
+    val nextFocus = remember { FocusRequester() }
     var consumedRemoteKey by remember { mutableIntStateOf(-1) }
     val showControlsLabel = stringResource(R.string.player_show_controls)
     var controls by remember { mutableStateOf(true) }
@@ -175,6 +178,7 @@ fun PlayerScreen(
     val accessibility = LocalAccessibilityManager.current
     val canHide = state.playing && !state.busy && state.error == null && !state.ended && !state.awaitingResume
     val showControls = controls || !canHide || menu != null
+    val showNextOffer = state.showNextEpisodeOffer() && menu == null && !scrubbing
     val latestShown by rememberUpdatedState(showControls)
     val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null)
     LaunchedEffect(canHide) { if (!canHide) controls = true }
@@ -184,14 +188,16 @@ fun PlayerScreen(
             controls = false
         }
     }
-    LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu) {
+    LaunchedEffect(isTelevision, showControls, showNextOffer, state.busy, state.browsing, state.awaitingResume, state.error, menu) {
         if (isTelevision && menu == null && !state.browsing) {
-            if (!showControls) videoFocus.requestFocus()
+            if (showNextOffer) nextFocus.requestFocus()
+            else if (!showControls) videoFocus.requestFocus()
             else if (!state.busy && !state.awaitingResume && state.error == null) playFocus.requestFocus()
         }
     }
     BackHandler {
         if (menu != null) menu = null
+        else if (showNextOffer && (!state.ended || state.nextEpisodeCountdown != null)) onCancelNextEpisode()
         else if (isTelevision && showControls && canHide) controls = false
         else onClose()
     }
@@ -221,7 +227,7 @@ fun PlayerScreen(
             }
             interaction++
             if (native.repeatCount > 0 && consumedRemoteKey == native.keyCode) return@onPreviewKeyEvent true
-            val action = remotePlaybackAction(key, showControls, state.playing,
+            val action = remotePlaybackAction(key, showControls || showNextOffer, state.playing,
                 state.busy || state.browsing || state.awaitingResume || state.error != null || menu != null)
             if (action == RemotePlaybackAction.DEFAULT) return@onPreviewKeyEvent false
             consumedRemoteKey = native.keyCode
@@ -311,10 +317,10 @@ fun PlayerScreen(
                             }
                         }
                     }
-                    if (state.hasMore && !state.busy) item { TextButton(onClick = onMore) { Text(stringResource(R.string.action_more)) } }
+                    if (state.hasMore && !state.busy) item { app.reelstack.ui.components.SpoleSecondaryButton(onClick = onMore) { Text(stringResource(R.string.action_more)) } }
                     if (state.choices.isEmpty() && !state.busy && state.error == null) item { Text(stringResource(R.string.player_no_episodes)) }
                     if (state.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                    state.error?.let { error -> item { Text(error); TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) } } }
+                    state.error?.let { error -> item { Text(error); app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) } } }
                 }
             }
         } else {
@@ -337,8 +343,9 @@ fun PlayerScreen(
                 // Android TV asks every app to keep.
                 .then(if (isTelevision) Modifier.padding(horizontal = 48.dp, vertical = 27.dp) else Modifier)) {
                 if (showControls) PlayerHeader(state.title, state.subtitleLine(), onClose, showBack = !isTelevision)
-                NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode)
-                SkipSegmentButton(state, onSkipSegment)
+                if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
+                    Modifier.align(Alignment.End))
+                if (!showNextOffer) SkipSegmentButton(state, onSkipSegment)
             AnimatedVisibility(visible = showControls, enter = fadeIn(tween(90)), exit = fadeOut(tween(140)),
                 modifier = Modifier.weight(1f).testTag("player-controls")) {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -348,14 +355,14 @@ fun PlayerScreen(
                     if (state.awaitingResume) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Button(onClick = { onResume(false) }) { Text(stringResource(R.string.player_resume, playbackTime(state.positionMs))) }
-                            TextButton(onClick = { onResume(true) }) { Text(stringResource(R.string.player_restart)) }
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onResume(true) }) { Text(stringResource(R.string.player_restart)) }
                         }
                     } else if (state.error != null) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(app.reelstack.ui.components.SpoleIcons.Alert, null, tint = MaterialTheme.colorScheme.error)
                             Text(state.error, modifier = Modifier.padding(vertical = 12.dp))
                             Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
-                            TextButton(onClick = onExternal) { Text(stringResource(R.string.player_external)) }
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onExternal) { Text(stringResource(R.string.player_external)) }
                         }
                     } else {
                         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
@@ -422,10 +429,10 @@ fun PlayerScreen(
                             Text(playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs)); Text(playbackTime(state.durationMs))
                         }
                         FlowRow(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Sound, null); Text(stringResource(R.string.player_audio)) }
-                            TextButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Subtitles, null); Text(stringResource(R.string.player_subtitles_button)) }
-                            TextButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Tune, null); Text(stringResource(R.string.player_quality)) }
-                            TextButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.testTag("player-frame-mode")) {
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Sound, null); Text(stringResource(R.string.player_audio)) }
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Subtitles, null); Text(stringResource(R.string.player_subtitles_button)) }
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Tune, null); Text(stringResource(R.string.player_quality)) }
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.testTag("player-frame-mode")) {
                                 Icon(if (fillVideo) app.reelstack.ui.components.SpoleIcons.Contract else app.reelstack.ui.components.SpoleIcons.Expand, null)
                                 Text(stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill))
                             }
@@ -453,7 +460,7 @@ fun PlayerScreen(
                     Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState())) {
                         options.forEach { (id, label) ->
                             val selected = id == when (title) { PlayerMenu.AUDIO -> state.audioIndex; PlayerMenu.SUBTITLES -> state.subtitleIndex; else -> state.quality }
-                            TextButton(onClick = {
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = {
                                 when (title) { PlayerMenu.AUDIO -> onAudio(id); PlayerMenu.SUBTITLES -> onSubtitle(id); else -> onQuality(id) }
                                 menu = null; interaction++
                             }, modifier = Modifier.fillMaxWidth()) {
@@ -462,7 +469,7 @@ fun PlayerScreen(
                             }
                         }
                     }
-                }, confirmButton = { TextButton(onClick = { menu = null }) { Text(stringResource(R.string.action_close)) } })
+                }, confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = null }) { Text(stringResource(R.string.action_close)) } })
         }
     }
     }
@@ -573,50 +580,50 @@ internal fun TimelineThumbnailPreview(
     }
 }
 
-/**
- * What comes next, offered the moment an episode finishes.
- *
- * A series that stops dead on a black frame is the one thing every streaming service learned not to
- * do, and Spole was doing it: the episode ended, the controls came back, and the only way on was to
- * leave the player and find the next one by hand. The card is loaded while the current episode is
- * still playing, so it appears immediately.
- *
- * Twelve seconds is long enough to read the title and decide; anything the viewer does — Cancel,
- * Play now, or closing the player — takes precedence over the clock. Once cancelled, the offer
- * stays but the countdown is gone for good, because a timer that restarts itself after being
- * dismissed is a timer nobody can get rid of.
- */
+/** The offer is independent of the transport controls; it never cuts the current episode short. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCancel: () -> Unit) {
+private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCancel: () -> Unit,
+    focus: FocusRequester, modifier: Modifier = Modifier) {
     val next = state.nextEpisode ?: return
-    if (!state.ended) return
-    val focus = remember(next.id) { FocusRequester() }
-    LaunchedEffect(next.id) { androidx.compose.runtime.withFrameNanos { }; runCatching { focus.requestFocus() } }
-    Row(
-        Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(18.dp))
-            .background(Color.Black.copy(alpha = .72f)).padding(18.dp).testTag("player-next-episode"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary)
-            Text(
-                app.reelstack.ui.components.episodeLine(next.season, next.episode, next.subtitle),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-        state.nextEpisodeCountdown?.let {
-            TextButton(onClick = onCancel, modifier = Modifier.testTag("player-next-cancel")) {
-                Text(stringResource(R.string.player_next_cancel, it))
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val shape = RoundedCornerShape(14.dp)
+    Surface(modifier.widthIn(max = 480.dp).fillMaxWidth().padding(top = 12.dp)
+        .testTag("player-next-episode"), shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(app.reelstack.ui.components.SpoleIcons.Screen, null, Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(next.title, style = MaterialTheme.typography.titleLarge, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                    Text(app.reelstack.ui.components.episodeLine(next.season, next.episode, next.subtitle),
+                        style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        }
-        Button(onClick = onPlay, modifier = Modifier.focusRequester(focus).testTag("player-next-play")) {
-            Icon(app.reelstack.ui.components.SpoleIcons.Play, null, Modifier.size(18.dp))
-            Text(stringResource(R.string.player_next_play), Modifier.padding(start = 8.dp))
+            state.nextEpisodeCountdown?.let {
+                Text(stringResource(R.string.next_episode_countdown, it),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onPlay, shape = shape, interactionSource = interaction,
+                    modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus)
+                        .focusOutline(interaction, shape, glow = false).testTag("player-next-play")) {
+                    Icon(app.reelstack.ui.components.SpoleIcons.Play, null, Modifier.size(20.dp))
+                    Text(stringResource(R.string.player_next_play), Modifier.padding(start = 8.dp))
+                }
+                if (!state.ended || state.nextEpisodeCountdown != null) {
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = onCancel,
+                        modifier = Modifier.testTag("player-next-cancel")) {
+                        Text(stringResource(if (state.ended) R.string.next_episode_cancel else R.string.next_episode_dismiss))
+                    }
+                }
+            }
         }
     }
 }

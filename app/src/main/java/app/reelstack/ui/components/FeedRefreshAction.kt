@@ -23,7 +23,7 @@ internal fun FeedRefreshAction(status: String, refreshing: Boolean, onRefresh: (
     val interaction = remember { MutableInteractionSource() }
     Column(modifier) {
         Text(status, color = Muted)
-        TextButton(
+        app.reelstack.ui.components.SpoleSecondaryButton(
             onClick = { if (!refreshing) onRefresh() },
             interactionSource = interaction,
             modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, CircleShape)

@@ -153,7 +153,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 }
                 draft.watchError?.let {
                     Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 12.dp))
-                    TextButton(onClick = onRetry, enabled = !busy) { Text(stringResource(R.string.flow_recheck)) }
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry, enabled = !busy) { Text(stringResource(R.string.flow_recheck)) }
                 }
                 }
             }
@@ -182,7 +182,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             }
             draft.error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 14.dp))
-                TextButton(onClick = onRetry, enabled = !draft.sending) { Text(stringResource(R.string.flow_recheck)) }
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry, enabled = !draft.sending) { Text(stringResource(R.string.flow_recheck)) }
             }
             Spacer(Modifier.height(18.dp))
         }
@@ -190,7 +190,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             if (state.configuredCount == 0) Text(stringResource(R.string.flow_preview), color = Muted,
                 fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(bottom = 10.dp))
             if (isSeries && ready && draft.error == null && (!canAdd || draft.seasons.none { it.canRequest })) {
-                TextButton(onClick = onDismiss, enabled = !draft.sending, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) { Text(stringResource(R.string.flow_done)) }
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onDismiss, enabled = !draft.sending, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) { Text(stringResource(R.string.flow_done)) }
             } else Button(onClick = {
                 if (draft.notify && state.notificationsEnabled && state.configuredCount > 0 && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context))
                     permission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -269,6 +269,7 @@ fun TrackedRequestCard(
                   }
                   Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp,
                       lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
+                      minLines = if (app.reelstack.ui.components.isTelevision()) 2 else 1,
                       overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                       modifier = Modifier.padding(top = 12.dp, start = 2.dp, end = 2.dp))
                   Text(
@@ -303,7 +304,7 @@ fun TrackedRequestCard(
             if (showActions && item.availabilityOnly) {
                 if (active) Text(stringResource(R.string.flow_watching_note), color = Muted, fontSize = 12.sp,
                     lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 12.dp))
-                TextButton(onClick = onCancel, enabled = !cancelling,
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onCancel, enabled = !cancelling,
                     modifier = Modifier.padding(start = 4.dp).testTag("remove-watch-${item.key}")) {
                     Text(if (cancelling) stringResource(R.string.flow_removing) else stringResource(R.string.flow_unfollow))
                 }
@@ -311,12 +312,12 @@ fun TrackedRequestCard(
                 // Withdrawing is only offered once Seerr has given the request an id: without it
                 // there is nothing to withdraw, and a dead button would be worse than none.
                 if (item.requestId != null) {
-                    TextButton(onClick = { options = !options }, modifier = Modifier.testTag("request-options-${item.key}")) {
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { options = !options }, modifier = Modifier.testTag("request-options-${item.key}")) {
                         Text(stringResource(if (options) R.string.activity_less_options else R.string.activity_more_options))
                     }
                 }
                 if (item.requestId != null && options) {
-                    TextButton(
+                    app.reelstack.ui.components.SpoleSecondaryButton(
                         onClick = { confirmCancel = true },
                         enabled = !cancelling,
                         modifier = Modifier.padding(start = 4.dp, bottom = 4.dp).testTag("cancel-request-${item.key}"),
@@ -345,11 +346,11 @@ fun TrackedRequestCard(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { confirmCancel = false; onCancel() }) {
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = { confirmCancel = false; onCancel() }) {
                     Text(stringResource(R.string.flow_withdraw), color = Warning)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text(stringResource(R.string.flow_keep)) } },
+            dismissButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { confirmCancel = false }) { Text(stringResource(R.string.flow_keep)) } },
             containerColor = SurfaceRaised,
             shape = RoundedCornerShape(28.dp),
         )

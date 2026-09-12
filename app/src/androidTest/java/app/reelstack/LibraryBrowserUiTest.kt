@@ -19,6 +19,7 @@ class LibraryBrowserUiTest {
         var opened = ""
         var more = false
         val state = ReelstackUiState(connections = listOf(connection), libraryHasMore = true,
+            libraryPath = listOf("root" to "Bibliotek"),
             libraryEntries = listOf(RemoteLibraryItem("movies", "Filmar", "", null, "CollectionFolder", null, isFolder = true)))
         rule.setContent { ReelstackTheme { LibraryScreen(state, { more = it }, { opened = it }, {}) } }
         rule.onNodeWithTag("library-item-movies").performClick()
@@ -29,6 +30,7 @@ class LibraryBrowserUiTest {
     @Test fun pageFailureKeepsExistingItemsAndRetriesTheSamePage() {
         var more = false
         val state = ReelstackUiState(connections = listOf(connection), libraryHasMore = true, libraryError = "Offline",
+            libraryPath = listOf("root" to "Bibliotek"),
             libraryEntries = listOf(RemoteLibraryItem("movies", "Filmar", "", null, "CollectionFolder", null, isFolder = true)))
         rule.setContent { ReelstackTheme { LibraryScreen(state, { more = it }, {}, {}) } }
         rule.onNodeWithTag("library-item-movies").assertIsDisplayed()

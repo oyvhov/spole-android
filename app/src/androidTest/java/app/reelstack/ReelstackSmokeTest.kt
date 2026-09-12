@@ -84,6 +84,7 @@ class ReelstackSmokeTest {
     @Test
     fun jellyfinEditorOffersQuickConnectAndAccountLogin() {
         composeRule.onNodeWithText("Innstillingar").performClick()
+        composeRule.onNodeWithTag("settings-category-ACCOUNTS").performScrollTo().performClick()
         composeRule.onNode(hasText("Jellyfin") and hasClickAction()).performScrollTo().performClick()
 
         composeRule.onNodeWithText("Tenaradresse").performTextInput("https://media.example.com")
@@ -101,27 +102,18 @@ class ReelstackSmokeTest {
     fun homeSectionsCanBeEditedInSettings() {
         composeRule.onNodeWithText("Innstillingar").performClick()
 
-        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Spole"))
-        composeRule.onNodeWithText("Spole").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Heimskjerm"))
-        composeRule.onNodeWithText("Heimskjerm").assertIsDisplayed()
-
-        // The per-library switches live inside "Tilpass framsida", which starts collapsed. Asking
-        // for them without opening the group first is what made this test fail after 0.13.3
-        // grouped the home preferences: the rows are not off-screen, they do not exist yet.
-        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Tilpass framsida"))
+        composeRule.onNodeWithTag("settings-category-HOME").performScrollTo().performClick()
         composeRule.onNodeWithText("Emby · Filmar").assertDoesNotExist()
-        composeRule.onNodeWithText("Tilpass framsida").performClick()
+        composeRule.onNodeWithTag("tv-home-rows").performScrollTo().performClick()
 
-        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Emby · Filmar"))
-        composeRule.onNodeWithText("Emby · Filmar").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings-feed").performScrollToNode(hasText("Emby · Seriar"))
-        composeRule.onNodeWithText("Emby · Seriar").assertIsDisplayed()
+        composeRule.onNodeWithText("Emby · Filmar").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Emby · Seriar").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun seerrOffersJellyfinAccountAndQuickConnect() {
         composeRule.onNodeWithText("Innstillingar").performClick()
+        composeRule.onNodeWithTag("settings-category-ACCOUNTS").performScrollTo().performClick()
         composeRule.onNode(hasText("Seerr") and hasClickAction()).performScrollTo().performClick()
         composeRule.onNodeWithText("Tenaradresse").performTextInput("https://seerr.example.com")
         composeRule.onNodeWithText("Hald fram").performClick()

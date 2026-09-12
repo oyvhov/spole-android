@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.0-alpha20 · Stødig TV-navigasjon, ryddige innstillingar og sesongpynt
+
+- Framsida på TV har rolegare fokus og rulling oppover, jamnare kortrader og tydelegare knappar.
+- Neste episode kan visast før episoden er slutt. Vel tidspunkt, automatisk avspeling og ventetid under Avspeling.
+- Lett TV-modus reduserer animasjonar og biletlaga i toppfeltet.
+- Mobilinnstillingane er samla i sju kategoriar med same utforming på val, brytarar og knappar.
+- Sesongtema er lettare å finne under Utsjånad. Jul har nisselue på logoen, lys, granbar og snø. Halloween har spøkelse, edderkoppar og spindelvev. Sesongpynt kan slåast av; lettmodus bevarer statisk pynt.
+
+
 ## 0.16.0-alpha19 · Biblioteket som ei side, og ein mobil som ligg rett
 
 - Ein serie opnar tittelsida si i staden for eit rutenett av sesongplakatar. Sida viser sesongane, episodane med eige stillbilete, lengd og framdrift, og «Spel av» peiker på den episoden tenaren seier kjem neste.

@@ -39,7 +39,7 @@ internal fun TvWelcomeScreen(state: ReelstackUiState, onConnect: (ServiceKind) -
         val introduction: @Composable () -> Unit = {
             Column(Modifier.padding(end = if (wide) 24.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Image(painterResource(R.drawable.spole_mark), null, Modifier.size(40.dp))
+                    app.reelstack.ui.components.SpoleBrandMark(Modifier.size(40.dp))
                     Text("Spole", color = MaterialTheme.colorScheme.onSurface, fontSize = 26.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(stringResource(if (ready) R.string.welcome_title_ready else R.string.welcome_title),

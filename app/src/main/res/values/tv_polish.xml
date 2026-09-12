@@ -1,0 +1,14 @@
+<resources>
+    <string name="next_episode_offer_hint">Show a quiet card before the episode ends.</string>
+    <string name="next_episode_lead">Show before the end</string>
+    <string name="next_episode_at_end">When the episode ends</string>
+    <string name="next_episode_seconds">%1$d seconds</string>
+    <string name="next_episode_auto">Play next automatically</string>
+    <string name="next_episode_auto_hint">Wait for the episode to finish, then count down. You can cancel.</string>
+    <string name="next_episode_delay">Wait after the end</string>
+    <string name="next_episode_dismiss">Keep watching</string>
+    <string name="next_episode_countdown">Starts in %1$d seconds</string>
+    <string name="next_episode_cancel">Cancel automatic start</string>
+    <string name="tv_lightweight">Lightweight TV mode</string>
+    <string name="tv_lightweight_hint">For slower TVs: still hero artwork, without image transitions, glow or seasonal motion.</string>
+</resources>

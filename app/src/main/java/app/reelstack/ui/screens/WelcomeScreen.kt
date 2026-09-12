@@ -108,7 +108,7 @@ fun WelcomeScreen(
         }
         item {
             // A disclosure for an optional path, so it stays quieter than connecting a server.
-            TextButton(onClick = { advancedServices = !advancedServices },
+            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { advancedServices = !advancedServices },
                 colors = ButtonDefaults.textButtonColors(contentColor = Muted),
                 modifier = Modifier.heightIn(min = 48.dp)) {
                 Icon(if (advancedServices) app.reelstack.ui.components.SpoleIcons.ChevronUp else app.reelstack.ui.components.SpoleIcons.ChevronDown,
@@ -125,7 +125,7 @@ fun WelcomeScreen(
                 }
             } else {
                 // Demo is a fallback, so it stays quieter than connecting a real server.
-                TextButton(onClick = onContinue,
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onContinue,
                     colors = ButtonDefaults.textButtonColors(contentColor = Muted),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 10.dp)) {
                     Text(stringResource(R.string.welcome_demo), fontSize = 13.sp, lineHeight = 18.sp)

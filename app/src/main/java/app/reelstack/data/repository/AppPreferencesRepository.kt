@@ -36,6 +36,11 @@ class AppPreferencesRepository(context: Context) {
             accent = app.reelstack.data.model.AccentPalette.decode(preferences.getString("accent_palette", null)),
             artworkSize = app.reelstack.data.model.ArtworkSize.decode(preferences.getString("artwork_size", null)),
             autoResume = preferences.getBoolean("auto_resume", true),
+            showNextEpisode = preferences.getBoolean("show_next_episode", true),
+            nextEpisodeLeadSeconds = preferences.getInt("next_episode_lead", 60).coerceIn(0, 300),
+            autoPlayNextEpisode = preferences.getBoolean("auto_play_next_episode", true),
+            nextEpisodeDelaySeconds = preferences.getInt("next_episode_delay", 12).coerceIn(5, 60),
+            lightweightTv = preferences.getBoolean("lightweight_tv", false),
             sidebarExpanded = if (preferences.contains("sidebar_expanded")) preferences.getBoolean("sidebar_expanded", true) else null,
             menuOrder = preferences.getString("menu_order", null)?.split(',') ?: app.reelstack.data.model.DEFAULT_MENU,
             hiddenMenuItems = preferences.getStringSet("menu_hidden", emptySet()).orEmpty().toSet(),
@@ -55,6 +60,11 @@ class AppPreferencesRepository(context: Context) {
             putString("accent_palette", value.accent.name)
             putString("artwork_size", value.artworkSize.name)
             putBoolean("auto_resume", value.autoResume)
+            putBoolean("show_next_episode", value.showNextEpisode)
+            putInt("next_episode_lead", value.nextEpisodeLeadSeconds.coerceIn(0, 300))
+            putBoolean("auto_play_next_episode", value.autoPlayNextEpisode)
+            putInt("next_episode_delay", value.nextEpisodeDelaySeconds.coerceIn(5, 60))
+            putBoolean("lightweight_tv", value.lightweightTv)
             value.sidebarExpanded?.let { putBoolean("sidebar_expanded", it) } ?: remove("sidebar_expanded")
             putString("menu_order", value.menuOrder.joinToString(","))
             putStringSet("menu_hidden", value.hiddenMenuItems - setOf("HOME", "SETTINGS"))
@@ -76,7 +86,8 @@ class AppPreferencesRepository(context: Context) {
             if (key in setOf("accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "menu_order", "menu_hidden",
                     "show_next_up", "combine_continue", "show_hero", "show_ratings", "show_quality", "slow_startup",
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",
-                    "seasonal_ornament")) onChange(personalization)
+                    "seasonal_ornament", "show_next_episode", "next_episode_lead", "auto_play_next_episode",
+                    "next_episode_delay", "lightweight_tv")) onChange(personalization)
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         onChange(personalization)

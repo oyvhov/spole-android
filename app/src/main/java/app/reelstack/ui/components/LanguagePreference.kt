@@ -20,11 +20,13 @@ import app.reelstack.localization.AppLanguage
 import app.reelstack.localization.AppLanguages
 
 @Composable
-fun LanguagePreference() {
+fun LanguagePreference(compact: Boolean = false) {
     val context = LocalContext.current
     val selected = AppLanguages.selected(context)
     var expanded by rememberSaveable { mutableStateOf(false) }
-    Surface(onClick = { expanded = !expanded }, shape = RoundedCornerShape(24.dp),
+    if (compact) SettingsChoiceRow(stringResource(R.string.language_title), languageLabel(selected),
+        "language-picker") { expanded = true }
+    else Surface(onClick = { expanded = !expanded }, shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().testTag("language-picker")) {
         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -55,7 +57,7 @@ fun LanguagePreference() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
                 }
             },
-            confirmButton = { TextButton(onClick = { expanded = false }) { Text(stringResource(R.string.action_close)) } })
+            confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { expanded = false }) { Text(stringResource(R.string.action_close)) } })
     }
 }
 

@@ -73,10 +73,14 @@ class UiConsistencyTest {
             }
         }
         rule.onNodeWithText("Emby · Filmar").assertDoesNotExist()
-        rule.onNodeWithText("Tilpass framsida").performScrollTo().performClick()
+        rule.onNodeWithTag("settings-category-HOME").performScrollTo().performClick()
+        rule.onNodeWithTag("tv-home-rows").performScrollTo().performClick()
         rule.onNodeWithText("Emby · Filmar").performScrollTo().performClick()
         assertEquals(1, changes)
         assertEquals(HomeSection.EMBY_MOVIES, changedSection)
+        rule.onNodeWithText("Lukk").performClick()
+        rule.onNodeWithTag("settings-back").performClick()
+        rule.onNodeWithTag("settings-category-UPDATES").performScrollTo().performClick()
         rule.onNodeWithText("Bibliotekvarsel").performScrollTo().assertIsDisplayed()
     }
 }

@@ -792,7 +792,7 @@ private fun TrackChooser(label: String, tag: String, options: List<Pair<Int, Str
         text = {
             LazyColumn {
                 items(options) { (index, name) ->
-                    TextButton(
+                    app.reelstack.ui.components.SpoleSecondaryButton(
                         onClick = { onSelect(index); open = false },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("detail-$tag-$index"),
                     ) {
@@ -807,7 +807,7 @@ private fun TrackChooser(label: String, tag: String, options: List<Pair<Int, Str
             }
         },
         confirmButton = {
-            TextButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) }
+            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) }
         },
     )
 }
@@ -1486,7 +1486,7 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                         letterSpacing = 3.sp,
                         modifier = Modifier.padding(top = 10.dp),
                     )
-                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true }) {
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true }) {
                         Text(stringResource(if (copied) R.string.quick_copied else R.string.quick_copy))
                     }
                     Text(
