@@ -1,0 +1,73 @@
+<resources>
+    <string name="update_title">Appoppdateringer</string>
+    <string name="update_available">Spole %1$s er klar</string>
+    <string name="update_auto">Sjekk automatisk</string>
+    <string name="update_auto_hint">Se etter ny GitHub-utgave når appen åpnes, høyst to ganger daglig.</string>
+    <string name="update_previews">Testutgaver</string>
+    <string name="update_previews_hint">Ta med alpha, beta og forhåndsutgaver.</string>
+    <string name="update_banner_hint">Se hva som er nytt, og oppdater når det passer.</string>
+    <string name="update_view">Se oppdatering</string>
+    <string name="update_later">Senere</string>
+    <string name="update_close">Lukk</string>
+    <string name="update_size">Nedlasting · %1$.1f MB</string>
+    <string name="update_no_notes">Forbedringer og feilrettinger for Spole.</string>
+    <string name="update_intro">Oppdateringer kommer direkte fra de offisielle Spole-utgavene på GitHub.</string>
+    <string name="update_progress">Laster ned · %1$d%%</string>
+    <string name="update_cancel">Avbryt nedlasting</string>
+    <string name="update_install">Installer oppdatering</string>
+    <string name="update_download">Last ned oppdatering</string>
+    <string name="update_check">Sjekk nå</string>
+    <string name="update_install_hint">Kontoer og innstillinger bevares. Android ber deg godkjenne installasjonen.</string>
+    <string name="update_current">Ingen nyere kompatibel utgave er tilgjengelig på denne kanalen.</string>
+    <string name="update_network_error">Fikk ikke kontakt med GitHub eller fullført nedlastingen. Prøv igjen.</string>
+    <string name="update_invalid">Oppdateringen kunne ikke bekreftes. Ingenting ble installert.</string>
+    <string name="update_storage_error">Kunne ikke lagre oppdateringen. Sjekk ledig lagringsplass og prøv igjen.</string>
+    <string name="update_permission">Tillat at Spole installerer oppdateringer. Gå deretter tilbake og velg Installer oppdatering.</string>
+    <string name="update_install_error">Android kunne ikke åpne installasjonen. Sjekk installasjonstillatelsen og prøv igjen.</string>
+    <string name="update_access_error">Utgaven er utilgjengelig. Prøv igjen senere.</string>
+    <string name="update_rate_error">GitHub begrenser forespørsler. Vent litt før du sjekker igjen.</string>
+    <string name="library_choice_intro">Slå på bibliotekene du vil ha i Bibliotek, på Hjem og i søk. Legg de du bruker mest i sidemenyen.</string>
+    <plurals name="library_selected_count"><item quantity="one">%1$d valgt</item><item quantity="other">%1$d valgte</item></plurals>
+    <string name="library_icon">Menyikon</string>
+    <string name="library_filters">Filter og sortering</string>
+    <string name="library_reset">Tilbakestill</string>
+    <string name="library_search">Søk i dette biblioteket</string>
+    <string name="library_sort">Sorter etter</string>
+    <string name="library_watch_status">Visningsstatus</string>
+    <string name="library_favourites">Bare favoritter</string>
+    <string name="library_resolution">Videooppløsning</string>
+    <string name="library_genre">Sjanger (navnet i biblioteket, f.eks. Drama)</string>
+    <string name="library_year">Produksjonsår</string>
+    <string-array name="library_icons">
+        <item>Bibliotek</item>
+        <item>Filmer</item>
+        <item>Serier</item>
+        <item>Barn</item>
+        <item>Dokumentar</item>
+        <item>Musikk</item>
+        <item>Konserter</item>
+        <item>Animasjon</item>
+        <item>Sport</item>
+        <item>Favoritter</item>
+    </string-array>
+    <string-array name="library_sorts">
+        <item>Tittel</item>
+        <item>Dato lagt til</item>
+        <item>Årstall</item>
+        <item>Vurdering</item>
+        <item>Spilletid</item>
+        <item>Sist spilt</item>
+    </string-array>
+    <string-array name="library_watched">
+        <item>Alle</item>
+        <item>Ikke sett</item>
+        <item>Sett</item>
+        <item>Påbegynt</item>
+    </string-array>
+    <string-array name="library_resolutions">
+        <item>Alle</item>
+        <item>SD</item>
+        <item>HD / Full HD</item>
+        <item>4K</item>
+    </string-array>
+</resources>

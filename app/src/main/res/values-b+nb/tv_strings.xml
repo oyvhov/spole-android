@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_example_title">Slik ser en adresse ut</string>
+    <string name="login_example_use">Bruk</string>
+    <string name="login_example_detail">Bruk adressen du åpner %1$s med i nettleseren på samme nett. Utenfra bruker du din egen HTTPS-serveradresse.</string>
+    <string name="tv_setup_intro">Velg din tjeneste for å komme i gang. Du kan legge til flere senere.</string>
+    <string name="tv_setup_remote">Bruk piltastene for å velge og OK for å åpne. Tilbake lukker innloggingsvinduet.</string>
+    <string name="tv_setup_jellyfin">Bibliotek og avspilling · Quick Connect</string>
+    <string name="tv_setup_seerr">Finn filmer og serier · legg til med kontoen din</string>
+    <string name="tv_quick_steps">1. Åpne Jellyfin på mobilen og logg inn på samme server.\n2. Velg Quick Connect i brukermenyen.\n3. Skriv inn koden her. TV-en logger inn automatisk.</string>
+    <string name="tv_quick_ready">Logg inn med mobilen</string>
+    <string name="tv_quick_hint">Lag en kode og godkjenn den i Jellyfin på mobilen. Du slipper å skrive passord med fjernkontrollen.</string>
+</resources>

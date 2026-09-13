@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_timeline">Spolelinje · venstre eller høyre hopper ti sekunder</string>
+    <string name="tv_pin_library">Fest til sidemenyen</string>
+    <string name="tv_library_intro">Bibliotekene dine. Velg ett for å utforske.</string>
+    <string name="tv_library_empty">Ingen titler å vise. Sjekk bibliotekvalget i Innstillinger.</string>
+    <string name="tv_customize">Meny og innhold</string>
+    <string name="tv_move_up">Flytt %s opp</string>
+    <string name="tv_move_down">Flytt %s ned</string>
+    <string name="tv_next_up">Neste episode</string>
+    <string name="tv_combine_continue">Slå sammen Neste episode og Fortsett å se</string>
+    <string name="tv_show_hero">Vis stort tittelbilde på Hjem</string>
+    <string name="tv_show_ratings">Vis vurderinger i detaljer</string>
+    <string name="tv_show_quality">Vis bilde- og lydkvalitet i detaljer</string>
+    <string name="tv_slow_startup">Rolig oppstartsanimasjon</string>
+    <string name="tv_reset_menu">Tilbakestill menyen</string>
+    <string name="tv_resume">Fortsett</string>
+    <plurals name="tv_unresolved">
+        <item quantity="one">%d forespørsel venter på tittelinformasjon. Følgen din er bevart.</item>
+        <item quantity="other">%d forespørsler venter på tittelinformasjon. Følgene dine er bevart.</item>
+    </plurals>
+    <string name="tv_show_unresolved">Vis ufullstendige titler</string>
+    <string name="tv_hide_unresolved">Skjul ufullstendige titler</string>
+    <string name="tv_request_number">Forespørsel #%d</string>
+    <string name="tv_continue_combined">Se videre</string>
+    <string name="tv_rating">Vurdering</string>
+    <string name="tv_unavailable_status">Siste oppdatering er utilgjengelig</string>
+</resources>

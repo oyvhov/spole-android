@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rules_unknown">Seerr bekrefter kravet til godkjenning når du sender.</string>
+    <string name="rules_no_permission">Kontoen din kan ikke be om denne medietypen.</string>
+    <string name="rules_approval_required">Forespørselen trenger godkjenning fra en administrator før den kan gå videre.</string>
+    <string name="rules_automatic_approval">Kontoen din har automatisk godkjenning. Det betyr ikke at tittelen er klar til å ses.</string>
+    <string name="rules_unlimited">Seerr oppgir ingen forespørselskvote for denne medietypen.</string>
+    <string name="rules_quota_unknown">Kvoten er ukjent. Seerr kontrollerer kvoten når du sender.</string>
+    <string name="rules_exceeded">Valget overskrider den gjenværende kvoten. Velg færre sesonger eller sjekk kvoten igjen senere.</string>
+    <string name="rules_movie_exhausted">Filmkvoten din er brukt opp. Sjekk kvoten igjen senere.</string>
+    <string name="rules_no_period">Denne kvoten har ingen rullerende tidsperiode.</string>
+    <string name="rules_recheck">Sjekk status på nytt</string>
+    <plurals name="rules_movies_remaining">
+        <item quantity="one">%d filmforespørsel igjen</item>
+        <item quantity="other">%d filmforespørsler igjen</item>
+    </plurals>
+    <plurals name="rules_seasons_remaining">
+        <item quantity="one">%d sesong igjen</item>
+        <item quantity="other">%d sesonger igjen</item>
+    </plurals>
+    <plurals name="rules_period">
+        <item quantity="one">Seerr teller forespørsler den siste %d dagen.</item>
+        <item quantity="other">Seerr teller forespørsler de siste %d dagene.</item>
+    </plurals>
+</resources>

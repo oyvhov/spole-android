@@ -1,0 +1,4 @@
+<resources>
+    <string name="tv_hide_sidebar">Skjul sidemenyen</string>
+    <string name="tv_hide_sidebar_help">Trykk venstre fra kanten av innholdet for å åpne menyen. Høyre tar deg tilbake.</string>
+</resources>

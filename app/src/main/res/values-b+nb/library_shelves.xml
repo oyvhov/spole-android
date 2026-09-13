@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_action_failed">Kunne ikke lagre dette på serveren. Prøv igjen.</string>
+    <string name="library_menu_order">Rekkefølge i menyen</string>
+    <string name="library_remove_resume">Fjern fra Fortsett å se</string>
+    <string name="library_favourite_add">Legg til i favoritter</string>
+    <string name="library_favourite_remove">Fjern fra favoritter</string>
+    <string name="library_played_mark">Marker som sett</string>
+    <string name="library_played_unmark">Marker som usett</string>
+    <string name="library_card_hint">Hold inne et kort for flere valg</string>
+    <string name="library_card_options">Flere valg for %s</string>
+    <string name="detail_version">Versjon</string>
+    <string name="episode_short">Ep %1$d</string>
+    <string name="detail_minutes_left">%1$d min igjen</string>
+    <string name="detail_change">Endre</string>
+    <string name="detail_seasons_failed">Kunne ikke hente sesongene.</string>
+    <string name="detail_episodes_failed">Kunne ikke hente episodene.</string>
+    <plurals name="detail_season_episodes">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episoder</item>
+    </plurals>
+    <string name="detail_no_episodes">Ingen episoder her ennå.</string>
+    <string name="detail_minutes">%1$d min</string>
+    <string name="detail_loading_episodes">Henter episoder …</string>
+    <string name="theme_noel">Jul · grankveld</string>
+    <string name="theme_halloween">Halloween · aubergine</string>
+    <string name="theme_holly">Kristtorn</string>
+    <string name="theme_pumpkin">Gresskar</string>
+    <string name="theme_season">Sesong</string>
+    <string name="theme_season_none">Hele året</string>
+    <string name="theme_season_christmas">Jul</string>
+    <string name="theme_season_halloween">Halloween</string>
+    <string name="theme_ornament">Sesongpynt</string>
+    <string name="theme_ornament_hint">Nisselue, julelys og snø – eller spøkelser, edderkopper og spindelvev. Bevegelsene stopper med redusert animasjon og Lett TV-modus.</string>
+    <string name="player_next_episode">Neste episode</string>
+    <string name="player_next_play">Spill nå</string>
+    <string name="player_next_cancel">Avbryt (%1$d)</string>
+    <string name="player_skip_intro">Hopp over intro</string>
+    <string name="player_skip_outro">Hopp over rulletekst</string>
+    <plurals name="detail_more_episodes">
+        <item quantity="one">%1$d episode til</item>
+        <item quantity="other">%1$d episoder til</item>
+    </plurals>
+    <string name="home_favourites">Favoritter</string>
+    <string name="library_peek_loading">henter…</string>
+    <plurals name="library_peek_newest">
+        <item quantity="one">%d ny</item>
+        <item quantity="other">%d nyeste</item>
+    </plurals>
+    <string name="library_peek_open">åpne</string>
+    <string name="library_peek_progress">%d på gang</string>
+</resources>

@@ -4,6 +4,7 @@ package app.reelstack.localization
 enum class AppLanguage(val tag: String, val nativeName: String) {
     SYSTEM("", ""),
     NYNORSK("nn", "Norsk nynorsk"),
+    BOKMAL("nb", "Norsk bokmål"),
     ENGLISH("en", "English");
 
     companion object {

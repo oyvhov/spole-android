@@ -1,0 +1,5 @@
+<resources>
+    <string name="sign_out_all_working">Logger ut…</string>
+    <string name="sign_out_all">Logg ut av alle tjenester</string>
+    <string name="sign_out_all_hint">Ett trykk logger ut på denne enheten. Utseende og oppsettet på Hjem bevares.</string>
+</resources>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calendar_title">Kalender</string>
+    <string name="calendar_close">Lukk kalenderen</string>
+    <string name="calendar_subtitle">Filmer hjemme og nye episoder</string>
+    <string name="calendar_all">Alt</string>
+    <string name="calendar_movies">Filmer</string>
+    <string name="calendar_episodes">Episoder</string>
+    <string name="calendar_range">%1$s – %2$s</string>
+    <string name="calendar_today_date">I dag, %1$s</string>
+    <string name="calendar_day_description">%1$s, %2$s</string>
+    <string name="calendar_all_days">Alle dager</string>
+    <string name="calendar_empty">Ingen planlagte utgivelser</string>
+    <string name="calendar_empty_hint">Prøv en annen dag eller et annet filter. Rene kinoutgivelser vises ikke.</string>
+    <string name="calendar_today">I dag</string>
+    <string name="calendar_tomorrow">I morgen</string>
+    <string name="calendar_source_time">%1$s · %2$s</string>
+    <string name="calendar_physical">Fysisk utgivelse</string>
+    <string name="calendar_home_release">Hjemmeutgivelse</string>
+    <plurals name="calendar_releases">
+        <item quantity="one">%1$d utgivelse</item>
+        <item quantity="other">%1$d utgivelser</item>
+    </plurals>
+    <plurals name="calendar_day_releases">
+        <item quantity="one">%1$d utgivelse denne dagen</item>
+        <item quantity="other">%1$d utgivelser denne dagen</item>
+    </plurals>
+</resources>

@@ -27,19 +27,22 @@ class TranslationResourcesTest {
 
     @Test fun translationsPreservePositionalArgumentsAndPluralForms() {
         val source = resources("values")
-        val nynorsk = resources("values-b+nn")
         val parameters = Regex("%[0-9]+\\$[sdf]")
-        source.forEach { (key, english) ->
-            val translated = nynorsk.getValue(key)
-            assertEquals(key, english.tagName, translated.tagName)
-            assertEquals(key, parameters.findAll(english.textContent).map { it.value }.sorted().toList(),
-                parameters.findAll(translated.textContent).map { it.value }.sorted().toList())
-            if (english.tagName == "plurals") {
-                fun quantities(element: Element): List<String> = (0 until element.childNodes.length)
-                    .mapNotNull { element.childNodes.item(it) as? Element }.map { it.getAttribute("quantity") }.sorted()
-                assertEquals(key, quantities(english), quantities(translated))
+        AppLanguage.entries.filter { it != AppLanguage.SYSTEM && it != AppLanguage.ENGLISH }.forEach { lang ->
+            val translatedRes = resources("values-b+${lang.tag.replace('-', '+')}")
+            source.forEach { (key, english) ->
+                val translated = translatedRes.getValue(key)
+                assertEquals("$key in ${lang.tag}", english.tagName, translated.tagName)
+                assertEquals("$key parameters in ${lang.tag}",
+                    parameters.findAll(english.textContent).map { it.value }.sorted().toList(),
+                    parameters.findAll(translated.textContent).map { it.value }.sorted().toList())
+                if (english.tagName == "plurals") {
+                    fun quantities(element: Element): List<String> = (0 until element.childNodes.length)
+                        .mapNotNull { element.childNodes.item(it) as? Element }.map { it.getAttribute("quantity") }.sorted()
+                    assertEquals("$key quantities in ${lang.tag}", quantities(english), quantities(translated))
+                }
+                assertTrue("Blank translation: $key in ${lang.tag}", translated.textContent.isNotBlank())
             }
-            assertTrue("Blank translation: $key", translated.textContent.isNotBlank())
         }
     }
 }

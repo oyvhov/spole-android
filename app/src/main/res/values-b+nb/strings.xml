@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="widget_title">Spiller nå</string>
+    <string name="widget_description">Viser hva som spiller på Jellyfin og Emby akkurat nå.</string>
+    <string name="widget_loading">Henter…</string>
+    <string name="widget_no_services">Ingen tjenester</string>
+    <string name="widget_connect">Koble til Jellyfin eller Emby i Spole.</string>
+    <string name="widget_empty">Ingenting spiller</string>
+    <string name="widget_quiet">Alt er rolig akkurat nå.</string>
+    <string name="widget_error">Fikk ikke kontakt</string>
+    <string name="widget_check">Sjekk tilkoblingen i Spole.</string>
+    <string name="widget_accessibility">Spiller nå: %1$s. %2$s</string>
+    <string name="home_refresh_action">Oppdater biblioteket</string>
+    <string name="home_open_account">Åpne kontoen til %1$s · %2$s</string>
+    <string name="home_account_settings">Åpne kontoinnstillinger</string>
+    <string name="home_source_failed">Fikk ikke oppdatert %1$s. Sjekk tilkoblingen i Innstillinger.</string>
+    <string name="home_source_partial">%1$s er tilkoblet, men denne raden ble ikke oppdatert.</string>
+    <string name="home_resume_description" tools:ignore="PluralsCandidate">Fortsett på %1$s, %2$d prosent sett</string>
+    <string name="activity_updates_here">Nye oppdateringer dukker opp her.</string>
+    <string name="activity_try_all">Velg Alt for å se de andre tjenestene.</string>
+    <string name="activity_more_options">Flere valg</string>
+    <string name="activity_less_options">Færre valg</string>
+</resources>

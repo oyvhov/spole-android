@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.16.0-beta01 · Tilgjengeleg beta med språk, menypolar og meir UI-forbetring
+
+- Heime-radane kan no rekkjefølgjast sjølv frå **Innstillingar → Heim** og blir hugsaste på tvers av økter.
+- Bokmål er teke inn i språkstøtte, og språkmenyen bruker no også `values-b+nb`-ressursar med lokalkonfigurasjon.
+- "Spel no" og "Neste episode" sin flyt er betre på små skjermar, med kortare episodetekst og meir synleg innhald per side.
+- Filmar får synleg vurdering, og tenestestatusar for tilkopla tenester er flytta til tenesteinnstillingane for betre ryddig meny.
+- Logg ut frå alle tenester går no som éin handling på denne eininga, og heimradenes plassering kan tilpassast.
+- Navigasjonsetikettane på botn i appen forkortast automatisk på smale breiddear med målte tekstmål, for å unngå at knappar pressar ut.
+- Demo-innhald er utvida med fleire bibliotek, meir fullstendige rader og sesongpynt i fleire tema.
+
 ## 0.16.0-alpha24 · Enklare innlogging og deling av oppsett
 
 - Ny enkel oppstart med Jellyfin og valfri Seerr.

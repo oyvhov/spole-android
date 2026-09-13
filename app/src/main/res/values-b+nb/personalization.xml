@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sidebar_collapse">Minimer menyen</string>
+    <string name="sidebar_expand">Utvid menyen</string>
+    <string name="personal_title">Gjør Spole til din</string>
+    <string name="personal_scope">Utseende og avspilling på denne enheten. Kontoene og rettighetene dine endres ikke.</string>
+    <string name="personal_appearance">Utseende</string>
+    <string name="personal_accent">Aksentfarge</string>
+    <string name="personal_lime">Lime</string>
+    <string name="personal_ocean">Hav</string>
+    <string name="personal_iris">Iris</string>
+    <string name="personal_coral">Korall</string>
+    <string name="personal_artwork">Størrelse på omslag og bilder</string>
+    <string name="personal_compact">Kompakt</string>
+    <string name="personal_standard">Standard</string>
+    <string name="personal_large">Stor</string>
+    <string name="personal_playback">Avspilling</string>
+    <string name="personal_resume">Fortsett der jeg slapp</string>
+    <string name="personal_resume_note">Start Jellyfin-avspilling fra din lagrede posisjon. Slå av for å velge mellom å fortsette og å starte på nytt.</string>
+    <string name="personal_reset">Tilbakestill utseende</string>
+    <string name="personal_preview">Forhåndsvisning av bildestørrelse</string>
+    <string name="player_frame_fit">Hele bildet</string>
+    <string name="player_frame_fill">Fyll skjermen</string>
+</resources>

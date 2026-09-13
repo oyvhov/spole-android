@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_open">Se forespørselshistorikk</string>
+    <string name="history_title">Forespørselshistorikk</string>
+    <string name="history_description">Dine forespørsler i Seerr, nyeste først. Åpne en tittel for detaljer. Å bla slår ikke på varsler.</string>
+    <string name="history_back">Tilbake til Aktivitet</string>
+    <string name="history_refresh">Oppdater historikken</string>
+    <string name="history_more">Last eldre forespørsler</string>
+    <string name="history_loading">Henter forespørslene dine…</string>
+    <string name="history_retry">Prøv igjen</string>
+    <string name="history_empty">Du har ingen forespørsler i Seerr ennå.</string>
+    <string name="history_end">Du har nådd slutten av historikken.</string>
+    <string name="history_failed">Kunne ikke hente denne siden. Sjekk tilkoblingen og prøv igjen.</string>
+    <string name="history_sign_in">Logg inn med din personlige Seerr-konto for å se historikken.</string>
+    <plurals name="history_count_total">
+        <item quantity="one">%1$d av %2$d forespørsel lastet</item>
+        <item quantity="other">%1$d av %2$d forespørsler lastet</item>
+    </plurals>
+    <plurals name="history_count">
+        <item quantity="one">%1$d forespørsel lastet</item>
+        <item quantity="other">%1$d forespørsler lastet</item>
+    </plurals>
+    <string name="history_untitled">Forespørsel #%1$d</string>
+</resources>

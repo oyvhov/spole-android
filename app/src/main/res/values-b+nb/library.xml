@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_library">Bibliotek</string>
+    <string name="library_connect">Koble til Jellyfin i Innstillinger for å åpne biblioteket.</string>
+    <string name="library_more">Last flere</string>
+    <string name="library_retry">Prøv igjen</string>
+    <string name="library_back">Tilbake</string>
+    <string name="library_failed">Kunne ikke laste biblioteket. Prøv igjen.</string>
+    <string name="library_manage">Velg bibliotek</string>
+    <string name="library_selection_help">Velg hvilke Jellyfin-biblioteker som skal lastes og vises i Bibliotek, nye filmer, nye serier, Fortsett å se og biblioteksøket.</string>
+    <string name="library_all">Alle</string>
+    <string name="library_none">Ingen</string>
+    <string name="library_none_help">Intet Jellyfin-bibliotekinnhold lastes når ingen biblioteker er valgt.</string>
+    <string name="library_save">Lagre</string>
+    <string name="library_cancel">Avbryt</string>
+    <string name="library_view">Visning</string>
+    <string name="library_view_grid">Rutenett</string>
+    <string name="library_view_list">Liste</string>
+    <string name="library_size">Kortstørrelse</string>
+    <string name="library_size_small">Liten</string>
+    <string name="library_size_medium">Middels</string>
+    <string name="library_size_large">Stor</string>
+    <string name="library_art">Bilde</string>
+    <string name="library_art_auto">Automatisk</string>
+    <string name="library_art_poster">Plakat</string>
+    <string name="library_art_thumb">Thumb</string>
+    <string name="library_art_banner">Banner</string>
+    <string name="library_art_logo">Logo</string>
+    <string name="library_titles">Titler under bildet</string>
+    <string name="library_display">Visning og størrelse</string>
+    <string name="library_titles_on">På</string>
+    <string name="library_titles_off">Av</string>
+    <string name="library_order">Rekkefølge</string>
+    <string name="library_descending_on">Synkende</string>
+    <string name="library_descending_off">Stigende</string>
+    <string name="library_favourites_on">Bare favoritter</string>
+    <string name="library_favourites_off">Alle</string>
+    <string name="episode_season">Sesong %1$d</string>
+    <string name="episode_number">Episode %1$d</string>
+</resources>

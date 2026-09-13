@@ -1,6 +1,6 @@
 # Kom i gang med Spole
 
-Denne guiden gjeld innlogginga i 0.16.0-alpha24. Funksjonar for neste APK er merkte nedanfor.
+Denne guiden gjeld innlogginga i 0.16.0-beta01. Funksjonar for neste APK er merkte nedanfor.
 
 ## For deg som skal sjå
 
@@ -63,7 +63,7 @@ På TV finst også val for å skjule sidepanelet til du navigerer ut mot venstre
 ## Oppdateringar og avgrensingar
 
 Bruk appen sin oppdateringssjekk eller installer ein nyare APK frå Releases over den gamle.
-Du treng ikkje avinstallere først. Alpha-utgåver kan innehalde feil.
+Du treng ikkje avinstallere først. Prerelease-utgåver kan innehalde feil.
 
 Den innebygde spelaren er førebels for Jellyfin. Emby-bibliotek og Emby-innlogging finst,
 men innebygd Emby-avspeling er ikkje levert. Barnemodus, QR-vising av oppsettslenkjer
