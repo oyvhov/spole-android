@@ -1,4 +1,5 @@
 package app.reelstack.ui.screens
+import app.reelstack.ui.components.SettingsServiceRow
 
 import app.reelstack.ui.components.focusOutline
 import androidx.compose.animation.core.animateFloatAsState
@@ -1080,9 +1081,10 @@ fun SettingsScreen(
         }
         if (visible(SettingsSection.ACCOUNTS)) item {
             Surface(color = app.reelstack.ui.theme.Surface, shape = RoundedCornerShape(24.dp)) {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.connections.filter { state.canEditConnection(it.kind) }.forEach { connection ->
-                        ServiceRow(connection = connection, onClick = { onConnectionClick(connection.kind) })
+                        SettingsServiceRow(connection, state.verifiedPanelAccount(connection.kind)?.displayName,
+                            state.serviceWarnings[connection.kind], onClick = { onConnectionClick(connection.kind) })
                     }
                 }
             }
@@ -1307,54 +1309,6 @@ private fun SettingsSectionTitle(text: String) {
         modifier = Modifier.padding(top = 26.dp, bottom = 10.dp).semantics { heading() })
 }
 
-@Composable
-private fun ServiceRow(connection: ServiceConnection, onClick: () -> Unit) {
-    val connected = connection.state == ConnectionState.CONNECTED
-    val hasError = connection.state == ConnectionState.ERROR
-    val hasWarning = connected && connection.detail?.startsWith("Tilkopla ·") == true
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(SurfaceRaised),
-        ) {
-            ServiceSymbol(connection.kind, Modifier.size(20.dp))
-        }
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(connection.kind.displayName, color = TextColor, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
-            Text(
-                when (connection.state) {
-                    ConnectionState.CONNECTED -> if (hasWarning) connection.detail else stringResource(R.string.service_connected)
-                    ConnectionState.TESTING -> stringResource(R.string.service_checking)
-                    ConnectionState.ERROR -> connection.detail ?: stringResource(R.string.service_error)
-                    ConnectionState.DEMO -> stringResource(R.string.service_connect, connection.kind.displayName)
-                },
-                color = when {
-                    hasWarning -> Caution
-                    connected -> Success
-                    hasError -> Warning
-                    else -> Muted
-                },
-                fontSize = 12.sp, lineHeight = 17.sp,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Icon(
-            if (connected && !hasWarning) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.ChevronRight,
-            contentDescription = null,
-            tint = when {
-                hasWarning -> Caution
-                connected -> Success
-                hasError -> Warning
-                else -> PrimarySoft
-            },
-            modifier = Modifier.size(22.dp),
-        )
-    }
-}
 
 @Composable
 private fun PreferenceRow(

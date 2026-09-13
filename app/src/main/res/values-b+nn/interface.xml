@@ -52,7 +52,6 @@
     <string name="settings_version">Personleg medieoversikt · v%1$s</string>
     <string name="service_connected">Tilkopla</string>
     <string name="service_checking">Sjekkar tilkoplinga…</string>
-    <string name="service_error">Må sjekkast · Trykk for å rette</string>
     <string name="service_connect">Kople til %1$s</string>
     <string name="player_watched">Sett</string>
     <string name="player_resume">Hald fram frå %1$s</string>
@@ -202,8 +201,6 @@
     <string name="status_added">Lagd til</string>
     <string name="status_removed">Fjerna frå biblioteket</string>
     <string name="status_requestable">Kan leggjast til</string>
-    <string name="media_open_server">Opne i %1$s</string>
-    <string name="media_no_link_app">Fann ingen app som kan opne denne lenkja.</string>
     <string name="media_login_add">Logg inn for å leggje til</string>
     <string name="media_add_collection">Legg til i mediesamlinga</string>
     <string name="media_adding">Legg til…</string>

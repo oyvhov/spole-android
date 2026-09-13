@@ -46,6 +46,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
     val connected = state.connections.any { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
     val tv = LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val folders = state.libraryPath.isEmpty()
+    val showRatings = app.reelstack.ui.theme.LocalPersonalization.current.showRatings
     val libraryId = state.libraryPath.lastOrNull()?.first.orEmpty()
     val (display, saveDisplay) = rememberLibraryDisplay(libraryId)
     // AUTO keeps the old behaviour: episodes and video get a wide frame, everything else a poster.
@@ -151,6 +152,9 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
             }
             if (!connected) item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.library_connect)) }
             items(state.libraryEntries, key = { it.id }) { entry ->
+                val rating = if (entry.mediaType.equals("Movie", ignoreCase = true) &&
+                    showRatings)
+                    app.reelstack.data.model.communityRatingLabel(entry.facts) else null
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
                 val focused by interaction.collectIsFocusedAsState()
@@ -177,6 +181,8 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                     Box(artModifier.aspectRatio(ratio)
                         .focusOutline(interaction, shape).clip(shape).testTag("library-art-${entry.id}")) {
                         MediaArtwork(display.artType.applyTo(entry.artworkUrl), null, Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN)
+                        if (!listView && rating != null) app.reelstack.ui.components.LibraryRating(rating,
+                            Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(6.dp).testTag("library-rating-${entry.id}"))
                         entry.progress?.takeIf { it > 0f }?.let { progress ->
                             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(4.dp)
                                 .align(androidx.compose.ui.Alignment.BottomCenter))
@@ -209,7 +215,11 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                         artwork(Modifier.height(if (tv) 118.dp * size else 96.dp * size))
                         Column(Modifier.weight(1f)) {
                             title()
+                            if (rating != null) app.reelstack.ui.components.LibraryRating(rating,
+                                Modifier.padding(top = 6.dp).testTag("library-rating-${entry.id}"))
                             val facts = entry.facts
+                                .filterNot { it.trimStart().startsWith("★") &&
+                                    (entry.mediaType.equals("Movie", ignoreCase = true) || !showRatings) }
                                 .filterNot { it in setOf("Film", "Serie", "Episode", "Movie", "Series") }
                                 .filterNot { it.matches(Regex("""^S\d\d+ E\d\d+$""")) }
                                 // The line under the title already carries the year for a film or a

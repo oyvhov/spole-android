@@ -135,16 +135,8 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                         TvSettingsCategory.ACCOUNTS -> {
                             state.connections.filter { state.canEditConnection(it.kind) }.forEach { connection ->
                                 val connected = connection.token.isNotBlank()
-                                val status = stringResource(when(connection.state) {
-                                    ConnectionState.ERROR -> R.string.service_error
-                                    ConnectionState.TESTING -> R.string.service_checking
-                                    else -> if (connected) R.string.service_connected else R.string.settings_tv_connection_action
-                                })
-                                val summary = listOfNotNull(state.verifiedPanelAccount(connection.kind)?.displayName, status).joinToString(" · ")
-                                // Who is signed in and whether it works is the row's value, so it
-                                // reads across the row rather than hiding under the service name.
-                                SettingsChoiceRow(connection.kind.displayName, summary,
-                                    "tv-service-${connection.kind}") { onConnectionClick(connection.kind) }
+                                SettingsServiceRow(connection, state.verifiedPanelAccount(connection.kind)?.displayName,
+                                    state.serviceWarnings[connection.kind], "tv-service-${connection.kind}") { onConnectionClick(connection.kind) }
                                 if (connected && connection.kind == ServiceKind.SEERR)
                                     SettingsChoiceRow(stringResource(R.string.settings_tv_account_action), "Seerr", "tv-account-SEERR") { onAccountClick(ServiceKind.SEERR) }
                             }

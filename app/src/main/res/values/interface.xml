@@ -52,7 +52,6 @@
     <string name="settings_version">Your personal media hub · v%1$s</string>
     <string name="service_connected">Connected</string>
     <string name="service_checking">Checking connection…</string>
-    <string name="service_error">Needs attention · Tap to fix</string>
     <string name="service_connect">Connect to %1$s</string>
     <string name="player_watched">Watched</string>
     <string name="player_resume">Resume from %1$s</string>
@@ -202,8 +201,6 @@
     <string name="status_added">Added</string>
     <string name="status_removed">Removed from library</string>
     <string name="status_requestable">Can be added</string>
-    <string name="media_open_server">Open in %1$s</string>
-    <string name="media_no_link_app">No app was found to open this link.</string>
     <string name="media_login_add">Sign in to add</string>
     <string name="media_add_collection">Add to library</string>
     <string name="media_adding">Adding…</string>

@@ -261,7 +261,6 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             if (showRail) {
                 SidebarSlot(if (tvRail) false else expandedRail, hidden = tvRail && personalization.hideTvSidebar) {
                 ReelstackNavigationRail(
-                    connectedServices = state.connections.filter { it.state == app.reelstack.data.model.ConnectionState.CONNECTED }.map { it.kind },
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
                     expanded = expandedRail,
@@ -540,7 +539,6 @@ internal fun ReelstackNavigationRail(
     selectedLibraryId: String? = null,
     onLibrarySelect: (String) -> Unit = {},
     modifier: Modifier = Modifier,
-    connectedServices: List<app.reelstack.data.model.ServiceKind> = emptyList(),
 ) {
     val selectedFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     val width by androidx.compose.animation.core.animateDpAsState(
@@ -582,12 +580,6 @@ internal fun ReelstackNavigationRail(
                 { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
                     .then(if (selectedTab == item.tab && (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }))
                         Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-tab-${item.tab.name}"))
-        }
-        if (connectedServices.isNotEmpty()) Row(Modifier.padding(start = 12.dp, top = 12.dp)
-            .graphicsLayer { alpha = labelAlpha }, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            connectedServices.distinct().forEach { source ->
-                app.reelstack.ui.components.ServiceSymbol(source, Modifier.size(18.dp))
-            }
         }
     }
 }

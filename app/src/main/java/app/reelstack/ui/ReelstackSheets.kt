@@ -407,7 +407,6 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 12.dp))
         }
         castBlock()
-        OpenInServerButton(state, details)
         if (!tv && discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
             state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
             val adding = discoverMedia.id in state.requestingMediaIds
@@ -848,46 +847,6 @@ private fun TrackChooser(label: String, tag: String, options: List<Pair<Int, Str
     )
 }
 
-@Composable
-private fun OpenInServerButton(state: ReelstackUiState, details: ContentDetails) {
-    val source = details.source ?: return
-    if (source != ServiceKind.JELLYFIN && source != ServiceKind.EMBY) return
-    val itemId = details.key.removePrefix("${source.name.lowercase()}-").takeIf { it.isNotBlank() && it != details.key }
-        ?: return
-    val baseUrl = state.connections.firstOrNull { it.kind == source }?.baseUrl?.trimEnd('/')?.takeIf { it.isNotBlank() }
-        ?: return
-    val path = if (source == ServiceKind.JELLYFIN) "details" else "item"
-    val context = LocalContext.current
-    val url = "$baseUrl/web/index.html#!/$path?id=$itemId"
-    // Resolved once per sheet, so the button can name the app it is actually going to open.
-    val target = androidx.compose.runtime.remember(url) {
-        app.reelstack.ui.components.NativeClientLauncher.resolve(context, url)
-    }
-    var failed by androidx.compose.runtime.saveable.rememberSaveable(url) { mutableStateOf(false) }
-    OutlinedButton(
-        onClick = {
-            failed = !app.reelstack.ui.components.NativeClientLauncher.open(context, url, target.packageName)
-        },
-        shape = RoundedCornerShape(14.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, app.reelstack.ui.theme.ControlOutline),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimarySoft),
-        modifier = Modifier.then(if (app.reelstack.ui.components.isTelevision()) Modifier else Modifier.fillMaxWidth())
-            .padding(top = 20.dp).heightIn(min = 52.dp).testTag("open-in-server"),
-    ) {
-        Icon(app.reelstack.ui.components.SpoleIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
-        Text(
-            if (target.packageName != null) target.label else stringResource(R.string.media_open_server, source.displayName),
-            modifier = Modifier.padding(start = 8.dp),
-        )
-    }
-    if (failed) {
-        Text(
-            stringResource(R.string.media_no_link_app),
-            color = Warning, fontSize = 12.sp, lineHeight = 17.sp,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
-    }
-}
 
 /** Default port per service, matching the addresses documented in the README. */
 private fun exampleAddress(kind: ServiceKind): String = when (kind) {

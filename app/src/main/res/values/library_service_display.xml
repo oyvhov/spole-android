@@ -1,0 +1,6 @@
+<resources>
+    <string name="library_rating_description">Rating: %1$s out of 10</string>
+    <string name="service_partial">Connected with a warning</string>
+    <string name="service_unchecked">Not checked yet</string>
+    <string name="service_failed">Connection error</string>
+</resources>
