@@ -30,6 +30,13 @@ Bygg: `app/build/alpha24-build.log`, BUILD SUCCESSFUL (2 min 44 s).
   Heim med ekte bibliotek, profilbilete, framdrift og lagra tema er bevarte.
 - Mobil-review 5560 er halden på alpha23 for test av GitHub-oppdatering etter publisering.
 
-Offentleg nedlasting og oppdatering gjennom appen blir dokumenterte etter publisering.
+- Publisert prerelease: https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-alpha24
+- Kjeldecommit: `16a316a4132b4aac509ad595956b31692cad83cf`.
+- Offentleg release-liste utan innlogging viser alpha24 med éin APK og riktig digest.
+- Offentleg APK lasta ned utan Authorization-header; hash samsvarer med lokalt bygg.
+- Mobil 5560: «Sjekk no» fann alpha24 frå alpha23, lasta ned og kontrollerte APK-en.
+  Android si oppdateringsgodkjenning vart fullført; installert pakke er kode 67/alpha24.
+  Etter opning kom ekte bibliotek, favorittar, framdrift, profilbilete og lagra tema tilbake.
+- Mellombels løyve til installasjon frå Spole er sett tilbake til førre standardverdi.
 Ekte felles førstegongsinnlogging mot brukaren sine tenarar er ikkje prøvd;
 nettverks- og identitetsflyten blir testa med syntetiske tenarar.

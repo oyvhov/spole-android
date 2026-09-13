@@ -1,5 +1,8 @@
 # Enkel oppstart med Jellyfin og Seerr
 
+Levert i [Spole 0.16.0-alpha24](release-v0.16.0-alpha24.md).
+Sjå [release-verifikasjon](VERIFICATION_v0.16.0-alpha24.md) for publisering og oppdatering.
+
 Førstevalet er «Kom i gang». «Andre innloggingsmåtar» opnar dei eksisterande
 vala for Jellyfin, Emby, Seerr og administratortenester. Brukarar med lagra
 tilkoplingar får ikkje oppsettet på nytt.
@@ -86,7 +89,7 @@ ny drift eller sentral lagring av serveradressene. QR-vising er ikkje bygd.
 - Berre isolerte instrumenteringsprofilar (5562/5566) er brukte. Ingen ekte
   kontoar er endra. Innlogging mot brukaren sine verkelege tenarar og deling via
   ei ekstern meldingsapp er ikkje prøvde. QR og korte oppsettkodar er ikkje bygde.
-- Ingen ny APK-release er publisert. Alpha23 er uendra.
+- Denne utviklingskontrollen var før publisering; funksjonane er no med i alpha24.
 
 ## Førre verifisering (før oppsettslenkjer og passordval)
 
@@ -103,7 +106,7 @@ ny drift eller sentral lagring av serveradressene. QR-vising er ikkje bygd.
 - Nettverksflyten er testa med syntetiske API-responsar. Éi samla godkjenning
   mot brukaren sine verkelege tenarar er ikkje prøvd. Ingen kontoar er bytte
   eller sletta på dei innlogga review-profilane.
-- Dette arbeidet er ikkje publisert som ny APK; alpha23 er uendra.
+- Denne første kontrollen var før publisering; arbeidet er no med i alpha24.
 
 API-grunnlag:
 - [Jellyfin Quick Connect-kontroller](https://github.com/jellyfin/jellyfin/blob/master/Jellyfin.Api/Controllers/QuickConnectController.cs)
