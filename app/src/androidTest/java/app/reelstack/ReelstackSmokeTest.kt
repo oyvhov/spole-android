@@ -14,6 +14,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import org.junit.Before
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
@@ -27,6 +28,14 @@ class ReelstackSmokeTest {
 
     @Before
     fun enterExplicitPreviewIfFirstLaunch() {
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("Alt du ser.\nÉin stad.").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithTag("setup-other").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Oppdag").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (composeRule.onAllNodesWithTag("setup-other").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithTag("setup-other").performClick()
+        }
         if (composeRule.onAllNodesWithText("Alt du ser.\nÉin stad.").fetchSemanticsNodes().isNotEmpty()) {
             composeRule.onRoot().performTouchInput { swipeUp() }
             composeRule.onNodeWithText("Utforsk med demodata først").performScrollTo().performClick()
@@ -53,7 +62,7 @@ class ReelstackSmokeTest {
     @Test
     fun demoRequestIsClearlyKeptLocal() {
         composeRule.onNodeWithText("Oppdag").performClick()
-        composeRule.onNodeWithText("Legg til").performClick()
+        composeRule.onAllNodesWithText("Legg til")[0].performClick()
         composeRule.onNodeWithTag("confirm-request").performClick()
 
         composeRule.onNodeWithText("Lagd til").performScrollTo().assertIsDisplayed()
@@ -62,8 +71,8 @@ class ReelstackSmokeTest {
 
     @Test
     fun libraryRailOpensTitleDetails() {
-        composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onAllNodesWithText("The Odyssey")[0].assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("home-feed").performScrollToNode(hasTestTag("resume-card-resume-odyssey"))
+        composeRule.onNodeWithTag("resume-card-resume-odyssey").assertIsDisplayed().performClick()
 
         composeRule.onNodeWithText("Om filmen").assertIsDisplayed()
     }

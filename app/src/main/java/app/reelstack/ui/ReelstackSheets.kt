@@ -960,11 +960,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
         ) {
             MediaArtwork(
                 url = session.artworkUrl,
-                fallbackRes = if (session.sessionId?.startsWith("demo-") == true) {
-                    R.drawable.session_still
-                } else {
-                    R.drawable.media_placeholder
-                },
+                fallbackRes = demoSessionArtwork(session),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 source = session.source,

@@ -175,7 +175,8 @@ fun HomeScreen(
             android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
             android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
         val featurePool = state.recentSeries + continueItems + state.nextUp
-        val features = if (tablet && personalization.showHero) tabletFeaturedTitles(featurePool, state.homeSections) else emptyList()
+        val features = if (tablet && personalization.showHero) tabletFeaturedTitles(featurePool, state.homeSections,
+            allowLocalArtwork = state.configuredCount == 0) else emptyList()
         val featured = features.firstOrNull()
         val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
         val feedScope = rememberCoroutineScope()
@@ -655,7 +656,7 @@ private fun NowPlayingCard(
         // column below decides how tall the card is once the font scale grows.
         MediaArtwork(
             url = session.artworkUrl,
-            fallbackRes = if (session.sessionId?.startsWith("demo-") == true) R.drawable.session_still else R.drawable.media_placeholder,
+            fallbackRes = app.reelstack.ui.demoSessionArtwork(session),
             contentDescription = "${session.userName} ser på ${session.title}",
             contentScale = ContentScale.Crop,
             source = session.source,

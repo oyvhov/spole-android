@@ -50,9 +50,9 @@ internal fun tabletFeaturedTitle(series: List<LibraryMedia>, sections: Set<HomeS
     tabletFeaturedTitles(series, sections).firstOrNull()
 
 /** Episode titles are mapped to SeriesName by the server parser. Deduplicate across servers too. */
-internal fun tabletFeaturedTitles(series: List<LibraryMedia>, sections: Set<HomeSection>): List<LibraryMedia> =
+internal fun tabletFeaturedTitles(series: List<LibraryMedia>, sections: Set<HomeSection>, allowLocalArtwork: Boolean = false): List<LibraryMedia> =
     series.filter { media ->
-        !media.artworkUrl.isNullOrBlank() && when (media.source) {
+        (!media.artworkUrl.isNullOrBlank() || (allowLocalArtwork && media.artworkRes != 0)) && when (media.source) {
             ServiceKind.JELLYFIN -> HomeSection.JELLYFIN_SERIES in sections
             ServiceKind.EMBY -> HomeSection.EMBY_SERIES in sections
             else -> false
