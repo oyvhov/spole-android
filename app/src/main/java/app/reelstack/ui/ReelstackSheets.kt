@@ -251,6 +251,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val tv = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val isSeries = mediaType == "Series"
+    val wideDetail = isSeries || mediaType == "Episode" || mediaType == "Season"
     // Facts, synopsis and actions share the reading column on TV so all content can be reached.
     val synopsis: @Composable () -> Unit = {
         app.reelstack.ui.components.ExpandableSynopsis(
@@ -263,13 +264,14 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             },
             overview = details.overview?.takeIf { it.isNotBlank() },
             loading = details.loading,
+            compact = tv,
         )
     }
     val castBlock: @Composable () -> Unit = {
         if (details.cast.isNotEmpty()) {
             Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 18.dp, bottom = 12.dp))
-            app.reelstack.ui.components.CastRail(details.cast)
+            app.reelstack.ui.components.CastRail(details.cast, details.source)
         }
     }
     val aside: @Composable () -> Unit = {
@@ -297,9 +299,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 10.dp).testTag("detail-title"))
         if (!isSeries) Text(app.reelstack.ui.components.episodeLine(opening.season, opening.episode, opening.subtitle),
             color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp))
-        if (isSeries && ready) { aside(); actions() }
+        if (wideDetail && ready) { aside(); actions() }
     }
-    app.reelstack.ui.components.DetailReadingLayout(tv, scroll, series = isSeries, heading = tvHeading, artwork = {
+    app.reelstack.ui.components.DetailReadingLayout(tv, scroll, series = wideDetail, heading = tvHeading, artwork = {
         Column {
             // The slot needs a shape before the picture arrives or the page would jump as it
             // loads, and the guess has to be the media type — but the guess is often wrong. A
@@ -357,8 +359,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // Null means "whatever the server would have picked". A choice here is carried into the
         // player, so what the page promises is what starts.
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
-        if (tv && !isSeries) aside()
-        if (!tv || !isSeries) actions()
+        if (tv && !wideDetail) aside()
+        if (!tv || !wideDetail) actions()
         if (tv) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
         if (tv) TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)

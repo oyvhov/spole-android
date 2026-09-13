@@ -21,15 +21,16 @@ import app.reelstack.ui.theme.Muted
 
 /** The disclosure precedes the text, so expansion never moves the focused reading anchor. */
 @Composable
-internal fun ExpandableSynopsis(identity: String, title: String, overview: String?, loading: Boolean) {
+internal fun ExpandableSynopsis(identity: String, title: String, overview: String?, loading: Boolean, compact: Boolean = false) {
     var expanded by rememberSaveable(identity) { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
     val measurer = rememberTextMeasurer()
-    val style = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 25.sp)
-    BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 174.dp)
-        .padding(start = 6.dp, top = 19.dp, end = 6.dp)) {
+    val collapsedLines = if (compact) 2 else 4
+    val style = LocalTextStyle.current.copy(fontSize = if (compact) 14.sp else 16.sp, lineHeight = if (compact) 20.sp else 25.sp)
+    BoxWithConstraints(Modifier.fillMaxWidth().then(if (compact) Modifier else Modifier.heightIn(min = 174.dp))
+        .padding(start = 6.dp, top = if (compact) 8.dp else 19.dp, end = 6.dp)) {
         // Determine overflow before placement. No state-writing layout callback or size animation.
-        val canExpand = overview != null && measurer.measure(overview, style = style, maxLines = 4,
+        val canExpand = overview != null && measurer.measure(overview, style = style, maxLines = collapsedLines,
             overflow = TextOverflow.Ellipsis, constraints = Constraints(maxWidth = constraints.maxWidth)).hasVisualOverflow
         val actionMaxWidth = maxWidth * .48f
         Column {
@@ -46,7 +47,7 @@ internal fun ExpandableSynopsis(identity: String, title: String, overview: Strin
             }
             when {
                 overview != null -> Text(overview, color = MaterialTheme.colorScheme.onSurface, style = style,
-                    maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
+                    maxLines = if (expanded) Int.MAX_VALUE else collapsedLines, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 8.dp).testTag("overview-text"))
                 loading -> DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
                 else -> Text(stringResource(R.string.details_no_overview), color = Muted, fontSize = 14.sp, lineHeight = 20.sp,

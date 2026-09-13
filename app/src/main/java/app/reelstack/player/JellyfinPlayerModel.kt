@@ -45,6 +45,7 @@ data class PlayerScreenState(
      */
     val nextEpisode: PlayableItem? = null,
     val nextEpisodeCountdown: Int? = null,
+    val nextEpisodeCountdownTotalSeconds: Int = 12,
     val nextEpisodeOfferEnabled: Boolean = true,
     val nextEpisodeLeadSeconds: Int = 60,
     val nextEpisodeDismissed: Boolean = false,
@@ -412,6 +413,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             !options.autoPlayNextEpisode || !state.value.canCountDownNextEpisode()) return
         val episodeId = state.value.itemId
         val seconds = state.value.nextEpisodeCountdown ?: options.nextEpisodeDelaySeconds
+        if (state.value.nextEpisodeCountdown == null)
+            mutable.update { it.copy(nextEpisodeCountdownTotalSeconds = seconds.coerceIn(1, 60)) }
         countdownJob = viewModelScope.launch {
             for (second in seconds.coerceIn(1, 60) downTo 1) {
                 while (isActive && foreground && !state.value.playing && !state.value.ended) delay(200)

@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.focus.onFocusChanged
@@ -171,6 +172,7 @@ fun PlayerScreen(
     var consumedRemoteKey by remember { mutableIntStateOf(-1) }
     val showControlsLabel = stringResource(R.string.player_show_controls)
     var controls by remember { mutableStateOf(true) }
+    var dismissedControls by remember { mutableStateOf(false) }
     var fillVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf<PlayerMenu?>(null) }
@@ -183,7 +185,7 @@ fun PlayerScreen(
     val canHide = (state.playing || state.busy && state.playWhenReady) &&
         state.error == null && !state.ended && !state.awaitingResume
     val finishedWithNext = state.ended && state.showNextEpisodeOffer()
-    val showControls = controls || (!canHide && !finishedWithNext) || menu != null
+    val showControls = controls || (!canHide && !finishedWithNext && !dismissedControls) || menu != null
     val showNextOffer = state.showNextEpisodeOffer() && menu == null && !scrubbing
     val latestShown by rememberUpdatedState(showControls)
     val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null)
@@ -197,16 +199,19 @@ fun PlayerScreen(
     LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu) {
         if (isTelevision && menu == null && !state.browsing) {
             if (showNextOffer && state.ended) nextFocus.requestFocus()
-            else if (!showControls) videoFocus.requestFocus()
+            else if (!showControls && !nextHasFocus) videoFocus.requestFocus()
             else if (!state.busy && !state.awaitingResume && state.error == null && !controlsHaveFocus && !nextHasFocus)
                 playFocus.requestFocus()
         }
     }
     LaunchedEffect(isTelevision, showNextOffer, state.ended) {
-        if (isTelevision && showNextOffer && state.ended) nextFocus.requestFocus()
+        if (isTelevision && showNextOffer) nextFocus.requestFocus()
     }
     BackHandler {
-        if (menu != null) menu = null
+        if (isTelevision && (menu != null || showControls) && !state.browsing && !state.awaitingResume && state.error == null) {
+            menu = null; controls = false; dismissedControls = true; scrubbing = false
+        }
+        else if (menu != null) menu = null
         else if (showNextOffer && (!state.ended || state.nextEpisodeCountdown != null)) onCancelNextEpisode()
         else if (isTelevision && showControls && canHide) controls = false
         else onClose()
@@ -478,7 +483,7 @@ fun PlayerScreen(
                 withFrameNanos { }
                 runCatching { selectedTrackFocus.requestFocus() }
             }
-            AlertDialog(onDismissRequest = { menu = null }, title = { Text(stringResource(title.label)) },
+            AlertDialog(onDismissRequest = { menu = null; if (isTelevision) { controls = false; dismissedControls = true } }, title = { Text(stringResource(title.label)) },
                 containerColor = if (isTelevision) Color(0xFF181A1C) else MaterialTheme.colorScheme.surface,
                 titleContentColor = if (isTelevision) Color.White else MaterialTheme.colorScheme.onSurface,
                 textContentColor = if (isTelevision) Color.White else MaterialTheme.colorScheme.onSurface,
@@ -646,12 +651,15 @@ private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCanc
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val shape = RoundedCornerShape(14.dp)
     Surface(modifier.widthIn(max = 360.dp).fillMaxWidth()
-        .testTag("player-next-episode"), shape = RoundedCornerShape(16.dp),
-        color = Color.Black.copy(alpha = .84f), contentColor = Color.White, tonalElevation = 0.dp) {
+        .focusGroup().testTag("player-next-episode"), shape = RoundedCornerShape(16.dp),
+        color = Color.Black.copy(alpha = .64f), contentColor = Color.White, tonalElevation = 0.dp) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(app.reelstack.ui.components.SpoleIcons.Screen, null, Modifier.size(28.dp),
-                    tint = Color.White.copy(alpha = .7f))
+                app.reelstack.ui.components.MediaArtwork(next.artworkUrl, next.title,
+                    Modifier.width(104.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
+                        .testTag("player-next-artwork"),
+                    fallbackRes = R.drawable.media_placeholder,
+                    source = app.reelstack.data.model.ServiceKind.JELLYFIN)
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelLarge,
                         color = Color.White.copy(alpha = .7f))
@@ -663,6 +671,9 @@ private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCanc
                 }
             }
             state.nextEpisodeCountdown?.let {
+                LinearProgressIndicator(progress = { (it.toFloat() / state.nextEpisodeCountdownTotalSeconds.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(3.dp).testTag("player-next-progress"),
+                    color = Color.White, trackColor = Color.White.copy(alpha = .18f), drawStopIndicator = {})
                 Text(stringResource(R.string.next_episode_countdown, it),
                     style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .7f))
             }
@@ -672,7 +683,7 @@ private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCanc
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = .18f), contentColor = Color.White),
                     modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus)
                         .neutralPlayerFocus(interaction, shape).testTag("player-next-play")) {
-                    Icon(app.reelstack.ui.components.SpoleIcons.Play, null, Modifier.size(20.dp))
+                    Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null, Modifier.size(20.dp))
                     Text(stringResource(R.string.player_next_play), Modifier.padding(start = 8.dp))
                 }
                 if (!state.ended || state.nextEpisodeCountdown != null) {

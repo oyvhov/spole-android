@@ -54,6 +54,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -173,6 +175,7 @@ fun HomeScreen(
         val features = if (tablet && personalization.showHero) tabletFeaturedTitles(featurePool, state.homeSections) else emptyList()
         val featured = features.firstOrNull()
         val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
+        val feedScope = rememberCoroutineScope()
         val featureVisible by remember { androidx.compose.runtime.derivedStateOf {
             feedState.layoutInfo.visibleItemsInfo.any { it.key == "tablet-feature" }
         } }
@@ -205,6 +208,11 @@ fun HomeScreen(
                         account = { HomeAccountButton(state, onAccountClick, onArtwork = true) },
                         candidates = features,
                         rotationEnabled = featureVisible && state.activeSheet == null,
+                        onFocusWithin = { focused -> if (television && focused) feedScope.launch {
+                            // Let the focus target finish its own bring-into-view request first.
+                            androidx.compose.runtime.withFrameNanos { }
+                            feedState.scrollToItem(0)
+                        } },
                     )
                 }
             }

@@ -21,6 +21,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -88,6 +91,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
     val pageStates = rememberSaveableStateHolder()
     pageStates.SaveableStateProvider(state.libraryPath.joinToString("/") { it.first }) {
         val grid = rememberLazyGridState()
+        val firstContent = remember { FocusRequester() }
         val cell = (if (wideCards) 240.dp else if (tv) 155.dp else 145.dp) * size
         LazyVerticalGrid(state = grid,
             columns = if (listView) GridCells.Fixed(1) else GridCells.Adaptive(cell),
@@ -95,7 +99,8 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
             horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp),
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("library-browser")) {
             item(key = "heading", span = { GridItemSpan(maxLineSpan) }) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.focusProperties { if (tv && (showShelves || state.libraryEntries.isNotEmpty())) down = firstContent },
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // One library deep, the sidebar already says Bibliotek. The trail is worth a
                     // line only once there is something in it the sidebar cannot say.
                     if (state.libraryPath.size > 1) Text((listOf(stringResource(R.string.nav_library)) +
@@ -133,7 +138,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
             // Only on the library's front page and only unfiltered: a filtered view is a query
             // result, and "what you were watching" is not part of the answer to a query.
             if (showShelves) item(key = "shelves", span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(bottom = 8.dp)) {
+                Column(Modifier.padding(bottom = 8.dp).focusRequester(firstContent)) {
                     if (shelfResume.isNotEmpty()) {
                         LibraryShelfTitle(stringResource(R.string.home_continue), cardActions != null)
                         ResumeRail(shelfResume, onShelfOpen, cardActions)
@@ -156,6 +161,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                 )
                 val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
                 val card = Modifier.fillMaxWidth()
+                    .then(if (!showShelves && entry.id == state.libraryEntries.firstOrNull()?.id) Modifier.focusRequester(firstContent) else Modifier)
                     .zIndex(if (focused) 10f else 0f)
                     // A list row is already full width; scaling it on focus makes it collide with
                     // its neighbours. The focus ring carries the state instead.

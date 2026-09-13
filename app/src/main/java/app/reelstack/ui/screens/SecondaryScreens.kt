@@ -319,6 +319,7 @@ fun DiscoverScreen(
             LibraryFilter.REQUESTABLE -> media.canRequest
         }
     }
+    val firstResult = remember { FocusRequester() }
     ReelPage(media = true) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(posterCell()),
@@ -412,7 +413,10 @@ fun DiscoverScreen(
                     // geometry that does not line up.
                     DiscoverFilterBar(filter, libraryFilter, { filter = it }, { libraryFilter = it },
                         Modifier.focusRequester(filterFocus).focusGroup()
-                            .then(if (television) Modifier.focusProperties { up = searchFocus } else Modifier))
+                            .then(if (television) Modifier.focusProperties {
+                                up = searchFocus
+                                if (state.librarySearchResults.isNotEmpty() || visible.isNotEmpty()) down = firstResult
+                            } else Modifier))
                 }
             }
         }
@@ -431,7 +435,9 @@ fun DiscoverScreen(
                 }
             }
             items(state.librarySearchResults, key = { "library-hit-${it.id}" }) { media ->
-                LibraryHitCard(media) { onLibraryDetails(media.id) }
+                Box(if (media.id == state.librarySearchResults.firstOrNull()?.id) Modifier.focusRequester(firstResult) else Modifier) {
+                    LibraryHitCard(media) { onLibraryDetails(media.id) }
+                }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(stringResource(R.string.search_add_new), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
@@ -457,9 +463,11 @@ fun DiscoverScreen(
             }
         } else {
             items(visible, key = DiscoverMedia::id) { media ->
+              Box(if (state.librarySearchResults.isEmpty() && media.id == visible.firstOrNull()?.id) Modifier.focusRequester(firstResult) else Modifier) {
                 DiscoverCard(media, media.id in state.requestingMediaIds,
                     allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { media.isSeries || !it.isPersonal || it.canRequestType("movie") } == true,
                     onRequest = { onRequest(media.id) }, onDetails = { onDetails(media.id) })
+              }
             }
             // Seerr answers 20 results at a time. Loading the next page is explicit rather than
             // automatic, so scrolling a long list never fires requests the reader did not ask for.
@@ -737,6 +745,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         sourceFilter == ActivityFilter.ALL || event.source == sourceFilter.source
     }
     val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
+    val firstActivity = remember { FocusRequester() }
     ReelPage(media = true) {
     val wideActivity = app.reelstack.ui.theme.LocalTabletCanvas.current && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.6f
     val tvActivity = wideActivity && (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
@@ -792,7 +801,8 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         }
         if (sourceFilter == ActivityFilter.MINE) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-              Column(Modifier.fillMaxWidth().testTag("activity-filter-block")) {
+              Column(Modifier.fillMaxWidth().testTag("activity-filter-block")
+                  .focusProperties { if (tvActivity && resolved.isNotEmpty()) down = firstActivity }) {
                 val filters: @Composable () -> Unit = {
                     if (state.trackedRequests.isNotEmpty()) {
                         AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) },
@@ -873,6 +883,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
               }
             }
             items(resolved, key = { "follow-${it.key}" }) { request ->
+              Box(if (request.key == resolved.firstOrNull()?.key) Modifier.focusRequester(firstActivity) else Modifier) {
                 app.reelstack.ui.TrackedRequestCard(
                     request,
                     { onDetails(request.key) },
@@ -880,6 +891,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     onCancel = { onCancelRequest(request.key) },
                     cancelling = request.key in state.cancellingRequestKeys,
                 )
+              }
             }
         } else if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {
             item(span = { GridItemSpan(maxLineSpan) }) { ActivitySkeleton(Modifier.fillMaxWidth()) }

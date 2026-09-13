@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -105,6 +107,8 @@ internal fun DetailAside(
  */
 @Composable
 internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (String) -> Unit) {
+    val firstEpisode = remember { androidx.compose.ui.focus.FocusRequester() }
+    val tv = app.reelstack.ui.components.isTelevision()
     if (browse.openedFor != detailKey) return
     if (browse.seasons.isEmpty() && !browse.loading && browse.error == null) return
     Column(Modifier.fillMaxWidth().padding(top = 22.dp).testTag("detail-seasons"),
@@ -119,7 +123,7 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
             androidx.compose.runtime.LaunchedEffect(browse.selectedSeasonId, browse.seasons.size) {
                 if (chosenIndex >= 0) runCatching { strip.animateScrollToItem(chosenIndex) }
             }
-            LazyRow(state = strip, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            LazyRow(state = strip, modifier = Modifier.focusProperties { if (tv && browse.episodes.isNotEmpty()) down = firstEpisode }, horizontalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(end = 24.dp)) {
                 items(browse.seasons, key = { it.id }) { season ->
                     val id = season.remoteId.orEmpty()
@@ -150,7 +154,9 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
                 var showAll by remember(browse.selectedSeasonId) { mutableStateOf(false) }
                 val visible = if (showAll) browse.episodes else browse.episodes.take(EPISODE_PREVIEW)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    visible.forEach { episode -> EpisodeRow(episode, episode.id == detailKey) }
+                    visible.forEachIndexed { index, episode ->
+                        Box(if (index == 0) Modifier.focusRequester(firstEpisode) else Modifier) { EpisodeRow(episode, episode.id == detailKey) }
+                    }
                     if (visible.size < browse.episodes.size) Chip(
                         text = pluralStringResource(
                             R.plurals.detail_more_episodes,

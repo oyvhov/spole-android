@@ -83,6 +83,8 @@ class TvRefinementUiTest {
         } }
         rule.onNodeWithTag("play-in-spole").assertIsDisplayed().assertIsFocused()
         rule.onNodeWithTag("play-in-spole").assertTextContains("Hald fram · 27 min att")
+        rule.onNodeWithTag("tv-series-header").assertIsDisplayed()
+        assertTrue(rule.onNodeWithTag("tv-detail-artwork").getUnclippedBoundsInRoot().width > 250.dp)
         rule.onNodeWithText("4K", substring = true).assertIsDisplayed()
         rule.onNodeWithText("8,5", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Detaljar").assertDoesNotExist()
@@ -170,6 +172,18 @@ class TvRefinementUiTest {
         var bright = 0
         for (y in 0 until pixels.height) for (x in 0 until pixels.width) if (pixels[x,y].red > .7f && pixels[x,y].green > .7f) bright++
         assertTrue("Titles must have light glyphs on the dark library background", bright > 20)
+    }
+    @Test fun rightmostLibraryToolbarMovesDownToFirstTitle() {
+        rule.setContent { Tv {
+            val mode = LocalInputModeManager.current
+            SideEffect { mode.requestInputMode(InputMode.Keyboard) }
+            LibraryScreen(ReelstackUiState(connections = listOf(connection), libraryPath = listOf("movies" to "Filmar"),
+                libraryEntries = (1..8).map { RemoteLibraryItem("film-$it", "Film $it", "2026", null, "Movie", null) }), {}, {}, {})
+        } }
+        rule.onNodeWithTag("library-search-toggle").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+            .assertIsFocused()
+        rule.onNodeWithTag("library-search-toggle").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) }
+        rule.onNodeWithTag("library-item-film-1").assertIsFocused()
     }
     @Test fun unresolvedActivityIsGroupedAndCanBeOpenedWithoutBlankPosterRows() {
         val requests = (1..25).map { TrackedRequest("movie:$it", it, "movie", "Film", null, emptySet(), stage = RequestStage.UNKNOWN, requestId = it) }

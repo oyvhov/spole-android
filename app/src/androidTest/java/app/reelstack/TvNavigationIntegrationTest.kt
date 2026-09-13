@@ -40,10 +40,21 @@ class TvNavigationIntegrationTest {
                 androidx.compose.runtime.SideEffect { mode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
                 ReelstackTheme { ReelstackApp(model) }
             }
+            // Finish the app's delayed initial focus hand-off before navigating a specific card.
+            rule.mainClock.advanceTimeBy(1000)
+            rule.waitForIdle()
             rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
             rule.onNodeWithTag("wide-tab-HOME").assertIsNotFocused()
             rule.onNodeWithTag("sidebar-slot").assertWidthIsEqualTo(if (hidden) 0.dp else 80.dp)
             val before = rule.onNodeWithTag("home-feed").getUnclippedBoundsInRoot()
+            rule.onNodeWithTag("resume-card-resume-severance")
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+                .assertIsFocused()
+                .performKeyInput { pressKey(Key.DirectionRight) }
+            rule.onNodeWithTag("resume-card-resume-odyssey").assertIsFocused()
+                .performKeyInput { pressKey(Key.DirectionLeft) }
+            rule.onNodeWithTag("resume-card-resume-severance").assertIsFocused()
+            rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
             val railTabs = hasTestTag("wide-tab-HOME") or hasTestTag("wide-tab-LIBRARY") or
                 hasTestTag("wide-tab-DISCOVER") or hasTestTag("wide-tab-ACTIVITY") or hasTestTag("wide-tab-SETTINGS")
             repeat(5) {
@@ -61,6 +72,11 @@ class TvNavigationIntegrationTest {
             rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
             rule.onNodeWithTag("wide-tab-SETTINGS").assertIsSelected().assertIsNotFocused()
             rule.runOnIdle { assertEquals(AppTab.SETTINGS, model.uiState.value.selectedTab) }
+            repeat(5) {
+                if (rule.onAllNodes(railTabs and isFocused()).fetchSemanticsNodes().isEmpty())
+                    rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionLeft) }
+            }
+            rule.onNodeWithTag("wide-tab-SETTINGS").assertIsFocused()
         } finally {
             instrumentation.runOnMainSync { store.clear() }
             container.preferencesRepository.personalization = oldOptions

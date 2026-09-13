@@ -573,7 +573,7 @@ object ServicePayloadParser {
                 item["sizeLeft"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull() ?: 0.0)
         }
 
-    fun libraryDetails(payload: String): RemoteMediaDetails {
+    fun libraryDetails(payload: String, baseUrl: String? = null): RemoteMediaDetails {
         val item = json.parseToJsonElement(payload) as? JsonObject ?: return RemoteMediaDetails(null, null)
         val runtime = item.long("RunTimeTicks") ?: item.long("runTimeTicks")
         val mediaType = item.string("Type") ?: item.string("type") ?: "Video"
@@ -629,7 +629,12 @@ object ServicePayloadParser {
                 val person = it as? JsonObject ?: return@mapNotNull null
                 if (!person.string("Type").equals("Actor", ignoreCase = true)) return@mapNotNull null
                 val name = person.string("Name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-                app.reelstack.data.model.CastMember(name, person.string("Role"))
+                val id = person.string("Id")?.takeIf(String::isNotBlank)
+                val tag = person.string("PrimaryImageTag")?.takeIf(String::isNotBlank)
+                fun encodePerson(value: String) = java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+                val portrait = if (baseUrl != null && id != null && tag != null)
+                    EndpointValidator.resolve(baseUrl, "Items/${encodePerson(id)}/Images/Primary?maxWidth=184&quality=85&tag=${encodePerson(tag)}") else null
+                app.reelstack.data.model.CastMember(name, person.string("Role"), portrait)
             }.distinctBy { it.name }.take(16),
         )
     }

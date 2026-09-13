@@ -6,6 +6,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onKeyEvent
 import app.reelstack.data.model.visibleMenu
 
@@ -237,7 +238,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     LaunchedEffect(moveIntoContent, state.selectedTab, state.showOnboarding, state.libraryLoading, state.isRefreshing) {
         if (tvRail && moveIntoContent && !state.showOnboarding && state.activeSheet == null) {
             kotlinx.coroutines.delay(240)
-            if (runCatching { contentFocus.requestFocus() }.getOrDefault(false)) moveIntoContent = false
+            if (contentHasFocus || runCatching { contentFocus.requestFocus() }.getOrDefault(false)) moveIntoContent = false
         }
     }
     val expandedRail = showRail && if (tvRail) tvRailFocused else
@@ -260,6 +261,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             if (showRail) {
                 SidebarSlot(if (tvRail) false else expandedRail, hidden = tvRail && personalization.hideTvSidebar) {
                 ReelstackNavigationRail(
+                    connectedServices = state.connections.filter { it.state == app.reelstack.data.model.ConnectionState.CONNECTED }.map { it.kind },
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
                     expanded = expandedRail,
@@ -296,8 +298,12 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     if (tvRail && showRail && state.activeSheet == null &&
                         event.key == androidx.compose.ui.input.key.Key.DirectionLeft &&
                         event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
-                        railEntryRequested = true
-                        railFocus.requestFocus()
+                        // Compose's default directional traversal happens after onKeyEvent.
+                        // Give the row its left-hand neighbour before falling back to the rail.
+                        if (!focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) {
+                            railEntryRequested = true
+                            railFocus.requestFocus()
+                        }
                         true
                     } else false
                 }
@@ -530,7 +536,9 @@ internal fun ReelstackNavigationRail(
     selectedLibraryId: String? = null,
     onLibrarySelect: (String) -> Unit = {},
     modifier: Modifier = Modifier,
+    connectedServices: List<app.reelstack.data.model.ServiceKind> = emptyList(),
 ) {
+    val selectedFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     val width by androidx.compose.animation.core.animateDpAsState(
         if (expanded) 200.dp else 80.dp, tween(220, easing = FastOutSlowInEasing), label = "sidebar-width")
     val labelAlpha by androidx.compose.animation.core.animateFloatAsState(
@@ -543,7 +551,8 @@ internal fun ReelstackNavigationRail(
         .testTag("side-navigation").background(app.reelstack.ui.theme.Surface)) {
     app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize(), menu = true)
     Column(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).requiredWidth(200.dp).fillMaxHeight()
-        .onFocusChanged { if (tv) onFocusWithin(it.hasFocus) }.focusGroup()
+        .onFocusChanged { if (tv) onFocusWithin(it.hasFocus) }
+        .focusProperties { onEnter = { if (tv) selectedFocus.requestFocus() } }.focusGroup()
         .padding(horizontal = 12.dp, vertical = 24.dp)
         .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).then(if (!tv) Modifier
@@ -561,11 +570,20 @@ internal fun ReelstackNavigationRail(
         app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
             if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
                 SidebarControl(name, (libraryIcons[id] ?: app.reelstack.data.model.LibraryIcon.LIBRARY).vector(), selectedLibraryId == id,
-                    { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp).testTag("wide-library-$id"))
+                    { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
+                        .then(if (selectedLibraryId == id) Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-library-$id"))
             }
             SidebarControl(androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab &&
                 (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }),
-                { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp).testTag("wide-tab-${item.tab.name}"))
+                { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
+                    .then(if (selectedTab == item.tab && (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }))
+                        Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-tab-${item.tab.name}"))
+        }
+        if (connectedServices.isNotEmpty()) Row(Modifier.padding(start = 12.dp, top = 12.dp)
+            .graphicsLayer { alpha = labelAlpha }, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            connectedServices.distinct().forEach { source ->
+                app.reelstack.ui.components.ServiceSymbol(source, Modifier.size(18.dp))
+            }
         }
     }
 }

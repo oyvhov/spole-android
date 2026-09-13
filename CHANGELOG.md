@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.16.0-alpha23 · Betre TV-fokus og kompakte episodedetaljar
+
+- Venstre flyttar mellom plakatar før sidemenyen; menyen hugsar aktiv side.
+- Episodar og sesongar får brei detaljtopp, kortare omtale og meir synleg innhald.
+- Opp viser heile heroen igjen; ned frå verktøy og filter går til første innhaldselement.
+- Tilbake lukkar OSD i eitt trykk, også frå sporval under pause.
+- Neste episode får fokus, bilete, gjennomsiktig kort og grafisk nedteljing.
+- Medverkande får serverportrett, filmikonet er fornya og menyen viser tilkopla tenester.
+- Samlingar blir ikkje grupperte inn i filmbiblioteket.
+
 ## 0.16.0-alpha22 · Roligare TV-meny og nye seriedetaljar
 
 - Stabil framside når sidemenyen opnar og lukkar; nytt val for heilt skjult TV-meny.

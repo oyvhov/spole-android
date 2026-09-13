@@ -603,7 +603,7 @@ class MediaServerClient(
             "&Recursive=${catalogueType != null}&StartIndex=$offset&Limit=60" + filters.query() +
             (catalogueType?.let { "&IncludeItemTypes=$it" } ?: "") +
             (if (browsingCollections) "" else "&ExcludeItemTypes=BoxSet") +
-            "&Fields=Overview,Genres,ProviderIds&EnableUserData=true&IsMissing=false"
+            "&GroupItemsIntoCollections=false&Fields=Overview,Genres,ProviderIds&EnableUserData=true&IsMissing=false"
         return getItems(connection, listOf("Items?$query"))
     }
 
@@ -813,7 +813,7 @@ class MediaServerClient(
                 headers(connection, deviceId),
             )
             lastResponse = response
-            if (response.statusCode in 200..299) return ServicePayloadParser.libraryDetails(response.body)
+            if (response.statusCode in 200..299) return ServicePayloadParser.libraryDetails(response.body, connection.baseUrl)
         }
         lastResponse?.requireSuccess(connection.kind)
         serviceError("Fekk ikkje henta detaljar frå ${connection.kind.displayName}")

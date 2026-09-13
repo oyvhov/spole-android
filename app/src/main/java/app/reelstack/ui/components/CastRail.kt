@@ -22,13 +22,13 @@ import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.SurfaceRaised
 
 @Composable
-fun CastRail(cast: List<CastMember>) {
+fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKind? = null) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items(cast, key = { it.name }) { person ->
             Column(Modifier.width(92.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(64.dp).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
                     if (person.portraitUrl != null) {
-                        MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(), fallbackRes = R.drawable.media_placeholder)
+                        MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(), fallbackRes = R.drawable.media_placeholder, source = source)
                     } else {
                         Text(person.name.split(' ').filter(String::isNotBlank).take(2).map { it.first() }.joinToString(""),
                             color = Muted, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)

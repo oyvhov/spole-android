@@ -7,6 +7,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class JellyfinPlaybackTest {
+    @Test fun nextEpisodeArtworkUsesItsOwnDeclaredImageAndEncodesTags() {
+        val item = obj("""{"Id":"ep 2","Type":"Episode","Name":"Neste","ImageTags":{"Primary":"tag/2"}}""")
+        assertEquals("https://media.example/jellyfin/Items/ep%202/Images/Primary?maxWidth=320&quality=85&tag=tag%2F2",
+            parsePlayable(item, "https://media.example/jellyfin").artworkUrl)
+        assertNull(parsePlayable(item).artworkUrl)
+        assertNull(parsePlayable(obj("""{"Id":"ep","Type":"Episode"}"""), "https://media.example").artworkUrl)
+    }
     @Test fun clearlogoUsesDeclaredMovieOrParentArtworkAndFallsBackWithoutTags() {
         val base = "https://media.example/jellyfin"
         assertEquals("$base/Items/movie/Images/Logo?maxWidth=480&quality=90&tag=own",

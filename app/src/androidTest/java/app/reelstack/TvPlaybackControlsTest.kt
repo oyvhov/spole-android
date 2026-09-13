@@ -26,7 +26,8 @@ class TvPlaybackControlsTest {
         var toggles = 0
         val state = androidx.compose.runtime.mutableStateOf(PlayerScreenState(busy = false, playing = true,
             positionMs = 1_730_000, durationMs = 1_800_000,
-            nextEpisode = PlayableItem("next", "Testserie", "Episode", season = 2, episode = 3)))
+            nextEpisode = PlayableItem("next", "Testserie", "Episode", season = 2, episode = 3,
+                artworkUrl = "android.resource://app.reelstack.debug/drawable/session_still")))
         rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current; ReelstackTheme {
             PlayerScreen(state.value, null, {}, { toggles++ }, {}, {}, {}, {}, {}, {}, {}, {},
                 onNextEpisode = { next++ }, onCancelNextEpisode = { state.value = state.value.copy(nextEpisodeDismissed = true) },
@@ -34,10 +35,12 @@ class TvPlaybackControlsTest {
         } }
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
         rule.onNodeWithTag("player-next-episode").assertDoesNotExist()
-        rule.runOnIdle { state.value = state.value.copy(positionMs = 1_740_000) }
+        rule.runOnIdle { state.value = state.value.copy(positionMs = 1_740_000, nextEpisodeCountdown = 6) }
+        rule.onNodeWithTag("player-next-play").assertIsDisplayed().assertIsFocused()
+        rule.onNodeWithTag("player-next-artwork").assertIsDisplayed()
+        rule.mainClock.advanceTimeBy(4000)
+        rule.onNodeWithTag("player-next-play").assertIsFocused()
         capture("tv-polish-next-episode")
-        rule.onNodeWithTag("player-next-play").assertIsDisplayed().assertIsNotFocused()
-            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
         rule.onNodeWithTag("player-next-play").performKeyInput { pressKey(Key.DirectionCenter) }
         rule.runOnIdle { assertEquals(1, next); assertEquals(0, toggles) }
         rule.onNodeWithTag("player-next-cancel").performClick()
@@ -56,6 +59,7 @@ class TvPlaybackControlsTest {
         }
         rule.onNodeWithTag("player-next-play").assertIsDisplayed()
         rule.onNodeWithTag("player-next-cancel").assertIsDisplayed()
+        rule.onNodeWithTag("player-next-progress").assertIsDisplayed()
         capture("tv-polish-next-episode-large")
     }
 
@@ -69,6 +73,20 @@ class TvPlaybackControlsTest {
         rule.waitForIdle()
         assertEquals(0, exits)
         rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        androidx.test.espresso.Espresso.pressBack()
+        rule.runOnIdle { assertEquals(1, exits) }
+    }
+
+    @Test fun backClosesPausedOsdAndTrackDialogInOnePress() {
+        var exits = 0
+        rule.setContent { ReelstackTheme {
+            PlayerScreen(PlayerScreenState(busy = false, playing = false, durationMs = 60_000), null,
+                { exits++ }, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        rule.onNodeWithTag("player-quality").performClick()
+        androidx.test.espresso.Espresso.pressBack()
+        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        assertEquals(0, exits)
         androidx.test.espresso.Espresso.pressBack()
         rule.runOnIdle { assertEquals(1, exits) }
     }

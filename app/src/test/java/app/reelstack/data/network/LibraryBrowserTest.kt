@@ -27,6 +27,7 @@ class LibraryBrowserTest {
         val url = transport.urls.single()
         assertTrue(url.contains("StartIndex=60"))
         assertTrue(url.contains("Limit=60"))
+        assertTrue(url.contains("GroupItemsIntoCollections=false"))
         assertTrue(url.contains("Recursive=false"))
         assertTrue(url.contains("userId=me"))
         assertFalse(url.contains("IncludeItemTypes"))

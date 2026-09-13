@@ -419,14 +419,13 @@ object SpoleIcons {
         moveTo(15.6f, 15.6f); lineTo(20.5f, 20.5f)
     }
 
-    /** A reel of film seen edge-on: the app's own mark for a movie. */
+    /** A clapperboard, readable even in the compact TV sidebar. */
     val Movie = glyph("Movie") {
-        moveTo(3f, 8f); quadTo(3f, 5f, 6f, 5f); lineTo(18f, 5f); quadTo(21f, 5f, 21f, 8f)
-        lineTo(21f, 16f); quadTo(21f, 19f, 18f, 19f); lineTo(6f, 19f); quadTo(3f, 19f, 3f, 16f); close()
-        moveTo(3f, 9.5f); lineTo(21f, 9.5f)
-        moveTo(3f, 14.5f); lineTo(21f, 14.5f)
-        moveTo(8f, 5f); lineTo(8f, 9.5f)
-        moveTo(16f, 14.5f); lineTo(16f, 19f)
+        moveTo(3f, 10f); lineTo(21f, 10f); lineTo(21f, 19f); quadTo(21f, 21f, 19f, 21f)
+        lineTo(5f, 21f); quadTo(3f, 21f, 3f, 19f); close()
+        moveTo(3f, 10f); lineTo(2f, 6f); lineTo(19.5f, 2f); lineTo(20.5f, 6f); close()
+        moveTo(7f, 5f); lineTo(10f, 8.4f)
+        moveTo(13f, 3.6f); lineTo(16f, 7f)
     }
 
     /** A screen on a stand, drawn open like the rest of the family. */
