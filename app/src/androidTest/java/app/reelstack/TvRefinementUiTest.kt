@@ -55,7 +55,8 @@ class TvRefinementUiTest {
     private fun capture(name: String) {
         val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
-            rule.onAllNodes(isRoot()).onLast().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+                .compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
     }
     @Composable private fun Tv(fontScale: Float = 1f, content: @Composable () -> Unit) {
@@ -106,6 +107,46 @@ class TvRefinementUiTest {
         assertTrue(rule.onNodeWithText("Ein heil filmtittel").getUnclippedBoundsInRoot().top >= 16.dp)
         assertTrue(rule.onNodeWithTag("tv-detail-artwork").getUnclippedBoundsInRoot().width <= 220.dp)
         capture("tv-pass2-detail-heading")
+        repeat(8) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) } }
+        repeat(12) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) } }
+        assertTrue("Returning up must reveal the heading", rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot().top >= 0.dp)
+    }
+    @Test fun seriesHeaderAndResumeRemainReachableAfterEpisodeNavigation() = checkSeriesHeader(1f)
+    @Test fun seriesHeaderRemainsReachableAtDoubleTextSize() = checkSeriesHeader(2f)
+    private fun checkSeriesHeader(fontScale: Float) {
+        val episode = LibraryMedia("jellyfin-ep", "Testserie", "Episode 1", artworkRes = R.drawable.media_placeholder,
+            source = ServiceKind.JELLYFIN, remoteId = "ep", mediaType = "Episode", season = 1, episode = 1)
+        rule.setContent { Tv(fontScale) {
+            ReelstackSheets(ReelstackUiState(connections = listOf(connection), activeSheet = AppSheet.TitleDetails("jellyfin-series"),
+                contentDetails = ContentDetails("jellyfin-series", "Ei heilt ny serieside", "Jellyfin", "2026",
+                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Series",
+                    overview = "Omtale av serien. ".repeat(12), libraryAvailable = true),
+                seriesBrowse = SeriesBrowse(seriesId = "series", openedFor = "jellyfin-series", nextUp = episode,
+                    seasons = listOf(episode.copy(id = "season", remoteId = "season", title = "Sesong 1")),
+                    selectedSeasonId = "season", episodes = (1..12).map { episode.copy(id = "jellyfin-ep$it", remoteId = "ep$it", episode = it) })),
+                null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        } }
+        rule.onNodeWithTag("play-in-spole").assertIsFocused()
+        rule.onNodeWithTag("tv-series-header").assertIsDisplayed()
+        repeat(9) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) } }
+        repeat(16) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) } }
+        rule.onNodeWithTag("play-in-spole").assertIsDisplayed()
+        capture("tv-pass3-series-$fontScale")
+        assertTrue("Title bounds: ${rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot()}",
+            rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot().top >= 0.dp)
+    }
+    @Test fun libraryChooserKeepsSavedChoicesWhenServerListArrives() {
+        val state = mutableStateOf(ReelstackUiState(libraryChoicesLoading = true))
+        var saved: Set<String>? = null
+        rule.setContent { Tv {
+            LibraryChoicesDialog(state.value, {}, {}, { selected, _, _ -> saved = selected })
+        } }
+        rule.runOnIdle { state.value = state.value.copy(libraryChoicesLoading = false,
+            libraryChoices = listOf(app.reelstack.data.network.RemoteLibraryView("saved", "Lagret bibliotek", "movies")),
+            selectedLibraryIds = setOf("saved")) }
+        rule.onNodeWithTag("library-choice-saved").assertIsOn()
+        rule.onNodeWithTag("library-selection-save").performClick()
+        rule.runOnIdle { assertEquals(setOf("saved"), saved) }
     }
     @Test fun quickConnectActionIsVisibleWithoutScrollingAtDoubleTextSize() {
         val draft = mutableStateOf(ConnectionDraft(ServiceKind.JELLYFIN, "Jellyfin", "https://example.com", "", authMode = ConnectionAuthMode.QUICK_CONNECT))

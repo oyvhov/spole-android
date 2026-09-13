@@ -27,6 +27,10 @@ import app.reelstack.ui.components.*
 @Composable
 internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit, onRetry: () -> Unit,
     onSave: (Set<String>, List<String>, Map<String, LibraryIcon>) -> Unit) {
+    if (isTelevision()) {
+        TvLibraryChoicesDialog(state, onDismiss, onRetry, onSave)
+        return
+    }
     var selected by remember(state.libraryChoices, state.selectedLibraryIds) { mutableStateOf(state.selectedLibraryIds) }
     // A list, not a set: the menu shows these in the order they are given, and the order is the
     // reader's to choose. Appending on pin and removing on unpin keeps a newly pinned library at
@@ -116,7 +120,7 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
 }
 
 @Composable
-private fun LibraryIconPicker(selected: LibraryIcon, onSelect: (LibraryIcon) -> Unit) {
+internal fun LibraryIconPicker(selected: LibraryIcon, onSelect: (LibraryIcon) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val names = stringArrayResource(R.array.library_icons)
     app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = true }, modifier = Modifier.testTag("library-icon")) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.0-alpha22 · Roligare TV-meny og nye seriedetaljar
+
+- Stabil framside når sidemenyen opnar og lukkar; nytt val for heilt skjult TV-meny.
+- Ny serieside med samla toppfelt og full breidd til episodar. Opp viser toppen igjen.
+- Ny bibliotekveljar på TV med eigne snarveg- og ikonval og faste lagringsknappar.
+- OSD med større søkjemarkør utan ytre fokusramme, tydelegare spoleikon og Clearlogo når tilgjengeleg.
+
+
 ## 0.16.0-alpha21 · Ny TV-spelar og betre oversikt
 
 - Ny TV-OSD med ikon, tydeleg spolelinje, fungerande lyd-/tekstnavigasjon og direkte spoling med piltastane.

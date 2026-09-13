@@ -23,6 +23,12 @@ import app.reelstack.data.model.canRequest
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.foundation.focusGroup
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.input.KeyboardType
@@ -269,7 +275,31 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val aside: @Composable () -> Unit = {
         DetailAside(details, opening, visibleFacts, tv)
     }
-    app.reelstack.ui.components.DetailReadingLayout(tv, scroll, artwork = {
+    val detailScope = androidx.compose.runtime.rememberCoroutineScope()
+    var chosenAudio by remember(details.key) { mutableStateOf<Int?>(null) }
+    var chosenSubtitle by remember(details.key) { mutableStateOf<Int?>(null) }
+    var chosenVersion by remember(details.key) { mutableStateOf<String?>(null) }
+    val actions: @Composable () -> Unit = {
+        TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed,
+            modifier = Modifier.onFocusChanged { if (tv && it.hasFocus && scroll.value > 0) {
+                detailScope.launch { scroll.animateScrollTo(0) }
+            } }.onPreviewKeyEvent { event ->
+                if (tv && event.key == androidx.compose.ui.input.key.Key.DirectionUp) {
+                    if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown)
+                        detailScope.launch { scroll.animateScrollTo(0) }
+                    true
+                } else false
+            }.focusGroup())
+    }
+    val tvHeading: @Composable () -> Unit = {
+        opening.source?.let { Text(it.displayName, color = Muted, style = MaterialTheme.typography.labelLarge) }
+        Text(opening.title, color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 10.dp).testTag("detail-title"))
+        if (!isSeries) Text(app.reelstack.ui.components.episodeLine(opening.season, opening.episode, opening.subtitle),
+            color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp))
+        if (isSeries && ready) { aside(); actions() }
+    }
+    app.reelstack.ui.components.DetailReadingLayout(tv, scroll, series = isSeries, heading = tvHeading, artwork = {
         Column {
             // The slot needs a shape before the picture arrives or the page would jump as it
             // loads, and the guess has to be the media type — but the guess is often wrong. A
@@ -282,7 +312,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             // it. Below Android 12 `blur` does nothing, and the brief letterbox that leaves is the
             // behaviour this page always had.
             var measured by remember(opening.key) { mutableStateOf<Float?>(null) }
-            val slot = if (tv) { if (usePoster) 2f / 3f else 16f / 9f }
+            val slot = if (tv) { if (isSeries) 16f / 9f else if (usePoster) 2f / 3f else 16f / 9f }
                 else measured ?: if (usePoster) 2f / 3f else 16f / 9f
             Box(Modifier.fillMaxWidth().aspectRatio(slot).clip(RoundedCornerShape(16.dp))) {
                 if (!tv && measured == null) MediaArtwork(opening.artworkUrl, null, Modifier.matchParentSize()
@@ -293,14 +323,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             if (ready && !tv) Box(Modifier.graphicsLayer { alpha = metadataAlpha }) { aside() }
         }
     }) {
-        if (tv) {
-            opening.source?.let { Text(it.displayName, color = Muted, style = MaterialTheme.typography.labelLarge) }
-            Text(opening.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 36.sp, lineHeight = 42.sp,
-                fontWeight = FontWeight.Bold, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))
-            Text(app.reelstack.ui.components.episodeLine(opening.season, opening.episode, opening.subtitle),
-                color = Muted, style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 10.dp))
-        } else if (usePoster) {
+        if (!tv && usePoster) {
             MoviePosterSummary(
                 title = opening.title,
                 eyebrow = opening.eyebrow,
@@ -312,7 +335,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 source = opening.source,
                 loading = false,
             )
-        } else {
+        } else if (!tv) {
             CinematicTitleHero(
                 title = opening.title,
                 eyebrow = opening.eyebrow,
@@ -333,12 +356,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
         // Null means "whatever the server would have picked". A choice here is carried into the
         // player, so what the page promises is what starts.
-        var chosenAudio by remember(details.key) { mutableStateOf<Int?>(null) }
-        var chosenSubtitle by remember(details.key) { mutableStateOf<Int?>(null) }
-        var chosenVersion by remember(details.key) { mutableStateOf<String?>(null) }
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
-        if (tv) aside()
-        TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed)
+        if (tv && !isSeries) aside()
+        if (!tv || !isSeries) actions()
         if (tv) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
         if (tv) TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
@@ -557,6 +577,7 @@ private fun TitleActionRow(
     versionId: String?,
     onFavourite: (String, Boolean) -> Unit,
     onPlayed: (String, Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
@@ -564,7 +585,7 @@ private fun TitleActionRow(
     val marks = details.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
         state.connections.any { it.kind == details.source && it.token.isNotBlank() } &&
         !details.mediaType.equals("Series", true) && !details.mediaType.equals("Season", true)
-    Column(Modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().padding(top = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -632,7 +653,7 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
     // pressing Play on a series page has always meant. The button waits for the episode list
     // rather than handing the reader over to the player's own browser to start again from zero.
     val series = details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true)
-    val nextEpisode = state.seriesBrowse.takeIf { it.openedFor == key }?.let(::resumeTarget)
+    val nextEpisode = state.seriesBrowse.takeIf { it.openedFor == details.key }?.let(::resumeTarget)
     val itemId = if (series) nextEpisode?.remoteId ?: return else key
     val context = LocalContext.current
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==

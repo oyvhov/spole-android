@@ -7,6 +7,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class JellyfinPlaybackTest {
+    @Test fun clearlogoUsesDeclaredMovieOrParentArtworkAndFallsBackWithoutTags() {
+        val base = "https://media.example/jellyfin"
+        assertEquals("$base/Items/movie/Images/Logo?maxWidth=480&quality=90&tag=own",
+            playableLogoUrl(obj("""{"Id":"movie","ImageTags":{"Logo":"own"}}"""), base))
+        assertEquals("$base/Items/show/Images/Logo?maxWidth=480&quality=90&tag=series",
+            playableLogoUrl(obj("""{"Id":"episode","SeriesId":"show","ParentLogoImageTag":"series"}"""), base))
+        assertNull(playableLogoUrl(obj("""{"Id":"movie"}"""), base))
+        assertNull(playableLogoUrl(obj("""{"Id":"movie","ImageTags":{"Logo":"own"}}"""), null))
+    }
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Test", "https://media.example/jellyfin", "synthetic-token", "u1")
     private fun obj(json: String) = Json.parseToJsonElement(json).jsonObject
     private val movie = PlayableItem("film", "Testfilm", "Movie", durationMs = 20_000)

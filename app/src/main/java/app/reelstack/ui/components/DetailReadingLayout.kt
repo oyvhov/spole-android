@@ -16,8 +16,24 @@ import androidx.compose.ui.unit.dp
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
-    artwork: @Composable () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    artwork: @Composable () -> Unit, series: Boolean = false,
+    heading: @Composable () -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
     if (tv) {
+        if (series) {
+            CompositionLocalProvider(LocalBringIntoViewSpec provides DetailBringIntoView) {
+                Column(Modifier.fillMaxSize().testTag("detail-scroll").verticalScroll(scroll)
+                    .padding(horizontal = 32.dp, vertical = 16.dp)) {
+                    Row(Modifier.fillMaxWidth().testTag("tv-series-header"),
+                        horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) { heading() }
+                        Box(Modifier.fillMaxWidth(.38f).testTag("tv-detail-artwork")) { artwork() }
+                    }
+                    content()
+                    Spacer(Modifier.height(32.dp))
+                }
+            }
+            return
+        }
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp)) {
             // A supporting poster leaves room for the title, synopsis and playback choices.
             val artworkWidth = minOf(220.dp, maxWidth * .24f, maxHeight * .43f)
@@ -28,7 +44,7 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
                 // clipping the heading on entry. Move only enough to reveal the focused control.
                 CompositionLocalProvider(LocalBringIntoViewSpec provides DetailBringIntoView) {
                     Column(Modifier.weight(1f).fillMaxHeight().testTag("detail-scroll")
-                        .verticalScroll(scroll).padding(bottom = 32.dp), content = content)
+                        .verticalScroll(scroll).padding(bottom = 32.dp)) { heading(); content() }
                 }
             }
         }
@@ -39,7 +55,7 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private object DetailBringIntoView : BringIntoViewSpec {
+internal object DetailBringIntoView : BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = when {
         offset >= 0 && offset + size <= containerSize -> 0f
         offset < 0 && offset + size > containerSize -> 0f

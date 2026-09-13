@@ -91,6 +91,7 @@ data class Personalization(
     val nextEpisodeDelaySeconds: Int = 12,
     val lightweightTv: Boolean = false,
     val sidebarExpanded: Boolean? = null,
+    val hideTvSidebar: Boolean = false,
     val menuOrder: List<String> = DEFAULT_MENU,
     val hiddenMenuItems: Set<String> = emptySet(),
     val showNextUp: Boolean = true,

@@ -108,7 +108,9 @@ class PersonalizationTest {
         rule.onNodeWithTag("artwork-LARGE").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(Personalization(AccentPalette.OCEAN, ArtworkSize.LARGE, false), value) }
         rule.onNodeWithTag("appearance-reset").performScrollTo().performClick()
-        rule.runOnIdle { assertEquals(Personalization(autoResume = false), value) }
+        val tv = InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+        rule.runOnIdle { assertEquals(Personalization(autoResume = false, focusStyle = if (tv) FocusStyle.BOLD else FocusStyle.WHITE), value) }
     }
 
     @Test fun savedChoicesUpdateTheThemeAndSurviveRepositoryRecreation() {
@@ -119,11 +121,11 @@ class PersonalizationTest {
         try {
             repository.personalization = Personalization()
             rule.setContent { ReelstackTheme { primary = MaterialTheme.colorScheme.primary } }
-            rule.runOnIdle { repository.personalization = Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false) }
+            rule.runOnIdle { repository.personalization = Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false, hideTvSidebar = true) }
             rule.waitForIdle()
             rule.runOnIdle {
                 assertEquals(Color(AccentPalette.IRIS.argb), primary)
-                assertEquals(Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false),
+                assertEquals(Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false, hideTvSidebar = true),
                     AppPreferencesRepository(context).personalization)
             }
         } finally {

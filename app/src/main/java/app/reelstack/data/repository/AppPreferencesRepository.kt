@@ -41,6 +41,7 @@ class AppPreferencesRepository(context: Context) {
             autoPlayNextEpisode = preferences.getBoolean("auto_play_next_episode", true),
             nextEpisodeDelaySeconds = preferences.getInt("next_episode_delay", 12).coerceIn(5, 60),
             lightweightTv = preferences.getBoolean("lightweight_tv", false),
+            hideTvSidebar = preferences.getBoolean("hide_tv_sidebar", false),
             sidebarExpanded = if (preferences.contains("sidebar_expanded")) preferences.getBoolean("sidebar_expanded", true) else null,
             menuOrder = preferences.getString("menu_order", null)?.split(',') ?: app.reelstack.data.model.DEFAULT_MENU,
             hiddenMenuItems = preferences.getStringSet("menu_hidden", emptySet()).orEmpty().toSet(),
@@ -65,6 +66,7 @@ class AppPreferencesRepository(context: Context) {
             putBoolean("auto_play_next_episode", value.autoPlayNextEpisode)
             putInt("next_episode_delay", value.nextEpisodeDelaySeconds.coerceIn(5, 60))
             putBoolean("lightweight_tv", value.lightweightTv)
+            putBoolean("hide_tv_sidebar", value.hideTvSidebar)
             value.sidebarExpanded?.let { putBoolean("sidebar_expanded", it) } ?: remove("sidebar_expanded")
             putString("menu_order", value.menuOrder.joinToString(","))
             putStringSet("menu_hidden", value.hiddenMenuItems - setOf("HOME", "SETTINGS"))
@@ -83,7 +85,7 @@ class AppPreferencesRepository(context: Context) {
 
     fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key in setOf("accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "menu_order", "menu_hidden",
+            if (key in setOf("accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "hide_tv_sidebar", "menu_order", "menu_hidden",
                     "show_next_up", "combine_continue", "show_hero", "show_ratings", "show_quality", "slow_startup",
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",
                     "seasonal_ornament", "show_next_episode", "next_episode_lead", "auto_play_next_episode",

@@ -18,7 +18,10 @@ import org.junit.Test
 @OptIn(ExperimentalTestApi::class)
 class TvNavigationIntegrationTest {
     @get:Rule val rule = createComposeRule()
-    @Test fun appStartsCollapsedExpandsOnlyOnLeftAndCollapsesAfterSelection() {
+    @Test fun appStartsCollapsedExpandsOnlyOnLeftAndCollapsesAfterSelection() = checkNavigation(false)
+    @Test fun hiddenSidebarOpensFromLeftEdgeWithoutMovingContent() = checkNavigation(true)
+
+    private fun checkNavigation(hidden: Boolean) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         org.junit.Assume.assumeTrue(context.getSystemService(android.app.UiModeManager::class.java).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
@@ -29,7 +32,7 @@ class TvNavigationIntegrationTest {
         try {
             ServiceKind.entries.forEach(container.connectionRepository::delete)
             container.preferencesRepository.onboardingCompleted = true
-            container.preferencesRepository.personalization = Personalization()
+            container.preferencesRepository.personalization = Personalization(hideTvSidebar = hidden)
             lateinit var model: ReelstackViewModel
             instrumentation.runOnMainSync { model = ReelstackViewModel(container); store.put("navigation", model) }
             rule.setContent {
@@ -39,6 +42,8 @@ class TvNavigationIntegrationTest {
             }
             rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
             rule.onNodeWithTag("wide-tab-HOME").assertIsNotFocused()
+            rule.onNodeWithTag("sidebar-slot").assertWidthIsEqualTo(if (hidden) 0.dp else 80.dp)
+            val before = rule.onNodeWithTag("home-feed").getUnclippedBoundsInRoot()
             val railTabs = hasTestTag("wide-tab-HOME") or hasTestTag("wide-tab-LIBRARY") or
                 hasTestTag("wide-tab-DISCOVER") or hasTestTag("wide-tab-ACTIVITY") or hasTestTag("wide-tab-SETTINGS")
             repeat(5) {
@@ -46,6 +51,7 @@ class TvNavigationIntegrationTest {
                     rule.onRoot().performKeyInput { pressKey(Key.DirectionLeft) }
             }
             rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(200.dp)
+            assertEquals(before, rule.onNodeWithTag("home-feed").getUnclippedBoundsInRoot())
             rule.onNode(railTabs and isFocused()).assertExists()
             repeat(5) {
                 if (rule.onAllNodes(hasTestTag("wide-tab-SETTINGS") and isFocused()).fetchSemanticsNodes().isEmpty())

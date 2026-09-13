@@ -35,6 +35,7 @@ data class PlayerScreenState(
     val awaitingResume: Boolean = false,
     val chapters: List<PlaybackChapter> = emptyList(),
     val itemId: String = "",
+    val logoUrl: String? = null,
     /** The numbers behind [subtitle], so the header can write them out rather than show "S03 E01". */
     val season: Int? = null,
     val episode: Int? = null,
@@ -268,13 +269,13 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             if (folders.lastOrNull()?.id != item.id) folders += item
             parent = item; offset = 0; selected = null
             mutable.update { it.copy(title = item.title, subtitle = "Vel ${if (item.type == "Series") "sesong" else "episode"}",
-                season = null, episode = null,
+                season = null, episode = null, logoUrl = item.logoUrl,
                 choices = emptyList(), browsing = true, hasMore = false, error = null) }
             loadChildren()
         } else {
             selected = item; compatible = false
             mutable.update { it.copy(title = item.title, subtitle = item.subtitle, season = item.season,
-                episode = item.episode, browsing = false, choices = emptyList(),
+                episode = item.episode, logoUrl = item.logoUrl, browsing = false, choices = emptyList(),
                 positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id) }
             val start = playbackStartPosition(item.resumeMs, item.durationMs, item.played,
                 container.preferencesRepository.personalization.autoResume)

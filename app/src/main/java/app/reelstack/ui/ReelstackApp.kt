@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.input.key.onKeyEvent
 import app.reelstack.data.model.visibleMenu
 
 import androidx.compose.animation.AnimatedContent
@@ -134,6 +136,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     var railEntryRequested by remember { mutableStateOf(false) }
     var moveIntoContent by remember { mutableStateOf(tvRail) }
     val contentFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val railFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     var contentHasFocus by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val selectTab: (AppTab) -> Unit = { tab ->
@@ -255,11 +258,21 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         ) { paddingValues ->
             Row(Modifier.fillMaxSize().padding(paddingValues)) {
             if (showRail) {
-                SidebarSlot(if (tvRail) false else expandedRail) {
+                SidebarSlot(if (tvRail) false else expandedRail, hidden = tvRail && personalization.hideTvSidebar) {
                 ReelstackNavigationRail(
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
                     expanded = expandedRail,
+                    modifier = Modifier.focusRequester(railFocus).graphicsLayer {
+                        translationX = if (tvRail && personalization.hideTvSidebar && !expandedRail) -200.dp.toPx() else 0f
+                        alpha = if (tvRail && personalization.hideTvSidebar && !expandedRail) 0f else 1f
+                    }.onPreviewKeyEvent { event ->
+                        if (tvRail && event.key == androidx.compose.ui.input.key.Key.DirectionRight &&
+                            event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                            contentFocus.requestFocus()
+                            true
+                        } else false
+                    },
                     onFocusWithin = { hasFocus ->
                         railHasFocus = hasFocus
                         tvRailFocused = hasFocus && railEntryRequested
@@ -278,7 +291,16 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 )
                 }
             }
-            Box(Modifier.weight(1f).fillMaxSize().focusRequester(contentFocus)
+            Box(Modifier.weight(1f).fillMaxSize().focusRequester(contentFocus).focusRestorer()
+                .onKeyEvent { event ->
+                    if (tvRail && showRail && state.activeSheet == null &&
+                        event.key == androidx.compose.ui.input.key.Key.DirectionLeft &&
+                        event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                        railEntryRequested = true
+                        railFocus.requestFocus()
+                        true
+                    } else false
+                }
                 .onFocusChanged { contentHasFocus = it.hasFocus }.focusGroup()) {
             if (state.showOnboarding) {
                 WelcomeScreen(
@@ -488,10 +510,10 @@ private fun ReelstackBottomBar(
 }
 
 @Composable
-internal fun SidebarSlot(expanded: Boolean, content: @Composable () -> Unit) {
+internal fun SidebarSlot(expanded: Boolean, hidden: Boolean = false, content: @Composable () -> Unit) {
     // Commit the page width once. The rail reveals/clips above it instead of resizing every
     // poster, gradient and lazy grid on every animation frame.
-    Box(Modifier.width(if (expanded) 200.dp else 80.dp).fillMaxHeight().zIndex(1f).testTag("sidebar-slot")) {
+    Box(Modifier.width(if (hidden) 0.dp else if (expanded) 200.dp else 80.dp).fillMaxHeight().zIndex(1f).testTag("sidebar-slot")) {
         Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)) { content() }
     }
 }
@@ -507,6 +529,7 @@ internal fun ReelstackNavigationRail(
     libraryIcons: Map<String, app.reelstack.data.model.LibraryIcon> = emptyMap(),
     selectedLibraryId: String? = null,
     onLibrarySelect: (String) -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val width by androidx.compose.animation.core.animateDpAsState(
         if (expanded) 200.dp else 80.dp, tween(220, easing = FastOutSlowInEasing), label = "sidebar-width")
@@ -516,11 +539,12 @@ internal fun ReelstackNavigationRail(
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val toggleLabel = androidx.compose.ui.res.stringResource(if (expanded) R.string.sidebar_collapse else R.string.sidebar_expand)
     val brandInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    Box(Modifier.width(width).fillMaxHeight().background(app.reelstack.ui.theme.Surface)) {
+    Box(modifier.width(width).fillMaxHeight().clip(RoundedCornerShape(0.dp))
+        .testTag("side-navigation").background(app.reelstack.ui.theme.Surface)) {
     app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize(), menu = true)
-    Column(Modifier.fillMaxSize().clip(RoundedCornerShape(0.dp))
+    Column(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).requiredWidth(200.dp).fillMaxHeight()
         .onFocusChanged { if (tv) onFocusWithin(it.hasFocus) }.focusGroup()
-        .testTag("side-navigation").padding(horizontal = 12.dp, vertical = 24.dp)
+        .padding(horizontal = 12.dp, vertical = 24.dp)
         .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).then(if (!tv) Modifier
             .testTag("sidebar-toggle").semantics { contentDescription = toggleLabel }
@@ -537,11 +561,11 @@ internal fun ReelstackNavigationRail(
         app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
             if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
                 SidebarControl(name, (libraryIcons[id] ?: app.reelstack.data.model.LibraryIcon.LIBRARY).vector(), selectedLibraryId == id,
-                    { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.testTag("wide-library-$id"))
+                    { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp).testTag("wide-library-$id"))
             }
             SidebarControl(androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab &&
                 (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }),
-                { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.testTag("wide-tab-${item.tab.name}"))
+                { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp).testTag("wide-tab-${item.tab.name}"))
         }
     }
 }

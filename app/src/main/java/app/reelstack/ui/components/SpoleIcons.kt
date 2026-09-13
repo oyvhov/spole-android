@@ -86,6 +86,12 @@ object SpoleIcons {
         moveTo(14.5f, 5f); lineTo(14.5f, 19f)
     }
 
+    val PlaySimple = ImageVector.Builder("Spole.PlaySimple", 24.dp, 24.dp, 24f, 24f).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(7f, 4f); lineTo(20f, 12f); lineTo(7f, 20f); close()
+        }
+    }.build()
+
     /** Two film cuts and a tick: something that finished, not a generic checkmark. */
     val Done = glyph("Done") {
         moveTo(4f, 12.5f); lineTo(9f, 17.5f); lineTo(20f, 6.5f)
@@ -187,21 +193,28 @@ object SpoleIcons {
      * side of the play button, and a label outside the circle would make the pair asymmetric the
      * moment one of them is focused.
      */
-    val Replay10 = glyph("Replay10") {
-        moveTo(4f, 12f); arcTo(8f, 8f, 0f, true, false, 6.8f, 6.1f)
-        moveTo(6.6f, 2.8f); lineTo(6.6f, 6.6f); lineTo(10.4f, 6.6f)
-        moveTo(9.6f, 10.6f); lineTo(10.8f, 10f); lineTo(10.8f, 15f)
-        moveTo(14.2f, 11.4f); quadTo(14.2f, 10f, 15.6f, 10f); quadTo(17f, 10f, 17f, 11.4f)
-        lineTo(17f, 13.6f); quadTo(17f, 15f, 15.6f, 15f); quadTo(14.2f, 15f, 14.2f, 13.6f); close()
-    }
+    val Replay10 = seekTen(false)
+    val Forward10 = seekTen(true)
 
-    val Forward10 = glyph("Forward10") {
-        moveTo(20f, 12f); arcTo(8f, 8f, 0f, true, true, 17.2f, 6.1f)
-        moveTo(17.4f, 2.8f); lineTo(17.4f, 6.6f); lineTo(13.6f, 6.6f)
-        moveTo(6.6f, 10.6f); lineTo(7.8f, 10f); lineTo(7.8f, 15f)
-        moveTo(11.2f, 11.4f); quadTo(11.2f, 10f, 12.6f, 10f); quadTo(14f, 10f, 14f, 11.4f)
-        lineTo(14f, 13.6f); quadTo(14f, 15f, 12.6f, 15f); quadTo(11.2f, 15f, 11.2f, 13.6f); close()
-    }
+    private fun seekTen(forward: Boolean) = ImageVector.Builder(
+        "Spole.SeekTen.$forward", 32.dp, 32.dp, 32f, 32f,
+    ).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f,
+            strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            if (forward) {
+                moveTo(23f, 5f); curveTo(10f, -2f, -2f, 17f, 10f, 26f)
+                curveTo(20f, 34f, 33f, 23f, 28f, 13f)
+                moveTo(23f, 1f); lineTo(23f, 6f); lineTo(18f, 6f)
+            } else {
+                moveTo(9f, 5f); curveTo(22f, -2f, 34f, 17f, 22f, 26f)
+                curveTo(12f, 34f, -1f, 23f, 4f, 13f)
+                moveTo(9f, 1f); lineTo(9f, 6f); lineTo(14f, 6f)
+            }
+            moveTo(9f, 13f); lineTo(12f, 11f); lineTo(12f, 21f)
+            moveTo(18f, 11f); curveTo(14f, 11f, 14f, 21f, 18f, 21f)
+            curveTo(22f, 21f, 22f, 11f, 18f, 11f); close()
+        }
+    }.build()
 
     /** Appearance. A palette with its thumb hole, not a paint tin. */
     val Palette = glyph("Palette") {

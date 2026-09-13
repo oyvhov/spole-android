@@ -56,7 +56,13 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         .52f to Color.Transparent, 1f to Color.Black.copy(alpha = .90f))).testTag("player-controls"))
     Column(Modifier.align(Alignment.TopStart).padding(horizontal = 48.dp, vertical = 27.dp)
         .fillMaxWidth(if (nextFocus == null) .9f else .46f)) {
-        Text(state.title, style = MaterialTheme.typography.titleLarge, color = Color.White,
+        var logoFailed by remember(state.logoUrl) { mutableStateOf(false) }
+        if (state.logoUrl != null && !logoFailed) {
+            app.reelstack.ui.components.MediaArtwork(state.logoUrl, state.title,
+                Modifier.width(240.dp).height(72.dp).testTag("player-clearlogo"),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                source = app.reelstack.data.model.ServiceKind.JELLYFIN, onError = { logoFailed = true })
+        } else Text(state.title, style = MaterialTheme.typography.titleLarge, color = Color.White,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(app.reelstack.ui.components.episodeLine(state.season, state.episode, state.subtitle),
             style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .72f),
@@ -69,7 +75,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             verticalAlignment = Alignment.CenterVertically) {
             TvPlayerAction(SpoleIcons.Replay10, stringResource(R.string.player_rewind), "player-rewind",
                 Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0) { seek(-10_000) }
-            TvPlayerAction(if (state.playing) SpoleIcons.Pause else SpoleIcons.Play,
+            TvPlayerAction(if (state.playing) SpoleIcons.Pause else SpoleIcons.PlaySimple,
                 stringResource(if (state.playing) R.string.player_pause else R.string.player_play), "player-toggle",
                 Modifier.focusRequester(playFocus).focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, !state.busy || state.durationMs > 0) { onInteraction(); onToggle() }
             TvPlayerAction(SpoleIcons.Forward10, stringResource(R.string.player_forward), "player-forward",
@@ -93,12 +99,11 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
                 progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
                 setProgress { fraction -> onSeek((fraction.coerceIn(0f, 1f) * state.durationMs).toLong()); true }
             }.focusable(state.durationMs > 0)
-            .border(if (timelineFocused) 2.dp else 0.dp, if (timelineFocused) Color.White else Color.Transparent, RoundedCornerShape(10.dp))
             .padding(horizontal = 12.dp).testTag("player-timeline"), contentAlignment = Alignment.CenterStart) {
             Box(Modifier.fillMaxWidth().height(if (timelineFocused) 8.dp else 4.dp).background(Color.White.copy(alpha = .28f), RoundedCornerShape(4.dp)))
             Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(if (timelineFocused) 8.dp else 4.dp).background(Color.White, RoundedCornerShape(4.dp)))
             Canvas(Modifier.matchParentSize()) {
-                val radius = if (timelineFocused) 7.dp.toPx() else 4.dp.toPx()
+                val radius = if (timelineFocused) 11.dp.toPx() else 4.dp.toPx()
                 drawCircle(Color.White, radius, androidx.compose.ui.geometry.Offset(
                     (size.width * progress).coerceIn(radius, size.width.coerceAtLeast(radius * 2) - radius), size.height / 2))
             }
@@ -138,7 +143,7 @@ private fun TvPlayerAction(icon: ImageVector, label: String, tag: String, modifi
         contentColor = Color.White.copy(alpha = if (enabled) 1f else .38f)) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, null, Modifier.size(24.dp))
+            Icon(icon, null, Modifier.size(if (labelVisible) 24.dp else 32.dp))
             if (labelVisible) Text(label, style = MaterialTheme.typography.labelLarge)
         }
     }

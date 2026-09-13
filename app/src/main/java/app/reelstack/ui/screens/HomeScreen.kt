@@ -108,7 +108,7 @@ import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 /**
  * `searchTransitionModifier` is not this screen's modifier and must not be called `modifier`.
  *
@@ -176,6 +176,10 @@ fun HomeScreen(
         val featureVisible by remember { androidx.compose.runtime.derivedStateOf {
             feedState.layoutInfo.visibleItemsInfo.any { it.key == "tablet-feature" }
         } }
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
+                if (television) app.reelstack.ui.components.DetailBringIntoView
+                else androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current) {
         LazyColumn(
             state = feedState,
             contentPadding = PaddingValues(
@@ -350,6 +354,7 @@ fun HomeScreen(
                 }
             }
             item(key = "freshness") { HomeFreshness(state, onRefresh) }
+        }
         }
       }
     }

@@ -28,6 +28,7 @@ data class PlayableItem(
     val episode: Int? = null,
     /** Needed to ask the server what comes after this episode. Empty for a film. */
     val seriesId: String = "",
+    val logoUrl: String? = null,
 )
 
 data class PlaybackTrack(val index: Int, val label: String, val language: String?, val isText: Boolean = false)
@@ -87,7 +88,19 @@ fun parsePlayable(item: JsonObject, baseUrl: String? = null): PlayableItem {
     return PlayableItem(id, if (type == "Episode") item.str("SeriesName").ifBlank { item.str("Name") } else item.str("Name"),
         type, subtitle, duration, if (user.flag("Played") || duration > 0 && resume >= duration) 0 else resume, user.flag("Played"),
         chapters = chapters, season = season, episode = episode,
-        seriesId = item.str("SeriesId"))
+        seriesId = item.str("SeriesId"), logoUrl = playableLogoUrl(item, baseUrl))
+}
+
+/** Use declared artwork only; never add speculative requests or credentials to image URLs. */
+internal fun playableLogoUrl(item: JsonObject, baseUrl: String?): String? {
+    if (baseUrl.isNullOrBlank()) return null
+    val ownTag = item.obj("ImageTags").str("Logo")
+    val parentTag = item.str("ParentLogoImageTag").ifBlank { item.str("SeriesLogoImageTag") }
+    val id = if (ownTag.isNotBlank()) item.str("Id")
+        else item.str("ParentLogoItemId").ifBlank { item.str("SeriesId") }
+    val tag = ownTag.ifBlank { parentTag }
+    if (id.isBlank() || tag.isBlank()) return null
+    return "${baseUrl.trimEnd('/')}/Items/${enc(id)}/Images/Logo?maxWidth=480&quality=90&tag=${enc(tag)}"
 }
 
 /** Same-origin, same-base-path only; remove server-generated credentials before Media3 sees a URI. */

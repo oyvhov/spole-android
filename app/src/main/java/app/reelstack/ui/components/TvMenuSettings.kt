@@ -24,6 +24,8 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
         "DISCOVER" to stringResource(R.string.nav_discover), "ACTIVITY" to stringResource(R.string.nav_activity),
         "SETTINGS" to stringResource(R.string.nav_settings))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SettingsToggleRow(stringResource(R.string.tv_hide_sidebar), stringResource(R.string.tv_hide_sidebar_help),
+            value.hideTvSidebar, "tv-hide-sidebar") { onChange(value.copy(hideTvSidebar = it)) }
         order.forEachIndexed { index, name -> key(name) {
             val required = name in setOf("HOME", "SETTINGS")
             // "Synleg i menyen" is the row's value, not an explanation of what pressing it does, so

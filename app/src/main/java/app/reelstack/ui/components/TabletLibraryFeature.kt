@@ -102,9 +102,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val featureIntoView = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
-    LaunchedEffect(focused, television) {
-        if (focused && television) featureIntoView.bringIntoView()
-    }
+    // The focused button already participates in scrolling. A second request for the entire
+    // hero fought that request whenever focus returned from the sidebar.
     val compactTelevision = television && density.fontScale < 1.5f
     val featureInteraction = remember { MutableInteractionSource() }
     val actionInteraction = remember { MutableInteractionSource() }
