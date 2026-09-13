@@ -33,10 +33,11 @@ demo-data og grunnleggjande navigasjon på TV/mobil/tablet.
 ## Release
 
 - Publisert som prerelease: https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-beta01
-- Kjeldecommit: `b380aaa2ddc563e8bd5a392e8a4d3a32e82f475f`
+- Kjeldecommit: `baeb2f92cacdb802fed62426503013d26658f9d6`
 - App-APK-lenkje: https://github.com/oyvhov/spole-android/releases/download/v0.16.0-beta01/Spole-v0.16.0-beta01.apk
 - Offentleg release-liste utan innlogging skal vise éin APK med riktig digest.
 - Etterpublisering av last ned + installasjon via "Sjekk no" blir utført på review-emulator.
+
 
 
 
