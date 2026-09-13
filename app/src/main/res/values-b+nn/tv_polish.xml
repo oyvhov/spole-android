@@ -4,11 +4,11 @@
     <string name="next_episode_at_end">Når episoden er ferdig</string>
     <string name="next_episode_seconds">%1$d sekund</string>
     <string name="next_episode_auto">Spel neste automatisk</string>
-    <string name="next_episode_auto_hint">Vent til episoden er heilt ferdig, og tel så ned. Du kan avbryte.</string>
-    <string name="next_episode_delay">Vent etter slutten</string>
+    <string name="next_episode_auto_hint">Tel ned når tilbodet kjem, også før slutten. Vel Sjå ferdig for å bli i episoden.</string>
+    <string name="next_episode_delay">Lengd på nedteljinga</string>
     <string name="next_episode_dismiss">Sjå ferdig</string>
     <string name="next_episode_countdown">Startar om %1$d sekund</string>
-    <string name="next_episode_cancel">Avbryt automatisk start</string>
+    <string name="next_episode_cancel">Avbryt</string>
     <string name="tv_lightweight">Lett TV-modus</string>
     <string name="tv_lightweight_hint">For tregare TV-ar: stilleståande toppbilete, utan biletovergangar, glød og sesongrørsler.</string>
 </resources>

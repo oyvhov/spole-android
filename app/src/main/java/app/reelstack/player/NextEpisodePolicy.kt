@@ -12,3 +12,8 @@ internal fun PlayerScreenState.showNextEpisodeOffer(): Boolean = !busy && error 
     !browsing && !awaitingResume && shouldOfferNextEpisode(nextEpisode != null,
         nextEpisodeOfferEnabled || (ended && nextEpisodeCountdown != null), nextEpisodeDismissed,
         ended, positionMs, durationMs, nextEpisodeLeadSeconds)
+
+internal fun PlayerScreenState.canCountDownNextEpisode(): Boolean = !busy && error == null &&
+    !browsing && !awaitingResume && (playing || ended) && shouldOfferNextEpisode(nextEpisode != null,
+        true, nextEpisodeDismissed, ended, positionMs, durationMs,
+        if (nextEpisodeOfferEnabled) nextEpisodeLeadSeconds else 0)

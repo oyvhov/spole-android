@@ -151,7 +151,7 @@ fun HomeScreen(
     val hasQueueConnection = state.connections.any {
         it.baseUrl.isNotBlank() && (it.kind == ServiceKind.RADARR || it.kind == ServiceKind.SONARR)
     }
-    PullToRefreshBox(
+    HomeRefreshFrame(
         isRefreshing = state.isRefreshing,
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
@@ -356,8 +356,16 @@ fun HomeScreen(
 }
 
 /**
- * Says how old the feed is. Without it a cache from yesterday is indistinguishable from live data.
+ * Pull-to-refresh belongs to touch screens; a TV refresh never overlays its hero artwork.
  */
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun HomeRefreshFrame(isRefreshing: Boolean, onRefresh: () -> Unit, modifier: Modifier,
+    content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) {
+    if (isTelevision()) Box(modifier, content = content)
+    else PullToRefreshBox(isRefreshing = isRefreshing, onRefresh = onRefresh, modifier = modifier, content = content)
+}
+
 @Composable
 private fun HomeFreshness(state: ReelstackUiState, onRefresh: () -> Unit) {
     if (state.configuredCount == 0) return

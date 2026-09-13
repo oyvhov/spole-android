@@ -131,7 +131,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         // On television the whole hero used to take focus, and the only way to show that was a
         // ring round the entire picture — which is exactly what made it look like a selected cell
         // rather than a piece of artwork. The "Sjå meir" button inside is the focus target
-        // instead: a remote reaches the same title through a ring the size of a button. A finger
+        // instead: its neutral treatment keeps the artwork prominent. A finger
         // still opens the hero anywhere on it, which is why the surface stays clickable elsewhere.
         .then(
             if (television) Modifier
@@ -233,7 +233,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
            }
           }
             FilledTonalButton(onClick = { onOpen(selected.id) }, interactionSource = actionInteraction,
-                modifier = Modifier.heightIn(min = 48.dp).focusOutline(actionInteraction, RoundedCornerShape(24.dp))
+                modifier = Modifier.heightIn(min = 48.dp)
                 .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
                 Text(stringResource(R.string.feature_more), style = MaterialTheme.typography.labelLarge)

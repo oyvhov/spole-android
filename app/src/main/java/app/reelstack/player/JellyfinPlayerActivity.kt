@@ -20,6 +20,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -165,6 +166,8 @@ fun PlayerScreen(
     val videoFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
     val nextFocus = remember { FocusRequester() }
+    var nextHasFocus by remember { mutableStateOf(false) }
+    var controlsHaveFocus by remember { mutableStateOf(false) }
     var consumedRemoteKey by remember { mutableIntStateOf(-1) }
     val showControlsLabel = stringResource(R.string.player_show_controls)
     var controls by remember { mutableStateOf(true) }
@@ -176,24 +179,31 @@ fun PlayerScreen(
     var remoteSeekTargetMs by remember { mutableStateOf<Long?>(null) }
     var remoteSeekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val accessibility = LocalAccessibilityManager.current
-    val canHide = state.playing && !state.busy && state.error == null && !state.ended && !state.awaitingResume
-    val showControls = controls || !canHide || menu != null
+    // A seek may briefly buffer. That is not a pause and must not reveal the whole OSD.
+    val canHide = (state.playing || state.busy && state.playWhenReady) &&
+        state.error == null && !state.ended && !state.awaitingResume
+    val finishedWithNext = state.ended && state.showNextEpisodeOffer()
+    val showControls = controls || (!canHide && !finishedWithNext) || menu != null
     val showNextOffer = state.showNextEpisodeOffer() && menu == null && !scrubbing
     val latestShown by rememberUpdatedState(showControls)
     val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null)
-    LaunchedEffect(canHide) { if (!canHide) controls = true }
+    LaunchedEffect(canHide, finishedWithNext) { if (!canHide) controls = !finishedWithNext }
     LaunchedEffect(controls, canHide, interaction, menu, scrubbing) {
         if (controls && canHide && menu == null && !scrubbing) {
             delay(accessibility?.calculateRecommendedTimeoutMillis(3500, containsControls = true) ?: 3500)
             controls = false
         }
     }
-    LaunchedEffect(isTelevision, showControls, showNextOffer, state.busy, state.browsing, state.awaitingResume, state.error, menu) {
+    LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu) {
         if (isTelevision && menu == null && !state.browsing) {
-            if (showNextOffer) nextFocus.requestFocus()
+            if (showNextOffer && state.ended) nextFocus.requestFocus()
             else if (!showControls) videoFocus.requestFocus()
-            else if (!state.busy && !state.awaitingResume && state.error == null) playFocus.requestFocus()
+            else if (!state.busy && !state.awaitingResume && state.error == null && !controlsHaveFocus && !nextHasFocus)
+                playFocus.requestFocus()
         }
+    }
+    LaunchedEffect(isTelevision, showNextOffer, state.ended) {
+        if (isTelevision && showNextOffer && state.ended) nextFocus.requestFocus()
     }
     BackHandler {
         if (menu != null) menu = null
@@ -201,7 +211,7 @@ fun PlayerScreen(
         else if (isTelevision && showControls && canHide) controls = false
         else onClose()
     }
-    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+    CompositionLocalProvider(LocalContentColor provides if (isTelevision) Color.White else MaterialTheme.colorScheme.onSurface) {
     Box(Modifier.fillMaxSize().background(Color.Black).testTag("jellyfin-player")
         .onPreviewKeyEvent { event ->
             if (!isTelevision) return@onPreviewKeyEvent false
@@ -226,31 +236,34 @@ fun PlayerScreen(
                 else -> return@onPreviewKeyEvent false
             }
             interaction++
-            if (native.repeatCount > 0 && consumedRemoteKey == native.keyCode) return@onPreviewKeyEvent true
-            val action = remotePlaybackAction(key, showControls || showNextOffer, state.playing,
-                state.busy || state.browsing || state.awaitingResume || state.error != null || menu != null)
+            if (native.repeatCount > 0 && consumedRemoteKey == native.keyCode && key !in setOf(
+                    RemotePlaybackKey.LEFT, RemotePlaybackKey.RIGHT, RemotePlaybackKey.REWIND, RemotePlaybackKey.FORWARD)) return@onPreviewKeyEvent true
+            val action = remotePlaybackAction(key, showControls || nextHasFocus, state.playing,
+                (state.busy && state.durationMs <= 0) || state.browsing || state.awaitingResume || state.error != null || menu != null)
             if (action == RemotePlaybackAction.DEFAULT) return@onPreviewKeyEvent false
             consumedRemoteKey = native.keyCode
-            if (action != RemotePlaybackAction.IGNORE) controls = true
+            if (action == RemotePlaybackAction.REVEAL || action == RemotePlaybackAction.TOGGLE) controls = true
             when (action) {
                 RemotePlaybackAction.TOGGLE -> onToggle()
                 RemotePlaybackAction.REWIND -> {
                     val target = ((remoteSeekTargetMs ?: state.positionMs) - 10_000).coerceAtLeast(0)
                     remoteSeekTargetMs = target
-                    onSeek(target)
                     remoteSeekJob?.cancel()
                     remoteSeekJob = scope.launch {
-                        delay(2200)
+                        delay(180)
+                        onSeek(target)
+                        delay(2020)
                         remoteSeekTargetMs = null
                     }
                 }
                 RemotePlaybackAction.FORWARD -> if (state.durationMs > 0) {
                     val target = ((remoteSeekTargetMs ?: state.positionMs) + 10_000).coerceAtMost(state.durationMs)
                     remoteSeekTargetMs = target
-                    onSeek(target)
                     remoteSeekJob?.cancel()
                     remoteSeekJob = scope.launch {
-                        delay(2200)
+                        delay(180)
+                        onSeek(target)
+                        delay(2020)
                         remoteSeekTargetMs = null
                     }
                 }
@@ -322,6 +335,17 @@ fun PlayerScreen(
                     if (state.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     state.error?.let { error -> item { Text(error); app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) } } }
                 }
+            }
+        } else if (isTelevision && !state.awaitingResume && state.error == null) {
+            TvPlaybackOverlay(state, showControls, remoteSeekTargetMs, playFocus, nextFocus.takeIf { showNextOffer },
+                onToggle, onSeek, { menu = PlayerMenu.AUDIO }, { menu = PlayerMenu.SUBTITLES },
+                { menu = PlayerMenu.QUALITY }, fillVideo, { fillVideo = !fillVideo },
+                onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it })
+            if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
+                Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
+                    .padding(horizontal = 48.dp, vertical = 27.dp).onFocusChanged { nextHasFocus = it.hasFocus })
+            else Box(Modifier.align(Alignment.TopEnd).padding(horizontal = 48.dp, vertical = 80.dp)) {
+                SkipSegmentButton(state, onSkipSegment)
             }
         } else {
             Column(Modifier.fillMaxSize()
@@ -449,7 +473,15 @@ fun PlayerScreen(
         }
         }
         menu?.let { title ->
+            val selectedTrackFocus = remember(title) { FocusRequester() }
+            LaunchedEffect(title) {
+                withFrameNanos { }
+                runCatching { selectedTrackFocus.requestFocus() }
+            }
             AlertDialog(onDismissRequest = { menu = null }, title = { Text(stringResource(title.label)) },
+                containerColor = if (isTelevision) Color(0xFF181A1C) else MaterialTheme.colorScheme.surface,
+                titleContentColor = if (isTelevision) Color.White else MaterialTheme.colorScheme.onSurface,
+                textContentColor = if (isTelevision) Color.White else MaterialTheme.colorScheme.onSurface,
                 text = {
                     val options = when (title) {
                         PlayerMenu.AUDIO -> state.audio.map { it.index to it.label }
@@ -458,18 +490,36 @@ fun PlayerScreen(
                             20_000_000 to stringResource(R.string.player_quality_high), 4_000_000 to stringResource(R.string.player_medium_data), 2_000_000 to stringResource(R.string.player_low_data))
                     }
                     Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState())) {
-                        options.forEach { (id, label) ->
-                            val selected = id == when (title) { PlayerMenu.AUDIO -> state.audioIndex; PlayerMenu.SUBTITLES -> state.subtitleIndex; else -> state.quality }
-                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = {
+                        val selectedId = when (title) { PlayerMenu.AUDIO -> state.audioIndex; PlayerMenu.SUBTITLES -> state.subtitleIndex; else -> state.quality }
+                        options.forEachIndexed { index, (id, label) ->
+                            val selected = id == selectedId
+                            val initialFocus = selected || (index == 0 && options.none { it.first == selectedId })
+                            val choiceInteraction = remember(title, id) { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            val choose: () -> Unit = {
                                 when (title) { PlayerMenu.AUDIO -> onAudio(id); PlayerMenu.SUBTITLES -> onSubtitle(id); else -> onQuality(id) }
                                 menu = null; interaction++
-                            }, modifier = Modifier.fillMaxWidth()) {
+                            }
+                            OutlinedButton(onClick = choose, interactionSource = choiceInteraction,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .2f)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White,
+                                    containerColor = if (selected) Color.White.copy(alpha = .12f) else Color.Transparent),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .then(if (initialFocus) Modifier.focusRequester(selectedTrackFocus) else Modifier)
+                                    .neutralPlayerFocus(choiceInteraction, RoundedCornerShape(12.dp))) {
                                 if (selected) Icon(app.reelstack.ui.components.SpoleIcons.Done, null, Modifier.padding(end = 8.dp))
                                 Text(label, Modifier.weight(1f))
                             }
                         }
                     }
-                }, confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = null }) { Text(stringResource(R.string.action_close)) } })
+                }, confirmButton = {
+                    val closeInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    TextButton(onClick = { menu = null }, interactionSource = closeInteraction,
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                        modifier = Modifier.heightIn(min = 48.dp).neutralPlayerFocus(closeInteraction, RoundedCornerShape(12.dp))) {
+                        Text(stringResource(R.string.action_close))
+                    }
+                })
         }
     }
     }
@@ -489,6 +539,13 @@ private fun PlayerScreenState.subtitleLine(): String {
     return if (name.isNotBlank() && title.contains(name, ignoreCase = true)) {
         app.reelstack.ui.components.episodeLine(season, episode, "")
     } else full
+}
+
+@Composable
+private fun Modifier.neutralPlayerFocus(interaction: androidx.compose.foundation.interaction.MutableInteractionSource,
+    shape: androidx.compose.ui.graphics.Shape): Modifier {
+    val focused by interaction.collectIsFocusedAsState()
+    return border(if (focused) 2.dp else 0.dp, if (focused) Color.White else Color.Transparent, shape)
 }
 
 @Composable
@@ -580,7 +637,7 @@ internal fun TimelineThumbnailPreview(
     }
 }
 
-/** The offer is independent of the transport controls; it never cuts the current episode short. */
+/** A quiet corner offer; its countdown starts at the user's chosen lead time. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCancel: () -> Unit,
@@ -588,38 +645,41 @@ private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCanc
     val next = state.nextEpisode ?: return
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val shape = RoundedCornerShape(14.dp)
-    Surface(modifier.widthIn(max = 480.dp).fillMaxWidth().padding(top = 12.dp)
-        .testTag("player-next-episode"), shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Surface(modifier.widthIn(max = 360.dp).fillMaxWidth()
+        .testTag("player-next-episode"), shape = RoundedCornerShape(16.dp),
+        color = Color.Black.copy(alpha = .84f), contentColor = Color.White, tonalElevation = 0.dp) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(app.reelstack.ui.components.SpoleIcons.Screen, null, Modifier.size(28.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    tint = Color.White.copy(alpha = .7f))
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(next.title, style = MaterialTheme.typography.titleLarge, maxLines = 1,
+                        color = Color.White.copy(alpha = .7f))
+                    Text(next.title, style = MaterialTheme.typography.titleMedium, maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
                     Text(app.reelstack.ui.components.episodeLine(next.season, next.episode, next.subtitle),
                         style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = Color.White.copy(alpha = .7f))
                 }
             }
             state.nextEpisodeCountdown?.let {
                 Text(stringResource(R.string.next_episode_countdown, it),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .7f))
             }
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onPlay, shape = shape, interactionSource = interaction,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = .18f), contentColor = Color.White),
                     modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus)
-                        .focusOutline(interaction, shape, glow = false).testTag("player-next-play")) {
+                        .neutralPlayerFocus(interaction, shape).testTag("player-next-play")) {
                     Icon(app.reelstack.ui.components.SpoleIcons.Play, null, Modifier.size(20.dp))
                     Text(stringResource(R.string.player_next_play), Modifier.padding(start = 8.dp))
                 }
                 if (!state.ended || state.nextEpisodeCountdown != null) {
-                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = onCancel,
-                        modifier = Modifier.testTag("player-next-cancel")) {
+                    val cancelInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    TextButton(onClick = onCancel, interactionSource = cancelInteraction,
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White), shape = shape,
+                        modifier = Modifier.heightIn(min = 48.dp).neutralPlayerFocus(cancelInteraction, shape).testTag("player-next-cancel")) {
                         Text(stringResource(if (state.ended) R.string.next_episode_cancel else R.string.next_episode_dismiss))
                     }
                 }

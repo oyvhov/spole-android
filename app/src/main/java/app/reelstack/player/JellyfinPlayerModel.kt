@@ -30,6 +30,8 @@ data class PlayerScreenState(
     val audio: List<PlaybackTrack> = emptyList(), val subtitles: List<PlaybackTrack> = emptyList(),
     val audioIndex: Int? = null, val subtitleIndex: Int = -1, val direct: Boolean = true,
     val quality: Int = 0,
+    /** Playback intent stays true while a seek buffers; playing alone cannot distinguish a pause. */
+    val playWhenReady: Boolean = false,
     val awaitingResume: Boolean = false,
     val chapters: List<PlaybackChapter> = emptyList(),
     val itemId: String = "",
@@ -102,6 +104,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         setSeekBackIncrementMs(10_000)
         setSeekForwardIncrementMs(10_000)
         addListener(object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                mutable.update { it.copy(playWhenReady = playWhenReady) }
+            }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 mutable.update { it.copy(playing = isPlaying) }
                 if (isPlaying && !started) { started = true; report("") }
@@ -197,6 +202,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     connection = null
                 }
                 if (plan != null) mutable.update { it.copy(positionMs = player.currentPosition.coerceAtLeast(0)) }
+                startNextEpisodeCountdown()
                 if (++ticks % 10 == 0 && started) report("/Progress")
             }
         }
@@ -391,7 +397,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     }
 
     /**
-     * Counts the configured delay only after playback ends and while the app is foregrounded.
+     * Counts from the configured offer time while playing in the foreground. Pausing also pauses
+     * the countdown; seeking away from the offer window resets it.
      *
      * Long enough to read the title and decide, short enough that a series does not stop dead
      * between episodes. Anything that puts the viewer back in charge — a press of Cancel, closing
@@ -401,17 +408,24 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private fun startNextEpisodeCountdown() {
         val options = container.preferencesRepository.personalization
         if (countdownJob?.isActive == true || nextEpisodeCancelled || !foreground ||
-            !options.autoPlayNextEpisode || state.value.nextEpisode == null || !state.value.ended) return
+            !options.autoPlayNextEpisode || !state.value.canCountDownNextEpisode()) return
         val episodeId = state.value.itemId
         val seconds = state.value.nextEpisodeCountdown ?: options.nextEpisodeDelaySeconds
         countdownJob = viewModelScope.launch {
             for (second in seconds.coerceIn(1, 60) downTo 1) {
+                while (isActive && foreground && !state.value.playing && !state.value.ended) delay(200)
+                if (!state.value.canCountDownNextEpisode()) {
+                    mutable.update { it.copy(nextEpisodeCountdown = null) }
+                    return@launch
+                }
                 mutable.update { it.copy(nextEpisodeCountdown = second) }
                 delay(1_000)
                 if (!isActive || !foreground || nextEpisodeCancelled || state.value.itemId != episodeId ||
-                    !state.value.ended || state.value.nextEpisode == null || !sameAccount()) return@launch
+                    state.value.nextEpisode == null || !sameAccount()) return@launch
             }
-            playNext()
+            while (isActive && foreground && !state.value.playing && !state.value.ended) delay(200)
+            if (state.value.canCountDownNextEpisode()) playNext()
+            else mutable.update { it.copy(nextEpisodeCountdown = null) }
         }
     }
 
@@ -458,16 +472,25 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         }
     }
     fun quality(bitrate: Int) {
-        if (state.value.busy || bitrate !in listOf(0, 4_000_000, 2_000_000)) return
+        if (state.value.busy || bitrate !in listOf(0, 80_000_000, 20_000_000, 4_000_000, 2_000_000)) return
         val autoplay = player.playWhenReady || state.value.error != null
         mutable.update { it.copy(quality = bitrate) }; prepare(player.currentPosition, autoplay = autoplay)
     }
     fun toggle() {
-        if (state.value.error != null || state.value.busy) return
+        if (state.value.error != null || state.value.busy && plan == null) return
         if (player.playbackState == Player.STATE_ENDED) { prepare(0); return }
-        if (player.isPlaying) player.pause() else player.play()
+        if (player.playWhenReady) player.pause() else player.play()
     }
-    fun seek(position: Long) { if (plan != null) player.seekTo(position.coerceIn(0, state.value.durationMs.coerceAtLeast(0))) }
+    fun seek(position: Long) {
+        if (plan == null) return
+        val target = position.coerceIn(0, state.value.durationMs.coerceAtLeast(0))
+        mutable.update { it.copy(positionMs = target, ended = false) }
+        if (!state.value.canCountDownNextEpisode()) {
+            countdownJob?.cancel()
+            mutable.update { it.copy(nextEpisodeCountdown = null) }
+        }
+        player.seekTo(target)
+    }
     fun background() { foreground = false; countdownJob?.cancel(); player.pause(); if (started) report("/Progress") }
     fun foreground() { foreground = true; if (state.value.ended) startNextEpisodeCountdown() }
     fun fallbackUrl(): String? = connection?.let { safePlaybackUrl(it.baseUrl, "web/index.html") + "#!/details?id=${enc(selected?.id ?: rootId)}" }

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.16.0-alpha21 · Ny TV-spelar og betre oversikt
+
+- Ny TV-OSD med ikon, tydeleg spolelinje, fungerande lyd-/tekstnavigasjon og direkte spoling med piltastane.
+- Neste episode får eit diskret kort og nedtelling før episoden er slutt. Pause og avbryting er respekterte.
+- Mindre omslag og ryddigare filmdetaljar. Oppdag og Aktivitet samlar informasjon inne i omslaget.
+- Meir jule- og Halloween-pynt i bakgrunnar og menyar.
+- Fiksa favorittfilmar, hovudknappen Bibliotek, fokusrammer og unødvendig vising av eiga avspeling.
+- TV-heroen har ikkje oppdateringssymbol eller aksentramme rundt Sjå meir. Den samla rada heiter Sjå vidare.
+- Stor skrift på mobil får ein lesbar meny med alle sidene.
+
 ## 0.16.0-alpha20 · Stødig TV-navigasjon, ryddige innstillingar og sesongpynt
 
 - Framsida på TV har rolegare fokus og rulling oppover, jamnare kortrader og tydelegare knappar.

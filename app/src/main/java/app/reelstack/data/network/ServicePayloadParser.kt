@@ -36,6 +36,7 @@ data class RemotePlayback(
     /** Carried as numbers so the screen can write them in the reader's own language. */
     val season: Int? = null,
     val episode: Int? = null,
+    val deviceId: String? = null,
 )
 
 data class RemoteLibraryItem(
@@ -681,6 +682,7 @@ object ServicePayloadParser {
             userId = session.string("UserId") ?: session.string("userId"),
             userName = session.string("UserName") ?: "Nokon",
             deviceName = session.string("DeviceName") ?: session.string("Client") ?: "Ukjend eining",
+            deviceId = session.string("DeviceId"),
             title = title,
             subtitle = subtitle,
             progress = if (runtime > 0L) (position.toDouble() / runtime).toFloat().coerceIn(0f, 1f) else 0f,

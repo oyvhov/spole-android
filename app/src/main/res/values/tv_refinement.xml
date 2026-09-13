@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="player_timeline">Seek · left or right to skip ten seconds</string>
     <string name="tv_pin_library">Add to sidebar</string>
     <string name="tv_library_intro">Your libraries. Pick one to explore.</string>
     <string name="tv_library_empty">No titles to show. Check your library selection in Settings.</string>
@@ -21,7 +22,7 @@
     <string name="tv_show_unresolved">Show unfinished titles</string>
     <string name="tv_hide_unresolved">Hide unfinished titles</string>
     <string name="tv_request_number">Request #%d</string>
-    <string name="tv_continue_combined">Continue watching · Next up</string>
+    <string name="tv_continue_combined">Keep watching</string>
     <string name="tv_rating">Rating</string>
     <string name="tv_unavailable_status">Last update unavailable</string>
 </resources>

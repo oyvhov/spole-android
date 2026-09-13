@@ -221,6 +221,7 @@ fun TrackedRequestCard(
     val notifyAction by rememberUpdatedState(onNotify)
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifyAction(true) }
     val active = item.stage != RequestStage.AVAILABLE
+    val television = app.reelstack.ui.components.isTelevision()
     val detailsInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val notifyInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val artworkShape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
@@ -234,14 +235,22 @@ fun TrackedRequestCard(
                             onClickLabel = stringResource(R.string.flow_detail_named, item.title), onClick = onDetails)
                         .testTag("tracked-details-${item.key}"),
                 ) {
-                  Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(detailsInteraction, artworkShape).clip(artworkShape)) {
+                  Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)
+                      .focusOutline(detailsInteraction, artworkShape).clip(artworkShape)) {
                     MediaArtwork(item.artworkUrl, null, Modifier.fillMaxSize(), fallbackRes = app.reelstack.R.drawable.media_placeholder, ContentScale.Fit, ServiceKind.SEERR)
                     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
                         0f to androidx.compose.ui.graphics.Color.Transparent,
-                        .6f to androidx.compose.ui.graphics.Color.Transparent,
+                        .35f to androidx.compose.ui.graphics.Color.Transparent,
+                        .65f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .64f),
                         1f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .94f))))
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)) {
+                    Column(Modifier.align(Alignment.BottomStart).padding(12.dp)) {
+                        Text(item.title, color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp,
+                            lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text((if (item.seasons.isEmpty()) stringResource(R.string.flow_film) else stringResource(R.string.flow_season_numbers, item.seasons.sorted().joinToString(", "))) +
+                            (if (item.is4k) " · 4K" else ""), color = androidx.compose.ui.graphics.Color.White.copy(alpha = .75f),
+                            fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 when (item.stage) {
                                     RequestStage.AVAILABLE -> app.reelstack.ui.components.SpoleIcons.DoneCircle
@@ -266,20 +275,29 @@ fun TrackedRequestCard(
                                 modifier = Modifier.padding(start = 6.dp),
                             )
                         }
+                    }
+                    if (television && showActions && active) Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                        IconButton(onClick = { options = true }, interactionSource = notifyInteraction,
+                            modifier = Modifier.focusOutline(notifyInteraction, CircleShape, glow = false).background(
+                            androidx.compose.ui.graphics.Color.Black.copy(alpha = .7f), CircleShape).testTag("request-options-${item.key}")) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.activity_more_options), tint = androidx.compose.ui.graphics.Color.White)
+                        }
+                        DropdownMenu(expanded = options, onDismissRequest = { options = false }) {
+                            DropdownMenuItem(text = { Text(notificationLabel) }, onClick = {
+                                if (!item.notify && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context))
+                                    permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                else onNotify(!item.notify)
+                                options = false
+                            })
+                            if (item.availabilityOnly || item.requestId != null) DropdownMenuItem(
+                                text = { Text(stringResource(if (item.availabilityOnly) R.string.flow_unfollow else R.string.flow_withdraw)) },
+                                enabled = !cancelling,
+                                onClick = { options = false; if (item.availabilityOnly) onCancel() else confirmCancel = true })
+                        }
+                    }
                   }
-                  Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp,
-                      lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
-                      minLines = if (app.reelstack.ui.components.isTelevision()) 2 else 1,
-                      overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                      modifier = Modifier.padding(top = 12.dp, start = 2.dp, end = 2.dp))
-                  Text(
-                      (if (item.seasons.isEmpty()) stringResource(R.string.flow_film) else stringResource(R.string.flow_season_numbers, item.seasons.sorted().joinToString(", "))) +
-                          (if (item.is4k) " · 4K" else "") + (if (item.availabilityOnly) " · " + stringResource(R.string.flow_watch_only) else ""),
-                      color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
-                      modifier = Modifier.padding(top = 4.dp, start = 2.dp, bottom = 8.dp),
-                  )
                 }
-            if (showActions) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (showActions && !television) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (active && !item.availabilityOnly && item.stage != RequestStage.UNKNOWN) CompactRequestProgress(item, Modifier.weight(1f).padding(end = 4.dp))
                 if (active) {
                     IconToggleButton(
@@ -301,14 +319,14 @@ fun TrackedRequestCard(
                     }
                 }
             }
-            if (showActions && item.availabilityOnly) {
+            if (showActions && !television && item.availabilityOnly) {
                 if (active) Text(stringResource(R.string.flow_watching_note), color = Muted, fontSize = 12.sp,
                     lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 12.dp))
                 app.reelstack.ui.components.SpoleSecondaryButton(onClick = onCancel, enabled = !cancelling,
                     modifier = Modifier.padding(start = 4.dp).testTag("remove-watch-${item.key}")) {
                     Text(if (cancelling) stringResource(R.string.flow_removing) else stringResource(R.string.flow_unfollow))
                 }
-            } else if (showActions && active) {
+            } else if (showActions && !television && active) {
                 // Withdrawing is only offered once Seerr has given the request an id: without it
                 // there is nothing to withdraw, and a dead button would be worse than none.
                 if (item.requestId != null) {

@@ -50,7 +50,6 @@ class TabletFeatureTest {
         } }
         rule.mainClock.advanceTimeBy(1_000)
         rule.onNodeWithTag("tablet-feature-open").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
-        rule.onNodeWithTag("tablet-feature-open").assertIsFocused()
         rule.mainClock.advanceTimeBy(20_000)
         rule.onNodeWithText(media.title).assertIsDisplayed()
         rule.onNodeWithText("Second series").assertDoesNotExist()

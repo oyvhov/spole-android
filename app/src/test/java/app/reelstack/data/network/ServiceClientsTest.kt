@@ -9,6 +9,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ServiceClientsTest {
+    @Test fun sessionsHideThisInstallationButKeepOtherDevicesWithTheSameName() {
+        fun session(id: String, device: String?) = """{"Id":"$id","UserId":"u1","DeviceName":"Android",
+            ${device?.let { "\"DeviceId\":\"$it\"," } ?: ""}
+            "NowPlayingItem":{"Id":"movie","Name":"Film","Type":"Movie","RunTimeTicks":1000000000},
+            "PlayState":{"PositionTicks":1000000,"IsPaused":false}}"""
+        val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200,
+            "[${session("local", "this-tv")},${session("remote", "other-tv")},${session("unknown", null)}]")))
+        val result = MediaServerClient(transport, deviceId = "this-tv").sessions(
+            connection(ServiceKind.JELLYFIN, "token"), adminAccess)
+        assertEquals(2, result.size)
+        assertTrue(result.none { it.deviceId == "this-tv" })
+    }
+
     @Test
     fun jellyfinUsesSpoleNameWithoutChangingExistingDeviceIdentity() {
         val identity = "homereel-android"

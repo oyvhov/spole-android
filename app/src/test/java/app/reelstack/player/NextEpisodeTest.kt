@@ -18,6 +18,19 @@ import org.junit.Test
  * stopped there and told the viewer the series was over.
  */
 class NextEpisodeTest {
+    @Test fun countdownStartsBeforeEndAndStopsForPauseSeekOrDismissal() {
+        val ready = PlayerScreenState(busy = false, playing = true, positionMs = 1_740_000,
+            durationMs = 1_800_000, nextEpisode = PlayableItem("next", "Series", "Episode"))
+        org.junit.Assert.assertTrue(ready.canCountDownNextEpisode())
+        org.junit.Assert.assertFalse(ready.copy(positionMs = 1_739_999).canCountDownNextEpisode())
+        org.junit.Assert.assertFalse(ready.copy(playing = false).canCountDownNextEpisode())
+        org.junit.Assert.assertFalse(ready.copy(nextEpisodeDismissed = true).canCountDownNextEpisode())
+        org.junit.Assert.assertFalse(ready.copy(nextEpisodeOfferEnabled = false).canCountDownNextEpisode())
+        org.junit.Assert.assertFalse(ready.copy(error = "offline").canCountDownNextEpisode())
+        org.junit.Assert.assertTrue(ready.copy(playing = false, ended = true,
+            nextEpisodeOfferEnabled = false).canCountDownNextEpisode())
+    }
+
     @Test fun offerStartsAtConfiguredBoundaryAndNeverWithUnknownRuntime() {
         fun offer(position: Long, duration: Long = 1_800_000, lead: Int = 60) =
             shouldOfferNextEpisode(true, true, false, false, position, duration, lead)

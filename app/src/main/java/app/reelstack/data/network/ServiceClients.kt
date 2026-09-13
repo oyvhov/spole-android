@@ -258,7 +258,8 @@ class MediaServerClient(
             headers(connection, deviceId),
         )
         response.requireSuccess(connection.kind)
-        return ServicePayloadParser.playbackSessions(response.body).filter { all || it.userId == ownId }.map { item ->
+        return ServicePayloadParser.playbackSessions(response.body)
+            .filter { (all || it.userId == ownId) && it.deviceId != deviceId }.map { item ->
             item.copy(artworkUrl = item.artworkItemId?.let { artworkUrl(connection, it) })
         }
     }

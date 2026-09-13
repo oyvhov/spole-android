@@ -538,7 +538,7 @@ private fun DiscoverFilterBar(
                     containerColor = SurfaceRaised, labelColor = Muted,
                     selectedContainerColor = Primary, selectedLabelColor = Ink,
                 ),
-                modifier = Modifier.minimumInteractiveComponentSize().focusOutline(interaction, RoundedCornerShape(10.dp)),
+                modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(10.dp), glow = false),
             )
         }
         item(key = "library-status") {
@@ -555,7 +555,7 @@ private fun DiscoverFilterBar(
                         containerColor = SurfaceRaised, labelColor = Muted,
                         selectedContainerColor = Primary, selectedLabelColor = Ink,
                     ),
-                    modifier = Modifier.minimumInteractiveComponentSize().focusOutline(interaction, RoundedCornerShape(10.dp)).testTag("discover-status-filter"),
+                    modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(10.dp), glow = false).testTag("discover-status-filter"),
                 )
                 DropdownMenu(expanded = statusOpen, onDismissRequest = { statusOpen = false },
                     containerColor = SurfaceRaised) {
@@ -645,12 +645,13 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
         .clickable(interactionSource = cardInteraction, indication = app.reelstack.ui.components.mediaCardIndication(),
             onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onDetails)
         .testTag("discover-cover-${media.id}")) {
-      Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(cardInteraction, artworkShape).clip(artworkShape).background(SurfaceRaised)) {
+      Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)
+          .focusOutline(cardInteraction, artworkShape).clip(artworkShape).background(SurfaceRaised)) {
         MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
         Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
             0f to Color.Transparent, .35f to Color.Transparent, .68f to Color.Black.copy(alpha = .64f), 1f to Color.Black.copy(alpha = .96f))))
         // Badge at the top, text block anchored to the bottom. Alignment rather than a fixed
-        // spacer, so the card grows with the font scale instead of clipping or leaving a gap.
+        // spacer. The grid gives large text a wider cell while preserving the poster's shape.
         Row(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             // A type badge classifies, it does not act, so it stays off the accent colour.
@@ -667,8 +668,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                     modifier = Modifier.background(Color.Black.copy(alpha = .75f), CircleShape).padding(7.dp).size(19.dp))
             }
         }
-      }
-        Column(Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, bottom = 12.dp, top = 10.dp)) {
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(12.dp)) {
             Text(media.metadata, color = Color.White.copy(alpha = .82f), fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
                 minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
@@ -676,8 +676,8 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                 Button(onClick = onRequest, enabled = !requesting, interactionSource = actionInteraction,
                     shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
                     contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)
-                        .focusOutline(actionInteraction, RoundedCornerShape(10.dp))
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp)
+                        .focusOutline(actionInteraction, RoundedCornerShape(10.dp), glow = false)
                         .semantics {
                             contentDescription = actionLabel
                         }) {
@@ -689,7 +689,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
             } else {
                 // Nothing to do here beyond opening the card, so this is a status line, not a button.
                 Row(verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(top = 8.dp)) {
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp)) {
                     Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.Clock,
                         null, tint = if (media.inLibrary || media.seerrStatus == 5) Success else Muted, modifier = Modifier.size(13.dp))
                     Text(statusLabel, color = Color.White.copy(alpha = .82f), fontSize = 12.sp, maxLines = 2,
@@ -697,6 +697,7 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                 }
             }
         }
+      }
     }
 }
 @Composable

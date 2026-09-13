@@ -51,7 +51,7 @@ fun AppNavigationChip(text: String, tag: String, modifier: Modifier = Modifier, 
         shape = shape,
         border = null,
         colors = AssistChipDefaults.assistChipColors(containerColor = SurfaceRaised, labelColor = Primary),
-        modifier = modifier.minimumInteractiveComponentSize().testTag(tag).focusOutline(interaction, shape),
+        modifier = modifier.heightIn(min = 48.dp).testTag(tag).focusOutline(interaction, shape, glow = false),
     )
 }
 
@@ -73,9 +73,9 @@ fun <T> AppFilterRow(
                 label = { Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis) }, shape = RoundedCornerShape(10.dp), border = null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceRaised, labelColor = Muted,
                     selectedContainerColor = Primary, selectedLabelColor = Ink),
-                modifier = Modifier.minimumInteractiveComponentSize()
+                modifier = Modifier.heightIn(min = 48.dp)
                     .then(optionTag?.let { Modifier.testTag(it(option)) } ?: Modifier)
-                    .focusOutline(interaction, RoundedCornerShape(10.dp)),
+                    .focusOutline(interaction, RoundedCornerShape(10.dp), glow = false),
             )
         }
     }

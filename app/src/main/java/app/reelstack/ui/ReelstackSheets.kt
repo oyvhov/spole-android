@@ -245,8 +245,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val tv = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val isSeries = mediaType == "Series"
-    // What describes the object rather than the moment. On television it belongs under the picture,
-    // where a column of black used to be; on a phone there is only one column, so it stays in it.
+    // Facts, synopsis and actions share the reading column on TV so all content can be reached.
     val synopsis: @Composable () -> Unit = {
         app.reelstack.ui.components.ExpandableSynopsis(
             identity = details.key,
@@ -268,7 +267,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
     }
     val aside: @Composable () -> Unit = {
-        DetailAside(details, opening, visibleFacts, tv, synopsis.takeIf { tv }, castBlock.takeIf { tv })
+        DetailAside(details, opening, visibleFacts, tv)
     }
     app.reelstack.ui.components.DetailReadingLayout(tv, scroll, artwork = {
         Column {
@@ -283,14 +282,15 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             // it. Below Android 12 `blur` does nothing, and the brief letterbox that leaves is the
             // behaviour this page always had.
             var measured by remember(opening.key) { mutableStateOf<Float?>(null) }
-            val slot = measured ?: if (usePoster) 2f / 3f else 16f / 9f
+            val slot = if (tv) { if (usePoster) 2f / 3f else 16f / 9f }
+                else measured ?: if (usePoster) 2f / 3f else 16f / 9f
             Box(Modifier.fillMaxWidth().aspectRatio(slot).clip(RoundedCornerShape(16.dp))) {
-                if (measured == null) MediaArtwork(opening.artworkUrl, null, Modifier.matchParentSize()
+                if (!tv && measured == null) MediaArtwork(opening.artworkUrl, null, Modifier.matchParentSize()
                         .blur(34.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
                         .graphicsLayer { alpha = .45f }, fallbackRes = opening.artworkRes, ContentScale.Crop, opening.source)
                 MediaArtwork(opening.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = opening.artworkRes, ContentScale.Fit, opening.source, onAspectRatio = { ratio -> measured = ratio.coerceIn(0.5f, 2.0f) })
             }
-            if (ready) Box(Modifier.graphicsLayer { alpha = metadataAlpha }) { aside() }
+            if (ready && !tv) Box(Modifier.graphicsLayer { alpha = metadataAlpha }) { aside() }
         }
     }) {
         if (tv) {
@@ -337,7 +337,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         var chosenSubtitle by remember(details.key) { mutableStateOf<Int?>(null) }
         var chosenVersion by remember(details.key) { mutableStateOf<String?>(null) }
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
+        if (tv) aside()
         TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed)
+        if (tv) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
         if (tv) TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
         if (details.title != opening.title) {
@@ -352,8 +354,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // season is the thing a reader on an episode page actually wants next, and it is what
         // used to leave the lower half of a television screen empty.
         SeriesEpisodes(state.seriesBrowse, details.key, onSeason)
-        // One column on a phone, so both the facts and the synopsis stay in it. On television both
-        // have moved under the picture and this column is only what you can do with the title.
+        // TV has already shown these alongside its smaller poster.
         if (!tv) { aside(); synopsis() }
         details.statusTitle?.takeUnless { details.libraryAvailable && details.source == ServiceKind.JELLYFIN }?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
@@ -369,9 +370,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         details.error?.let {
             Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 12.dp))
         }
-        // One column on a phone, so the faces stay in it. On television they have moved under the
-        // picture with the rest of what describes the title.
-        if (!tv) castBlock()
+        castBlock()
         OpenInServerButton(state, details)
         if (!tv && discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
             state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
@@ -835,7 +834,8 @@ private fun OpenInServerButton(state: ReelstackUiState, details: ContentDetails)
         shape = RoundedCornerShape(14.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, app.reelstack.ui.theme.ControlOutline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimarySoft),
-        modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 52.dp).testTag("open-in-server"),
+        modifier = Modifier.then(if (app.reelstack.ui.components.isTelevision()) Modifier else Modifier.fillMaxWidth())
+            .padding(top = 20.dp).heightIn(min = 52.dp).testTag("open-in-server"),
     ) {
         Icon(app.reelstack.ui.components.SpoleIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(

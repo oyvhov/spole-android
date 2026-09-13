@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="player_timeline">Spolelinje · venstre eller høgre hoppar ti sekund</string>
     <string name="tv_pin_library">Legg til i sidemenyen</string>
     <string name="tv_library_intro">Biblioteka dine. Vel eitt for å utforske.</string>
     <string name="tv_library_empty">Ingen titlar å vise. Sjekk bibliotekvalet i Innstillingar.</string>
@@ -21,7 +22,7 @@
     <string name="tv_show_unresolved">Vis ufullstendige titlar</string>
     <string name="tv_hide_unresolved">Skjul ufullstendige titlar</string>
     <string name="tv_request_number">Førespurnad #%d</string>
-    <string name="tv_continue_combined">Hald fram å sjå · Neste episode</string>
+    <string name="tv_continue_combined">Sjå vidare</string>
     <string name="tv_rating">Vurdering</string>
     <string name="tv_unavailable_status">Siste oppdatering er utilgjengeleg</string>
 </resources>

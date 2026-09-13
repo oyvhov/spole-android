@@ -62,7 +62,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
         categoryFocus.getValue(category).requestFocus()
     }
     Row(Modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 24.dp, vertical = 24.dp)
-        .background(MaterialTheme.colorScheme.background).testTag("tv-settings"),
+        .testTag("tv-settings"),
         horizontalArrangement = Arrangement.spacedBy(28.dp)) {
         Column(Modifier.width(192.dp).fillMaxHeight().verticalScroll(rememberScrollState())
             .testTag("settings-categories"), verticalArrangement = Arrangement.spacedBy(6.dp)) {

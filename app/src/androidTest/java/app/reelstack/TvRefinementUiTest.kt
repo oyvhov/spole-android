@@ -93,6 +93,20 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("player-toggle").assertIsDisplayed()
         rule.onNodeWithTag("player-close").assertDoesNotExist()
     }
+    @Test fun movieDetailsKeepHeadingVisibleWhenPlayReceivesInitialFocus() {
+        rule.setContent { Tv {
+            ReelstackSheets(ReelstackUiState(connections = listOf(connection), activeSheet = AppSheet.TitleDetails("jellyfin-film"),
+                contentDetails = ContentDetails("jellyfin-film", "Ein heil filmtittel", "Jellyfin", "2026",
+                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Movie",
+                    facts = listOf("2026", "118 min", "★ 8,5", "Eit filmstudio"), genres = listOf("Drama", "Mystery"),
+                    overview = "Ei lang omtale. ".repeat(50), libraryAvailable = true)),
+                null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        } }
+        rule.onNodeWithTag("play-in-spole").assertIsFocused()
+        assertTrue(rule.onNodeWithText("Ein heil filmtittel").getUnclippedBoundsInRoot().top >= 16.dp)
+        assertTrue(rule.onNodeWithTag("tv-detail-artwork").getUnclippedBoundsInRoot().width <= 220.dp)
+        capture("tv-pass2-detail-heading")
+    }
     @Test fun quickConnectActionIsVisibleWithoutScrollingAtDoubleTextSize() {
         val draft = mutableStateOf(ConnectionDraft(ServiceKind.JELLYFIN, "Jellyfin", "https://example.com", "", authMode = ConnectionAuthMode.QUICK_CONNECT))
         var started = false
@@ -134,7 +148,7 @@ class TvRefinementUiTest {
                 homeSections = setOf(HomeSection.CONTINUE_WATCHING)), PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}, showSearch = false)
         } } }
         rule.onAllNodesWithTag("resume-card-episode").assertCountEquals(1)
-        rule.onNodeWithText("Hald fram å sjå · Neste episode").assertIsDisplayed()
+        rule.onNodeWithText("Sjå vidare").assertIsDisplayed()
         rule.runOnIdle { preferences = preferences.copy(combineContinueWatching = false) }
         rule.onNodeWithText("Neste episode").performScrollTo().assertIsDisplayed()
     }

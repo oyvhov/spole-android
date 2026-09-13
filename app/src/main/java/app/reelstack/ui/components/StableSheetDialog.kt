@@ -129,6 +129,7 @@ internal fun StableSheetDialog(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ) {
                     Box(Modifier.fillMaxSize().navigationBarsPadding()) {
+                        if (fullScreen) SeasonalBackdrop(Modifier.matchParentSize())
                         // Reading sheets should stop at the edge, not stretch artwork/text while
                         // the toolbar stays still. Keep overscroll on normal feeds unchanged.
                         CompositionLocalProvider(androidx.compose.foundation.LocalOverscrollFactory provides null,

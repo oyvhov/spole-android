@@ -222,7 +222,11 @@ class ReelstackViewModel(
     }
 
     fun selectTab(tab: AppTab) {
-        _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false) }
+        _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false,
+            libraryPath = if (tab == AppTab.LIBRARY) emptyList() else it.libraryPath,
+            libraryCollectionType = if (tab == AppTab.LIBRARY) null else it.libraryCollectionType,
+            libraryFilters = if (tab == AppTab.LIBRARY) app.reelstack.data.model.LibraryFilters() else it.libraryFilters,
+            libraryFacets = if (tab == AppTab.LIBRARY) app.reelstack.data.model.LibraryFacets() else it.libraryFacets) }
         if (tab == AppTab.LIBRARY) browseLibrary(false)
     }
 
@@ -436,7 +440,7 @@ class ReelstackViewModel(
     ) {
         val state = _uiState.value
         val media = (state.resume + state.nextUp + state.libraryShelves.resume + state.libraryShelves.nextUp +
-            state.recentMovies + state.recentSeries + state.librarySearchResults + listOfNotNull(state.libraryDetailMedia))
+            state.recentMovies + state.recentSeries + state.favourites + state.librarySearchResults + listOfNotNull(state.libraryDetailMedia))
             .firstOrNull { it.id == id } ?: return
         val connection = state.connections.firstOrNull {
             it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
@@ -462,6 +466,7 @@ class ReelstackViewModel(
                     nextUp = update(current.nextUp),
                     recentMovies = update(current.recentMovies),
                     recentSeries = update(current.recentSeries),
+                    favourites = update(current.favourites).filter { it.favourite },
                     librarySearchResults = update(current.librarySearchResults),
                     libraryShelves = current.libraryShelves.copy(
                         resume = drop(current.libraryShelves.resume),
@@ -568,7 +573,7 @@ class ReelstackViewModel(
 
     fun openLibraryDetails(id: String) {
         val state = _uiState.value
-        val media = (state.resume + state.nextUp + state.recentMovies + state.recentSeries + state.librarySearchResults + listOfNotNull(state.libraryDetailMedia))
+        val media = (state.resume + state.nextUp + state.favourites + state.recentMovies + state.recentSeries + state.librarySearchResults + listOfNotNull(state.libraryDetailMedia))
             .firstOrNull { it.id == id } ?: return
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()

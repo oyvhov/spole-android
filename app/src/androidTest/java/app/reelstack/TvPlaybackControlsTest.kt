@@ -36,8 +36,9 @@ class TvPlaybackControlsTest {
         rule.onNodeWithTag("player-next-episode").assertDoesNotExist()
         rule.runOnIdle { state.value = state.value.copy(positionMs = 1_740_000) }
         capture("tv-polish-next-episode")
-        rule.onNodeWithTag("player-next-play").assertIsDisplayed().assertIsFocused()
-            .performKeyInput { pressKey(Key.DirectionCenter) }
+        rule.onNodeWithTag("player-next-play").assertIsDisplayed().assertIsNotFocused()
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+        rule.onNodeWithTag("player-next-play").performKeyInput { pressKey(Key.DirectionCenter) }
         rule.runOnIdle { assertEquals(1, next); assertEquals(0, toggles) }
         rule.onNodeWithTag("player-next-cancel").performClick()
         rule.onNodeWithTag("player-next-episode").assertDoesNotExist()
@@ -100,12 +101,99 @@ class TvPlaybackControlsTest {
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
         rule.mainClock.advanceTimeBy(4000)
         rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionLeft) }
-        rule.mainClock.advanceTimeBy(160)
+        rule.mainClock.advanceTimeBy(240)
         assertEquals(0L, position)
-        rule.onNodeWithTag("player-toggle").assertIsFocused()
+        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionRight); pressKey(Key.DirectionRight) }
+        rule.mainClock.advanceTimeBy(240)
+        assertEquals(20_000L, position)
+        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("player-seek-feedback").assertIsDisplayed()
+        rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionDown) }
+        rule.mainClock.advanceTimeBy(160)
         rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.DirectionRight) }
-        assertEquals(0L, position) // focus movement is not an extra seek
+        assertEquals(20_000L, position) // focus movement is not an extra seek
         rule.onNodeWithTag("player-toggle").assertIsNotFocused()
         rule.mainClock.autoAdvance = true
+    }
+
+    @Test fun remoteReachesTimelineAndToolsAndReturnsToTransport() {
+        var position = 0L
+        rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current; ReelstackTheme {
+            PlayerScreen(PlayerScreenState(busy = false, playing = false, positionMs = 30_000, durationMs = 120_000,
+                audio = listOf(PlaybackTrack(1, "Norsk", "nor")), subtitles = listOf(PlaybackTrack(2, "Nynorsk", "nno", true))), null,
+                {}, {}, { position = it }, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.DirectionDown) }
+        rule.onNodeWithTag("player-timeline").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        rule.runOnIdle { assertEquals(40_000L, position) }
+        capture("tv-pass2-timeline")
+        rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.DirectionDown) }
+        rule.onNodeWithTag("player-audio").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        rule.onNodeWithTag("player-subtitles").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
+        rule.onNodeWithTag("player-timeline").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
+        rule.onNodeWithTag("player-toggle").assertIsFocused()
+    }
+
+    @Test fun transportAndToolsStayVisibleAtDoubleTextSize() {
+        rule.setContent { DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(2f)) { ReelstackTheme {
+            PlayerScreen(PlayerScreenState(busy = false, playing = false, title = "Ei lang serieoverskrift",
+                positionMs = 30_000, durationMs = 120_000), null,
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } } }
+        listOf("player-toggle", "player-timeline", "player-audio", "player-subtitles", "player-quality", "player-frame-mode")
+            .forEach { rule.onNodeWithTag(it).assertIsDisplayed() }
+        capture("tv-pass2-osd-large")
+    }
+
+    @Test fun bufferingDuringRemoteSeekKeepsControlsHiddenAndAcceptsAnotherSeek() {
+        val state = androidx.compose.runtime.mutableStateOf(PlayerScreenState(busy = false, playing = true,
+            positionMs = 30_000, durationMs = 120_000))
+        var target = 0L
+        rule.mainClock.autoAdvance = false
+        rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current; ReelstackTheme {
+            PlayerScreen(state.value, null, {}, {}, { target = it }, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        rule.mainClock.advanceTimeBy(4000)
+        rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionRight) }
+        rule.mainClock.advanceTimeBy(240)
+        rule.runOnIdle { state.value = state.value.copy(busy = true, playing = false, playWhenReady = true, positionMs = target) }
+        rule.mainClock.advanceTimeBy(3000)
+        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionRight) }
+        rule.mainClock.advanceTimeBy(240)
+        assertEquals(50_000L, target)
+        rule.runOnIdle { state.value = state.value.copy(busy = false, playing = true) }
+        rule.mainClock.advanceTimeBy(100)
+        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test fun finishedMovieKeepsReplayControlsVisible() {
+        rule.setContent { ReelstackTheme {
+            PlayerScreen(PlayerScreenState(busy = false, playing = false, ended = true,
+                positionMs = 120_000, durationMs = 120_000), null,
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        rule.onNodeWithTag("player-toggle").assertIsDisplayed()
+        rule.onNodeWithTag("player-timeline").assertIsDisplayed()
+        rule.onNodeWithTag("player-next-episode").assertDoesNotExist()
+    }
+
+    @Test fun timelineKeepsFocusAcrossSeekBuffering() {
+        val state = androidx.compose.runtime.mutableStateOf(PlayerScreenState(busy = false, playing = false,
+            positionMs = 30_000, durationMs = 120_000))
+        rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current; ReelstackTheme {
+            PlayerScreen(state.value, null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.DirectionDown) }
+        rule.onNodeWithTag("player-timeline").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        rule.runOnIdle { state.value = state.value.copy(busy = true) }
+        rule.onNodeWithTag("player-timeline").assertIsFocused()
+        rule.runOnIdle { state.value = state.value.copy(busy = false) }
+        rule.onNodeWithTag("player-timeline").assertIsFocused()
     }
 }

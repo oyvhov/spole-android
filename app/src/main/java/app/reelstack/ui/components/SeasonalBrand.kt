@@ -84,6 +84,26 @@ internal fun SeasonalThemeBanner(modifier: Modifier = Modifier, options: Persona
     }
 }
 
+/** Static artwork reused from the seasonal theme; no timers, image fetches or blur layers. */
+@Composable
+internal fun SeasonalBackdrop(modifier: Modifier = Modifier, menu: Boolean = false) {
+    val options = LocalPersonalization.current
+    val season = Season.of(options)
+    if (season == Season.NONE) return
+    Canvas(modifier.testTag("season-backdrop-$season").clearAndSetSemantics { }) {
+        val tint = if (season == Season.CHRISTMAS) Color(0xFF94713D) else Color(0xFF75428E)
+        drawRect(Brush.linearGradient(listOf(tint.copy(alpha = if (menu) .22f else .16f),
+            Color.Transparent, tint.copy(alpha = .08f))))
+        if (options.seasonalOrnament) {
+            // Decoration stays at the edge, away from menu labels and the reading column.
+            val menuTop = size.height - 100.dp.toPx()
+            if (menu) withTransform({ translate(0f, menuTop) }) {
+                drawSeasonScene(season, 0f, true)
+            } else drawSeasonScene(season, 0f)
+        }
+    }
+}
+
 /** Low-cost vector shapes: no image requests, blur layers or decoration over the reading column. */
 internal fun DrawScope.drawSeasonScene(season: Season, time: Float, prominent: Boolean = false) {
     val edge = if (prominent) 78.dp.toPx() else minOf(size.width * .22f, 150.dp.toPx())

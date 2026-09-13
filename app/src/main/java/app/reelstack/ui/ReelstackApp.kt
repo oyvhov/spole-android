@@ -240,6 +240,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val expandedRail = showRail && if (tvRail) tvRailFocused else
         (personalization.sidebarExpanded ?: windowLayout.expandSidebarByDefault)
     Box(modifier = Modifier.fillMaxSize()) {
+        app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize())
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
@@ -422,23 +423,50 @@ private fun ReelstackBottomBar(
     selectedTab: AppTab,
     onSelect: (AppTab) -> Unit,
 ) {
-    // No fixed height: at a large font scale a locked bar clips the icons and breaks the label
-    // mid-word. The minimum keeps the bar at its usual size when the text is small.
+    val visibleTabs = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
+        .mapNotNull { name -> tabs.find { it.tab.name == name } }
+    // Five full labels cannot fit at large text sizes. Keep the current page readable and
+    // expose the same destinations in a labelled menu, without shrinking the user's text.
+    if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.6f) {
+        var expanded by remember { mutableStateOf(false) }
+        val current = tabs.first { it.tab == selectedTab }
+        val currentLabel = androidx.compose.ui.res.stringResource(current.label)
+        val menuLabel = androidx.compose.ui.res.stringResource(R.string.settings_tv_navigation)
+        Box(Modifier.fillMaxWidth().background(Ink).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag("bottom-navigation")) {
+            androidx.compose.material3.OutlinedButton(onClick = { expanded = true },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .semantics { contentDescription = "$menuLabel · $currentLabel" }) {
+                Icon(current.icon, null, Modifier.size(24.dp))
+                Text(currentLabel, Modifier.weight(1f).padding(horizontal = 12.dp), style = MaterialTheme.typography.labelLarge)
+                Icon(app.reelstack.ui.components.SpoleIcons.Menu, null, Modifier.size(24.dp))
+            }
+            androidx.compose.material3.DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+                visibleTabs.forEach { item ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(androidx.compose.ui.res.stringResource(item.label)) },
+                        leadingIcon = { Icon(item.icon, null) },
+                        trailingIcon = { if (item.tab == selectedTab) Icon(app.reelstack.ui.components.SpoleIcons.Done, null) },
+                        modifier = Modifier.semantics { selected = item.tab == selectedTab },
+                        onClick = { expanded = false; onSelect(item.tab) })
+                }
+            }
+        }
+        return
+    }
     NavigationBar(
         containerColor = Ink,
         tonalElevation = 0.dp,
         windowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.navigationBarsPadding().heightIn(min = 76.dp).testTag("bottom-navigation"),
     ) {
-            app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
+            visibleTabs.forEach { item ->
                 NavigationBarItem(
                     selected = item.tab == selectedTab,
                     onClick = { onSelect(item.tab) },
                     icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
                     label = {
-                        // "Innstillingar" is 13 characters in a fifth of a phone's width. At 2x
-                        // font scale one line cannot hold it, and an ellipsis is still clipping.
-                        // The bar has no fixed height, so a second line is free.
                         Text(
                             androidx.compose.ui.res.stringResource(item.label),
                             style = MaterialTheme.typography.labelSmall,
@@ -488,7 +516,9 @@ internal fun ReelstackNavigationRail(
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val toggleLabel = androidx.compose.ui.res.stringResource(if (expanded) R.string.sidebar_collapse else R.string.sidebar_expand)
     val brandInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    Column(Modifier.width(width).fillMaxHeight().background(app.reelstack.ui.theme.Surface).clip(RoundedCornerShape(0.dp))
+    Box(Modifier.width(width).fillMaxHeight().background(app.reelstack.ui.theme.Surface)) {
+    app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize(), menu = true)
+    Column(Modifier.fillMaxSize().clip(RoundedCornerShape(0.dp))
         .onFocusChanged { if (tv) onFocusWithin(it.hasFocus) }.focusGroup()
         .testTag("side-navigation").padding(horizontal = 12.dp, vertical = 24.dp)
         .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -514,6 +544,8 @@ internal fun ReelstackNavigationRail(
                 { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.testTag("wide-tab-${item.tab.name}"))
         }
     }
+}
+
 }
 
 /** Keep the same focusable nodes and icon positions in both sizes. Only labels fade and clip. */

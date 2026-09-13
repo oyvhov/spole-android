@@ -20,7 +20,8 @@ import java.util.concurrent.Executors
 class JellyfinPlayerTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
-    private class Server(val assets: android.content.res.AssetManager, val hls: Boolean = false, val resumeMs: Long = 0) : AutoCloseable {
+    private class Server(val assets: android.content.res.AssetManager, val hls: Boolean = false, val resumeMs: Long = 0,
+        val episode: Boolean = false) : AutoCloseable {
         val socket = ServerSocket(0)
         val base = "http://127.0.0.1:${socket.localPort}"
         val pool = Executors.newCachedThreadPool()
@@ -58,6 +59,11 @@ class JellyfinPlayerTest {
                 var contentType = "application/json"
                 var bytes = when {
                     path == "/Users/Me" -> """{"Id":"u1","Name":"Testperson","Policy":{"EnableMediaPlayback":true,"IsAdministrator":false}}""".toByteArray()
+                    episode && path.contains("adjacentTo=") -> """{"Items":[
+                        {"Id":"film","Type":"Episode","SeriesId":"series","Name":"Første","RunTimeTicks":200000000},
+                        {"Id":"next","Type":"Episode","SeriesId":"series","Name":"Neste","RunTimeTicks":200000000}]}""".toByteArray()
+                    episode && path.substringBefore('?').endsWith("/Items/film") ->
+                        """{"Id":"film","Type":"Episode","SeriesId":"series","Name":"Første","RunTimeTicks":200000000}""".toByteArray()
                     path.contains("/Items/series") -> """{"Id":"series","Type":"Series","Name":"Testserie"}""".toByteArray()
                     path.startsWith("/Shows/") -> """{"Items":[{"Id":"season","Type":"Season","Name":"Sesong 1","LocationType":"Virtual"}],"TotalRecordCount":1}""".toByteArray()
                     path.startsWith("/Items?") -> """{"Items":[{"Id":"film","Type":"Episode","Name":"Ny dag","SeriesName":"Testserie","ParentIndexNumber":1,"IndexNumber":1,"RunTimeTicks":200000000},{"Id":"missing","Type":"Episode","IsMissing":true}],"TotalRecordCount":2}""".toByteArray()
@@ -90,14 +96,18 @@ class JellyfinPlayerTest {
         override fun close() { socket.close(); pool.shutdownNow() }
     }
 
-    private fun exercise(hls: Boolean = false, resumeMs: Long = 0, root: String = "film", autoResume: Boolean = true, block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
-        Server(instrumentation.context.assets, hls, resumeMs).use { server ->
+    private fun exercise(hls: Boolean = false, resumeMs: Long = 0, root: String = "film", autoResume: Boolean = true,
+        episode: Boolean = false, block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
+        Server(instrumentation.context.assets, hls, resumeMs, episode).use { server ->
             val connections = (context.applicationContext as ReelstackApplication).container.connectionRepository
             ServiceKind.entries.forEach(connections::delete)
             connections.save(ServiceConnection(ServiceKind.JELLYFIN,"Test",server.base,"fixture","u1"))
             val preferences = (context.applicationContext as ReelstackApplication).container.preferencesRepository
             val original = preferences.personalization
-            preferences.personalization = original.copy(autoResume = autoResume)
+            preferences.personalization = original.copy(autoResume = autoResume).let {
+                if (episode) it.copy(autoPlayNextEpisode = true, showNextEpisode = true,
+                    nextEpisodeLeadSeconds = 10, nextEpisodeDelaySeconds = 5) else it
+            }
             try {
                 ActivityScenario.launch<JellyfinPlayerActivity>(Intent(context,JellyfinPlayerActivity::class.java).putExtra("jellyfin_item_id",root)).use { scenario ->
                     block(scenario,server,connections)
@@ -119,6 +129,38 @@ class JellyfinPlayerTest {
         var value=PlayerScreenState(); s.onActivity { value=it.model.state.value }; return value
     }
     private fun playing(s: ActivityScenario<JellyfinPlayerActivity>) = waitFor { snapshot(s).let { it.playing && it.positionMs > 600 } }
+
+    @Test fun countdownAdvancesFromRealVideoBeforeTheCurrentEpisodeEnds() = exercise(episode = true) { scenario, server, _ ->
+        playing(scenario)
+        waitFor { snapshot(scenario).nextEpisode != null }
+        scenario.onActivity { it.model.seek(10_500) }
+        waitFor { snapshot(scenario).nextEpisodeCountdown != null }
+        assertFalse(snapshot(scenario).ended)
+        waitFor { snapshot(scenario).itemId == "next" }
+        val stopped = server.events.first { it.first.endsWith("/Stopped") }.second
+        val stoppedAt = stopped.getValue("PositionTicks").jsonPrimitive.long
+        assertTrue("Episode must change before its 20-second end; stopped at $stoppedAt ticks", stoppedAt < 200_000_000L)
+    }
+
+    @Test fun cancellingEarlyCountdownKeepsCurrentEpisode() = exercise(episode = true) { scenario, _, _ ->
+        playing(scenario)
+        waitFor { snapshot(scenario).nextEpisode != null }
+        scenario.onActivity { it.model.seek(10_500) }
+        waitFor { snapshot(scenario).nextEpisodeCountdown != null }
+        scenario.onActivity { it.model.cancelNextEpisode() }
+        SystemClock.sleep(5500)
+        assertEquals("film", snapshot(scenario).itemId)
+        assertNull(snapshot(scenario).nextEpisodeCountdown)
+        assertTrue(snapshot(scenario).nextEpisodeDismissed)
+    }
+
+    @Test fun bothHigherQualityOptionsAreAcceptedByThePlayer() = exercise { scenario, _, _ ->
+        playing(scenario)
+        scenario.onActivity { it.model.quality(20_000_000) }
+        waitFor { snapshot(scenario).let { it.quality == 20_000_000 && it.playing } }
+        scenario.onActivity { it.model.quality(80_000_000) }
+        waitFor { snapshot(scenario).let { it.quality == 80_000_000 && it.playing } }
+    }
 
     @Test fun googleTvRemoteControlsRealVideoAndBackReturnsSafely() {
         org.junit.Assume.assumeTrue(context.getSystemService(android.app.UiModeManager::class.java)
