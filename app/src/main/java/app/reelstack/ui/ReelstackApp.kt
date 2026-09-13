@@ -463,7 +463,7 @@ private val tabs = listOf(
 )
 
 @Composable
-private fun ReelstackBottomBar(
+internal fun ReelstackBottomBar(
     selectedTab: AppTab,
     onSelect: (AppTab) -> Unit,
 ) {
@@ -499,6 +499,9 @@ private fun ReelstackBottomBar(
         }
         return
     }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val labelWidth = (maxWidth / visibleTabs.size.coerceAtLeast(1) - 8.dp).coerceAtLeast(1.dp)
+    val compactLabels = maxWidth < 400.dp
     NavigationBar(
         containerColor = Ink,
         tonalElevation = 0.dp,
@@ -506,15 +509,19 @@ private fun ReelstackBottomBar(
         modifier = Modifier.navigationBarsPadding().heightIn(min = 76.dp).testTag("bottom-navigation"),
     ) {
             visibleTabs.forEach { item ->
+                val fullLabel = androidx.compose.ui.res.stringResource(item.label)
                 NavigationBarItem(
+                    modifier = Modifier.semantics { contentDescription = fullLabel },
                     selected = item.tab == selectedTab,
                     onClick = { onSelect(item.tab) },
                     icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
                     label = {
                         Text(
-                            androidx.compose.ui.res.stringResource(item.label),
+                            if (compactLabels && item.tab == AppTab.SETTINGS)
+                                androidx.compose.ui.res.stringResource(R.string.nav_settings_short) else fullLabel,
+                            modifier = Modifier.width(labelWidth),
                             style = MaterialTheme.typography.labelSmall,
-                            maxLines = 2,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,
                         )
@@ -528,6 +535,7 @@ private fun ReelstackBottomBar(
                     ),
                 )
             }
+    }
     }
 }
 

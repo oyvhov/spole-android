@@ -4,6 +4,7 @@
     <string name="nav_discover">Oppdag</string>
     <string name="nav_activity">Aktivitet</string>
     <string name="nav_settings">Innstillingar</string>
+    <string name="nav_settings_short">Val</string>
     <string name="action_close">Lukk</string>
     <string name="action_back">Tilbake</string>
     <string name="action_retry">Prøv igjen</string>
