@@ -26,4 +26,20 @@ ekte innhald og Skog/Lime-tema. Ingen kontoar eller brukardata vart nullstilte.
 TV-profilen 5564 vart ståande på kode 63 for å kontrollere nedlasting og installasjon
 gjennom appen etter publisering.
 
-Offentleg digest, nedlasting og TV-oppdatering blir dokumenterte etter publisering.
+## Publisering og oppdatering gjennom TV-appen
+
+- Publisert som prerelease, ikkje stabil latest, på
+  https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-alpha21.
+- Release-taggen peikar på kjeldecommit `95f2ca47beadaf9f2d422ffec3bfddbfc370c9e2`.
+- Den offentlege release-lista utan autentisering viser utgåva med `draft=false`,
+  éin universal-APK og korrekt digest. Ei separat offentleg nedlasting har same
+  SHA-256 som den arkiverte APK-en over.
+- TV-profilen 5564 fann alpha21 gjennom Sjekk no, lasta ned og kontrollerte APK-en.
+  Android sin Update-dialog vart godkjend; pakkekontrollen etterpå viste kode 64
+  og `0.16.0-alpha21`. Ein tidlegare installer-skjerm viste «App installed» medan
+  kode 63 framleis var installert; testen vart difor gjenteken og først rekna som
+  bestått etter faktisk kontroll av installert versjon.
+- Appen vart opna att med same konto og Skog/Korall-tema. Ingen brukardata vart
+  sletta. Mellombels løyve `REQUEST_INSTALL_PACKAGES` vart sett tilbake til `default`.
+- Skjermbilete frå kontrollen ligg lokalt under `app/build/alpha21-*` og blir ikkje
+  publiserte fordi dei inneheld ekte profil-/bibliotekdata.
