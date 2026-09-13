@@ -40,12 +40,12 @@ internal fun SimpleWelcomeScreen(onCombined: () -> Unit, onOther: () -> Unit, mo
                         ServiceSymbol(ServiceKind.JELLYFIN, Modifier.size(24.dp))
                         ServiceSymbol(ServiceKind.SEERR, Modifier.size(24.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Jellyfin + Seerr", style = MaterialTheme.typography.titleMedium)
-                            Text("Kople til begge med Quick Connect", style = MaterialTheme.typography.bodyMedium)
+                            Text("Kom i gang", style = MaterialTheme.typography.titleMedium)
+                            Text("Jellyfin · Seerr valfritt", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
-                Text("Sjå biblioteket ditt og ønsk deg nye filmar og seriar. Du treng adressene frå den som driv tenestene.",
+                Text("Bruk oppsettslenkja eller adressene du har fått frå den som deler biblioteket med deg.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SpoleSecondaryButton(onClick = onOther, modifier = Modifier.fillMaxWidth().testTag("setup-other")) {
                     Text("Andre innloggingsmåtar")

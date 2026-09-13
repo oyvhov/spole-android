@@ -12,7 +12,8 @@ import org.junit.Test
 
 /** Loopback fixtures, never real media accounts. Run only on the isolated test AVD. */
 class LinkedLoginTest {
-    private fun exercise(rejectSeerr: Boolean = false, mismatchedId: Boolean = false, primary: ServiceKind = ServiceKind.JELLYFIN) {
+    private fun exercise(rejectSeerr: Boolean = false, mismatchedId: Boolean = false, primary: ServiceKind = ServiceKind.JELLYFIN,
+        simple: Boolean = false, jellyfinOnly: Boolean = false) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val server = ServerSocket(0)
         val serverThread = thread(isDaemon = true) {
@@ -51,25 +52,43 @@ class LinkedLoginTest {
         }
         val container = AppContainer(instrumentation.targetContext)
         ServiceKind.entries.forEach { container.connectionRepository.delete(it) }
+        val onboardingCompleted = container.preferencesRepository.onboardingCompleted
+        if (simple) container.preferencesRepository.onboardingCompleted = false
         val store = ViewModelStore()
         lateinit var model: ReelstackViewModel
         try {
             instrumentation.runOnMainSync {
                 model = ReelstackViewModel(container)
                 store.put("test", model)
-                model.openSheet(AppSheet.ConnectionEditor(primary))
+                if (simple) {
+                    model.importSetupLink(app.reelstack.data.network.SetupLink(
+                        "http://127.0.0.1:${server.localPort}/jellyfin",
+                        if (jellyfinOnly) "" else "http://127.0.0.1:${server.localPort}/seerr").encode())
+                    assertTrue(model.connectionDraft.value?.simpleSetup == true)
+                } else model.openSheet(AppSheet.ConnectionEditor(primary))
                 model.updateConnectionAuthMode(ConnectionAuthMode.ACCOUNT)
                 model.updateConnectionUrl("http://127.0.0.1:${server.localPort}/${primary.name.lowercase()}")
                 model.updateConnectionUsername("fixture-user")
                 model.updateConnectionPassword("fixture-password")
-                if (primary != ServiceKind.EMBY) model.updateCompanionLogin(true,
+                if (primary != ServiceKind.EMBY && !jellyfinOnly) model.updateCompanionLogin(true,
                     "http://127.0.0.1:${server.localPort}/${if (primary == ServiceKind.SEERR) "jellyfin" else "seerr"}")
                 model.testAndSaveConnection()
             }
             val end = System.currentTimeMillis() + 15000
             while (model.connectionDraft.value?.saving == true && System.currentTimeMillis() < end) Thread.sleep(25)
             assertFalse("Login must finish", model.connectionDraft.value?.saving == true)
-            if (primary == ServiceKind.EMBY) {
+            if (simple && !rejectSeerr && !mismatchedId) {
+                instrumentation.runOnMainSync {
+                    assertFalse(model.uiState.value.showOnboarding)
+                    model.importSetupLink(app.reelstack.data.network.SetupLink("https://different.example").encode())
+                    assertNull(model.connectionDraft.value)
+                }
+            }
+            if (jellyfinOnly) {
+                assertNull(model.connectionDraft.value)
+                assertEquals("jellyfin-personal", container.connectionRepository.get(ServiceKind.JELLYFIN).token)
+                assertEquals("", container.connectionRepository.get(ServiceKind.SEERR).token)
+            } else if (primary == ServiceKind.EMBY) {
                 assertNull(model.connectionDraft.value)
                 assertEquals("jellyfin-personal", container.connectionRepository.get(ServiceKind.EMBY).token)
                 assertEquals("media-user", container.connectionRepository.get(ServiceKind.EMBY).userId)
@@ -101,6 +120,7 @@ class LinkedLoginTest {
             server.close()
             serverThread.join(3000)
             ServiceKind.entries.forEach { container.connectionRepository.delete(it) }
+            container.preferencesRepository.onboardingCompleted = onboardingCompleted
         }
     }
     @Test fun oneFormCreatesDistinctPersonalSessionsWithoutAdminAccess() = exercise()
@@ -108,4 +128,6 @@ class LinkedLoginTest {
     @Test fun secondLoginFailureDoesNotSaveHalfALogin() = exercise(rejectSeerr = true)
     @Test fun sameDisplayNameDoesNotLinkDifferentAccounts() = exercise(mismatchedId = true)
     @Test fun embyLoginVerifiesTheReturnedUserIdWithoutCallingUsersMe() = exercise(primary = ServiceKind.EMBY)
+    @Test fun setupLinkPasswordLoginCompletesOnboardingAndProtectsExistingAccount() = exercise(simple = true)
+    @Test fun setupLinkWithoutSeerrCompletesOnboarding() = exercise(simple = true, jellyfinOnly = true)
 }

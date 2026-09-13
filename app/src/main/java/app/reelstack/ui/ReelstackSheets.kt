@@ -1,5 +1,6 @@
 package app.reelstack.ui
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.SpoleSecondaryButton
 
 import androidx.compose.ui.res.stringResource
 
@@ -150,6 +151,7 @@ fun ReelstackSheets(
     onRequestNotification: (Boolean) -> Unit = {},
     onConfirmRequest: () -> Unit = {},
     onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
+    onImportSetupLink: (String) -> Unit = {},
     onConnectionAlternateUrlChange: (String) -> Unit = {},
     onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> },
     onFavourite: (String, Boolean) -> Unit = { _, _ -> },
@@ -195,7 +197,9 @@ fun ReelstackSheets(
                 }
                 is AppSheet.ConnectionEditor -> connectionDraft?.let {
                     if (it.simpleSetup) CombinedSetupSheet(it, onConnectionUrlChange,
-                        { url -> onCompanionLoginChange(true, url) }, onTestAndSaveConnection, close)
+                        { url -> onCompanionLoginChange(true, url) }, onTestAndSaveConnection, close,
+                        onConnectionAuthModeChange, onConnectionUsernameChange, onConnectionPasswordChange,
+                        { enabled -> onCompanionLoginChange(enabled, it.companionUrl) }, onImportSetupLink)
                     else ConnectionEditorSheet(
                         draft = it,
                         configured = state.connections.firstOrNull { item -> item.kind == it.kind }?.baseUrl?.isNotBlank() == true,
@@ -211,6 +215,12 @@ fun ReelstackSheets(
                         onPasswordChange = onConnectionPasswordChange,
                         onTestAndSave = onTestAndSaveConnection,
                         onRemove = { onRemoveConnection(it.kind) },
+                        setupLink = if (it.kind == ServiceKind.JELLYFIN) runCatching {
+                            app.reelstack.data.network.SetupLink(
+                                state.connections.first { connection -> connection.kind == ServiceKind.JELLYFIN }.baseUrl,
+                                state.connections.firstOrNull { connection -> connection.kind == ServiceKind.SEERR }?.baseUrl.orEmpty()
+                            ).encode()
+                        }.getOrNull() else null,
                     )
                 }
             }
@@ -1127,7 +1137,9 @@ internal fun ConnectionEditorSheet(
     onRemove: () -> Unit,
     onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
     onAlternateUrlChange: (String) -> Unit = {},
+    setupLink: String? = null,
 ) {
+    val shareContext = LocalContext.current
     var credentialsStep by rememberSaveable(draft.kind) { mutableStateOf(configured) }
     var advanced by rememberSaveable(draft.kind) { mutableStateOf(false) }
     var detailsExpanded by rememberSaveable(draft.kind, configured) { mutableStateOf(!configured) }
@@ -1155,6 +1167,24 @@ internal fun ConnectionEditorSheet(
     ) {
         if (configured) {
             ConnectedServiceSummary(draft.kind, detailsExpanded) { detailsExpanded = !detailsExpanded }
+            if (setupLink != null) {
+                SpoleSecondaryButton(onClick = {
+                    runCatching {
+                        shareContext.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, setupLink)
+                        }, "Del Spole-oppsett"))
+                    }.onFailure {
+                        android.widget.Toast.makeText(shareContext, "Bruk Kopier oppsettslenkje på denne eininga.", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }, modifier = Modifier.fillMaxWidth()) { Text("Del oppsett med ein brukar") }
+                SpoleSecondaryButton(onClick = {
+                    shareContext.getSystemService(android.content.ClipboardManager::class.java)
+                        .setPrimaryClip(android.content.ClipData.newPlainText("Spole-oppsett", setupLink))
+                    android.widget.Toast.makeText(shareContext, "Oppsettslenkja er kopiert", android.widget.Toast.LENGTH_SHORT).show()
+                }, modifier = Modifier.fillMaxWidth()) { Text("Kopier oppsettslenkje") }
+                Text("Deler berre tenesteadressene. Brukaren loggar inn med sin eigen konto.", style = MaterialTheme.typography.bodySmall)
+            }
         }
         AnimatedVisibility(
             visible = !configured || detailsExpanded,

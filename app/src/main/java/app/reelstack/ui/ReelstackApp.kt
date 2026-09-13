@@ -416,6 +416,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onTestAndSaveConnection = viewModel::testAndSaveConnection,
         onRemoveConnection = viewModel::removeConnection,
         onCompanionLoginChange = viewModel::updateCompanionLogin,
+        onImportSetupLink = viewModel::importSetupLink,
         onCancelConnection = viewModel::cancelConnectionSetup,
         onAddMedia = viewModel::requestMedia,
         onUpcomingClick = viewModel::openUpcomingDetails,

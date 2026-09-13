@@ -66,6 +66,7 @@ data class ConnectionDraft(
     val password: String = "",
     val alsoConnect: Boolean = false,
     val simpleSetup: Boolean = false,
+    val setupImported: Boolean = false,
     val companionUrl: String = "",
     val alternateUrl: String = "",
     val saving: Boolean = false,
@@ -523,6 +524,18 @@ class ReelstackViewModel(
         if (!_uiState.value.showOnboarding || _uiState.value.configuredCount > 0) return
         openSheet(AppSheet.ConnectionEditor(ServiceKind.JELLYFIN))
         updateDraft { copy(simpleSetup = true, alsoConnect = true, authMode = ConnectionAuthMode.QUICK_CONNECT) }
+    }
+
+    fun importSetupLink(value: String) {
+        if (!_uiState.value.showOnboarding || _uiState.value.configuredCount > 0 ||
+            connectionDraft.value?.saving == true || connectionDraft.value?.quickConnectWaiting == true) return
+        val setup = runCatching { app.reelstack.data.network.SetupLink.parse(value) }
+        openCombinedSetup()
+        setup.onSuccess { link ->
+            updateDraft { copy(url = link.jellyfin, companionUrl = link.seerr, alsoConnect = link.seerr.isNotBlank(), setupImported = true) }
+        }.onFailure {
+            updateDraft { copy(error = "Oppsettslenkja er ugyldig. Be om ei ny lenkje, eller skriv inn adressene sjølv.") }
+        }
     }
 
     fun openSeerrAccount() {
@@ -1762,7 +1775,7 @@ class ReelstackViewModel(
         val useJellyfinAccount = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
         val useQuickConnect = (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR) && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
         if (useQuickConnect) {
-            if (draft.simpleSetup) {
+            if (draft.simpleSetup && draft.alsoConnect) {
                 val companionUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
                     updateDraft { copy(error = "Sjekk Seerr-adressa og prøv igjen.") }
                     return
@@ -1850,6 +1863,7 @@ class ReelstackViewModel(
                 }
             } else null
             verifyAndSaveConnection(candidate, companion)
+            if (draft.simpleSetup && _uiState.value.activeSheet == null) completeOnboarding()
         }
     }
 
@@ -1911,7 +1925,7 @@ class ReelstackViewModel(
                             }.getOrDefault(""),
                             state = ConnectionState.TESTING,
                         )
-                    val companion = if (draft.simpleSetup) {
+                    val companion = if (draft.simpleSetup && draft.alsoConnect) {
                         attempt {
                             withContext(Dispatchers.IO) {
                                 app.reelstack.data.network.connectSeerrWithJellyfin(candidate, draft.companionUrl,
