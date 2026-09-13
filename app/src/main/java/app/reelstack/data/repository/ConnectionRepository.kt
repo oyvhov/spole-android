@@ -18,9 +18,12 @@ class ConnectionRepository(context: Context) {
 
     fun signOut(kind: ServiceKind) {
         val url = get(kind).baseUrl
-        preferences.edit { putString("${kind.name.lowercase()}.last_url", url) }
+        if (url.isNotBlank()) preferences.edit { putString("${kind.name.lowercase()}.last_url", url) }
         delete(kind)
     }
+
+    /** Local sign-out, including services hidden by the current account's permissions. */
+    fun signOutAll() = ServiceKind.entries.forEach(::signOut)
 
     fun get(kind: ServiceKind): ServiceConnection {
         val prefix = kind.name.lowercase()

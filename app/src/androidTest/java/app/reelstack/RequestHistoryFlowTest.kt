@@ -131,6 +131,24 @@ class RequestHistoryFlowTest {
         assertTrue(model.uiState.value.requestHistory.items.isEmpty())
         assertFalse(model.uiState.value.requestHistory.loaded)
     }
+    @Test fun signOutAllDiscardsLateHistoryAndAllowsNewSetup() = exercise { model, server ->
+        server.blockOffset = 0
+        main { model.openRequestHistory() }
+        assertTrue(server.entered.await(5, TimeUnit.SECONDS))
+        main { model.signOutAll() }
+        server.release.countDown()
+        assertTrue(server.responded.await(5, TimeUnit.SECONDS))
+        await { !model.uiState.value.signingOut }
+        main { }
+        val state = model.uiState.value
+        assertTrue(state.showOnboarding)
+        assertTrue(state.accounts.isEmpty())
+        assertTrue(state.requestHistory.items.isEmpty())
+        assertTrue(state.resume.isEmpty())
+        assertTrue(state.connections.all { it.token.isEmpty() && it.baseUrl.isEmpty() })
+        main { model.openCombinedSetup() }
+        assertNotNull(model.connectionDraft.value)
+    }
     @Test fun aDifferentServerActorStopsBeforeFetchingAnotherPage() = exercise { model, server ->
         main { model.openRequestHistory() }
         await { model.uiState.value.requestHistory.loaded }

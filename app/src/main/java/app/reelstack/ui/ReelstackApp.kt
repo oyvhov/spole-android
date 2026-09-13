@@ -117,6 +117,18 @@ import app.reelstack.ui.theme.SurfaceRaised
 @Composable
 fun ReelstackApp(viewModel: ReelstackViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    if (state.signingOut) {
+        BackHandler { }
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                androidx.compose.material3.CircularProgressIndicator()
+                Text(androidx.compose.ui.res.stringResource(R.string.sign_out_all_working),
+                    modifier = Modifier.padding(top = 20.dp))
+            }
+        }
+        return
+    }
     val connectionDraft by viewModel.connectionDraft.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
@@ -383,6 +395,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onWifiOnlyChange = viewModel::setWifiOnly,
                         onHomeSectionChange = viewModel::setHomeSectionVisible,
                         onHomeRowOrderChange = viewModel::setHomeRowOrder,
+                        onSignOutAll = viewModel::signOutAll,
                         onManageLibraries = viewModel::openLibraryChoices,
                         onAccountClick = { kind ->
                             if (kind == app.reelstack.data.model.ServiceKind.SEERR) viewModel.openSeerrAccount()

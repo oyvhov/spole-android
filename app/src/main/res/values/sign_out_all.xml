@@ -1,0 +1,5 @@
+<resources>
+    <string name="sign_out_all_working">Signing out…</string>
+    <string name="sign_out_all">Sign out of all services</string>
+    <string name="sign_out_all_hint">One tap signs out on this device. Your appearance and Home layout are kept.</string>
+</resources>

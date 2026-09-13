@@ -33,6 +33,8 @@ class MediaRefreshWorker(
             )
         }.getOrElse { return giveUpOrRetry() }
 
+        // A refresh started before sign-out must never publish the previous account's feed.
+        if (isStopped || container.mediaFingerprint(container.connectionRepository.list()) != fingerprint) return Result.success()
         if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
             runCatching {
                 container.mediaSnapshotStore.save(

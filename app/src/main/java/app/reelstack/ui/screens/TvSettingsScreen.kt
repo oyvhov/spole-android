@@ -41,7 +41,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
-    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}) {
+    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}) {
     var category by rememberSaveable { mutableStateOf(TvSettingsCategory.APPEARANCE) }
     val context = LocalContext.current.applicationContext
     val preferences = remember(context) { AppPreferencesRepository(context) }
@@ -140,6 +140,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                                 if (connected && connection.kind == ServiceKind.SEERR)
                                     SettingsChoiceRow(stringResource(R.string.settings_tv_account_action), "Seerr", "tv-account-SEERR") { onAccountClick(ServiceKind.SEERR) }
                             }
+                            SignOutAllSetting(state, onSignOutAll)
                             PrivacyCard(state)
                         }
                         TvSettingsCategory.UPDATES -> {

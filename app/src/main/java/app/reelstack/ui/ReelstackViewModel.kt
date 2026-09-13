@@ -33,6 +33,8 @@ import app.reelstack.data.network.readableMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -77,6 +79,7 @@ data class ConnectionDraft(
 )
 
 data class ReelstackUiState(
+    val signingOut: Boolean = false,
     val showOnboarding: Boolean = false,
     val selectedTab: AppTab = AppTab.HOME,
     val activeSheet: AppSheet? = null,
@@ -190,6 +193,7 @@ class ReelstackViewModel(
         private set
 
     private var refreshJob: Job? = null
+    private var signOutJob: Job? = null
     private var lastFeedAttemptMillis = -60_000L
     private var libraryChoicesJob: Job? = null
     private var libraryJob: Job? = null
@@ -513,6 +517,7 @@ class ReelstackViewModel(
     fun completeOnboarding() {
         container.preferencesRepository.onboardingCompleted = true
         _uiState.update { it.copy(showOnboarding = false, selectedTab = AppTab.HOME) }
+        if (_uiState.value.configuredCount == 0) refreshLiveData()
     }
 
     fun cancelConnectionSetup() {
@@ -1499,6 +1504,7 @@ class ReelstackViewModel(
     }
 
     fun refreshLiveData(userInitiated: Boolean = false) {
+        if (signOutJob?.isActive == true || (_uiState.value.showOnboarding && _uiState.value.configuredCount == 0)) return
         refreshAccounts()
         refreshTrackedRequests()
         if (refreshJob?.isActive == true) return
@@ -2075,6 +2081,41 @@ class ReelstackViewModel(
         }
         connectionDraft.value = null
         refreshLiveData()
+    }
+
+    fun signOutAll() {
+        if (signOutJob?.isActive == true) return
+        val pending = viewModelScope.coroutineContext[Job]?.children?.toList().orEmpty()
+        viewModelScope.coroutineContext.cancelChildren()
+        closeSessionChannel()
+        container.connectionRepository.signOutAll()
+        container.preferencesRepository.onboardingCompleted = false
+        val notifications = container.appContext.getSystemService(android.app.NotificationManager::class.java)
+        notifications.activeNotifications.filter { item ->
+            app.reelstack.background.NotificationEvent.entries.any { it.channelId == item.notification.channelId }
+        }.forEach { notifications.cancel(it.tag, it.id) }
+        app.reelstack.widget.NowPlayingWidget.requestUpdate(container.appContext)
+        connectionDraft.value = null
+        lastFeedAttemptMillis = -60_000L
+        // A fresh state clears details, favourites, requests and every account-scoped pane.
+        _uiState.value = ReelstackUiState(
+            signingOut = true, connections = container.connectionRepository.list(),
+            sessions = emptyList(), resume = emptyList(), recentMovies = emptyList(),
+            recentSeries = emptyList(), upcoming = emptyList(), recentReleases = emptyList(),
+            incoming = emptyList(), discover = emptyList(), recommendations = emptyList(), activity = emptyList(),
+            notificationsEnabled = container.preferencesRepository.notificationsEnabled,
+            wifiOnly = container.preferencesRepository.wifiOnly,
+            homeSections = container.preferencesRepository.visibleHomeSections,
+            homeRowOrder = container.preferencesRepository.homeRowOrder,
+        )
+        signOutJob = viewModelScope.launch {
+            // Wait for any in-flight disk write before erasing the offline account snapshot.
+            pending.joinAll()
+            // An authentication write already executing on IO may finish despite cancellation.
+            container.connectionRepository.signOutAll()
+            withContext(Dispatchers.IO) { container.mediaSnapshotStore.clear() }
+            _uiState.update { it.copy(signingOut = false, showOnboarding = true) }
+        }
     }
 
     fun removeConnection(kind: ServiceKind) {

@@ -1015,12 +1015,13 @@ fun SettingsScreen(
     onAccountClick: (ServiceKind) -> Unit = onConnectionClick,
     onManageLibraries: () -> Unit = {},
     onHomeRowOrderChange: (List<app.reelstack.data.model.HomeRow>) -> Unit = {},
+    onSignOutAll: () -> Unit = {},
 ) {
     val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     if (television) {
         TvSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
-            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange)
+            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll)
         return
     }
     var homeExpanded by rememberSaveable { mutableStateOf(false) }
@@ -1036,7 +1037,7 @@ fun SettingsScreen(
     val wide = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useTabletCanvas
     if (!wide) {
         MobileSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
-            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange)
+            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll)
         return@BoxWithConstraints
     }
     var section by rememberSaveable { mutableStateOf(SettingsSection.ACCOUNTS) }
@@ -1086,6 +1087,7 @@ fun SettingsScreen(
                         SettingsServiceRow(connection, state.verifiedPanelAccount(connection.kind)?.displayName,
                             state.serviceWarnings[connection.kind], onClick = { onConnectionClick(connection.kind) })
                     }
+                    SignOutAllSetting(state, onSignOutAll)
                 }
             }
         }

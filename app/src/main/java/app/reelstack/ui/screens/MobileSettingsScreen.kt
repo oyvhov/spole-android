@@ -37,7 +37,7 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
-    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}) {
+    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}) {
     var page by rememberSaveable { mutableStateOf<MobileSettingsPage?>(null) }
     val panes = rememberSaveableStateHolder()
     val context = LocalContext.current.applicationContext
@@ -102,6 +102,7 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                                     if (connected && connection.kind == ServiceKind.SEERR)
                                         SettingsChoiceRow(stringResource(R.string.settings_tv_account_action), "Seerr", "mobile-account-SEERR") { onAccountClick(ServiceKind.SEERR) }
                                 }
+                                SignOutAllSetting(state, onSignOutAll)
                                 PrivacyCard(state)
                             }
                             MobileSettingsPage.UPDATES -> {

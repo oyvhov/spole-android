@@ -69,6 +69,7 @@ class NowPlayingWidget : AppWidgetProvider() {
                 it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
         if (servers.isEmpty()) return views(context, context.getString(R.string.widget_no_services), context.getString(R.string.widget_connect))
+        val accountFingerprint = container.mediaFingerprint(container.connectionRepository.list())
 
         val sessions = kotlinx.coroutines.coroutineScope {
             servers.map { connection ->
@@ -78,6 +79,9 @@ class NowPlayingWidget : AppWidgetProvider() {
                     }.getOrNull().orEmpty()
                 }
             }.awaitAll().flatten()
+        }
+        if (container.mediaFingerprint(container.connectionRepository.list()) != accountFingerprint) {
+            return views(context, context.getString(R.string.widget_no_services), context.getString(R.string.widget_connect))
         }
         return playbackViews(context, sessions)
     }

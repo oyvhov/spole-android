@@ -1,0 +1,5 @@
+<resources>
+    <string name="sign_out_all_working">Loggar ut…</string>
+    <string name="sign_out_all">Logg ut av alle tenester</string>
+    <string name="sign_out_all_hint">Eitt trykk loggar ut på denne eininga. Utsjånad og oppsettet på Heim blir bevarte.</string>
+</resources>
