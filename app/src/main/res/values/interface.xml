@@ -4,7 +4,12 @@
     <string name="nav_discover">Discover</string>
     <string name="nav_activity">Activity</string>
     <string name="nav_settings">Settings</string>
-    <string name="nav_settings_short">Settings</string>
+    <!-- Natural short navigation labels, selected only when the full label does not fit. -->
+    <string name="nav_home_short">Home</string>
+    <string name="nav_library_short">Media</string>
+    <string name="nav_discover_short">Find</string>
+    <string name="nav_activity_short">Log</string>
+    <string name="nav_settings_short">Setup</string>
     <string name="action_close">Close</string>
     <string name="action_back">Back</string>
     <string name="action_retry">Try again</string>

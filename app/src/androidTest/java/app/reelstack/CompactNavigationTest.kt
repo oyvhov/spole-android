@@ -42,4 +42,29 @@ class CompactNavigationTest {
         rule.onNodeWithText("Innstillingar").assertIsDisplayed()
         rule.onRoot().saveRoadmapImage("compact-navigation-large.png")
     }
+
+    @Test fun nynorskUsesRealShortWordsForSeveralLabels() = checkShortWords(
+        app.reelstack.localization.AppLanguage.NYNORSK, listOf("Media", "Logg", "Val"))
+
+    @Test fun englishUsesItsOwnShortWords() = checkShortWords(
+        app.reelstack.localization.AppLanguage.ENGLISH, listOf("Find", "Setup"))
+
+    private fun checkShortWords(language: app.reelstack.localization.AppLanguage, words: List<String>) {
+        rule.setContent {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(280.dp, 640.dp))) {
+                DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(1.4f)) {
+                    val context = app.reelstack.localization.AppLanguages.wrap(
+                        androidx.compose.ui.platform.LocalContext.current, language)
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        androidx.compose.ui.platform.LocalContext provides context,
+                        androidx.compose.ui.platform.LocalConfiguration provides context.resources.configuration,
+                    ) {
+                        ReelstackTheme { ReelstackBottomBar(AppTab.HOME) {} }
+                    }
+                }
+            }
+        }
+        rule.onRoot().saveRoadmapImage("compact-navigation-${language.tag}.png")
+        words.forEach { word -> rule.onNodeWithText(word).assertIsDisplayed() }
+    }
 }

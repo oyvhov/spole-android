@@ -5,6 +5,10 @@
     <string name="nav_activity">Aktivitet</string>
     <string name="nav_settings">Innstillingar</string>
     <string name="nav_settings_short">Val</string>
+    <string name="nav_home_short">Heim</string>
+    <string name="nav_library_short">Media</string>
+    <string name="nav_discover_short">Finn</string>
+    <string name="nav_activity_short">Logg</string>
     <string name="action_close">Lukk</string>
     <string name="action_back">Tilbake</string>
     <string name="action_retry">Prøv igjen</string>

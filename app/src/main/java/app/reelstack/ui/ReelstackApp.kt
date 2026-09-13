@@ -469,9 +469,27 @@ internal fun ReelstackBottomBar(
 ) {
     val visibleTabs = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
         .mapNotNull { name -> tabs.find { it.tab.name == name } }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val labelWidth = (maxWidth / visibleTabs.size.coerceAtLeast(1) - 8.dp).coerceAtLeast(1.dp)
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall
+    val availablePx = with(density) { labelWidth.toPx() }
+    val labels = visibleTabs.map { item ->
+        val full = androidx.compose.ui.res.stringResource(item.label)
+        val short = androidx.compose.ui.res.stringResource(when (item.tab) {
+            AppTab.HOME -> R.string.nav_home_short
+            AppTab.LIBRARY -> R.string.nav_library_short
+            AppTab.DISCOVER -> R.string.nav_discover_short
+            AppTab.ACTIVITY -> R.string.nav_activity_short
+            AppTab.SETTINGS -> R.string.nav_settings_short
+        })
+        if (measurer.measure(full, labelStyle, softWrap = false).size.width <= availablePx) full else short
+    }
+    val needsMenu = labels.any { measurer.measure(it, labelStyle, softWrap = false).size.width > availablePx }
     // Five full labels cannot fit at large text sizes. Keep the current page readable and
     // expose the same destinations in a labelled menu, without shrinking the user's text.
-    if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.6f) {
+    if (density.fontScale >= 1.6f || needsMenu) {
         var expanded by remember { mutableStateOf(false) }
         val current = tabs.first { it.tab == selectedTab }
         val currentLabel = androidx.compose.ui.res.stringResource(current.label)
@@ -497,18 +515,15 @@ internal fun ReelstackBottomBar(
                 }
             }
         }
-        return
+        return@BoxWithConstraints
     }
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-    val labelWidth = (maxWidth / visibleTabs.size.coerceAtLeast(1) - 8.dp).coerceAtLeast(1.dp)
-    val compactLabels = maxWidth < 400.dp
     NavigationBar(
         containerColor = Ink,
         tonalElevation = 0.dp,
         windowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.navigationBarsPadding().heightIn(min = 76.dp).testTag("bottom-navigation"),
     ) {
-            visibleTabs.forEach { item ->
+            visibleTabs.forEachIndexed { index, item ->
                 val fullLabel = androidx.compose.ui.res.stringResource(item.label)
                 NavigationBarItem(
                     modifier = Modifier.semantics { contentDescription = fullLabel },
@@ -517,12 +532,11 @@ internal fun ReelstackBottomBar(
                     icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
                     label = {
                         Text(
-                            if (compactLabels && item.tab == AppTab.SETTINGS)
-                                androidx.compose.ui.res.stringResource(R.string.nav_settings_short) else fullLabel,
+                            labels[index],
                             modifier = Modifier.width(labelWidth),
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            overflow = TextOverflow.Clip,
                             textAlign = TextAlign.Center,
                         )
                     },
