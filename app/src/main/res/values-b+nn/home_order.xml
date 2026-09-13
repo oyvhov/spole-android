@@ -1,0 +1,11 @@
+<resources>
+    <string name="home_order_title">Rekkjefølgje på Heim</string>
+    <string name="home_order_hint">Flytt radene under toppbiletet opp eller ned.</string>
+    <string name="home_order_saved">Endringar blir lagra med ein gong, også for skjulte og tomme rader.</string>
+    <string name="home_order_combined">Neste episode følgjer Sjå vidare når radene er slått saman.</string>
+    <string name="home_order_hidden">Skjult</string>
+    <string name="home_order_up">Flytt %1$s opp</string>
+    <string name="home_order_down">Flytt %1$s ned</string>
+    <string name="home_order_reset">Standardrekkjefølgje</string>
+    <string name="home_order_done">Ferdig</string>
+</resources>

@@ -153,6 +153,12 @@ class AppPreferencesRepository(context: Context) {
         get() = preferences.getBoolean(KEY_WIFI_ONLY, false)
         set(value) = preferences.edit { putBoolean(KEY_WIFI_ONLY, value) }
 
+    var homeRowOrder: List<app.reelstack.data.model.HomeRow>
+        get() = app.reelstack.data.model.decodeHomeRowOrder(preferences.getString("home_row_order", null))
+        set(value) = preferences.edit {
+            putString("home_row_order", app.reelstack.data.model.decodeHomeRowOrder(value.joinToString(",") { it.name }).joinToString(",") { it.name })
+        }
+
     var visibleHomeSections: Set<HomeSection>
         get() {
             val saved = preferences.getStringSet(KEY_HOME_SECTIONS, null)

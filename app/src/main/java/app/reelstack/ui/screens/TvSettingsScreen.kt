@@ -40,7 +40,8 @@ private enum class TvSettingsCategory(val title: Int, val hint: Int, val icon: I
 internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingValues,
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
-    onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit) {
+    onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
+    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}) {
     var category by rememberSaveable { mutableStateOf(TvSettingsCategory.APPEARANCE) }
     val context = LocalContext.current.applicationContext
     val preferences = remember(context) { AppPreferencesRepository(context) }
@@ -117,6 +118,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                             SettingsToggleRow(stringResource(R.string.tv_show_hero), stringResource(R.string.settings_tv_hero_hint),
                                 options.showHero, "show-hero") { change(options.copy(showHero = it)) }
                             TvHomeRows(state, onHomeSectionChange)
+                            HomeRowOrderSetting(state, onHomeRowOrderChange)
                         }
                         TvSettingsCategory.MENU -> {
                             TvMenuSettings(options, change)

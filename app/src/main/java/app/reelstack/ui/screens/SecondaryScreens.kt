@@ -1013,12 +1013,13 @@ fun SettingsScreen(
     onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit = onConnectionClick,
     onManageLibraries: () -> Unit = {},
+    onHomeRowOrderChange: (List<app.reelstack.data.model.HomeRow>) -> Unit = {},
 ) {
     val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     if (television) {
         TvSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
-            onHomeSectionChange, onAccountClick, onManageLibraries)
+            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange)
         return
     }
     var homeExpanded by rememberSaveable { mutableStateOf(false) }
@@ -1034,7 +1035,7 @@ fun SettingsScreen(
     val wide = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useTabletCanvas
     if (!wide) {
         MobileSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
-            onHomeSectionChange, onAccountClick, onManageLibraries)
+            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange)
         return@BoxWithConstraints
     }
     var section by rememberSaveable { mutableStateOf(SettingsSection.ACCOUNTS) }
@@ -1118,6 +1119,7 @@ fun SettingsScreen(
                 }
                 androidx.compose.animation.AnimatedVisibility(visible = homeExpanded || wide) {
                   Column {
+            HomeRowOrderSetting(state, onHomeRowOrderChange)
             HomeSectionRow(HomeSection.NOW_PLAYING, stringResource(R.string.home_now_playing), stringResource(R.string.settings_playback_note), app.reelstack.ui.components.SpoleIcons.Play, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.CONTINUE_WATCHING, stringResource(R.string.home_continue), stringResource(R.string.settings_continue_note), app.reelstack.ui.components.SpoleIcons.Clock, state, onHomeSectionChange)
             HomeSectionRow(HomeSection.RECOMMENDATIONS, stringResource(R.string.home_recommendations), stringResource(R.string.settings_recommendations_note), app.reelstack.ui.components.SpoleIcons.Discover, state, onHomeSectionChange)

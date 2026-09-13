@@ -1,0 +1,11 @@
+<resources>
+    <string name="home_order_title">Home row order</string>
+    <string name="home_order_hint">Move the rows below the featured artwork up or down.</string>
+    <string name="home_order_saved">Changes are saved immediately, including for hidden and empty rows.</string>
+    <string name="home_order_combined">Next episode follows Continue watching when the rows are combined.</string>
+    <string name="home_order_hidden">Hidden</string>
+    <string name="home_order_up">Move %1$s up</string>
+    <string name="home_order_down">Move %1$s down</string>
+    <string name="home_order_reset">Default order</string>
+    <string name="home_order_done">Done</string>
+</resources>

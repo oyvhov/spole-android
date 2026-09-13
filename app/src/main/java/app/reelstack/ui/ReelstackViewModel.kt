@@ -151,6 +151,7 @@ data class ReelstackUiState(
     val requestingMediaIds: Set<String> = emptySet(),
     val pendingSessionKey: String? = null,
     val homeSections: Set<HomeSection> = HomeSection.entries.toSet(),
+    val homeRowOrder: List<app.reelstack.data.model.HomeRow> = app.reelstack.data.model.HomeRow.entries,
     val hasCachedData: Boolean = false,
     val snackbar: String? = null,
     val contentDetails: ContentDetails? = null,
@@ -1716,6 +1717,11 @@ class ReelstackViewModel(
         _uiState.update { it.copy(wifiOnly = enabled, snackbar = "Bakgrunnsoppdateringa er endra") }
     }
 
+    fun setHomeRowOrder(order: List<app.reelstack.data.model.HomeRow>) {
+        container.preferencesRepository.homeRowOrder = order
+        _uiState.update { it.copy(homeRowOrder = container.preferencesRepository.homeRowOrder) }
+    }
+
     fun setHomeSectionVisible(section: HomeSection, visible: Boolean) {
         _uiState.update { current ->
             val updated = if (visible) current.homeSections + section else current.homeSections - section
@@ -2222,6 +2228,7 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         notificationsEnabled = container.preferencesRepository.notificationsEnabled,
         wifiOnly = container.preferencesRepository.wifiOnly,
         homeSections = container.preferencesRepository.visibleHomeSections,
+        homeRowOrder = container.preferencesRepository.homeRowOrder,
         lastUpdatedEpochMillis = cached?.refreshedAtEpochMillis,
         hasCachedData = cached != null,
         isRefreshing = configuredKinds.isNotEmpty(),

@@ -383,6 +383,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onNotificationsChange = viewModel::setNotifications,
                         onWifiOnlyChange = viewModel::setWifiOnly,
                         onHomeSectionChange = viewModel::setHomeSectionVisible,
+                        onHomeRowOrderChange = viewModel::setHomeRowOrder,
                         onManageLibraries = viewModel::openLibraryChoices,
                         onAccountClick = { kind ->
                             if (kind == app.reelstack.data.model.ServiceKind.SEERR) viewModel.openSeerrAccount()

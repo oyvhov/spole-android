@@ -139,6 +139,9 @@ fun HomeScreen(
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
 ) {
+    val orderedRows = remember(state.homeRowOrder) {
+        app.reelstack.data.model.decodeHomeRowOrder(state.homeRowOrder.joinToString(",") { it.name })
+    }
     val configuredMediaSources = state.connections
         .filter { connection ->
             connection.baseUrl.isNotBlank() &&
@@ -216,148 +219,150 @@ fun HomeScreen(
                     )
                 }
             }
-            if (HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
-                item(key = "now-playing") {
-                        Row(Modifier.fillMaxWidth().padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
-                            SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
-                            // A count is status, not an action, so it stays out of the accent colour.
-                            if (state.sessions.size > 1) Text(androidx.compose.ui.res.pluralStringResource(app.reelstack.R.plurals.home_playback_count, state.sessions.size, state.sessions.size),
-                                color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(start = 12.dp, bottom = 2.dp))
-                        }
-                        NowPlayingRail(
-                            sessions = state.sessions,
-                            pendingSessionKey = state.pendingSessionKey,
-                            onOpen = onSessionClick,
-                            onPlaybackToggle = onPlaybackToggle,
-                        )
+            orderedRows.forEach { row ->
+                if (row == app.reelstack.data.model.HomeRow.NOW_PLAYING && HomeSection.NOW_PLAYING in state.homeSections && state.sessions.isNotEmpty()) {
+                    item(key = "now-playing") {
+                            Row(Modifier.fillMaxWidth().padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
+                                SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
+                                // A count is status, not an action, so it stays out of the accent colour.
+                                if (state.sessions.size > 1) Text(androidx.compose.ui.res.pluralStringResource(app.reelstack.R.plurals.home_playback_count, state.sessions.size, state.sessions.size),
+                                    color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(start = 12.dp, bottom = 2.dp))
+                            }
+                            NowPlayingRail(
+                                sessions = state.sessions,
+                                pendingSessionKey = state.pendingSessionKey,
+                                onOpen = onSessionClick,
+                                onPlaybackToggle = onPlaybackToggle,
+                            )
+                    }
                 }
-            }
-            if (HomeSection.CONTINUE_WATCHING in state.homeSections &&
-                (continueItems.isNotEmpty() || incompleteMedia || (state.isRefreshing && state.configuredCount > 0))
-            ) {
-                item(key = "continue-watching") {
-                    SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(
-                        top = if (television && featured != null) 14.dp else ReelLayout.SectionTop,
-                        bottom = ReelLayout.SectionBottom,
-                    ))
-                    if (continueItems.isEmpty() && !state.isRefreshing && incompleteMedia)
-                        EmptySectionLine(stringResource(R.string.home_resume_retry))
-                    else if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
-                    else ResumeRail(continueItems, onLibraryClick, cardActions)
+                if (row == app.reelstack.data.model.HomeRow.CONTINUE_WATCHING && HomeSection.CONTINUE_WATCHING in state.homeSections &&
+                    (continueItems.isNotEmpty() || incompleteMedia || (state.isRefreshing && state.configuredCount > 0))
+                ) {
+                    item(key = "continue-watching") {
+                        SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(
+                            top = if (television && featured != null) 14.dp else ReelLayout.SectionTop,
+                            bottom = ReelLayout.SectionBottom,
+                        ))
+                        if (continueItems.isEmpty() && !state.isRefreshing && incompleteMedia)
+                            EmptySectionLine(stringResource(R.string.home_resume_retry))
+                        else if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
+                        else ResumeRail(continueItems, onLibraryClick, cardActions)
+                    }
                 }
-            }
-            // The payoff for the heart on every card. A row that is empty until somebody stars
-            // something, and then keeps what they starred in one place.
-            if (HomeSection.FAVOURITES in state.homeSections && state.favourites.isNotEmpty()) {
-                item(key = "favourites") {
-                    SectionTitle(stringResource(R.string.home_favourites),
-                        Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                    LibraryRail(state.favourites, onLibraryClick, wide = false)
+                // The payoff for the heart on every card. A row that is empty until somebody stars
+                // something, and then keeps what they starred in one place.
+                if (row == app.reelstack.data.model.HomeRow.FAVOURITES && HomeSection.FAVOURITES in state.homeSections && state.favourites.isNotEmpty()) {
+                    item(key = "favourites") {
+                        SectionTitle(stringResource(R.string.home_favourites),
+                            Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                        LibraryRail(state.favourites, onLibraryClick, wide = false)
+                    }
                 }
-            }
-            if (personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
-                item(key = "next-up") {
-                    SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                    // Next up has no resume point of its own; the other two writes still apply.
-                    ResumeRail(state.nextUp, onLibraryClick, cardActions.withoutResumeRemoval())
+                if (row == app.reelstack.data.model.HomeRow.NEXT_UP && personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
+                    item(key = "next-up") {
+                        SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                        // Next up has no resume point of its own; the other two writes still apply.
+                        ResumeRail(state.nextUp, onLibraryClick, cardActions.withoutResumeRemoval())
+                    }
                 }
-            }
-            run {
-                mediaSources.forEach { source ->
-                    val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_MOVIES else HomeSection.JELLYFIN_MOVIES
-                    if (section !in state.homeSections) return@forEach
-                    item(key = "recent-movies-${source.name}") {
-                        MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                        val items = state.recentMovies.filter { it.source == source }
-                        if (items.isEmpty()) {
-                            if (state.isRefreshing) {
-                                LibraryRailSkeleton(stringResource(R.string.home_loading_movies, source.displayName))
+                run {
+                    mediaSources.filter { source -> row == if (source == ServiceKind.EMBY) app.reelstack.data.model.HomeRow.EMBY_MOVIES else app.reelstack.data.model.HomeRow.JELLYFIN_MOVIES }.forEach sourceLoop@ { source ->
+                        val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_MOVIES else HomeSection.JELLYFIN_MOVIES
+                        if (section !in state.homeSections) return@sourceLoop
+                        item(key = "recent-movies-${source.name}") {
+                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                            val items = state.recentMovies.filter { it.source == source }
+                            if (items.isEmpty()) {
+                                if (state.isRefreshing) {
+                                    LibraryRailSkeleton(stringResource(R.string.home_loading_movies, source.displayName))
+                                } else {
+                                    EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_movies)))
+                                }
                             } else {
-                                EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_movies)))
+                                LibraryRail(items, onLibraryClick, wide = false)
+                            }
+                        }
+                    }
+                }
+                run {
+                    mediaSources.filter { source -> row == if (source == ServiceKind.EMBY) app.reelstack.data.model.HomeRow.EMBY_SERIES else app.reelstack.data.model.HomeRow.JELLYFIN_SERIES }.forEach sourceLoop@ { source ->
+                        val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_SERIES else HomeSection.JELLYFIN_SERIES
+                        if (section !in state.homeSections) return@sourceLoop
+                        item(key = "recent-series-${source.name}") {
+                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                            val items = state.recentSeries.filter { it.source == source }
+                            if (items.isEmpty()) {
+                                if (state.isRefreshing) {
+                                    LibraryRailSkeleton(
+                                        stringResource(R.string.home_loading_series, source.displayName),
+                                        wide = true,
+                                    )
+                                } else {
+                                    EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_episodes)))
+                                }
+                            } else {
+                                LibraryRail(items, onLibraryClick, wide = true)
+                            }
+                        }
+                    }
+                }
+                if (row == app.reelstack.data.model.HomeRow.RECOMMENDATIONS && HomeSection.RECOMMENDATIONS in state.homeSections) {
+                    item(key = "recommendations") {
+                        SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = ReelLayout.SectionTop, bottom = 4.dp))
+                        Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                            modifier = Modifier.padding(bottom = 12.dp))
+                        if (state.recommendations.isEmpty() && state.isRefreshing) {
+                            RecommendationSkeleton()
+                        } else if (state.recommendations.isEmpty()) {
+                            EmptySectionLine(stringResource(R.string.home_recommendations_empty))
+                        } else {
+                            RecommendationRail(state.recommendations.take(8), onDiscoverClick)
+                        }
+                    }
+                }
+                if (row == app.reelstack.data.model.HomeRow.RECENT_RELEASES && HomeSection.RECENT_RELEASES in state.homeSections) {
+                    item(key = "recent-releases") {
+                        Column(Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom)) {
+                            SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
+                            Text(
+                                stringResource(R.string.home_releases_note),
+                                color = Muted,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        if (state.recentReleases.isEmpty()) {
+                            if (state.isRefreshing && state.configuredCount > 0) {
+                                UpcomingSkeleton()
+                            } else {
+                                EmptySectionLine(state.recentReleasesError ?: stringResource(R.string.home_releases_empty))
                             }
                         } else {
-                            LibraryRail(items, onLibraryClick, wide = false)
+                            RecentReleaseRail(state.recentReleases, onUpcomingClick)
+                            state.recentReleasesError?.let { EmptySectionLine(it) }
                         }
                     }
                 }
-            }
-            run {
-                mediaSources.forEach { source ->
-                    val section = if (source == ServiceKind.EMBY) HomeSection.EMBY_SERIES else HomeSection.JELLYFIN_SERIES
-                    if (section !in state.homeSections) return@forEach
-                    item(key = "recent-series-${source.name}") {
-                        MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                        val items = state.recentSeries.filter { it.source == source }
-                        if (items.isEmpty()) {
-                            if (state.isRefreshing) {
-                                LibraryRailSkeleton(
-                                    stringResource(R.string.home_loading_series, source.displayName),
-                                    wide = true,
-                                )
+                if (row == app.reelstack.data.model.HomeRow.UPCOMING && HomeSection.UPCOMING in state.homeSections) {
+                    item(key = "upcoming") {
+                        UpcomingSectionTitle(
+                            onCalendarClick = onCalendarClick,
+                            modifier = Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom),
+                        )
+                        if (state.upcoming.isEmpty()) {
+                            if (state.isRefreshing && state.configuredCount > 0) {
+                                UpcomingSkeleton()
                             } else {
-                                EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_episodes)))
+                                EmptySectionLine(state.upcomingError ?: if (!hasQueueConnection)
+                                    stringResource(R.string.home_calendar_disconnected)
+                                else stringResource(R.string.home_upcoming_empty))
                             }
                         } else {
-                            LibraryRail(items, onLibraryClick, wide = true)
+                            UpcomingRail(state.upcoming, onUpcomingClick)
+                            state.upcomingError?.let { EmptySectionLine(it) }
                         }
-                    }
-                }
-            }
-            if (HomeSection.RECOMMENDATIONS in state.homeSections) {
-                item(key = "recommendations") {
-                    SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = ReelLayout.SectionTop, bottom = 4.dp))
-                    Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
-                        modifier = Modifier.padding(bottom = 12.dp))
-                    if (state.recommendations.isEmpty() && state.isRefreshing) {
-                        RecommendationSkeleton()
-                    } else if (state.recommendations.isEmpty()) {
-                        EmptySectionLine(stringResource(R.string.home_recommendations_empty))
-                    } else {
-                        RecommendationRail(state.recommendations.take(8), onDiscoverClick)
-                    }
-                }
-            }
-            if (HomeSection.RECENT_RELEASES in state.homeSections) {
-                item(key = "recent-releases") {
-                    Column(Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom)) {
-                        SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
-                        Text(
-                            stringResource(R.string.home_releases_note),
-                            color = Muted,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    if (state.recentReleases.isEmpty()) {
-                        if (state.isRefreshing && state.configuredCount > 0) {
-                            UpcomingSkeleton()
-                        } else {
-                            EmptySectionLine(state.recentReleasesError ?: stringResource(R.string.home_releases_empty))
-                        }
-                    } else {
-                        RecentReleaseRail(state.recentReleases, onUpcomingClick)
-                        state.recentReleasesError?.let { EmptySectionLine(it) }
-                    }
-                }
-            }
-            if (HomeSection.UPCOMING in state.homeSections) {
-                item(key = "upcoming") {
-                    UpcomingSectionTitle(
-                        onCalendarClick = onCalendarClick,
-                        modifier = Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom),
-                    )
-                    if (state.upcoming.isEmpty()) {
-                        if (state.isRefreshing && state.configuredCount > 0) {
-                            UpcomingSkeleton()
-                        } else {
-                            EmptySectionLine(state.upcomingError ?: if (!hasQueueConnection)
-                                stringResource(R.string.home_calendar_disconnected)
-                            else stringResource(R.string.home_upcoming_empty))
-                        }
-                    } else {
-                        UpcomingRail(state.upcoming, onUpcomingClick)
-                        state.upcomingError?.let { EmptySectionLine(it) }
                     }
                 }
             }

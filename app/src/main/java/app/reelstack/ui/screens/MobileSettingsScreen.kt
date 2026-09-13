@@ -36,7 +36,8 @@ private enum class MobileSettingsPage(val title: Int, val hint: Int) {
 internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: PaddingValues,
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
-    onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit) {
+    onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
+    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}) {
     var page by rememberSaveable { mutableStateOf<MobileSettingsPage?>(null) }
     val panes = rememberSaveableStateHolder()
     val context = LocalContext.current.applicationContext
@@ -83,6 +84,7 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                                 SettingsToggleRow(stringResource(R.string.tv_show_hero), stringResource(R.string.settings_tv_hero_hint),
                                     options.showHero, "show-hero") { change(options.copy(showHero = it)) }
                                 TvHomeRows(state, onHomeSectionChange)
+                                HomeRowOrderSetting(state, onHomeRowOrderChange)
                             }
                             MobileSettingsPage.MENU -> TvMenuSettings(options, change)
                             MobileSettingsPage.PLAYBACK -> {
