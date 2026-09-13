@@ -42,6 +42,7 @@ internal fun StableSheetDialog(
     dismissEnabled: Boolean,
     onDismiss: () -> Unit,
     fullScreen: Boolean = false,
+    onCloseStarted: () -> Unit = {},
     content: @Composable (entered: Boolean, closing: Boolean, close: () -> Unit) -> Unit,
 ) {
     val progress = remember { Animatable(0f) }
@@ -49,6 +50,7 @@ internal fun StableSheetDialog(
     var closing by remember { mutableStateOf(false) }
     val canDismiss by rememberUpdatedState(dismissEnabled)
     val dismissLatest by rememberUpdatedState(onDismiss)
+    val closeStartedLatest by rememberUpdatedState(onCloseStarted)
     val scope = rememberCoroutineScope()
     val hostView = LocalView.current
     val openerInput = LocalInputModeManager.current
@@ -59,6 +61,7 @@ internal fun StableSheetDialog(
     val close = {
         if (canDismiss && !closing) {
             closing = true
+            closeStartedLatest()
             scope.launch {
                 progress.animateTo(0f, tween(200))
                 dismissLatest()

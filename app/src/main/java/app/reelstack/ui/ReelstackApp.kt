@@ -314,6 +314,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     modifier = Modifier,
                     onConnect = { viewModel.openSheet(AppSheet.ConnectionEditor(it)) },
                     onContinue = viewModel::completeOnboarding,
+                    onCombined = viewModel::openCombinedSetup,
                 )
             } else {
             SharedTransitionLayout {
@@ -415,6 +416,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onTestAndSaveConnection = viewModel::testAndSaveConnection,
         onRemoveConnection = viewModel::removeConnection,
         onCompanionLoginChange = viewModel::updateCompanionLogin,
+        onCancelConnection = viewModel::cancelConnectionSetup,
         onAddMedia = viewModel::requestMedia,
         onUpcomingClick = viewModel::openUpcomingDetails,
         onBackToCalendar = viewModel::backToCalendar,

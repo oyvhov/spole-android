@@ -35,7 +35,16 @@ fun WelcomeScreen(
     onConnect: (ServiceKind) -> Unit,
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
+    onCombined: () -> Unit = {},
 ) {
+    var otherMethods by rememberSaveable { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = otherMethods && state.configuredCount == 0 && state.activeSheet == null) {
+        otherMethods = false
+    }
+    if (state.configuredCount == 0 && !otherMethods) {
+        SimpleWelcomeScreen(onCombined, { otherMethods = true }, modifier)
+        return
+    }
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     if (television) {

@@ -157,6 +157,19 @@ class JellyfinAuthenticationClient(
         return parseAuthentication(response.body)
     }
 
+    /** Approves Seerr's challenge only on the Jellyfin server the user just signed into. */
+    fun authorizeQuickConnect(baseUrl: String, accessToken: String, code: String) {
+        val response = contacting(JELLYFIN) {
+            transport.post(
+                EndpointValidator.resolve(baseUrl, "QuickConnect/Authorize?code=${encode(code)}"),
+                mapOf("Authorization" to jellyfinAuthorization(deviceId, accessToken)), "{}",
+            )
+        }
+        check(response.statusCode in 200..299 && response.body.trim() == "true") {
+            "Fekk ikkje kopla Seerr til denne Jellyfin-tenaren. Sjekk at Seerr brukar same tenar."
+        }
+    }
+
     private fun parseAuthentication(body: String): ServiceAuthentication {
         val root = parseObject(body, "Jellyfin sende eit ugyldig innloggingssvar")
         val token = root["AccessToken"]?.jsonPrimitive?.contentOrNull

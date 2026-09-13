@@ -62,6 +62,7 @@ class SetupAndDiscoverTest {
                 WelcomeScreen(ReelstackUiState(), onConnect = { selected = it }, onContinue = {})
             }
         }
+        rule.onNodeWithTag("setup-other").performClick()
         rule.onNodeWithText("Alt du ser.\nÉin stad.").assertIsDisplayed()
         rule.onNodeWithText("Jellyfin").performScrollTo().performClick()
         assertEquals(ServiceKind.JELLYFIN, selected)

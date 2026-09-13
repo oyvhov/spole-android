@@ -155,6 +155,7 @@ fun ReelstackSheets(
     onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> },
     onSeason: (String) -> Unit = {},
+    onCancelConnection: () -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     val sheetContentStates = rememberSaveableStateHolder()
@@ -162,7 +163,8 @@ fun ReelstackSheets(
         (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss,
-        fullScreen = tvDetails) { entered, closing, close ->
+        fullScreen = tvDetails,
+        onCloseStarted = { if (connectionDraft?.simpleSetup == true) onCancelConnection() }) { entered, closing, close ->
         val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
         Column(Modifier.fillMaxSize().testTag("sheet-viewport")) {
             if (!tvDetails && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails)) {
@@ -192,7 +194,9 @@ fun ReelstackSheets(
                     UpcomingCalendarSheet(state.upcoming, onUpcomingClick, close)
                 }
                 is AppSheet.ConnectionEditor -> connectionDraft?.let {
-                    ConnectionEditorSheet(
+                    if (it.simpleSetup) CombinedSetupSheet(it, onConnectionUrlChange,
+                        { url -> onCompanionLoginChange(true, url) }, onTestAndSaveConnection, close)
+                    else ConnectionEditorSheet(
                         draft = it,
                         configured = state.connections.firstOrNull { item -> item.kind == it.kind }?.baseUrl?.isNotBlank() == true,
                         onDismiss = close,

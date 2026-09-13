@@ -65,6 +65,7 @@ data class ConnectionDraft(
     val username: String = "",
     val password: String = "",
     val alsoConnect: Boolean = false,
+    val simpleSetup: Boolean = false,
     val companionUrl: String = "",
     val alternateUrl: String = "",
     val saving: Boolean = false,
@@ -510,6 +511,18 @@ class ReelstackViewModel(
     fun completeOnboarding() {
         container.preferencesRepository.onboardingCompleted = true
         _uiState.update { it.copy(showOnboarding = false, selectedTab = AppTab.HOME) }
+    }
+
+    fun cancelConnectionSetup() {
+        connectionJob?.cancel()
+        quickConnectJob?.cancel()
+    }
+
+    fun openCombinedSetup() {
+        // First-run only: never silently replace an existing service account.
+        if (!_uiState.value.showOnboarding || _uiState.value.configuredCount > 0) return
+        openSheet(AppSheet.ConnectionEditor(ServiceKind.JELLYFIN))
+        updateDraft { copy(simpleSetup = true, alsoConnect = true, authMode = ConnectionAuthMode.QUICK_CONNECT) }
     }
 
     fun openSeerrAccount() {
@@ -1740,6 +1753,7 @@ class ReelstackViewModel(
 
     fun testAndSaveConnection() {
         val draft = connectionDraft.value ?: return
+        if (draft.saving || (draft.simpleSetup && draft.quickConnectWaiting)) return
         val normalizedUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
             .getOrElse {
                 updateDraft { copy(error = it.message ?: "Skriv inn ei gyldig tenaradresse") }
@@ -1748,6 +1762,14 @@ class ReelstackViewModel(
         val useJellyfinAccount = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
         val useQuickConnect = (draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.SEERR) && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
         if (useQuickConnect) {
+            if (draft.simpleSetup) {
+                val companionUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
+                    updateDraft { copy(error = "Sjekk Seerr-adressa og prøv igjen.") }
+                    return
+                }
+                startQuickConnect(draft.copy(companionUrl = companionUrl), normalizedUrl)
+                return
+            }
             startQuickConnect(draft, normalizedUrl)
             return
         }
@@ -1876,8 +1898,7 @@ class ReelstackViewModel(
                         showQuickConnectFailure(draft.kind, error, "Quick Connect vart ikkje fullført")
                         return@launch
                     }
-                    verifyAndSaveConnection(
-                        ServiceConnection(
+                    val candidate = ServiceConnection(
                             kind = draft.kind,
                             name = draft.name.ifBlank { draft.kind.displayName },
                             sessionCookie = draft.kind == ServiceKind.SEERR,
@@ -1889,8 +1910,22 @@ class ReelstackViewModel(
                                     ?.let(EndpointValidator::normalizeBaseUrl).orEmpty()
                             }.getOrDefault(""),
                             state = ConnectionState.TESTING,
-                        ),
-                    )
+                        )
+                    val companion = if (draft.simpleSetup) {
+                        attempt {
+                            withContext(Dispatchers.IO) {
+                                app.reelstack.data.network.connectSeerrWithJellyfin(candidate, draft.companionUrl,
+                                    container.jellyfinAuthenticationClient, container.seerrAuthenticationClient,
+                                    container.accountProfileClient::load)
+                            }
+                        }.getOrElse {
+                            updateDraft { copy(saving = false, quickConnectWaiting = false, quickConnectCode = null,
+                                error = "Fekk ikkje kopla til begge tenestene. Sjekk at Seerr støttar Quick Connect og brukar same Jellyfin-tenar. Prøv igjen, eller vel andre innloggingsmåtar.") }
+                            return@launch
+                        }
+                    } else null
+                    verifyAndSaveConnection(candidate, companion)
+                    if (draft.simpleSetup && _uiState.value.activeSheet == null) completeOnboarding()
                     return@launch
                 }
 
