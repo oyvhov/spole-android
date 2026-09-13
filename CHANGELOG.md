@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.0-alpha24 · Enklare innlogging og deling av oppsett
+
+- Ny enkel oppstart med Jellyfin og valfri Seerr.
+- Del ei oppsettslenkje med tenesteadressene, utan passord eller innloggingsteikn.
+- Vel mobilgodkjenning med Quick Connect eller eigen Jellyfin-konto og passord.
+- Felles innlogging stadfestar at Jellyfin og Seerr høyrer til same brukar.
+- Kompakt innloggingsval og tydeleg TV-fokus etter import av oppsett.
+- Eksisterande kontoar blir bevarte og blir ikkje erstatta av oppsettslenkjer.
+
 ## 0.16.0-alpha23 · Betre TV-fokus og kompakte episodedetaljar
 
 - Venstre flyttar mellom plakatar før sidemenyen; menyen hugsar aktiv side.
