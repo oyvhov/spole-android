@@ -10,6 +10,8 @@ etter 0.16.0-alpha24. Dei er ikkje designskisser. Sjå merkinga i hovud-README f
 - Namn og aktivitet i demovisninga er oppdikta, og seier ingenting om faktisk sjåarhistorikk.
 - Kontoopplysningar er utelatne før biletet blir teke; dei er ikkje berre sladda med eit gjennomsiktig lag.
 - Bileta er visuelt kontrollerte før publisering. Innhaldskunst kjem frå appen sine eksisterande demoressursar.
+- Den utvida demoen har også tre nye, AI-genererte fiktive omslag. Vurderingar, titlar og aktivitet er eksempeldata.
+- Sesongbileta bruker redusert rørsle for eit stabilt opptak; dei viser statisk pynt, ikkje animerte partiklar.
 - TV-bileta bruker TV-modus. Nettbrettbileta er tekne i eit emulert nettbrettvindauge på 1920 × 1200 pikslar.
   Telefonbileta bruker den eksisterande isolerte telefonprofilen. Ingen fysisk eining er brukt til desse bileta.
 
@@ -31,6 +33,26 @@ etter 0.16.0-alpha24. Dei er ikkje designskisser. Sjå merkinga i hovud-README f
   <img src="phone-home.png" width="30%" alt="Heim på telefon" />
   <img src="phone-discover.png" width="30%" alt="Oppdag på telefon" />
   <img src="phone-settings.png" width="30%" alt="Innstillingar på telefon" />
+</p>
+
+
+## Jul og Halloween
+
+### TV
+
+![Jul på TV](tv-home-christmas.png)
+![Halloween på TV](tv-home-halloween.png)
+
+### Nettbrett
+
+![Jul på nettbrett](tablet-home-christmas.png)
+![Halloween på nettbrett](tablet-home-halloween.png)
+
+### Telefon
+
+<p>
+  <img src="phone-home-christmas.png" width="45%" alt="Jul på telefon" />
+  <img src="phone-home-halloween.png" width="45%" alt="Halloween på telefon" />
 </p>
 
 Reproduserbar fangst ligg i PublicScreenshotsTest på utviklingsgreina.

@@ -25,7 +25,7 @@ Alphaversjonar ligg under **Releases**; GitHub si «latest»-lenkje tek ikkje n�
 ## På skjermane dine
 
 ### TV
-![Spole på TV: Heim med aktive avspelingar og innhaldsrader](docs/images/devices/tv-home.png)
+![Spole på TV: hero, aktive avspelingar og innhaldsrader](docs/images/devices/tv-home.png)
 
 Styr appen med fjernkontrollen. TV-oppsettet har sidepanel, horisontale innhaldsrader,
 eigne innstillingar og ein spelar med søkjelinje, lyd, undertekst og neste episode.
@@ -50,6 +50,19 @@ Botnnavigasjon og innstillingar grupperte for mindre skjermar.
 kontoar. Dei viser utviklingsutgåva, som kan skilje seg frå publisert APK.
 [Sjå alle bileta og korleis dei er anonymiserte](docs/images/devices/README.md).*
 
+### Jul og Halloween
+
+<p>
+  <img src="docs/images/devices/tv-home-christmas.png" width="49%" alt="Juletema på TV med nisselue, lys og varme fargar" />
+  <img src="docs/images/devices/tv-home-halloween.png" width="49%" alt="Halloween på TV med spøkjelse, spindelvev og oransje aksent" />
+</p>
+
+Sesongtema endrar bakgrunn, menyar, aksent og dekor. Dekoren kan slåast av, og redusert rørsle
+bevarer den statiske pynten. [Sjå sesongane på alle tre skjermformat](docs/images/devices/README.md#jul-og-halloween).
+
+Demoen i utviklingsutgåva har 18 bibliotekstitlar, hero på TV og nettbrett, favorittar,
+neste episodar og eit fyldig Oppdag. Nye, fiktive omslag er lagra i appen og fungerer utan nett.
+
 ## Kva kan eg bruke Spole til?
 
 | Teneste | I Spole |
@@ -69,7 +82,7 @@ Kontoen sine rettar avgjer kva du kan sjå og gjere.
 
 **Klart i kjeldekoden for neste APK:** endre rekkjefølgja på Heim-radene,
 vurdering på filmkort, tenestestatus samla i innstillingane og éin knapp for å
-logge ut av alle tenester på denne eininga.
+logge ut av alle tenester på denne eininga. Den utvida offline-demoen kjem også i neste APK.
 
 ## Kom i gang
 
