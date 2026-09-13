@@ -3,80 +3,107 @@
 </p>
 
 <h1 align="center">Spole</h1>
-
 <p align="center">Filmane dine. Seriane dine. Éin stad.</p>
-
-<p align="center">Jellyfin · Emby · Seerr · Radarr · Sonarr</p>
-
+<p align="center">Android TV · Google TV · Nettbrett · Telefon</p>
 <p align="center">
-  <a href="https://github.com/oyvhov/spole-android/releases/latest"><strong>↓ Last ned for Android</strong></a>
+  <a href="https://github.com/oyvhov/spole-android/releases"><strong>Last ned APK</strong></a>
   &nbsp; · &nbsp;
-  <a href="https://github.com/oyvhov/spole-android/releases">Kva er nytt?</a>
+  <a href="docs/APP_GUIDE.md">Kom i gang</a>
+  &nbsp; · &nbsp;
+  <a href="https://github.com/oyvhov/spole-android/issues">Meld ein feil</a>
 </p>
 
----
+Spole samlar Jellyfin, Emby, Seerr, Radarr og Sonarr i ein innfødd Android-app.
+Bla i biblioteka dine, spel frå Jellyfin og følg førespurnader frå Seerr.
+Grensesnittet tilpassar seg fjernkontroll og berøring, med nynorsk og engelsk som språkval.
 
-Spole samlar medietenestene dine i ein innfødd Android-app. Eit mørkt, roleg uttrykk, mjuke overgangar og innhaldet i sentrum — på nynorsk.
+**Under aktiv utvikling.** Siste publiserte APK er
+[0.16.0-alpha24](https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-alpha24).
+Nyare arbeid ligg på [utviklingsgreina](https://github.com/oyvhov/spole-android/tree/spole-feature-and-hardening-pass).
+Alphaversjonar ligg under **Releases**; GitHub si «latest»-lenkje tek ikkje nødvendigvis med desse.
 
-[Sjå veikartet mot 1.0 →](ROADMAP.md)
+## På skjermane dine
 
-## Ein liten kikk
+### TV
+![Spole på TV: Heim med aktive avspelingar og innhaldsrader](docs/images/devices/tv-home.png)
 
+Styr appen med fjernkontrollen. TV-oppsettet har sidepanel, horisontale innhaldsrader,
+eigne innstillingar og ein spelar med søkjelinje, lyd, undertekst og neste episode.
+
+### Nettbrett
+![Spole på nettbrett: Heim med breitt oppsett og sidenavigasjon](docs/images/devices/tablet-home.png)
+
+Eit breitt oppsett med sidanavigasjon og meir synleg innhald.
+
+### Telefon
 <p align="center">
-  <img src="docs/images/home.png" width="30%" alt="Heim med aktive avspelingar og innhald frå biblioteka" />
+  <img src="docs/images/devices/phone-home.png" width="32%" alt="Spole Heim på telefon" />
   &nbsp;
-  <img src="docs/images/discover.png" width="30%" alt="Oppdag med søk, filmar og sesongval" />
+  <img src="docs/images/devices/phone-discover.png" width="32%" alt="Oppdag på telefon" />
   &nbsp;
-  <img src="docs/images/activity.png" width="30%" alt="Aktivitet med førespurnader og framdrift" />
+  <img src="docs/images/devices/phone-settings.png" width="32%" alt="Innstillingar på telefon" />
 </p>
 
-<p align="center"><sub>Heim · Oppdag · Aktivitet — skjermbilete frå Spole 0.13.2 med demodata.</sub></p>
+Botnnavigasjon og innstillingar grupperte for mindre skjermar.
 
-## Dette får du
+*Bileta er tekne av appen i emulator 13. september 2026, med demodata og utan private
+kontoar. Dei viser utviklingsutgåva, som kan skilje seg frå publisert APK.
+[Sjå alle bileta og korleis dei er anonymiserte](docs/images/devices/README.md).*
 
-- **Biblioteka dine samla.** Eigne film- og episoderader frå Jellyfin og Emby, utan å byte tenar.
-- **Spel frå Jellyfin.** Sjå filmar og episodar i appen, hald fram der du slapp og vel lyd og undertekst.
-- **Finn noko nytt.** Søk etter filmar og seriar, les detaljar og legg til manglande sesongar gjennom Seerr.
-- **Følg det du har lagt til.** Frå førespurnad til bibliotek, med valfrie varsel.
-- **Sjå kva som kjem.** Komande heimeutgjevingar og episodar frå Radarr og Sonarr, med kalender.
-- **Di eiga oppleving.** Profil, personlege førespurnader og val for kva framsida skal vise. Tenesterettane avgjer tilgangen.
+## Kva kan eg bruke Spole til?
+
+| Teneste | I Spole |
+| --- | --- |
+| **Jellyfin** | Bibliotek, hald fram, favorittar og avspeling med lyd- og undertekstval. Quick Connect eller brukarnamn og passord. |
+| **Emby** | Innlogging og innhald frå biblioteket. Den innebygde spelaren støttar førebels Jellyfin. |
+| **Seerr** | Oppdag innhald, be om filmar og sesongar og følg dine eigne førespurnader. |
+| **Radarr / Sonarr** | Oversikt over komande innhald og nedlasting når kontoen har tilgang. |
+
+Tenestene er valfrie. Du treng dine eigne tenarar og kontoar; Spole leverer ikkje filmar eller seriar.
+Kontoen sine rettar avgjer kva du kan sjå og gjere.
+
+- **Hald fram der du slapp.** Avspeling i appen frå Jellyfin, med neste episode og val for tidspunkt.
+- **Gjer appen personleg.** Tema og aksentfargar, jul og Halloween, synlege Heim-rader og val for TV-sidepanelet.
+- **Følg førespurnadene dine.** Frå førespurd til tilgjengeleg, med valfrie varsel.
+- **Oppdater i appen.** Spole kan hente ei publisert APK frå GitHub og kontrollere henne før Android spør om installasjon.
+
+**Klart i kjeldekoden for neste APK:** endre rekkjefølgja på Heim-radene,
+vurdering på filmkort, tenestestatus samla i innstillingane og éin knapp for å
+logge ut av alle tenester på denne eininga.
 
 ## Kom i gang
 
-1. Last ned APK-en frå [siste release](https://github.com/oyvhov/spole-android/releases/latest).
-2. Installer på Android 8.0 eller nyare.
-3. Legg til tenesteadressene dine og logg inn. Du kan òg prøve demovisninga først.
+1. Last ned APK-en frå [Releases](https://github.com/oyvhov/spole-android/releases) og installer på Android 8.0 eller nyare.
+2. Vel **Kom i gang**. Opne eller lim inn ei oppsettslenkje frå den som driftar tenaren, eller skriv inn adressene.
+3. Vel **Godkjenn på mobilen** med Quick Connect, eller bruk brukarnamn og passord.
+4. Har du Seerr på same Jellyfin-oppsett, kan Spole logge inn på begge i den same flyten. Seerr må støtte denne innloggingsmåten.
 
-Du treng eigne medietenester; Spole leverer ikkje filmar eller seriar. Repoet er offentleg, og nedlasting krev ikkje GitHub-innlogging. Oppdateringar kan installerast over eksisterande app. Frå alpha12 kan appen sjekke GitHub-utgåver, laste ned og kontrollere APK-en før Android ber om installasjonsgodkjenning.
+Andre innloggingsmåtar finst under **Andre innloggingsmåtar**. Du kan også prøve appen med demodata.
+
+**Deler du med familie eller vener?** Del APK-lenkja og ei oppsettslenkje frå Spole.
+Lenkja inneheld tenesteadresser, aldri passord eller tilgangsteikn. Kvar brukar loggar inn
+med sin eigen konto. [Les brukar- og administratorguiden](docs/APP_GUIDE.md).
 
 ## Personvern
 
-Spole sender medieførespurnadene dine berre til adressene du sjølv skriv inn. Ingenting går til
-utviklaren — det finst ingen tenar å sende det til. Innloggingar blir lagra kryptert på eininga.
+Innloggingar blir lagra kryptert på eininga. Appen brukar tenesteadressene du legg inn.
+Spole har ingen sentral kontotenar. TMDB blir brukt til bilete, og GitHub til
+tilrådingsliste og oppdateringar; desse tenestene får IP-adressa og ressursførespurnaden.
+Appoppdateringar sender òg Spole-versjonen. Kontoopplysningar blir ikkje sende til GitHub.
 
-Utanom dine eigne tenarar kontaktar appen to adresser: TMDB for plakatar, og GitHub for
-tilrådingslista og appoppdateringar. Tenestene får IP-adressa di og kva ressurs du bad om; oppdateringssjekken sender òg Spole-versjonen. Kontoopplysningar frå medietenestene blir ikkje sende til GitHub.
+Skjermbileta i denne presentasjonen bruker demodata. Ingen ekte namn, e-postadresser,
+serveradresser, innloggingskodar eller tilgangsteikn er publiserte i dei.
+[Personvernerklæringa for gjeldande utviklingsutgåve](https://github.com/oyvhov/spole-android/blob/spole-feature-and-hardening-pass/docs/PRIVACY.md).
 
-[Heile personvernerklæringa](docs/PRIVACY.md)
+## Tilbakemeldingar og utvikling
 
-## Merknad
+[Meld feil eller ønsk ein funksjon](https://github.com/oyvhov/spole-android/issues).
+Ta med appversjon, eining og kva du trykte på. Skjul namn, adresser og innloggingsopplysningar før du deler bilete eller loggar.
 
-Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby, Overseerr/Jellyseerr, Radarr eller
-Sonarr. Namna og merka tilhøyrer prosjekta sine eigarar. Appen brukar TMDB-tenestene, men er ikkje
-godkjend eller sertifisert av TMDB.
+Appen er bygd med Kotlin og Jetpack Compose. Bruk
+[utviklingsgreina](https://github.com/oyvhov/spole-android/tree/spole-feature-and-hardening-pass)
+for den nyaste kjeldekoden, og release-taggen for å finne kjelda til ein bestemt APK.
+Les prosjektet si AGENTS.md og docs/AI_INSTRUCTIONS.md før endringar.
 
-<details>
-<summary>For utviklarar</summary>
-
-Bygd med Kotlin og Jetpack Compose. Opne prosjektet i Android Studio, eller bygg lokalt:
-
-```powershell
-.\gradlew.bat assembleDebug
-.\gradlew.bat testDebugUnitTest lintDebug
-```
-
-[Arbeidsrettleiing](docs/AI_INSTRUCTIONS.md) · [Start emulatorar med ekte data](docs/EMULATORS_WITH_REAL_DATA.md) · [Veikart](ROADMAP.md) · [Tilgang og personvern](docs/VIEWER_ACCESS.md) · [Personvern](docs/PRIVACY.md) · [Design og logo](docs/SPOLE_BRAND.md) · [Publiseringsklarheit](docs/PUBLISHING_READINESS.md)
-
-[Release-flyt for APK og oppdateringar i appen](docs/RELEASE_WORKFLOW.md) — bygg, signatur, GitHub-publisering og kontroll av oppdatering frå førre versjon.
-
-</details>
+Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby, Seerr, Radarr, Sonarr eller TMDB.
+Namna og merka tilhøyrer eigarane sine.
