@@ -71,4 +71,4 @@ lett TV-modus og kvalitetsval; dei skal ikkje presenterast som manglande nyheite
   avheng av personbileta som finst på serveren. Ikkje alle bibliotek er manuelt
   gjennomgått for samlingar.
 - Mobilprofil 5560 starta att med bevarte data etter den isolerte TV-køyringa.
-- Endringane blir publiserte som alpha23. Alpha22-artefaktet er uendra.
+- Endringane er publiserte som alpha23. Alpha22-artefaktet er uendra.

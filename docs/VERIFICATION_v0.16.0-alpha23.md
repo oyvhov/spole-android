@@ -23,7 +23,13 @@ Versjon 0.16.0-alpha23, versjonskode 66, pakke `app.reelstack`.
 - Signeringssertifikat SHA-256: `36fa94f03494f326053bdcc3d7253994950652d282e6db681cc33270b5f51a10`.
 - Bygg: `BUILD SUCCESSFUL`, endeleg logg `app/build/alpha23-verified-build.log`.
 - Produksjons-APK installert med `-r` på TV 5564. Kontoar og tema bevarte.
-- APK, tilhøyrande R8-mapping, SHA256SUMS og SOURCE_COMMIT blir arkiverte i release-assets.
-- Offentleg nedlasting og oppdateringsflyt blir dokumenterte etter publisering.
+- APK, tilhøyrande R8-mapping, SHA256SUMS og SOURCE_COMMIT er arkiverte i release-assets.
+- Publisert prerelease: https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-alpha23
+- Kjeldecommit: `38fcd7a`. Releasen er ikkje kladd og er synleg i den offentlege release-lista.
+- APK lasta ned utan innlogging; SHA-256 samsvarer med bygget og GitHub-digest.
+- Mobil 5560: fullførte den tidlegare nedlasta alpha22-oppdateringa frå alpha21.
+  Deretter fann «Sjekk no» alpha23, lasta ned APK-en og opna Android-installasjonen.
+  Play Protect-skanninga vart fullført, og installert pakke er stadfesta som alpha23/kode 66.
+- Mellombels løyve til installasjon frå Spole er sett tilbake til førre standardverdi.
 
 Sjå `TV_FEEDBACK_PASS4.md` for endringar og avgrensingar i den manuelle gjennomgangen.
