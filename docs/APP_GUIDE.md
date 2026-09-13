@@ -49,6 +49,10 @@ På TV finst også val for å skjule sidepanelet til du navigerer ut mot venstre
 
 ## Nytt i kjeldekoden, kjem i neste APK
 
+- **Utvida offline-demo:** 18 bibliotekstitlar med omtale og eksempelvurdering, hero på TV og nettbrett,
+  favorittar, neste episodar og fleire innhaldsrader. Prøv jul og Halloween under Utsjånad.
+  Demoinnhaldet sender ikkje ekte førespurnader og inneheld ikkje avspelbare filmar.
+
 - **Rekkjefølgje på Heim:** Innstillingar → Heim → Rekkjefølgje. Flytt radene med pilene; valet blir lagra.
 - **Filmvurdering:** ei diskret stjerne og poengsum på filmkortet når tenaren har ei vurdering.
   Valet for å vise vurderingar blir respektert.
