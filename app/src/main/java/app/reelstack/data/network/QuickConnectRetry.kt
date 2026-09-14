@@ -20,3 +20,30 @@ internal suspend fun <T> retryQuickConnectRead(
     }
     error("Uventa Quick Connect-tilstand")
 }
+
+/**
+ * Wait for approval without throwing away a valid answer from the final poll.
+ *
+ * Keeping this outside the UI also gives the direct Jellyfin flow and the automatic Seerr step
+ * identical boundary behaviour. The old UI loop checked approval before each read, so approval on
+ * its sixtieth and final read was incorrectly reported as an expired code.
+ */
+internal suspend fun awaitQuickConnectApproval(
+    initial: QuickConnectChallenge,
+    maxPolls: Int,
+    pollIntervalMillis: Long,
+    pause: suspend (Long) -> Unit = { delay(it) },
+    onUpdate: suspend (QuickConnectChallenge) -> Unit = {},
+    read: suspend (QuickConnectChallenge) -> QuickConnectChallenge,
+): QuickConnectChallenge {
+    require(maxPolls > 0 && pollIntervalMillis >= 0)
+    var challenge = initial
+    repeat(maxPolls) {
+        coroutineContext.ensureActive()
+        if (challenge.authenticated) return challenge
+        pause(pollIntervalMillis)
+        challenge = retryQuickConnectRead(read = { read(challenge) })
+        onUpdate(challenge)
+    }
+    return challenge
+}

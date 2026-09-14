@@ -230,6 +230,7 @@
     <string name="error_quick_connect_expired">Quick Connect code expired. Generate a new code and try again.</string>
     <string name="error_quick_connect_seerr_unavailable">Quick Connect is not available here. Sign in with the Jellyfin account below.</string>
     <string name="error_companion_connect">Could not connect to both services. Check that Seerr supports Quick Connect and uses the same Jellyfin server. Try again, or choose other sign-in methods.</string>
+    <string name="status_jellyfin_ready_seerr_retry">Jellyfin is ready. Seerr took too long; you can add it later under Services.</string>
     <string name="error_companion_verify">Could not verify %1$s. No connections were changed.</string>
     <string name="error_service_unreachable">Could not contact service</string>
     <string name="error_store_token_secure">Could not securely save sign-in on this device. Try again.</string>

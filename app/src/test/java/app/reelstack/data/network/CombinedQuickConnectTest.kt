@@ -11,15 +11,17 @@ class CombinedQuickConnectTest {
         "test-jellyfin-token", userId = "abcd")
 
     private class Transport(var authorized: Boolean = true, var ready: Boolean = true,
-        var supported: Boolean = true, var sameServer: Boolean = true) : JsonHttpTransport {
+        var supported: Boolean = true, var sameServer: Boolean = true, var readyAfter: Int = 1) : JsonHttpTransport {
         data class Call(val url: String, val headers: Map<String, String>, val body: String)
         val calls = mutableListOf<Call>()
+        private var readinessChecks = 0
         override fun get(url: String, headers: Map<String, String>): HttpResponse {
             calls += Call(url, headers, "")
             if (url.contains("/QuickConnect/Connect?")) return if (sameServer)
                 HttpResponse(200, """{"Secret":"test-secret","Code":"123456","Authenticated":false}""")
                 else HttpResponse(404, "{}")
-            return if (url.contains("/check?")) HttpResponse(200, "{\"authenticated\":$ready}")
+            return if (url.contains("/check?")) HttpResponse(200,
+                "{\"authenticated\":${ready && ++readinessChecks >= readyAfter}}")
             else HttpResponse(200, "{}", listOf("_csrf=test-csrf; Path=/"))
         }
         override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse {
@@ -83,8 +85,18 @@ class CombinedQuickConnectTest {
     @Test fun pollingIsBoundedAndNeverAuthenticatesAnUnapprovedChallenge() = runBlocking {
         val t = Transport(ready = false)
         assertTrue(runCatching { connect(t) }.isFailure)
-        assertEquals(30, t.calls.count { it.url.contains("/check?") })
+        assertEquals(120, t.calls.count { it.url.contains("/check?") })
         assertFalse(t.calls.any { it.url.endsWith("/authenticate") })
+    }
+
+    @Test fun slowSeerrObservationStillUsesTheOriginalJellyfinApproval() = runBlocking {
+        val t = Transport(readyAfter = 31)
+
+        val result = connect(t)
+
+        assertEquals(ServiceKind.SEERR, result.kind)
+        assertEquals(31, t.calls.count { it.url.contains("/check?") })
+        assertEquals(1, t.calls.count { it.url.contains("/Authorize?") })
     }
 
     @Test fun cancellationStopsBeforeAnySessionIsReturned() = runBlocking {

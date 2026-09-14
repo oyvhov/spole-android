@@ -515,7 +515,8 @@ class MediaServerClient(
             runCatching {
                 getItems(connection, listOf("Shows/NextUp?UserId=$userId&ParentId=${encodePathSegment(view.id)}" +
                     "&Limit=24&EnableUserData=true&EnableResumable=false" +
-                    "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1"))
+                    "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=2" +
+                    "&EnableImageTypes=Primary,Thumb"))
                     .map { it.copy(libraryId = view.id) }
             }.getOrNull()
         }

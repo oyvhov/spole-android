@@ -35,7 +35,7 @@ class MediaSnapshotStoreTest {
             setOf(
                 HomeSection.NOW_PLAYING, HomeSection.CONTINUE_WATCHING, HomeSection.RECOMMENDATIONS,
                 HomeSection.RECENT_RELEASES, HomeSection.JELLYFIN_MOVIES, HomeSection.EMBY_MOVIES,
-                HomeSection.JELLYFIN_SERIES, HomeSection.EMBY_SERIES,
+                HomeSection.JELLYFIN_SERIES, HomeSection.EMBY_SERIES, HomeSection.FAVOURITES,
             ),
             visible,
         )
@@ -97,7 +97,8 @@ class MediaSnapshotStoreTest {
             resume = listOf(LibraryMedia("resume", "Paused", "", .4f, R.drawable.media_placeholder,
                 ServiceKind.JELLYFIN, lastActivityEpochMillis = 1000)),
             nextUp = listOf(LibraryMedia("next", "Next", "", null, R.drawable.media_placeholder,
-                ServiceKind.JELLYFIN, lastActivityEpochMillis = 2000)),
+                ServiceKind.JELLYFIN, artworkUrl = "https://media.example/Items/series-id/Images/Primary",
+                remoteId = "episode-id", mediaType = "Episode", lastActivityEpochMillis = 2000)),
             upcoming = emptyList(),
             recentReleases = listOf(
                 UpcomingMedia(
@@ -138,6 +139,7 @@ class MediaSnapshotStoreTest {
         assertEquals("The Odyssey", restored?.recentMovies?.single()?.title)
         assertEquals(1000L, restored?.resume?.single()?.lastActivityEpochMillis)
         assertEquals(2000L, restored?.nextUp?.single()?.lastActivityEpochMillis)
+        assertNull(restored?.nextUp?.single()?.artworkUrl)
         assertEquals(listOf("next", "resume"), app.reelstack.data.model.combinedWatching(restored!!.resume, restored.nextUp).map { it.id })
         assertEquals(R.drawable.media_placeholder, restored?.recentMovies?.single()?.artworkRes)
         assertEquals(6, restored?.discover?.single()?.seerrStatus)

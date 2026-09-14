@@ -181,7 +181,7 @@ class MediaSnapshotStore(context: Context) {
         lastActivityEpochMillis = row.lastActivityEpochMillis,
         artworkRes = R.drawable.media_placeholder,
         source = kind(row.source),
-        artworkUrl = row.artworkUrl,
+        artworkUrl = cachedLibraryArtwork(row),
         remoteId = row.remoteId,
         overview = row.overview,
         facts = row.facts.split(SEPARATOR).filter(String::isNotBlank),
@@ -221,6 +221,20 @@ class MediaSnapshotStore(context: Context) {
     )
 
     private fun kind(name: String) = ServiceKind.entries.firstOrNull { it.name == name } ?: ServiceKind.JELLYFIN
+
+    /**
+     * Older snapshots may point an episode at its series' portrait Primary image. A live refresh
+     * replaces it with Thumb artwork, but showing the portrait cropped into a wide frame first is
+     * the stretched flash seen on phones. Keep every other cached row and withhold only that known
+     * incompatible combination. An episode's own Primary image is normally a valid wide still.
+     */
+    private fun cachedLibraryArtwork(row: CachedMediaRow): String? {
+        val url = row.artworkUrl ?: return null
+        if (!row.mediaType.equals("Episode", ignoreCase = true) ||
+            !url.contains("/Images/Primary", ignoreCase = true)) return url
+        val itemId = row.remoteId?.takeIf(String::isNotBlank) ?: return null
+        return url.takeIf { it.contains("/Items/$itemId/Images/Primary", ignoreCase = true) }
+    }
 
     /**
      * A row cached by an older build — or one whose server labels types in English — must still

@@ -21,6 +21,8 @@ class TvRefinementTest {
         assertEquals("episode", client.nextUp(connection, "profile", views).single().id)
         assertEquals(1, urls.size)
         assertTrue(urls.single().contains("Shows/NextUp?UserId=profile&ParentId=included"))
+        assertTrue(urls.single().contains("ImageTypeLimit=2"))
+        assertTrue(urls.single().contains("EnableImageTypes=Primary,Thumb"))
         assertTrue(urls.single().contains("EnableResumable=false"))
         assertTrue(client.nextUp(connection, "profile", views.filter { it.id == "excluded" }).isEmpty())
         assertEquals(1, urls.size)

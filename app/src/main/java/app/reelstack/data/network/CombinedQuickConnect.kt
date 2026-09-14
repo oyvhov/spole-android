@@ -29,12 +29,13 @@ internal suspend fun connectSeerrWithJellyfin(
     }
     coroutineContext.ensureActive()
     jellyfinClient.authorizeQuickConnect(jellyfin.baseUrl, jellyfin.token, challenge.code)
-    var polls = 0
-    while (!challenge.authenticated && polls++ < 30) {
-        coroutineContext.ensureActive()
-        challenge = retryQuickConnectRead { seerrClient.quickConnectState(seerrUrl, challenge) }
-        if (!challenge.authenticated) pause()
-    }
+    challenge = awaitQuickConnectApproval(
+        initial = challenge,
+        maxPolls = SEERR_APPROVAL_MAX_POLLS,
+        pollIntervalMillis = 1_000,
+        pause = { pause() },
+        read = { current -> seerrClient.quickConnectState(seerrUrl, current) },
+    )
     check(challenge.authenticated) { "Seerr vart ikkje klar. Prøv igjen." }
     coroutineContext.ensureActive()
     val auth = seerrClient.authenticateWithQuickConnect(seerrUrl, challenge)
@@ -46,3 +47,6 @@ internal suspend fun connectSeerrWithJellyfin(
     coroutineContext.ensureActive()
     return other
 }
+
+/** Seerr may need time to observe the Jellyfin approval on a slow or sleeping host. */
+private const val SEERR_APPROVAL_MAX_POLLS = 120

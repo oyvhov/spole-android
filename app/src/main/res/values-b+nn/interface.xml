@@ -229,6 +229,7 @@
     <string name="error_quick_connect_expired">Quick Connect-koden gjekk ut. Lag ein ny kode og prøv igjen.</string>
     <string name="error_quick_connect_seerr_unavailable">Quick Connect er ikkje tilgjengeleg her. Logg inn med Jellyfin-kontoen under.</string>
     <string name="error_companion_connect">Fekk ikkje kopla til begge tenestene. Sjekk at Seerr støttar Quick Connect og brukar same Jellyfin-tenar. Prøv igjen, eller vel andre innloggingsmåtar.</string>
+    <string name="status_jellyfin_ready_seerr_retry">Jellyfin er klar. Seerr brukte for lang tid; du kan leggje han til seinare under Tenester.</string>
     <string name="error_companion_verify">Fekk ikkje stadfesta %1$s. Ingen tilkoplingar vart endra.</string>
     <string name="error_service_unreachable">Fekk ikkje kontakt med tenesta</string>
     <string name="error_store_token_secure">Fekk ikkje lagra innlogginga trygt på denne eininga. Prøv igjen.</string>

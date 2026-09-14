@@ -1989,75 +1989,76 @@ class ReelstackViewModel(
                 )
             }
 
-            repeat(QUICK_CONNECT_MAX_POLLS) {
-                if (quickConnect.authenticated) {
-                    updateDraft { copy(saving = true, quickConnectWaiting = false, error = null) }
-                    val credentials = attempt {
-                        withContext(Dispatchers.IO) {
-                            if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.authenticateWithQuickConnect(normalizedUrl, quickConnect)
-                            else container.jellyfinAuthenticationClient.authenticateWithQuickConnect(
-                                normalizedUrl,
-                                quickConnect.secret,
-                            )
+            quickConnect = attempt {
+                app.reelstack.data.network.awaitQuickConnectApproval(
+                    initial = quickConnect,
+                    maxPolls = QUICK_CONNECT_MAX_POLLS,
+                    pollIntervalMillis = QUICK_CONNECT_POLL_INTERVAL_MS,
+                    onUpdate = { updateDraft { copy(quickConnectCode = it.code) } },
+                    read = { current -> withContext(Dispatchers.IO) {
+                        if (draft.kind == ServiceKind.SEERR) {
+                            container.seerrAuthenticationClient.quickConnectState(normalizedUrl, current)
+                        } else {
+                            container.jellyfinAuthenticationClient.quickConnectState(normalizedUrl, current.secret)
                         }
-                    }.getOrElse { error ->
-                        showQuickConnectFailure(draft.kind, error, appString(R.string.error_quick_connect_incomplete))
-                        return@launch
-                    }
-                    val candidate = ServiceConnection(
-                            kind = draft.kind,
-                            name = draft.name.ifBlank { draft.kind.displayName },
-                            sessionCookie = draft.kind == ServiceKind.SEERR,
-                            baseUrl = normalizedUrl,
-                            token = credentials.accessToken,
-                            userId = credentials.userId,
-                            alternateUrl = runCatching {
-                                draft.alternateUrl.takeIf(String::isNotBlank)
-                                    ?.let(EndpointValidator::normalizeBaseUrl).orEmpty()
-                            }.getOrDefault(""),
-                            state = ConnectionState.TESTING,
-                        )
-                    val companion = if (draft.simpleSetup && draft.alsoConnect) {
-                        attempt {
-                            withContext(Dispatchers.IO) {
-                                app.reelstack.data.network.connectSeerrWithJellyfin(candidate, draft.companionUrl,
-                                    container.jellyfinAuthenticationClient, container.seerrAuthenticationClient,
-                                    container.accountProfileClient::load)
-                            }
-                        }.getOrElse {
-                            updateDraft { copy(saving = false, quickConnectWaiting = false, quickConnectCode = null,
-                                error = appString(R.string.error_companion_connect)) }
-                            return@launch
-                        }
-                    } else null
-                    verifyAndSaveConnection(candidate, companion)
-                    if (draft.simpleSetup && _uiState.value.activeSheet == null) completeOnboarding()
-                    return@launch
-                }
-
-                delay(QUICK_CONNECT_POLL_INTERVAL_MS)
-                quickConnect = attempt {
-                    app.reelstack.data.network.retryQuickConnectRead { withContext(Dispatchers.IO) {
-                        if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.quickConnectState(normalizedUrl, quickConnect)
-                        else container.jellyfinAuthenticationClient.quickConnectState(
-                            normalizedUrl,
-                            quickConnect.secret,
-                        )
-                    } }
-                }.getOrElse { error ->
-                    showQuickConnectFailure(draft.kind, error, appString(R.string.error_quick_connect_lost))
-                    return@launch
-                }
-                updateDraft { copy(quickConnectCode = quickConnect.code) }
-            }
-
-            updateDraft {
-                copy(
-                    saving = false,
-                    quickConnectWaiting = false,
-                    error = appString(R.string.error_quick_connect_expired),
+                    } },
                 )
+            }.getOrElse { error ->
+                showQuickConnectFailure(draft.kind, error, appString(R.string.error_quick_connect_lost))
+                return@launch
             }
+            if (!quickConnect.authenticated) {
+                updateDraft { copy(saving = false, quickConnectWaiting = false,
+                    error = appString(R.string.error_quick_connect_expired)) }
+                return@launch
+            }
+
+            updateDraft { copy(saving = true, quickConnectWaiting = false, error = null) }
+            val credentials = attempt {
+                withContext(Dispatchers.IO) {
+                    if (draft.kind == ServiceKind.SEERR) {
+                        container.seerrAuthenticationClient.authenticateWithQuickConnect(normalizedUrl, quickConnect)
+                    } else {
+                        container.jellyfinAuthenticationClient.authenticateWithQuickConnect(normalizedUrl, quickConnect.secret)
+                    }
+                }
+            }.getOrElse { error ->
+                showQuickConnectFailure(draft.kind, error, appString(R.string.error_quick_connect_incomplete))
+                return@launch
+            }
+            val candidate = ServiceConnection(
+                kind = draft.kind,
+                name = draft.name.ifBlank { draft.kind.displayName },
+                sessionCookie = draft.kind == ServiceKind.SEERR,
+                baseUrl = normalizedUrl,
+                token = credentials.accessToken,
+                userId = credentials.userId,
+                alternateUrl = runCatching {
+                    draft.alternateUrl.takeIf(String::isNotBlank)?.let(EndpointValidator::normalizeBaseUrl).orEmpty()
+                }.getOrDefault(""),
+                state = ConnectionState.TESTING,
+            )
+            val companion = if (draft.simpleSetup && draft.alsoConnect) {
+                attempt {
+                    withContext(Dispatchers.IO) {
+                        app.reelstack.data.network.connectSeerrWithJellyfin(
+                            candidate, draft.companionUrl, container.jellyfinAuthenticationClient,
+                            container.seerrAuthenticationClient, container.accountProfileClient::load,
+                        )
+                    }
+                }.getOrElse {
+                    // The user's Jellyfin approval is already valid. Keep it instead of forcing a
+                    // second code merely because Seerr was slow or unavailable at the last step.
+                    verifyAndSaveConnection(candidate)
+                    if (connectionDraft.value == null) {
+                        _uiState.update { state -> state.copy(snackbar = appString(R.string.status_jellyfin_ready_seerr_retry)) }
+                        if (draft.simpleSetup && _uiState.value.activeSheet == null) completeOnboarding()
+                    }
+                    return@launch
+                }
+            } else null
+            verifyAndSaveConnection(candidate, companion)
+            if (draft.simpleSetup && _uiState.value.activeSheet == null) completeOnboarding()
         }
     }
 
