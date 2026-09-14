@@ -233,10 +233,7 @@ class ReelstackViewModel(
 
     init {
         hydrateCachedFeed()
-        viewModelScope.launch {
-            delay(16)
-            refreshLiveData()
-        }
+        refreshLiveData()
     }
 
     fun selectTab(tab: AppTab) {

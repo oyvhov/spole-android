@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.0-beta05 · Endå raskare oppstart på kald start
+
+- Korte ned opningsrekkjeflyt for TV/telefon ved å fjerne unødig startventing før første
+  live-refresh og korte `StartupReveal`-ventefase.
+- Opningstenesta byrjar no tidlegare, og cached feed kjem fram endå raskare på heimesida.
+- Oppdaterer dokumentasjon og release-notat for ny beta.
+
 ## 0.16.0-beta04 · Raskare oppstart og betre cache-flyt
 
 - Henta cached home-data tidlegare i startup-flyten, slik at startbiletet ikkje blir ståande utan innhald like lenge.

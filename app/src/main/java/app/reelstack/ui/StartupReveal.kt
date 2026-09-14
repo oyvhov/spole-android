@@ -29,7 +29,7 @@ fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit
         // Keep launch responsive, but only lift the cover once first rails are visible.
         // Start painting content quickly after a short safety window. If data has not arrived yet,
         // we still reveal so the user gets an immediate interactive skeleton instead of a blank gap.
-        withTimeoutOrNull(280) {
+        withTimeoutOrNull(220) {
             viewModel.uiState.first { state ->
                 (state.showOnboarding || state.configuredCount == 0 ||
                     state.hasCachedData ||
@@ -55,7 +55,7 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
     val reveal = remember { Animatable(if (formed || !opening) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!opening) return@LaunchedEffect
-        if (!formed) reveal.animateTo(1f, tween(if (slow) 760 else 260, easing = androidx.compose.animation.core.LinearEasing))
+        if (!formed) reveal.animateTo(1f, tween(if (slow) 680 else 220, easing = androidx.compose.animation.core.LinearEasing))
         formed = true
         // Let the initial frame settle before we lift the cover.
         // The ViewModel has already started its network refresh independently of this UI.
