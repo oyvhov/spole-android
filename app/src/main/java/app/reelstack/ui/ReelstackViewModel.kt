@@ -229,9 +229,14 @@ class ReelstackViewModel(
     private var trackingJob: Job? = null
     private var historyJob: Job? = null
     private var requestDraftJob: Job? = null
+    private var cacheLoadJob: Job? = null
 
     init {
-        refreshLiveData()
+        hydrateCachedFeed()
+        viewModelScope.launch {
+            delay(16)
+            refreshLiveData()
+        }
     }
 
     fun selectTab(tab: AppTab) {
@@ -1506,6 +1511,42 @@ class ReelstackViewModel(
     }
 
     /** Recover transient startup/profile failures while Home remains open, including on TV. */
+    private fun hydrateCachedFeed() {
+        val seedConnections = _uiState.value.connections
+        if (seedConnections.none { it.baseUrl.isNotBlank() && it.token.isNotBlank() }) return
+        cacheLoadJob?.cancel()
+        cacheLoadJob = viewModelScope.launch(Dispatchers.IO) {
+            val cached = runCatching {
+                val fingerprint = container.mediaFingerprint(seedConnections)
+                container.mediaSnapshotStore.read(fingerprint)
+            }.getOrNull()
+            if (!isActive || cached == null) return@launch
+            _uiState.update { current ->
+                if (current.connections != seedConnections) return@update current
+                val configuredKinds = seedConnections.filter { it.baseUrl.isNotBlank() }.mapTo(mutableSetOf()) { it.kind }
+                val hasMediaServer = configuredKinds.any { it == ServiceKind.JELLYFIN || it == ServiceKind.EMBY }
+                val hasQueueService = configuredKinds.any { it == ServiceKind.RADARR || it == ServiceKind.SONARR }
+                val hasSeerr = configuredKinds.contains(ServiceKind.SEERR)
+                current.copy(
+                    sessions = if (hasMediaServer) cached.sessions else current.sessions,
+                    resume = if (hasMediaServer) cached.resume else current.resume,
+                    nextUp = if (hasMediaServer) cached.nextUp else current.nextUp,
+                    recentMovies = if (hasMediaServer) cached.recentMovies else current.recentMovies,
+                    recentSeries = if (hasMediaServer) cached.recentSeries else current.recentSeries,
+                    upcoming = if (hasQueueService) cached.upcoming else current.upcoming,
+                    recentReleases = if (hasQueueService) cached.recentReleases else current.recentReleases,
+                    incoming = if (hasQueueService) cached.incoming else current.incoming,
+                    discover = if (hasSeerr) cached.discover else current.discover,
+                    recommendations = if (hasSeerr) cached.recommendations else current.recommendations,
+                    activity = if (hasQueueService || hasSeerr) cached.activity else current.activity,
+                    lastUpdatedEpochMillis = cached.refreshedAtEpochMillis,
+                    hasCachedData = true,
+                )
+            }
+        }
+    }
+
+    /** Recover transient startup/profile failures while Home remains open, including on TV. */
     fun retryIncompleteHomeFeed() {
         val state = _uiState.value
         if (shouldRetryHomeFeed(state.failedServices, state.serviceWarnings.keys, state.isRefreshing,
@@ -2194,6 +2235,23 @@ class ReelstackViewModel(
 
     override fun onCleared() {
         closeSessionChannel()
+        cacheLoadJob?.cancel()
+        requestDraftJob?.cancel()
+        signOutJob?.cancel()
+        refreshJob?.cancel()
+        libraryChoicesJob?.cancel()
+        libraryJob?.cancel()
+        shelfJob?.cancel()
+        peekJob?.cancel()
+        seasonsJob?.cancel()
+        episodesJob?.cancel()
+        playbackJob?.cancel()
+        searchJob?.cancel()
+        quickConnectJob?.cancel()
+        connectionJob?.cancel()
+        accountsJob?.cancel()
+        trackingJob?.cancel()
+        historyJob?.cancel()
         super.onCleared()
     }
 
@@ -2209,14 +2267,6 @@ private fun initialState(container: AppContainer): ReelstackUiState {
     val hasMediaServer = configuredKinds.any { it == ServiceKind.JELLYFIN || it == ServiceKind.EMBY }
     val hasQueueService = configuredKinds.any { it == ServiceKind.RADARR || it == ServiceKind.SONARR }
     val hasSeerr = ServiceKind.SEERR in configuredKinds
-    // Show the last verified feed while the first refresh runs, instead of empty rails. The store
-    // only returns a copy written by this feed version for exactly these signed-in accounts, so
-    // identities and library exclusions are revalidated before anything is exposed.
-    val cached = runCatching {
-        container.mediaSnapshotStore.read(
-            container.mediaFingerprint(connections),
-        )
-    }.getOrNull()
 
     return ReelstackUiState(
         showOnboarding = configuredKinds.isEmpty() && !container.preferencesRepository.onboardingCompleted,
@@ -2226,54 +2276,44 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         libraryIcons = connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
             ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
         sessions = when {
-            hasMediaServer && cached != null -> cached.sessions
             hasMediaServer -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoSessions() else emptyList()
         },
         resume = when {
-            hasMediaServer && cached != null -> cached.resume
             hasMediaServer -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoResume() else emptyList()
         },
         recentMovies = when {
-            hasMediaServer && cached != null -> cached.recentMovies
             hasMediaServer -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoRecentMovies() else emptyList()
         },
-        nextUp = if (hasMediaServer) cached?.nextUp.orEmpty() else if (configuredKinds.isEmpty()) demoNextUp() else emptyList(),
+        nextUp = if (hasMediaServer) emptyList() else if (configuredKinds.isEmpty()) demoNextUp() else emptyList(),
         favourites = if (configuredKinds.isEmpty()) demoFavourites() else emptyList(),
         recentSeries = when {
-            hasMediaServer && cached != null -> cached.recentSeries
             hasMediaServer -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoRecentSeries() else emptyList()
         },
         upcoming = when {
-            hasQueueService && cached != null -> cached.upcoming
             hasQueueService -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoUpcoming() else emptyList()
         },
         recentReleases = when {
-            hasQueueService && cached != null -> cached.recentReleases
             hasQueueService -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoRecentReleases() else emptyList()
         },
         incoming = when {
-            hasQueueService && cached != null -> cached.incoming
             hasQueueService -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoIncoming() else emptyList()
         },
         discover = when {
-            hasSeerr && cached != null -> cached.discover
             hasSeerr -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoDiscover() else emptyList()
         },
         recommendations = when {
-            cached != null -> cached.recommendations
             configuredKinds.isEmpty() -> demoRecommendations()
             else -> emptyList()
         },
         activity = when {
-            (hasQueueService || hasSeerr) && cached != null -> cached.activity
             hasQueueService || hasSeerr -> emptyList()
             else -> if (configuredKinds.isEmpty()) demoActivity() else emptyList()
         },
@@ -2281,8 +2321,7 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         wifiOnly = container.preferencesRepository.wifiOnly,
         homeSections = container.preferencesRepository.visibleHomeSections,
         homeRowOrder = container.preferencesRepository.homeRowOrder,
-        lastUpdatedEpochMillis = cached?.refreshedAtEpochMillis,
-        hasCachedData = cached != null,
+        hasCachedData = false,
         isRefreshing = configuredKinds.isNotEmpty(),
     )
 }

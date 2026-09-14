@@ -29,9 +29,9 @@ fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit
         // Keep launch responsive, but only lift the cover once first rails are visible.
         // Start painting content quickly after a short safety window. If data has not arrived yet,
         // we still reveal so the user gets an immediate interactive skeleton instead of a blank gap.
-        withTimeoutOrNull(420) {
+        withTimeoutOrNull(280) {
             viewModel.uiState.first { state ->
-                !state.isRefreshing && (state.showOnboarding ||
+                (state.showOnboarding || state.configuredCount == 0 ||
                     state.hasCachedData ||
                     state.sessions.isNotEmpty() ||
                     state.resume.isNotEmpty() ||

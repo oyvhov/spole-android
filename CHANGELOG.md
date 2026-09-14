@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.0-beta04 · Raskare oppstart og betre cache-flyt
+
+- Henta cached home-data tidlegare i startup-flyten, slik at startbiletet ikkje blir ståande utan innhald like lenge.
+- Oppstartsreveal er kortare, så heimraden kjem fram raskare etter innlogging/omstart.
+- Biletlaster med cache blir teke meir effektivt ved oppstart for raskare synlegheit på tomme skjemar.
+- Dokumentasjon er oppdatert for 0.16.0-beta04 med ny test- og verifiseringslogg.
+
 ## 0.16.0-beta03 · Startforsyning og logo-fiks frå tom skjerm
 
 - Oppstartsdekket på TV opnar raskare, med kortare ventetid før heimraden og mindre tid på blank skjerm.
