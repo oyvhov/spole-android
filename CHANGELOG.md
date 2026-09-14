@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.0-beta03 · Startforsyning og logo-fiks frå tom skjerm
+
+- Oppstartsdekket på TV opnar raskare, med kortare ventetid før heimraden og mindre tid på blank skjerm.
+- Oppstart på Android 12+ nyttar no eigentleg Spole-wordmark som splash-ikon i staden for tomt lerret.
+- Launcher-ikon på TV viser no både merke og ord, ikkje berre «S»-delen av symbolet.
+- Biletforespurnader på heim bruker lågare oppløysing som standard (med høgde på cache), for raskare visning på kald start.
+- Dokumentasjon og release-logg er oppdatert for ny beta.
+
 ## 0.16.0-beta02 · Førebuing, raskare oppstart og betre pålitelegheit
 
 - Oppstartar og startskjerm er justert for mindre hopp på TV og telefon.

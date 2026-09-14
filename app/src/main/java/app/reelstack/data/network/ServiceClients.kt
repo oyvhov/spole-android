@@ -1001,10 +1001,12 @@ class MediaServerClient(
     }
 
     private companion object {
-        const val ARTWORK_QUALITY = 88
-        const val DEFAULT_LOGO_MAX_WIDTH = 420
-        const val DEFAULT_THUMB_MAX_WIDTH = 720
-        const val DEFAULT_PRIMARY_MAX_WIDTH = 540
+        // Speed-first defaults for first-paint. Higher values are still available in metadata and
+        // fallback requests when a specific view needs a larger image.
+        const val ARTWORK_QUALITY = 75
+        const val DEFAULT_LOGO_MAX_WIDTH = 320
+        const val DEFAULT_THUMB_MAX_WIDTH = 420
+        const val DEFAULT_PRIMARY_MAX_WIDTH = 380
         const val LATEST_ITEM_LIMIT = 12
         const val RESUME_ITEM_LIMIT = 12
         const val LIBRARY_PEEK_LIMIT = 14

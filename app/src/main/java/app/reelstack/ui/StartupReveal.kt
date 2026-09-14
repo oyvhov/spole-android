@@ -27,7 +27,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit) {
     StartupCover(awaitContentReady = {
         // Keep launch responsive, but only lift the cover once first rails are visible.
-        withTimeoutOrNull(760) {
+        // Start painting content quickly after a short safety window. If data has not arrived yet,
+        // we still reveal so the user gets an immediate interactive skeleton instead of a blank gap.
+        withTimeoutOrNull(420) {
             viewModel.uiState.first { state ->
                 !state.isRefreshing && (state.showOnboarding ||
                     state.hasCachedData ||
@@ -53,11 +55,10 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
     val reveal = remember { Animatable(if (formed || !opening) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!opening) return@LaunchedEffect
-        if (!formed) reveal.animateTo(1f, tween(if (slow) 760 else 340, easing = androidx.compose.animation.core.LinearEasing))
+        if (!formed) reveal.animateTo(1f, tween(if (slow) 760 else 260, easing = androidx.compose.animation.core.LinearEasing))
         formed = true
         // Let the initial frame settle before we lift the cover.
         // The ViewModel has already started its network refresh independently of this UI.
-        withFrameNanos { }
         withFrameNanos { }
         awaitContentReady()
         opening = false
@@ -68,7 +69,7 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
         // Compose immediately: image requests and network data load throughout the animation.
         Box(if (opening) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
             .onPreviewKeyEvent { true } else Modifier) { content() }
-        AnimatedVisibility(visible = coverVisible, exit = fadeOut(tween(if (slow) 180 else 100))) {
+        AnimatedVisibility(visible = coverVisible, exit = fadeOut(tween(if (slow) 180 else 90))) {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).alpha(if (opening) 1f else 0.2f)
                     .testTag("startup-cover")
