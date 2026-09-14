@@ -497,7 +497,7 @@ private fun MoviePosterSummary(
                 url = artworkUrl,
                 fallbackRes = artworkRes,
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
                 source = source,
                 crossfadeDurationMillis = 0,
                 modifier = Modifier.fillMaxSize(),

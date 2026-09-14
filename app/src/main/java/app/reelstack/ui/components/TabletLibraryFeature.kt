@@ -50,6 +50,8 @@ internal fun tabletFeaturedTitle(series: List<LibraryMedia>, sections: Set<HomeS
     tabletFeaturedTitles(series, sections).firstOrNull()
 
 /** Episode titles are mapped to SeriesName by the server parser. Deduplicate across servers too. */
+private const val HERO_FEATURE_COUNT = 5
+
 internal fun tabletFeaturedTitles(series: List<LibraryMedia>, sections: Set<HomeSection>, allowLocalArtwork: Boolean = false): List<LibraryMedia> =
     series.filter { media ->
         (!media.artworkUrl.isNullOrBlank() || (allowLocalArtwork && media.artworkRes != 0)) && when (media.source) {
@@ -57,7 +59,8 @@ internal fun tabletFeaturedTitles(series: List<LibraryMedia>, sections: Set<Home
             ServiceKind.EMBY -> HomeSection.EMBY_SERIES in sections
             else -> false
         }
-    }.distinctBy { it.title.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT) }.take(3)
+    }.distinctBy { it.title.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT) }
+        .take(HERO_FEATURE_COUNT)
 
 /** The hero title reserves two of these lines whether a logo or a heading fills the slot. */
 private val TITLE_SIZE = 32.sp
@@ -71,7 +74,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     account: (@Composable () -> Unit)? = null,
     candidates: List<LibraryMedia> = listOf(media), rotationEnabled: Boolean = true,
     onFocusWithin: (Boolean) -> Unit = {}) {
-    val titles = candidates.ifEmpty { listOf(media) }.take(3)
+    val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
     var position by remember(identities) { mutableIntStateOf(0) }
     val selected = titles[position.coerceIn(titles.indices)]

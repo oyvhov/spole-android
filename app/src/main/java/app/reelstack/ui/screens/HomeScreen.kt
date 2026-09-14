@@ -139,6 +139,17 @@ fun HomeScreen(
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
 ) {
+    var showTopRefreshIndicatorByUser by rememberSaveable { mutableStateOf(false) }
+    val triggerRefresh = {
+        if (!state.isRefreshing) {
+            showTopRefreshIndicatorByUser = true
+        }
+        onRefresh()
+    }
+    LaunchedEffect(state.isRefreshing) {
+        if (!state.isRefreshing) showTopRefreshIndicatorByUser = false
+    }
+    val showTopRefreshIndicator = state.isRefreshing && showTopRefreshIndicatorByUser
     val orderedRows = remember(state.homeRowOrder) {
         app.reelstack.data.model.decodeHomeRowOrder(state.homeRowOrder.joinToString(",") { it.name })
     }
@@ -157,8 +168,8 @@ fun HomeScreen(
         it.baseUrl.isNotBlank() && (it.kind == ServiceKind.RADARR || it.kind == ServiceKind.SONARR)
     }
     HomeRefreshFrame(
-        isRefreshing = state.isRefreshing,
-        onRefresh = onRefresh,
+        isRefreshing = showTopRefreshIndicator,
+        onRefresh = triggerRefresh,
         modifier = Modifier.fillMaxSize(),
     ) {
       ReelPage(media = true) {
@@ -367,7 +378,7 @@ fun HomeScreen(
                     }
                 }
             }
-            item(key = "freshness") { HomeFreshness(state, onRefresh) }
+            item(key = "freshness") { HomeFreshness(state, triggerRefresh) }
         }
         }
       }

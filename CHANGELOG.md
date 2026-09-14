@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.0-beta06 · Fiksa appikon på Android TV
+
+- Reparerer launcher-ikon på Android TV slik at det ikkje viser berre ein S-forma mark i staden for
+  full app-logo.
+- Sætter same robuste visingslogikk for logo (app-ikon) på både normal og rund ikonvariant.
+- Oppdatert versjonsnummer for ny testutgåve.
+
 ## 0.16.0-beta05 · Endå raskare oppstart på kald start
 
 - Korte ned opningsrekkjeflyt for TV/telefon ved å fjerne unødig startventing før første

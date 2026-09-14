@@ -14,7 +14,7 @@ class TabletFeatureSelectionTest {
         val second = first.copy(id = "episode-3", title = "Taskmaster")
         val third = first.copy(id = "episode-4", title = "Alone")
         val fourth = first.copy(id = "episode-5", title = "Another series")
-        assertEquals(listOf(first, second, third), tabletFeaturedTitles(
+        assertEquals(listOf(first, second, third, fourth), tabletFeaturedTitles(
             listOf(first, duplicate, mirror, second, third, fourth), HomeSection.entries.toSet()))
     }
     @Test fun fewerUniqueSeriesAreNotPaddedWithDuplicates() {

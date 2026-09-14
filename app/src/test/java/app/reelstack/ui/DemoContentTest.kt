@@ -24,7 +24,7 @@ class DemoContentTest {
     @Test fun localHeroRequiresExplicitDemoAndHonoursHiddenLibraryRows() {
         val pool = demoRecentSeries()
         assertTrue(tabletFeaturedTitles(pool, HomeSection.entries.toSet()).isEmpty())
-        assertEquals(3, tabletFeaturedTitles(pool, HomeSection.entries.toSet(), allowLocalArtwork = true).size)
+        assertEquals(5, tabletFeaturedTitles(pool, HomeSection.entries.toSet(), allowLocalArtwork = true).size)
         assertTrue(tabletFeaturedTitles(pool, emptySet(), allowLocalArtwork = true).isEmpty())
         assertTrue(tabletFeaturedTitles(pool, setOf(HomeSection.EMBY_SERIES), true).all { it.source == ServiceKind.EMBY })
     }
