@@ -47,7 +47,6 @@
     <string name="flow_detail_named">Vis detaljar for %1$s</string>
     <string name="flow_film">Film</string>
     <string name="flow_season_numbers">Sesong %1$s</string>
-    <string name="flow_watch_only">Berre varsel</string>
     <string name="flow_notify_on_title">Varsel på for %1$s</string>
     <string name="flow_notify_off_title">Varsel av for %1$s</string>
     <string name="flow_watching_note">Følgjer bibliotekstatus i Seerr. Ingen ny førespurnad.</string>
@@ -97,4 +96,19 @@
         <item quantity="one">Send førespurnad · %1$d sesong</item>
         <item quantity="other">Send førespurnad · %1$d sesongar</item>
     </plurals>
+    <string name="flow_status_blocked_admin">Tittelen er blokkert av administratoren.</string>
+    <string name="flow_status_no_seasons">Seerr gav ingen sesongar. Prøv igjen seinare.</string>
+    <string name="flow_status_movie_already">Filmen er alt førespurd eller i biblioteket.</string>
+    <string name="flow_notify_season_on">Varsel på for sesong %1$d · ingen ny førespurnad</string>
+    <string name="flow_notify_season_off">Varsel av for sesong %1$d</string>
+    <string name="flow_unfollowed_season">Slutta å følgje sesongen</string>
+    <string name="flow_withdrawn_request">Førespurnaden er trekt tilbake</string>
+    <string name="flow_local_status_title">Lagd til lokalt</string>
+    <string name="flow_local_status_desc">Dette er ei førehandsvising. Ingenting er sendt til Seerr.</string>
+    <string name="flow_local_snackbar">Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare</string>
+    <string name="flow_login_as_yourself_snackbar">Logg inn med Jellyfin-kontoen din i Seerr for å sende som deg sjølv.</string>
+    <string name="flow_sent_as_title">Sendt som %1$s</string>
+    <string name="flow_sent_as_desc">Førespurnaden er registrert på Seerr-kontoen din. Oppdatert status kjem ved neste synkronisering.</string>
+    <string name="flow_just_now">No nettopp</string>
+    <string name="flow_sent_to_seerr_as">Sendt til Seerr som %1$s</string>
 </resources>

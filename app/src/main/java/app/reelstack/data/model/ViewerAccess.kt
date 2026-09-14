@@ -19,5 +19,4 @@ data class ViewerAccess(val seerrConfigured: Boolean, val accounts: Map<ServiceK
     }
 }
 
-fun isExcludedHomeLibrary(name: String): Boolean = name.lowercase(java.util.Locale.ROOT)
-    .filter(Char::isLetterOrDigit) in setOf("barneserier", "barneseriar", "barnetv", "barnetvserier", "barnetvseriar")
+fun isExcludedHomeLibrary(name: String): Boolean = false

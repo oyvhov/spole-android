@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -24,7 +25,24 @@ import kotlinx.coroutines.withTimeoutOrNull
 /** A bounded opening reveal. Network work continues behind the cover. */
 @Composable
 fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit) {
-    StartupCover(awaitContentReady = { viewModel.uiState.first { !it.isRefreshing } }, content = content)
+    StartupCover(awaitContentReady = {
+        // Keep launch responsive, but only lift the cover once first rails are visible.
+        withTimeoutOrNull(760) {
+            viewModel.uiState.first { state ->
+                !state.isRefreshing && (state.showOnboarding ||
+                    state.hasCachedData ||
+                    state.sessions.isNotEmpty() ||
+                    state.resume.isNotEmpty() ||
+                    state.recentMovies.isNotEmpty() ||
+                    state.recentSeries.isNotEmpty() ||
+                    state.recommendations.any { !it.artworkUrl.isNullOrBlank() } ||
+                    state.recentMovies.any { !it.artworkUrl.isNullOrBlank() } ||
+                    state.recentSeries.any { !it.artworkUrl.isNullOrBlank() } ||
+                    state.sessions.any { !it.artworkUrl.isNullOrBlank() } ||
+                    state.resume.any { !it.artworkUrl.isNullOrBlank() })
+            }
+        }
+    }, content = content)
 }
 
 @Composable
@@ -35,23 +53,24 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
     val reveal = remember { Animatable(if (formed || !opening) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!opening) return@LaunchedEffect
-        if (!formed) reveal.animateTo(1f, tween(if (slow) 1650 else 800, easing = androidx.compose.animation.core.LinearEasing))
+        if (!formed) reveal.animateTo(1f, tween(if (slow) 760 else 340, easing = androidx.compose.animation.core.LinearEasing))
         formed = true
-        // Let the expensive home composition settle behind a completed, stationary mark.
+        // Let the initial frame settle before we lift the cover.
         // The ViewModel has already started its network refresh independently of this UI.
         withFrameNanos { }
         withFrameNanos { }
-        withTimeoutOrNull(if (slow) 1500L else 500L) { awaitContentReady() }
+        awaitContentReady()
         opening = false
     }
+    val coverVisible by remember { derivedStateOf { opening } }
     Box(Modifier.fillMaxSize()) {
         // Loading continues, but TalkBack must not focus controls hidden by the cover.
         // Compose immediately: image requests and network data load throughout the animation.
         Box(if (opening) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
             .onPreviewKeyEvent { true } else Modifier) { content() }
-        AnimatedVisibility(visible = opening, exit = fadeOut(tween(240))) {
+        AnimatedVisibility(visible = coverVisible, exit = fadeOut(tween(if (slow) 180 else 100))) {
             Box(
-                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).alpha(if (opening) 1f else 0.2f)
                     .testTag("startup-cover")
                     .pointerInput(Unit) {
                         awaitPointerEventScope {

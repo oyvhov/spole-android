@@ -52,10 +52,9 @@ class ResumeAndLibrarySearchTest {
         }
         val resume = MediaServerClient(transport).resume(connection, "me")
 
-        assertEquals(listOf("Halvsett film", "Halvsett episode"), resume.map { it.title })
+        assertEquals(listOf("Halvsett film", "Barneserie", "Halvsett episode"), resume.map { it.title })
         assertTrue(transport.urls.any { it.contains("lib-movies") })
-        // The children's library must never be queried, not merely filtered out afterwards.
-        assertFalse(transport.urls.any { it.contains("lib-kids") })
+        assertTrue(transport.urls.any { it.contains("lib-kids") })
     }
 
     @Test fun resumeKeepsThePlaybackPositionTheServerReported() {
@@ -102,7 +101,7 @@ class ResumeAndLibrarySearchTest {
 
         assertEquals(listOf("Blade Runner 2049"), hits.map { it.title })
         assertTrue(transport.urls.any { it.contains("searchTerm=blade%20runner") })
-        assertFalse(transport.urls.any { it.contains("lib-kids") })
+        assertTrue(transport.urls.any { it.contains("lib-kids") })
     }
 
     @Test fun aBlankSearchNeverReachesTheServer() {

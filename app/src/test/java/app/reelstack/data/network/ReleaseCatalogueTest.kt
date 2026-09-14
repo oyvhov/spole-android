@@ -101,7 +101,7 @@ class ReleaseCatalogueTest {
         for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
             val transport = FixtureTransport(useToday = true)
             val repo = MediaSyncRepository(
-                mediaServerClient = MediaServerClient(transport), queueServiceClient = QueueServiceClient(transport),
+                mediaServerClient = MediaServerClient(transport, includeLibrary = { _, view -> view.id != "kids" }), queueServiceClient = QueueServiceClient(transport),
                 seerrServiceClient = SeerrServiceClient(transport),
                 recommendationsClient = RecommendationsClient(transport, "https://feed.example/items"),
                 accountProfileClient = AccountProfileClient(transport = transport),

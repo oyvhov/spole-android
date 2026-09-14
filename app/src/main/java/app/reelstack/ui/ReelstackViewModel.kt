@@ -186,6 +186,12 @@ data class ReelstackUiState(
 class ReelstackViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
+    private fun appString(@androidx.annotation.StringRes resId: Int, vararg args: Any): String =
+        app.reelstack.localization.AppLanguages.wrap(container.appContext).getString(resId, *args)
+
+    private fun appQuantityString(@androidx.annotation.PluralsRes resId: Int, quantity: Int, vararg args: Any): String =
+        app.reelstack.localization.AppLanguages.wrap(container.appContext).resources.getQuantityString(resId, quantity, *args)
+
     private val _uiState = MutableStateFlow(initialState(container))
     val uiState: StateFlow<ReelstackUiState> = _uiState.asStateFlow()
 
@@ -250,7 +256,7 @@ class ReelstackViewModel(
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (error: Exception) {
                 _uiState.update { it.copy(libraryChoicesLoading = false,
-                    libraryChoicesError = error.readableMessage() ?: container.appContext.getString(R.string.library_failed)) }
+                    libraryChoicesError = error.readableMessage() ?: appString(R.string.library_failed)) }
             }
         }
     }
@@ -540,7 +546,7 @@ class ReelstackViewModel(
         setup.onSuccess { link ->
             updateDraft { copy(url = link.jellyfin, companionUrl = link.seerr, alsoConnect = link.seerr.isNotBlank(), setupImported = true) }
         }.onFailure {
-            updateDraft { copy(error = "Oppsettslenkja er ugyldig. Be om ei ny lenkje, eller skriv inn adressene sjølv.") }
+            updateDraft { copy(error = appString(R.string.error_setup_link_invalid)) }
         }
     }
 
@@ -675,7 +681,7 @@ class ReelstackViewModel(
                         )
                     },
                     onFailure = {
-                        current.copy(contentDetails = details.copy(loading = false, error = "Fekk ikkje henta alle detaljane"))
+                        current.copy(contentDetails = details.copy(loading = false, error = appString(R.string.error_content_details)))
                     },
                 )
             }
@@ -833,7 +839,7 @@ class ReelstackViewModel(
                         )
                     },
                     onFailure = {
-                        current.copy(contentDetails = details.copy(loading = false, error = "Fekk ikkje henta alle detaljane"))
+                        current.copy(contentDetails = details.copy(loading = false, error = appString(R.string.error_content_details)))
                     },
                 )
             }
@@ -854,22 +860,25 @@ class ReelstackViewModel(
             ContentDetails(
                 key = media.id,
                 title = media.title,
-                eyebrow = if (recent == null) "Kjem snart · ${media.source.displayName}" else "Nyleg tilgjengeleg · ${media.source.displayName}",
+                eyebrow = if (recent == null) appString(R.string.details_coming_soon_source, media.source.displayName)
+                    else appString(R.string.details_recent_available_source, media.source.displayName),
                 subtitle = media.subtitle,
-                overview = media.overview ?: "Omtalen er ikkje tilgjengeleg frå ${media.source.displayName} enno.",
+                overview = media.overview ?: appString(R.string.details_overview_unavailable, media.source.displayName),
                 facts = (media.facts + media.dateLabel + media.source.displayName).distinct(),
                 genres = media.genres,
                 artworkRes = media.artworkRes,
                 artworkUrl = media.artworkUrl,
                 source = media.source,
                 mediaType = media.mediaType,
-                statusTitle = if (recent == null) "Planlagd utgjeving" else if (media.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) "I biblioteket" else "Heimeutgjeven",
+                statusTitle = if (recent == null) appString(R.string.details_planned_release)
+                    else if (media.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) appString(R.string.details_in_library)
+                    else appString(R.string.details_home_release_title),
                 statusDescription = if (recent == null) {
-                    "${media.dateLabel} · Datoen er venta, ikkje ei stadfesting på at tittelen er tilgjengeleg."
+                    appString(R.string.details_expected_date_note, media.dateLabel)
                 } else {
                     if (media.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
-                        "Tilgjengeleg i ${media.source.displayName}. Datoen er utgjevingsdatoen, ikkje datoen tittelen vart lagd til."
-                    else "${media.dateLabel} · Utgjevingsdato frå ${media.source.displayName}. Bibliotektilgjenge blir vist under Oppdag."
+                        appString(R.string.details_library_release_date_note, media.source.displayName)
+                    else appString(R.string.details_external_release_date_note, media.dateLabel, media.source.displayName)
                 },
             ),
         )
@@ -961,9 +970,9 @@ class ReelstackViewModel(
                     } else current.sessions,
                     pendingSessionKey = null,
                     snackbar = if (result.isSuccess) {
-                        if (targetPaused) "Avspelinga er sett på pause" else "Avspelinga held fram"
+                        if (targetPaused) appString(R.string.notice_playback_paused) else appString(R.string.notice_playback_resumed)
                     } else {
-                        "Medietenaren klarte ikkje å endre avspelinga"
+                        appString(R.string.error_playback_control)
                     },
                 )
             }
@@ -1032,11 +1041,11 @@ class ReelstackViewModel(
                     isSearching = false,
                     searchError = when {
                         discoverResult.isFailure && libraryResult.isFailure ->
-                            "Fekk ikkje søkt. Sjekk tilkoplingane og prøv igjen."
+                            appString(R.string.error_search_all)
                         discoverResult.isFailure && seerr != null ->
-                            "Fekk ikkje søkt i Seerr. Sjekk tilkoplinga og prøv igjen."
+                            appString(R.string.error_search_seerr)
                         libraryResult.isFailure ->
-                            "Fekk ikkje søkt i biblioteka dine. Sjekk tilkoplinga og prøv igjen."
+                            appString(R.string.error_search_libraries)
                         else -> null
                     },
                 )
@@ -1067,7 +1076,7 @@ class ReelstackViewModel(
                     else (current.searchResults + page.items).distinctBy { item -> item.id },
                     searchPage = page?.page ?: current.searchPage,
                     searchHasMore = page?.hasMore == true,
-                    searchError = if (result.isFailure) "Fekk ikkje henta fleire treff. Prøv igjen." else current.searchError,
+                    searchError = if (result.isFailure) appString(R.string.error_search_more) else current.searchError,
                 )
             }
         }
@@ -1115,12 +1124,12 @@ class ReelstackViewModel(
                         mediaStatus = remote.seerrStatus, nextEpisode = remote.nextEpisode,
                         watchedSeasons = watched, rules = rules,
                         error = when {
-                            remote.seerrStatus == 6 -> "Tittelen er blokkert av administratoren."
-                            media.mediaType == "tv" && remote.seasons.isEmpty() -> "Seerr gav ingen sesongar. Prøv igjen seinare."
-                            media.mediaType != "tv" && remote.seerrStatus in 2..5 -> "Filmen er alt førespurd eller i biblioteket."
+                            remote.seerrStatus == 6 -> appString(R.string.flow_status_blocked_admin)
+                            media.mediaType == "tv" && remote.seasons.isEmpty() -> appString(R.string.flow_status_no_seasons)
+                            media.mediaType != "tv" && remote.seerrStatus in 2..5 -> appString(R.string.flow_status_movie_already)
                             else -> null
                         })
-                }, onFailure = { draft.copy(loading = false, error = "Fekk ikkje henta sesongar og tilgjenge. Prøv igjen.") }))
+                }, onFailure = { draft.copy(loading = false, error = appString(R.string.error_request_seasons)) }))
             }
         }
     }
@@ -1169,10 +1178,10 @@ class ReelstackViewModel(
                         watchedSeasons = if (result.isSuccess) {
                             if (enabled) openDraft.watchedSeasons + number else openDraft.watchedSeasons - number
                         } else openDraft.watchedSeasons,
-                        watchError = if (result.isFailure) "Fekk ikkje lagra varselet. Sjekk sesongane på nytt og prøv igjen." else null,
+                        watchError = if (result.isFailure) appString(R.string.error_save_watch) else null,
                     ) ?: current.requestDraft,
                     snackbar = if (result.isSuccess) {
-                        if (enabled) "Varsel på for sesong $number · ingen ny førespurnad" else "Varsel av for sesong $number"
+                        if (enabled) appString(R.string.flow_notify_season_on, number) else appString(R.string.flow_notify_season_off, number)
                     } else current.snackbar,
                 )
             }
@@ -1245,11 +1254,11 @@ class ReelstackViewModel(
                     cancellingRequestKeys = current.cancellingRequestKeys - key,
                     trackedRequests = result.getOrNull() ?: current.trackedRequests,
                     snackbar = if (result.isSuccess) {
-                        if (state.trackedRequests.firstOrNull { it.key == key }?.availabilityOnly == true) "Slutta å følgje sesongen"
-                        else "Førespurnaden er trekt tilbake"
+                        if (state.trackedRequests.firstOrNull { it.key == key }?.availabilityOnly == true) appString(R.string.flow_unfollowed_season)
+                        else appString(R.string.flow_withdrawn_request)
                     }
                     else result.exceptionOrNull()?.readableMessage()
-                        ?: "Fekk ikkje trekt tilbake førespurnaden. Prøv igjen.",
+                        ?: appString(R.string.error_withdraw_request),
                 )
             }
         }
@@ -1336,7 +1345,7 @@ class ReelstackViewModel(
                 if (configured?.token != connection.token || configured.baseUrl != connection.baseUrl || configured.sessionCookie != connection.sessionCookie) current.copy(trackingLoading = false)
                 else {
                     val requests = result.getOrNull()?.second ?: current.trackedRequests
-                    val error = if (result.isFailure) "Fekk ikkje oppdatert førespurnadene. Sjekk Seerr-innlogginga og prøv igjen." else null
+                    val error = if (result.isFailure) appString(R.string.error_request_history) else null
                     // Same reasoning as the playback poll: an unchanged answer must not produce a
                     // new state object, or every screen rebuilds to show what it already showed.
                     if (!current.trackingLoading && current.trackedRequests == requests && current.trackingError == error) current
@@ -1355,7 +1364,7 @@ class ReelstackViewModel(
         val seerr = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
 
         if (state.configuredCount > 0 && (seerr == null || seerr.baseUrl.isBlank() || media.remoteId == null || media.mediaType == null)) {
-            _uiState.update { it.copy(snackbar = "Fekk ikkje sendt. Kople til Seerr og opne tittelen på nytt.") }
+            _uiState.update { it.copy(snackbar = appString(R.string.error_send_connect_seerr)) }
             return
         }
 
@@ -1366,9 +1375,9 @@ class ReelstackViewModel(
                     recommendations = it.recommendations.map { item -> if (item.id == id) item.copy(requested = true) else item },
                     searchResults = it.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
                     contentDetails = it.contentDetails?.let { details ->
-                        if (details.key == id) details.copy(statusTitle = "Lagd til lokalt", statusDescription = "Dette er ei førehandsvising. Ingenting er sendt til Seerr.") else details
+                        if (details.key == id) details.copy(statusTitle = appString(R.string.flow_local_status_title), statusDescription = appString(R.string.flow_local_status_desc)) else details
                     },
-                    snackbar = "Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare",
+                    snackbar = appString(R.string.flow_local_snackbar),
                     activeSheet = null,
                     requestDraft = null,
                 )
@@ -1379,7 +1388,7 @@ class ReelstackViewModel(
         val account = state.accounts[ServiceKind.SEERR]
         if (!seerr.sessionCookie || account?.isPersonal != true) {
             openSeerrAccount()
-            _uiState.update { it.copy(snackbar = "Logg inn med Jellyfin-kontoen din i Seerr for å sende som deg sjølv.") }
+            _uiState.update { it.copy(snackbar = appString(R.string.flow_login_as_yourself_snackbar)) }
             return
         }
         _uiState.update { it.copy(requestingMediaIds = it.requestingMediaIds + id, requestDraft = draft.copy(sending = true)) }
@@ -1398,14 +1407,14 @@ class ReelstackViewModel(
                         recommendations = current.recommendations.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         searchResults = current.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         contentDetails = current.contentDetails?.let { details ->
-                            if (details.key == id) details.copy(statusTitle = "Sendt som ${account.displayName}", statusDescription = "Førespurnaden er registrert på Seerr-kontoen din. Oppdatert status kjem ved neste synkronisering.") else details
+                            if (details.key == id) details.copy(statusTitle = appString(R.string.flow_sent_as_title, account.displayName), statusDescription = appString(R.string.flow_sent_as_desc)) else details
                         },
                         activity = listOf(
                             ActivityEvent(
                                 id = "seerr-request-${media.id}",
                                 title = media.title,
-                                detail = "Sendt som ${account.displayName}",
-                                time = "No nettopp",
+                                detail = appString(R.string.flow_sent_as_title, account.displayName),
+                                time = appString(R.string.flow_just_now),
                                 timeEpochMillis = System.currentTimeMillis(),
                                 source = ServiceKind.SEERR,
                                 artworkRes = media.artworkRes,
@@ -1413,7 +1422,7 @@ class ReelstackViewModel(
                             ),
                         ) + current.activity,
                         requestingMediaIds = current.requestingMediaIds - id,
-                        snackbar = "Sendt til Seerr som ${account.displayName}",
+                        snackbar = appString(R.string.flow_sent_to_seerr_as, account.displayName),
                         activeSheet = null,
                         requestDraft = null,
                         selectedTab = AppTab.ACTIVITY,
@@ -1421,8 +1430,8 @@ class ReelstackViewModel(
                 } else {
                     current.copy(
                         requestingMediaIds = current.requestingMediaIds - id,
-                        snackbar = "Fekk ikkje sendt som ${account.displayName}. Sjekk Seerr-kontoen og tilgangen din.",
-                        requestDraft = draft.copy(sending = false, error = "Fekk ikkje sendt. Sesongane kan vere endra, eller kontoen manglar tilgang. Opne førespurnaden på nytt før du prøver igjen."),
+                        snackbar = appString(R.string.error_send_as_person, account.displayName),
+                        requestDraft = draft.copy(sending = false, error = appString(R.string.error_send_failed_retry)),
                     )
                 }
             }
@@ -1540,9 +1549,8 @@ class ReelstackViewModel(
                     failedServices = emptySet(),
                     hasCachedData = false,
                     snackbar = when {
-                        unreadable.isNotEmpty() -> "Innlogginga på denne eininga kan ikkje lesast lenger. " +
-                            "Logg inn på nytt i Innstillingar."
-                        userInitiated -> "Kople til ei teneste for å starte synkronisering"
+                        unreadable.isNotEmpty() -> appString(R.string.error_login_unreadable)
+                        userInitiated -> appString(R.string.notice_connect_to_sync)
                         else -> it.snackbar
                     },
                 )
@@ -1582,7 +1590,7 @@ class ReelstackViewModel(
                 _uiState.update {
                     it.copy(
                         isRefreshing = false,
-                        snackbar = "Fekk ikkje oppdatert innhaldet. Dra ned for å prøve igjen.",
+                        snackbar = appString(R.string.error_feed_refresh),
                     )
                 }
                 return@launch
@@ -1650,9 +1658,9 @@ class ReelstackViewModel(
                             connection.kind in snapshot.successfulServices -> connection.copy(
                                 state = ConnectionState.CONNECTED,
                                 detail = when {
-                                    connection.kind in snapshot.switchedToAlternate -> "Aktiv · bytta til den andre adressa"
-                                    else -> snapshot.warnings[connection.kind]?.let { "Tilkopla · $it" }
-                                        ?: "Aktiv · oppdatert no"
+                                    connection.kind in snapshot.switchedToAlternate -> appString(R.string.connection_active_switched_alternate)
+                                    else -> snapshot.warnings[connection.kind]?.let { appString(R.string.connection_connected_with_warning, it) }
+                                        ?: appString(R.string.connection_active_updated_now)
                                 },
                             )
                             else -> connection
@@ -1671,9 +1679,9 @@ class ReelstackViewModel(
                     serviceWarnings = snapshot.warnings,
                     snackbar = if (userInitiated) {
                         when {
-                            snapshot.errors.isNotEmpty() -> "Oppdatert · ${snapshot.errors.size} teneste${if (snapshot.errors.size == 1) "" else "r"} må sjekkast"
-                            snapshot.warnings.isNotEmpty() -> "Tilkopla, men nokre delar må sjekkast"
-                            else -> "Alt er oppdatert"
+                            snapshot.errors.isNotEmpty() -> appQuantityString(R.plurals.notice_sync_services_check, snapshot.errors.size, snapshot.errors.size)
+                            snapshot.warnings.isNotEmpty() -> appString(R.string.notice_sync_warnings)
+                            else -> appString(R.string.notice_sync_all_updated)
                         }
                     } else current.snackbar,
                 )
@@ -1706,7 +1714,7 @@ class ReelstackViewModel(
                         else current.copy(
                             accounts = if (result.isSuccess) current.accounts + (connection.kind to result.getOrThrow()) else current.accounts - connection.kind,
                             accountErrors = if (result.isSuccess) current.accountErrors - connection.kind else current.accountErrors +
-                                (connection.kind to "Fekk ikkje stadfesta kontoen. Sjekk innlogginga eller prøv å oppdatere igjen."),
+                                (connection.kind to appString(R.string.error_account_verify)),
                             loadingAccounts = current.loadingAccounts - connection.kind,
                             requestHistory = if (connection.kind == ServiceKind.SEERR &&
                                 (result.isFailure || result.getOrNull()?.id != current.accounts[ServiceKind.SEERR]?.id))
@@ -1782,7 +1790,7 @@ class ReelstackViewModel(
         if (draft.saving || (draft.simpleSetup && draft.quickConnectWaiting)) return
         val normalizedUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
             .getOrElse {
-                updateDraft { copy(error = it.message ?: "Skriv inn ei gyldig tenaradresse") }
+                updateDraft { copy(error = it.message ?: appString(R.string.error_enter_valid_url)) }
                 return
             }
         val useJellyfinAccount = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
@@ -1790,7 +1798,7 @@ class ReelstackViewModel(
         if (useQuickConnect) {
             if (draft.simpleSetup && draft.alsoConnect) {
                 val companionUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
-                    updateDraft { copy(error = "Sjekk Seerr-adressa og prøv igjen.") }
+                    updateDraft { copy(error = appString(R.string.error_check_seerr_url)) }
                     return
                 }
                 startQuickConnect(draft.copy(companionUrl = companionUrl), normalizedUrl)
@@ -1800,26 +1808,26 @@ class ReelstackViewModel(
             return
         }
         if (useJellyfinAccount && draft.username.isBlank()) {
-            updateDraft { copy(error = "Skriv inn brukarnamnet ditt") }
+            updateDraft { copy(error = appString(R.string.error_enter_username)) }
             return
         }
         if (!useJellyfinAccount && draft.token.isBlank()) {
-            updateDraft { copy(error = "Skriv inn ein API-nøkkel eller eit tilgangsteikn") }
+            updateDraft { copy(error = appString(R.string.error_enter_token)) }
             return
         }
         val alternateUrl = draft.alternateUrl.takeIf(String::isNotBlank)?.let { entered ->
             runCatching { EndpointValidator.normalizeBaseUrl(entered) }.getOrElse {
-                updateDraft { copy(error = "Sjekk den andre adressa: ${it.message ?: "Skriv inn ei gyldig tenaradresse"}") }
+                updateDraft { copy(error = appString(R.string.error_check_alternate_url, it.message ?: appString(R.string.error_enter_valid_url))) }
                 return
             }
         }.orEmpty()
         if (alternateUrl.isNotBlank() && alternateUrl == normalizedUrl) {
-            updateDraft { copy(error = "Den andre adressa er den same som den vanlege.") }
+            updateDraft { copy(error = appString(R.string.error_alternate_same_url)) }
             return
         }
         val companionUrl = if (useJellyfinAccount && draft.alsoConnect && draft.kind != ServiceKind.EMBY) {
             runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
-                updateDraft { copy(error = "Sjekk adressa til den andre tenesta: ${it.message ?: "Skriv inn ei gyldig tenaradresse"}") }
+                updateDraft { copy(error = appString(R.string.error_check_companion_url, it.message ?: appString(R.string.error_enter_valid_url))) }
                 return
             }
         } else null
@@ -1841,7 +1849,7 @@ class ReelstackViewModel(
                         )
                     }
                 }.getOrElse { error ->
-                    updateDraft { copy(saving = false, error = error.readableMessage() ?: "Jellyfin avviste innlogginga") }
+                    updateDraft { copy(saving = false, error = error.readableMessage() ?: appString(R.string.error_jellyfin_rejected)) }
                     return@launch
                 }
             } else null
@@ -1866,12 +1874,13 @@ class ReelstackViewModel(
                         val seerr = container.accountProfileClient.load(if (draft.kind == ServiceKind.SEERR) candidate else other)
                         val jellyfinId = if (draft.kind == ServiceKind.JELLYFIN) candidate.userId else other.userId
                         check(app.reelstack.data.model.matchesJellyfinAccount(seerr, jellyfinId)) {
-                            "Seerr-kontoen er ikkje knytt til denne Jellyfin-kontoen. Logg inn på tenestene kvar for seg."
+                            appString(R.string.error_seerr_not_linked)
                         }
                         other
                     }
                 }.getOrElse { error ->
-                    updateDraft { copy(saving = false, error = "Ingen tilkoplingar vart endra. ${error.readableMessage() ?: "Den andre innlogginga feila."} Prøv igjen, eller slå av felles innlogging.") }
+                    val failureDetail = error.readableMessage() ?: appString(R.string.error_companion_failed)
+                    updateDraft { copy(saving = false, error = appString(R.string.error_no_connections_changed, failureDetail)) }
                     return@launch
                 }
             } else null
@@ -1898,7 +1907,7 @@ class ReelstackViewModel(
                     else container.jellyfinAuthenticationClient.initiateQuickConnect(normalizedUrl)
                 }
             }.getOrElse { error ->
-                showQuickConnectFailure(draft.kind, error, "Fekk ikkje starta Quick Connect")
+                showQuickConnectFailure(draft.kind, error, appString(R.string.error_quick_connect_start))
                 return@launch
             }
             updateDraft {
@@ -1922,7 +1931,7 @@ class ReelstackViewModel(
                             )
                         }
                     }.getOrElse { error ->
-                        showQuickConnectFailure(draft.kind, error, "Quick Connect vart ikkje fullført")
+                        showQuickConnectFailure(draft.kind, error, appString(R.string.error_quick_connect_incomplete))
                         return@launch
                     }
                     val candidate = ServiceConnection(
@@ -1947,7 +1956,7 @@ class ReelstackViewModel(
                             }
                         }.getOrElse {
                             updateDraft { copy(saving = false, quickConnectWaiting = false, quickConnectCode = null,
-                                error = "Fekk ikkje kopla til begge tenestene. Sjekk at Seerr støttar Quick Connect og brukar same Jellyfin-tenar. Prøv igjen, eller vel andre innloggingsmåtar.") }
+                                error = appString(R.string.error_companion_connect)) }
                             return@launch
                         }
                     } else null
@@ -1966,7 +1975,7 @@ class ReelstackViewModel(
                         )
                     }
                 }.getOrElse { error ->
-                    showQuickConnectFailure(draft.kind, error, "Mista kontakten med Quick Connect")
+                    showQuickConnectFailure(draft.kind, error, appString(R.string.error_quick_connect_lost))
                     return@launch
                 }
                 updateDraft { copy(quickConnectCode = quickConnect.code) }
@@ -1976,7 +1985,7 @@ class ReelstackViewModel(
                 copy(
                     saving = false,
                     quickConnectWaiting = false,
-                    error = "Quick Connect-koden gjekk ut. Lag ein ny kode og prøv igjen.",
+                    error = appString(R.string.error_quick_connect_expired),
                 )
             }
         }
@@ -1990,7 +1999,7 @@ class ReelstackViewModel(
                 quickConnectCode = null,
                 quickConnectWaiting = false,
                 error = if (kind == ServiceKind.SEERR) {
-                    "Quick Connect er ikkje tilgjengeleg her. Logg inn med Jellyfin-kontoen under."
+                    appString(R.string.error_quick_connect_seerr_unavailable)
                 } else error.readableMessage() ?: fallback,
             )
         }
@@ -2001,15 +2010,15 @@ class ReelstackViewModel(
         fun verify(connection: ServiceConnection): app.reelstack.data.model.ConnectionTestResult {
             if (personalLogin && connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
                 val account = container.accountProfileClient.load(connection)
-                check(account.id == connection.userId) { "Tenaren stadfesta ikkje den innlogga kontoen." }
-                return app.reelstack.data.model.ConnectionTestResult(true, 0, "Logga inn")
+                check(account.id == connection.userId) { appString(R.string.error_account_verify) }
+                return app.reelstack.data.model.ConnectionTestResult(true, 0, appString(R.string.status_signed_in))
             }
             return container.connectionTester.test(connection)
         }
         if (companion != null) {
             val otherResult = attempt { withContext(Dispatchers.IO) { verify(companion) } }
             if (otherResult.getOrNull()?.success != true) {
-                updateDraft { copy(saving = false, error = "Fekk ikkje stadfesta ${companion.kind.displayName}. Ingen tilkoplingar vart endra.") }
+                updateDraft { copy(saving = false, error = appString(R.string.error_companion_verify, companion.kind.displayName)) }
                 return
             }
         }
@@ -2017,7 +2026,7 @@ class ReelstackViewModel(
             withContext(Dispatchers.IO) { verify(candidate) }
         }.getOrElse { error ->
             updateDraft {
-                copy(saving = false, error = error.readableMessage() ?: "Fekk ikkje kontakt med tenesta")
+                copy(saving = false, error = error.readableMessage() ?: appString(R.string.error_service_unreachable))
             }
             return
         }
@@ -2037,7 +2046,7 @@ class ReelstackViewModel(
             }
         }
         stored.exceptionOrNull()?.let {
-            updateDraft { copy(saving = false, error = "Fekk ikkje lagra innlogginga trygt på denne eininga. Prøv igjen.") }
+            updateDraft { copy(saving = false, error = appString(R.string.error_store_token_secure)) }
             return
         }
         refreshJob?.cancel()

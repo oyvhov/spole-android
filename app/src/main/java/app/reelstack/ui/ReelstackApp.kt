@@ -132,6 +132,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val connectionDraft by viewModel.connectionDraft.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
+    var appReadyForBackgroundWork by remember { mutableStateOf(false) }
     // Built once and handed to every rail that shows library cards, so a title offers the same
     // three choices wherever it appears.
     val cardActions = remember(viewModel) {
@@ -173,6 +174,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     LaunchedEffect(lifecycleOwner, state.selectedTab, state.activeSheet) {
+        if (!appReadyForBackgroundWork) return@LaunchedEffect
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             if (viewModel.uiState.value.selectedTab == AppTab.HOME || viewModel.uiState.value.activeSheet is AppSheet.SessionDetails) {
                 // Jellyfin will tell us when playback changes, so ask it to. While that channel is
@@ -202,7 +204,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     // lookups. Polling that every 30 seconds from every tab kept a self-hosted server busy for a
     // list nobody had on screen, so the fast cadence now belongs to the tab that shows it. The tab
     // is read inside the loop so switching tabs adapts the delay without restarting the poll.
-    LaunchedEffect(lifecycleOwner) {
+    LaunchedEffect(lifecycleOwner, appReadyForBackgroundWork) {
+        if (!appReadyForBackgroundWork) return@LaunchedEffect
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             while (true) {
                 viewModel.refreshTrackedRequests(background = true)
@@ -211,6 +214,12 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 )
             }
         }
+    }
+    LaunchedEffect(Unit) {
+        if (appReadyForBackgroundWork) return@LaunchedEffect
+        kotlinx.coroutines.delay(16)
+        kotlinx.coroutines.delay(16)
+        appReadyForBackgroundWork = true
     }
     BackHandler(enabled = state.activeSheet == null && !state.showOnboarding && state.selectedTab != AppTab.HOME) {
         selectTab(AppTab.HOME)

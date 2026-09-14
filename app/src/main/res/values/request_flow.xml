@@ -47,7 +47,6 @@
     <string name="flow_detail_named">View details for %1$s</string>
     <string name="flow_film">Film</string>
     <string name="flow_season_numbers">Season %1$s</string>
-    <string name="flow_watch_only">Notifications only</string>
     <string name="flow_notify_on_title">Notifications on for %1$s</string>
     <string name="flow_notify_off_title">Notifications off for %1$s</string>
     <string name="flow_watching_note">Following library status in Seerr. No new request.</string>
@@ -97,4 +96,19 @@
         <item quantity="one">Send request · %1$d season</item>
         <item quantity="other">Send request · %1$d seasons</item>
     </plurals>
+    <string name="flow_status_blocked_admin">The title is blocked by the administrator.</string>
+    <string name="flow_status_no_seasons">Seerr gave no seasons. Try again later.</string>
+    <string name="flow_status_movie_already">The film is already requested or in the library.</string>
+    <string name="flow_notify_season_on">Notifications on for season %1$d · no new request</string>
+    <string name="flow_notify_season_off">Notifications off for season %1$d</string>
+    <string name="flow_unfollowed_season">Stopped following season</string>
+    <string name="flow_withdrawn_request">Request was withdrawn</string>
+    <string name="flow_local_status_title">Added locally</string>
+    <string name="flow_local_status_desc">This is a preview. Nothing has been sent to Seerr.</string>
+    <string name="flow_local_snackbar">Title added locally · connect to Seerr to send it</string>
+    <string name="flow_login_as_yourself_snackbar">Sign in with your Jellyfin account in Seerr to send as yourself.</string>
+    <string name="flow_sent_as_title">Sent as %1$s</string>
+    <string name="flow_sent_as_desc">The request has been registered on your Seerr account. Updated status arrives with the next sync.</string>
+    <string name="flow_just_now">Just now</string>
+    <string name="flow_sent_to_seerr_as">Sent to Seerr as %1$s</string>
 </resources>

@@ -950,7 +950,8 @@ class MediaServerClient(
     fun logoUrl(connection: ServiceConnection, itemId: String, tag: String? = null): String =
         EndpointValidator.resolve(
             connection.baseUrl,
-            "Items/${encodePathSegment(itemId)}/Images/Logo?maxWidth=800&quality=90" + tagParameter(tag),
+            "Items/${encodePathSegment(itemId)}/Images/Logo?maxWidth=$DEFAULT_LOGO_MAX_WIDTH&quality=$ARTWORK_QUALITY" +
+                tagParameter(tag),
         )
 
     /**
@@ -971,9 +972,9 @@ class MediaServerClient(
         EndpointValidator.resolve(
             connection.baseUrl,
             if (imageType.equals("Thumb", ignoreCase = true)) {
-                "Items/${encodePathSegment(itemId)}/Images/Thumb?maxWidth=960&quality=90"
+                "Items/${encodePathSegment(itemId)}/Images/Thumb?maxWidth=$DEFAULT_THUMB_MAX_WIDTH&quality=$ARTWORK_QUALITY"
             } else {
-                "Items/${encodePathSegment(itemId)}/Images/Primary?maxHeight=720&quality=90"
+                "Items/${encodePathSegment(itemId)}/Images/Primary?maxWidth=$DEFAULT_PRIMARY_MAX_WIDTH&quality=$ARTWORK_QUALITY"
             } + tagParameter(tag),
         )
 
@@ -1000,6 +1001,10 @@ class MediaServerClient(
     }
 
     private companion object {
+        const val ARTWORK_QUALITY = 88
+        const val DEFAULT_LOGO_MAX_WIDTH = 420
+        const val DEFAULT_THUMB_MAX_WIDTH = 720
+        const val DEFAULT_PRIMARY_MAX_WIDTH = 540
         const val LATEST_ITEM_LIMIT = 12
         const val RESUME_ITEM_LIMIT = 12
         const val LIBRARY_PEEK_LIMIT = 14

@@ -47,7 +47,6 @@
     <string name="flow_detail_named">Vis detaljer for %1$s</string>
     <string name="flow_film">Film</string>
     <string name="flow_season_numbers">Sesong %1$s</string>
-    <string name="flow_watch_only">Bare varsel</string>
     <string name="flow_notify_on_title">Varsel på for %1$s</string>
     <string name="flow_notify_off_title">Varsel av for %1$s</string>
     <string name="flow_watching_note">Følger bibliotekstatus i Seerr. Ingen ny forespørsel.</string>
@@ -97,4 +96,19 @@
         <item quantity="one">Send forespørsel · %1$d sesong</item>
         <item quantity="other">Send forespørsel · %1$d sesonger</item>
     </plurals>
+    <string name="flow_status_blocked_admin">Tittelen er blokkert av administratoren.</string>
+    <string name="flow_status_no_seasons">Seerr ga ingen sesonger. Prøv igjen senere.</string>
+    <string name="flow_status_movie_already">Filmen er allerede forespurt eller i biblioteket.</string>
+    <string name="flow_notify_season_on">Varsel på for sesong %1$d · ingen ny forespørsel</string>
+    <string name="flow_notify_season_off">Varsel av for sesong %1$d</string>
+    <string name="flow_unfollowed_season">Sluttet å følge sesongen</string>
+    <string name="flow_withdrawn_request">Forespørselen er trukket tilbake</string>
+    <string name="flow_local_status_title">Lagt til lokalt</string>
+    <string name="flow_local_status_desc">Dette er en forhåndsvisning. Ingenting er sendt til Seerr.</string>
+    <string name="flow_local_snackbar">Tittelen er lagt til lokalt · koble til Seerr for å sende den videre</string>
+    <string name="flow_login_as_yourself_snackbar">Logg inn med Jellyfin-kontoen din i Seerr for å sende som deg selv.</string>
+    <string name="flow_sent_as_title">Sendt som %1$s</string>
+    <string name="flow_sent_as_desc">Forespørselen er registrert på Seerr-kontoen din. Oppdatert status kommer ved neste synkronisering.</string>
+    <string name="flow_just_now">Akkurat nå</string>
+    <string name="flow_sent_to_seerr_as">Sendt til Seerr som %1$s</string>
 </resources>

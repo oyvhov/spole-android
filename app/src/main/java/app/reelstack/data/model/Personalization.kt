@@ -99,7 +99,7 @@ data class Personalization(
     val showHero: Boolean = true,
     val showRatings: Boolean = true,
     val showQuality: Boolean = true,
-    val slowStartup: Boolean = true,
+    val slowStartup: Boolean = false,
     val visualTheme: VisualTheme = VisualTheme.FOREST,
     val artworkCorners: ArtworkCorners = ArtworkCorners.SOFT,
     val focusStyle: FocusStyle = FocusStyle.WHITE,

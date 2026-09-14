@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.0-beta02 · Førebuing, raskare oppstart og betre pålitelegheit
+
+- Oppstartar og startskjerm er justert for mindre hopp på TV og telefon.
+- Biletbehandlinga på TV er betre ved rask scroll med større cache og tydelegare prioritering.
+- Quick Connect/oppstarts- og feilmeldingsflyten er meir robust, med klarare tekstar i fleire språkfall.
+- Felles katalogvising er standardisert (utan hardkoda ekskludering av barnebibliotek i startfelt).
+- Demo-opplegget er halde oppdatert i same spor for raskare visuell gjennomgang.
+- Oppgraderingsflyten frå tidlegare utgåver er testa for `app.reelstack`-appen med høgare versjonsnummer.
+
 ## 0.16.0-beta01 · Tilgjengeleg beta med språk, menypolar og meir UI-forbetring
 
 - Heime-radane kan no rekkjefølgjast sjølv frå **Innstillingar → Heim** og blir hugsaste på tvers av økter.

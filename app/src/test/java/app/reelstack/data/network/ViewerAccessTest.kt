@@ -101,11 +101,11 @@ class ViewerAccessTest {
         assertTrue(runCatching { SeerrServiceClient(transport).request(connection.copy(kind = ServiceKind.SEERR, sessionCookie = true), "movie", 1, "7") }.isFailure)
         assertEquals(0, transport.writes)
     }
-    @Test fun excludesOnlyNamedChildSeriesLibraries() {
-        assertTrue(isExcludedHomeLibrary("Barneserier"))
-        assertTrue(isExcludedHomeLibrary(" BARNE-SERIAR "))
-        assertTrue(isExcludedHomeLibrary("Barne-TV"))
-        assertTrue(isExcludedHomeLibrary("Barne-Tv Serier"))
+    @Test fun noLibraryExcludedByNameByDefault() {
+        assertFalse(isExcludedHomeLibrary("Barneserier"))
+        assertFalse(isExcludedHomeLibrary(" BARNE-SERIAR "))
+        assertFalse(isExcludedHomeLibrary("Barne-TV"))
+        assertFalse(isExcludedHomeLibrary("Barne-Tv Serier"))
         assertFalse(isExcludedHomeLibrary("Barnefilmar"))
         assertFalse(isExcludedHomeLibrary("Seriar"))
     }
@@ -116,7 +116,7 @@ class ViewerAccessTest {
         } }
         val access = ViewerAccess(true, mapOf(ServiceKind.SEERR to seerr, ServiceKind.JELLYFIN to media))
         // Session errors are independent of the library selection.
-        val feed = MediaServerClient(transport).feed(connection, access)
+        val feed = MediaServerClient(transport, includeLibrary = { _, view -> view.id != "kids" }).feed(connection, access)
         assertTrue(feed.recentSeries.isEmpty())
         assertFalse(transport.urls.any { it.contains("Items/Latest") })
     }

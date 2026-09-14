@@ -1,6 +1,7 @@
 package app.reelstack
 
 import android.app.Application
+import android.content.res.Configuration
 import okio.Path.Companion.toOkioPath
 import app.reelstack.background.BackgroundRefreshScheduler
 import app.reelstack.diagnostics.CrashReporter
@@ -15,25 +16,24 @@ class ReelstackApplication : Application(), coil3.SingletonImageLoader.Factory {
     /**
      * One tuned image loader instead of the library's defaults.
      *
-     * Two things matter on a television. The first is the memory cache: a wall of covers is the
-     * whole screen, and re-decoding a poster because it fell out of a small cache is the stutter
-     * people feel when they scroll back up. The second is that Spole now puts Jellyfin's own
-     * content tag in every artwork address, so the URL *is* the content hash — a replaced poster
-     * gets a different address. That makes the server's cache headers irrelevant and lets the disk
-     * cache keep a picture for as long as there is room, rather than revalidating it over the
-     * network every time a list scrolls past.
+     * On TV, fast card navigation stresses both decode and network. A larger memory cache keeps
+     * recently used covers warm, a larger shared disk cache avoids re-fetching, and cache-control
+     * keeps reused images local when the server allows it.
      */
     override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader =
         coil3.ImageLoader.Builder(context)
             .memoryCache {
                 coil3.memory.MemoryCache.Builder()
-                    .maxSizePercent(context, 0.30)
+                    .maxSizePercent(
+                        context,
+                        if (context.resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK == Configuration.UI_MODE_TYPE_TELEVISION) 0.40 else 0.30,
+                    )
                     .build()
             }
             .diskCache {
                 coil3.disk.DiskCache.Builder()
-                    .directory(cacheDir.resolve("artwork").toOkioPath())
-                    .maxSizeBytes(192L * 1024 * 1024)
+                    .directory(cacheDir.resolve("coil3_image_cache").toOkioPath())
+                    .maxSizeBytes(256L * 1024 * 1024)
                     .build()
             }
             .components {

@@ -50,7 +50,7 @@ class AppPreferencesRepository(context: Context) {
             showHero = preferences.getBoolean("show_hero", true),
             showRatings = preferences.getBoolean("show_ratings", true),
             showQuality = preferences.getBoolean("show_quality", true),
-            slowStartup = preferences.getBoolean("slow_startup", true),
+            slowStartup = preferences.getBoolean("slow_startup", false),
             visualTheme = app.reelstack.data.model.VisualTheme.decode(preferences.getString("visual_theme", null)),
             artworkCorners = app.reelstack.data.model.ArtworkCorners.decode(preferences.getString("artwork_corners", null)),
             focusStyle = app.reelstack.data.model.FocusStyle.decode(preferences.getString("focus_style", null), television),
@@ -128,7 +128,7 @@ class AppPreferencesRepository(context: Context) {
 
     fun includesLibrary(connection: app.reelstack.data.model.ServiceConnection,
         view: app.reelstack.data.network.RemoteLibraryView): Boolean =
-        selectedLibraryIds(connection)?.contains(view.id) ?: !app.reelstack.data.model.isExcludedHomeLibrary(view.name)
+        selectedLibraryIds(connection)?.contains(view.id) ?: true
 
     fun librarySelectionFingerprint(connections: List<app.reelstack.data.model.ServiceConnection>): String =
         connections.filter { it.kind == app.reelstack.data.model.ServiceKind.JELLYFIN }.sortedBy { it.identity }

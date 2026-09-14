@@ -191,7 +191,7 @@ class ServiceClientsTest {
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
         assertEquals(
-            "https://media.example.com/Items/movie-1/Images/Primary?maxHeight=720&quality=90",
+            "https://media.example.com/Items/movie-1/Images/Primary?maxWidth=540&quality=88",
             feed.recentMovies.single().artworkUrl,
         )
         assertFalse(feed.recentMovies.single().artworkUrl.orEmpty().contains("secret"))
@@ -203,7 +203,7 @@ class ServiceClientsTest {
         assertEquals(
             // The tag is part of the address on purpose: it is Jellyfin's content hash, so a
             // replaced image gets a new URL and the cached copy stops being served.
-            "https://media.example.com/Items/episode-1/Images/Thumb?maxWidth=960&quality=90&tag=wide-tag",
+            "https://media.example.com/Items/episode-1/Images/Thumb?maxWidth=720&quality=88&tag=wide-tag",
             feed.recentSeries.single().artworkUrl,
         )
         assertTrue(transport.headers.all { it["Authorization"].orEmpty().contains("Token=\"secret\"") })
@@ -226,7 +226,7 @@ class ServiceClientsTest {
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
         assertEquals(
-            "https://media.example.com/Items/movie-1/Images/Primary?maxHeight=720&quality=90",
+            "https://media.example.com/Items/movie-1/Images/Primary?maxWidth=540&quality=88",
             feed.recentMovies.single().artworkUrl,
         )
         assertTrue(transport.urls[1].contains("Users/emby-user/Views?"))
@@ -265,7 +265,7 @@ class ServiceClientsTest {
             ),
         )
 
-        val feed = MediaServerClient(transport).feed(connection(ServiceKind.EMBY, "server-api-key"), adminAccess)
+        val feed = MediaServerClient(transport, includeLibrary = { _, view -> view.id != "series-kids" }).feed(connection(ServiceKind.EMBY, "server-api-key"), adminAccess)
 
         assertEquals(listOf("The Odyssey", "Curious George", "Mickey 17"), feed.recentMovies.map { it.title })
         assertEquals(listOf("Foundation"), feed.recentSeries.map { it.title })
@@ -465,7 +465,7 @@ class ServiceClientsTest {
         val client = MediaServerClient(RecordingTransport())
         val connection = connection(ServiceKind.JELLYFIN, "secret")
         assertEquals(
-            "https://media.example.com/Items/item%2042/Images/Logo?maxWidth=800&quality=90",
+            "https://media.example.com/Items/item%2042/Images/Logo?maxWidth=420&quality=88",
             client.logoUrl(connection, "item 42"),
         )
     }
