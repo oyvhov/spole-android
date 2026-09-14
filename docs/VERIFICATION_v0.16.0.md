@@ -18,4 +18,10 @@ Dei nye oppdateringane og filtreringa ved fjerning av tenester er i felles datal
 
 ## Publiseringskontroll
 
-APK, SHA256SUMS, R8-mapping og SOURCE_COMMIT skal følgje same release. Offentleg digest, nedlasting og oppdateringsflyt blir dokumenterte etter publisering utan å flytte release-taggen.
+Publisert som ordinær, offentleg release `v0.16.0`, med éin APK, SHA256SUMS, R8-mapping og SOURCE_COMMIT. Taggen peikar på `8c6fd0a`. Main er oppdatert.
+
+- APK: `Spole-v0.16.0.apk`, 11 650 290 byte.
+- SHA-256: `33bc91c68dd871d48f6fa55d6aaab452eb76df2f529651b2f95ef1e52449f232`.
+- GitHub-digest kontrollert før publisering. Metadata henta utan autorisasjon etter publisering; draft=false og prerelease=false. Offentleg nedlasting har same SHA-256.
+- Den lagra mobilprofilen 5560 starta Android, men eksponerte ikkje produksjonspakka eller ekstern lagring. Ingen data vart sletta eller erstatta. Oppdatering med ekte mobilkontoar kunne difor ikkje gjennomførast.
+- I staden vart publisert beta09 installert på isolert test-TV 5566. Via appen: Sjekk no fann 0.16.0, nedlasting og kontroll fullførte, Android sitt installasjonsløyve vart gitt til produksjonsappen og installasjonsdialogen godkjend. Installert versjon er kontrollert til 0.16.0 / 78. Denne testen brukar demo og dokumenterer nedlastings-/installasjonsflyten, ikkje ekte kontobevaring; den siste er kontrollert separat på TV-profil 5564.
