@@ -12,4 +12,10 @@ Versjonskode 79, produksjonspakke `app.reelstack`. Ordinær utgåve frå `main`.
 - Release-pakken er kontrollert som `app.reelstack`, versjonskode 79, versjon 0.16.1.
 - Signaturen er det eksisterande Spole-sertifikatet: `36fa94f03494f326053bdcc3d7253994950652d282e6db681cc33270b5f51a10`.
 
-APK-storleik, SHA-256, kjeldecommit og kontroll av offentleg GitHub-nedlasting blir lagt inn etter publisering.
+APK-storleik: 11 650 438 byte.
+
+SHA-256: `6ae238a38b05f542ee430177327ff3988e00adc034016f2e80c93e52f11d1590`.
+
+Kjeldecommit for pakken: `8bf5c01df34d58a06bafdbf2d6e08c8399034be7`.
+
+Den stabile GitHub-utgåva vart publisert som `v0.16.1`. APK-en vart lasta ned frå den offentlege utgåve-URL-en og fekk same SHA-256 som den lokale pakken.
