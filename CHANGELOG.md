@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.1 · Stabil Quick Connect og trygg bildeinnlasting
+
+- Ventar lenger på at Seerr skal registrere Jellyfin-godkjenninga, utan å lage ny kode.
+- Godkjenning på siste tillatne kontroll blir no alltid teken vare på.
+- Bevarer Jellyfin-innlogginga dersom Seerr er treg eller mellombels utilgjengeleg.
+- Ber uttrykkeleg om brei episodekunst og skjuler berre gamle, feil serieposterar frå cachen.
+
 ## 0.16.0 · Sjølvstendig mediebibliotek og betre detaljar
 
 - Jellyfin og Emby held på sitt eige bibliotek når Seerr er nede; ingen utvida adminrettar ved bortfall.
