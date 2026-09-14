@@ -656,8 +656,10 @@ class MediaServerClient(
             "Items?userId=$user&ParentId=${encodePathSegment(seasonId)}&IncludeItemTypes=Episode" +
                 "&SortBy=ParentIndexNumber,IndexNumber&SortOrder=Ascending$fields",
         ).forEach { path ->
-            val items = runCatching { getItems(connection, listOf(path)) }.getOrDefault(emptyList())
-            if (items.isNotEmpty()) return items
+            val items = runCatching { getItems(connection, listOf(path), preferEpisodeStill = true) }.getOrDefault(emptyList())
+            if (items.isNotEmpty()) return items.sortedWith(compareBy(
+                { it.season ?: Int.MAX_VALUE }, { it.episode ?: Int.MAX_VALUE }, { it.id },
+            ))
         }
         return emptyList()
     }
@@ -811,6 +813,14 @@ class MediaServerClient(
         last?.requireSuccess(connection.kind)
     }
 
+    fun personTitles(connection: ServiceConnection, personId: String): List<RemoteLibraryItem> {
+        require(personId.isNotBlank())
+        val user = encodePathSegment(requireNotNull(ownUserId(connection)))
+        return getItems(connection, listOf("Users/$user/Items?PersonIds=${encodePathSegment(personId)}" +
+            "&Recursive=true&IncludeItemTypes=Movie,Series&SortBy=SortName&SortOrder=Ascending&Limit=60" +
+            "&EnableUserData=true&Fields=Overview&EnableImages=true&ImageTypeLimit=1"))
+    }
+
     fun details(connection: ServiceConnection, itemId: String): RemoteMediaDetails {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
         val encodedItemId = encodePathSegment(itemId)
@@ -894,7 +904,7 @@ class MediaServerClient(
         return interleave(successfulGroups).distinctBy(RemoteLibraryItem::id).take(LATEST_ITEM_LIMIT)
     }
 
-    private fun getItems(connection: ServiceConnection, paths: List<String>): List<RemoteLibraryItem> {
+    private fun getItems(connection: ServiceConnection, paths: List<String>, preferEpisodeStill: Boolean = false): List<RemoteLibraryItem> {
         require(paths.isNotEmpty()) { "Dette biblioteket krev ein profil-ID" }
         var lastResponse: HttpResponse? = null
         var authenticationFailure: HttpResponse? = null
@@ -905,7 +915,7 @@ class MediaServerClient(
             )
             lastResponse = response
             when (response.statusCode) {
-                in 200..299 -> return ServicePayloadParser.libraryItems(response.body).map { item ->
+                in 200..299 -> return ServicePayloadParser.libraryItems(response.body, preferEpisodeStill).map { item ->
                     item.copy(
                         artworkUrl = item.artworkItemId?.let {
                             artworkUrl(connection, it, item.artworkImageType, item.artworkTag)

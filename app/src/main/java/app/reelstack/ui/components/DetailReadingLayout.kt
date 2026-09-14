@@ -26,7 +26,7 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
                     Row(Modifier.fillMaxWidth().testTag("tv-series-header"),
                         horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) { heading() }
-                        Box(Modifier.fillMaxWidth(.38f).testTag("tv-detail-artwork")) { artwork() }
+                        Box(Modifier.fillMaxWidth(.30f).testTag("tv-detail-artwork")) { artwork() }
                     }
                     content()
                     Spacer(Modifier.height(32.dp))

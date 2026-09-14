@@ -4,6 +4,8 @@ The app's global administrator experience requires the ADMIN bit from Seerr's fr
 
 ## Data boundaries
 
+Frå 0.16.0: Ei stadfesta personleg Jellyfin-/Emby-innlogging gir framleis tilgang til eige bibliotek og eigne økter når Seerr er nede. Manglande Seerr-profil gir aldri adminvising eller andre brukarar sine økter. Når begge profilar er tilgjengelege, blir kjende identitetskonfliktar framleis avviste. Manglande medieprofil gir ikkje tilgang på grunnlag av eit namn eller ein gjetta brukar-ID.
+
 - Jellyfin/Emby identities come from `/Users/Me`, not a connection name or manually entered profile ID. Sessions are filtered by exact `UserId` before mapping artwork or rendering. Equal display names never establish ownership.
 - A linked Seerr Jellyfin ID must match the Jellyfin identity for a non-administrator. A shared media-admin account cannot stand in for a different ordinary user. If the necessary identity cannot be verified, sessions are empty.
 - Verified Seerr administrators can obtain the server's session overview through an administrator media connection or a server API key. The media server still determines what its credential permits.

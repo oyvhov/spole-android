@@ -147,6 +147,16 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
             browse.episodes.isEmpty() -> Text(stringResource(R.string.detail_no_episodes), color = Muted,
                 style = MaterialTheme.typography.bodyMedium)
             else -> {
+                if (tv) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(4.dp)) {
+                        items(browse.episodes, key = { it.id }) { episode ->
+                            Box(Modifier.width(260.dp).then(if (episode.id == browse.episodes.first().id)
+                                Modifier.focusRequester(firstEpisode) else Modifier)) {
+                                TvEpisodeCard(episode, episode.id == detailKey)
+                            }
+                        }
+                    }
+                } else {
                 // The list lives inside a scrolling column, so every row it holds is composed
                 // whether or not anyone can see it. Twenty-six is a long season; two hundred is a
                 // long-running anime, and composing two hundred rows to show six is what turns a
@@ -167,12 +177,40 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
                         tag = "episodes-more",
                     ) { showAll = true }
                 }
+                }
             }
         }
     }
 }
 
 private const val EPISODE_PREVIEW = 12
+
+@Composable
+private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean) {
+    val context = LocalContext.current
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(12.dp)
+    Column(Modifier.fillMaxWidth().clip(shape).focusOutline(interaction, shape)
+        .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
+            enabled = !episode.remoteId.isNullOrBlank() && episode.source == ServiceKind.JELLYFIN,
+            role = Role.Button) { app.reelstack.player.JellyfinPlayerActivity.open(context, episode.remoteId!!) }
+        .padding(6.dp).testTag("episode-${episode.remoteId}"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
+            MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), episode.artworkRes, source = episode.source)
+            if (episode.played) Icon(SpoleIcons.Done, stringResource(R.string.library_played_unmark),
+                Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.Black.copy(alpha = .7f), RoundedCornerShape(8.dp)).padding(4.dp), tint = Color.White)
+            episode.progress?.takeIf { it > 0f }?.let { progress ->
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress.coerceIn(0f, 1f)).height(3.dp).background(Primary))
+            }
+        }
+        val name = episodeName(episode)
+        val numberLabel = episode.episode?.let { stringResource(R.string.episode_number, it) }
+        Text(if (name.equals(numberLabel, true)) name else listOfNotNull(episode.episode?.toString(), name).joinToString(" · "),
+            style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            color = if (current) PrimarySoft else MaterialTheme.colorScheme.onSurface)
+        episode.runtimeMinutes?.let { Text(stringResource(R.string.detail_minutes, it), color = Muted, style = MaterialTheme.typography.labelMedium) }
+    }
+}
 
 /** "Sesong 2 · 8 episodar" when the count is known, otherwise the server's own name. */
 @Composable

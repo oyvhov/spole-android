@@ -1,0 +1,5 @@
+<resources>
+    <string name="person_no_titles">No other movies or series found in your library</string>
+    <string name="detail_backdrop">Background artwork</string>
+    <string name="detail_backdrop_hint">Use movie and series art on detail pages</string>
+</resources>

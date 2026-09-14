@@ -166,6 +166,8 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
     val television = isTelevision()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (Season.of(value) == Season.NONE) ThemePreview(value) else SeasonalThemeBanner(options = value)
+        SettingsToggleRow(stringResource(R.string.detail_backdrop), stringResource(R.string.detail_backdrop_hint),
+            value.detailBackdrop, "detail-backdrop") { onChange(value.copy(detailBackdrop = it)) }
         // A season is a pairing, not a background: red on a red ground is not Christmas, it is a
         // warning. This row sets the mood and the accent together, and the two rows under it still
         // let anyone pull them apart again.

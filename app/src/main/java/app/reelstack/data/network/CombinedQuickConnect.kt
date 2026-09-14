@@ -23,16 +23,16 @@ internal suspend fun connectSeerrWithJellyfin(
     var challenge = seerrClient.initiateQuickConnect(seerrUrl)
     coroutineContext.ensureActive()
     // Prove the full secret belongs to this server before authorizing a short numeric code.
-    val localChallenge = jellyfinClient.quickConnectState(jellyfin.baseUrl, challenge.secret)
+    val localChallenge = retryQuickConnectRead { jellyfinClient.quickConnectState(jellyfin.baseUrl, challenge.secret) }
     check(localChallenge.secret == challenge.secret && localChallenge.code == challenge.code) {
         "Seerr er ikkje kopla til denne Jellyfin-tenaren."
     }
     coroutineContext.ensureActive()
     jellyfinClient.authorizeQuickConnect(jellyfin.baseUrl, jellyfin.token, challenge.code)
     var polls = 0
-    while (!challenge.authenticated && polls++ < 10) {
+    while (!challenge.authenticated && polls++ < 30) {
         coroutineContext.ensureActive()
-        challenge = seerrClient.quickConnectState(seerrUrl, challenge)
+        challenge = retryQuickConnectRead { seerrClient.quickConnectState(seerrUrl, challenge) }
         if (!challenge.authenticated) pause()
     }
     check(challenge.authenticated) { "Seerr vart ikkje klar. Prøv igjen." }

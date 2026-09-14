@@ -60,7 +60,7 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
         // Let the initial frame settle before we lift the cover.
         // The ViewModel has already started its network refresh independently of this UI.
         withFrameNanos { }
-        awaitContentReady()
+        withTimeoutOrNull(220) { awaitContentReady() }
         opening = false
     }
     val coverVisible by remember { derivedStateOf { opening } }

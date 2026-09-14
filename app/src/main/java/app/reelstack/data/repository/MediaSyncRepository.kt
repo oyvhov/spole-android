@@ -65,6 +65,15 @@ data class MediaSyncSnapshot(
     val recentReleasesError: String? = null,
 )
 
+data class LibraryFeedUpdate(
+    val source: ServiceKind,
+    val resume: List<LibraryMedia>,
+    val nextUp: List<LibraryMedia>,
+    val recentMovies: List<LibraryMedia>,
+    val recentSeries: List<LibraryMedia>,
+    val favourites: List<LibraryMedia>,
+)
+
 class MediaSyncRepository(
     private val mediaServerClient: MediaServerClient = MediaServerClient(),
     private val queueServiceClient: QueueServiceClient = QueueServiceClient(),
@@ -96,14 +105,46 @@ class MediaSyncRepository(
          * note would be describing something the app does not do.
          */
         includeRecommendations: Boolean = true,
+        onLibraryReady: (LibraryFeedUpdate) -> Unit = {},
     ): MediaSyncSnapshot = supervisorScope {
         val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
-        val identities = configured.filter { it.kind in setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY) }
-            .map { connection -> async { runCatching { accountProfileClient.load(connection) }.getOrNull()?.let { connection.kind to it } } }
-            .mapNotNull { it.await() }.toMap()
+        val profileJobs = configured.filter { it.kind in setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY) }
+            .associate { connection -> connection.kind to async(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { accountProfileClient.load(connection) }.getOrNull()
+            } }
+        val mediaJobs = configured.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }
+            .associate { connection -> connection.kind to async(kotlinx.coroutines.Dispatchers.IO) {
+                val profile = profileJobs[connection.kind]?.await()
+                val seerr = profileJobs[ServiceKind.SEERR]?.takeIf { it.isCompleted }?.await()
+                val ownAccess = ViewerAccess(true, buildMap {
+                    profile?.let { put(connection.kind, it) }
+                    seerr?.let { put(ServiceKind.SEERR, it) }
+                })
+                val result = fetchWithFailover(connection, ownAccess)
+                val feed = (result.first.getOrNull() as? ServicePayload.Media)?.feed
+                if (profile != null && feed != null) {
+                    fun mapped(items: List<RemoteLibraryItem>) = items.map { libraryMedia(it, connection.kind) }
+                    onLibraryReady(LibraryFeedUpdate(connection.kind, mapped(feed.resume), mapped(feed.nextUp), mapped(feed.recentMovies),
+                        mapped(feed.recentSeries), mapped(feed.favourites)))
+                }
+                result
+            } }
+        val identities = profileJobs.mapNotNull { (kind, job) -> job.await()?.let { kind to it } }.toMap()
         val access = ViewerAccess(configured.any { it.kind == ServiceKind.SEERR }, identities)
         val deferred = configured.map { connection ->
-            async { connection.kind to fetchWithFailover(connection, access) }
+            async {
+                val mediaJob = mediaJobs[connection.kind]
+                val result = if (mediaJob == null) fetchWithFailover(connection, access) else {
+                    val early = mediaJob.await()
+                    if (access.ownMediaUser(connection.kind) == null) fetchWithFailover(connection, access)
+                    else if (access.canSeeAllSessions(connection.kind)) {
+                        val payload = early.first.getOrNull() as? ServicePayload.Media
+                        if (payload == null) early else Result.success<ServicePayload>(payload.copy(feed = payload.feed.copy(
+                            sessions = runCatching { mediaServerClient.sessions(connection, access) }.getOrDefault(payload.feed.sessions)))) to early.second
+                    } else early
+                }
+                connection.kind to result
+            }
         }
         val awaited = deferred.map { it.await() }
         val switchedToAlternate = awaited.filter { it.second.second }.mapTo(mutableSetOf()) { it.first }
@@ -120,7 +161,7 @@ class MediaSyncRepository(
         }.toMap()
         val queuePayloads = payloads.filterIsInstance<ServicePayload.Queue>()
         val queue = queuePayloads.flatMap { it.feed.queue }
-        val catalogueResult = configured.firstOrNull { it.kind == ServiceKind.SEERR }?.let { connection ->
+        val catalogueResult = configured.firstOrNull { it.kind == ServiceKind.SEERR && it.kind in successful }?.let { connection ->
             try { Result.success(seerrReleaseClient.feed(connection, mediaPayloads.flatMap { payload ->
                 payload.feed.releaseCandidates.map { app.reelstack.data.network.LibraryReleaseCandidate(it, payload.kind) }
             })) }
@@ -145,7 +186,7 @@ class MediaSyncRepository(
         // The public recommendation feed deliberately contains no private Seerr state. Resolve
         // that state during refresh instead of waiting for a tap on the card. This means Home can
         // truthfully label a title as available/requested before the detail sheet opens.
-        val seerrConnection = configured.firstOrNull { it.kind == ServiceKind.SEERR }
+        val seerrConnection = configured.firstOrNull { it.kind == ServiceKind.SEERR && it.kind in successful }
         val recommendations = if (seerrConnection != null) {
             recommendationSeed.mapIndexed { index, recommendation ->
                 async {
@@ -327,6 +368,9 @@ class MediaSyncRepository(
             requireNotNull(media.mediaType) { "Medietypen manglar" },
             requireNotNull(media.remoteId) { "Medie-ID-en manglar" },
         )
+
+    fun personTitles(connection: ServiceConnection, personId: String): List<LibraryMedia> =
+        mediaServerClient.personTitles(connection, personId).map { libraryMedia(it, connection.kind) }
 
     fun details(connection: ServiceConnection, media: LibraryMedia): RemoteMediaDetails =
         mediaServerClient.details(

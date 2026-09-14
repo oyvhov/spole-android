@@ -133,7 +133,12 @@ class CombinedSetupUiTest {
                 simpleSetup = true, quickConnectWaiting = true, quickConnectCode = "123456"), {}, {}, {}, { cancelled++ })
             }
         } } }
-        rule.onNodeWithTag("setup-code").performScrollTo().assertTextEquals("123456")
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val tv = context.getSystemService(android.app.UiModeManager::class.java).currentModeType ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+        rule.onNodeWithTag(if (tv) "tv-quick-code" else "setup-code").performScrollTo().assertTextEquals("123  456")
+        rule.onNodeWithText(context.getString(app.reelstack.R.string.quick_copy)).performScrollTo().performClick()
+        rule.onNodeWithText(context.getString(app.reelstack.R.string.quick_copied)).assertIsDisplayed()
         rule.onNodeWithTag("setup-start").assertDoesNotExist()
         capture("setup-code-large")
         rule.onNodeWithTag("setup-cancel").performScrollTo().performClick()

@@ -158,6 +158,8 @@ fun ReelstackSheets(
     onPlayed: (String, Boolean) -> Unit = { _, _ -> },
     onSeason: (String) -> Unit = {},
     onCancelConnection: () -> Unit = {},
+    onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
+    onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     val sheetContentStates = rememberSaveableStateHolder()
@@ -189,7 +191,8 @@ fun ReelstackSheets(
                     androidx.compose.runtime.key(details.key) {
                         RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
                             onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered,
-                            onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason)
+                            onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason,
+                            onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle)
                     }
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
@@ -251,7 +254,9 @@ private fun DetailSheetSkeleton() {
 @Composable
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
     scroll: ScrollState, entered: Boolean, onFavourite: (String, Boolean) -> Unit = { _, _ -> },
-    onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {}) {
+    onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {},
+    onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
+    onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {}) {
     val details = state.contentDetails ?: return
     // Freeze the opening artwork and title. Late metadata must not replace or resize the hero.
     val opening = remember(details.key) { details }
@@ -285,7 +290,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (details.cast.isNotEmpty()) {
             Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 18.dp, bottom = 12.dp))
-            app.reelstack.ui.components.CastRail(details.cast, details.source)
+            app.reelstack.ui.components.CastRail(details.cast, details.source, onPersonTitles, onPersonTitle)
         }
     }
     val aside: @Composable () -> Unit = {
@@ -308,12 +313,18 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }.focusGroup())
     }
     val tvHeading: @Composable () -> Unit = {
-        opening.source?.let { Text(it.displayName, color = Muted, style = MaterialTheme.typography.labelLarge) }
         Text(opening.title, color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 10.dp).testTag("detail-title"))
-        if (!isSeries) Text(app.reelstack.ui.components.episodeLine(opening.season, opening.episode, opening.subtitle),
+            style = MaterialTheme.typography.headlineMedium, modifier = Modifier.testTag("detail-title"))
+        if (!isSeries) Text(app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
             color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp))
         if (wideDetail && ready) { aside(); actions() }
+    }
+    Box(Modifier.fillMaxSize()) {
+    val artOptions = app.reelstack.ui.theme.LocalPersonalization.current
+    if (artOptions.detailBackdrop && !artOptions.highContrast && !artOptions.lightweightTv && details.backdropUrl != null) {
+        MediaArtwork(details.backdropUrl, null, Modifier.matchParentSize().graphicsLayer { alpha = .22f },
+            fallbackRes = opening.artworkRes, contentScale = ContentScale.Crop, source = details.source)
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Ink.copy(alpha = .35f), Ink))))
     }
     app.reelstack.ui.components.DetailReadingLayout(tv, scroll, series = wideDetail, heading = tvHeading, artwork = {
         Column {
@@ -334,7 +345,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 if (!tv && measured == null) MediaArtwork(opening.artworkUrl, null, Modifier.matchParentSize()
                         .blur(34.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
                         .graphicsLayer { alpha = .45f }, fallbackRes = opening.artworkRes, ContentScale.Crop, opening.source)
-                MediaArtwork(opening.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = opening.artworkRes, ContentScale.Fit, opening.source, onAspectRatio = { ratio -> measured = ratio.coerceIn(0.5f, 2.0f) })
+                MediaArtwork(if (tv && ready) details.artworkUrl else opening.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = opening.artworkRes, ContentScale.Fit, opening.source, onAspectRatio = { ratio -> measured = ratio.coerceIn(0.5f, 2.0f) })
             }
             if (ready && !tv) Box(Modifier.graphicsLayer { alpha = metadataAlpha }) { aside() }
         }
@@ -355,8 +366,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             CinematicTitleHero(
                 title = opening.title,
                 eyebrow = opening.eyebrow,
-                subtitle = app.reelstack.ui.components.episodeLine(opening.season, opening.episode, opening.subtitle),
-                artworkUrl = opening.artworkUrl,
+                subtitle = app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
+                artworkUrl = if (ready) details.artworkUrl ?: opening.artworkUrl else opening.artworkUrl,
                 artworkRes = opening.artworkRes,
                 source = opening.source,
                 portrait = mediaType == "Series",
@@ -375,7 +386,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
         if (tv && !wideDetail) aside()
         if (!tv || !wideDetail) actions()
-        if (tv) synopsis()
+        if (tv && !wideDetail) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
         if (tv) TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
         if (details.title != opening.title) {
@@ -384,12 +395,15 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
         // A series is not one file, so it has no tracks and no version to pick. What it has is
         // seasons, and that is the whole point of the page.
-        if (!isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
+        if (!isSeries && !tv) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
             { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
         // An episode gets the same list, opened on the season it belongs to. The rest of the
         // season is the thing a reader on an episode page actually wants next, and it is what
         // used to leave the lower half of a television screen empty.
         SeriesEpisodes(state.seriesBrowse, details.key, onSeason)
+        if (tv && wideDetail) synopsis()
+        if (tv && !isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
+            { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
         // TV has already shown these alongside its smaller poster.
         if (!tv) { aside(); synopsis() }
         details.statusTitle?.takeUnless { details.libraryAvailable && details.source == ServiceKind.JELLYFIN }?.let { title ->
@@ -445,6 +459,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }
         }
         }
+    }
     }
 }
 
@@ -563,6 +578,7 @@ private fun SourceMark(kind: ServiceKind, modifier: Modifier = Modifier) {
  */
 @Composable
 private fun DetailEyebrow(eyebrow: String, source: ServiceKind?, modifier: Modifier = Modifier) {
+    if (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY) return
     val label = eyebrow.takeIf(String::isNotBlank) ?: source?.displayName ?: return
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         source?.let {
@@ -1496,7 +1512,7 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                         fontSize = if (television) 44.sp else 32.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 3.sp,
-                        modifier = Modifier.padding(top = 10.dp),
+                        modifier = Modifier.padding(top = 10.dp).testTag("setup-code"),
                     )
                     app.reelstack.ui.components.SpoleSecondaryButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true }) {
                         Text(stringResource(if (copied) R.string.quick_copied else R.string.quick_copy))

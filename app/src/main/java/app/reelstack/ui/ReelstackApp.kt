@@ -451,6 +451,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onFavourite = viewModel::setMediaFavourite,
         onPlayed = viewModel::setMediaPlayed,
         onSeason = viewModel::selectSeason,
+        onPersonTitles = viewModel::personTitles,
+        onPersonTitle = viewModel::openPersonTitle,
     )
     if (state.libraryChoicesOpen) app.reelstack.ui.screens.LibraryChoicesDialog(state,
         viewModel::closeLibraryChoices, viewModel::openLibraryChoices, viewModel::saveLibraryChoices)

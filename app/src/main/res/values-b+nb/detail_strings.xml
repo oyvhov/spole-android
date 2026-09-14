@@ -1,0 +1,5 @@
+<resources>
+    <string name="person_no_titles">Fant ingen andre filmer eller serier i biblioteket ditt</string>
+    <string name="detail_backdrop">Bakgrunnsbilder</string>
+    <string name="detail_backdrop_hint">Bruk film- og seriebilder på detaljsidene</string>
+</resources>

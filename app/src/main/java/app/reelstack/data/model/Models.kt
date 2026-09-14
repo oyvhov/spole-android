@@ -231,7 +231,7 @@ fun seerrStatusDescription(status: Int?, inLibrary: Boolean = false): String = w
     else -> "Tilgjenge og handlingar blir styrte av Seerr-kontoen din."
 }
 
-data class CastMember(val name: String, val role: String? = null, val portraitUrl: String? = null)
+data class CastMember(val name: String, val role: String? = null, val portraitUrl: String? = null, val remoteId: String? = null)
 
 data class ContentDetails(
     val key: String,
@@ -272,6 +272,7 @@ data class ContentDetails(
     val subtitleTracks: List<MediaTrack> = emptyList(),
     /** More than one file for the same title: a 4K and a 1080p cut, a director's edition. */
     val versions: List<MediaVersion> = emptyList(),
+    val backdropUrl: String? = null,
 )
 
 /** One playable file behind a title. The id is what playback has to be asked for. */

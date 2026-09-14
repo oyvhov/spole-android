@@ -83,7 +83,7 @@ class CombinedQuickConnectTest {
     @Test fun pollingIsBoundedAndNeverAuthenticatesAnUnapprovedChallenge() = runBlocking {
         val t = Transport(ready = false)
         assertTrue(runCatching { connect(t) }.isFailure)
-        assertEquals(10, t.calls.count { it.url.contains("/check?") })
+        assertEquals(30, t.calls.count { it.url.contains("/check?") })
         assertFalse(t.calls.any { it.url.endsWith("/authenticate") })
     }
 

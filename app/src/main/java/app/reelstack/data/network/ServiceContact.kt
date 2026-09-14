@@ -15,8 +15,8 @@ internal inline fun <T> contacting(service: String, block: () -> T): T = try {
     // Self-hosted servers often use a certificate Android does not trust. That is a different
     // problem from an unreachable server, and it needs a different next step.
     serviceError("Klarte ikkje å opprette ei trygg HTTPS-tilkopling til $service. Sjekk at sertifikatet på tenaren er gyldig og tiltrudd.")
-} catch (_: IOException) {
-    serviceError("Fekk ikkje kontakt med $service. Sjekk tenaradressa og nettet.")
+} catch (error: IOException) {
+    throw ServiceMessage("Fekk ikkje kontakt med $service. Sjekk tenaradressa og nettet.").apply { initCause(error) }
 }
 
 /** Parses a service response body, without putting the raw body or parser text in the message. */

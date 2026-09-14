@@ -611,6 +611,18 @@ class ReelstackViewModel(
         _uiState.update { it.copy(activeSheet = AppSheet.UpcomingCalendar, contentDetails = null, returnToCalendar = false) }
     }
 
+    suspend fun personTitles(person: app.reelstack.data.model.CastMember, source: ServiceKind): List<LibraryMedia> {
+        val connection = _uiState.value.connections.firstOrNull { it.kind == source && it.token.isNotBlank() }
+            ?: return emptyList()
+        val id = person.remoteId ?: return emptyList()
+        return withContext(Dispatchers.IO) { container.mediaSyncRepository.personTitles(connection, id) }
+    }
+
+    fun openPersonTitle(media: LibraryMedia) {
+        _uiState.update { it.copy(libraryDetailMedia = media) }
+        openLibraryDetails(media.id)
+    }
+
     fun openLibraryDetails(id: String) {
         val state = _uiState.value
         val media = (state.resume + state.nextUp + state.favourites + state.recentMovies + state.recentSeries + state.librarySearchResults + listOfNotNull(state.libraryDetailMedia))
@@ -651,6 +663,11 @@ class ReelstackViewModel(
             val result = attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
             }
+            result.getOrNull()?.let { remote ->
+                if (_uiState.value.contentDetails?.key == media.id && media.seriesId == null && remote.seriesId != null) {
+                    loadSeasons(connection, media.copy(seriesId = remote.seriesId, season = remote.season, episode = remote.episode))
+                }
+            }
             _uiState.update { current ->
                 val details = current.contentDetails?.takeIf { it.key == media.id } ?: return@update current
                 result.fold(
@@ -664,6 +681,9 @@ class ReelstackViewModel(
                                 },
                                 tagline = remote.tagline ?: details.tagline,
                                 cast = remote.cast,
+                                backdropUrl = remote.backdropUrl,
+                                season = remote.season ?: details.season,
+                                episode = remote.episode ?: details.episode,
                                 overview = remote.overview ?: details.overview,
                                 facts = (remote.facts + details.facts).distinct(),
                                 genres = (remote.genres + details.genres).distinct(),
@@ -756,7 +776,7 @@ class ReelstackViewModel(
         val browse = state.seriesBrowse
         if (browse.seriesId.isBlank() || browse.selectedSeasonId == seasonId && browse.episodes.isNotEmpty()) return
         val connection = state.connections.firstOrNull {
-            (it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY) && it.token.isNotBlank()
+            it.kind == state.contentDetails?.source && it.token.isNotBlank()
         } ?: return
         val seriesId = browse.seriesId
         episodesJob?.cancel()
@@ -769,7 +789,8 @@ class ReelstackViewModel(
             _uiState.update {
                 if (it.seriesBrowse.seriesId != seriesId || it.seriesBrowse.selectedSeasonId != seasonId) it
                 else it.copy(seriesBrowse = it.seriesBrowse.copy(
-                    episodes = loaded.getOrDefault(emptyList()), loading = false,
+                    episodes = app.reelstack.data.model.orderedSeasonEpisodes(loaded.getOrDefault(emptyList()),
+                        browse.seasons.firstOrNull { season -> season.remoteId == seasonId }?.episode), loading = false,
                     error = if (loaded.isFailure) container.appContext.getString(R.string.detail_episodes_failed) else null,
                 ))
             }
@@ -1605,6 +1626,17 @@ class ReelstackViewModel(
                     container.mediaSyncRepository.refresh(
                         connections = _uiState.value.connections,
                         includeRecommendations = HomeSection.RECOMMENDATIONS in _uiState.value.homeSections,
+                        onLibraryReady = { update ->
+                            _uiState.update { current ->
+                                if (container.mediaFingerprint(current.connections) != refreshFingerprint) current else {
+                                    fun replace(items: List<LibraryMedia>, fresh: List<LibraryMedia>) =
+                                        items.filterNot { it.source == update.source } + fresh
+                                    current.copy(resume = replace(current.resume, update.resume), nextUp = replace(current.nextUp, update.nextUp),
+                                        recentMovies = replace(current.recentMovies, update.recentMovies), recentSeries = replace(current.recentSeries, update.recentSeries),
+                                        favourites = replace(current.favourites, update.favourites), liveLibrary = true)
+                                }
+                            }
+                        },
                     )
                 }
                 if (snapshot.successfulServices.isNotEmpty()) {
@@ -2005,13 +2037,13 @@ class ReelstackViewModel(
 
                 delay(QUICK_CONNECT_POLL_INTERVAL_MS)
                 quickConnect = attempt {
-                    withContext(Dispatchers.IO) {
+                    app.reelstack.data.network.retryQuickConnectRead { withContext(Dispatchers.IO) {
                         if (draft.kind == ServiceKind.SEERR) container.seerrAuthenticationClient.quickConnectState(normalizedUrl, quickConnect)
                         else container.jellyfinAuthenticationClient.quickConnectState(
                             normalizedUrl,
                             quickConnect.secret,
                         )
-                    }
+                    } }
                 }.getOrElse { error ->
                     showQuickConnectFailure(draft.kind, error, appString(R.string.error_quick_connect_lost))
                     return@launch
@@ -2194,10 +2226,11 @@ class ReelstackViewModel(
                 sessions = emptyList(),
                 activity = emptyList(),
                 incoming = emptyList(),
-                resume = emptyList(),
-                nextUp = emptyList(),
-                recentMovies = emptyList(),
-                recentSeries = emptyList(),
+                resume = it.resume.filterNot { item -> item.source == kind },
+                nextUp = it.nextUp.filterNot { item -> item.source == kind },
+                favourites = it.favourites.filterNot { item -> item.source == kind },
+                recentMovies = it.recentMovies.filterNot { item -> item.source == kind },
+                recentSeries = it.recentSeries.filterNot { item -> item.source == kind },
                 upcoming = emptyList(),
                 recentReleases = emptyList(),
                 discover = emptyList(),

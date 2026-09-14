@@ -115,6 +115,8 @@ try {
     $linuxRoot = Require-Success (Invoke-Linux @('wslpath', '-a', '-u', $DataRoot)) 'Resolve AVD data path'
     [void](Require-Success (Invoke-Linux @('test', '-x', "$LinuxSdk/emulator/emulator")) 'Find Linux emulator')
     [void](Require-Success (Invoke-Linux @('test', '-x', "$LinuxSdk/platform-tools/adb")) 'Find Linux adb')
+    # WSL may not create root's runtime directory after a restart. Netsim needs it for hostapd.
+    [void](Require-Success (Invoke-Linux @('mkdir', '-p', '-m', '700', '/run/user/0')) 'Prepare emulator network runtime')
     $addresses = Require-Success (Invoke-Linux @('hostname', '-I')) 'Find WSL address'
     $script:adbHost = $addresses -split '\s+' | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' } | Select-Object -First 1
     if (!$script:adbHost) { throw 'No WSL IPv4 address found.' }

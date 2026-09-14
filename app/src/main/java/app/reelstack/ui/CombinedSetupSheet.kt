@@ -37,9 +37,10 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
     var setupLink by remember { mutableStateOf("") }
     var editingAddresses by remember(draft.setupImported) { mutableStateOf(!draft.setupImported) }
     val account = draft.authMode == ConnectionAuthMode.ACCOUNT
+    val television = app.reelstack.ui.components.isTelevision()
     LaunchedEffect(codeStep, draft.setupImported, editingAddresses) {
-        if (codeStep) action.requestFocus()
-        else if (draft.setupImported && !editingAddresses) startFocus.requestFocus()
+        if (television && codeStep) action.requestFocus()
+        else if (television && draft.setupImported && !editingAddresses) startFocus.requestFocus()
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -101,9 +102,7 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false))
             }
         } else if (draft.quickConnectWaiting) {
-            Text("Opne Jellyfin på mobilen eller i nettlesaren. Gå til brukarikonet → Quick Connect og skriv inn koden.")
-            Text(draft.quickConnectCode.orEmpty(), style = MaterialTheme.typography.displayMedium,
-                modifier = Modifier.testTag("setup-code"))
+            QuickConnectPanel(draft)
             Text(if (draft.alsoConnect) "Denne eine godkjenninga koplar til begge tenestene. Denne sida går vidare av seg sjølv."
                 else "Denne sida går vidare av seg sjølv når du har godkjent.")
         } else {

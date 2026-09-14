@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.16.0 · Sjølvstendig mediebibliotek og betre detaljar
+
+- Jellyfin og Emby held på sitt eige bibliotek når Seerr er nede; ingen utvida adminrettar ved bortfall.
+- Mediarader kjem fram før dei andre tenestene er ferdige, på mobil, nettbrett og TV.
+- Fjerning av Emby tømmer ikkje lenger Jellyfin-radene medan oppdateringa går.
+- Hoppar over ekstra Seerr-detaljoppslag når tenesta alt har feila.
+- Heroen hentar bilete i opptil 1920 pikslar og høgare kvalitet, med eigen cache frå kortradene.
+- Fjernar den gamle S-logoen frå Android-oppstarten; den originale Spole-logoen blir vist éin gong.
+- Meir robuste Quick Connect-lesekall og kopieringsknapp i fellesoppsettet.
+- Kompakte TV-episodedetaljar, nummerert sesongrad, episodebilete og valfri bakgrunnskunst.
+- Trykkbare medverkande med titlar frå eige bibliotek.
+
 ## 0.16.0-beta09 · Raskare nettverk og meir robust heimefeed
 
 - Byter API-transporten til delt OkHttp-klient med varm tilkoplingspool og HTTP/2-støtte.

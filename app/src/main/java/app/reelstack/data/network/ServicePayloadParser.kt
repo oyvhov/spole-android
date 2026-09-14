@@ -169,6 +169,10 @@ data class RemoteMediaDetails(
     val subtitleTracks: List<app.reelstack.data.model.MediaTrack> = emptyList(),
     /** Id and name, because playback is asked for by id and people read the name. */
     val versions: List<Pair<String, String>> = emptyList(),
+    val backdropUrl: String? = null,
+    val seriesId: String? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
 )
 
 data class RemoteRequest(
@@ -239,7 +243,7 @@ object ServicePayloadParser {
         }
     }
 
-    fun libraryItems(payload: String): List<RemoteLibraryItem> {
+    fun libraryItems(payload: String, preferEpisodeStill: Boolean = false): List<RemoteLibraryItem> {
         val root = json.parseToJsonElement(payload)
         val items = when (root) {
             is JsonArray -> root
@@ -270,7 +274,9 @@ object ServicePayloadParser {
                 "S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"
             } else null
             val year = item.int("ProductionYear") ?: item.int("productionYear")
-            val artwork = libraryArtwork(item, id, mediaType)
+            val ownStill = (item.obj("ImageTags") ?: item.obj("imageTags")).tag("Primary")
+            val artwork = if (preferEpisodeStill && mediaType == "Episode" && ownStill != null)
+                LibraryArtwork(id, "Primary", ownStill) else libraryArtwork(item, id, mediaType)
             RemoteLibraryItem(
                 id = id,
                 isFolder = item["IsFolder"]?.jsonPrimitive?.booleanOrNull == true || mediaType in setOf("Series", "Season", "BoxSet", "Folder", "CollectionFolder", "MusicAlbum", "MusicArtist"),
@@ -605,7 +611,16 @@ object ServicePayloadParser {
         }
         return RemoteMediaDetails(
             title = item.string("Name") ?: item.string("name"),
-            artworkUrl = null,
+            artworkUrl = if (mediaType.equals("Episode", true) && baseUrl != null &&
+                item.string("Id") != null && (item["ImageTags"] as? JsonObject)?.string("Primary") != null) {
+                val id = java.net.URLEncoder.encode(item.string("Id"), "UTF-8")
+                val tag = java.net.URLEncoder.encode((item["ImageTags"] as JsonObject).string("Primary"), "UTF-8")
+                EndpointValidator.resolve(baseUrl, "Items/$id/Images/Primary?maxWidth=960&quality=85&tag=$tag")
+            } else null,
+            backdropUrl = libraryBackdrop(item, baseUrl),
+            seriesId = item.string("SeriesId"),
+            season = item.int("ParentIndexNumber"),
+            episode = item.int("IndexNumber"),
             tagline = item.string("Tagline") ?: item.string("tagline")
                 ?: item.array("Taglines").firstOrNull()?.jsonPrimitive?.contentOrNull,
             overview = item.string("Overview") ?: item.string("overview"),
@@ -634,7 +649,7 @@ object ServicePayloadParser {
                 fun encodePerson(value: String) = java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
                 val portrait = if (baseUrl != null && id != null && tag != null)
                     EndpointValidator.resolve(baseUrl, "Items/${encodePerson(id)}/Images/Primary?maxWidth=184&quality=85&tag=${encodePerson(tag)}") else null
-                app.reelstack.data.model.CastMember(name, person.string("Role"), portrait)
+                app.reelstack.data.model.CastMember(name, person.string("Role"), portrait, id)
             }.distinctBy { it.name }.take(16),
         )
     }
@@ -646,6 +661,17 @@ object ServicePayloadParser {
      * clients show, so it is preferred; the language and the index are only fallbacks for a file
      * whose streams were never tagged.
      */
+    private fun libraryBackdrop(item: JsonObject, baseUrl: String?): String? {
+        if (baseUrl == null) return null
+        val ownTag = item.array("BackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+        val parentTag = item.array("ParentBackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+        val id = if (ownTag != null) item.string("Id") else item.string("ParentBackdropItemId")
+        val tag = ownTag ?: parentTag
+        if (id.isNullOrBlank() || tag.isNullOrBlank()) return null
+        fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+        return EndpointValidator.resolve(baseUrl, "Items/${encode(id)}/Images/Backdrop/0?maxWidth=1280&quality=80&tag=${encode(tag)}")
+    }
+
     private fun mediaTracks(streams: List<JsonObject>, type: String): List<app.reelstack.data.model.MediaTrack> =
         streams.filter { it.string("Type").equals(type, ignoreCase = true) }.mapNotNull { stream ->
             val index = stream.int("Index") ?: return@mapNotNull null

@@ -68,7 +68,17 @@ class ViewerAccessTest {
     @Test fun failedSeerrVerificationCannotFallBackToMediaAdmin() {
         val access = ViewerAccess(true, mapOf(ServiceKind.JELLYFIN to media.copy(isAdmin = true)))
         assertFalse(access.isAdmin)
-        assertNull(access.ownMediaUser(ServiceKind.JELLYFIN))
+        assertEquals("own", access.ownMediaUser(ServiceKind.JELLYFIN))
+        assertFalse(access.canSeeAllSessions(ServiceKind.JELLYFIN))
+        val transport = Transport { HttpResponse(200, payload) }
+        assertEquals(listOf("mine"), MediaServerClient(transport).sessions(connection, access).map { it.sessionId })
+    }
+    @Test fun offlineSeerrKeepsVerifiedJellyfinAndEmbyProfiles() {
+        val access = ViewerAccess(true, mapOf(ServiceKind.JELLYFIN to media,
+            ServiceKind.EMBY to media.copy(source = ServiceKind.EMBY, id = "emby-own")))
+        assertEquals("own", access.ownMediaUser(ServiceKind.JELLYFIN))
+        assertEquals("emby-own", access.ownMediaUser(ServiceKind.EMBY))
+        assertFalse(access.isAdmin)
     }
     @Test fun mediaAdminRemainsScopedIfSeerrAccountIsOrdinary() {
         val access = ViewerAccess(true, mapOf(ServiceKind.SEERR to seerr, ServiceKind.JELLYFIN to media.copy(isAdmin = true)))

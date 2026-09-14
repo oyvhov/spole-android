@@ -12,6 +12,45 @@ import java.time.ZoneOffset
 import java.util.Collections
 
 class ReleaseCatalogueTest {
+    @Test fun seerrOutageDoesNotRemoveMediaRowsOrTriggerDetailLookups() = runBlocking {
+        for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+            val fixture = FixtureTransport(useToday = true)
+            val failedUrls = java.util.Collections.synchronizedList(mutableListOf<String>())
+            val libraryReady = java.util.concurrent.CountDownLatch(1)
+            var readyBeforeSeerr = false
+            val transport = object : JsonHttpTransport {
+                override fun get(url: String, headers: Map<String, String>): HttpResponse {
+                    if (url.startsWith("https://seerr.example/")) {
+                        failedUrls += url
+                        readyBeforeSeerr = libraryReady.await(5, java.util.concurrent.TimeUnit.SECONDS)
+                        return HttpResponse(503, "{}")
+                    }
+                    if (url.contains("Items/Latest")) return HttpResponse(200,
+                        """[{"Id":"local-film","Name":"Lokal film","Type":"Movie"}]""")
+                    return fixture.get(url, headers)
+                }
+                override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse =
+                    error("Refresh must not write")
+            }
+            val repo = MediaSyncRepository(mediaServerClient = MediaServerClient(transport),
+                queueServiceClient = QueueServiceClient(transport), seerrServiceClient = SeerrServiceClient(transport),
+                recommendationsClient = RecommendationsClient(transport, "https://feed.example/items"),
+                accountProfileClient = AccountProfileClient(transport = transport), seerrReleaseClient = SeerrReleaseClient(transport))
+            val state = repo.refresh(listOf(
+                ServiceConnection(kind, "Media", "https://media.example", "personal", userId = "media-user"),
+                ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "cookie", sessionCookie = true)),
+                onLibraryReady = { update ->
+                    if (update.recentMovies.isNotEmpty()) libraryReady.countDown()
+                })
+            assertTrue("Media feed survives $kind", kind in state.successfulServices)
+            assertTrue("Local movie row survives $kind", state.recentMovies.any { it.source == kind })
+            assertTrue("Library must arrive before Seerr completes", readyBeforeSeerr)
+            assertTrue(ServiceKind.SEERR in state.errors)
+            assertFalse(state.adminView)
+            assertTrue(state.incoming.isEmpty())
+            assertTrue(failedUrls.none { it.contains("/movie/") || it.contains("/tv/") })
+        }
+    }
     private val clock = Clock.fixed(Instant.parse("2026-09-06T12:00:00Z"), ZoneOffset.UTC)
     private val window = ReleaseWindow(clock)
     private fun movie(release: String, type: Int = 4, premiere: String = "2026-07-01") = """

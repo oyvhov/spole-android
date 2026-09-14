@@ -50,6 +50,7 @@ class AppPreferencesRepository(context: Context) {
             showHero = preferences.getBoolean("show_hero", true),
             showRatings = preferences.getBoolean("show_ratings", true),
             showQuality = preferences.getBoolean("show_quality", true),
+            detailBackdrop = preferences.getBoolean("detail_backdrop", true),
             slowStartup = preferences.getBoolean("slow_startup", false),
             visualTheme = app.reelstack.data.model.VisualTheme.decode(preferences.getString("visual_theme", null)),
             artworkCorners = app.reelstack.data.model.ArtworkCorners.decode(preferences.getString("artwork_corners", null)),
@@ -75,6 +76,7 @@ class AppPreferencesRepository(context: Context) {
             putBoolean("show_hero", value.showHero)
             putBoolean("show_ratings", value.showRatings)
             putBoolean("show_quality", value.showQuality)
+            putBoolean("detail_backdrop", value.detailBackdrop)
             putBoolean("slow_startup", value.slowStartup)
             putString("visual_theme", value.visualTheme.name)
             putString("artwork_corners", value.artworkCorners.name)

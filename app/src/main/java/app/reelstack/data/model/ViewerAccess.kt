@@ -10,11 +10,12 @@ data class ViewerAccess(val seerrConfigured: Boolean, val accounts: Map<ServiceK
     fun ownMediaUser(source: ServiceKind): String? {
         val account = accounts[source]?.takeIf { it.isPersonal } ?: return null
         val seerr = accounts[ServiceKind.SEERR]
-        if (seerrConfigured && seerr == null) return null
+        // A verified media login survives a separate request-service outage, without admin access.
+        if (seerr == null) return account.id
         if (seerrConfigured && !isAdmin && source == ServiceKind.JELLYFIN &&
-            seerr?.mediaUserId != null && seerr.mediaUserId != account.id) return null
+            seerr.mediaUserId != null && seerr.mediaUserId != account.id) return null
         // A shared administrator connection must never masquerade as an ordinary Seerr user's account.
-        if (seerrConfigured && !isAdmin && account.isAdmin && seerr?.mediaUserId != account.id) return null
+        if (seerrConfigured && !isAdmin && account.isAdmin && seerr.mediaUserId != account.id) return null
         return account.id
     }
 }
