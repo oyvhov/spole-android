@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.0-beta09 · Raskare nettverk og meir robust heimefeed
+
+- Byter API-transporten til delt OkHttp-klient med varm tilkoplingspool og HTTP/2-støtte.
+- Reduserer feltmengda for heimekort og avgrensar kostbar serieberiking av Neste opp.
+- Lagrar brukbar Jellyfin-cache sjølv når ei anna teneste feilar under oppdatering.
+- Blanda hero-kjelder frå framhald, Neste opp og nyleg lagt til innhald slik at TV-framsida får fleire titlar.
+- Held favorittar og mediedata tilgjengelege når enkeltkall feilar.
+
 ## 0.16.0-beta06 · Fiksa appikon på Android TV
 
 - Reparerer launcher-ikon på Android TV slik at det ikkje viser berre ein S-forma mark i staden for

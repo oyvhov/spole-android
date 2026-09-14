@@ -18,7 +18,7 @@ class HomeRowTest {
     @Test fun moveBothDirectionsAndBoundaries() {
         val original = HomeRow.entries
         val moved = moveHomeRow(original, HomeRow.FAVOURITES, -1, original)
-        assertEquals(HomeRow.FAVOURITES, moved[1])
+        assertEquals(HomeRow.FAVOURITES, moved[original.indexOf(HomeRow.FAVOURITES) - 1])
         assertEquals(original, moveHomeRow(moved, HomeRow.FAVOURITES, 1, original))
         assertEquals(original, moveHomeRow(original, original.first(), -1, original))
         assertEquals(original, moveHomeRow(original, original.last(), 1, original))

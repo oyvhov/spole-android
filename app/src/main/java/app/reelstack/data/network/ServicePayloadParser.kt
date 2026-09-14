@@ -860,8 +860,8 @@ object ServicePayloadParser {
     private fun libraryArtwork(item: JsonObject, id: String, mediaType: String): LibraryArtwork {
         val imageTags = item.obj("ImageTags") ?: item.obj("imageTags")
         val hasOwnThumb = imageTags?.keys?.any { it.equals("Thumb", ignoreCase = true) } == true
-        val isSeriesArtwork = mediaType.equals("episode", ignoreCase = true) ||
-            mediaType.equals("series", ignoreCase = true)
+        val isEpisode = mediaType.equals("episode", ignoreCase = true)
+        val isSeriesArtwork = isEpisode || mediaType.equals("series", ignoreCase = true)
         if (isSeriesArtwork) {
             if (hasOwnThumb) return LibraryArtwork(id, "Thumb", imageTags.tag("Thumb"))
             (item.string("ParentThumbItemId") ?: item.string("parentThumbItemId"))?.let {
@@ -873,6 +873,12 @@ object ServicePayloadParser {
                 ?: item.string("ParentThumbImageTag") ?: item.string("parentThumbImageTag")
             if (seriesId != null && seriesThumbTag != null) {
                 return LibraryArtwork(seriesId, "Thumb", seriesThumbTag)
+            }
+            if (isEpisode) {
+                val ownPrimaryTag = imageTags.tag("Primary")
+                if (ownPrimaryTag != null) {
+                    return LibraryArtwork(id, "Primary", ownPrimaryTag)
+                }
             }
         }
         val seriesId = item.string("SeriesId") ?: item.string("seriesId")

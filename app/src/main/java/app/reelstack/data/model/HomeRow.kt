@@ -4,8 +4,8 @@ package app.reelstack.data.model
 enum class HomeRow(val section: HomeSection?) {
     NOW_PLAYING(HomeSection.NOW_PLAYING),
     CONTINUE_WATCHING(HomeSection.CONTINUE_WATCHING),
-    FAVOURITES(HomeSection.FAVOURITES),
     NEXT_UP(null),
+    FAVOURITES(HomeSection.FAVOURITES),
     JELLYFIN_MOVIES(HomeSection.JELLYFIN_MOVIES),
     EMBY_MOVIES(HomeSection.EMBY_MOVIES),
     JELLYFIN_SERIES(HomeSection.JELLYFIN_SERIES),

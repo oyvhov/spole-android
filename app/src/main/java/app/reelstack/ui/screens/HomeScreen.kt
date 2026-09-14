@@ -185,7 +185,15 @@ fun HomeScreen(
         val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
             android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
             android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-        val featurePool = state.recentSeries + continueItems + state.nextUp
+        val featurePool = buildList {
+            val lists = listOf(continueItems, state.nextUp, state.recentMovies, state.recentSeries)
+            val iterators = lists.map { it.iterator() }
+            while (iterators.any { it.hasNext() }) {
+                for (iterator in iterators) {
+                    if (iterator.hasNext()) add(iterator.next())
+                }
+            }
+        }
         val features = if (tablet && personalization.showHero) tabletFeaturedTitles(featurePool, state.homeSections,
             allowLocalArtwork = state.configuredCount == 0) else emptyList()
         val featured = features.firstOrNull()

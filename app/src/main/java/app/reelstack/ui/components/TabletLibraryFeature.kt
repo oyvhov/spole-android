@@ -52,11 +52,22 @@ internal fun tabletFeaturedTitle(series: List<LibraryMedia>, sections: Set<HomeS
 /** Episode titles are mapped to SeriesName by the server parser. Deduplicate across servers too. */
 private const val HERO_FEATURE_COUNT = 5
 
-internal fun tabletFeaturedTitles(series: List<LibraryMedia>, sections: Set<HomeSection>, allowLocalArtwork: Boolean = false): List<LibraryMedia> =
-    series.filter { media ->
-        (!media.artworkUrl.isNullOrBlank() || (allowLocalArtwork && media.artworkRes != 0)) && when (media.source) {
-            ServiceKind.JELLYFIN -> HomeSection.JELLYFIN_SERIES in sections
-            ServiceKind.EMBY -> HomeSection.EMBY_SERIES in sections
+internal fun tabletFeaturedTitles(candidates: List<LibraryMedia>, sections: Set<HomeSection>, allowLocalArtwork: Boolean = false): List<LibraryMedia> =
+    candidates.filter { media ->
+        val hasArt = !media.artworkUrl.isNullOrBlank() || (allowLocalArtwork && media.artworkRes != 0)
+        if (!hasArt) return@filter false
+        val isSeries = media.mediaType.equals("Series", ignoreCase = true) ||
+            media.mediaType.equals("Episode", ignoreCase = true) ||
+            media.season != null || media.episode != null ||
+            media.subtitle.matches(Regex("(?i)S\\d+\\s*E\\d+.*"))
+        val isMovie = media.mediaType.equals("Movie", ignoreCase = true)
+        when (media.source) {
+            ServiceKind.JELLYFIN -> if (isMovie) HomeSection.JELLYFIN_MOVIES in sections
+                else if (isSeries) HomeSection.JELLYFIN_SERIES in sections
+                else (HomeSection.JELLYFIN_SERIES in sections || HomeSection.JELLYFIN_MOVIES in sections)
+            ServiceKind.EMBY -> if (isMovie) HomeSection.EMBY_MOVIES in sections
+                else if (isSeries) HomeSection.EMBY_SERIES in sections
+                else (HomeSection.EMBY_SERIES in sections || HomeSection.EMBY_MOVIES in sections)
             else -> false
         }
     }.distinctBy { it.title.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT) }
@@ -76,14 +87,14 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     onFocusWithin: (Boolean) -> Unit = {}) {
     val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
-    var position by remember(identities) { mutableIntStateOf(0) }
+    var position by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
     val selected = titles[position.coerceIn(titles.indices)]
     var focused by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
-    LaunchedEffect(identities, focused, rotationEnabled, lifecycleOwner, motion) {
-        if (titles.size > 1 && !focused && rotationEnabled && motion) {
+    LaunchedEffect(identities, focused, rotationEnabled, lifecycleOwner) {
+        if (titles.size > 1 && !focused && rotationEnabled) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
                     delay(8_000)

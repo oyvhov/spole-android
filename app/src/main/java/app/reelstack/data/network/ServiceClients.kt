@@ -299,6 +299,7 @@ class MediaServerClient(
 
         val encodedUserId = userId?.let(::encodePathSegment)
         val viewsResult = runCatching { libraryViews(connection, requireNotNull(encodedUserId) { "Profil-ID manglar" }) }
+
         val moviesResult = runCatching {
             latestAcrossLibraries(
                 connection = connection,
@@ -345,6 +346,11 @@ class MediaServerClient(
             emptyList()
         } else emptyList()
 
+        // Favourites are an extra: a server that cannot answer must not cost the whole feed.
+        val favourites = runCatching {
+            favourites(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
+        }.getOrDefault(emptyList())
+
         if (userId == null && connection.kind == ServiceKind.EMBY) {
             warnings += "Legg til profil-ID for bibliotekradene frå Emby"
         }
@@ -353,10 +359,6 @@ class MediaServerClient(
             verifyConnection(connection)
             warnings += "Mediedelane er utilgjengelege"
         }
-        // Favourites are an extra: a server that cannot answer must not cost the whole feed.
-        val favourites = runCatching {
-            favourites(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
-        }.getOrDefault(emptyList())
 
         return MediaServerFeed(
             sessions = sessions,
@@ -519,7 +521,7 @@ class MediaServerClient(
         }
         check(groups.isNotEmpty()) { "Fekk ikkje henta neste episode" }
         val episodes = interleave(groups).distinctBy(RemoteLibraryItem::id).take(24)
-        val series = episodes.mapNotNull { it.seriesId }.distinct()
+        val series = episodes.filter { it.lastActivityEpochMillis == null }.mapNotNull { it.seriesId }.distinct().take(6)
         if (series.isEmpty()) return episodes
         // An unwatched episode has no LastPlayedDate of its own. Use this profile's most
         // recently watched episode in the same series; never substitute DateCreated.
@@ -534,7 +536,7 @@ class MediaServerClient(
                         .firstOrNull()?.lastActivityEpochMillis
                 }.getOrNull()
             } }
-            pool.invokeAll(jobs, 8, java.util.concurrent.TimeUnit.SECONDS)
+            pool.invokeAll(jobs, 1500, java.util.concurrent.TimeUnit.MILLISECONDS)
                 .mapNotNull { runCatching { it.get() }.getOrNull() }.toMap()
         } finally { pool.shutdownNow() }
         return episodes.map { item -> item.copy(lastActivityEpochMillis =
@@ -928,7 +930,7 @@ class MediaServerClient(
         groupItems: Boolean,
         parentId: String? = null,
     ): List<String> {
-        val query = "Limit=12&Fields=Overview,Genres,PrimaryImageAspectRatio,Studios,Taglines" +
+        val query = "Limit=12&Fields=Overview,Genres,PrimaryImageAspectRatio" +
             "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Logo" +
             "&IncludeItemTypes=$itemType&GroupItems=$groupItems" +
             parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty()

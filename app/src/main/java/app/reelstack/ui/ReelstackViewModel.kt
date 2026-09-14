@@ -1607,7 +1607,7 @@ class ReelstackViewModel(
                         includeRecommendations = HomeSection.RECOMMENDATIONS in _uiState.value.homeSections,
                     )
                 }
-                if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
+                if (snapshot.successfulServices.isNotEmpty()) {
                     // Writing the offline copy is a convenience. A full disk must not take the
                     // refresh down with it.
                     attempt {
