@@ -1,6 +1,6 @@
 # Kom i gang med Spole
 
-Denne guiden gjeld innlogginga i 0.16.0-beta01. Funksjonar for neste APK er merkte nedanfor.
+Denne guiden gjeld Spole 0.16.0.
 
 ## For deg som skal sjå
 
@@ -47,7 +47,7 @@ ikkje som eit offentleg skjermbilete. Ikkje del administratorteikn frå Radarr, 
 Tema, aksentfarge, sesongtema og synlege Heim-rader kan tilpassast i innstillingane.
 På TV finst også val for å skjule sidepanelet til du navigerer ut mot venstre kant.
 
-## Nytt i kjeldekoden, kjem i neste APK
+## Funksjonar i 0.16.0
 
 - **Utvida offline-demo:** 18 bibliotekstitlar med omtale og eksempelvurdering, hero på TV og nettbrett,
   favorittar, neste episodar og fleire innhaldsrader. Prøv jul og Halloween under Utsjånad.
