@@ -219,16 +219,14 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean) {
     }
 }
 
-/** "Sesong 2 · 8 episodar" when the count is known, otherwise the server's own name. */
+/** Season buttons stay compact; the episode count belongs in the list below. */
 @Composable
 private fun seasonLabel(season: LibraryMedia): String {
     // A season's own number lands in `episode`; `season` on a season item is the series' index.
     val name = season.episode?.takeIf { it > 0 }?.let { stringResource(R.string.episode_season, it) }
         ?: season.title.takeIf(String::isNotBlank)
         ?: season.subtitle
-    val count = season.childCount?.takeIf { it > 0 }
-        ?.let { androidx.compose.ui.res.pluralStringResource(R.plurals.detail_season_episodes, it, it) }
-    return listOfNotNull(name, count).joinToString(" · ")
+    return name
 }
 
 /**

@@ -44,6 +44,8 @@ internal fun LibraryCustomizationDialog(state: ReelstackUiState, value: Personal
                     SettingsToggleRow(stringResource(R.string.refine_library_wide), stringResource(R.string.refine_library_wide_hint),
                         value.libraryCardsWide, "library-wide") { onChange(value.copy(libraryCardsWide = it)) }
                     SettingsGroup(stringResource(R.string.refine_group_rows), stringResource(R.string.refine_order_hint))
+                    SettingsToggleRow(stringResource(R.string.library_card_names), stringResource(R.string.library_card_names_hint),
+                        value.showLibraryCardNames, "library-card-names") { onChange(value.copy(showLibraryCardNames = it)) }
                     OrderEditor(order, { labels.getValue(it) }, value.libraryHubHidden, prefix = "hub",
                         onOrder = { onChange(value.copy(libraryHubOrder = it)) },
                         onVisible = { id, show -> onChange(value.copy(libraryHubHidden = if (show) value.libraryHubHidden - id else value.libraryHubHidden + id)) })

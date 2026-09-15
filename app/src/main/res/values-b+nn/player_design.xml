@@ -1,0 +1,13 @@
+<resources>
+    <string name="subtitle_appearance">Undertekstar</string>
+    <string name="subtitle_choose">Vel utsjånad</string>
+    <string name="subtitle_clean">Rein</string>
+    <string name="subtitle_cinema">Kino</string>
+    <string name="subtitle_contrast">Høg kontrast</string>
+    <string name="subtitle_large">Stor</string>
+    <string name="subtitle_sample">Kvar historie fortener å bli høyrd.</string>
+    <string name="subtitle_scope">Gjeld tekstbaserte undertekstar i Spole. Innebrend tekst og eksterne spelarar har eigen utsjånad.</string>
+    <string name="library_card_names">Biblioteksnamn</string>
+    <string name="library_card_names_hint">Vis namn under biblioteksbileta.</string>
+    <string name="detail_series_action">Serie</string>
+</resources>

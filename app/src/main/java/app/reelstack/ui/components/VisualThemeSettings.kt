@@ -26,12 +26,17 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 import app.reelstack.R
 import app.reelstack.data.model.*
 import app.reelstack.ui.theme.LocalPersonalization
 
 @Composable
-internal fun SettingsActionRow(title: String, summary: String, tag: String, onClick: () -> Unit) {
+internal fun SettingsActionRow(title: String, summary: String, tag: String, onClick: () -> Unit) =
+    SettingsActionRow(title, summary, tag, null, onClick)
+
+@Composable
+internal fun SettingsActionRow(title: String, summary: String, tag: String, icon: ImageVector?, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner)
     Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant, shape)
@@ -39,6 +44,7 @@ internal fun SettingsActionRow(title: String, summary: String, tag: String, onCl
         .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
             role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        icon?.let { Icon(it, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (summary.isNotBlank()) Text(summary, style = MaterialTheme.typography.bodySmall,

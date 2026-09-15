@@ -53,7 +53,7 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                     if (selected == null) {
                         SettingsCategory.entries.forEach { destination ->
                             SettingsActionRow(stringResource(destination.title), stringResource(destination.hint),
-                                "settings-category-${destination.name}") { page = destination }
+                                "settings-category-${destination.name}", destination.icon, { page = destination })
                         }
                     } else {
                         Text(stringResource(selected.hint), style = MaterialTheme.typography.bodyMedium,

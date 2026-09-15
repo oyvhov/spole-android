@@ -85,6 +85,12 @@ object SpoleIcons {
         moveTo(9.5f, 5f); lineTo(9.5f, 19f)
         moveTo(14.5f, 5f); lineTo(14.5f, 19f)
     }
+    val MiniPlayer = glyph("MiniPlayer") {
+        moveTo(9f, 20f); lineTo(5f, 20f); quadTo(3f, 20f, 3f, 18f)
+        lineTo(3f, 6f); quadTo(3f, 4f, 5f, 4f); lineTo(19f, 4f); quadTo(21f, 4f, 21f, 6f); lineTo(21f, 9f)
+        moveTo(12f, 12f); lineTo(21f, 12f); lineTo(21f, 20f); lineTo(12f, 20f); close()
+        moveTo(6f, 7f); lineTo(9f, 10f); moveTo(6f, 10f); lineTo(9f, 10f); lineTo(9f, 7f)
+    }
 
     val PlaySimple = ImageVector.Builder("Spole.PlaySimple", 24.dp, 24.dp, 24f, 24f).apply {
         path(fill = SolidColor(Color.Black)) {

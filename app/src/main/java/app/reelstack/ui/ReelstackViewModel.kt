@@ -721,6 +721,7 @@ class ReelstackViewModel(
                                 tagline = remote.tagline ?: details.tagline,
                                 cast = remote.cast,
                                 backdropUrl = remote.backdropUrl,
+                                trailerUrl = remote.trailerUrl,
                                 season = remote.season ?: details.season,
                                 episode = remote.episode ?: details.episode,
                                 overview = remote.overview ?: details.overview,

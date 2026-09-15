@@ -68,6 +68,79 @@ class DesignRefreshUiTest {
         rule.onRoot().saveRoadmapImage("design-library-phone.png")
     }
 
+    @Test fun themeGalleryPreviewsBeforeApplyingAndPreservesPlaybackChoices() {
+        val initial = Personalization(autoPlayNextEpisode = false, watchNextEnabled = true, showLibraryCardNames = false)
+        var current = initial
+        rule.setContent { Canvas(960, 540, tv = true) { ThemeGallery(initial) { current = it } } }
+        rule.onNodeWithTag("theme-gallery").performClick()
+        rule.onNodeWithTag("theme-preview-HALLOWEEN").performScrollTo().performClick()
+        assertEquals(initial, current)
+        rule.onNodeWithTag("theme-gallery-dialog").saveRoadmapImage("phase4-theme-gallery.png")
+        rule.onNodeWithTag("theme-apply").performClick()
+        assertEquals(VisualTheme.HALLOWEEN, current.visualTheme)
+        assertEquals(AccentPalette.PUMPKIN, current.accent)
+        assertFalse(current.autoPlayNextEpisode)
+        assertTrue(current.watchNextEnabled)
+        assertFalse(current.showLibraryCardNames)
+    }
+
+    @Test fun posterLongPressOffersDetailsWithoutOpeningThem() {
+        var opened = ""
+        val movie = demoRecentMovies().first()
+        rule.setContent { Canvas(960, 540, tv = true) {
+            LibraryRail(listOf(movie), { opened = it }, false, actions = MediaCardActions({}, { _, _ -> }, { _, _ -> }))
+        } }
+        rule.onNodeWithTag("library-artwork-${movie.id}", useUnmergedTree = true).performTouchInput { longClick() }
+        rule.onNodeWithTag("card-details").assertIsDisplayed()
+        assertEquals("", opened)
+        rule.onNodeWithTag("card-details").performClick()
+        assertEquals(movie.id, opened)
+    }
+
+    @Test fun themeGalleryKeepsActionsInsideNarrowPhoneAtDoubleFont() {
+        rule.setContent { Canvas(320, 740, font = 2f) { ThemeGallery(Personalization()) {} } }
+        rule.onNodeWithTag("theme-gallery").performClick()
+        val dialog = rule.onNodeWithTag("theme-gallery-dialog").fetchSemanticsNode().boundsInRoot
+        val apply = rule.onNodeWithTag("theme-apply").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(apply.left >= dialog.left && apply.right <= dialog.right && apply.bottom <= dialog.bottom)
+        rule.onNodeWithTag("theme-gallery-dialog").saveRoadmapImage("phase4-theme-phone-large.png")
+    }
+
+    @Test fun advancedOsdSelectsChapterAndReturnsWithOneBack() {
+        var seek = -1L
+        val state = app.reelstack.player.PlayerScreenState(title = "Film", busy = false, durationMs = 90_000,
+            chapters = listOf(app.reelstack.player.PlaybackChapter("Opning", 0), app.reelstack.player.PlaybackChapter("Andre del", 30_000)))
+        rule.setContent { Canvas(960, 540, tv = true) {
+            app.reelstack.player.PlayerScreen(state, null, {}, {}, { seek = it }, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        rule.onNodeWithTag("player-chapters").performClick()
+        rule.onNodeWithText("0:30 · Andre del", substring = true).performClick()
+        assertEquals(30_000L, seek)
+        rule.onNodeWithTag("player-speed").performClick()
+        rule.onNodeWithText("1.25×").performClick()
+        rule.onNodeWithTag("player-speed").performClick()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        rule.waitForIdle()
+        rule.onNodeWithTag("player-controls").assertDoesNotExist()
+    }
+
+    @Test fun libraryNamesStayBelowPicturesAndCanBeHiddenOnTv() {
+        val names = mutableStateOf(true)
+        rule.setContent { Canvas(960, 540, tv = true) {
+            CompositionLocalProvider(LocalPersonalization provides Personalization(showLibraryCardNames = names.value)) {
+                LibraryHub(fixtures(), {}, {}, null, {})
+            }
+        } }
+        rule.onNodeWithText("Alt").assertDoesNotExist()
+        val picture = rule.onNodeWithTag("hub-library-movies").fetchSemanticsNode().boundsInRoot
+        val label = rule.onNodeWithTag("hub-library-name-movies").fetchSemanticsNode().boundsInRoot
+        assertTrue(label.top >= picture.bottom)
+        rule.onRoot().saveRoadmapImage("library-labels-below-tv.png")
+        rule.runOnIdle { names.value = false }
+        rule.onNodeWithTag("hub-library-name-movies").assertDoesNotExist()
+        rule.onNodeWithTag("hub-library-movies").assertIsDisplayed()
+    }
+
     @Test fun tabletUsesSameSettingsCategoriesAsTv() {
         rule.setContent { Canvas(900, 900) { SettingsScreen(fixtures(), PaddingValues(), {}, {}, {}, { _, _ -> }) } }
         rule.onNodeWithTag("settings-categories").assertIsDisplayed()
@@ -187,16 +260,57 @@ class DesignRefreshUiTest {
     }
 
     @Test fun episodeHasAnExplicitSeriesLink() {
+        checkEpisodeReadingOrder(1f)
+    }
+
+    @Test fun subtitlePreviewAndPreferencesUpdateImmediately() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val repository = AppPreferencesRepository(context)
+        val old = repository.personalization
+        val value = mutableStateOf(old)
+        val stop = repository.observePersonalization { value.value = it }
+        try {
+            rule.setContent { Canvas(360, 780) {
+                SubtitleAppearanceSetting(value.value.subtitleStyle) { repository.personalization = value.value.copy(subtitleStyle = it) }
+            } }
+            rule.onNodeWithTag("subtitle-style").performClick()
+            rule.onNodeWithTag("subtitle-preview").assertIsDisplayed()
+            rule.onNodeWithTag("subtitle-style-LARGE").performScrollTo().performClick()
+            rule.runOnIdle {
+                assertEquals(SubtitleStyle.LARGE, value.value.subtitleStyle)
+                assertEquals(SubtitleStyle.LARGE, AppPreferencesRepository(context).personalization.subtitleStyle)
+            }
+        } finally { stop(); repository.personalization = old }
+    }
+
+    @Test fun episodeReadingOrderAtLargeFont() {
+        checkEpisodeReadingOrder(2f)
+    }
+
+    private fun checkEpisodeReadingOrder(font: Float) {
         var opened = false
-        rule.setContent { Canvas(960, 540, tv = true) {
+        rule.setContent { Canvas(960, 540, tv = true, font = font) {
             ReelstackSheets(ReelstackUiState(connections = listOf(ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://example.com", "fixture", userId = "me")), activeSheet = AppSheet.TitleDetails("jellyfin-ep"),
                 seriesBrowse = SeriesBrowse(seriesId = "series", openedFor = "jellyfin-ep"),
                 contentDetails = ContentDetails("jellyfin-ep", "Testserie", "", "Episode 3",
-                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode", libraryAvailable = true)),
+                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode", libraryAvailable = true,
+                    overview = "Episodeteksten skal vere synleg ved tittelen, før avspeling.")),
                 null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, onEpisodeSeries = { opened = true })
         } }
-        rule.onNodeWithTag("play-in-spole").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) }
+        rule.onNodeWithTag("overview-text").assertIsDisplayed()
+        rule.onNodeWithTag("episode-series-name").assertIsDisplayed().assertTextEquals("Testserie")
+        rule.onNodeWithTag("detail-title").assertTextEquals("Episode 3")
+        val link = rule.onNodeWithTag("episode-series-link").fetchSemanticsNode().boundsInRoot
+        val title = rule.onNodeWithTag("detail-title").fetchSemanticsNode().boundsInRoot
+        val overview = rule.onNodeWithTag("overview-text").fetchSemanticsNode().boundsInRoot
+        val play = rule.onNodeWithTag("play-in-spole").fetchSemanticsNode().boundsInRoot
+        val favourite = rule.onNodeWithTag("detail-favourite").fetchSemanticsNode().boundsInRoot
+        assertTrue("Serie skal liggje etter favoritt", link.left >= favourite.right)
+        assertTrue("Episodetekst skal kome etter tittelen", title.bottom <= overview.top)
+        assertTrue("Episodetekst skal kome før avspeling", overview.bottom <= play.top)
+        rule.onNodeWithTag("detail-scroll").saveRoadmapImage("episode-summary-tv-$font.png")
+        rule.onNodeWithTag("detail-favourite").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+            .performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) }
         rule.onNodeWithTag("episode-series-link").assertIsFocused().assertIsDisplayed().performClick()
         assertTrue(opened)
     }

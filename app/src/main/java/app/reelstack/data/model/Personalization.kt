@@ -124,7 +124,12 @@ data class Personalization(
      * animation stops on its own when the system has animations turned down.
      */
     val seasonalOrnament: Boolean = true,
+    val subtitleStyle: SubtitleStyle = SubtitleStyle.CLEAN,
+    val showLibraryCardNames: Boolean = true,
+    val watchNextEnabled: Boolean = false,
 )
+
+enum class SubtitleStyle { CLEAN, CINEMA, HIGH_CONTRAST, LARGE }
 
 val DEFAULT_LIBRARY_HUB = listOf("FEATURE", "CONTINUE", "NEXT", "FAVOURITES", "LIBRARIES")
 val DEFAULT_MENU = listOf("HOME", "LIBRARY", "DISCOVER", "ACTIVITY", "SETTINGS")

@@ -243,6 +243,26 @@ class JellyfinPlayerTest {
             hidden
         }
     }
+    @Test fun miniPlayerKeepsVideoRunningAndReturnsWithoutRestarting() {
+        org.junit.Assume.assumeTrue(context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE))
+        exercise { scenario, server, _ ->
+            playing(scenario)
+            scenario.onActivity { it.openMiniPlayer() }
+            waitFor {
+                var active = false
+                scenario.onActivity { active = it.isInPictureInPictureMode && it.model.player.isPlaying }
+                active
+            }
+            scenario.onActivity { context.startActivity(Intent(context, JellyfinPlayerActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            waitFor {
+                var full = false
+                scenario.onActivity { full = !it.isInPictureInPictureMode && it.model.player.isPlaying }
+                full
+            }
+            assertEquals(1, server.events.count { it.first == "/Sessions/Playing" })
+        }
+    }
     @Test fun directVideoRendersSeeksPausesAndSurvivesRotation() = exercise { scenario,server,_ ->
         playing(scenario)
         assertTrue(server.clientHeaders.isNotEmpty())

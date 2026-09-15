@@ -278,6 +278,7 @@ data class ContentDetails(
     /** More than one file for the same title: a 4K and a 1080p cut, a director's edition. */
     val versions: List<MediaVersion> = emptyList(),
     val backdropUrl: String? = null,
+    val trailerUrl: String? = null,
 )
 
 /** One playable file behind a title. The id is what playback has to be asked for. */

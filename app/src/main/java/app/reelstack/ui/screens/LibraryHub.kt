@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import app.reelstack.R
@@ -34,27 +36,13 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     val preferences = remember(context) { app.reelstack.data.repository.AppPreferencesRepository(context) }
     var editing by remember { mutableStateOf(false) }
     if (editing) LibraryCustomizationDialog(state, options, { preferences.personalization = it }) { editing = false }
-    var filter by rememberSaveable { mutableIntStateOf(0) }
-    val labels = listOf(R.string.design_all, R.string.design_movies, R.string.design_series, R.string.design_collections)
-    val libraries = state.libraryEntries.filter { when (filter) {
-        1 -> it.collectionType == "movies"
-        2 -> it.collectionType == "tvshows"
-        3 -> it.collectionType == "boxsets"
-        else -> true
-    } }.sortedBy { options.libraryOrder.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
+    val libraries = state.libraryEntries.sortedBy { options.libraryOrder.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
     val libraryIds = libraries.map { it.id }.toSet()
-    val names = labels.map { stringResource(it) }
-    fun selected(items: List<LibraryMedia>) = items.filter { media -> when (filter) {
-        1 -> media.mediaType.equals("Movie", true)
-        2 -> media.mediaType in setOf("Series", "Episode")
-        3 -> media.mediaType == "BoxSet"
-        else -> true
-    } }
-    val resume = selected(state.resume)
-    val next = selected(state.nextUp)
-    val featured = remember(state.recentMovies, state.recentSeries, filter, state.libraryPeeks, libraryIds, state.configuredCount) {
-        val movies = selected(state.recentMovies)
-        val series = selected(state.recentSeries)
+    val resume = state.resume
+    val next = state.nextUp
+    val featured = remember(state.recentMovies, state.recentSeries, state.libraryPeeks, libraryIds, state.configuredCount) {
+        val movies = state.recentMovies
+        val series = state.recentSeries
         (movies.zip(series).flatMap { listOf(it.first, it.second) } + movies + series +
             state.libraryPeeks.filterKeys { it in libraryIds }.values.flatten()).distinctBy { it.id }.filter { app.reelstack.data.network.libraryHeroArtworkUrl(it) != null || state.configuredCount == 0 }.sortedByDescending { it.heroUrl != null }
     }
@@ -75,7 +63,6 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
                 Column(Modifier.weight(1f)) {
                     if (options.showLibraryTitle && !inlineHeader) Text(stringResource(R.string.nav_library),
                         style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 12.dp).testTag("library-heading"))
-                    AppFilterRow(labels.indices.toList(), filter, { index -> names[index] }, { filter = it })
                 }
                 IconButton(onClick = { editing = true }, modifier = Modifier.testTag("hub-customize")) {
                     Icon(SpoleIcons.Tune, stringResource(R.string.refine_library_edit))
@@ -91,7 +78,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         }
         val sections = (options.libraryHubOrder + DEFAULT_LIBRARY_HUB).distinct().filter { it !in options.libraryHubHidden }
         sections.forEach { section ->
-        if (section == "FEATURE" && large && options.showHero && featured.isNotEmpty() && filter != 3) item("feature") {
+        if (section == "FEATURE" && large && options.showHero && featured.isNotEmpty()) item("feature") {
             TabletLibraryFeature(featured.first(), onTitle, candidates = featured.take(5),
                 rotationEnabled = list.layoutInfo.visibleItemsInfo.any { it.key == "feature" } && state.activeSheet == null,
                 onFocusWithin = { focused -> if (tv && focused) scope.launch {
@@ -109,16 +96,16 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         if (section == "NEXT" && options.showNextUp && !options.combineContinueWatching && next.isNotEmpty()) item("next") {
             HubShelf(stringResource(R.string.tv_next_up)) { ResumeRail(next, onTitle, actions.withoutResumeRemoval(), "NEXT_UP") }
         }
-        if (section == "FAVOURITES" && selected(state.favourites).isNotEmpty()) item("favourites") {
+        if (section == "FAVOURITES" && state.favourites.isNotEmpty()) item("favourites") {
             HubShelf(stringResource(R.string.home_favourites)) {
-                LibraryRail(selected(state.favourites), onTitle, wide = false, rowKey = "FAVOURITES")
+                LibraryRail(state.favourites, onTitle, wide = false, rowKey = "FAVOURITES", actions = actions)
             }
         }
         if (section == "LIBRARIES") items(libraries, key = { "shelf-${it.id}" }) { library ->
             val titles = state.libraryPeeks[library.id].orEmpty()
             HubShelf(library.title) {
                 if (titles.isNotEmpty()) LibraryRail(titles, onTitle, wide = library.collectionType == "tvshows",
-                    rowKey = when(library.collectionType) { "movies" -> "JELLYFIN_MOVIES"; "tvshows" -> "JELLYFIN_SERIES"; else -> null })
+                    rowKey = when(library.collectionType) { "movies" -> "JELLYFIN_MOVIES"; "tvshows" -> "JELLYFIN_SERIES"; else -> null }, actions = actions)
                 else if (state.libraryPeeksLoading) app.reelstack.ui.components.LibraryRailSkeleton(description = stringResource(R.string.library_peek_loading), wide = false)
                 AppNavigationChip(stringResource(R.string.design_browse_all), "hub-all-${library.id}") { onLibrary(library.id) }
             }
@@ -146,15 +133,16 @@ private fun HubShelf(title: String, content: @Composable () -> Unit) {
 private fun LibraryImageTile(id: String, title: String, image: String?, wide: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
-    Box(Modifier.width(if (wide) 174.dp else 112.dp).aspectRatio(if (wide) 1.9f else 1f)
+    Column(Modifier.width(if (wide) 174.dp else 112.dp)) {
+    Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 1.9f else 1f)
         .clip(shape).background(MaterialTheme.colorScheme.surfaceVariant)
         .focusOutline(interaction, shape).clickable(interactionSource = interaction,
-            indication = mediaCardIndication(), onClick = onClick).testTag("hub-library-$id")) {
+            indication = mediaCardIndication(), onClick = onClick).semantics { contentDescription = title }.testTag("hub-library-$id")) {
         Icon(SpoleIcons.Library, null, Modifier.align(Alignment.Center).size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         if (image != null) MediaArtwork(image, null, Modifier.matchParentSize(), source = ServiceKind.JELLYFIN)
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .08f), Color.Black.copy(alpha = .82f)))))
-        Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 2,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp))
+    }
+    if (LocalPersonalization.current.showLibraryCardNames) Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        modifier = Modifier.padding(top = 6.dp).testTag("hub-library-name-$id"))
     }
 }

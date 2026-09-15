@@ -28,7 +28,8 @@ import app.reelstack.ui.components.SpoleIcons
 internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean, seekPreview: Long?,
     playFocus: FocusRequester, nextFocus: FocusRequester?, onToggle: () -> Unit, onSeek: (Long) -> Unit,
     onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, fillVideo: Boolean,
-    onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit) {
+    onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
+    onSpeed: () -> Unit = {}, onChapters: () -> Unit = {}) {
     val timeline = remember { FocusRequester() }
     val tools = remember { FocusRequester() }
     var timelineFocused by remember { mutableStateOf(false) }
@@ -44,7 +45,9 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     if (!shown) {
         if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp),
             color = Color.White.copy(alpha = .7f), strokeWidth = 2.dp)
-        if (seekPreview != null) Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
+        if (seekPreview != null && state.chapters.any { it.imageUrl != null }) TimelineThumbnailPreview(
+            position, state.durationMs, state.chapters, Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp))
+        else if (seekPreview != null) Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
             .testTag("player-seek-feedback"), shape = RoundedCornerShape(12.dp), color = Color.Black.copy(alpha = .76f)) {
             Text(playbackTime(position) + " / " + playbackTime(state.durationMs),
                 Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = Color.White)
@@ -113,6 +116,10 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             Text(playbackTime(state.durationMs), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .72f))
         }
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TvPlayerAction(SpoleIcons.PlaySimple, stringResource(R.string.phase_speed), "player-speed",
+                Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onSpeed() }
+            if (state.chapters.isNotEmpty()) TvPlayerAction(SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters",
+                Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onChapters() }
             TvPlayerAction(SpoleIcons.Sound, stringResource(R.string.player_audio), "player-audio",
                 Modifier.then(if (state.audio.isNotEmpty()) Modifier.focusRequester(tools) else Modifier).focusProperties { up = timeline },
                 enabled = !state.busy && state.audio.isNotEmpty(), labelVisible = true) { onInteraction(); onAudio() }

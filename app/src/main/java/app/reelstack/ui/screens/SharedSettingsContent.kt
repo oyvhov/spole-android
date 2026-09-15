@@ -41,6 +41,7 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
             LibraryAppearanceSettings(options, change)
             SettingsToggleRow(stringResource(R.string.tv_show_ratings), stringResource(R.string.refine_ratings_hint), options.showRatings, "show-ratings") { change(options.copy(showRatings = it)) }
             SettingsToggleRow(stringResource(R.string.tv_show_quality), stringResource(R.string.refine_quality_hint), options.showQuality, "show-quality") { change(options.copy(showQuality = it)) }
+            SubtitleAppearanceSetting(options.subtitleStyle) { change(options.copy(subtitleStyle = it)) }
             LanguagePreference()
         }
         SettingsCategory.HOME -> {
@@ -62,6 +63,9 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
                 SettingsActionRow(stringResource(R.string.library_manage), stringResource(R.string.settings_tv_library_hint), "library-manage", onManageLibraries)
         }
         SettingsCategory.PLAYBACK -> {
+            if ((androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
+                SettingsToggleRow(stringResource(R.string.phase_watch_next), stringResource(R.string.phase_watch_next_hint),
+                    options.watchNextEnabled, "watch-next") { change(options.copy(watchNextEnabled = it)) }
             SettingsToggleRow(stringResource(R.string.personal_resume), stringResource(R.string.personal_resume_note),
                 options.autoResume, "auto-resume") { change(options.copy(autoResume = it)) }
             NextEpisodeSettings(options, change)

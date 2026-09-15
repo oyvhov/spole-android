@@ -1,0 +1,15 @@
+<resources>
+    <string name="phase_mini">Mini-player</string>
+    <string name="phase_speed">Speed</string>
+    <string name="phase_chapters">Chapters</string>
+    <string name="phase_themes">Theme gallery</string>
+    <string name="phase_theme_hint">Preview a look before applying it. Fine-tune and save it in My looks.</string>
+    <string name="phase_apply">Use this look</string>
+    <string name="phase_trailer">Trailer</string>
+    <string name="phase_trailer_hint">Watch the trailer in your video app or browser.</string>
+    <string name="phase_trailer_error">Could not open the trailer.</string>
+    <string name="phase_watch_next">Watch Next on TV</string>
+    <string name="phase_watch_next_hint">Show your unfinished videos on the TV home screen. The launcher decides what appears.</string>
+    <string name="phase_quick_play">Play</string>
+    <string name="phase_quick_details">Details</string>
+</resources>

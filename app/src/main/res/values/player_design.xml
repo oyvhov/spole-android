@@ -1,0 +1,13 @@
+<resources>
+    <string name="subtitle_appearance">Subtitles</string>
+    <string name="subtitle_choose">Choose a style</string>
+    <string name="subtitle_clean">Clean</string>
+    <string name="subtitle_cinema">Cinema</string>
+    <string name="subtitle_contrast">High contrast</string>
+    <string name="subtitle_large">Large</string>
+    <string name="subtitle_sample">Every story deserves to be heard.</string>
+    <string name="subtitle_scope">Applies to text subtitles in Spole. Burned-in subtitles and external players use their own appearance.</string>
+    <string name="library_card_names">Library names</string>
+    <string name="library_card_names_hint">Show names below library images.</string>
+    <string name="detail_series_action">Series</string>
+</resources>

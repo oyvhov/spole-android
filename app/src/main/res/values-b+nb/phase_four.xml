@@ -1,0 +1,15 @@
+<resources>
+    <string name="phase_mini">Minispiller</string>
+    <string name="phase_speed">Hastighet</string>
+    <string name="phase_chapters">Kapitler</string>
+    <string name="phase_themes">Temagalleri</string>
+    <string name="phase_theme_hint">Se uttrykket før du tar det i bruk. Tilpass og lagre det under Mine uttrykk.</string>
+    <string name="phase_apply">Bruk uttrykket</string>
+    <string name="phase_trailer">Trailer</string>
+    <string name="phase_trailer_hint">Se traileren i videoappen eller nettleseren din.</string>
+    <string name="phase_trailer_error">Kunne ikke åpne traileren.</string>
+    <string name="phase_watch_next">Se videre på TV</string>
+    <string name="phase_watch_next_hint">Vis uferdige videoer på TV-forsiden. TV-menyen avgjør hva som blir vist.</string>
+    <string name="phase_quick_play">Spill av</string>
+    <string name="phase_quick_details">Detaljer</string>
+</resources>

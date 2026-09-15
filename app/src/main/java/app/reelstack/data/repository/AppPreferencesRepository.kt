@@ -76,6 +76,9 @@ class AppPreferencesRepository(context: Context) {
             focusStyle = app.reelstack.data.model.FocusStyle.decode(preferences.getString("focus_style", null), television),
             highContrast = preferences.getBoolean("high_contrast", false),
             seasonalOrnament = preferences.getBoolean("seasonal_ornament", true),
+            showLibraryCardNames = preferences.getBoolean("library_card_names", true),
+            watchNextEnabled = preferences.getBoolean("watch_next_enabled", false),
+            subtitleStyle = app.reelstack.data.model.SubtitleStyle.entries.firstOrNull { it.name == preferences.getString("subtitle_style", null) } ?: app.reelstack.data.model.SubtitleStyle.CLEAN,
         )
         set(value) = preferences.edit {
             putString("accent_palette", value.accent.name)
@@ -115,11 +118,14 @@ class AppPreferencesRepository(context: Context) {
             putString("focus_style", value.focusStyle.name)
             putBoolean("high_contrast", value.highContrast)
             putBoolean("seasonal_ornament", value.seasonalOrnament)
+            putBoolean("library_card_names", value.showLibraryCardNames)
+            putBoolean("watch_next_enabled", value.watchNextEnabled)
+            putString("subtitle_style", value.subtitleStyle.name)
         }
 
     fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key in setOf("accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "hide_tv_sidebar", "menu_order", "menu_hidden",
+            if (key in setOf("watch_next_enabled", "subtitle_style", "library_card_names", "accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "hide_tv_sidebar", "menu_order", "menu_hidden",
                     "show_next_up", "combine_continue", "show_hero", "show_ratings", "show_quality", "slow_startup",
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",
                     "seasonal_ornament", "show_next_episode", "next_episode_lead", "auto_play_next_episode",

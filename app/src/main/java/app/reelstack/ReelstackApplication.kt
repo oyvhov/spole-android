@@ -48,6 +48,7 @@ class ReelstackApplication : Application(), coil3.SingletonImageLoader.Factory {
         // Neither belongs on the main thread during startup: the first frame should not wait on
         // a decision about a refresh that will not run for another half hour anyway.
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            container.watchNextSync.start()
             BackgroundRefreshScheduler.schedule(
                 this@ReelstackApplication,
                 container.preferencesRepository.wifiOnly,

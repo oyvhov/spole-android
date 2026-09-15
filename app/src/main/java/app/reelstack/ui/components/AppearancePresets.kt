@@ -17,6 +17,7 @@ import app.reelstack.data.model.*
 @Composable
 internal fun AppearancePresets(value: Personalization, onChange: (Personalization) -> Unit) {
     Text(stringResource(R.string.design_looks), style = MaterialTheme.typography.titleLarge)
+    ThemeGallery(value, onChange)
     SavedLooks(value, onChange)
     Text(stringResource(R.string.design_look_hint), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)

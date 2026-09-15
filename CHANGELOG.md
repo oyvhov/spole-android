@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.17.0-beta03 · Fase 4 og personleg spelar
+
+- Temagalleri med førehandsvising, sesongtema og lagring av eigne uttrykk.
+- Mini-spelar på støtta telefonar/nettbrett og valfri Watch Next på Android TV.
+- Trailerførehandsvising for støtta YouTube-lenkjer frå serveren, med val om å opne videoappen.
+- Hurtighandlingar på innhaldskort og OSD med fart, kapittel og kapittelbilete ved TV-spoling.
+- Undertekstutsjånad med fire stilar og faktisk førehandsvising.
+- Bibliotekfiltera er borte på alle skjermstorleikar. Valfrie namn står under biletet.
+- «Serie» ved favoritt på episodesida, kortare sesongknappar og kategoriikon i mobilinnstillingane.
+- Google TV-vising av Watch Next krev Google-godkjenning. Mini-spelaren er implementert, men ikkje ferdig prøvd på ei støtta mobileining i denne gjennomgangen; sjå verifiseringsnotatet.
+
 ## 0.17.0-beta01 · Personleg bibliotek og betre avspelingsflyt
 
 - Ny bibliotekoversikt som kan vere startside, med serverbilete og val for rekkjefølgje, rader og vising.

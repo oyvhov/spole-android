@@ -45,6 +45,7 @@ data class CachedMediaSnapshot(
  */
 class MediaSnapshotStore(context: Context) {
     private val dao = CacheDatabase.get(context).cacheDao()
+    val changes = kotlinx.coroutines.flow.MutableStateFlow(0L)
 
     fun save(snapshot: MediaSyncSnapshot, fingerprint: String) {
         runCatching {
@@ -60,6 +61,7 @@ class MediaSnapshotStore(context: Context) {
                 addAll(discoverRows(fingerprint, CacheSection.RECOMMENDATIONS, snapshot.recommendations))
             }
             dao.replaceAll(CacheMetaRow(fingerprint, SCHEMA, snapshot.refreshedAt.toEpochMilli()), rows)
+            changes.value++
         }
     }
 

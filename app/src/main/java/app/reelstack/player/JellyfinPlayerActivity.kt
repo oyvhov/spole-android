@@ -59,6 +59,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.CaptionStyleCompat
 import app.reelstack.ReelstackApplication
 import app.reelstack.ui.theme.ReelstackTheme
 import app.reelstack.ui.components.NativeClientLauncher
@@ -73,10 +74,26 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class PlayerMenu(val label: Int) {
-    AUDIO(R.string.player_audio_tracks), SUBTITLES(R.string.player_subtitles), QUALITY(R.string.player_quality)
+    AUDIO(R.string.player_audio_tracks), SUBTITLES(R.string.player_subtitles), QUALITY(R.string.player_quality),
+    SPEED(R.string.phase_speed), CHAPTERS(R.string.phase_chapters)
 }
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
+    private var miniPlayer by mutableStateOf(false)
+    private var enteringMini = false
+    internal fun openMiniPlayer() {
+        if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE) ||
+            !::model.isInitialized || model.state.value.browsing || model.state.value.awaitingResume ||
+            model.state.value.error != null || model.state.value.durationMs <= 0) return
+        enteringMini = true
+        val params = android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational(16, 9)).build()
+        if (!runCatching { enterPictureInPictureMode(params) }.getOrDefault(false)) enteringMini = false
+    }
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        miniPlayer = isInPictureInPictureMode
+        enteringMini = false
+    }
     internal lateinit var model: JellyfinPlayerModel
         private set
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -116,7 +133,8 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                         requestedOrientation = if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT)
                             android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
                     }, onNextEpisode = model::playNext, onCancelNextEpisode = model::cancelNextEpisode,
-                    onSkipSegment = model::skipSegment)
+                    onSkipSegment = model::skipSegment, miniPlayer = miniPlayer,
+                    onMiniPlayer = if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) ::openMiniPlayer else null)
             }
         }
     }
@@ -131,7 +149,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         if (hasFocus) enterFullscreen()
     }
     override fun onResume() { super.onResume(); if (::model.isInitialized) model.foreground() }
-    override fun onPause() { if (::model.isInitialized && !isChangingConfigurations) model.background(); super.onPause() }
+    override fun onPause() { if (::model.isInitialized && !isChangingConfigurations && !isInPictureInPictureMode && !enteringMini) model.background(); super.onPause() }
     override fun onStop() { if (::model.isInitialized && !isChangingConfigurations) model.background(); super.onStop() }
     companion object {
         private const val ITEM_ID = "jellyfin_item_id"
@@ -162,10 +180,19 @@ fun PlayerScreen(
     onNextEpisode: () -> Unit = {},
     onCancelNextEpisode: () -> Unit = {},
     onSkipSegment: () -> Unit = {},
+    miniPlayer: Boolean = false,
+    onMiniPlayer: (() -> Unit)? = null,
     isTelevision: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION,
 ) {
     val videoFocus = remember { FocusRequester() }
+    val appearanceContext = androidx.compose.ui.platform.LocalContext.current
+    val appearancePreferences = remember(appearanceContext) { app.reelstack.data.repository.AppPreferencesRepository(appearanceContext) }
+    var appearance by remember { mutableStateOf(appearancePreferences.personalization) }
+    DisposableEffect(appearancePreferences) {
+        val stop = appearancePreferences.observePersonalization { appearance = it }
+        onDispose { stop() }
+    }
     val playFocus = remember { FocusRequester() }
     val nextFocus = remember { FocusRequester() }
     var nextHasFocus by remember { mutableStateOf(false) }
@@ -177,6 +204,7 @@ fun PlayerScreen(
     var fillVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf<PlayerMenu?>(null) }
+    var playbackSpeed by remember(player) { mutableFloatStateOf(player?.playbackParameters?.speed ?: 1f) }
     var scrubbing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var remoteSeekTargetMs by remember { mutableStateOf<Long?>(null) }
@@ -285,12 +313,14 @@ fun PlayerScreen(
             } },
             update = {
                 it.player = player
+                it.subtitleView?.applyAppearance(appearance.subtitleStyle)
                 it.resizeMode = if (fillVideo) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
             },
             onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize().testTag("player-video"),
         )
+        if (miniPlayer) return@Box
         // An ancestor receives unconsumed video taps; a sibling behind the scroll container cannot.
         Box(Modifier.fillMaxSize().testTag("player-touch-surface")
             .semantics { if (!showControls) onClick(showControlsLabel) { controls = true; interaction++; true } }
@@ -346,7 +376,8 @@ fun PlayerScreen(
             TvPlaybackOverlay(state, showControls, remoteSeekTargetMs, playFocus, nextFocus.takeIf { showNextOffer },
                 onToggle, onSeek, { menu = PlayerMenu.AUDIO }, { menu = PlayerMenu.SUBTITLES },
                 { menu = PlayerMenu.QUALITY }, fillVideo, { fillVideo = !fillVideo },
-                onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it })
+                onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
+                onSpeed = { menu = PlayerMenu.SPEED }, onChapters = { menu = PlayerMenu.CHAPTERS })
             if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                 Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
                     .padding(horizontal = 48.dp, vertical = 27.dp).onFocusChanged { nextHasFocus = it.hasFocus })
@@ -373,6 +404,11 @@ fun PlayerScreen(
                 // Android TV asks every app to keep.
                 .then(if (isTelevision) Modifier.padding(horizontal = 48.dp, vertical = 27.dp) else Modifier)) {
                 if (showControls) PlayerHeader(state.title, state.subtitleLine(), onClose, showBack = !isTelevision)
+                if (showControls && onMiniPlayer != null && !state.busy && state.error == null && !state.awaitingResume && state.durationMs > 0) TextButton(
+                    onClick = onMiniPlayer, modifier = Modifier.align(Alignment.End).testTag("player-mini")) {
+                    Icon(app.reelstack.ui.components.SpoleIcons.MiniPlayer, null)
+                    Text(stringResource(R.string.phase_mini), Modifier.padding(start = 8.dp))
+                }
                 if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                     Modifier.align(Alignment.End))
                 if (!showNextOffer) SkipSegmentButton(state, onSkipSegment)
@@ -459,6 +495,8 @@ fun PlayerScreen(
                             Text(playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs)); Text(playbackTime(state.durationMs))
                         }
                         FlowRow(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.SPEED }, modifier = Modifier.testTag("player-speed")) { Text(stringResource(R.string.phase_speed)) }
+                            if (state.chapters.isNotEmpty()) app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.CHAPTERS }, modifier = Modifier.testTag("player-chapters")) { Text(stringResource(R.string.phase_chapters)) }
                             app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Sound, null); Text(stringResource(R.string.player_audio)) }
                             app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Subtitles, null); Text(stringResource(R.string.player_subtitles_button)) }
                             app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Tune, null); Text(stringResource(R.string.player_quality)) }
@@ -492,17 +530,34 @@ fun PlayerScreen(
                     val options = when (title) {
                         PlayerMenu.AUDIO -> state.audio.map { it.index to it.label }
                         PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }
+                        PlayerMenu.SPEED -> listOf(75, 100, 125, 150, 200).map { it to "${it / 100f}×" }
+                        PlayerMenu.CHAPTERS -> state.chapters.mapIndexed { index, chapter -> index to "${playbackTime(chapter.startPositionMs)} · ${chapter.name}" }
                         else -> listOf(0 to stringResource(R.string.player_auto), 80_000_000 to stringResource(R.string.player_quality_ultra),
                             20_000_000 to stringResource(R.string.player_quality_high), 4_000_000 to stringResource(R.string.player_medium_data), 2_000_000 to stringResource(R.string.player_low_data))
                     }
                     Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState())) {
-                        val selectedId = when (title) { PlayerMenu.AUDIO -> state.audioIndex; PlayerMenu.SUBTITLES -> state.subtitleIndex; else -> state.quality }
+                        if (title == PlayerMenu.SUBTITLES) app.reelstack.ui.screens.SubtitleAppearanceSetting(appearance.subtitleStyle) {
+                            appearancePreferences.personalization = appearance.copy(subtitleStyle = it)
+                        }
+                        val selectedId = when (title) {
+                            PlayerMenu.AUDIO -> state.audioIndex
+                            PlayerMenu.SUBTITLES -> state.subtitleIndex
+                            PlayerMenu.SPEED -> (playbackSpeed * 100).toInt()
+                            PlayerMenu.CHAPTERS -> state.chapters.indexOfLast { it.startPositionMs <= state.positionMs }
+                            PlayerMenu.QUALITY -> state.quality
+                        }
                         options.forEachIndexed { index, (id, label) ->
                             val selected = id == selectedId
                             val initialFocus = selected || (index == 0 && options.none { it.first == selectedId })
                             val choiceInteraction = remember(title, id) { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             val choose: () -> Unit = {
-                                when (title) { PlayerMenu.AUDIO -> onAudio(id); PlayerMenu.SUBTITLES -> onSubtitle(id); else -> onQuality(id) }
+                                when (title) {
+                                    PlayerMenu.AUDIO -> onAudio(id)
+                                    PlayerMenu.SUBTITLES -> onSubtitle(id)
+                                    PlayerMenu.QUALITY -> onQuality(id)
+                                    PlayerMenu.SPEED -> { playbackSpeed = id / 100f; player?.setPlaybackSpeed(playbackSpeed) }
+                                    PlayerMenu.CHAPTERS -> state.chapters.getOrNull(id)?.let { onSeek(it.startPositionMs) }
+                                }
                                 menu = null; interaction++
                             }
                             OutlinedButton(onClick = choose, interactionSource = choiceInteraction,

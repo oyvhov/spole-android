@@ -177,6 +177,7 @@ data class RemoteMediaDetails(
     val seriesId: String? = null,
     val season: Int? = null,
     val episode: Int? = null,
+    val trailerUrl: String? = null,
 )
 
 data class RemoteRequest(
@@ -625,6 +626,9 @@ object ServicePayloadParser {
                 EndpointValidator.resolve(baseUrl, "Items/$id/Images/Primary?maxWidth=960&quality=85&tag=$tag")
             } else null,
             backdropUrl = libraryBackdrop(item, baseUrl),
+            trailerUrl = item.array("RemoteTrailers").firstNotNullOfOrNull {
+                app.reelstack.data.model.trailerLink((it as? JsonObject)?.string("Url"))
+            },
             seriesId = item.string("SeriesId"),
             season = item.int("ParentIndexNumber"),
             episode = item.int("IndexNumber"),

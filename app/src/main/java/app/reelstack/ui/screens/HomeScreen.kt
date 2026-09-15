@@ -276,7 +276,7 @@ fun HomeScreen(
                     item(key = "favourites") {
                         SectionTitle(stringResource(R.string.home_favourites),
                             Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                        LibraryRail(state.favourites, onLibraryClick, wide = false, rowKey = row.name)
+                        LibraryRail(state.favourites, onLibraryClick, wide = false, rowKey = row.name, actions = cardActions)
                     }
                 }
                 if (row == app.reelstack.data.model.HomeRow.NEXT_UP && personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
@@ -300,7 +300,7 @@ fun HomeScreen(
                                     EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_movies)))
                                 }
                             } else {
-                                LibraryRail(items, onLibraryClick, wide = false, rowKey = row.name)
+                                LibraryRail(items, onLibraryClick, wide = false, rowKey = row.name, actions = cardActions)
                             }
                         }
                     }
@@ -322,7 +322,7 @@ fun HomeScreen(
                                     EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_episodes)))
                                 }
                             } else {
-                                LibraryRail(items, onLibraryClick, wide = true, rowKey = row.name)
+                                LibraryRail(items, onLibraryClick, wide = true, rowKey = row.name, actions = cardActions)
                             }
                         }
                     }
@@ -763,7 +763,7 @@ private fun NowPlayingCard(
 }
 
 @Composable
-internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean, rowKey: String? = null) {
+internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean, rowKey: String? = null, actions: MediaCardActions? = null) {
     val chosenWide = when (app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats[rowKey]) {
         "POSTER" -> false; "THUMB" -> true; else -> wide
     }
@@ -777,6 +777,7 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
                 wide = chosenWide,
                 titleLines = titleLines,
                 revealDelay = (index.coerceAtMost(2) * 30),
+                actions = actions?.copy(canRemoveFromResume = false),
                 onClick = { onClick(media.id) },
             )
         }
@@ -874,7 +875,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
             .semantics { role = Role.Button }
             .testTag("resume-card-${media.id}"),
     ) {
-        if (actions != null) MediaCardMenu(media, actions, menuOpen) { menuOpen = false }
+        if (actions != null) MediaCardMenu(media, actions, menuOpen, onDetails = onClick) { menuOpen = false }
         Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))
             .focusOutline(interactionSource, RoundedCornerShape(ReelLayout.ArtworkCorner))) {
             MediaArtwork(
@@ -924,8 +925,17 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
  * setting: an unwatched title offers "Mark as watched", a favourite offers to stop being one.
  */
 @Composable
-private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: Boolean, onDismiss: () -> Unit) {
+private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: Boolean, onDetails: () -> Unit, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
+        if (media.source == ServiceKind.JELLYFIN && media.mediaType in listOf("Movie", "Episode") && !media.remoteId.isNullOrBlank()) DropdownMenuItem(
+            text = { Text(stringResource(if ((media.progress ?: 0f) > 0f) R.string.tv_resume else R.string.phase_quick_play)) },
+            leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null) },
+            onClick = { onDismiss(); app.reelstack.player.JellyfinPlayerActivity.open(context, media.remoteId) },
+            modifier = Modifier.testTag("card-play"))
+        DropdownMenuItem(text = { Text(stringResource(R.string.phase_quick_details)) },
+            leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Library, null) },
+            onClick = { onDismiss(); onDetails() }, modifier = Modifier.testTag("card-details"))
         if (actions.canRemoveFromResume) DropdownMenuItem(
             text = { Text(stringResource(R.string.library_remove_resume)) },
             onClick = { onDismiss(); actions.onRemoveFromResume(media) },
@@ -945,7 +955,8 @@ private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: 
 }
 
 @Composable
-private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, revealDelay: Int, onClick: () -> Unit) {
+private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, revealDelay: Int, actions: MediaCardActions? = null, onClick: () -> Unit) {
+    var menuOpen by remember(media.id) { mutableStateOf(false) }
     val tablet = LocalTabletCanvas.current
     val cardWidth = (if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val artworkHeight = if (wide) cardWidth * 9f / 16f else cardWidth * 1.5f
@@ -975,10 +986,12 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 scaleX = scale
                 scaleY = scale
             }
-            .clickable(
+            .combinedClickable(
                 interactionSource = interactionSource,
                 indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClick = onClick,
+                onLongClick = actions?.let { { menuOpen = true } },
+                onLongClickLabel = stringResource(R.string.library_card_options, media.title),
             )
             .semantics { role = Role.Button },
     ) {
@@ -997,6 +1010,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 source = media.source,
                 modifier = Modifier.fillMaxSize(),
             )
+            if (actions != null) MediaCardMenu(media, actions, menuOpen, onDetails = onClick) { menuOpen = false }
         }
         Text(
             media.title,

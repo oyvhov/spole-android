@@ -1,6 +1,7 @@
 package app.reelstack.data.repository
 
 import android.content.Context
+import kotlinx.coroutines.flow.asStateFlow
 import androidx.core.content.edit
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.ServiceConnection
@@ -11,6 +12,8 @@ class ConnectionRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_connections", Context.MODE_PRIVATE)
     private val tokenStore = EncryptedTokenStore(context)
     private val tokenCache = mutableMapOf<ServiceKind, String>()
+    private val revision = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    val changes = revision.asStateFlow()
 
     fun list(): List<ServiceConnection> = ServiceKind.entries.map(::get)
 
@@ -78,6 +81,7 @@ class ConnectionRepository(context: Context) {
         synchronized(tokenCache) {
             tokenCache[connection.kind] = connection.token
         }
+        revision.value++
     }
 
     fun delete(kind: ServiceKind) {
@@ -94,6 +98,7 @@ class ConnectionRepository(context: Context) {
         synchronized(tokenCache) {
             tokenCache.remove(kind)
         }
+        revision.value++
     }
 
     /**

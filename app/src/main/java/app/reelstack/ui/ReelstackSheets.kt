@@ -304,34 +304,32 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val seriesLinkFocus = remember(details.key) { androidx.compose.ui.focus.FocusRequester() }
     val actions: @Composable () -> Unit = {
         TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed,
+            onSeries = if (mediaType == "Episode" && state.seriesBrowse.seriesId.isNotBlank()) onEpisodeSeries else null,
+            seriesFocus = seriesLinkFocus,
             modifier = Modifier.onFocusChanged { if (tv && it.hasFocus && scroll.value > 0) {
                 detailScope.launch { scroll.animateScrollTo(0) }
             } }.onPreviewKeyEvent { event ->
                 if (tv && event.key == androidx.compose.ui.input.key.Key.DirectionUp) {
                     if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                         detailScope.launch { scroll.animateScrollTo(0) }
-                        if (ready && !state.seriesBrowse.loading && mediaType == "Episode" && state.seriesBrowse.openedFor == details.key && state.seriesBrowse.seriesId.isNotBlank())
-                            seriesLinkFocus.requestFocus()
                     }
                     true
                 } else false
             }.focusGroup())
     }
-    val seriesLink: @Composable () -> Unit = {
-        if (ready && !state.seriesBrowse.loading && mediaType == "Episode" && state.seriesBrowse.openedFor == details.key && state.seriesBrowse.seriesId.isNotBlank())
-            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onEpisodeSeries, modifier = Modifier.focusRequester(seriesLinkFocus).testTag("episode-series-link")) {
-                Icon(app.reelstack.ui.components.SpoleIcons.Library, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.refine_series_page))
-            }
-    }
     val tvHeading: @Composable () -> Unit = {
-        Text(opening.title, color = MaterialTheme.colorScheme.onSurface,
+        if (mediaType == "Episode") Text(opening.title, color = Muted,
+            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 6.dp).testTag("episode-series-name"))
+        Text(if (mediaType == "Episode") app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle) else opening.title, color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.headlineMedium, modifier = Modifier.testTag("detail-title"))
-        if (!isSeries) Text(app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
+        if (!isSeries && mediaType != "Episode") Text(app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
             color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp))
-        seriesLink()
-        if (wideDetail && ready) { aside(); actions() }
+        if (wideDetail && ready) {
+            aside()
+            if (mediaType == "Episode") synopsis()
+            actions()
+        }
     }
     Box(Modifier.fillMaxSize()) {
     val artOptions = app.reelstack.ui.theme.LocalPersonalization.current
@@ -387,7 +385,6 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 portrait = mediaType == "Series",
             )
         }
-        if (!tv) seriesLink()
         if (!ready) {
             Column(Modifier.fillMaxWidth().testTag("detail-loading").padding(top = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -400,6 +397,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // player, so what the page promises is what starts.
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
         if (tv && !wideDetail) aside()
+        if (!tv && mediaType == "Episode") synopsis()
         if (!tv || !wideDetail) actions()
         if (tv && !wideDetail) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
@@ -416,11 +414,11 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // season is the thing a reader on an episode page actually wants next, and it is what
         // used to leave the lower half of a television screen empty.
         SeriesEpisodes(state.seriesBrowse, details.key, onSeason)
-        if (tv && wideDetail) synopsis()
+        if (tv && wideDetail && mediaType != "Episode") synopsis()
         if (tv && !isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
             { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
         // TV has already shown these alongside its smaller poster.
-        if (!tv) { aside(); synopsis() }
+        if (!tv) { aside(); if (mediaType != "Episode") synopsis() }
         details.statusTitle?.takeUnless { details.libraryAvailable && details.source == ServiceKind.JELLYFIN }?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
                 .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
@@ -615,6 +613,7 @@ private fun DetailEyebrow(eyebrow: String, source: ServiceKind?, modifier: Modif
  * icons. An icon is enough when the shape is the label: a heart is a favourite everywhere.
  */
 @Composable
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 private fun TitleActionRow(
     state: ReelstackUiState,
     details: ContentDetails,
@@ -623,6 +622,8 @@ private fun TitleActionRow(
     versionId: String?,
     onFavourite: (String, Boolean) -> Unit,
     onPlayed: (String, Boolean) -> Unit,
+    onSeries: (() -> Unit)? = null,
+    seriesFocus: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
@@ -632,16 +633,19 @@ private fun TitleActionRow(
         state.connections.any { it.kind == details.source && it.token.isNotBlank() } &&
         !details.mediaType.equals("Series", true) && !details.mediaType.equals("Season", true)
     Column(modifier.fillMaxWidth()) {
-        Row(
+        androidx.compose.foundation.layout.FlowRow(
             Modifier.fillMaxWidth().padding(top = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // A phone button spans the row and the icons sit at its end; a television button is
             // as wide as its own label, so a weight there would park the icons a hand's width away
             // across empty space.
             IntegratedPlaybackButton(state, details,
-                if (television) Modifier else Modifier.weight(1f), audioIndex, subtitleIndex, versionId)
+                if (television) Modifier else Modifier.fillMaxWidth(), audioIndex, subtitleIndex, versionId)
+            details.trailerUrl?.let { trailer ->
+                app.reelstack.ui.components.TrailerPreview(trailer, details.title)
+            }
             if (marks) {
                 IconAction(
                     icon = app.reelstack.ui.components.SpoleIcons.DoneCircle,
@@ -658,6 +662,19 @@ private fun TitleActionRow(
                         if (details.favourite) R.string.library_favourite_remove else R.string.library_favourite_add),
                     tag = "detail-favourite",
                 ) { onFavourite(details.key, !details.favourite) }
+            }
+            if (onSeries != null) {
+                val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                TextButton(onClick = onSeries, interactionSource = interaction,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Muted),
+                    modifier = Modifier.heightIn(min = 48.dp)
+                        .then(seriesFocus?.let { Modifier.focusRequester(it) } ?: Modifier)
+                        .focusOutline(interaction, RoundedCornerShape(10.dp), glow = false)
+                        .testTag("episode-series-link")) {
+                    Icon(app.reelstack.ui.components.SpoleIcons.Library, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.detail_series_action))
+                }
             }
         }
         state.mediaActionError?.let {

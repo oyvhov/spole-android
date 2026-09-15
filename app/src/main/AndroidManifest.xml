@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
+    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -59,7 +61,11 @@
 
         <activity
             android:name=".player.JellyfinPlayerActivity"
+            android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
+        <activity android:name=".player.WatchNextActivity" android:exported="true" android:excludeFromRecents="true" />
+        <provider android:name=".player.WatchNextArtworkProvider" android:authorities="${applicationId}.watchart" android:exported="true" />
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTop"
