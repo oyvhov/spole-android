@@ -30,4 +30,4 @@ Temagalleriet er lokalt, utan konto, betaling, nedlasting av kode eller eksterne
 - Watch Next blir prøvd med syntetisk konto på isolert TV. Innsetting, fullføring, utlogging og fråvær av innloggingsdata i lenkja blir kontrollerte.
 - Mini-spelar krev manuell kontroll på ei støtta, innlogga mobileining. TV-testemulatoren har ikkje PiP. Den isolerte mobil-emulatoren stoppa med ein Android-systemfeil før appstart; den vanlege mobilprofilen stod på innlogging. Ingen av profilane vart nullstilte.
 
-Sjå VERIFICATION_v0.17.0-beta03.md for endeleg bygg og testresultat. Det er ikkje publisert ein GitHub-release berre ved at ein lokal APK er bygd.
+Fase 4 er implementert og publisert i [0.17.0-beta03](https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta03). Offentleg APK og oppdatering gjennom appen på TV er kontrollerte. Sjå [verifiseringsrapporten](VERIFICATION_v0.17.0-beta03.md) for testresultat og dei attståande grensene for manuell mobilkontroll.

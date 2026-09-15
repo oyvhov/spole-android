@@ -20,10 +20,16 @@
 ## Einingar og grenser
 
 - Signert APK installert med `-r` på mobilprofil 5560; versjonskode 82 stadfesta. Profilen stod allereie på innlogging før oppdateringa. Ingen kontoar, AVD-data eller appval vart nullstilte.
-- TV 5564 vert halden på førre utgåve fram til den offentlege oppdateringsflyten kan prøvast.
+- TV 5564 vart oppdatert frå beta02 (81) til beta03 (82) gjennom Spole: Sjekk no → Last ned → kontroll → Installer → Android Update → Open. Installert versjon er stadfesta. Ekte innhald, innlogging, skjult sidemeny og lagra utsjånad kom tilbake etter oppdateringa. Siste APK står open på TV-en.
 - Mobiltestprofil 5562 fekk ein Android-systemfeil ved lesing av permission/access.abx før Spole kunne startast. Profilen vart stansa, ikkje sletta eller nullstilt. Mobilprofil 5560 fekk også ein Bluetooth-systemdialog, uavhengig av Spole.
 - PiP er implementert, men faktisk vidare avspeling i PiP og retur er ikkje verifisert på ei støtta mobileining. Brukaren er beden om å logge inn på mobilprofilen for denne kontrollen.
 - Watch Next-innsetting, framdrift, fullføring og utlogging er verifiserte mot Android TV-provider med syntetisk konto. Google TV si startskjermvising krev separat Google-godkjenning.
 - Temagalleri og biblioteksnamn er visuelt kontrollerte frå isolerte skjermbilete. Ekte kontoar og skjermbilete er ikkje publiserte.
 
-Offentleg nedlasting og faktisk oppdatering gjennom appen blir dokumenterte etter publisering.
+## Offentleg publisering
+
+- [GitHub beta03](https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta03) er publisert som prerelease, ikkje draft eller stabil latest.
+- Kjeldecommit og uendra release-tag: `d924fd26f7172bc237be56b43187e3eb971fc5eb`.
+- Offentleg release-endepunkt er kontrollert utan innlogging. APK-en vart lasta ned på nytt frå den offentlege lenkja; SHA-256 er identisk med artefakten over.
+- Heile oppdateringsflyten gjennom appen er prøvd på den ekte TV-profilen, ikkje berre installasjon via ADB.
+- Endeleg visuell kontroll på ekte TV stadfesta heimesida etter oppdatering. Bibliotekoppsettet er kontrollert med isolerte UI-testar; den siste manuelle kontrollen gav ikkje fokus via dei injiserte navigasjonstastane, så han stadfestar ikkje full fjernkontrollnavigasjon på denne profilen.
