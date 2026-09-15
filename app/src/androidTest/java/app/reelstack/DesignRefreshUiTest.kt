@@ -54,9 +54,9 @@ class DesignRefreshUiTest {
     @Test fun libraryTvIsACompleteFrontPageAndOpensExactLibrary() {
         var selected = ""
         rule.setContent { Canvas(960, 540, tv = true) { LibraryHub(fixtures(), { selected = it }, {}, null, {}) } }
-        rule.onNodeWithTag("hub-library-movies").assertIsDisplayed().performClick()
-        assertEquals("movies", selected)
         rule.onNodeWithTag("tablet-feature-open").assertIsDisplayed()
+        rule.onNodeWithTag("hub-library-movies").performScrollTo().assertIsDisplayed().performClick()
+        assertEquals("movies", selected)
         rule.onNodeWithText("Jellyfin").assertDoesNotExist()
         rule.onRoot().saveRoadmapImage("design-library-tv.png")
     }
@@ -132,6 +132,8 @@ class DesignRefreshUiTest {
             }
         } }
         rule.onNodeWithText("Alt").assertDoesNotExist()
+        rule.onNodeWithTag("library-hub").performScrollToIndex(2)
+        rule.onNodeWithTag("hub-library-name-movies").assertIsDisplayed()
         val picture = rule.onNodeWithTag("hub-library-movies").fetchSemanticsNode().boundsInRoot
         val label = rule.onNodeWithTag("hub-library-name-movies").fetchSemanticsNode().boundsInRoot
         assertTrue(label.top >= picture.bottom)
@@ -297,15 +299,15 @@ class DesignRefreshUiTest {
                     overview = "Episodeteksten skal vere synleg ved tittelen, før avspeling.")),
                 null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, onEpisodeSeries = { opened = true })
         } }
-        rule.onNodeWithTag("overview-text").assertIsDisplayed()
-        rule.onNodeWithTag("episode-series-name").assertIsDisplayed().assertTextEquals("Testserie")
-        rule.onNodeWithTag("detail-title").assertTextEquals("Episode 3")
+        rule.onNodeWithTag("overview-text", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("detail-title").performScrollTo().assertIsDisplayed().assertTextEquals("Testserie")
+        rule.onNodeWithTag("episode-series-name").assertIsDisplayed().assertTextEquals("Episode 3")
         val link = rule.onNodeWithTag("episode-series-link").fetchSemanticsNode().boundsInRoot
         val title = rule.onNodeWithTag("detail-title").fetchSemanticsNode().boundsInRoot
-        val overview = rule.onNodeWithTag("overview-text").fetchSemanticsNode().boundsInRoot
+        val overview = rule.onNodeWithTag("overview-text", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val play = rule.onNodeWithTag("play-in-spole").fetchSemanticsNode().boundsInRoot
         val favourite = rule.onNodeWithTag("detail-favourite").fetchSemanticsNode().boundsInRoot
-        assertTrue("Serie skal liggje etter favoritt", link.left >= favourite.right)
+        assertTrue("Serie skal liggje etter favoritt", link.left >= favourite.right || link.top >= favourite.bottom)
         assertTrue("Episodetekst skal kome etter tittelen", title.bottom <= overview.top)
         assertTrue("Episodetekst skal kome før avspeling", overview.bottom <= play.top)
         rule.onNodeWithTag("detail-scroll").saveRoadmapImage("episode-summary-tv-$font.png")

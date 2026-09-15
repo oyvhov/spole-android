@@ -393,7 +393,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     )
                     AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary,
                         viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary,
-                        onShelfOpen = viewModel::openLibraryDetails, cardActions = cardActions)
+                        onShelfOpen = viewModel::openLibraryDetails, cardActions = cardActions,
+                        onSource = viewModel::selectLibrarySource)
                     AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
                         viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
                         viewModel::cancelTrackedRequest, viewModel::openRequestHistory,

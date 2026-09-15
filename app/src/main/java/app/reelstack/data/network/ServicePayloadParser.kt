@@ -174,10 +174,12 @@ data class RemoteMediaDetails(
     /** Id and name, because playback is asked for by id and people read the name. */
     val versions: List<Pair<String, String>> = emptyList(),
     val backdropUrl: String? = null,
+    val logoUrl: String? = null,
     val seriesId: String? = null,
     val season: Int? = null,
     val episode: Int? = null,
     val trailerUrl: String? = null,
+    val criticRating: Int? = null,
 )
 
 data class RemoteRequest(
@@ -626,6 +628,7 @@ object ServicePayloadParser {
                 EndpointValidator.resolve(baseUrl, "Items/$id/Images/Primary?maxWidth=960&quality=85&tag=$tag")
             } else null,
             backdropUrl = libraryBackdrop(item, baseUrl),
+            logoUrl = app.reelstack.player.playableLogoUrl(item, baseUrl),
             trailerUrl = item.array("RemoteTrailers").firstNotNullOfOrNull {
                 app.reelstack.data.model.trailerLink((it as? JsonObject)?.string("Url"))
             },
@@ -637,6 +640,8 @@ object ServicePayloadParser {
             overview = item.string("Overview") ?: item.string("overview"),
             facts = libraryFacts(item, mediaType, runtime),
             progress = progress,
+            criticRating = (item.double("CriticRating") ?: item.double("criticRating"))
+                ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.let { kotlin.math.round(it).toInt() },
             remainingMinutes = if (runtime != null && runtime > 0 && position != null)
                 kotlin.math.ceil((runtime - position).coerceAtLeast(0).toDouble() / TICKS_PER_MINUTE).toInt() else null,
             quality = quality,
@@ -826,12 +831,6 @@ object ServicePayloadParser {
         runtimeTicks?.takeIf { it > 0 }?.let { add("${it / TICKS_PER_MINUTE} min") }
         (item.string("OfficialRating") ?: item.string("officialRating"))?.let(::add)
         (item.double("CommunityRating") ?: item.double("communityRating"))?.let { add("★ ${"%.1f".format(it)}") }
-        (item.string("Status") ?: item.string("status"))?.let(::add)
-        val studios = (item.array("Studios").takeIf { it.isNotEmpty() } ?: item.array("studios"))
-            .mapNotNull { studio ->
-                (studio as? JsonObject)?.let { it.string("Name") ?: it.string("name") }
-            }
-        studios.take(2).takeIf { it.isNotEmpty() }?.joinToString(" · ")?.let(::add)
     }
 
     private fun discoverFacts(item: JsonObject, mediaType: String, year: String?): List<String> = buildList {

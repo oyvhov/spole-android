@@ -31,12 +31,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.data.model.HomeSection
@@ -78,6 +80,14 @@ private val TITLE_SIZE = 32.sp
 private val TITLE_LINE_HEIGHT = 36.sp
 private val TV_TITLE_SIZE = 26.sp
 private val TV_TITLE_LINE_HEIGHT = 28.sp
+
+/** Extend artwork into the list gutters without changing the width of the rows below it. */
+internal fun Modifier.cinematicBleed(inset: Dp): Modifier = layout { measurable, constraints ->
+    val margin = inset.roundToPx()
+    val child = measurable.measure(constraints.copy(minWidth = constraints.maxWidth + margin * 2,
+        maxWidth = constraints.maxWidth + margin * 2))
+    layout(constraints.maxWidth, child.height) { child.placeRelative(-margin, 0) }
+}
 
 /** Stable action and profile targets; only the artwork and metadata crossfade. */
 @Composable
@@ -131,7 +141,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             20.sp.toDp() * (if (compactTelevision) 1 else 3) +
             (if (compactTelevision) 17.sp else 20.sp).toDp() * 2
     }
-    val sceneHeight = maxOf((if (compactTelevision) 220.dp else 330.dp) * heroScale,
+    val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } *
+        if (options.heroCompact) .58f else .76f
+    val sceneHeight = maxOf(if (television) televisionHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
         reservedText + if (compactTelevision) 80.dp else 130.dp)
     val featureSize = Modifier.height(sceneHeight)
     val featureSpacing = if (compactTelevision) 4.dp else 10.dp
@@ -144,7 +156,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             onFocusWithin(it.hasFocus)
         }
         .focusGroup()
-        .clip(RoundedCornerShape(24.dp))
+        .then(if (television) Modifier else Modifier.clip(RoundedCornerShape(24.dp)))
         .background(Ink)
         // On television the whole hero used to take focus, and the only way to show that was a
         // ring round the entire picture — which is exactly what made it look like a selected cell
@@ -169,7 +181,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 val opacity by animateFloatAsState(if (title.id == selected.id) 1f else 0f,
                     tween(800), label = "feature-artwork-${title.id}")
                 Box(Modifier.matchParentSize().graphicsLayer { alpha = opacity }) {
-                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(.72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false)
+                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false)
                 }
               }
             }
@@ -177,14 +189,15 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 0f to Ink, .27f to Ink, .52f to Ink.copy(alpha = .88f),
                 .72f to Ink.copy(alpha = .18f), 1f to Color.Transparent)))
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-                0f to Color.Transparent, .65f to Color.Transparent, 1f to Ink.copy(alpha = .6f))))
+                0f to Color.Transparent, .55f to Color.Transparent, 1f to Ink.copy(alpha = if (television) 1f else .6f))))
             // Above the artwork and its scrims, under every word and control. Draws nothing at all
             // unless a season is running and the ornament is switched on.
             SeasonalOrnament(Modifier.matchParentSize())
         }
-        Column(Modifier.fillMaxWidth(.54f).padding(
-            vertical = if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
-            horizontal = 28.dp,
+        Column(Modifier.align(if (television) Alignment.CenterStart else Alignment.TopStart)
+            .fillMaxWidth(if (television && density.fontScale >= 1.5f) .82f else .54f).padding(
+            vertical = if (television) 32.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
+            horizontal = if (television) 40.dp else 28.dp,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
           Crossfade(selected, animationSpec = tween(if (motion) 800 else 0), label = "feature-caption") { title ->
            Column(verticalArrangement = Arrangement.spacedBy(featureSpacing)) {

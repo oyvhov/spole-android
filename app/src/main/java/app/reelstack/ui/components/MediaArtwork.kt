@@ -35,6 +35,7 @@ fun MediaArtwork(
      * poster whenever no still exists.
      */
     onAspectRatio: ((Float) -> Unit)? = null,
+    alignment: androidx.compose.ui.Alignment = androidx.compose.ui.Alignment.Center,
 ) {
     val context = LocalContext.current
     val fallback = if (fallbackRes != 0) painterResource(fallbackRes) else null
@@ -70,6 +71,7 @@ fun MediaArtwork(
             }
         },
         modifier = modifier,
+        alignment = alignment,
     )
 }
 

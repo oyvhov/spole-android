@@ -30,6 +30,78 @@ import org.junit.Test
 class TvRefinementUiTest {
     @get:Rule val rule = createComposeRule()
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://example.com", "fixture", userId = "me")
+    @Test fun libraryServiceMenuWorksWithLargeTypeAndEmbyOnlyFallback() {
+        val emby = connection.copy(kind = ServiceKind.EMBY)
+        assertEquals(ServiceKind.EMBY, ReelstackUiState(connections = listOf(emby)).librarySource)
+        rule.setContent { Tv(2f) {
+            var source by remember { mutableStateOf(ServiceKind.JELLYFIN) }
+            LibraryScreen(ReelstackUiState(connections = listOf(connection, emby), selectedLibrarySource = source),
+                {}, {}, {}, onSource = { source = it })
+        } }
+        rule.onNodeWithText("Emby").assertDoesNotExist()
+        rule.onNodeWithTag("library-source-menu").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("library-source-EMBY").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("library-source-menu").assertTextContains("Emby")
+        rule.onNodeWithText("Jellyfin").assertDoesNotExist()
+        rule.onNodeWithTag("library-source-menu").performClick()
+        rule.onNodeWithTag("library-source-JELLYFIN").performClick()
+        rule.onNodeWithTag("library-source-menu").assertTextContains("Jellyfin")
+    }
+
+    @Test fun televisionHeroUsesWindowHeightEvenWithCompactArtwork() {
+        rule.setContent { Tv {
+            CompositionLocalProvider(LocalPersonalization provides Personalization(heroCompact = false)) {
+                app.reelstack.ui.components.TabletLibraryFeature(LibraryMedia("hero", "Testserie", "S02 E02",
+                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, season = 2, episode = 2), {})
+            }
+        } }
+        assertTrue(rule.onNodeWithTag("tablet-library-feature").getUnclippedBoundsInRoot().height >= 400.dp)
+        rule.onNodeWithText("S2 - E2").assertIsDisplayed()
+        rule.onNodeWithTag("tablet-feature-open").assertIsDisplayed()
+    }
+
+    @Test fun preferredLibrarySourceSurvivesRepositoryRecreation() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = app.reelstack.data.repository.AppPreferencesRepository(context)
+        val previous = preferences.preferredLibrarySource
+        try {
+            preferences.preferredLibrarySource = ServiceKind.EMBY
+            assertEquals(ServiceKind.EMBY, app.reelstack.data.repository.AppPreferencesRepository(context).preferredLibrarySource)
+        } finally { preferences.preferredLibrarySource = previous }
+    }
+
+    @Test fun osdLogoPixelsAlignWithEpisodeLabel() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val file = java.io.File(context.cacheDir, "osd-alignment-fixture.png")
+        val bitmap = android.graphics.Bitmap.createBitmap(100, 100, android.graphics.Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.WHITE)
+        file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+        rule.setContent { Tv {
+            PlayerScreen(PlayerScreenState(busy = false, playing = false, logoUrl = file.toURI().toString(),
+                season = 2, episode = 2), null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        } }
+        rule.waitUntil(10_000) {
+            val pixels = rule.onNodeWithTag("player-clearlogo").captureToImage().toPixelMap()
+            pixels[pixels.width / 10, pixels.height / 2].red > .95f
+        }
+        assertEquals(rule.onNodeWithTag("player-clearlogo").getUnclippedBoundsInRoot().left,
+            rule.onNodeWithTag("player-episode-label").getUnclippedBoundsInRoot().left)
+        rule.onNodeWithTag("player-episode-label").assertTextEquals("S2 - E2")
+    }
+
+    @Test fun criticRatingIsVisibleAtLargeTypeAndRespectsRatingPreference() {
+        var visible by mutableStateOf(true)
+        rule.setContent { Tv(2f) {
+            CompositionLocalProvider(LocalPersonalization provides Personalization(showRatings = visible)) {
+                app.reelstack.ui.components.PlaybackMetadata(ContentDetails("emby-film", "Film", "Emby", "",
+                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.EMBY, criticRating = 91), listOf("2024", "148 min"))
+            }
+        } }
+        rule.onNodeWithTag("critic-rating").assertIsDisplayed().assertTextEquals("Rotten Tomatoes  91%")
+        rule.runOnIdle { visible = false }
+        rule.onNodeWithTag("critic-rating").assertDoesNotExist()
+    }
     @Test fun remoteFocusKeepsRailGeometryAndCaptionBaselinesStable() {
         val titles = listOf("Kort", "Ein mykje lengre serietittel som treng to linjer")
         val items = titles.mapIndexed { index, title -> LibraryMedia("steady-$index", title, "Episode",
@@ -83,8 +155,8 @@ class TvRefinementUiTest {
         } }
         rule.onNodeWithTag("play-in-spole").assertIsDisplayed().assertIsFocused()
         rule.onNodeWithTag("play-in-spole").assertTextContains("Hald fram · 27 min att")
-        rule.onNodeWithTag("tv-series-header").assertIsDisplayed()
-        assertTrue(rule.onNodeWithTag("tv-detail-artwork").getUnclippedBoundsInRoot().width > 250.dp)
+        rule.onNodeWithTag("tv-detail-hero").assertIsDisplayed()
+        rule.onNodeWithTag("tv-detail-artwork").assertDoesNotExist()
         rule.onNodeWithText("4K", substring = true).assertIsDisplayed()
         rule.onNodeWithText("8,5", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Detaljar").assertDoesNotExist()
@@ -107,7 +179,7 @@ class TvRefinementUiTest {
         } }
         rule.onNodeWithTag("play-in-spole").assertIsFocused()
         assertTrue(rule.onNodeWithText("Ein heil filmtittel").getUnclippedBoundsInRoot().top >= 16.dp)
-        assertTrue(rule.onNodeWithTag("tv-detail-artwork").getUnclippedBoundsInRoot().width <= 220.dp)
+        rule.onNodeWithTag("tv-cinematic-detail").assertIsDisplayed()
         capture("tv-pass2-detail-heading")
         repeat(8) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) } }
         repeat(12) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) } }
@@ -129,13 +201,43 @@ class TvRefinementUiTest {
                 null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         } }
         rule.onNodeWithTag("play-in-spole").assertIsFocused()
-        rule.onNodeWithTag("tv-series-header").assertIsDisplayed()
+        rule.onNodeWithTag("tv-detail-hero").assertIsDisplayed()
         repeat(9) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) } }
         repeat(16) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) } }
         rule.onNodeWithTag("play-in-spole").assertIsDisplayed()
         capture("tv-pass3-series-$fontScale")
         assertTrue("Title bounds: ${rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot()}",
             rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot().top >= 0.dp)
+    }
+    @Test fun highContrastKeepsArtworkVisibleBesideTheReadingArea() {
+        rule.setContent { Tv {
+            CompositionLocalProvider(LocalPersonalization provides Personalization(highContrast = true)) {
+                app.reelstack.ui.components.TvCinematicDetails(
+                    ContentDetails("art", "Film", "Emby", "", artworkRes = R.drawable.session_still),
+                    rememberScrollState(), heading = { androidx.compose.material3.Text("Film") }) {}
+            }
+        } }
+        val pixels = rule.onNodeWithTag("tv-detail-hero").captureToImage().toPixelMap()
+        val colours = mutableSetOf<Int>()
+        for (y in 4 until pixels.height / 2 step 4) for (x in pixels.width * 3 / 4 until pixels.width step 4) {
+            val colour = pixels[x, y]
+            colours += (colour.red * 255).toInt() * 65536 + (colour.green * 255).toInt() * 256 + (colour.blue * 255).toInt()
+        }
+        assertTrue("High contrast must retain real artwork, not a blank background", colours.size > 100)
+    }
+    @Test fun embyDetailsOfferPlaybackAtDoubleTextSize() {
+        val emby = connection.copy(kind = ServiceKind.EMBY)
+        rule.setContent { Tv(2f) {
+            ReelstackSheets(ReelstackUiState(connections = listOf(emby), activeSheet = AppSheet.TitleDetails("emby-film"),
+                contentDetails = ContentDetails("emby-film", "Ein film frå Emby", "Emby", "2026",
+                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.EMBY, mediaType = "Movie",
+                    overview = "Ein film med norsk lyd og undertekst.", libraryAvailable = true)),
+                null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        } }
+        rule.onNodeWithTag("play-in-spole").performScrollTo().assertIsDisplayed().assertIsEnabled()
+        rule.onNodeWithTag("detail-played").performScrollTo().assertIsEnabled()
+        rule.onNodeWithTag("detail-favourite").performScrollTo().assertIsEnabled()
+        capture("emby-cinematic-large")
     }
     @Test fun libraryChooserKeepsSavedChoicesWhenServerListArrives() {
         val state = mutableStateOf(ReelstackUiState(libraryChoicesLoading = true))

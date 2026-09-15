@@ -23,7 +23,7 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 data class PlayerScreenState(
-    val title: String = "Jellyfin", val subtitle: String = "", val busy: Boolean = true,
+    val title: String = "Spole", val subtitle: String = "", val busy: Boolean = true,
     val error: String? = null, val warning: String? = null,
     val choices: List<PlayableItem> = emptyList(), val browsing: Boolean = false, val hasMore: Boolean = false,
     val playing: Boolean = false, val ended: Boolean = false, val positionMs: Long = 0, val durationMs: Long = 0,
@@ -51,6 +51,7 @@ data class PlayerScreenState(
     val nextEpisodeDismissed: Boolean = false,
     /** Title sequences and closing credits the server has marked, if anything has marked them. */
     val segments: List<PlaybackSegment> = emptyList(),
+    val source: ServiceKind = ServiceKind.JELLYFIN,
 )
 
 /**
@@ -70,10 +71,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     val state = mutable.asStateFlow()
     private val deviceId = DeviceIdentity.get(container.appContext)
     private val deviceCapabilities = AndroidPlaybackCapabilities(container.appContext)
-    private val client = JellyfinPlaybackClient(deviceId = deviceId,
+    private val client = MediaPlaybackClient(deviceId = deviceId,
         capabilities = deviceCapabilities::snapshot, sourceSupported = deviceCapabilities::canDirectPlay,
         videoSupported = deviceCapabilities::canDecodeVideo)
     private var connection: ServiceConnection? = null
+    private var serviceKind = ServiceKind.JELLYFIN
     private var seerrConnection: ServiceConnection? = null
     private var userId = ""
     private var rootId = ""
@@ -157,7 +159,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     prepare(position, forceCompatible = true, autoplay = playWhenReady)
                 } else {
                     mutable.update { it.copy(busy = false, playing = false,
-                        error = "Avspelinga stoppa. Prøv igjen, vel lågare kvalitet eller opne i Jellyfin.") }
+                        error = "Avspelinga stoppa. Prøv igjen, vel lågare kvalitet eller opne i medietenaren.") }
                 }
             }
         })
@@ -202,7 +204,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 val failed = runCatching { client.report(event.connection, event.plan, event.event, event.position, event.paused) }.isFailure
                 withContext(Dispatchers.Main) {
                     if (plan?.sessionId == event.plan.sessionId) mutable.update { it.copy(warning =
-                        if (failed) "Fekk ikkje lagra framdrifta i Jellyfin. Kontroller nettet." else null) }
+                        if (failed) "Fekk ikkje lagra framdrifta i medietenaren. Kontroller nettet." else null) }
                 }
             }
             reporter.cancel()
@@ -215,7 +217,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     report("/Stopped"); started = false
                     player.stop()
                     mutable.update { it.copy(busy = false, playing = false,
-                        error = "Videoen brukar for lang tid på å laste. Prøv igjen, vel lågare kvalitet eller opne i Jellyfin.") }
+                        error = "Videoen brukar for lang tid på å laste. Prøv igjen, vel lågare kvalitet eller opne i medietenaren.") }
                 }
                 if (connection != null && !sameAccount()) {
                     request?.cancel(); generation++; stopCurrent()
@@ -234,8 +236,12 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      * only until a plan exists: from then on the player's own menus are the authority, so changing
      * quality or stepping to the next episode does not quietly undo a choice made inside the player.
      */
-    fun open(id: String, audio: Int? = null, subtitle: Int? = null, sourceId: String? = null) {
+    fun open(id: String, audio: Int? = null, subtitle: Int? = null, sourceId: String? = null,
+        source: ServiceKind = ServiceKind.JELLYFIN) {
         if (rootId.isNotEmpty()) return
+        require(source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
+        serviceKind = source
+        mutable.update { it.copy(source = source, title = source.displayName) }
         rootId = id
         preferredAudio = audio
         preferredSubtitle = subtitle
@@ -245,7 +251,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
 
     private fun sameAccount(): Boolean {
         val c = connection ?: return false
-        val saved = container.connectionRepository.get(ServiceKind.JELLYFIN)
+        val saved = container.connectionRepository.get(serviceKind)
         val seerr = container.connectionRepository.get(ServiceKind.SEERR)
         return saved.token == c.token && saved.baseUrl == c.baseUrl && saved.userId == c.userId &&
             seerr.token == seerrConnection?.token && seerr.baseUrl == seerrConnection?.baseUrl
@@ -257,15 +263,15 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         request = viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    val c = container.connectionRepository.get(ServiceKind.JELLYFIN)
+                    val c = container.connectionRepository.get(serviceKind)
                     val seerr = container.connectionRepository.get(ServiceKind.SEERR)
                     val id = client.verify(c)
                     val jellyfinAccount = container.accountProfileClient.load(c)
                     val seerrAccount = seerr.takeIf { it.token.isNotBlank() }?.let { container.accountProfileClient.load(it) }
                     val access = ViewerAccess(seerr.token.isNotBlank(), buildMap {
-                        put(ServiceKind.JELLYFIN, jellyfinAccount); seerrAccount?.let { put(ServiceKind.SEERR, it) }
+                        put(serviceKind, jellyfinAccount); seerrAccount?.let { put(ServiceKind.SEERR, it) }
                     })
-                    check(access.ownMediaUser(ServiceKind.JELLYFIN) == id) { "Vel den personlege Jellyfin-kontoen din i innstillingane." }
+                    check(access.ownMediaUser(serviceKind) == id) { "Vel den personlege mediekontoen din i innstillingane." }
                     Triple(c, seerr, id) to client.item(c, id, rootId)
                 }
                 connection = result.first.first; seerrConnection = result.first.second; userId = result.first.third
@@ -273,7 +279,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 choose(container.localPlaybackStore.resume(result.first.first, result.second))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
-                mutable.update { it.copy(busy = false, error = "Fekk ikkje opna tittelen. Kontroller den personlege Jellyfin-innlogginga og prøv igjen.") }
+                mutable.update { it.copy(busy = false, error = "Fekk ikkje opna tittelen. Kontroller den personlege medieinnlogginga og prøv igjen.") }
             }
         }
     }
@@ -392,7 +398,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 if (ticket == generation) mutable.update { it.copy(busy = false, playing = false,
-                    error = "Fekk ikkje starta videoen. Kontroller nettet og avspelingsløyva i Jellyfin, eller prøv igjen.") }
+                    error = "Fekk ikkje starta videoen. Kontroller nettet og avspelingsløyva i medietenaren, eller prøv igjen.") }
             }
         }
     }

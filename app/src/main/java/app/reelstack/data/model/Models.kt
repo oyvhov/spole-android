@@ -279,6 +279,8 @@ data class ContentDetails(
     val versions: List<MediaVersion> = emptyList(),
     val backdropUrl: String? = null,
     val trailerUrl: String? = null,
+    val logoUrl: String? = null,
+    val criticRating: Int? = null,
 )
 
 /** One playable file behind a title. The id is what playback has to be asked for. */

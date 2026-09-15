@@ -13,6 +13,13 @@ import org.junit.Test
  * take a bite out of "Episode 90".
  */
 class EpisodeLabelTest {
+    @Test fun compactNumbersHaveNoPaddingAndPreserveEpisodeNames() {
+        assertEquals("S2 - E2", app.reelstack.ui.components.episodeLine(2, 2, ""))
+        assertEquals("S2 - E2 · The Visit", app.reelstack.ui.components.episodeLine(2, 2, "S02 E02 · The Visit"))
+        assertEquals("S0 - E1", app.reelstack.ui.components.episodeLine(0, 1, ""))
+        assertEquals("E2", app.reelstack.ui.components.episodeLine(null, 2, ""))
+        assertEquals("Film", app.reelstack.ui.components.episodeLine(null, null, "Film"))
+    }
 
     @Test
     fun `the numbered prefix comes off and the real name stays`() {

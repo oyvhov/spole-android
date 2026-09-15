@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.17.0-beta04 · Filmatiske TV-flater og Emby
+
+- Høgare TV-hero i full breidd, med mjuk overgang til bakgrunnen og filmatiske detaljsider.
+- Episodeformatet er S2 - E2 i hero, innhaldsrader, detaljar og spelar.
+- Clearlogo i TV-spelaren er venstrejustert med episodelinja.
+- Emby-avspeling i den integrerte spelaren, med sporval, framdrift, neste episode og Watch Next.
+- Emby-bibliotek med filter, snarvegar og ein diskret tenarmeny som hugsar siste val.
+- Studio og rå produksjonsstatus er fjerna frå detaljfakta; serverlevert Rotten Tomatoes blir vist.
+- HDR, surround og alle undertekstformat er framleis avhengige av eining og serveromkoding.
+
 ## 0.17.0-beta03 · Fase 4 og personleg spelar
 
 - Temagalleri med førehandsvising, sesongtema og lagring av eigne uttrykk.

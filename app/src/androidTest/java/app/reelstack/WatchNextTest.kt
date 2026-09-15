@@ -9,13 +9,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WatchNextTest {
-    @Test fun progressPublishesWithoutCredentialsAndCompletionAndLogoutRemoveIt() = runBlocking {
+    @Test fun progressPublishesWithoutCredentialsAndCompletionAndLogoutRemoveIt() = checkPublishing(ServiceKind.JELLYFIN)
+    @Test fun embyProgressPublishesAndIsRevokedOnLogout() = checkPublishing(ServiceKind.EMBY)
+    private fun checkPublishing(kind: ServiceKind) = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         org.junit.Assume.assumeTrue(context.packageManager.hasSystemFeature("android.software.leanback"))
         val container = (context.applicationContext as ReelstackApplication).container
         val prefs = container.preferencesRepository
         val previous = prefs.personalization
-        val account = ServiceConnection(ServiceKind.JELLYFIN, "Synthetic", "http://127.0.0.1:54321", "synthetic-private-token", "synthetic-user")
+        val account = ServiceConnection(kind, "Synthetic", "http://127.0.0.1:54321", "synthetic-private-token", "synthetic-user")
         fun owned(): List<Pair<String, String>> = buildList {
             context.contentResolver.query(Programs.CONTENT_URI, arrayOf(Programs.COLUMN_PACKAGE_NAME, Programs.COLUMN_TITLE, Programs.COLUMN_INTENT_URI), null, null, null)?.use { cursor ->
                 while (cursor.moveToNext()) if (cursor.getString(0) == context.packageName) add(cursor.getString(1) to cursor.getString(2))
@@ -23,7 +25,7 @@ class WatchNextTest {
         }
         try {
             container.connectionRepository.save(account)
-            val storedAccount = container.connectionRepository.get(ServiceKind.JELLYFIN)
+            val storedAccount = container.connectionRepository.get(kind)
             prefs.personalization = previous.copy(watchNextEnabled = true)
             val movie = PlayableItem("phase4movie", "Phase four film", "Movie", durationMs = 600_000)
             container.localPlaybackStore.record(storedAccount, movie, 120_000, 600_000, false)
@@ -39,12 +41,12 @@ class WatchNextTest {
             container.localPlaybackStore.record(storedAccount, movie, 140_000, 600_000, false)
             assertTrue(container.watchNextSync.sync())
             assertEquals(1, owned().size)
-            container.connectionRepository.delete(ServiceKind.JELLYFIN)
+            container.connectionRepository.delete(kind)
             assertTrue(container.watchNextSync.sync())
             assertTrue(owned().isEmpty())
         } finally {
             prefs.personalization = previous.copy(watchNextEnabled = false)
-            container.connectionRepository.delete(ServiceKind.JELLYFIN)
+            container.connectionRepository.delete(kind)
             container.localPlaybackStore.clear()
             container.watchNextSync.sync()
             prefs.personalization = previous

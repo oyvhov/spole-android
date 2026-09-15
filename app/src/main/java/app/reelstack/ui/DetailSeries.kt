@@ -66,7 +66,7 @@ internal fun DetailAside(
         .filterNot { it.matches(Regex("^S\\d\\d+ E\\d\\d+$")) }
         .filterNot { it in setOf("Film", "Serie", "Episode", "Movie", "Series") }
     val tagline = details.tagline?.takeIf(String::isNotBlank) ?: opening.tagline?.takeIf(String::isNotBlank)
-    if (remaining.isEmpty() && details.genres.isEmpty() && tagline == null && synopsis == null && cast == null) return
+    if (remaining.isEmpty() && details.criticRating == null && details.quality.isEmpty() && details.genres.isEmpty() && tagline == null && synopsis == null && cast == null) return
     Column(
         Modifier.fillMaxWidth().padding(top = if (tv) 16.dp else 18.dp).testTag("detail-aside"),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -154,7 +154,7 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
                 if (tv) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(4.dp)) {
                         items(episodes, key = { it.id }) { episode ->
-                            Box(Modifier.width(260.dp).then(if (episode.id == episodes.first().id)
+                            Box(Modifier.width(208.dp).then(if (episode.id == episodes.first().id)
                                 Modifier.focusRequester(firstEpisode) else Modifier)) {
                                 TvEpisodeCard(episode, episode.id == detailKey)
                             }
@@ -197,8 +197,8 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean) {
     Column(Modifier.fillMaxWidth().clip(shape).focusOutline(interaction, shape)
         .then(if (!episode.available) Modifier.focusable(interactionSource = interaction) else Modifier)
         .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
-            enabled = episode.available && !episode.remoteId.isNullOrBlank() && episode.source == ServiceKind.JELLYFIN,
-            role = Role.Button) { app.reelstack.player.JellyfinPlayerActivity.open(context, episode.remoteId!!) }
+            enabled = episode.available && !episode.remoteId.isNullOrBlank() && episode.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
+            role = Role.Button) { app.reelstack.player.JellyfinPlayerActivity.open(context, episode.remoteId!!, source = episode.source) }
         .padding(6.dp).testTag("episode-${episode.remoteId ?: episode.id}"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
             MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), episode.artworkRes, source = episode.source)
@@ -253,8 +253,8 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false) {
                 interactionSource = interaction,
                 indication = app.reelstack.ui.components.mediaCardIndication(),
                 role = Role.Button,
-                enabled = episode.available && itemId.isNotBlank() && episode.source == ServiceKind.JELLYFIN,
-            ) { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId) }
+                enabled = episode.available && itemId.isNotBlank() && episode.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
+            ) { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId, source = episode.source) }
             .padding(6.dp)
             .testTag("episode-${itemId.ifBlank { episode.id }}"),
         verticalAlignment = Alignment.CenterVertically,

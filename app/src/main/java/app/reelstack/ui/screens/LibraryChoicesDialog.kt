@@ -42,7 +42,7 @@ internal fun LibraryChoicesDialog(state: ReelstackUiState, onDismiss: () -> Unit
             shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.library_manage), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                    Text("${stringResource(R.string.library_manage)} · ${if (state.librarySource == app.reelstack.data.model.ServiceKind.EMBY) "Emby" else "Jellyfin"}", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                     app.reelstack.ui.components.SpoleSecondaryButton(onClick = { selected = state.libraryChoices.mapTo(mutableSetOf()) { it.id } }) { Text(stringResource(R.string.library_all)) }
                     app.reelstack.ui.components.SpoleSecondaryButton(onClick = { selected = emptySet() }) { Text(stringResource(R.string.library_none)) }
                 }

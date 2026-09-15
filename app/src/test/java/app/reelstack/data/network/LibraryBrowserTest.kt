@@ -6,6 +6,36 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LibraryBrowserTest {
+    @Test fun embyBrowserUsesStoredProfileAndKeepsPaginationScoped() {
+        val transport = Recording("""{"Items":[]}""")
+        val client = MediaServerClient(transport)
+        val emby = connection.copy(kind = ServiceKind.EMBY)
+        client.browseLibraries(emby)
+        client.browseLibrary(emby, "films", 60, "movies")
+        assertTrue(transport.urls[0].contains("Users/me/Views"))
+        assertTrue(transport.urls[1].contains("Users/me/Items?"))
+        assertTrue(transport.urls[1].contains("ParentId=films"))
+        assertTrue(transport.urls[1].contains("StartIndex=60"))
+        assertTrue(transport.urls[1].contains("IncludeItemTypes=Movie"))
+        assertFalse(transport.urls.any { it.contains("Users/Me") })
+    }
+
+    @Test fun embyBrowserRejectsMissingProfileWithoutGuessingAnotherUser() {
+        val transport = Recording("""{"Items":[]}""")
+        val client = MediaServerClient(transport)
+        assertThrows(IllegalArgumentException::class.java) {
+            client.browseLibraries(connection.copy(kind = ServiceKind.EMBY, userId = ""))
+        }
+        assertTrue(transport.urls.isEmpty())
+    }
+
+    @Test fun embyFacetsRemainScopedToTheSelectedLibrary() {
+        val transport = Recording("""{"Genres":["Drama"],"Years":[2024,2020]}""")
+        val facets = MediaServerClient(transport).libraryFacets(connection.copy(kind = ServiceKind.EMBY), "films")
+        assertEquals(listOf("Drama"), facets.genres)
+        assertTrue(transport.urls.single().contains("ParentId=films"))
+        assertTrue(transport.urls.single().contains("userId=me"))
+    }
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Test", "https://media.example", "token", userId = "me")
     private class Recording(val body: String, val status: Int = 200) : JsonHttpTransport {
         val urls = mutableListOf<String>()

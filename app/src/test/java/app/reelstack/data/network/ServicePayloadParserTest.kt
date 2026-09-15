@@ -1,4 +1,5 @@
 package app.reelstack.data.network
+import org.junit.Assert.assertNull
 
 import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.ServiceKind
@@ -9,6 +10,20 @@ import org.junit.Test
 import java.time.Instant
 
 class ServicePayloadParserTest {
+    @Test fun detailFactsExcludeStudiosAndStatusAndKeepRealCriticRating() {
+        val details = ServicePayloadParser.libraryDetails("""{"Name":"Film","Type":"Movie","ProductionYear":2024,
+            "Studios":[{"Name":"Studio name"}],"Status":"Ended","CommunityRating":7.5,"CriticRating":90}""")
+        assertFalse(details.facts.any { it.contains("Studio") || it == "Ended" })
+        assertEquals(90, details.criticRating)
+        assertTrue(details.facts.contains("2024"))
+    }
+
+    @Test fun missingOrInvalidCriticRatingsAreNotInvented() {
+        listOf("{}", """{"CriticRating":-1}""", """{"CriticRating":101}""", """{"CriticRating":"N/A"}""").forEach {
+            assertNull(ServicePayloadParser.libraryDetails(it).criticRating)
+        }
+        assertEquals(0, ServicePayloadParser.libraryDetails("""{"CriticRating":0}""").criticRating)
+    }
     @Test
     fun castsUseServiceCreditsAndSkipBlankNamesAndNonActors() {
         val seerr = ServicePayloadParser.mediaDetails("""{"title":"Film","credits":{"cast":[

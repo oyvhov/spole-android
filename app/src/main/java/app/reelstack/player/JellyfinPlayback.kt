@@ -130,7 +130,7 @@ fun safePlaybackUrl(baseUrl: String, value: String): String {
     }
     fun port(uri: URI) = if (uri.port >= 0) uri.port else if (uri.scheme == "https") 443 else 80
     require(resolved.scheme.equals(base.scheme, true) && resolved.host.equals(base.host, true) && port(resolved) == port(base) &&
-        resolved.rawUserInfo == null && resolved.rawFragment == null) { "Mediestraumen peikar utanfor Jellyfin-tenaren." }
+        resolved.rawUserInfo == null && resolved.rawFragment == null) { "Mediestraumen peikar utanfor medietenaren." }
     val path = resolved.path.orEmpty()
     require(path.startsWith(base.path) && path.split('/').none { it == "." || it == ".." } &&
         path.none { it == '\\' || it.isISOControl() } && !path.contains('%')) { "Utrygg mediestig." }
@@ -143,22 +143,25 @@ fun safePlaybackUrl(baseUrl: String, value: String): String {
 /** Safe fallback when detection fails or a decoder rejects an advertised format. */
 fun phonePlaybackProfile(bitrate: Int): JsonObject = devicePlaybackProfile(bitrate, DevicePlaybackCapabilities.CONSERVATIVE)
 
-class JellyfinPlaybackClient(
+class MediaPlaybackClient(
     private val transport: JsonHttpTransport = HttpTransport(connectTimeoutMs = 5_000, readTimeoutMs = 8_000),
     private val deviceId: String,
     private val capabilities: () -> DevicePlaybackCapabilities = { DevicePlaybackCapabilities.CONSERVATIVE },
     private val sourceSupported: (JsonObject, Int?) -> Boolean = { _, _ -> true },
     private val videoSupported: (JsonObject) -> Boolean = { true },
 ) {
-    fun headers(connection: ServiceConnection) = mapOf("Authorization" to jellyfinAuthorization(deviceId, connection.token))
+    fun headers(connection: ServiceConnection): Map<String, String> = buildMap {
+        put("Authorization", jellyfinAuthorization(deviceId, connection.token))
+        if (connection.kind == ServiceKind.EMBY) put("X-Emby-Token", connection.token)
+    }
 
     fun verify(connection: ServiceConnection): String {
-        require(connection.kind == ServiceKind.JELLYFIN && connection.token.isNotBlank()) { "Logg inn på Jellyfin for å spele av." }
-        val user = read(connection, "Users/Me")
+        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && connection.token.isNotBlank()) { "Logg inn på medietenaren for å spele av." }
+        val user = read(connection, playbackProfilePath(connection))
         val id = user.str("Id")
-        require(id.isNotBlank() && (connection.userId.isBlank() || connection.userId.equals(id, true))) { "Jellyfin-kontoen er endra. Logg inn på nytt." }
+        require(id.isNotBlank() && (connection.userId.isBlank() || connection.userId.equals(id, true))) { "Mediekontoen er endra. Logg inn på nytt." }
         require(!user.obj("Policy").flag("IsDisabled") && user.obj("Policy")["EnableMediaPlayback"] != JsonPrimitive(false)) {
-            "Denne Jellyfin-kontoen har ikkje løyve til å spele av."
+            "Denne mediekontoen har ikkje løyve til å spele av."
         }
         // Best effort: an older server that does not know the endpoint must not block playback.
         runCatching { announceCapabilities(connection) }
@@ -175,6 +178,9 @@ class JellyfinPlaybackClient(
      * failure here is silent and the player simply never offers to skip anything.
      */
     fun segments(c: ServiceConnection, user: String, itemId: String): List<PlaybackSegment> {
+        if (c.kind == ServiceKind.EMBY) return runCatching {
+            embyPlaybackSegments(read(c, "Users/${enc(user)}/Items/${enc(itemId)}?Fields=Chapters"))
+        }.getOrDefault(emptyList())
         val modern = runCatching {
             read(c, "MediaSegments/${enc(itemId)}?includeSegmentTypes=Intro&includeSegmentTypes=Outro")
         }.getOrNull()?.objects("Items")?.mapNotNull { entry ->
@@ -245,12 +251,12 @@ class JellyfinPlaybackClient(
             sourceId?.let { put("MediaSourceId", it) }
         }
         val response = post(c, "Items/${enc(item.id)}/PlaybackInfo", payload)
-        require(response.str("ErrorCode").isBlank()) { "Jellyfin fann ikkje eit format denne eininga kan spele. Prøv Jellyfin-appen." }
+        require(response.str("ErrorCode").isBlank()) { "Medietenaren fann ikkje eit format denne eininga kan spele. Prøv tenarappen." }
         val source = response.objects("MediaSources").firstOrNull { !it.flag("RequiresOpening") && (sourceId == null || it.str("Id") == sourceId) &&
             (it.flag("SupportsDirectPlay") || it.str("TranscodingUrl").isNotBlank()) }
-            ?: error("Ingen spelbar versjon. Kontroller avspelings- og omkodingsløyva i Jellyfin.")
-        val mediaSourceId = source.str("Id").also { require(it.isNotBlank()) { "Jellyfin manglar mediekjelde." } }
-        val session = response.str("PlaySessionId").also { require(it.isNotBlank()) { "Jellyfin manglar avspelingsøkt." } }
+            ?: error("Ingen spelbar versjon. Kontroller avspelings- og omkodingsløyva i medietenaren.")
+        val mediaSourceId = source.str("Id").also { require(it.isNotBlank()) { "Medietenaren manglar mediekjelde." } }
+        val session = response.str("PlaySessionId").also { require(it.isNotBlank()) { "Medietenaren manglar avspelingsøkt." } }
         val streams = source.objects("MediaStreams")
         fun tracks(type: String) = streams.filter { it.str("Type") == type }.mapNotNull {
             val index = it.num("Index")?.toInt() ?: return@mapNotNull null
@@ -271,7 +277,7 @@ class JellyfinPlaybackClient(
             return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, true, mediaSourceId)
         }
         val url = if (direct) "Videos/${enc(item.id)}/stream?static=true&MediaSourceId=${enc(mediaSourceId)}&PlaySessionId=${enc(session)}" else
-            source.str("TranscodingUrl").also { require(it.isNotBlank()) { "Jellyfin kan ikkje tilpasse denne fila. Prøv Jellyfin-appen." } }
+            source.str("TranscodingUrl").also { require(it.isNotBlank()) { "Medietenaren kan ikkje tilpasse denne fila. Prøv tenarappen." } }
         val subtitleUrl = subtitleTrack?.takeIf { it.isText }?.let {
             safePlaybackUrl(c.baseUrl, "Videos/${enc(item.id)}/${enc(mediaSourceId)}/Subtitles/${it.index}/Stream.vtt")
         }
@@ -296,6 +302,7 @@ class JellyfinPlaybackClient(
             put("ItemId", plan.item.id); put("MediaSourceId", plan.sourceId); put("PlaySessionId", plan.sessionId)
             put("PositionTicks", positionMs.coerceAtLeast(0).coerceAtMost(Long.MAX_VALUE / 10_000) * 10_000)
             put("IsPaused", paused); put("CanSeek", true); put("PlayMethod", if (plan.direct) "DirectPlay" else "Transcode")
+            if (c.kind == ServiceKind.EMBY && event == "/Progress") put("EventName", "TimeUpdate")
             plan.audioIndex?.let { put("AudioStreamIndex", it) }; put("SubtitleStreamIndex", plan.subtitleIndex)
         })
     }
@@ -305,13 +312,35 @@ class JellyfinPlaybackClient(
     private fun decode(response: HttpResponse): JsonObject {
         when (response.statusCode) {
             in 200..299 -> Unit
-            401, 403 -> error("Jellyfin avviste avspelinga. Kontroller innlogging og avspelingsløyve.")
-            404 -> error("Denne tittelen er ikkje tilgjengeleg i Jellyfin no.")
-            in 300..399 -> error("Medieadressa er flytta. Kontroller Jellyfin-adressa i innstillingane.")
-            else -> error("Fekk ikkje starta avspelinga frå Jellyfin. Prøv igjen.")
+            401, 403 -> error("Medietenaren avviste avspelinga. Kontroller innlogging og avspelingsløyve.")
+            404 -> error("Denne tittelen er ikkje tilgjengeleg i medietenaren no.")
+            in 300..399 -> error("Medieadressa er flytta. Kontroller tenaradressa i innstillingane.")
+            else -> error("Fekk ikkje starta avspelinga frå medietenaren. Prøv igjen.")
         }
         return if (response.body.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(response.body).jsonObject
     }
+}
+
+/** Retains source compatibility for existing callers while both servers share playback. */
+typealias JellyfinPlaybackClient = MediaPlaybackClient
+
+internal fun playbackProfilePath(connection: ServiceConnection): String = when (connection.kind) {
+    ServiceKind.JELLYFIN -> "Users/Me"
+    ServiceKind.EMBY -> {
+        require(connection.userId.isNotBlank()) { "Logg inn på Emby på nytt for å stadfeste kontoen." }
+        "Users/${enc(connection.userId)}"
+    }
+    else -> error("Denne tenesta støttar ikkje avspeling.")
+}
+
+internal fun embyPlaybackSegments(item: JsonObject): List<PlaybackSegment> {
+    val chapters = item.objects("Chapters")
+    fun marker(type: String) = chapters.firstOrNull { it.str("MarkerType") == type }?.num("StartPositionTicks")?.div(10_000)
+    val duration = item.num("RunTimeTicks")?.div(10_000)
+    return listOfNotNull(
+        marker("IntroStart")?.let { start -> marker("IntroEnd")?.let { PlaybackSegment(PlaybackSegment.Kind.INTRO, start, it) } },
+        marker("CreditsStart")?.let { start -> duration?.let { PlaybackSegment(PlaybackSegment.Kind.OUTRO, start, it) } },
+    ).filter { it.startMs >= 0 && it.endMs > it.startMs && (duration == null || it.endMs <= duration) }
 }
 
 fun playbackTime(ms: Long): String {

@@ -70,6 +70,7 @@ internal fun LibraryLanding(
     cardActions: MediaCardActions? = null,
     connected: Boolean = true,
     error: String? = null,
+    source: ServiceKind = ServiceKind.JELLYFIN,
 ) {
     val gutter = if (tv) 32.dp else 24.dp
     // A card here can be starred or marked watched, but not cleared from Continue watching: this
@@ -132,7 +133,7 @@ internal fun LibraryLanding(
                     // Nothing to show yet. The library's own artwork is still something to aim at,
                     // and it is the picture the reader recognises from every other client.
                     Box(Modifier.padding(top = ReelLayout.SectionBottom)) {
-                        LibraryTile(library.artworkUrl, library.title) { onOpenLibrary(library.id) }
+                        LibraryTile(library.artworkUrl, library.title, source) { onOpenLibrary(library.id) }
                     }
                 }
             }
@@ -211,7 +212,7 @@ private fun LibraryHeading(
 
 /** The library's own picture, at the size of one card in the rail it stands in for. */
 @Composable
-private fun LibraryTile(artworkUrl: String?, name: String, onClick: () -> Unit) {
+private fun LibraryTile(artworkUrl: String?, name: String, source: ServiceKind, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     Box(
@@ -228,6 +229,6 @@ private fun LibraryTile(artworkUrl: String?, name: String, onClick: () -> Unit) 
                 onClick = onClick,
             ),
     ) {
-        MediaArtwork(artworkUrl, name, Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN)
+        MediaArtwork(artworkUrl, name, Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = source)
     }
 }

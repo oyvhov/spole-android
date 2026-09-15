@@ -103,6 +103,7 @@ data class ReelstackUiState(
     val searchResults: List<DiscoverMedia> = emptyList(),
     /** Hits from your own Jellyfin/Emby libraries, shown above the Seerr results. */
     val libraryChoices: List<app.reelstack.data.network.RemoteLibraryView> = emptyList(),
+    val selectedLibrarySource: ServiceKind = ServiceKind.JELLYFIN,
     val selectedLibraryIds: Set<String> = emptySet(),
     val libraryShortcuts: List<Pair<String, String>> = emptyList(),
     val libraryIcons: Map<String, app.reelstack.data.model.LibraryIcon> = emptyMap(),
@@ -169,6 +170,13 @@ data class ReelstackUiState(
     val cancellingRequestKeys: Set<String> = emptySet(),
     val adminView: Boolean = false,
 ) {
+    val libraryConnection: ServiceConnection?
+        get() = connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+            it.baseUrl.isNotBlank() && it.token.isNotBlank() }.let { available ->
+            available.firstOrNull { it.kind == selectedLibrarySource } ?: available.firstOrNull()
+        }
+    val librarySource: ServiceKind get() = libraryConnection?.kind ?: selectedLibrarySource
+
     val visibleDiscover: List<DiscoverMedia>
         get() = if (searchQuery.isBlank()) discover else searchResults
 
@@ -254,8 +262,31 @@ class ReelstackViewModel(
         if (tab == AppTab.LIBRARY) browseLibrary(false)
     }
 
+    fun selectLibrarySource(source: ServiceKind) {
+        val connection = _uiState.value.connections.firstOrNull {
+            it.kind == source && source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+                it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        } ?: return
+        container.preferencesRepository.preferredLibrarySource = source
+        libraryJob?.cancel()
+        peekJob?.cancel()
+        shelfJob?.cancel()
+        libraryChoicesJob?.cancel()
+        _uiState.update { it.copy(selectedLibrarySource = source,
+            libraryPath = emptyList(), libraryCollectionType = null, libraryEntries = emptyList(),
+            libraryPeeks = emptyMap(), libraryPeeksLoading = false,
+            libraryShelves = app.reelstack.data.model.LibraryShelves(),
+            libraryFilters = app.reelstack.data.model.LibraryFilters(),
+            libraryFacets = app.reelstack.data.model.LibraryFacets(),
+            libraryLoading = false, libraryError = null, libraryOffset = 0, libraryHasMore = false,
+            libraryChoicesOpen = false, libraryChoices = emptyList(), selectedLibraryIds = emptySet(),
+            libraryShortcuts = container.preferencesRepository.libraryShortcuts(connection),
+            libraryIcons = container.preferencesRepository.libraryIcons(connection)) }
+        browseLibrary()
+    }
+
     fun openLibraryChoices() {
-        val connection = _uiState.value.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() } ?: return
+        val connection = _uiState.value.libraryConnection ?: return
         libraryChoicesJob?.cancel()
         _uiState.update { it.copy(libraryChoicesOpen = true, libraryChoicesLoading = true, libraryChoicesError = null, libraryChoices = emptyList()) }
         libraryChoicesJob = viewModelScope.launch {
@@ -282,7 +313,7 @@ class ReelstackViewModel(
         icons: Map<String, app.reelstack.data.model.LibraryIcon> = _uiState.value.libraryIcons) {
         val state = _uiState.value
         if (!state.libraryChoicesOpen || state.libraryChoicesLoading || state.libraryChoicesError != null) return
-        val connection = state.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() } ?: return
+        val connection = state.libraryConnection ?: return
         container.preferencesRepository.setSelectedLibraryIds(connection, ids.intersect(state.libraryChoices.map { it.id }.toSet()))
         // The chosen order, not the server's. A menu the reader arranged has to stay arranged.
         val pinned = shortcuts.distinct().filter { it in ids }
@@ -312,7 +343,7 @@ class ReelstackViewModel(
         if (more && (_uiState.value.libraryLoading || !_uiState.value.libraryHasMore)) return
         libraryJob?.cancel()
         val state = _uiState.value
-        val connection = state.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.baseUrl.isNotBlank() && it.token.isNotBlank() } ?: return
+        val connection = state.libraryConnection ?: return
         val path = state.libraryPath
         val offset = if (more) state.libraryOffset else 0
         _uiState.update { it.copy(libraryLoading = true, libraryError = null,
@@ -376,9 +407,7 @@ class ReelstackViewModel(
         // A library with nothing in it never lands in the map, so "already asked" cannot be read off
         // the keys. The loading flag covers the request in flight; the map covers the answer.
         if (views.isEmpty() || state.libraryPeeksLoading || state.libraryPeeks.isNotEmpty()) return
-        val connection = state.connections.firstOrNull {
-            (it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        } ?: return
+        val connection = state.libraryConnection ?: return
         peekJob?.cancel()
         _uiState.update { it.copy(libraryPeeks = emptyMap(), libraryPeeksLoading = true) }
         peekJob = viewModelScope.launch {
@@ -410,9 +439,7 @@ class ReelstackViewModel(
             return
         }
         if (state.libraryShelves.libraryId == library.first && !state.libraryShelves.loading) return
-        val connection = state.connections.firstOrNull {
-            (it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        } ?: return
+        val connection = state.libraryConnection ?: return
         shelfJob?.cancel()
         _uiState.update { it.copy(libraryShelves = app.reelstack.data.model.LibraryShelves(libraryId = library.first, loading = true)) }
         shelfJob = viewModelScope.launch {
@@ -525,8 +552,9 @@ class ReelstackViewModel(
                 libraryFilters = app.reelstack.data.model.LibraryFilters()) }
             browseLibrary()
         } else {
-            val media = LibraryMedia("jellyfin-${entry.id}", entry.title, entry.subtitle, entry.progress,
-                R.drawable.media_placeholder, ServiceKind.JELLYFIN, entry.artworkUrl, entry.id,
+            val source = _uiState.value.librarySource
+            val media = LibraryMedia("${source.name.lowercase(java.util.Locale.ROOT)}-${entry.id}", entry.title, entry.subtitle, entry.progress,
+                R.drawable.media_placeholder, source, entry.artworkUrl, entry.id,
                 entry.overview, entry.facts, entry.genres, entry.mediaType)
             _uiState.update { it.copy(libraryDetailMedia = media) }
             openLibraryDetails(media.id)
@@ -682,6 +710,8 @@ class ReelstackViewModel(
                     genres = media.genres,
                     artworkRes = media.artworkRes,
                     artworkUrl = media.artworkUrl,
+                    logoUrl = media.logoUrl,
+                    backdropUrl = media.heroUrl,
                     source = media.source,
                     mediaType = media.mediaType,
                     loading = connection != null && media.remoteId != null,
@@ -720,12 +750,14 @@ class ReelstackViewModel(
                                 },
                                 tagline = remote.tagline ?: details.tagline,
                                 cast = remote.cast,
-                                backdropUrl = remote.backdropUrl,
+                                backdropUrl = remote.backdropUrl ?: details.backdropUrl,
+                                logoUrl = remote.logoUrl ?: details.logoUrl,
                                 trailerUrl = remote.trailerUrl,
                                 season = remote.season ?: details.season,
                                 episode = remote.episode ?: details.episode,
                                 overview = remote.overview ?: details.overview,
-                                facts = (remote.facts + details.facts).distinct(),
+                                facts = remote.facts,
+                                criticRating = remote.criticRating,
                                 genres = (remote.genres + details.genres).distinct(),
                                 artworkUrl = remote.artworkUrl ?: details.artworkUrl,
                                 progress = remote.progress ?: details.progress,
@@ -1579,13 +1611,13 @@ class ReelstackViewModel(
     }
 
     private fun localResume(items: List<LibraryMedia>, connections: List<ServiceConnection>): List<LibraryMedia> {
-        val account = connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() } ?: return items
-        return container.localPlaybackStore.merge(account, items)
+        return connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank() }
+            .fold(items) { result, account -> container.localPlaybackStore.merge(account, result) }
     }
 
     private fun localNextUp(items: List<LibraryMedia>, connections: List<ServiceConnection>): List<LibraryMedia> {
-        val account = connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() } ?: return items
-        return container.localPlaybackStore.nextUp(account, items)
+        return connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank() }
+            .fold(items) { result, account -> container.localPlaybackStore.nextUp(account, result) }
     }
 
     /** Returning from playback must refresh personal progress and the next episode too. */
@@ -1593,7 +1625,7 @@ class ReelstackViewModel(
         _uiState.update { it.copy(resume = localResume(it.resume, it.connections)) }
         refreshLiveData()
         val key = (_uiState.value.activeSheet as? AppSheet.TitleDetails)?.key
-        if (key != null && key.startsWith("jellyfin-")) openLibraryDetails(key)
+        if (key != null && (key.startsWith("jellyfin-") || key.startsWith("emby-"))) openLibraryDetails(key)
     }
 
     /** Recover transient startup/profile failures while Home remains open, including on TV. */
@@ -1763,9 +1795,9 @@ class ReelstackViewModel(
                     resume = localResume(snapshot.resume, connectionsNow),
                     nextUp = localNextUp(snapshot.nextUp, connectionsNow),
                     favourites = snapshot.favourites,
-                    libraryShortcuts = connectionsNow.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+                    libraryShortcuts = current.copy(connections = connectionsNow).libraryConnection
                         ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
-                    libraryIcons = connectionsNow.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+                    libraryIcons = current.copy(connections = connectionsNow).libraryConnection
                         ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
                     recentMovies = snapshot.recentMovies,
                     recentSeries = snapshot.recentSeries,
@@ -2372,9 +2404,12 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         selectedTab = if (container.preferencesRepository.personalization.startInLibrary) AppTab.LIBRARY else AppTab.HOME,
         showOnboarding = configuredKinds.isEmpty() && !container.preferencesRepository.onboardingCompleted,
         connections = connections,
-        libraryShortcuts = connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+        selectedLibrarySource = container.preferencesRepository.preferredLibrarySource,
+        libraryShortcuts = connections.sortedBy { it.kind != container.preferencesRepository.preferredLibrarySource }
+            .firstOrNull { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank() }
             ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
-        libraryIcons = connections.firstOrNull { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+        libraryIcons = connections.sortedBy { it.kind != container.preferencesRepository.preferredLibrarySource }
+            .firstOrNull { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank() }
             ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
         sessions = when {
             hasMediaServer -> emptyList()

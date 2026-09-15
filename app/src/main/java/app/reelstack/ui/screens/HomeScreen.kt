@@ -48,6 +48,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.res.stringResource
 import app.reelstack.ui.theme.LocalTabletCanvas
 import app.reelstack.ui.components.TabletLibraryFeature
+import app.reelstack.ui.components.cinematicBleed
 import app.reelstack.ui.components.tabletFeaturedTitles
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -210,7 +211,7 @@ fun HomeScreen(
             state = feedState,
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
-                top = if (television && featured != null) 16.dp else ReelLayout.PageTop,
+                top = if (television && featured != null) 0.dp else ReelLayout.PageTop,
                 end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
@@ -227,7 +228,8 @@ fun HomeScreen(
             if (featured != null) {
                 item(key = "tablet-feature") {
                     TabletLibraryFeature(featured, onLibraryClick,
-                        Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp),
+                        Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp)
+                            .then(if (television) Modifier.cinematicBleed(ReelLayout.Gutter) else Modifier),
                         account = { HomeAccountButton(state, onAccountClick, onArtwork = true) },
                         candidates = features,
                         rotationEnabled = featureVisible && state.activeSheet == null,

@@ -8,6 +8,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LocalPlaybackStoreTest {
+    @Test fun embyAndJellyfinWithIdenticalItemIdsKeepSeparateProgress() {
+        val store = LocalPlaybackStore(context)
+        val emby = account.copy(kind = ServiceKind.EMBY)
+        store.clear()
+        try {
+            store.record(account, item, 10_000, 60_000, false)
+            store.record(emby, item, 30_000, 60_000, false)
+            val rows = store.merge(emby, store.merge(account, emptyList()))
+            assertEquals(setOf("jellyfin-episode", "emby-episode"), rows.map { it.id }.toSet())
+            assertEquals(.5f, rows.single { it.source == ServiceKind.EMBY }.progress!!, .0001f)
+            assertEquals(10_000L, store.resume(account, item).resumeMs)
+            assertEquals(30_000L, store.resume(emby, item).resumeMs)
+            assertEquals(listOf("jellyfin-episode"), store.nextUp(emby, rows).map { it.id })
+        } finally { store.clear() }
+    }
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val account = ServiceConnection(ServiceKind.JELLYFIN, "Test", "https://example.test", "fixture", "user")
     private val item = PlayableItem("episode", "Series", "Episode", durationMs = 60_000, season = 2, episode = 3)

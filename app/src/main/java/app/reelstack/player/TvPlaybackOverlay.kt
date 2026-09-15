@@ -46,7 +46,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp),
             color = Color.White.copy(alpha = .7f), strokeWidth = 2.dp)
         if (seekPreview != null && state.chapters.any { it.imageUrl != null }) TimelineThumbnailPreview(
-            position, state.durationMs, state.chapters, Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp))
+            position, state.durationMs, state.chapters, Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp), source = state.source)
         else if (seekPreview != null) Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
             .testTag("player-seek-feedback"), shape = RoundedCornerShape(12.dp), color = Color.Black.copy(alpha = .76f)) {
             Text(playbackTime(position) + " / " + playbackTime(state.durationMs),
@@ -64,10 +64,12 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             app.reelstack.ui.components.MediaArtwork(state.logoUrl, state.title,
                 Modifier.width(240.dp).height(72.dp).testTag("player-clearlogo"),
                 contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                source = app.reelstack.data.model.ServiceKind.JELLYFIN, onError = { logoFailed = true })
+                alignment = Alignment.CenterStart,
+                source = state.source, onError = { logoFailed = true })
         } else Text(state.title, style = MaterialTheme.typography.titleLarge, color = Color.White,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(app.reelstack.ui.components.episodeLine(state.season, state.episode, state.subtitle),
+            modifier = Modifier.padding(top = 8.dp).testTag("player-episode-label"),
             style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .72f),
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

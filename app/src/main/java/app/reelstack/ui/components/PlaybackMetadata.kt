@@ -46,4 +46,12 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>) {
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )
     }
+    if (preferences.showRatings && details.criticRating != null) {
+        Text(
+            "Rotten Tomatoes  ${details.criticRating}%",
+            modifier = Modifier.padding(top = 8.dp).testTag("critic-rating"),
+            color = Muted,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 }

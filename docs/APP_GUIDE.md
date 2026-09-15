@@ -1,6 +1,6 @@
 # Kom i gang med Spole
 
-Denne guiden gjeld Spole 0.16.0.
+Denne guiden gjeld Spole 0.17.0-beta04.
 
 ## For deg som skal sjå
 
@@ -65,8 +65,17 @@ På TV finst også val for å skjule sidepanelet til du navigerer ut mot venstre
 Bruk appen sin oppdateringssjekk eller installer ein nyare APK frå Releases over den gamle.
 Du treng ikkje avinstallere først. Prerelease-utgåver kan innehalde feil.
 
-Den innebygde spelaren er førebels for Jellyfin. Emby-bibliotek og Emby-innlogging finst,
-men innebygd Emby-avspeling er ikkje levert. Barnemodus, QR-vising av oppsettslenkjer
-og korte oppsettkodar er heller ikkje implementerte.
+Frå 0.17.0-beta04 har appen ein felles innebygd spelar for Jellyfin og Emby, med filmar,
+episodar, framdrift, neste episode, lydspor, undertekst, filversjon og kvalitet.
+TV-detaljane viser stort bakgrunnsbilete, tittellogo når tilgjengeleg og episodar i ei vassrett rad.
+TV-heroen går i full breidd og episodeformatet er S2 - E2. Ein liten tenarmeny i
+bibliotekoversikta hugsar siste val. Rotten Tomatoes kjem frå servermetadata når
+tilgjengeleg og følgjer valet om å vise vurderingar.
+
+Formatstøtta følgjer Android-eininga og omkodingsløyva på tenaren. Biletundertekstar
+kan krevje innbrenning. Intro og rulletekst krev markørar frå tenaren; Emby bruker
+kapittelmarkørane sine. Live-TV, musikk, plate-/ISO-menyar og offline-nedlasting
+er ikkje del av denne avspelingsflyten. Barnemodus, QR-vising av oppsettslenkjer
+og korte oppsettkodar er ikkje implementerte.
 
 [Tilbake til Spole](../README.md)

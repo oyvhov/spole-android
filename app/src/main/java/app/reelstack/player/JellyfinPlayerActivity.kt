@@ -107,6 +107,9 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                 JellyfinPlayerModel((application as ReelstackApplication).container) as T
         })[JellyfinPlayerModel::class.java]
         val id = intent.getStringExtra(ITEM_ID).orEmpty()
+        val service = intent.getStringExtra(SERVICE_KIND)?.let { value -> ServiceKind.entries.firstOrNull { it.name == value } }
+            ?: ServiceKind.JELLYFIN
+        if (service !in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) { finish(); return }
         if (id.isBlank() || id.length > 128) { finish(); return }
         // What the title page promised. -1 is a real subtitle value ("off"), so absence has to be
         // something else; absent still means "whatever the server would have picked".
@@ -117,7 +120,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         onBackPressedDispatcher.addCallback(this) { if (!model.back()) finish() }
         setContent {
             ReelstackTheme {
-                LaunchedEffect(id) { model.open(id, preferredAudio, preferredSubtitle, preferredSource) }
+                LaunchedEffect(id, service) { model.open(id, preferredAudio, preferredSubtitle, preferredSource, service) }
                 val state by model.state.collectAsStateWithLifecycle()
                 DisposableEffect(state.playing, state.busy) {
                     if (state.playing || state.busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -156,10 +159,12 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         private const val AUDIO_INDEX = "jellyfin_audio_index"
         private const val SUBTITLE_INDEX = "jellyfin_subtitle_index"
         private const val SOURCE_ID = "jellyfin_source_id"
+        private const val SERVICE_KIND = "media_service_kind"
         fun open(context: Context, itemId: String, audioIndex: Int? = null, subtitleIndex: Int? = null,
-            sourceId: String? = null) =
+            sourceId: String? = null, source: ServiceKind = ServiceKind.JELLYFIN) =
             context.startActivity(
                 Intent(context, JellyfinPlayerActivity::class.java).putExtra(ITEM_ID, itemId).apply {
+                    putExtra(SERVICE_KIND, source.name)
                     audioIndex?.let { putExtra(AUDIO_INDEX, it) }
                     subtitleIndex?.let { putExtra(SUBTITLE_INDEX, it) }
                     sourceId?.takeIf(String::isNotBlank)?.let { putExtra(SOURCE_ID, it) }
@@ -478,6 +483,7 @@ fun PlayerScreen(
                                 previewPositionMs = previewPositionMs,
                                 durationMs = state.durationMs,
                                 chapters = state.chapters,
+                                source = state.source,
                                 modifier = Modifier
                                     .align(Alignment.CenterHorizontally)
                                     .padding(bottom = 12.dp)
@@ -638,6 +644,7 @@ internal fun TimelineThumbnailPreview(
     durationMs: Long,
     chapters: List<PlaybackChapter>,
     modifier: Modifier = Modifier,
+    source: ServiceKind = ServiceKind.JELLYFIN,
 ) {
     val currentChapter = chapters.lastOrNull { it.startPositionMs <= previewPositionMs }
     Surface(
@@ -665,7 +672,7 @@ internal fun TimelineThumbnailPreview(
                         url = currentChapter.imageUrl,
                         contentDescription = currentChapter.name,
                         contentScale = ContentScale.Crop,
-                        source = ServiceKind.JELLYFIN,
+                        source = source,
                         fallbackRes = 0,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -715,7 +722,7 @@ private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCanc
                     Modifier.width(104.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
                         .testTag("player-next-artwork"),
                     fallbackRes = R.drawable.media_placeholder,
-                    source = app.reelstack.data.model.ServiceKind.JELLYFIN)
+                    source = state.source)
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelLarge,
                         color = Color.White.copy(alpha = .7f))

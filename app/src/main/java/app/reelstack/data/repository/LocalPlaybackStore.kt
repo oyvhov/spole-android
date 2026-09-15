@@ -47,7 +47,7 @@ class LocalPlaybackStore(context: Context) {
     fun merge(c: ServiceConnection, server: List<LibraryMedia>): List<LibraryMedia> {
         val result = server.toMutableList()
         for (row in entries(c)) {
-            val id = "jellyfin-${row.text("id")}"
+            val id = "${c.kind.name.lowercase(java.util.Locale.ROOT)}-${row.text("id")}"
             val existing = result.firstOrNull { it.source == c.kind && it.id == id }
             if ((existing?.lastActivityEpochMillis ?: 0) > row.number("updated")) continue
             result.removeAll { it.source == c.kind && it.id == id }
@@ -64,7 +64,7 @@ class LocalPlaybackStore(context: Context) {
     }
 
     fun nextUp(c: ServiceConnection, server: List<LibraryMedia>): List<LibraryMedia> {
-        val recent = entries(c).associateBy { "jellyfin-${it.text("id")}" }
+        val recent = entries(c).associateBy { "${c.kind.name.lowercase(java.util.Locale.ROOT)}-${it.text("id")}" }
         return server.filter { item ->
             val row = recent[item.id]
             item.source != c.kind || row == null || (item.lastActivityEpochMillis ?: 0) > row.number("updated")

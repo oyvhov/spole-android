@@ -14,12 +14,12 @@
 </p>
 
 Spole samlar Jellyfin, Emby, Seerr, Radarr og Sonarr i ein innfødd Android-app.
-Bla i biblioteka dine, spel frå Jellyfin og følg førespurnader frå Seerr.
+Bla i biblioteka dine, spel frå Jellyfin eller Emby og følg førespurnader frå Seerr.
 Grensesnittet tilpassar seg fjernkontroll og berøring, med nynorsk og engelsk som språkval.
 
 **Under aktiv utvikling.** Siste publiserte APK er
-[0.16.0-alpha24](https://github.com/oyvhov/spole-android/releases/tag/v0.16.0-alpha24).
-Nyare arbeid ligg på [utviklingsgreina](https://github.com/oyvhov/spole-android/tree/spole-feature-and-hardening-pass).
+[0.17.0-beta04](https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta04).
+Gjeldande kjelde ligg på [main](https://github.com/oyvhov/spole-android/tree/main).
 Alphaversjonar ligg under **Releases**; GitHub si «latest»-lenkje tek ikkje nødvendigvis med desse.
 
 ## På skjermane dine
@@ -68,7 +68,7 @@ neste episodar og eit fyldig Oppdag. Nye, fiktive omslag er lagra i appen og fun
 | Teneste | I Spole |
 | --- | --- |
 | **Jellyfin** | Bibliotek, hald fram, favorittar og avspeling med lyd- og undertekstval. Quick Connect eller brukarnamn og passord. |
-| **Emby** | Innlogging og innhald frå biblioteket. Den innebygde spelaren støttar førebels Jellyfin. |
+| **Emby** | Bibliotek, hald fram, favorittar og integrert avspeling med lyd- og undertekstval. |
 | **Seerr** | Oppdag innhald, be om filmar og sesongar og følg dine eigne førespurnader. |
 | **Radarr / Sonarr** | Oversikt over komande innhald og nedlasting når kontoen har tilgang. |
 
@@ -83,6 +83,10 @@ Kontoen sine rettar avgjer kva du kan sjå og gjere.
 **Klart i kjeldekoden for neste APK:** endre rekkjefølgja på Heim-radene,
 vurdering på filmkort, tenestestatus samla i innstillingane og éin knapp for å
 logge ut av alle tenester på denne eininga. Den utvida offline-demoen kjem også i neste APK.
+
+Utviklingsarbeidet har no også innebygd Emby-avspeling for filmar og seriar og
+Infuse-inspirerte TV-detaljar med bakgrunnsbilete, tittellogo og episoderad.
+Sjå [avspelingsstøtte og avgrensingar](docs/APP_GUIDE.md#oppdateringar-og-avgrensingar).
 
 ## Kom i gang
 

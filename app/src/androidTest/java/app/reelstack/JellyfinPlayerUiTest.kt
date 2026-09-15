@@ -67,7 +67,7 @@ class JellyfinPlayerUiTest {
         var selected=99
         screen(PlayerScreenState(busy=false,subtitles=listOf(PlaybackTrack(2,"Norsk", "nor",true)),subtitleIndex=2),subtitle={selected=it})
         rule.onNodeWithText("Tekst",substring=true).performScrollTo().performClick()
-        rule.onNodeWithText("Undertekstar").assertIsDisplayed()
+        rule.onNodeWithText("Norsk").assertIsDisplayed()
         rule.onNodeWithText("Av",substring=false).performClick()
         assertEquals(-1,selected)
     }

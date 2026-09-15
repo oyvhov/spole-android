@@ -45,7 +45,7 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
             LanguagePreference()
         }
         SettingsCategory.HOME -> {
-            if (state.connections.any { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() })
+            if (state.libraryConnection != null)
                 SettingsActionRow(stringResource(R.string.library_manage), stringResource(R.string.settings_tv_library_hint), "library-manage", onManageLibraries)
             HomeExperienceSettings(options, change)
             LibraryCustomizationSetting(state, options, change)
@@ -59,7 +59,7 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
         }
         SettingsCategory.MENU -> {
             TvMenuSettings(options, change)
-            if (state.connections.any { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() })
+            if (state.libraryConnection != null)
                 SettingsActionRow(stringResource(R.string.library_manage), stringResource(R.string.settings_tv_library_hint), "library-manage", onManageLibraries)
         }
         SettingsCategory.PLAYBACK -> {

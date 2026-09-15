@@ -41,14 +41,46 @@ import app.reelstack.ui.components.focusOutline
 @Composable
 fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
     onFilter: (app.reelstack.data.model.LibraryFilters) -> Unit = {},
-    onShelfOpen: (String) -> Unit = {}, cardActions: MediaCardActions? = null) {
+    onShelfOpen: (String) -> Unit = {}, cardActions: MediaCardActions? = null,
+    onSource: (ServiceKind) -> Unit = {}) {
+    val sources = state.connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+        it.baseUrl.isNotBlank() && it.token.isNotBlank() }.map { it.kind }.distinct()
+    key(state.librarySource) {
+        LibraryContent(state, onLoad, onOpen, onBack, onFilter, onShelfOpen, cardActions,
+            sourcePicker = { if (sources.size > 1) LibrarySourceMenu(state.librarySource, sources, onSource) })
+    }
+}
+
+@Composable
+private fun LibrarySourceMenu(selected: ServiceKind, sources: List<ServiceKind>, onSource: (ServiceKind) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }, modifier = Modifier.testTag("library-source-menu")) {
+            Text(selected.displayName)
+            Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, Modifier.padding(start = 6.dp).size(18.dp))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            sources.forEach { source ->
+                DropdownMenuItem(text = { Text(source.displayName) }, onClick = {
+                    expanded = false
+                    if (source != selected) onSource(source)
+                }, modifier = Modifier.testTag("library-source-${source.name}"))
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
+    onFilter: (app.reelstack.data.model.LibraryFilters) -> Unit,
+    onShelfOpen: (String) -> Unit, cardActions: MediaCardActions?, sourcePicker: @Composable () -> Unit) {
     BackHandler(state.libraryPath.isNotEmpty() && state.activeSheet == null) { onBack() }
-    val connected = state.connections.any { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }
+    val connected = state.libraryConnection != null
     val tv = LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val folders = state.libraryPath.isEmpty()
     val showRatings = app.reelstack.ui.theme.LocalPersonalization.current.showRatings
     val libraryId = state.libraryPath.lastOrNull()?.first.orEmpty()
-    val (display, saveDisplay) = rememberLibraryDisplay(libraryId)
+    val (display, saveDisplay) = rememberLibraryDisplay(if (state.librarySource == ServiceKind.JELLYFIN) libraryId else "emby:$libraryId")
     // AUTO keeps the old behaviour: episodes and video get a wide frame, everything else a poster.
     val autoWide = folders || state.libraryEntries.any { it.mediaType in setOf("Episode", "Video", "Photo") }
     val wideCards = if (display.artType == app.reelstack.data.model.LibraryArtType.AUTO) autoWide
@@ -68,14 +100,18 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
         (shelfResume.isNotEmpty() || shelfNextUp.isNotEmpty())
     // One list, not a fresh one per recomposition: an unstable argument makes the whole landing
     // page unskippable.
-    val inProgress = remember(state.resume, state.nextUp) { state.resume + state.nextUp }
+    val inProgress = remember(state.resume, state.nextUp, state.librarySource) {
+        (state.resume + state.nextUp).filter { it.source == state.librarySource }
+    }
     // The root of Bibliotek is a page about libraries, not a grid of four folders — see
     // [LibraryLanding] for why. Everything below the root is still the grid it always was.
     if (folders) {
         if (app.reelstack.ui.theme.LocalPersonalization.current.libraryHub) {
-            LibraryHub(state, onOpen, onShelfOpen, cardActions) { onLoad(false) }
+            LibraryHub(state, onOpen, onShelfOpen, cardActions, onRetry = { onLoad(false) }, sourcePicker = sourcePicker)
             return
         }
+        Column {
+        Box(Modifier.fillMaxWidth().wrapContentWidth(androidx.compose.ui.Alignment.End).padding(end = 24.dp)) { sourcePicker() }
         LibraryLanding(
             libraries = state.libraryEntries,
             peeks = state.libraryPeeks,
@@ -88,7 +124,9 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
             cardActions = cardActions,
             connected = connected,
             error = state.libraryError,
+            source = state.librarySource,
         )
+        }
         return
     }
     // Next up is not a resume shelf, so its cards do not offer to clear a resume point.
@@ -184,7 +222,7 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                 val artwork: @Composable (Modifier) -> Unit = { artModifier ->
                     Box(artModifier.aspectRatio(ratio)
                         .focusOutline(interaction, shape).clip(shape).testTag("library-art-${entry.id}")) {
-                        MediaArtwork(display.artType.applyTo(entry.artworkUrl), null, Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN)
+                        MediaArtwork(display.artType.applyTo(entry.artworkUrl), null, Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = state.librarySource)
                         if (!listView && rating != null) app.reelstack.ui.components.LibraryRating(rating,
                             Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(6.dp).testTag("library-rating-${entry.id}"))
                         entry.progress?.takeIf { it > 0f }?.let { progress ->

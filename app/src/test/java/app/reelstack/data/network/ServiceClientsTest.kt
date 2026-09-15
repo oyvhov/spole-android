@@ -244,7 +244,6 @@ class ServiceClientsTest {
                     "NowPlayingItem":{"Id":"episode-bluey","Name":"Bluey","SeriesName":"Bluey"},
                     "PlayState":{}
                 }]"""),
-                HttpResponse(401, "{}"),
                 HttpResponse(200, """[
                     {"Id":"child-user","Policy":{"IsDisabled":false,"EnableAllFolders":false}},
                     {"Id":"admin-user","Policy":{"IsDisabled":false,"IsAdministrator":true}}
@@ -269,12 +268,12 @@ class ServiceClientsTest {
 
         assertEquals(listOf("The Odyssey", "Curious George", "Mickey 17"), feed.recentMovies.map { it.title })
         assertEquals(listOf("Foundation"), feed.recentSeries.map { it.title })
-        assertTrue(transport.urls[1].endsWith("/Users/Me"))
-        assertTrue(transport.urls[2].endsWith("/Users"))
-        assertTrue(transport.urls[3].contains("Users/admin-user/Views"))
-        assertTrue(transport.urls[4].contains("Users/admin-user/Items/Latest"))
-        assertTrue(transport.urls[4].contains("ParentId=movies-main"))
-        assertTrue(transport.urls[5].contains("ParentId=movies-kids"))
+        assertFalse(transport.urls.any { it.endsWith("/Users/Me") })
+        assertTrue(transport.urls[1].endsWith("/Users"))
+        assertTrue(transport.urls[2].contains("Users/admin-user/Views"))
+        assertTrue(transport.urls[3].contains("Users/admin-user/Items/Latest"))
+        assertTrue(transport.urls[3].contains("ParentId=movies-main"))
+        assertTrue(transport.urls[4].contains("ParentId=movies-kids"))
     }
 
     @Test

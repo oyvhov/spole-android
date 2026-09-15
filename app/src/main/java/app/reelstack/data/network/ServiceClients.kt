@@ -339,12 +339,12 @@ class MediaServerClient(
             releasedAcrossLibraries(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
         }
 
-        val nextUp = if (connection.kind == ServiceKind.JELLYFIN) runCatching {
+        val nextUp = runCatching {
             nextUp(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
         }.getOrElse {
             warnings += "Neste episode er utilgjengeleg"
             emptyList()
-        } else emptyList()
+        }
 
         // Favourites are an extra: a server that cannot answer must not cost the whole feed.
         val favourites = runCatching {
@@ -453,9 +453,7 @@ class MediaServerClient(
             ?: return emptyList<RemoteLibraryItem>() to emptyList()
         // A shelf is an extra, never a reason for the page itself to fail.
         val resume = runCatching { resume(connection, userId, listOf(view)) }.getOrDefault(emptyList())
-        val next = if (connection.kind == ServiceKind.JELLYFIN) {
-            runCatching { nextUp(connection, userId, listOf(view)) }.getOrDefault(emptyList())
-        } else emptyList()
+        val next = runCatching { nextUp(connection, userId, listOf(view)) }.getOrDefault(emptyList())
         return resume to next
     }
 
@@ -501,13 +499,13 @@ class MediaServerClient(
         connection.userId.takeIf(String::isNotBlank)
             ?: runCatching { currentUserId(connection) }.getOrNull()
 
-    /** Ask Jellyfin for the next unwatched episode, scoped before loading to selected libraries. */
+    /** Ask the media server for the next unwatched episode in selected libraries. */
     fun nextUp(
         connection: ServiceConnection,
         userId: String,
         views: List<RemoteLibraryView> = libraryViews(connection, userId),
     ): List<RemoteLibraryItem> {
-        require(connection.kind == ServiceKind.JELLYFIN)
+        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
         val allowed = views.filter { includeLibrary(connection, it) &&
             (it.collectionType.isNullOrBlank() || it.collectionType.lowercase(java.util.Locale.ROOT) in setOf("tvshows", "mixed")) }
         if (allowed.isEmpty()) return emptyList()
@@ -578,14 +576,14 @@ class MediaServerClient(
 
     /** Full profile-scoped browser; Home exclusions and preview limits do not apply here. */
     fun browseLibraries(connection: ServiceConnection): List<RemoteLibraryView> {
-        require(connection.kind == ServiceKind.JELLYFIN)
+        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
         require(!user.isNullOrBlank()) { "Profil-ID manglar" }
         return libraryViews(connection, encodePathSegment(user)).map { it.copy(artworkUrl = artworkUrl(connection, it.id)) }
     }
 
     fun libraryFacets(connection: ServiceConnection, parentId: String): app.reelstack.data.model.LibraryFacets {
-        require(connection.kind == ServiceKind.JELLYFIN && parentId.isNotBlank())
+        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && parentId.isNotBlank())
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
         require(!user.isNullOrBlank())
         val response = transport.get(EndpointValidator.resolve(connection.baseUrl,
@@ -600,7 +598,7 @@ class MediaServerClient(
 
     fun browseLibrary(connection: ServiceConnection, parentId: String, offset: Int = 0, collectionType: String? = null,
         filters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters()): List<RemoteLibraryItem> {
-        require(connection.kind == ServiceKind.JELLYFIN && parentId.isNotBlank() && offset >= 0)
+        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && parentId.isNotBlank() && offset >= 0)
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
         require(!user.isNullOrBlank()) { "Profil-ID manglar" }
         val catalogueType = when (collectionType?.lowercase(java.util.Locale.ROOT)) {
@@ -619,7 +617,10 @@ class MediaServerClient(
             (catalogueType?.let { "&IncludeItemTypes=$it" } ?: "") +
             (if (browsingCollections) "" else "&ExcludeItemTypes=BoxSet") +
             "&CollapseBoxSetItems=false&Fields=Overview,Genres,ProviderIds&EnableUserData=true&IsMissing=false"
-        return getItems(connection, listOf("Items?$query"))
+        val paths = if (connection.kind == ServiceKind.EMBY)
+            listOf("Users/${encodePathSegment(user)}/Items?$query", "Items?$query")
+        else listOf("Items?$query")
+        return getItems(connection, paths)
     }
 
     /**
@@ -861,6 +862,7 @@ class MediaServerClient(
     }
 
     private fun currentUserId(connection: ServiceConnection): String? {
+        if (connection.kind == ServiceKind.EMBY) return connection.userId.takeIf(String::isNotBlank)
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "Users/Me"),
             headers(connection, deviceId),

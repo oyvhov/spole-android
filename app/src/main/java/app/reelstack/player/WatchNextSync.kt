@@ -36,19 +36,22 @@ class WatchNextSync(private val container: AppContainer) {
     }
 
     suspend fun sync(): Boolean = mutex.withLock { try {
-        val connection = container.connectionRepository.get(ServiceKind.JELLYFIN)
-        val fingerprint = MediaSnapshotStore.fingerprint(listOf(connection))
-        val active = container.preferencesRepository.personalization.watchNextEnabled && connection.token.isNotBlank()
+        val connections = container.connectionRepository.list().filter {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
+        }
+        val active = container.preferencesRepository.personalization.watchNextEnabled && connections.isNotEmpty()
         if (!active && cleanedWhileInactive) return@withLock true
         if (active) cleanedWhileInactive = false
         val cached = if (active) container.mediaSnapshotStore.read(container.mediaFingerprint(container.connectionRepository.list()))?.resume.orEmpty() else emptyList()
-        val rows = if (active) container.localPlaybackStore.merge(connection, cached).filter {
-            it.source == ServiceKind.JELLYFIN && it.mediaType in listOf("Movie", "Episode") &&
+        val rows = if (active) connections.fold(cached) { rows, connection -> container.localPlaybackStore.merge(connection, rows) }.filter {
+            it.source in connections.map { connection -> connection.kind } && it.mediaType in listOf("Movie", "Episode") &&
                 it.remoteId?.matches(Regex("[A-Za-z0-9_-]{1,128}")) == true && !it.played &&
                 (it.progress ?: 0f) > 0f && (it.progress ?: 0f) < .95f &&
                 (it.runtimeMinutes ?: 0) * 60_000L * (it.progress ?: 0f) >= 60_000
         }.take(12) else emptyList()
-        val desired = rows.associateBy { "$fingerprint-${it.remoteId}" }
+        val desired = rows.associateBy { media ->
+            "${MediaSnapshotStore.fingerprint(listOf(connections.first { it.kind == media.source }))}-${media.remoteId}"
+        }
         val existing = mutableMapOf<String, Pair<Long, Boolean>>()
         val resolver = context.contentResolver
         resolver.query(Programs.CONTENT_URI, arrayOf("_id", Programs.COLUMN_INTERNAL_PROVIDER_ID, Programs.COLUMN_PACKAGE_NAME, Programs.COLUMN_BROWSABLE), null, null, null)?.use { cursor ->
@@ -63,8 +66,10 @@ class WatchNextSync(private val container: AppContainer) {
         val directory = context.cacheDir.resolve("watch-next-art").apply { mkdirs() }
         directory.listFiles()?.filter { it.name.removeSuffix(".jpg") !in desired }?.forEach { it.delete() }
         for ((key, media) in desired) {
+            val connection = connections.first { it.kind == media.source }
+            val fingerprint = MediaSnapshotStore.fingerprint(listOf(connection))
             if (existing[key]?.second == false) continue // Respect removal in the launcher.
-            if (MediaSnapshotStore.fingerprint(listOf(container.connectionRepository.get(ServiceKind.JELLYFIN))) != fingerprint ||
+            if (MediaSnapshotStore.fingerprint(listOf(container.connectionRepository.get(media.source))) != fingerprint ||
                 !container.preferencesRepository.personalization.watchNextEnabled) break
             val file = directory.resolve("$key.jpg")
             if (!file.exists() && media.artworkUrl != null) {
@@ -78,7 +83,7 @@ class WatchNextSync(private val container: AppContainer) {
                 }
             }
             val uri = Uri.Builder().scheme("spole").authority("watch-next").appendPath(fingerprint).appendPath(media.remoteId).build()
-            if (MediaSnapshotStore.fingerprint(listOf(container.connectionRepository.get(ServiceKind.JELLYFIN))) != fingerprint ||
+            if (MediaSnapshotStore.fingerprint(listOf(container.connectionRepository.get(media.source))) != fingerprint ||
                 !container.preferencesRepository.personalization.watchNextEnabled) break
             val intent = Intent(context, WatchNextActivity::class.java).setAction(Intent.ACTION_VIEW).setData(uri)
             val duration = (media.runtimeMinutes ?: 0) * 60_000L
@@ -108,13 +113,16 @@ class WatchNextActivity : android.app.Activity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         val container = (application as app.reelstack.ReelstackApplication).container
-        val connection = container.connectionRepository.get(ServiceKind.JELLYFIN)
         val uri = intent.data
         val parts = uri?.pathSegments.orEmpty()
-        if (container.preferencesRepository.personalization.watchNextEnabled && connection.token.isNotBlank() &&
+        val connection = container.connectionRepository.list().firstOrNull {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank() &&
+                parts.firstOrNull() == MediaSnapshotStore.fingerprint(listOf(it))
+        }
+        if (container.preferencesRepository.personalization.watchNextEnabled && connection != null &&
             uri?.scheme == "spole" && uri.host == "watch-next" && parts.size == 2 &&
             parts[0] == MediaSnapshotStore.fingerprint(listOf(connection)) && parts[1].matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
-            JellyfinPlayerActivity.open(this, parts[1])
+            JellyfinPlayerActivity.open(this, parts[1], source = connection.kind)
         }
         finish()
     }
@@ -132,9 +140,12 @@ class WatchNextArtworkProvider : android.content.ContentProvider() {
         val context = requireNotNull(context)
         val container = (context.applicationContext as app.reelstack.ReelstackApplication).container
         val key = uri.lastPathSegment.orEmpty()
-        val connection = container.connectionRepository.get(ServiceKind.JELLYFIN)
+        val connection = container.connectionRepository.list().firstOrNull {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank() &&
+                key.startsWith(MediaSnapshotStore.fingerprint(listOf(it)) + "-")
+        }
         if (mode != "r" || uri.pathSegments.size != 1 || !key.matches(Regex("[a-f0-9]{64}-[A-Za-z0-9_-]{1,128}")) ||
-            !container.preferencesRepository.personalization.watchNextEnabled || connection.token.isBlank() ||
+            !container.preferencesRepository.personalization.watchNextEnabled || connection == null ||
             !key.startsWith(MediaSnapshotStore.fingerprint(listOf(connection)) + "-")) throw java.io.FileNotFoundException()
         return android.os.ParcelFileDescriptor.open(context.cacheDir.resolve("watch-next-art/$key.jpg"), android.os.ParcelFileDescriptor.MODE_READ_ONLY)
     }

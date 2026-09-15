@@ -9,6 +9,16 @@ import kotlinx.serialization.json.*
 class AppPreferencesRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_preferences", Context.MODE_PRIVATE)
 
+    var preferredLibrarySource: app.reelstack.data.model.ServiceKind
+        get() = app.reelstack.data.model.ServiceKind.entries.firstOrNull {
+            it.name == preferences.getString("preferred_library_source", null) &&
+                it in setOf(app.reelstack.data.model.ServiceKind.JELLYFIN, app.reelstack.data.model.ServiceKind.EMBY)
+        } ?: app.reelstack.data.model.ServiceKind.JELLYFIN
+        set(value) {
+            require(value in setOf(app.reelstack.data.model.ServiceKind.JELLYFIN, app.reelstack.data.model.ServiceKind.EMBY))
+            preferences.edit { putString("preferred_library_source", value.name) }
+        }
+
     /** Read once: the device does not become a television while the app is running. */
     private val television: Boolean =
         (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==

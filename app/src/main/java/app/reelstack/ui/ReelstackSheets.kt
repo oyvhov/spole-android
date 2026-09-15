@@ -317,6 +317,38 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 } else false
             }.focusGroup())
     }
+    if (tv) {
+        app.reelstack.ui.components.TvCinematicDetails(details, scroll, heading = {
+            app.reelstack.ui.components.DetailLogo(details, opening.title)
+            details.source?.let { Text(it.displayName, color = Muted,
+                style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp)) }
+            if (mediaType == "Episode") Text(
+                app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
+                style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)
+                    .testTag("episode-series-name"))
+            if (ready) {
+                aside()
+                app.reelstack.ui.components.TvDetailSynopsis(details)
+                actions()
+                if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
+                TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
+            } else {
+                DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 24.dp).testTag("detail-loading"))
+            }
+        }) {
+            if (ready) {
+                SeriesEpisodes(state.seriesBrowse, details.key, onSeason)
+                castBlock()
+                if (!isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
+                    { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
+                details.error?.let { Text(it, color = Warning, modifier = Modifier.padding(top = 16.dp)) }
+                details.statusTitle?.takeUnless { details.libraryAvailable }?.let {
+                    Text(it, color = Muted, modifier = Modifier.padding(top = 16.dp))
+                }
+            }
+        }
+        return
+    }
     val tvHeading: @Composable () -> Unit = {
         if (mediaType == "Episode") Text(opening.title, color = Muted,
             style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
@@ -710,8 +742,10 @@ private fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, ac
 private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDetails,
     modifier: Modifier = Modifier, audioIndex: Int? = null, subtitleIndex: Int? = null,
     versionId: String? = null) {
-    if (details.source != ServiceKind.JELLYFIN || state.connections.none { it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank() }) return
-    val key = details.key.removePrefix("jellyfin-").takeIf { it.isNotBlank() && it != details.key } ?: return
+    val source = details.source?.takeIf { it in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) } ?: return
+    if (state.connections.none { it.kind == source && it.token.isNotBlank() }) return
+    val key = details.key.removePrefix("${source.name.lowercase(java.util.Locale.ROOT)}-")
+        .takeIf { it.isNotBlank() && it != details.key } ?: return
     // A series is not playable, but the episode you are in the middle of is — and that is what
     // pressing Play on a series page has always meant. The button waits for the episode list
     // rather than handing the reader over to the player's own browser to start again from zero.
@@ -731,6 +765,7 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
         }
     }
     val shape = RoundedCornerShape(14.dp)
+    val playInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val progress = if (series) nextEpisode?.progress?.coerceIn(0f, 1f) ?: 0f
         else details.progress?.coerceIn(0f, 1f) ?: 0f
     val label = when {
@@ -748,9 +783,10 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
     }
     Box(modifier.clip(shape)) {
         Button(
-            onClick = { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId, audioIndex, subtitleIndex, versionId) },
+            onClick = { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId, audioIndex, subtitleIndex, versionId, source) },
+            interactionSource = playInteraction,
             modifier = (if (television) Modifier.widthIn(min = 220.dp, max = 420.dp) else Modifier.fillMaxWidth())
-                .heightIn(min = 52.dp).focusRequester(playFocus).testTag("play-in-spole"),
+                .heightIn(min = 52.dp).focusRequester(playFocus).focusOutline(playInteraction, shape).testTag("play-in-spole"),
             shape = shape,
         ) {
             Icon(app.reelstack.ui.components.SpoleIcons.Play, null, Modifier.size(20.dp))
