@@ -27,9 +27,14 @@ class MobileSettingsTest {
         rule.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(360.dp, 800.dp))) {
                 DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) {
+                    val phone = android.content.res.Configuration(androidx.compose.ui.platform.LocalConfiguration.current).apply {
+                        uiMode = (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK.inv()) or android.content.res.Configuration.UI_MODE_TYPE_NORMAL
+                    }
+                    CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides phone) {
                     ReelstackTheme { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                         SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, { _, _ -> })
                     } }
+                    }
                 }
             }
         }

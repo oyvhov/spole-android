@@ -267,7 +267,7 @@ fun HomeScreen(
                         if (continueItems.isEmpty() && !state.isRefreshing && incompleteMedia)
                             EmptySectionLine(stringResource(R.string.home_resume_retry))
                         else if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
-                        else ResumeRail(continueItems, onLibraryClick, cardActions)
+                        else ResumeRail(continueItems, onLibraryClick, cardActions, rowKey = row.name)
                     }
                 }
                 // The payoff for the heart on every card. A row that is empty until somebody stars
@@ -276,14 +276,14 @@ fun HomeScreen(
                     item(key = "favourites") {
                         SectionTitle(stringResource(R.string.home_favourites),
                             Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                        LibraryRail(state.favourites, onLibraryClick, wide = false)
+                        LibraryRail(state.favourites, onLibraryClick, wide = false, rowKey = row.name)
                     }
                 }
                 if (row == app.reelstack.data.model.HomeRow.NEXT_UP && personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
                     item(key = "next-up") {
                         SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
                         // Next up has no resume point of its own; the other two writes still apply.
-                        ResumeRail(state.nextUp, onLibraryClick, cardActions.withoutResumeRemoval())
+                        ResumeRail(state.nextUp, onLibraryClick, cardActions.withoutResumeRemoval(), rowKey = row.name)
                     }
                 }
                 run {
@@ -300,7 +300,7 @@ fun HomeScreen(
                                     EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_movies)))
                                 }
                             } else {
-                                LibraryRail(items, onLibraryClick, wide = false)
+                                LibraryRail(items, onLibraryClick, wide = false, rowKey = row.name)
                             }
                         }
                     }
@@ -322,7 +322,7 @@ fun HomeScreen(
                                     EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_episodes)))
                                 }
                             } else {
-                                LibraryRail(items, onLibraryClick, wide = true)
+                                LibraryRail(items, onLibraryClick, wide = true, rowKey = row.name)
                             }
                         }
                     }
@@ -763,15 +763,18 @@ private fun NowPlayingCard(
 }
 
 @Composable
-private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean) {
+internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean, rowKey: String? = null) {
+    val chosenWide = when (app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats[rowKey]) {
+        "POSTER" -> false; "THUMB" -> true; else -> wide
+    }
     // Every card in a rail reserves the same number of title lines, so a rail where each title
     // fits on one line does not leave an empty second line under every card.
-    val titleLines = if (isTelevision() && wide) 1 else if (items.any { it.title.length > if (wide) 26 else 15 }) 2 else 1
+    val titleLines = if (isTelevision() && chosenWide) 1 else if (items.any { it.title.length > if (chosenWide) 26 else 15 }) 2 else 1
     LazyRow(modifier = Modifier.fillMaxWidth().testTag("library-rail"), contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             LibraryCard(
                 media = media,
-                wide = wide,
+                wide = chosenWide,
                 titleLines = titleLines,
                 revealDelay = (index.coerceAtMost(2) * 30),
                 onClick = { onClick(media.id) },
@@ -785,11 +788,14 @@ private fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wi
  * an episode stays a wide still — while a shared artwork height keeps every title on one baseline.
  */
 @Composable
-internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null) {
-    val titleLines = if (isTelevision()) 1 else if (items.any { it.title.length > 20 }) 2 else 1
-    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null, rowKey: String? = null) {
+    val format = app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats[rowKey]
+    val titleLines = if (isTelevision()) 1 else 2
+    val railState = androidx.compose.foundation.lazy.rememberLazyListState()
+    app.reelstack.ui.components.PrefetchRailArtwork(items, railState)
+    LazyRow(state = railState, contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
-            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30, actions = actions) { onClick(media.id) }
+            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30, actions = actions, format = format) { onClick(media.id) }
         }
     }
 }
@@ -822,8 +828,8 @@ data class MediaCardActions(
 
 @Composable
 private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
-    actions: MediaCardActions? = null, onClick: () -> Unit) {
-    val wide = !media.mediaType.equals("Movie", ignoreCase = true)
+    actions: MediaCardActions? = null, format: String? = null, onClick: () -> Unit) {
+    val wide = if (format == "POSTER") false else if (format == "THUMB") true else !media.mediaType.equals("Movie", ignoreCase = true)
     val artworkHeight = ReelLayout.EpisodeHeight * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val cardWidth = if (wide) artworkHeight * 16f / 9f else artworkHeight * 2f / 3f
     val interactionSource = remember { MutableInteractionSource() }
@@ -872,7 +878,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
         Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))
             .focusOutline(interactionSource, RoundedCornerShape(ReelLayout.ArtworkCorner))) {
             MediaArtwork(
-                url = media.artworkUrl,
+                url = (if (!wide) media.posterUrl else null) ?: media.artworkUrl,
                 fallbackRes = media.artworkRes,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -984,7 +990,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .clip(artworkShape).focusOutline(interactionSource, artworkShape),
         ) {
             MediaArtwork(
-                url = media.artworkUrl,
+                url = (if (wide) media.heroUrl else media.posterUrl) ?: media.artworkUrl,
                 fallbackRes = media.artworkRes,
                 contentDescription = media.title,
                 contentScale = ContentScale.Crop,

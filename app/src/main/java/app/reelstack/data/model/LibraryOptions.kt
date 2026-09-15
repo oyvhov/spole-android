@@ -77,9 +77,9 @@ data class LibraryDisplay(
 data class LibraryFacets(val parentId: String = "", val genres: List<String> = emptyList(), val years: List<String> = emptyList())
 data class LibraryFilters(val sort: LibrarySort = LibrarySort.TITLE, val descending: Boolean = false,
     val watched: LibraryWatched = LibraryWatched.ALL, val favourites: Boolean = false,
-    val resolution: LibraryResolution = LibraryResolution.ALL, val search: String = "", val genre: String = "", val year: String = "") {
+    val resolution: LibraryResolution = LibraryResolution.ALL, val search: String = "", val genre: String = "", val year: String = "", val initial: String = "") {
     val activeCount: Int get() = listOf(watched != LibraryWatched.ALL, favourites, resolution != LibraryResolution.ALL,
-        search.isNotBlank(), genre.isNotBlank(), year.isNotBlank()).count { it }
+        search.isNotBlank(), genre.isNotBlank(), year.isNotBlank(), initial.isNotBlank()).count { it }
     fun query(): String = buildString {
         fun parameter(name: String, value: String) { append('&').append(name).append('=').append(URLEncoder.encode(value, "UTF-8")) }
         parameter("SortBy", sort.api + if (sort != LibrarySort.TITLE) ",SortName" else "")
@@ -97,6 +97,7 @@ data class LibraryFilters(val sort: LibrarySort = LibrarySort.TITLE, val descend
             LibraryResolution.UHD -> parameter("MinWidth", "3840")
             else -> Unit
         }
+        initial.takeIf { it.length == 1 && it[0].isLetter() }?.let { parameter("NameStartsWith", it) }
         search.trim().take(150).takeIf(String::isNotBlank)?.let { parameter("SearchTerm", it) }
         genre.trim().take(100).takeIf(String::isNotBlank)?.let { parameter("Genres", it) }
         year.toIntOrNull()?.takeIf { it in 1800..2200 }?.let { parameter("Years", it.toString()) }

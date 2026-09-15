@@ -95,6 +95,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var preferredAudio: Int? = null
     private var preferredSubtitle: Int? = null
     private var preferredSource: String? = null
+    private var subtitleCache: SubtitleMemoryCache? = null
+    private var subtitleWarmJob: Job? = null
+    private var subtitleWarmedSession: String? = null
     private val reporter = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val reports = Channel<Report>(Channel.UNLIMITED)
     private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
@@ -111,7 +114,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 mutable.update { it.copy(playing = isPlaying) }
-                if (isPlaying && !started) { started = true; report("") }
+                if (isPlaying && !started) { started = true; report(""); warmSubtitle() }
                 else if (started) report("/Progress")
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -174,6 +177,22 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
 
     private fun textUrl(c: ServiceConnection, p: PlaybackPlan, index: Int) = safePlaybackUrl(c.baseUrl,
         "Videos/${enc(p.item.id)}/${enc(p.sourceId)}/Subtitles/$index/Stream.vtt")
+
+    /** Warm one likely text track after video starts; never delay video to fetch every language. */
+    private fun warmSubtitle() {
+        val current = plan ?: return
+        val c = connection ?: return
+        val cache = subtitleCache ?: return
+        if (subtitleWarmedSession == current.sessionId) return
+        subtitleWarmedSession = current.sessionId
+        val text = current.subtitles.filter { it.isText }
+        val locale = java.util.Locale.getDefault()
+        val track = text.firstOrNull { it.index == current.subtitleIndex }
+            ?: text.firstOrNull { it.language in setOf(locale.language, runCatching { locale.isO3Language }.getOrNull()) }
+            ?: text.firstOrNull() ?: return
+        val url = textUrl(c, current, track.index)
+        subtitleWarmJob = viewModelScope.launch(Dispatchers.IO) { runCatching { cache.load(url) } }
+    }
 
     private val mediaSession = androidx.media3.session.MediaSession.Builder(container.appContext, player).build()
 
@@ -251,7 +270,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 }
                 connection = result.first.first; seerrConnection = result.first.second; userId = result.first.third
                 check(sameAccount())
-                choose(result.second)
+                choose(container.localPlaybackStore.resume(result.first.first, result.second))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 mutable.update { it.copy(busy = false, error = "Fekk ikkje opna tittelen. Kontroller den personlege Jellyfin-innlogginga og prøv igjen.") }
@@ -329,9 +348,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private fun prepare(position: Long, audio: Int? = null, subtitle: Int? = null, forceCompatible: Boolean = compatible, autoplay: Boolean = true) {
         val c = connection ?: return
         val item = selected ?: return
-        val previous = plan
-        val audioChoice = audio ?: previous?.audioIndex ?: preferredAudio
-        val subtitleChoice = subtitle ?: previous?.subtitleIndex ?: preferredSubtitle
+        val previous = plan?.takeIf { it.item.id == item.id }
+        val audioChoice = audio ?: previous?.audioIndex ?: preferredAudio.takeIf { item.id == rootId }
+        val subtitleChoice = subtitle ?: previous?.subtitleIndex ?: preferredSubtitle.takeIf { item.id == rootId }
         request?.cancel()
         val ticket = ++generation
         stopCurrent()
@@ -342,14 +361,17 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     check(sameAccount())
                     client.prepare(c, userId, item, state.value.quality.takeIf { it > 0 } ?: autoBitrate(),
                         // The version the title page picked, until a plan exists and the player owns it.
-                        audioChoice, subtitleChoice, forceCompatible, previous?.sourceId ?: preferredSource)
+                        audioChoice, subtitleChoice, forceCompatible, previous?.sourceId ?: preferredSource.takeIf { item.id == rootId })
                 }
                 if (ticket != generation || !sameAccount()) return@launch
                 plan = prepared
                 stopped = false
-                val http = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+                val http = app.reelstack.data.network.HttpTransport.sharedClient.newBuilder()
                     .connectTimeout(8, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).build()
-                val dataSource = ResolvingDataSource.Factory(OkHttpDataSource.Factory(http).setDefaultRequestProperties(client.headers(c))) { spec ->
+                val cache = SubtitleMemoryCache(http.newBuilder().callTimeout(8, TimeUnit.SECONDS).build(), client.headers(c))
+                subtitleCache = cache
+                val upstream = cache.factory(OkHttpDataSource.Factory(http).setDefaultRequestProperties(client.headers(c)))
+                val dataSource = ResolvingDataSource.Factory(upstream) { spec ->
                     spec.withUri(safePlaybackUrl(c.baseUrl, spec.uri.toString()).toUri())
                 }
                 val media = MediaItem.Builder().setUri(prepared.url).setMediaId(item.id)
@@ -440,6 +462,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         countdownJob?.cancel()
         mutable.update { it.copy(nextEpisode = null, nextEpisodeCountdown = null) }
         report("/Stopped"); started = false
+        plan?.let { current -> connection?.let { c ->
+            container.localPlaybackStore.record(c, current.item, player.currentPosition, state.value.durationMs, completed = true)
+        } }
         choose(next)
     }
 
@@ -506,9 +531,12 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             if (stopped) return
             stopped = true
         } else if (!started) return
+        if (started) container.localPlaybackStore.record(c, current.item, player.currentPosition.coerceAtLeast(0),
+            player.duration.takeIf { it > 0 } ?: current.item.durationMs, player.playbackState == Player.STATE_ENDED)
         reports.trySend(Report(c, current, event, player.currentPosition.coerceAtLeast(0), !player.isPlaying))
     }
     private fun stopCurrent() {
+        subtitleWarmJob?.cancel(); subtitleWarmJob = null; subtitleCache = null; subtitleWarmedSession = null
         countdownJob?.cancel()
         mutable.update { it.copy(nextEpisodeCountdown = null) }
         report("/Stopped"); started = false; plan = null

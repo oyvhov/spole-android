@@ -20,29 +20,32 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import app.reelstack.ui.components.SpoleStartupArt
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import coil3.imageLoader
+import coil3.network.httpHeaders
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** A bounded opening reveal. Network work continues behind the cover. */
 @Composable
 fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     StartupCover(awaitContentReady = {
-        // Keep launch responsive, but only lift the cover once first rails are visible.
-        // Start painting content quickly after a short safety window. If data has not arrived yet,
-        // we still reveal so the user gets an immediate interactive skeleton instead of a blank gap.
-        withTimeoutOrNull(220) {
-            viewModel.uiState.first { state ->
-                (state.showOnboarding || state.configuredCount == 0 ||
-                    state.hasCachedData ||
-                    state.sessions.isNotEmpty() ||
-                    state.resume.isNotEmpty() ||
-                    state.recentMovies.isNotEmpty() ||
-                    state.recentSeries.isNotEmpty() ||
-                    state.recommendations.any { !it.artworkUrl.isNullOrBlank() } ||
-                    state.recentMovies.any { !it.artworkUrl.isNullOrBlank() } ||
-                    state.recentSeries.any { !it.artworkUrl.isNullOrBlank() } ||
-                    state.sessions.any { !it.artworkUrl.isNullOrBlank() } ||
-                    state.resume.any { !it.artworkUrl.isNullOrBlank() })
-            }
+        val state = viewModel.uiState.first { state ->
+            state.showOnboarding || state.configuredCount == 0 ||
+                state.resume.isNotEmpty() || state.nextUp.isNotEmpty() ||
+                state.recentMovies.isNotEmpty() || state.recentSeries.isNotEmpty()
+        }
+        if (!state.showOnboarding && state.configuredCount > 0) coroutineScope {
+            // Bounded first-screen warming. The rest continues loading in the composed page.
+            (state.resume + state.nextUp + state.recentMovies + state.recentSeries)
+                .filter { it.artworkUrl != null }.distinctBy { it.artworkUrl }.take(4).map { item -> async {
+                    val request = coil3.request.ImageRequest.Builder(context).data(item.artworkUrl).size(640, 360)
+                    app.reelstack.ui.components.MediaAuthHeaders.forUrl(context, item.source, item.artworkUrl!!)?.let(request::httpHeaders)
+                    context.imageLoader.execute(request.build())
+                } }.awaitAll()
         }
     }, content = content)
 }
@@ -55,13 +58,14 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
     val reveal = remember { Animatable(if (formed || !opening) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!opening) return@LaunchedEffect
-        if (!formed) reveal.animateTo(1f, tween(if (slow) 680 else 220, easing = androidx.compose.animation.core.LinearEasing))
-        formed = true
-        // Let the initial frame settle before we lift the cover.
-        // The ViewModel has already started its network refresh independently of this UI.
-        withFrameNanos { }
-        withTimeoutOrNull(220) { awaitContentReady() }
-        opening = false
+        coroutineScope {
+            val ready = async { withTimeoutOrNull(5_000) { awaitContentReady() } }
+            if (!formed) reveal.animateTo(1f, tween(if (slow) 1_200 else 900, easing = androidx.compose.animation.core.LinearEasing))
+            formed = true
+            delay(if (slow) 400 else 300)
+            ready.await()
+            opening = false
+        }
     }
     val coverVisible by remember { derivedStateOf { opening } }
     Box(Modifier.fillMaxSize()) {
@@ -69,9 +73,9 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
         // Compose immediately: image requests and network data load throughout the animation.
         Box(if (opening) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
             .onPreviewKeyEvent { true } else Modifier) { content() }
-        AnimatedVisibility(visible = coverVisible, exit = fadeOut(tween(if (slow) 180 else 90))) {
+        AnimatedVisibility(visible = coverVisible, exit = fadeOut(tween(280))) {
             Box(
-                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).alpha(if (opening) 1f else 0.2f)
+                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
                     .testTag("startup-cover")
                     .pointerInput(Unit) {
                         awaitPointerEventScope {

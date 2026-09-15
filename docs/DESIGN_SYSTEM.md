@@ -1,8 +1,23 @@
 # Spole design system
 
+Sjå også [finpussen etter siste emulatorgjennomgang](DESIGN_REFINEMENT_2026-09-15.md). Denne fjernar innstillingssøk og presiserer bibliotekkunst, mindre kontrollar og enklare redigering.
+
+## Felles kontrollar og stabil kunst · 15. september 2026
+
+Sjå [gjennomføringa av fase 1–3](DESIGN_REFRESH_2026-09-15.md) for bibliotekoversikta,
+adaptive innstillingar, nye val og verifisering. Dette presiserer dei eldre reglane under:
+
+- Korta og utvalet på framsida får geometri frå medietype, vindauge og brukarval før bileta er lasta.
+  Eit ståande reservebilete blir tilpassa ei brei ramme. Innlasting skal ikkje flytte rader eller handlingar.
+- `ReelLayout.ControlMinHeight` er 40 dp, `SettingsMinHeight` er 48 dp og `ControlCorner` er 10 dp.
+  Tekst kan auke høgda. Kort nyttar framleis det valde omslagshjørnet; ikonknappar kan vere runde.
+- Telefon, nettbrett og TV deler innstillingskategoriar og kontrollar. Nettbrett får to felt når
+  tilgjengeleg breidd og skriftstorleik tillet det. TV har eiga fjernkontrollflyt.
+- «Rolege overgangar» reduserer biletovergangar og sidenavigasjon. Det påverkar ikkje datalasting.
+
 ## Laget etter TV-gjennomgangen · 12. september 2026
 
-Denne bolken gjeld framfor alle eldre skildringar under.
+Denne bolken er historisk bakgrunn; presiseringane over gjeld ved motstrid.
 
 **Ei tittelside er to kolonnar på TV.** Venstre kolonne er biletet og det som skildrar objektet: år,
 lengd, kvalitet, aldersgrense, vurdering, status, sjangrar, tagline. Høgre kolonne er tittelen,

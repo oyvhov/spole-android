@@ -99,6 +99,12 @@ class SeriesBrowseTest {
     }
 
     @Test
+    fun `unreachable episode routes report a failure instead of an empty season`() {
+        val client = MediaServerClient(transport = Scripted(emptyList()), deviceId = "d")
+        assertTrue(runCatching { client.episodes(connection, "series-1", "s1") }.isFailure)
+    }
+
+    @Test
     fun `next up falls back to the resume list and then to nothing`() {
         val resume = Scripted(listOf("UserItems/Resume" to items(episode)))
         assertEquals("e1", MediaServerClient(transport = resume, deviceId = "d").seriesNextUp(connection, "series-1")?.id)

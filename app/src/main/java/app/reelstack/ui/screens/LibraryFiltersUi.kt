@@ -15,7 +15,7 @@ import app.reelstack.R
 import app.reelstack.data.model.*
 import app.reelstack.ui.theme.Muted
 
-private enum class Panel { NONE, FILTER, VIEW, SEARCH }
+private enum class Panel { NONE, FILTER, VIEW, SEARCH, ALPHABET }
 
 /**
  * Filters on the page, not in a popup.
@@ -47,7 +47,7 @@ internal fun LibraryFilterBar(
     val resolutions = stringArrayResource(R.array.library_resolutions)
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Chip(
                 text = stringResource(R.string.library_filters) +
                     (if (filters.activeCount > 0) " ${filters.activeCount}" else "") +
@@ -66,6 +66,10 @@ internal fun LibraryFilterBar(
                 chosen = panel == Panel.SEARCH || filters.search.isNotBlank(),
                 tag = "library-search-toggle",
             ) { panel = if (panel == Panel.SEARCH) Panel.NONE else Panel.SEARCH }
+            Chip(text = filters.initial.ifBlank { stringResource(R.string.design_alphabet) },
+                chosen = panel == Panel.ALPHABET || filters.initial.isNotBlank(), tag = "library-alphabet") {
+                panel = if (panel == Panel.ALPHABET) Panel.NONE else Panel.ALPHABET
+            }
             if (filters != LibraryFilters()) {
                 Chip(text = stringResource(R.string.library_reset), chosen = false, tag = "library-filter-reset") {
                     onApply(LibraryFilters())
@@ -73,6 +77,17 @@ internal fun LibraryFilterBar(
             }
         }
 
+        if (panel == Panel.ALPHABET) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Chip(stringResource(R.string.design_all), filters.initial.isBlank(), "letter-all") {
+                onApply(filters.copy(initial = ""))
+            }
+            ("ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ").forEach { letter ->
+                Chip(letter.toString(), filters.initial == letter.toString(), "letter-$letter") {
+                    onApply(filters.copy(initial = letter.toString(), sort = LibrarySort.TITLE, descending = false))
+                }
+            }
+        }
         if (panel == Panel.VIEW) LibraryDisplayPanel(display, onDisplayChange)
 
         if (panel == Panel.SEARCH) {

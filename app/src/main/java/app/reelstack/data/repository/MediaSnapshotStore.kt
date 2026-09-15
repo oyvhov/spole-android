@@ -22,6 +22,7 @@ data class CachedMediaSnapshot(
     val recentSeries: List<LibraryMedia>,
     val resume: List<LibraryMedia> = emptyList(),
     val nextUp: List<LibraryMedia> = emptyList(),
+    val favourites: List<LibraryMedia> = emptyList(),
     val upcoming: List<UpcomingMedia>,
     val recentReleases: List<UpcomingMedia> = emptyList(),
     val incoming: List<IncomingMedia>,
@@ -50,6 +51,7 @@ class MediaSnapshotStore(context: Context) {
             val rows = buildList {
                 addAll(libraryRows(fingerprint, CacheSection.RESUME, snapshot.resume))
                 addAll(libraryRows(fingerprint, CacheSection.NEXT_UP, snapshot.nextUp))
+                addAll(libraryRows(fingerprint, CacheSection.FAVOURITES, snapshot.favourites))
                 addAll(libraryRows(fingerprint, CacheSection.RECENT_MOVIES, snapshot.recentMovies))
                 addAll(libraryRows(fingerprint, CacheSection.RECENT_SERIES, snapshot.recentSeries))
                 addAll(upcomingRows(fingerprint, CacheSection.UPCOMING, snapshot.upcoming))
@@ -72,6 +74,7 @@ class MediaSnapshotStore(context: Context) {
             sessions = emptyList(),
             resume = library(fingerprint, CacheSection.RESUME),
             nextUp = library(fingerprint, CacheSection.NEXT_UP),
+            favourites = library(fingerprint, CacheSection.FAVOURITES),
             recentMovies = library(fingerprint, CacheSection.RECENT_MOVIES),
             recentSeries = library(fingerprint, CacheSection.RECENT_SERIES),
             upcoming = upcoming(fingerprint, CacheSection.UPCOMING),
@@ -120,6 +123,7 @@ class MediaSnapshotStore(context: Context) {
             row(fingerprint, section, index, item.id, item.title, item.subtitle, item.source, item.mediaType).copy(
                 progress = item.progress,
                 lastActivityEpochMillis = item.lastActivityEpochMillis,
+                libraryMetadata = encodeLibraryMetadata(item),
                 artworkUrl = item.artworkUrl,
                 remoteId = item.remoteId,
                 overview = item.overview,
@@ -181,13 +185,13 @@ class MediaSnapshotStore(context: Context) {
         lastActivityEpochMillis = row.lastActivityEpochMillis,
         artworkRes = R.drawable.media_placeholder,
         source = kind(row.source),
-        artworkUrl = cachedLibraryArtwork(row),
+        artworkUrl = row.artworkUrl,
         remoteId = row.remoteId,
         overview = row.overview,
         facts = row.facts.split(SEPARATOR).filter(String::isNotBlank),
         genres = row.genres.split(SEPARATOR).filter(String::isNotBlank),
         mediaType = row.mediaType,
-    )
+    ).restoreLibraryMetadata(row.libraryMetadata)
 
     private fun toUpcoming(row: CachedMediaRow) = UpcomingMedia(
         id = row.id,
@@ -221,20 +225,6 @@ class MediaSnapshotStore(context: Context) {
     )
 
     private fun kind(name: String) = ServiceKind.entries.firstOrNull { it.name == name } ?: ServiceKind.JELLYFIN
-
-    /**
-     * Older snapshots may point an episode at its series' portrait Primary image. A live refresh
-     * replaces it with Thumb artwork, but showing the portrait cropped into a wide frame first is
-     * the stretched flash seen on phones. Keep every other cached row and withhold only that known
-     * incompatible combination. An episode's own Primary image is normally a valid wide still.
-     */
-    private fun cachedLibraryArtwork(row: CachedMediaRow): String? {
-        val url = row.artworkUrl ?: return null
-        if (!row.mediaType.equals("Episode", ignoreCase = true) ||
-            !url.contains("/Images/Primary", ignoreCase = true)) return url
-        val itemId = row.remoteId?.takeIf(String::isNotBlank) ?: return null
-        return url.takeIf { it.contains("/Items/$itemId/Images/Primary", ignoreCase = true) }
-    }
 
     /**
      * A row cached by an older build — or one whose server labels types in English — must still

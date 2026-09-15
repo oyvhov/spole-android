@@ -7,6 +7,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class JellyfinPlaybackTest {
+    @Test fun newResumeMovieUsesDeclaredLandscapeInsteadOfAPoster() {
+        val item = obj("""{"Id":"movie","Type":"Movie","ImageTags":{"Primary":"poster","Thumb":"thumb"},"BackdropImageTags":["background"]}""")
+        assertTrue(parsePlayable(item, "https://media.example").artworkUrl!!.contains("/Backdrop/0?"))
+        assertTrue(parsePlayable(item, "https://media.example").artworkUrl!!.contains("tag=background"))
+        assertNull(playableLandscapeUrl(obj("""{"Id":"episode","Type":"Episode","BackdropImageTags":["episode"]}"""), "https://media.example"))
+    }
     @Test fun nextEpisodeArtworkUsesItsOwnDeclaredImageAndEncodesTags() {
         val item = obj("""{"Id":"ep 2","Type":"Episode","Name":"Neste","ImageTags":{"Primary":"tag/2"}}""")
         assertEquals("https://media.example/jellyfin/Items/ep%202/Images/Primary?maxWidth=320&quality=85&tag=tag%2F2",

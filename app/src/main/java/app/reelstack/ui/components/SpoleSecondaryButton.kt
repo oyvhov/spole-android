@@ -28,7 +28,7 @@ internal fun SpoleSecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = if (isTelevision() || LocalSettingsButtonStyle.current) RoundedCornerShape(14.dp) else ButtonDefaults.textShape,
+    shape: Shape = if (isTelevision() || LocalSettingsButtonStyle.current) RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner) else ButtonDefaults.textShape,
     colors: ButtonColors = ButtonDefaults.textButtonColors(),
     contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
     interactionSource: MutableInteractionSource? = null,
@@ -36,12 +36,12 @@ internal fun SpoleSecondaryButton(
 ) {
     if (isTelevision() || LocalSettingsButtonStyle.current) {
         val interaction = interactionSource ?: remember { MutableInteractionSource() }
-        OutlinedButton(onClick, modifier.heightIn(min = 48.dp).focusOutline(interaction, shape, glow = false),
+        OutlinedButton(onClick, modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight).focusOutline(interaction, shape, glow = false),
             enabled = enabled, shape = shape, interactionSource = interaction,
             border = BorderStroke(1.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant),
-            colors = colors, contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp), content = content)
+            colors = colors, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp), content = content)
     } else {
-        TextButton(onClick, modifier, enabled = enabled, shape = shape, colors = colors,
+        TextButton(onClick, modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight), enabled = enabled, shape = shape, colors = colors,
             contentPadding = contentPadding, interactionSource = interactionSource, content = content)
     }
 }

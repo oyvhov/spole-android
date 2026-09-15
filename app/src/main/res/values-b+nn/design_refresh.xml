@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="design_reduce_motion">Rolege overgangar</string>
+    <string name="design_hero_rotate">Roter utvalet</string>
+    <string name="design_hero_logo">Filmlogo i utvalet</string>
+    <string name="design_hero_compact">Kompakt utval</string>
+    <string name="design_start_page">Startside</string>
+    <string name="design_start_hint">Vel sida som opnar når du startar Spole.</string>
+    <string name="design_library_hub">Bibliotekoversikt</string>
+    <string name="design_library_hub_hint">Utval, sjå vidare og nye titlar frå biblioteka dine.</string>
+    <string name="design_upcoming_episodes">Kommande episodar</string>
+    <string name="design_upcoming_hint">Vis premieredatoar frå biblioteket og Seerr. Krev ikkje Sonarr.</string>
+    <string name="design_library_lede">Neste gode oppleving ligg her.</string>
+    <string name="design_all">Alt</string>
+    <string name="design_movies">Filmar</string>
+    <string name="design_series">Seriar</string>
+    <string name="design_collections">Samlingar</string>
+    <string name="design_browse_all">Bla i alt</string>
+    <string name="design_coming_on">Kjem %1$s</string>
+    <string name="design_not_available">Ikkje i biblioteket</string>
+    <string name="design_date_unknown">Dato ikkje kunngjord</string>
+    <string name="design_upcoming_failed">Kunne ikkje hente fleire premieredatoar. Episodane i biblioteket er klare.</string>
+    <string name="design_looks">Vel uttrykk</string>
+    <string name="design_look_cinema">Filmrom</string>
+    <string name="design_look_compact">Oversikt</string>
+    <string name="design_look_comfort">Komfort</string>
+    <string name="design_look_hint">Sjå resultatet under. Du kan finjustere kvart val.</string>
+    <string name="design_alphabet">A–Å</string>
+    <string name="design_show_upcoming">Vis kommande</string>
+    <string name="design_hide_upcoming">Skjul kommande</string>
+    <string name="design_home_preview">Slik blir framsida</string>
+</resources>

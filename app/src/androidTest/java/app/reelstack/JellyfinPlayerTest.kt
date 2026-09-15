@@ -21,7 +21,7 @@ class JellyfinPlayerTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
     private class Server(val assets: android.content.res.AssetManager, val hls: Boolean = false, val resumeMs: Long = 0,
-        val episode: Boolean = false) : AutoCloseable {
+        val episode: Boolean = false, val defaultSubtitle: Int = 2) : AutoCloseable {
         val socket = ServerSocket(0)
         val base = "http://127.0.0.1:${socket.localPort}"
         val pool = Executors.newCachedThreadPool()
@@ -71,8 +71,9 @@ class JellyfinPlayerTest {
                     path.endsWith("PlaybackInfo") -> {
                         events += path to body
                         val direct = !hls && body["EnableDirectPlay"] != JsonPrimitive(false)
-                        val sub = (body["SubtitleStreamIndex"] as? JsonPrimitive)?.intOrNull ?: 2
-                        """{"PlaySessionId":"session${events.size}","MediaSources":[{"Id":"source","SupportsDirectPlay":$direct,"TranscodingUrl":"/hls/master.m3u8?api_key=fixture","DefaultAudioStreamIndex":1,"DefaultSubtitleStreamIndex":$sub,"MediaStreams":[{"Index":0,"Type":"Video","Codec":"h264","Profile":"baseline","Width":640,"Height":360,"BitDepth":8,"VideoRangeType":"SDR","AverageFrameRate":24},{"Index":1,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"English","Language":"eng"},{"Index":3,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"Norsk","Language":"nor"},{"Index":2,"Type":"Subtitle","DisplayTitle":"Norsk tekst","Language":"nor","Codec":"srt","IsTextSubtitleStream":true}]}]}""".toByteArray()
+                        val source = if (path.contains("/Items/next/")) "next-source" else "source"
+                        val sub = (body["SubtitleStreamIndex"] as? JsonPrimitive)?.intOrNull ?: defaultSubtitle
+                        """{"PlaySessionId":"session${events.size}","MediaSources":[{"Id":"$source","SupportsDirectPlay":$direct,"TranscodingUrl":"/hls/master.m3u8?api_key=fixture","DefaultAudioStreamIndex":1,"DefaultSubtitleStreamIndex":$sub,"MediaStreams":[{"Index":0,"Type":"Video","Codec":"h264","Profile":"baseline","Width":640,"Height":360,"BitDepth":8,"VideoRangeType":"SDR","AverageFrameRate":24},{"Index":1,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"English","Language":"eng"},{"Index":3,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"Norsk","Language":"nor"},{"Index":2,"Type":"Subtitle","DisplayTitle":"Norsk tekst","Language":"nor","Codec":"srt","IsTextSubtitleStream":true}]}]}""".toByteArray()
                     }
                     path.startsWith("/Sessions/Playing") -> { events += path to body; status = if (rejectReports) 503 else 204; byteArrayOf() }
                     path.contains("/Subtitles/") -> { contentType="text/vtt"; assets.open("player/subtitle.vtt").use { it.readBytes() } }
@@ -97,8 +98,8 @@ class JellyfinPlayerTest {
     }
 
     private fun exercise(hls: Boolean = false, resumeMs: Long = 0, root: String = "film", autoResume: Boolean = true,
-        episode: Boolean = false, block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
-        Server(instrumentation.context.assets, hls, resumeMs, episode).use { server ->
+        episode: Boolean = false, defaultSubtitle: Int = 2, block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
+        Server(instrumentation.context.assets, hls, resumeMs, episode, defaultSubtitle).use { server ->
             val connections = (context.applicationContext as ReelstackApplication).container.connectionRepository
             ServiceKind.entries.forEach(connections::delete)
             connections.save(ServiceConnection(ServiceKind.JELLYFIN,"Test",server.base,"fixture","u1"))
@@ -136,10 +137,44 @@ class JellyfinPlayerTest {
         scenario.onActivity { it.model.seek(10_500) }
         waitFor { snapshot(scenario).nextEpisodeCountdown != null }
         assertFalse(snapshot(scenario).ended)
-        waitFor { snapshot(scenario).itemId == "next" }
+        waitFor { snapshot(scenario).itemId == "next" && snapshot(scenario).playing }
+        assertNull(snapshot(scenario).error)
         val stopped = server.events.first { it.first.endsWith("/Stopped") }.second
         val stoppedAt = stopped.getValue("PositionTicks").jsonPrimitive.long
         assertTrue("Episode must change before its 20-second end; stopped at $stoppedAt ticks", stoppedAt < 200_000_000L)
+    }
+
+    @Test fun nextButtonUsesTheNextFilesSourceAndStartsOnlyOnce() = exercise(episode = true) { scenario, server, _ ->
+        playing(scenario)
+        waitFor { snapshot(scenario).nextEpisode != null }
+        scenario.onActivity { it.model.playNext(); it.model.playNext() }
+        waitFor { snapshot(scenario).itemId == "next" && snapshot(scenario).playing }
+        assertNull(snapshot(scenario).error)
+        val starts = server.events.filter { it.first == "/Items/next/PlaybackInfo" }
+        assertEquals(1, starts.size)
+        assertNull(starts.single().second["MediaSourceId"])
+        assertTrue(server.requests.any { it.contains("MediaSourceId=next-source") })
+    }
+
+    @Test fun localProgressSurvivesFailedReportsAndImmediatelyLeadsTheHomeShelf() = exercise { scenario, server, connections ->
+        playing(scenario)
+        server.rejectReports = true
+        scenario.onActivity { it.model.seek(7_000) }
+        waitFor { snapshot(scenario).positionMs >= 7_000 }
+        scenario.moveToState(Lifecycle.State.CREATED)
+        val container = (context.applicationContext as ReelstackApplication).container
+        val account = connections.get(ServiceKind.JELLYFIN)
+        val restored = app.reelstack.data.repository.LocalPlaybackStore(context)
+        assertTrue(restored.resume(account, PlayableItem("film", "Film", "Movie", durationMs = 20_000)).resumeMs >= 7_000)
+        val store = androidx.lifecycle.ViewModelStore()
+        instrumentation.runOnMainSync {
+            val model = app.reelstack.ui.ReelstackViewModel(container)
+            store.put("home", model)
+            model.returnedToApp()
+            assertEquals("jellyfin-film", model.uiState.value.resume.first().id)
+            assertTrue(model.uiState.value.resume.first().progress!! >= .35f)
+            store.clear()
+        }
     }
 
     @Test fun cancellingEarlyCountdownKeepsCurrentEpisode() = exercise(episode = true) { scenario, _, _ ->
@@ -236,6 +271,12 @@ class JellyfinPlayerTest {
             ready
         }
         instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        instrumentation.waitForIdleSync()
+        val tv = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+        if (tv && scenario.state != Lifecycle.State.DESTROYED) {
+            // TV Back dismisses the OSD before the next press leaves the player.
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        }
         waitFor { scenario.state == Lifecycle.State.DESTROYED }
         waitFor { server.events.any { it.first.endsWith("/Stopped") } }
     }
@@ -272,7 +313,9 @@ class JellyfinPlayerTest {
         waitFor { !snapshot(scenario).playing }
         assertTrue(snapshot(scenario).error == null)
     }
-    @Test fun onScreenBackReturnsOnlyWhenTransportControlsAreShown() = exercise { scenario,server,_ ->
+    @Test fun onScreenBackReturnsOnlyWhenTransportControlsAreShown() {
+        org.junit.Assume.assumeFalse(context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
+        exercise { scenario,server,_ ->
         val automation = instrumentation.uiAutomation
         fun root(): android.view.accessibility.AccessibilityNodeInfo? {
             if (android.os.Build.VERSION.SDK_INT >= 33) automation.clearCache()
@@ -317,6 +360,7 @@ class JellyfinPlayerTest {
         waitFor { scenario.state == Lifecycle.State.DESTROYED }
         waitFor { server.events.any { it.first.endsWith("/Stopped") } }
     }
+    }
     @Test fun hlsVideoSeeksAndSubtitleTrackIsSelected() = exercise(hls=true) { scenario,server,_ ->
         playing(scenario)
         assertFalse(snapshot(scenario).direct)
@@ -328,17 +372,35 @@ class JellyfinPlayerTest {
         waitFor { snapshot(scenario).positionMs>=12_000 && snapshot(scenario).playing }
         assertTrue(server.requests.any { it.contains("Stream.vtt") })
         val sessions = server.events.count { it.first.endsWith("PlaybackInfo") }
+        val downloads = server.requests.count { it.contains("/Subtitles/") }
         scenario.onActivity { it.model.subtitles(-1) }
         waitFor { !snapshot(scenario).busy && snapshot(scenario).subtitleIndex == -1 && snapshot(scenario).playing }
         scenario.onActivity { it.model.subtitles(2) }
         waitFor { !snapshot(scenario).busy && snapshot(scenario).subtitleIndex == 2 && snapshot(scenario).playing }
         assertEquals(sessions,server.events.count { it.first.endsWith("PlaybackInfo") })
+        assertEquals(downloads, server.requests.count { it.contains("/Subtitles/") })
         assertTrue(snapshot(scenario).positionMs>=12_000)
     }
+    @Test fun disabledSubtitleIsWarmedAndEnablesWithoutAnotherDownload() = exercise(defaultSubtitle = -1) { scenario, server, _ ->
+        playing(scenario)
+        assertEquals(-1, snapshot(scenario).subtitleIndex)
+        waitFor { server.requests.any { it.contains("/Subtitles/") } }
+        val preparations = server.events.count { it.first.endsWith("PlaybackInfo") }
+        scenario.onActivity { it.model.subtitles(2) }
+        waitFor {
+            var visible = false
+            scenario.onActivity { visible = it.model.player.currentCues.cues.isNotEmpty() }
+            visible
+        }
+        assertEquals(1, server.requests.count { it.contains("/Subtitles/") })
+        assertEquals(preparations, server.events.count { it.first.endsWith("PlaybackInfo") })
+        assertTrue(snapshot(scenario).playing)
+    }
+
     @Test fun switchingAudioAndQualityKeepsPosition() = exercise { scenario,server,_ ->
         playing(scenario)
         scenario.onActivity { it.model.seek(7000) }
-        waitFor { snapshot(scenario).positionMs>=7000 }
+        waitFor { snapshot(scenario).let { it.positionMs >= 7000 && it.playing && !it.busy } }
         scenario.onActivity { it.model.audio(3) }
         waitFor { snapshot(scenario).audioIndex==3 && snapshot(scenario).playing }
         assertTrue(snapshot(scenario).positionMs>=6500)

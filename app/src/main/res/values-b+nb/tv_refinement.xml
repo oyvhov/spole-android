@@ -8,8 +8,8 @@
     <string name="tv_move_up">Flytt %s opp</string>
     <string name="tv_move_down">Flytt %s ned</string>
     <string name="tv_next_up">Neste episode</string>
-    <string name="tv_combine_continue">Slå sammen Neste episode og Fortsett å se</string>
-    <string name="tv_show_hero">Vis stort tittelbilde på Hjem</string>
+    <string name="tv_combine_continue">Samle se videre</string>
+    <string name="tv_show_hero">Utvalgt på Hjem</string>
     <string name="tv_show_ratings">Vis vurderinger i detaljer</string>
     <string name="tv_show_quality">Vis bilde- og lydkvalitet i detaljer</string>
     <string name="tv_slow_startup">Rolig oppstartsanimasjon</string>

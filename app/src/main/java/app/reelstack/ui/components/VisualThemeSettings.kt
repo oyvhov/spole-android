@@ -33,11 +33,11 @@ import app.reelstack.ui.theme.LocalPersonalization
 @Composable
 internal fun SettingsActionRow(title: String, summary: String, tag: String, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(14.dp)
-    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).background(MaterialTheme.colorScheme.surfaceVariant, shape)
+    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner)
+    Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant, shape)
         .focusOutline(interaction, shape)
         .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
-            role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 18.dp, vertical = 12.dp),
+            role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
@@ -68,7 +68,7 @@ internal fun SettingsChoiceRow(
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner)
     val dot: @Composable () -> Unit = {
         // A circle, not a rounded square. A dark swatch — and half of these are dark, because half
         // of them are backgrounds — sat in a settings row looking exactly like an unticked checkbox.
@@ -81,10 +81,10 @@ internal fun SettingsChoiceRow(
         // bilete" alone fills it, so below this the value goes back under the title rather than
         // squeezing the question down to an ellipsis.
         val inline = maxWidth / androidx.compose.ui.platform.LocalDensity.current.fontScale >= 420.dp
-        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).background(MaterialTheme.colorScheme.surfaceVariant, shape)
+        Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant, shape)
             .focusOutline(interaction, shape)
             .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
-                role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 18.dp, vertical = 8.dp),
+                role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (inline) {
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f),
@@ -113,11 +113,11 @@ internal fun SettingsChoiceRow(
 @Composable
 internal fun SettingsToggleRow(title: String, summary: String, checked: Boolean, tag: String, onChange: (Boolean) -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(14.dp)
-    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).background(MaterialTheme.colorScheme.surfaceVariant, shape)
+    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner)
+    Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant, shape)
         .focusOutline(interaction, shape).toggleable(checked, role = Role.Switch, interactionSource = interaction,
             indication = androidx.compose.foundation.LocalIndication.current, onValueChange = onChange)
-        .testTag(tag).padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        .testTag(tag).padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 16.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (summary.isNotBlank()) Text(summary, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -144,7 +144,7 @@ internal fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefi
                 options.forEach { option ->
                     val interaction = remember { MutableInteractionSource() }
                     val shape = RoundedCornerShape(12.dp)
-                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight)
                         .then(if (option == selected) Modifier.focusRequester(selectedFocus) else Modifier).focusOutline(interaction, shape)
                         .selectable(option == selected, role = Role.RadioButton, interactionSource = interaction,
                             indication = androidx.compose.foundation.LocalIndication.current,
@@ -162,15 +162,17 @@ internal fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefi
 }
 
 @Composable
-internal fun VisualThemeSettings(value: Personalization, onChange: (Personalization) -> Unit) {
+internal fun VisualThemeSettings(value: Personalization, onChange: (Personalization) -> Unit,
+    artwork: List<LibraryMedia> = emptyList()) {
     val television = isTelevision()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (Season.of(value) == Season.NONE) ThemePreview(value) else SeasonalThemeBanner(options = value)
-        SettingsToggleRow(stringResource(R.string.detail_backdrop), stringResource(R.string.detail_backdrop_hint),
-            value.detailBackdrop, "detail-backdrop") { onChange(value.copy(detailBackdrop = it)) }
+        AppearancePresets(value, onChange)
+        if (Season.of(value) != Season.NONE) SeasonalThemeBanner(options = value)
+        ThemePreview(value, artwork)
         // A season is a pairing, not a background: red on a red ground is not Christmas, it is a
         // warning. This row sets the mood and the accent together, and the two rows under it still
         // let anyone pull them apart again.
+        SettingsGroup(stringResource(R.string.refine_group_colours))
         ThemeChoice(stringResource(R.string.settings_season_title), Season.of(value), Season.entries, "season",
             { stringResource(when (it) {
                 Season.NONE -> R.string.theme_season_none
@@ -195,6 +197,9 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
                 AccentPalette.ROSE -> R.string.theme_rose; AccentPalette.PEARL -> R.string.theme_pearl
                 AccentPalette.HOLLY -> R.string.theme_holly; AccentPalette.PUMPKIN -> R.string.theme_pumpkin
             }) }, { Color(it.argb) }) { onChange(value.copy(accent = it)) }
+        SettingsGroup(stringResource(R.string.refine_group_art))
+        SettingsToggleRow(stringResource(R.string.detail_backdrop), stringResource(R.string.detail_backdrop_hint),
+            value.detailBackdrop, "detail-backdrop") { onChange(value.copy(detailBackdrop = it)) }
         ThemeChoice(stringResource(R.string.personal_artwork), value.artworkSize, ArtworkSize.entries, "artwork",
             { stringResource(when(it) { ArtworkSize.COMPACT -> R.string.personal_compact
                 ArtworkSize.STANDARD -> R.string.personal_standard; ArtworkSize.LARGE -> R.string.personal_large }) }) {
@@ -203,6 +208,8 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
             { stringResource(when(it) { ArtworkCorners.CRISP -> R.string.theme_crisp
                 ArtworkCorners.SOFT -> R.string.theme_soft; ArtworkCorners.ROUND -> R.string.theme_round }) }) {
             onChange(value.copy(artworkCorners = it)) }
+        SettingsGroup(stringResource(R.string.refine_group_reading))
+        SettingsToggleRow(stringResource(R.string.design_reduce_motion), stringResource(R.string.refine_motion_hint), value.reduceMotion, "reduce-motion") { onChange(value.copy(reduceMotion = it)) }
         ThemeChoice(stringResource(R.string.theme_focus), value.focusStyle, FocusStyle.entries, "focus",
             { stringResource(when(it) { FocusStyle.WHITE -> R.string.theme_focus_white
                 FocusStyle.ACCENT -> R.string.theme_focus_accent; FocusStyle.BOLD -> R.string.theme_focus_bold }) }) {
@@ -214,17 +221,17 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
         app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onChange(value.copy(accent = AccentPalette.LIME, artworkSize = ArtworkSize.STANDARD,
             visualTheme = VisualTheme.FOREST, artworkCorners = ArtworkCorners.SOFT,
             focusStyle = if (television) FocusStyle.BOLD else FocusStyle.WHITE,
-            highContrast = false, seasonalOrnament = true)) },
+            highContrast = false, seasonalOrnament = true, reduceMotion = false, heroCompact = false)) },
             modifier = Modifier.testTag("appearance-reset")) { Text(stringResource(R.string.personal_reset)) }
     }
 }
 
 @Composable
-internal fun ThemePreview(value: Personalization) {
+internal fun ThemePreview(value: Personalization, artwork: List<LibraryMedia> = emptyList()) {
     val description = stringResource(R.string.personal_preview)
     val accent = Color(value.accent.argb)
     val focus = if (value.focusStyle == FocusStyle.ACCENT) accent else app.reelstack.ui.theme.Text
-    val shape = RoundedCornerShape(value.artworkCorners.radius.dp)
+    val shape = RoundedCornerShape((value.artworkCorners.radius * .28f).dp)
     val muted = Color(if (value.highContrast) value.visualTheme.mutedHigh else value.visualTheme.muted)
     val scale = value.artworkSize.scale
     // Three cards on a shelf, one of them focused. Abstract blocks could not show what any of these
@@ -247,6 +254,10 @@ internal fun ThemePreview(value: Personalization) {
                                 if (value.focusStyle == FocusStyle.BOLD) 3.dp else 2.dp, focus, shape) else Modifier),
                         contentAlignment = Alignment.BottomStart,
                     ) {
+                        artwork.getOrNull(index)?.let { media ->
+                            MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(),
+                                fallbackRes = media.artworkRes, source = media.source)
+                        }
                         if (index == 0) Box(Modifier.fillMaxWidth(.55f).height(4.dp).background(accent))
                     }
                     Box(Modifier.fillMaxWidth().height(4.dp)

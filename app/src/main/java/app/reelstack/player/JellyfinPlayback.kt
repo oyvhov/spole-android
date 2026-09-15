@@ -30,6 +30,7 @@ data class PlayableItem(
     val seriesId: String = "",
     val logoUrl: String? = null,
     val artworkUrl: String? = null,
+    val lastPlayedEpochMillis: Long? = null,
 )
 
 data class PlaybackTrack(val index: Int, val label: String, val language: String?, val isText: Boolean = false)
@@ -89,9 +90,20 @@ fun parsePlayable(item: JsonObject, baseUrl: String? = null): PlayableItem {
     return PlayableItem(id, if (type == "Episode") item.str("SeriesName").ifBlank { item.str("Name") } else item.str("Name"),
         type, subtitle, duration, if (user.flag("Played") || duration > 0 && resume >= duration) 0 else resume, user.flag("Played"),
         chapters = chapters, season = season, episode = episode,
+        lastPlayedEpochMillis = runCatching { java.time.Instant.parse(user.str("LastPlayedDate")).toEpochMilli() }.getOrNull(),
         seriesId = item.str("SeriesId"), logoUrl = playableLogoUrl(item, baseUrl),
-        artworkUrl = if (!baseUrl.isNullOrBlank() && item.obj("ImageTags").str("Primary").isNotBlank())
+        artworkUrl = playableLandscapeUrl(item, baseUrl) ?: if (!baseUrl.isNullOrBlank() && item.obj("ImageTags").str("Primary").isNotBlank())
             "${baseUrl.trimEnd('/')}/Items/${enc(id)}/Images/Primary?maxWidth=320&quality=85&tag=${enc(item.obj("ImageTags").str("Primary"))}" else null)
+}
+
+/** A new movie on the resume shelf needs landscape art before the feed refresh arrives. */
+internal fun playableLandscapeUrl(item: JsonObject, baseUrl: String?): String? {
+    if (baseUrl.isNullOrBlank() || item.str("Type") != "Movie") return null
+    val backdrop = (item["BackdropImageTags"] as? JsonArray)?.firstOrNull()?.jsonPrimitive?.contentOrNull
+    val thumb = item.obj("ImageTags").str("Thumb")
+    val type = if (!backdrop.isNullOrBlank()) "Backdrop/0" else if (thumb.isNotBlank()) "Thumb" else return null
+    val tag = backdrop?.takeIf { it.isNotBlank() } ?: thumb
+    return "${baseUrl.trimEnd('/')}/Items/${enc(item.str("Id"))}/Images/$type?maxWidth=960&quality=90&tag=${enc(tag)}"
 }
 
 /** Use declared artwork only; never add speculative requests or credentials to image URLs. */

@@ -2,6 +2,7 @@ package app.reelstack.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -109,6 +110,8 @@ internal fun DetailAside(
 internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (String) -> Unit) {
     val firstEpisode = remember { androidx.compose.ui.focus.FocusRequester() }
     val tv = app.reelstack.ui.components.isTelevision()
+    val showUpcoming = app.reelstack.ui.theme.LocalPersonalization.current.showUpcomingEpisodes
+    val episodes = browse.episodes.filter { showUpcoming || it.available }
     if (browse.openedFor != detailKey) return
     if (browse.seasons.isEmpty() && !browse.loading && browse.error == null) return
     Column(Modifier.fillMaxWidth().padding(top = 22.dp).testTag("detail-seasons"),
@@ -123,7 +126,7 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
             androidx.compose.runtime.LaunchedEffect(browse.selectedSeasonId, browse.seasons.size) {
                 if (chosenIndex >= 0) runCatching { strip.animateScrollToItem(chosenIndex) }
             }
-            LazyRow(state = strip, modifier = Modifier.focusProperties { if (tv && browse.episodes.isNotEmpty()) down = firstEpisode }, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            LazyRow(state = strip, modifier = Modifier.focusProperties { if (tv && episodes.isNotEmpty()) down = firstEpisode }, horizontalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(end = 24.dp)) {
                 items(browse.seasons, key = { it.id }) { season ->
                     val id = season.remoteId.orEmpty()
@@ -136,21 +139,22 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
                 }
             }
         }
+        if (showUpcoming) browse.upcomingError?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
         when {
             browse.error != null -> Text(browse.error, color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium)
-            browse.loading && browse.episodes.isEmpty() -> Row(verticalAlignment = Alignment.CenterVertically) {
+            browse.loading && episodes.isEmpty() -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
                 Text(stringResource(R.string.detail_loading_episodes), color = Muted,
                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 10.dp))
             }
-            browse.episodes.isEmpty() -> Text(stringResource(R.string.detail_no_episodes), color = Muted,
+            episodes.isEmpty() -> Text(stringResource(R.string.detail_no_episodes), color = Muted,
                 style = MaterialTheme.typography.bodyMedium)
             else -> {
                 if (tv) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(4.dp)) {
-                        items(browse.episodes, key = { it.id }) { episode ->
-                            Box(Modifier.width(260.dp).then(if (episode.id == browse.episodes.first().id)
+                        items(episodes, key = { it.id }) { episode ->
+                            Box(Modifier.width(260.dp).then(if (episode.id == episodes.first().id)
                                 Modifier.focusRequester(firstEpisode) else Modifier)) {
                                 TvEpisodeCard(episode, episode.id == detailKey)
                             }
@@ -162,16 +166,16 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
                 // long-running anime, and composing two hundred rows to show six is what turns a
                 // page open into a visible pause.
                 var showAll by remember(browse.selectedSeasonId) { mutableStateOf(false) }
-                val visible = if (showAll) browse.episodes else browse.episodes.take(EPISODE_PREVIEW)
+                val visible = if (showAll) episodes else episodes.take(EPISODE_PREVIEW)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     visible.forEachIndexed { index, episode ->
                         Box(if (index == 0) Modifier.focusRequester(firstEpisode) else Modifier) { EpisodeRow(episode, episode.id == detailKey) }
                     }
-                    if (visible.size < browse.episodes.size) Chip(
+                    if (visible.size < episodes.size) Chip(
                         text = pluralStringResource(
                             R.plurals.detail_more_episodes,
-                            browse.episodes.size - visible.size,
-                            browse.episodes.size - visible.size,
+                            episodes.size - visible.size,
+                            episodes.size - visible.size,
                         ),
                         chosen = false,
                         tag = "episodes-more",
@@ -191,12 +195,14 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxWidth().clip(shape).focusOutline(interaction, shape)
+        .then(if (!episode.available) Modifier.focusable(interactionSource = interaction) else Modifier)
         .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
-            enabled = !episode.remoteId.isNullOrBlank() && episode.source == ServiceKind.JELLYFIN,
+            enabled = episode.available && !episode.remoteId.isNullOrBlank() && episode.source == ServiceKind.JELLYFIN,
             role = Role.Button) { app.reelstack.player.JellyfinPlayerActivity.open(context, episode.remoteId!!) }
-        .padding(6.dp).testTag("episode-${episode.remoteId}"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        .padding(6.dp).testTag("episode-${episode.remoteId ?: episode.id}"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
             MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), episode.artworkRes, source = episode.source)
+            if (!episode.available) EpisodeStatusBadge(episode, Modifier.align(Alignment.TopStart).padding(8.dp))
             if (episode.played) Icon(SpoleIcons.Done, stringResource(R.string.library_played_unmark),
                 Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.Black.copy(alpha = .7f), RoundedCornerShape(8.dp)).padding(4.dp), tint = Color.White)
             episode.progress?.takeIf { it > 0f }?.let { progress ->
@@ -208,6 +214,7 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean) {
         Text(if (name.equals(numberLabel, true)) name else listOfNotNull(episode.episode?.toString(), name).joinToString(" · "),
             style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
             color = if (current) PrimarySoft else MaterialTheme.colorScheme.onSurface)
+        if (!episode.available) EpisodeAvailability(episode)
         episode.runtimeMinutes?.let { Text(stringResource(R.string.detail_minutes, it), color = Muted, style = MaterialTheme.typography.labelMedium) }
     }
 }
@@ -248,10 +255,10 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false) {
                 interactionSource = interaction,
                 indication = app.reelstack.ui.components.mediaCardIndication(),
                 role = Role.Button,
-                enabled = itemId.isNotBlank() && episode.source == ServiceKind.JELLYFIN,
+                enabled = episode.available && itemId.isNotBlank() && episode.source == ServiceKind.JELLYFIN,
             ) { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId) }
             .padding(6.dp)
-            .testTag("episode-$itemId"),
+            .testTag("episode-${itemId.ifBlank { episode.id }}"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -260,6 +267,7 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false) {
         val stillWidth = if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) 104.dp else 148.dp
         Box(Modifier.width(stillWidth).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
             MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), fallbackRes = episode.artworkRes, ContentScale.Crop, episode.source)
+            if (!episode.available) EpisodeStatusBadge(episode, Modifier.align(Alignment.TopStart).padding(6.dp))
             if (progress > 0) Box(
                 Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp)
                     .background(Color.Black.copy(alpha = .55f)),
@@ -296,6 +304,7 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false) {
                         style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 10.dp))
                 }
             }
+            if (!episode.available) EpisodeAvailability(episode)
             episode.overview?.takeIf(String::isNotBlank)?.let {
                 Text(it, color = Muted, style = MaterialTheme.typography.bodySmall,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -319,10 +328,10 @@ private fun episodeName(episode: LibraryMedia): String =
  * point is that pressing Play never starts something already finished.
  */
 internal fun resumeTarget(browse: SeriesBrowse): LibraryMedia? =
-    browse.nextUp
-        ?: browse.episodes.firstOrNull { (it.progress ?: 0f) > 0f && !it.played }
-        ?: browse.episodes.firstOrNull { !it.played }
-        ?: browse.episodes.firstOrNull()
+    browse.nextUp?.takeIf { it.available }
+        ?: browse.episodes.firstOrNull { it.available && (it.progress ?: 0f) > 0f && !it.played }
+        ?: browse.episodes.firstOrNull { it.available && !it.played }
+        ?: browse.episodes.firstOrNull { it.available }
 
 /** Says why Play is missing while the episodes are still on their way. */
 @Composable
@@ -337,4 +346,27 @@ internal fun SeriesPlayNote(browse: SeriesBrowse, detailKey: String) {
     }
     Text(message, color = Muted, style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(top = 14.dp).testTag("series-play-note"))
+}
+
+@Composable
+private fun EpisodeAvailability(episode: LibraryMedia) {
+    val date = episode.premiereDate?.let { runCatching { java.time.LocalDate.parse(it.take(10)) }.getOrNull() }
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val label = if (date != null && !date.isBefore(java.time.LocalDate.now())) {
+        val formatted = date.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale))
+        stringResource(R.string.design_coming_on, formatted)
+    } else if (date != null) stringResource(R.string.refine_missing_date, date.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale)))
+    else stringResource(R.string.design_not_available)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(SpoleIcons.Calendar, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+@Composable
+private fun EpisodeStatusBadge(episode: LibraryMedia, modifier: Modifier = Modifier) {
+    val date = episode.premiereDate?.let { runCatching { java.time.LocalDate.parse(it.take(10)) }.getOrNull() }
+    val upcoming = date != null && !date.isBefore(java.time.LocalDate.now())
+    Text(stringResource(if (upcoming) R.string.refine_coming_badge else R.string.refine_missing_badge),
+        modifier.background(Color.Black.copy(alpha = .86f), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
+        style = MaterialTheme.typography.labelMedium, color = if (upcoming) Color.White else Color(0xFFFFD478))
 }

@@ -31,6 +31,10 @@ class AppPreferencesRepository(context: Context) {
 
     private fun displayKey(libraryId: String) = "library_display." + libraryId
 
+    var savedAppearances: List<app.reelstack.data.model.SavedAppearance>
+        get() = app.reelstack.data.model.decodeAppearances(preferences.getString("saved_appearances", null))
+        set(value) = preferences.edit { putString("saved_appearances", app.reelstack.data.model.encodeAppearances(value)) }
+
     var personalization: app.reelstack.data.model.Personalization
         get() = app.reelstack.data.model.Personalization(
             accent = app.reelstack.data.model.AccentPalette.decode(preferences.getString("accent_palette", null)),
@@ -48,6 +52,21 @@ class AppPreferencesRepository(context: Context) {
             showNextUp = preferences.getBoolean("show_next_up", true),
             combineContinueWatching = preferences.getBoolean("combine_continue", false),
             showHero = preferences.getBoolean("show_hero", true),
+            heroRotate = preferences.getBoolean("hero_rotate", true),
+            heroLogo = preferences.getBoolean("hero_logo", true),
+            heroCompact = preferences.getBoolean("hero_compact", false),
+            startInLibrary = preferences.getBoolean("start_in_library", false),
+            libraryHub = preferences.getBoolean("library_hub", true),
+            showLibraryTitle = preferences.getBoolean("library_title", false),
+            libraryCardsWide = preferences.getBoolean("library_cards_wide", true),
+            libraryHubOrder = preferences.getString("library_hub_order", null)?.split(',') ?: app.reelstack.data.model.DEFAULT_LIBRARY_HUB,
+            libraryHubHidden = preferences.getStringSet("library_hub_hidden", emptySet()).orEmpty().toSet(),
+            libraryOrder = preferences.getString("library_order", "")!!.split(',').filter(String::isNotBlank),
+            showUpcomingEpisodes = preferences.getBoolean("show_upcoming_episodes", true),
+            reduceMotion = preferences.getBoolean("reduce_motion", false),
+            homeRowFormats = preferences.getString("home_row_formats", "").orEmpty().split(',').mapNotNull {
+                val pair = it.split('='); if (pair.size == 2) pair[0] to pair[1] else null
+            }.toMap(),
             showRatings = preferences.getBoolean("show_ratings", true),
             showQuality = preferences.getBoolean("show_quality", true),
             detailBackdrop = preferences.getBoolean("detail_backdrop", true),
@@ -74,6 +93,19 @@ class AppPreferencesRepository(context: Context) {
             putBoolean("show_next_up", value.showNextUp)
             putBoolean("combine_continue", value.combineContinueWatching)
             putBoolean("show_hero", value.showHero)
+            putBoolean("hero_rotate", value.heroRotate)
+            putBoolean("hero_logo", value.heroLogo)
+            putBoolean("hero_compact", value.heroCompact)
+            putBoolean("start_in_library", value.startInLibrary)
+            putBoolean("library_hub", value.libraryHub)
+            putBoolean("library_title", value.showLibraryTitle)
+            putBoolean("library_cards_wide", value.libraryCardsWide)
+            putString("library_hub_order", value.libraryHubOrder.joinToString(","))
+            putStringSet("library_hub_hidden", value.libraryHubHidden)
+            putString("library_order", value.libraryOrder.joinToString(","))
+            putBoolean("show_upcoming_episodes", value.showUpcomingEpisodes)
+            putBoolean("reduce_motion", value.reduceMotion)
+            putString("home_row_formats", value.homeRowFormats.entries.joinToString(",") { "${it.key}=${it.value}" })
             putBoolean("show_ratings", value.showRatings)
             putBoolean("show_quality", value.showQuality)
             putBoolean("detail_backdrop", value.detailBackdrop)
@@ -91,7 +123,8 @@ class AppPreferencesRepository(context: Context) {
                     "show_next_up", "combine_continue", "show_hero", "show_ratings", "show_quality", "slow_startup",
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",
                     "seasonal_ornament", "show_next_episode", "next_episode_lead", "auto_play_next_episode",
-                    "next_episode_delay", "lightweight_tv")) onChange(personalization)
+                    "next_episode_delay", "lightweight_tv", "detail_backdrop", "hero_rotate", "hero_logo",
+                    "hero_compact", "start_in_library", "library_hub", "show_upcoming_episodes", "reduce_motion", "home_row_formats", "library_title", "library_cards_wide", "library_hub_order", "library_hub_hidden", "library_order")) onChange(personalization)
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         onChange(personalization)

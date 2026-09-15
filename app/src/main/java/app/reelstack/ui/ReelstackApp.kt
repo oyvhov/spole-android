@@ -221,8 +221,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         kotlinx.coroutines.delay(16)
         appReadyForBackgroundWork = true
     }
-    BackHandler(enabled = state.activeSheet == null && !state.showOnboarding && state.selectedTab != AppTab.HOME) {
-        selectTab(AppTab.HOME)
+    val startTab = if (app.reelstack.ui.theme.LocalPersonalization.current.startInLibrary) AppTab.LIBRARY else AppTab.HOME
+    BackHandler(enabled = state.activeSheet == null && !state.showOnboarding && state.selectedTab != startTab) {
+        selectTab(startTab)
     }
 
     LaunchedEffect(state.snackbar) {
@@ -338,17 +339,18 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 )
             } else {
             SharedTransitionLayout {
+            val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
             val navigation = updateTransition(state.selectedTab, label = "navigation-state")
             navigation.AnimatedContent(
-                transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(150)) },
+                transitionSpec = { fadeIn(tween(if (motion) 220 else 0)) togetherWith fadeOut(tween(if (motion) 150 else 0)) },
                 modifier = Modifier.fillMaxSize(),
             ) { tab ->
                 val searchTransition = Modifier.sharedBounds(
                     rememberSharedContentState(key = "home-discover-search"),
                     animatedVisibilityScope = this,
-                    boundsTransform = { _, _ -> tween(320, easing = FastOutSlowInEasing) },
-                    enter = fadeIn(tween(180, delayMillis = 80)),
-                    exit = fadeOut(tween(120)),
+                    boundsTransform = { _, _ -> tween(if (motion) 320 else 0, easing = FastOutSlowInEasing) },
+                    enter = fadeIn(tween(if (motion) 180 else 0, delayMillis = if (motion) 80 else 0)),
+                    exit = fadeOut(tween(if (motion) 120 else 0)),
                 )
                 tabStates.SaveableStateProvider(tab) {
                 when (tab) {
@@ -451,12 +453,13 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onFavourite = viewModel::setMediaFavourite,
         onPlayed = viewModel::setMediaPlayed,
         onSeason = viewModel::selectSeason,
+        onEpisodeSeries = viewModel::openEpisodeSeries,
         onPersonTitles = viewModel::personTitles,
         onPersonTitle = viewModel::openPersonTitle,
     )
     if (state.libraryChoicesOpen) app.reelstack.ui.screens.LibraryChoicesDialog(state,
         viewModel::closeLibraryChoices, viewModel::openLibraryChoices, viewModel::saveLibraryChoices)
-    app.reelstack.update.AppUpdateHost(state.selectedTab == AppTab.HOME && state.activeSheet == null && !state.showOnboarding && !state.libraryChoicesOpen)
+    app.reelstack.update.AppUpdateHost(state.selectedTab == startTab && state.activeSheet == null && !state.showOnboarding && !state.libraryChoicesOpen)
 }
 
 private data class TabItem(

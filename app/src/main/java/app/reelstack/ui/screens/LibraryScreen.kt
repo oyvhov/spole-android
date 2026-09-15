@@ -72,6 +72,10 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
     // The root of Bibliotek is a page about libraries, not a grid of four folders — see
     // [LibraryLanding] for why. Everything below the root is still the grid it always was.
     if (folders) {
+        if (app.reelstack.ui.theme.LocalPersonalization.current.libraryHub) {
+            LibraryHub(state, onOpen, onShelfOpen, cardActions) { onLoad(false) }
+            return
+        }
         LibraryLanding(
             libraries = state.libraryEntries,
             peeks = state.libraryPeeks,
@@ -119,16 +123,16 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
                     // On a television the title and its three controls fit side by side, and the
                     // line they save is a whole row of covers: stacked, the heading block pushed
                     // the first row's titles past the bottom edge of a 1080p screen.
-                    if (tv) Row(
+                    if (tv && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.5f) Row(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
-                        heading()
-                        controls()
+                        Box(Modifier.weight(.3f)) { heading() }
+                        Box(Modifier.weight(.7f)) { controls() }
                     } else {
                         heading()
                         controls()
-                        app.reelstack.ui.components.TextColumnButton(onClick = onBack) { Text(stringResource(R.string.library_back)) }
+                        if (!tv) app.reelstack.ui.components.TextColumnButton(onClick = onBack) { Text(stringResource(R.string.library_back)) }
                     }
                     state.mediaActionError?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

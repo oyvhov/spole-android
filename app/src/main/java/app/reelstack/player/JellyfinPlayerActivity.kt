@@ -130,7 +130,8 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) enterFullscreen()
     }
-    override fun onStart() { super.onStart(); if (::model.isInitialized) model.foreground() }
+    override fun onResume() { super.onResume(); if (::model.isInitialized) model.foreground() }
+    override fun onPause() { if (::model.isInitialized && !isChangingConfigurations) model.background(); super.onPause() }
     override fun onStop() { if (::model.isInitialized && !isChangingConfigurations) model.background(); super.onStop() }
     companion object {
         private const val ITEM_ID = "jellyfin_item_id"

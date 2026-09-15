@@ -27,15 +27,19 @@ import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.theme.LocalPersonalization
 
 @Composable
-internal fun HomeRowOrderSetting(state: ReelstackUiState, onChange: (List<HomeRow>) -> Unit) {
+internal fun HomeRowOrderSetting(state: ReelstackUiState, onChange: (List<HomeRow>) -> Unit,
+    onVisibility: (HomeSection, Boolean) -> Unit = { _, _ -> }) {
     var open by rememberSaveable { mutableStateOf(false) }
     SettingsActionRow(stringResource(R.string.home_order_title), stringResource(R.string.home_order_hint),
         "home-order-open") { open = true }
-    if (open) HomeRowOrderDialog(state, onChange) { open = false }
+    if (open) HomeRowOrderDialog(state, onChange, onVisibility = onVisibility) { open = false }
 }
 
 @Composable
-internal fun HomeRowOrderDialog(state: ReelstackUiState, onChange: (List<HomeRow>) -> Unit, onDismiss: () -> Unit) {
+internal fun HomeRowOrderDialog(state: ReelstackUiState, onChange: (List<HomeRow>) -> Unit,
+    onVisibility: (HomeSection, Boolean) -> Unit = { _, _ -> }, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val preferences = remember { app.reelstack.data.repository.AppPreferencesRepository(context) }
     val options = LocalPersonalization.current
     val combined = options.showNextUp && options.combineContinueWatching && HomeSection.CONTINUE_WATCHING in state.homeSections
     val order = decodeHomeRowOrder(state.homeRowOrder.joinToString(",") { it.name })
@@ -78,6 +82,13 @@ internal fun HomeRowOrderDialog(state: ReelstackUiState, onChange: (List<HomeRow
                                 if (hidden) Text(stringResource(R.string.home_order_hidden), style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            IconToggleButton(checked = !hidden, onCheckedChange = { visible ->
+                                if (row == HomeRow.NEXT_UP) preferences.personalization = options.copy(showNextUp = visible)
+                                else row.section?.let { onVisibility(it, visible) }
+                            }, modifier = Modifier.testTag("home-visible-$row")) {
+                                Icon(if (hidden) SpoleIcons.EyeOff else SpoleIcons.Eye,
+                                    stringResource(if (hidden) R.string.library_titles_off else R.string.library_titles_on))
+                            }
                             listOf(-1, 1).forEachIndexed { button, direction ->
                                 val interaction = remember { MutableInteractionSource() }
                                 IconButton(onClick = {
@@ -115,7 +126,7 @@ internal fun HomeRowOrderDialog(state: ReelstackUiState, onChange: (List<HomeRow
 }
 
 @Composable
-private fun homeRowTitle(row: HomeRow, combined: Boolean): String = when (row) {
+internal fun homeRowTitle(row: HomeRow, combined: Boolean): String = when (row) {
     HomeRow.NOW_PLAYING -> stringResource(R.string.home_now_playing)
     HomeRow.CONTINUE_WATCHING -> stringResource(if (combined) R.string.tv_continue_combined else R.string.home_continue)
     HomeRow.FAVOURITES -> stringResource(R.string.home_favourites)

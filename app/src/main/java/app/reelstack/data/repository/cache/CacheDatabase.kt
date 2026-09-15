@@ -42,6 +42,7 @@ data class CachedMediaRow(
     val requested: Boolean = false,
     val seerrStatus: Int?,
     val lastActivityEpochMillis: Long? = null,
+    @androidx.room.ColumnInfo(defaultValue = "''") val libraryMetadata: String = "",
 )
 
 @Entity(tableName = "cache_meta")
@@ -51,7 +52,7 @@ data class CacheMetaRow(
     val refreshedAtEpochMillis: Long,
 )
 
-enum class CacheSection { RESUME, NEXT_UP, RECENT_MOVIES, RECENT_SERIES, UPCOMING, RECENT_RELEASES, DISCOVER, RECOMMENDATIONS }
+enum class CacheSection { RESUME, NEXT_UP, FAVOURITES, RECENT_MOVIES, RECENT_SERIES, UPCOMING, RECENT_RELEASES, DISCOVER, RECOMMENDATIONS }
 
 @Dao
 interface CacheDao {
@@ -93,7 +94,7 @@ interface CacheDao {
     }
 }
 
-@Database(entities = [CachedMediaRow::class, CacheMetaRow::class], version = 2, exportSchema = false)
+@Database(entities = [CachedMediaRow::class, CacheMetaRow::class], version = 3, exportSchema = false)
 abstract class CacheDatabase : RoomDatabase() {
     abstract fun cacheDao(): CacheDao
 
@@ -106,7 +107,12 @@ abstract class CacheDatabase : RoomDatabase() {
                 CacheDatabase::class.java,
                 "spole-cache.db",
             )
-                // The cache is disposable by definition; rebuilding it costs one refresh.
+                .addMigrations(object : androidx.room.migration.Migration(2, 3) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE cached_media ADD COLUMN libraryMetadata TEXT NOT NULL DEFAULT ''")
+                    }
+                })
+                // Unknown older schemas may be rebuilt; the current upgrade preserves artwork.
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
                 .also { instance = it }

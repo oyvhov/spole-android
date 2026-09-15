@@ -65,8 +65,8 @@ class TvSettingsRedesignTest {
         rule.onNodeWithTag("settings-categories").assertIsDisplayed()
         rule.onNodeWithTag("settings-category-HOME").performSemanticsAction(SemanticsActions.RequestFocus)
             .performKeyInput { pressKey(Key.DirectionRight) }
-        rule.onNodeWithTag("show-next-up").assertIsFocused()
-        rule.onNodeWithTag("show-next-up").performKeyInput { pressKey(Key.DirectionLeft) }
+        rule.onNodeWithTag("theme-choice-start-page").assertIsFocused()
+        rule.onNodeWithTag("theme-choice-start-page").performKeyInput { pressKey(Key.DirectionLeft) }
         rule.onNodeWithTag("settings-category-HOME").assertIsFocused()
         rule.onNodeWithTag("theme-choice-mood").assertDoesNotExist()
         rule.onNodeWithTag("auto-resume").assertDoesNotExist()
@@ -127,8 +127,10 @@ class TvSettingsRedesignTest {
             repository.personalization = Personalization()
             rule.setContent { Television { SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, {_,_->}) } }
             rule.onNodeWithTag("settings-category-MENU").performClick()
-            rule.onNodeWithTag("menu-option-ACTIVITY").performScrollTo().performClick()
-            rule.onNodeWithTag("menu-up-ACTIVITY").performClick()
+            rule.onNodeWithTag("menu-option-ACTIVITY").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithTag("menu-down-ACTIVITY").performScrollTo().performSemanticsAction(SemanticsActions.RequestFocus)
+                .performKeyInput { pressKey(Key.DirectionLeft) }
+            rule.onNodeWithTag("menu-up-ACTIVITY").assertIsFocused().performClick()
             rule.onNodeWithTag("menu-visible-ACTIVITY").performClick()
             rule.runOnIdle {
                 assertEquals(listOf("HOME","LIBRARY","ACTIVITY","DISCOVER","SETTINGS"), repository.personalization.menuOrder)

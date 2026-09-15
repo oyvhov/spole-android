@@ -109,6 +109,8 @@ data class LibraryMedia(
     val genres: List<String> = emptyList(),
     val mediaType: String = "Video",
     val logoUrl: String? = null,
+    val heroUrl: String? = null,
+    val posterUrl: String? = null,
     /** Playback activity, never the date a file was added to the library. */
     val lastActivityEpochMillis: Long? = null,
     /** Numbers, so the screen can write them in the reader's language. */
@@ -133,6 +135,9 @@ data class LibraryMedia(
     /** The server's own flags, so a card can offer the opposite of what is already true. */
     val favourite: Boolean = false,
     val played: Boolean = false,
+    val available: Boolean = true,
+    val premiereDate: String? = null,
+    val tmdbId: Int? = null,
 )
 
 data class UpcomingMedia(
@@ -299,6 +304,7 @@ data class SeriesBrowse(
     /** What the server says comes next in this series, which is where Play should land. */
     val nextUp: LibraryMedia? = null,
     val selectedSeasonId: String = "",
+    val upcomingError: String? = null,
     val episodes: List<LibraryMedia> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,

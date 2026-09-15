@@ -27,7 +27,7 @@ class LibraryBrowserTest {
         val url = transport.urls.single()
         assertTrue(url.contains("StartIndex=60"))
         assertTrue(url.contains("Limit=60"))
-        assertTrue(url.contains("GroupItemsIntoCollections=false"))
+        assertTrue(url.contains("CollapseBoxSetItems=false"))
         assertTrue(url.contains("Recursive=false"))
         assertTrue(url.contains("userId=me"))
         assertFalse(url.contains("IncludeItemTypes"))
@@ -39,6 +39,27 @@ class LibraryBrowserTest {
         val transport = Recording("{}", 403)
         assertThrows(Exception::class.java) { MediaServerClient(transport).browseLibrary(connection, "private") }
         assertEquals(1, transport.urls.size)
+    }
+    @Test fun movieCatalogueOverridesServerGroupingWhileCollectionsRemainBrowsable() {
+        val urls = mutableListOf<String>()
+        val transport = object : JsonHttpTransport {
+            override fun get(url: String, headers: Map<String, String>): HttpResponse {
+                urls += url
+                // A server with grouping enabled substitutes a BoxSet unless explicitly disabled.
+                val collection = url.contains("IncludeItemTypes=BoxSet") || !url.contains("CollapseBoxSetItems=false")
+                return HttpResponse(200, if (collection)
+                    """{"Items":[{"Id":"set","Name":"Collection","Type":"BoxSet"}]}"""
+                else """{"Items":[{"Id":"film","Name":"Film","Type":"Movie"}]}""")
+            }
+            override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse = error("Unexpected write")
+        }
+        val client = MediaServerClient(transport)
+        assertEquals("Movie", client.browseLibrary(connection, "films", collectionType = "movies").single().mediaType)
+        assertEquals("BoxSet", client.browseLibrary(connection, "collections", collectionType = "boxsets").single().mediaType)
+        assertEquals("Movie", client.browseLibrary(connection, "set").single().mediaType)
+        assertTrue(urls[0].contains("ExcludeItemTypes=BoxSet"))
+        assertFalse(urls[1].contains("ExcludeItemTypes=BoxSet"))
+        assertTrue(urls.all { it.contains("userId=me") })
     }
     @Test fun ordinaryMediaRemainsALeafAndKeepsPlaybackProgress() {
         val entry = ServicePayloadParser.libraryItems("""{"Items":[{"Id":"movie","Name":"Film","Type":"Movie","UserData":{"PlayedPercentage":42}}]}""").single()

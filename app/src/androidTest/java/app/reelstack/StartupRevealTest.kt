@@ -89,7 +89,7 @@ class StartupRevealTest {
         rule.setContent { ReelstackTheme { StartupCover({}) { Text("Innhald klart") } } }
         rule.onNodeWithTag("startup-cover").assertExists()
         rule.onNodeWithText("Innhald klart").assertDoesNotExist()
-        rule.mainClock.advanceTimeBy(1_200)
+        rule.mainClock.advanceTimeBy(1_700)
         rule.mainClock.autoAdvance = true
         rule.waitUntil(timeoutMillis = 2_000) {
             rule.onAllNodesWithTag("startup-cover").fetchSemanticsNodes().isEmpty()
@@ -99,7 +99,7 @@ class StartupRevealTest {
 
     @Test fun slowNetworkCannotTrapTheUserInTheSplash() {
         rule.setContent { ReelstackTheme { StartupCover({ awaitCancellation() }) { Text("Appen er open") } } }
-        rule.waitUntil(timeoutMillis = 4_000) {
+        rule.waitUntil(timeoutMillis = 6_500) {
             rule.onAllNodesWithTag("startup-cover").fetchSemanticsNodes().isEmpty()
         }
         rule.onNodeWithText("Appen er open").assertIsDisplayed()

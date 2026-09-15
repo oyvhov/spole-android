@@ -97,6 +97,19 @@ data class Personalization(
     val showNextUp: Boolean = true,
     val combineContinueWatching: Boolean = false,
     val showHero: Boolean = true,
+    val heroRotate: Boolean = true,
+    val heroLogo: Boolean = true,
+    val heroCompact: Boolean = false,
+    val startInLibrary: Boolean = false,
+    val libraryHub: Boolean = true,
+    val showLibraryTitle: Boolean = false,
+    val libraryCardsWide: Boolean = true,
+    val libraryHubOrder: List<String> = DEFAULT_LIBRARY_HUB,
+    val libraryHubHidden: Set<String> = emptySet(),
+    val libraryOrder: List<String> = emptyList(),
+    val showUpcomingEpisodes: Boolean = true,
+    val reduceMotion: Boolean = false,
+    val homeRowFormats: Map<String, String> = emptyMap(),
     val showRatings: Boolean = true,
     val showQuality: Boolean = true,
     val detailBackdrop: Boolean = true,
@@ -113,9 +126,10 @@ data class Personalization(
     val seasonalOrnament: Boolean = true,
 )
 
+val DEFAULT_LIBRARY_HUB = listOf("FEATURE", "CONTINUE", "NEXT", "FAVOURITES", "LIBRARIES")
 val DEFAULT_MENU = listOf("HOME", "LIBRARY", "DISCOVER", "ACTIVITY", "SETTINGS")
 fun Personalization.visibleMenu(): List<String> =
-    (menuOrder + DEFAULT_MENU).distinct().filter { it in DEFAULT_MENU && (it !in hiddenMenuItems || it in setOf("HOME", "SETTINGS")) }
+    (menuOrder + DEFAULT_MENU).distinct().filter { it in DEFAULT_MENU && (it !in hiddenMenuItems || it in setOf("HOME", "SETTINGS") || (startInLibrary && it == "LIBRARY")) }
 
 /**
  * A season is a pairing of mood and accent, chosen as one thing.

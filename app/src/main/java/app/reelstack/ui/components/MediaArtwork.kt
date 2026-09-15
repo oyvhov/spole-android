@@ -26,6 +26,7 @@ fun MediaArtwork(
     @DrawableRes fallbackRes: Int = 0,
     contentScale: ContentScale = ContentScale.Crop,
     source: ServiceKind? = null,
+    protectAspectRatio: Boolean = true,
     crossfadeDurationMillis: Int = 260,
     onError: (() -> Unit)? = null,
     /**
@@ -58,7 +59,7 @@ fun MediaArtwork(
         placeholder = fallback,
         error = fallback,
         fallback = fallback,
-        contentScale = contentScale,
+        contentScale = if (protectAspectRatio && contentScale == ContentScale.Crop) SafeArtworkCrop else contentScale,
         onError = onError?.let { callback -> { callback() } },
         onSuccess = onAspectRatio?.let { report ->
             { state ->
@@ -70,4 +71,17 @@ fun MediaArtwork(
         },
         modifier = modifier,
     )
+}
+
+/** Chooses the scale before the first bitmap frame, including cached portrait fallbacks. */
+internal val SafeArtworkCrop = object : ContentScale {
+    override fun computeScaleFactor(srcSize: androidx.compose.ui.geometry.Size,
+        dstSize: androidx.compose.ui.geometry.Size): androidx.compose.ui.layout.ScaleFactor {
+        val landscapeFrame = dstSize.width > dstSize.height * 1.3f
+        val portraitSource = srcSize.width < srcSize.height * 1.15f
+        val portraitFrame = dstSize.height > dstSize.width * 1.3f
+        val landscapeSource = srcSize.width > srcSize.height * 1.3f
+        return (if ((landscapeFrame && portraitSource) || (portraitFrame && landscapeSource)) ContentScale.Fit else ContentScale.Crop)
+            .computeScaleFactor(srcSize, dstSize)
+    }
 }

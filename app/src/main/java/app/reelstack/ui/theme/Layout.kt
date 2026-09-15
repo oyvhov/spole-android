@@ -17,6 +17,12 @@ val LocalTabletCanvas = staticCompositionLocalOf { false }
 
 /** Shared rhythm and artwork dimensions, including loading placeholders. */
 object ReelLayout {
+    val ControlMinHeight = 40.dp
+    val SettingsMinHeight = 48.dp
+    val ControlCorner = 10.dp
+    val ControlInset = 16.dp
+    val IconSize = 24.dp
+    const val TransitionMillis = 180
     val Gutter = 24.dp
     val PageTop = 32.dp
 

@@ -60,6 +60,10 @@ data class RemoteLibraryItem(
     val lastActivityEpochMillis: Long? = null,
     val logoItemId: String? = null,
     val logoUrl: String? = null,
+    val heroImagePath: String? = null,
+    val posterImagePath: String? = null,
+    val heroUrl: String? = null,
+    val posterUrl: String? = null,
     /**
      * Jellyfin's content hash for the chosen image. It belongs in the address: replacing a poster
      * on the server changes the tag, which changes the URL, which is what makes an image cache
@@ -311,6 +315,8 @@ object ServicePayloadParser {
                 artworkItemId = artwork.itemId,
                 artworkImageType = artwork.imageType,
                 artworkTag = artwork.tag,
+                heroImagePath = libraryHeroPath(item, id, mediaType),
+                posterImagePath = libraryPosterPath(item, id, mediaType),
                 season = season,
                 episode = episode,
                 logoItemId = libraryLogo(item, id)?.itemId,
@@ -323,6 +329,7 @@ object ServicePayloadParser {
                     (it.string("Tmdb") ?: it.string("tmdb"))?.toIntOrNull()
                 },
                 available = item["IsMissing"]?.jsonPrimitive?.booleanOrNull != true &&
+                    item["IsVirtualUnaired"]?.jsonPrimitive?.booleanOrNull != true &&
                     item["IsPlaceHolder"]?.jsonPrimitive?.booleanOrNull != true &&
                     !item.string("LocationType").equals("Virtual", ignoreCase = true),
                 runtimeMinutes = runtime?.takeIf { it > 0 }?.let { (it / TICKS_PER_MINUTE).toInt() },
@@ -920,6 +927,30 @@ object ServicePayloadParser {
             },
         )
     }
+
+    private fun imagePath(id: String?, type: String, tag: String?): String? {
+        if (id.isNullOrBlank() || tag.isNullOrBlank()) return null
+        fun enc(value: String) = java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+        return "Items/${enc(id)}/Images/$type?maxWidth=${if (type == "Primary") 480 else 1920}&quality=90&tag=${enc(tag)}"
+    }
+
+    /** Hero art belongs to the movie or series, never to an individual episode. */
+    private fun libraryHeroPath(item: JsonObject, id: String, type: String): String? {
+        val episode = type.equals("Episode", true)
+        val tags = item.obj("ImageTags") ?: item.obj("imageTags")
+        if (!episode) {
+            imagePath(id, "Backdrop/0", item.array("BackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull)?.let { return it }
+            imagePath(id, "Thumb", tags.tag("Thumb"))?.let { return it }
+        }
+        imagePath(item.string("ParentBackdropItemId"), "Backdrop/0",
+            item.array("ParentBackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull)?.let { return it }
+        return imagePath(item.string("ParentThumbItemId") ?: item.string("SeriesId"), "Thumb",
+            item.string("ParentThumbImageTag") ?: item.string("SeriesThumbImageTag"))
+    }
+
+    private fun libraryPosterPath(item: JsonObject, id: String, type: String): String? =
+        if (type.equals("Episode", true)) imagePath(item.string("SeriesId"), "Primary", item.string("SeriesPrimaryImageTag"))
+        else imagePath(id, "Primary", (item.obj("ImageTags") ?: item.obj("imageTags")).tag("Primary"))
 
     private fun libraryLogo(item: JsonObject, id: String): LibraryArtwork? {
         val imageTags = item.obj("ImageTags") ?: item.obj("imageTags")

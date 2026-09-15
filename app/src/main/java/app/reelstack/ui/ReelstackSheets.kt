@@ -157,6 +157,7 @@ fun ReelstackSheets(
     onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> },
     onSeason: (String) -> Unit = {},
+    onEpisodeSeries: () -> Unit = {},
     onCancelConnection: () -> Unit = {},
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
@@ -191,7 +192,7 @@ fun ReelstackSheets(
                     androidx.compose.runtime.key(details.key) {
                         RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
                             onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered,
-                            onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason,
+                            onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason, onEpisodeSeries = onEpisodeSeries,
                             onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle)
                     }
                 }
@@ -254,7 +255,7 @@ private fun DetailSheetSkeleton() {
 @Composable
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
     scroll: ScrollState, entered: Boolean, onFavourite: (String, Boolean) -> Unit = { _, _ -> },
-    onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {},
+    onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {}, onEpisodeSeries: () -> Unit = {},
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {}) {
     val details = state.contentDetails ?: return
@@ -300,23 +301,36 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     var chosenAudio by remember(details.key) { mutableStateOf<Int?>(null) }
     var chosenSubtitle by remember(details.key) { mutableStateOf<Int?>(null) }
     var chosenVersion by remember(details.key) { mutableStateOf<String?>(null) }
+    val seriesLinkFocus = remember(details.key) { androidx.compose.ui.focus.FocusRequester() }
     val actions: @Composable () -> Unit = {
         TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed,
             modifier = Modifier.onFocusChanged { if (tv && it.hasFocus && scroll.value > 0) {
                 detailScope.launch { scroll.animateScrollTo(0) }
             } }.onPreviewKeyEvent { event ->
                 if (tv && event.key == androidx.compose.ui.input.key.Key.DirectionUp) {
-                    if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown)
+                    if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                         detailScope.launch { scroll.animateScrollTo(0) }
+                        if (ready && !state.seriesBrowse.loading && mediaType == "Episode" && state.seriesBrowse.openedFor == details.key && state.seriesBrowse.seriesId.isNotBlank())
+                            seriesLinkFocus.requestFocus()
+                    }
                     true
                 } else false
             }.focusGroup())
+    }
+    val seriesLink: @Composable () -> Unit = {
+        if (ready && !state.seriesBrowse.loading && mediaType == "Episode" && state.seriesBrowse.openedFor == details.key && state.seriesBrowse.seriesId.isNotBlank())
+            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onEpisodeSeries, modifier = Modifier.focusRequester(seriesLinkFocus).testTag("episode-series-link")) {
+                Icon(app.reelstack.ui.components.SpoleIcons.Library, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.refine_series_page))
+            }
     }
     val tvHeading: @Composable () -> Unit = {
         Text(opening.title, color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.headlineMedium, modifier = Modifier.testTag("detail-title"))
         if (!isSeries) Text(app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
             color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp))
+        seriesLink()
         if (wideDetail && ready) { aside(); actions() }
     }
     Box(Modifier.fillMaxSize()) {
@@ -373,6 +387,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 portrait = mediaType == "Series",
             )
         }
+        if (!tv) seriesLink()
         if (!ready) {
             Column(Modifier.fillMaxWidth().testTag("detail-loading").padding(top = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -923,7 +938,7 @@ internal fun CinematicTitleHero(
                 contentScale = if (portrait) ContentScale.Fit else ContentScale.Crop,
                 source = source, crossfadeDurationMillis = 0,
                 modifier = Modifier
-                    .then(if (portrait) Modifier.width(if (spacious) 142.dp else 190.dp)
+                    .then(if (portrait) Modifier.width(if (spacious) 142.dp else 104.dp)
                         else if (spacious) Modifier.width(304.dp) else Modifier.fillMaxWidth())
                     .aspectRatio(if (portrait) 2f / 3f else 16f / 9f)
                     .clip(RoundedCornerShape(14.dp)).background(Ink).testTag("episode-detail-artwork"),
@@ -936,7 +951,7 @@ internal fun CinematicTitleHero(
             if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 14.sp, lineHeight = 20.sp,
                 modifier = Modifier.padding(top = 6.dp))
         }
-        if (spacious) {
+        if (spacious || portrait) {
             Row(Modifier.testTag("tablet-episode-summary"), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 artwork()

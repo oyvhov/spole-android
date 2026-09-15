@@ -17,6 +17,9 @@ data class WindowLayoutPolicy(val widthDp: Float, val heightDp: Float) {
     /** Heading, search and account share one row; the TV welcome splits into two panes. */
     val useInlineHeader: Boolean get() = widthDp >= 680f
 
+    fun useSettingsPanes(fontScale: Float = 1f): Boolean =
+        widthDp >= 720f && widthDp / fontScale.coerceAtLeast(1f) >= 560f
+
     val showHomeSearch: Boolean get() = !useNavigationRail
     val useCenteredDialog: Boolean get() = widthDp >= 840f && heightDp >= 480f
 

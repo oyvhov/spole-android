@@ -1,8 +1,5 @@
 <resources>
     <string name="settings_menu_required">Always available</string>
-    <string name="settings_menu_visible">Visible in menu</string>
-    <string name="settings_menu_hidden">Hidden from menu</string>
-    <string name="settings_menu_show">Show in menu</string>
     <string name="theme_background">Background</string>
     <string name="theme_forest">Forest · soft charcoal</string>
     <string name="theme_midnight">Midnight · deep blue</string>
@@ -35,7 +32,7 @@
     <string name="settings_tv_rows">Home rows</string>
     <string name="settings_tv_rows_hint">Show or hide individual rows.</string>
     <string name="settings_tv_library_hint">Choose libraries to load and add shortcuts to your menu.</string>
-    <string name="watching_order_hint">Mixed by most recent viewing activity. Next up uses the last watched episode in that series.</string>
+    <string name="watching_order_hint">Continue watching and next episodes in one row, most recently watched first.</string>
     <string name="settings_tv_menu_hint">Move pages with the arrows. Home and Settings stay available.</string>
     <string name="settings_tv_startup_hint">A gentler logo animation while your content loads.</string>
     <string name="settings_tv_hero_hint">A featured title above your rows.</string>

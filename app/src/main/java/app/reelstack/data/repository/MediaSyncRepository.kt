@@ -452,6 +452,8 @@ class MediaSyncRepository(
         source = source,
         artworkUrl = item.artworkUrl,
         logoUrl = item.logoUrl,
+        heroUrl = item.heroUrl,
+        posterUrl = item.posterUrl,
         remoteId = item.id,
         overview = item.overview,
         facts = item.facts,
@@ -464,6 +466,9 @@ class MediaSyncRepository(
         played = item.played,
         runtimeMinutes = item.runtimeMinutes,
         childCount = item.childCount,
+        available = item.available,
+        premiereDate = item.premiereDate,
+        tmdbId = item.tmdbId,
     )
 
     /** One series' seasons, or one season's episodes, mapped for the screen. */
@@ -472,6 +477,11 @@ class MediaSyncRepository(
 
     fun episodes(connection: ServiceConnection, seriesId: String, seasonId: String): List<LibraryMedia> =
         mediaServerClient.episodes(connection, seriesId, seasonId).map { libraryMedia(it, connection.kind) }
+
+    fun upcomingSeason(connection: ServiceConnection, seerr: ServiceConnection, seriesId: String, season: Int): List<LibraryMedia> {
+        val tmdbId = mediaServerClient.seriesTmdbId(connection, seriesId) ?: return emptyList()
+        return seerrServiceClient.upcomingSeason(seerr, tmdbId, season)
+    }
 
     /** The one episode this series should resume on, as the server sees it. */
     fun seriesNextUp(connection: ServiceConnection, seriesId: String): LibraryMedia? =

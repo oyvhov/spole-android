@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.17.0-beta01 · Personleg bibliotek og betre avspelingsflyt
+
+- Ny bibliotekoversikt som kan vere startside, med serverbilete og val for rekkjefølgje, rader og vising.
+- Ryddigare innstillingar på TV, nettbrett og telefon; mindre kontrollar, enklare menyredigering og eigne lagra uttrykk. Innstillingssøk er fjerna.
+- Stabil hero med film-/seriebakgrunnar, betre favorittomslag og trygg vising av mellomlagra bilete.
+- Synleg original logoanimasjon medan data og dei første bileta lastar.
+- Episodesida lenkjer til serien og same sesong, med naturleg retur til episoden.
+- Tydelegare kommande/manglande episodar; Seerr kan supplere kjende sesongar utan Sonarr.
+- Neste episode brukar si eiga filkjelde. Undertekstar blir klargjorde og gjenbrukte i minnet.
+- Lokal framdrift flyttar tittelen straks til Hald fram og vernar mot eldre serversvar.
+
 ## 0.16.1 · Stabil Quick Connect og trygg bildeinnlasting
 
 - Ventar lenger på at Seerr skal registrere Jellyfin-godkjenninga, utan å lage ny kode.

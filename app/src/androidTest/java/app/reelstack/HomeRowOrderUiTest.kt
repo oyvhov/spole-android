@@ -20,7 +20,9 @@ class HomeRowOrderUiTest {
     @get:Rule val rule = createComposeRule()
 
     @Test fun canMoveRepeatedlyResetAndReopenWithDeviceInput() {
-        var state by mutableStateOf(ReelstackUiState())
+        // Start the target third regardless of whether another test enabled the Next up row.
+        val firstRows = listOf(HomeRow.NOW_PLAYING, HomeRow.CONTINUE_WATCHING, HomeRow.FAVOURITES)
+        var state by mutableStateOf(ReelstackUiState(homeRowOrder = firstRows + HomeRow.entries.filterNot { it in firstRows }))
         rule.setContent { ReelstackTheme { HomeRowOrderSetting(state, { state = state.copy(homeRowOrder = it) }) } }
         rule.onNodeWithTag("home-order-open").performClick()
         val up = rule.onNodeWithTag("home-order-FAVOURITES-0")

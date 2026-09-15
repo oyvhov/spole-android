@@ -1,0 +1,160 @@
+package app.reelstack.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.lazy.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import app.reelstack.R
+import app.reelstack.data.model.*
+import app.reelstack.ui.ReelstackUiState
+import app.reelstack.ui.components.*
+import app.reelstack.ui.theme.*
+
+/** A personal front door. Browsing tools stay one press away, each source keeps its own shelves. */
+@Composable
+internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
+    onTitle: (String) -> Unit, actions: MediaCardActions?, onRetry: () -> Unit) {
+    val options = LocalPersonalization.current
+    val context = LocalContext.current
+    val preferences = remember(context) { app.reelstack.data.repository.AppPreferencesRepository(context) }
+    var editing by remember { mutableStateOf(false) }
+    if (editing) LibraryCustomizationDialog(state, options, { preferences.personalization = it }) { editing = false }
+    var filter by rememberSaveable { mutableIntStateOf(0) }
+    val labels = listOf(R.string.design_all, R.string.design_movies, R.string.design_series, R.string.design_collections)
+    val libraries = state.libraryEntries.filter { when (filter) {
+        1 -> it.collectionType == "movies"
+        2 -> it.collectionType == "tvshows"
+        3 -> it.collectionType == "boxsets"
+        else -> true
+    } }.sortedBy { options.libraryOrder.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
+    val libraryIds = libraries.map { it.id }.toSet()
+    val names = labels.map { stringResource(it) }
+    fun selected(items: List<LibraryMedia>) = items.filter { media -> when (filter) {
+        1 -> media.mediaType.equals("Movie", true)
+        2 -> media.mediaType in setOf("Series", "Episode")
+        3 -> media.mediaType == "BoxSet"
+        else -> true
+    } }
+    val resume = selected(state.resume)
+    val next = selected(state.nextUp)
+    val featured = remember(state.recentMovies, state.recentSeries, filter, state.libraryPeeks, libraryIds, state.configuredCount) {
+        val movies = selected(state.recentMovies)
+        val series = selected(state.recentSeries)
+        (movies.zip(series).flatMap { listOf(it.first, it.second) } + movies + series +
+            state.libraryPeeks.filterKeys { it in libraryIds }.values.flatten()).distinctBy { it.id }.filter { app.reelstack.data.network.libraryHeroArtworkUrl(it) != null || state.configuredCount == 0 }.sortedByDescending { it.heroUrl != null }
+    }
+    val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val tv = isTelevision()
+    val large = LocalTabletCanvas.current || tv
+    val inlineHeader = large && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.5f
+    val gutter = ReelLayout.Gutter
+    LazyColumn(state = list, modifier = Modifier.fillMaxSize().testTag("library-hub"),
+        contentPadding = PaddingValues(start = gutter, end = gutter, top = 20.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item("header") {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (options.showLibraryTitle && inlineHeader) Text(stringResource(R.string.nav_library),
+                    style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(.32f).testTag("library-heading"))
+                Column(Modifier.weight(1f)) {
+                    if (options.showLibraryTitle && !inlineHeader) Text(stringResource(R.string.nav_library),
+                        style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 12.dp).testTag("library-heading"))
+                    AppFilterRow(labels.indices.toList(), filter, { index -> names[index] }, { filter = it })
+                }
+                IconButton(onClick = { editing = true }, modifier = Modifier.testTag("hub-customize")) {
+                    Icon(SpoleIcons.Tune, stringResource(R.string.refine_library_edit))
+                }
+            }
+        }
+        item("libraries") {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(4.dp)) {
+                items(libraries, key = { it.id }) { library ->
+                    LibraryImageTile(library.id, library.title, library.artworkUrl, options.libraryCardsWide) { onLibrary(library.id) }
+                }
+            }
+        }
+        val sections = (options.libraryHubOrder + DEFAULT_LIBRARY_HUB).distinct().filter { it !in options.libraryHubHidden }
+        sections.forEach { section ->
+        if (section == "FEATURE" && large && options.showHero && featured.isNotEmpty() && filter != 3) item("feature") {
+            TabletLibraryFeature(featured.first(), onTitle, candidates = featured.take(5),
+                rotationEnabled = list.layoutInfo.visibleItemsInfo.any { it.key == "feature" } && state.activeSheet == null,
+                onFocusWithin = { focused -> if (tv && focused) scope.launch {
+                    androidx.compose.runtime.withFrameNanos { }
+                    val index = list.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "feature" }?.index ?: 0
+                    list.scrollToItem(if (sections.firstOrNull() == "FEATURE") 0 else index)
+                } })
+        }
+        val continued = if (options.combineContinueWatching && options.showNextUp) combinedWatching(resume, next) else resume
+        if (section == "CONTINUE" && continued.isNotEmpty()) item("resume") {
+            HubShelf(stringResource(R.string.home_continue)) {
+                ResumeRail(continued, onTitle, actions, "CONTINUE_WATCHING")
+            }
+        }
+        if (section == "NEXT" && options.showNextUp && !options.combineContinueWatching && next.isNotEmpty()) item("next") {
+            HubShelf(stringResource(R.string.tv_next_up)) { ResumeRail(next, onTitle, actions.withoutResumeRemoval(), "NEXT_UP") }
+        }
+        if (section == "FAVOURITES" && selected(state.favourites).isNotEmpty()) item("favourites") {
+            HubShelf(stringResource(R.string.home_favourites)) {
+                LibraryRail(selected(state.favourites), onTitle, wide = false, rowKey = "FAVOURITES")
+            }
+        }
+        if (section == "LIBRARIES") items(libraries, key = { "shelf-${it.id}" }) { library ->
+            val titles = state.libraryPeeks[library.id].orEmpty()
+            HubShelf(library.title) {
+                if (titles.isNotEmpty()) LibraryRail(titles, onTitle, wide = library.collectionType == "tvshows",
+                    rowKey = when(library.collectionType) { "movies" -> "JELLYFIN_MOVIES"; "tvshows" -> "JELLYFIN_SERIES"; else -> null })
+                else if (state.libraryPeeksLoading) app.reelstack.ui.components.LibraryRailSkeleton(description = stringResource(R.string.library_peek_loading), wide = false)
+                AppNavigationChip(stringResource(R.string.design_browse_all), "hub-all-${library.id}") { onLibrary(library.id) }
+            }
+        }
+        }
+        if (state.libraryLoading && libraries.isEmpty()) item("loading") { LibraryRailSkeleton(description = stringResource(R.string.library_peek_loading)) }
+        if (state.libraryError != null) item("error") {
+            Text(state.libraryError, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SpoleSecondaryButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+        }
+        if (!state.libraryLoading && libraries.isEmpty() && state.libraryError == null) item("empty") {
+            Text(stringResource(R.string.tv_library_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun HubShelf(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        content()
+    }
+}
+@Composable
+private fun LibraryImageTile(id: String, title: String, image: String?, wide: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(12.dp)
+    Box(Modifier.width(if (wide) 174.dp else 112.dp).aspectRatio(if (wide) 1.9f else 1f)
+        .clip(shape).background(MaterialTheme.colorScheme.surfaceVariant)
+        .focusOutline(interaction, shape).clickable(interactionSource = interaction,
+            indication = mediaCardIndication(), onClick = onClick).testTag("hub-library-$id")) {
+        Icon(SpoleIcons.Library, null, Modifier.align(Alignment.Center).size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (image != null) MediaArtwork(image, null, Modifier.matchParentSize(), source = ServiceKind.JELLYFIN)
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .08f), Color.Black.copy(alpha = .82f)))))
+        Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp))
+    }
+}

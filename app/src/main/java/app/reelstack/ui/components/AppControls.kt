@@ -42,7 +42,7 @@ fun ServiceSymbol(kind: ServiceKind, modifier: Modifier = Modifier) {
 @Composable
 fun AppNavigationChip(text: String, tag: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(ReelLayout.ControlCorner)
     AssistChip(
         onClick = onClick,
         interactionSource = interaction,
@@ -51,7 +51,7 @@ fun AppNavigationChip(text: String, tag: String, modifier: Modifier = Modifier, 
         shape = shape,
         border = null,
         colors = AssistChipDefaults.assistChipColors(containerColor = SurfaceRaised, labelColor = Primary),
-        modifier = modifier.heightIn(min = 48.dp).testTag(tag).focusOutline(interaction, shape, glow = false),
+        modifier = modifier.heightIn(min = ReelLayout.ControlMinHeight).testTag(tag).focusOutline(interaction, shape, glow = false),
     )
 }
 
@@ -70,12 +70,12 @@ fun <T> AppFilterRow(
             FilterChip(
                 interactionSource = interaction,
                 selected = option == selected, onClick = { onSelect(option) },
-                label = { Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis) }, shape = RoundedCornerShape(10.dp), border = null,
+                label = { Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis) }, shape = RoundedCornerShape(ReelLayout.ControlCorner), border = null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceRaised, labelColor = Muted,
                     selectedContainerColor = Primary, selectedLabelColor = Ink),
-                modifier = Modifier.heightIn(min = 48.dp)
+                modifier = Modifier.heightIn(min = ReelLayout.ControlMinHeight)
                     .then(optionTag?.let { Modifier.testTag(it(option)) } ?: Modifier)
-                    .focusOutline(interaction, RoundedCornerShape(10.dp), glow = false),
+                    .focusOutline(interaction, RoundedCornerShape(ReelLayout.ControlCorner), glow = false),
             )
         }
     }

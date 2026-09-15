@@ -93,7 +93,7 @@ fun ReelstackTheme(content: @Composable () -> Unit) {
     val raised = Color(mood.raised)
     androidx.compose.runtime.CompositionLocalProvider(
         LocalPersonalization provides personalization,
-        LocalMotionEnabled provides (motion && !personalization.lightweightTv),
+        LocalMotionEnabled provides (motion && !personalization.lightweightTv && !personalization.reduceMotion),
     ) {
     MaterialTheme(
         colorScheme = ReelstackColors.copy(

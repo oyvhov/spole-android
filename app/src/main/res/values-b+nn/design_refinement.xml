@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="refine_show_named">Vis %1$s</string>
+    <string name="refine_hide_named">Skjul %1$s</string>
+    <string name="refine_delete_named">Slett %1$s</string>
+    <string name="refine_my_looks">Mine uttrykk</string>
+    <string name="refine_save_look_hint">Lagre desse utsjånadvala med eit namn. Same namn erstattar det lagra uttrykket.</string>
+    <string name="refine_look_name">Namn</string>
+    <string name="refine_save_look">Lagre uttrykket</string>
+    <string name="refine_menu_order">Rekkjefølgje i menyen</string>
+    <string name="refine_order_hint">Bruk auget for å vise eller skjule, og pilene for å flytte. Vala blir lagra med ein gong.</string>
+    <string name="refine_group_start">Ved oppstart</string>
+    <string name="refine_group_hero">Utval</string>
+    <string name="refine_group_rows">Innhaldsrader</string>
+    <string name="refine_group_colours">Fargar og sesong</string>
+    <string name="refine_group_art">Bilete og omslag</string>
+    <string name="refine_group_reading">Lesing og rørsle</string>
+    <string name="refine_rotate_hint">Byt mellom opptil fem filmar og seriar kvart åttande sekund. Pausar medan utvalet har fokus.</string>
+    <string name="refine_logo_hint">Vis logoen til filmen eller serien når han finst. Elles blir tittelen vist.</string>
+    <string name="refine_compact_hint">Gjer plass til fleire rader med eit lågare utvalsfelt.</string>
+    <string name="refine_motion_hint">Demp overgangar og rørsle i appen.</string>
+    <string name="refine_next_hint">Vis neste usette episode i seriar du følgjer.</string>
+    <string name="refine_ratings_hint">Vis vurderinga frå serveren på mediekort.</string>
+    <string name="refine_quality_hint">Vis biletkvalitet når serveren har opplysningar om det.</string>
+    <string name="refine_library_edit">Tilpass biblioteksida</string>
+    <string name="refine_library_edit_hint">Flytt rader og bibliotek, vel biletvising og skjul sideoverskrifta.</string>
+    <string name="refine_library_title">Sideoverskrift</string>
+    <string name="refine_library_title_hint">Vis ordet Bibliotek øvst på sida.</string>
+    <string name="refine_library_wide">Breie biblioteksbilete</string>
+    <string name="refine_library_wide_hint">Vis bibliotek som liggjande bilete. Slå av for kvadratiske kort.</string>
+    <string name="refine_library_tiles">Bibliotek</string>
+    <string name="refine_library_shelves">Biblioteksrader</string>
+    <string name="refine_coming_badge">Kommande</string>
+    <string name="refine_missing_badge">Manglar</string>
+    <string name="refine_missing_date">Sendt %1$s · manglar i biblioteket</string>
+    <string name="refine_series_page">Gå til serien</string>
+    <string name="refine_row_format_hint">Vel ståande eller breie bilete i radene på Heim og Bibliotek.</string>
+</resources>

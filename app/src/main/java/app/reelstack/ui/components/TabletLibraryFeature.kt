@@ -54,7 +54,7 @@ private const val HERO_FEATURE_COUNT = 5
 
 internal fun tabletFeaturedTitles(candidates: List<LibraryMedia>, sections: Set<HomeSection>, allowLocalArtwork: Boolean = false): List<LibraryMedia> =
     candidates.filter { media ->
-        val hasArt = !media.artworkUrl.isNullOrBlank() || (allowLocalArtwork && media.artworkRes != 0)
+        val hasArt = app.reelstack.data.network.libraryHeroArtworkUrl(media) != null || (allowLocalArtwork && media.artworkRes != 0)
         if (!hasArt) return@filter false
         val isSeries = media.mediaType.equals("Series", ignoreCase = true) ||
             media.mediaType.equals("Episode", ignoreCase = true) ||
@@ -71,7 +71,7 @@ internal fun tabletFeaturedTitles(candidates: List<LibraryMedia>, sections: Set<
             else -> false
         }
     }.distinctBy { it.title.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT) }
-        .take(HERO_FEATURE_COUNT)
+        .sortedByDescending { it.heroUrl != null }.take(HERO_FEATURE_COUNT)
 
 /** The hero title reserves two of these lines whether a logo or a heading fills the slot. */
 private val TITLE_SIZE = 32.sp
@@ -85,6 +85,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     account: (@Composable () -> Unit)? = null,
     candidates: List<LibraryMedia> = listOf(media), rotationEnabled: Boolean = true,
     onFocusWithin: (Boolean) -> Unit = {}) {
+    val options = LocalPersonalization.current
     val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
     var position by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
@@ -93,8 +94,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
-    LaunchedEffect(identities, focused, rotationEnabled, lifecycleOwner) {
-        if (titles.size > 1 && !focused && rotationEnabled) {
+    LaunchedEffect(identities, focused, rotationEnabled, options.heroRotate, lifecycleOwner) {
+        if (titles.size > 1 && !focused && rotationEnabled && options.heroRotate) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
                     delay(8_000)
@@ -118,17 +119,21 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val featureIntoView = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     // The focused button already participates in scrolling. A second request for the entire
     // hero fought that request whenever focus returned from the sidebar.
-    val compactTelevision = television && density.fontScale < 1.5f
+    val compactTelevision = television || options.heroCompact || shortWindow
     val featureInteraction = remember { MutableInteractionSource() }
     val actionInteraction = remember { MutableInteractionSource() }
     // The feature was the one artwork surface with a fixed height, so choosing Compact shrank every
     // rail under it and left the hero at full size.
     val heroScale = LocalPersonalization.current.artworkSize.scale
-    val featureSize = if (compactTelevision) {
-        Modifier.height(250.dp)
-    } else {
-        Modifier.heightIn(min = (if (shortWindow) 250.dp else 330.dp) * heroScale)
+    // Window and text scale determine the scene once. Media metadata never changes its height.
+    val reservedText = with(density) {
+        (if (compactTelevision) 28.sp else 36.sp).toDp() * 2 +
+            20.sp.toDp() * (if (compactTelevision) 1 else 3) +
+            (if (compactTelevision) 17.sp else 20.sp).toDp() * 2
     }
+    val sceneHeight = maxOf((if (compactTelevision) 220.dp else 330.dp) * heroScale,
+        reservedText + if (compactTelevision) 80.dp else 130.dp)
+    val featureSize = Modifier.height(sceneHeight)
     val featureSpacing = if (compactTelevision) 4.dp else 10.dp
     val titleSize = if (compactTelevision) TV_TITLE_SIZE else TITLE_SIZE
     val titleLineHeight = if (compactTelevision) TV_TITLE_LINE_HEIGHT else TITLE_LINE_HEIGHT
@@ -164,7 +169,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 val opacity by animateFloatAsState(if (title.id == selected.id) 1f else 0f,
                     tween(800), label = "feature-artwork-${title.id}")
                 Box(Modifier.matchParentSize().graphicsLayer { alpha = opacity }) {
-                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(title.artworkUrl, LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(.72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source)
+                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(.72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false)
                 }
               }
             }
@@ -183,22 +188,16 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
           Crossfade(selected, animationSpec = tween(if (motion) 800 else 0), label = "feature-caption") { title ->
            Column(verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ServiceLogo(title.source, null, Modifier.size(22.dp))
-                Text(title.source.displayName, color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.labelLarge)
-            }
-            val logo = title.logoUrl ?: if (title.source == ServiceKind.JELLYFIN) {
-                title.artworkUrl?.replace(Regex("/Images/(Primary|Thumb)\\?.*"), "/Images/Logo?maxWidth=800&quality=90")
-            } else null
+            val logo = title.logoUrl.takeIf { options.heroLogo }
             var logoFailed by remember(title.id) { mutableStateOf(false) }
             // One height for both branches, measured as the two text lines the fallback always
             // reserves. A clear logo sizes itself from its own aspect ratio, so without this the
             // block was ~24 dp for a wide logo and ~72 dp for a title — and a logo that failed
             // after layout swapped one for the other, which is the jump. Measured at the current
             // font scale so the two stay equal at 2x text as well.
-            val titleSlot = with(LocalDensity.current) { (titleLineHeight * 2).toDp() }
+            val titleSlot = with(LocalDensity.current) { titleLineHeight.toDp() * 2 }
             Box(
-                Modifier.fillMaxWidth().heightIn(min = titleSlot),
+                Modifier.fillMaxWidth().height(titleSlot),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 if (!logo.isNullOrBlank() && !logoFailed) {
@@ -221,8 +220,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             // words the shelves below use, because the same episode appears in both and two
             // spellings of one fact on one screen is the kind of thing you cannot stop seeing.
             val numbers = episodeLine(title.season, title.episode, "")
-            if (numbers.isNotBlank()) Text(
+            if (!compactTelevision) Text(
                 numbers,
+                minLines = 1, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 color = Color.White.copy(alpha = .72f),
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -234,7 +234,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                     (title.facts + title.genres.take(2)).distinct().take(4).joinToString(" · ")
                 } else ""
             }
-            Text(name,
+            Text(if (compactTelevision) listOf(numbers, name).filter(String::isNotBlank).joinToString(" · ") else name,
                 color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
                 minLines = if (compactTelevision) 1 else 2,
                 maxLines = if (compactTelevision) 1 else 2,
@@ -246,7 +246,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
            }
           }
             FilledTonalButton(onClick = { onOpen(selected.id) }, interactionSource = actionInteraction,
-                modifier = Modifier.heightIn(min = 48.dp)
+                modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
                 .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
                 Text(stringResource(R.string.feature_more), style = MaterialTheme.typography.labelLarge)

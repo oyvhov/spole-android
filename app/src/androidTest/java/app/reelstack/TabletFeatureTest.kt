@@ -35,7 +35,7 @@ class TabletFeatureTest {
         rule.onNodeWithText(next.title).assertIsDisplayed()
         val after = rule.onNodeWithTag("tablet-feature-open").fetchSemanticsNode().boundsInRoot
         assertEquals(before, after)
-        rule.onNodeWithText("Jellyfin").assertIsDisplayed()
+        rule.onNodeWithText("Jellyfin").assertDoesNotExist()
         rule.onNodeWithText("Frå Jellyfin-biblioteket ditt").assertDoesNotExist()
         rule.onNodeWithTag("tablet-feature-open").performClick()
         assertEquals(next.id, opened)

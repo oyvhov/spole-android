@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="refine_show_named">Show %1$s</string>
+    <string name="refine_hide_named">Hide %1$s</string>
+    <string name="refine_delete_named">Delete %1$s</string>
+    <string name="refine_my_looks">My looks</string>
+    <string name="refine_save_look_hint">Save these visual choices with a name. Saving with the same name replaces that look.</string>
+    <string name="refine_look_name">Name</string>
+    <string name="refine_save_look">Save current look</string>
+    <string name="refine_menu_order">Menu order</string>
+    <string name="refine_order_hint">Use the eye to show or hide; use arrows to move. Changes save immediately.</string>
+    <string name="refine_group_start">Opening page</string>
+    <string name="refine_group_hero">Featured selection</string>
+    <string name="refine_group_rows">Content rows</string>
+    <string name="refine_group_colours">Colours and season</string>
+    <string name="refine_group_art">Artwork</string>
+    <string name="refine_group_reading">Reading and motion</string>
+    <string name="refine_rotate_hint">Switch between up to five films and series every eight seconds. Pauses while focused.</string>
+    <string name="refine_logo_hint">Use the film or series logo when available; otherwise show the title.</string>
+    <string name="refine_compact_hint">Make room for more rows with a shorter featured section.</string>
+    <string name="refine_motion_hint">Reduce fades and movement throughout the app.</string>
+    <string name="refine_next_hint">Show the next unwatched episode for series you follow.</string>
+    <string name="refine_ratings_hint">Show the server rating on media cards.</string>
+    <string name="refine_quality_hint">Show picture quality when the server provides it.</string>
+    <string name="refine_library_edit">Edit library page</string>
+    <string name="refine_library_edit_hint">Arrange rows and library tiles, choose artwork and hide the page heading.</string>
+    <string name="refine_library_title">Page heading</string>
+    <string name="refine_library_title_hint">Show the word Library at the top of the page.</string>
+    <string name="refine_library_wide">Wide library tiles</string>
+    <string name="refine_library_wide_hint">Use landscape tiles; turn off for square tiles.</string>
+    <string name="refine_library_tiles">Libraries</string>
+    <string name="refine_library_shelves">Library rows</string>
+    <string name="refine_coming_badge">Upcoming</string>
+    <string name="refine_missing_badge">Missing</string>
+    <string name="refine_missing_date">Released %1$s · not in library</string>
+    <string name="refine_series_page">Go to series</string>
+    <string name="refine_row_format_hint">Choose portrait or landscape for rows on Home and Library.</string>
+</resources>

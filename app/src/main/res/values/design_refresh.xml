@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="design_reduce_motion">Reduce motion</string>
+    <string name="design_hero_rotate">Rotate featured titles</string>
+    <string name="design_hero_logo">Title logos in featured</string>
+    <string name="design_hero_compact">Compact featured area</string>
+    <string name="design_start_page">Start page</string>
+    <string name="design_start_hint">Choose the page shown when Spole starts.</string>
+    <string name="design_library_hub">Library showcase</string>
+    <string name="design_library_hub_hint">Featured, continue watching and new titles from your libraries.</string>
+    <string name="design_upcoming_episodes">Upcoming episodes</string>
+    <string name="design_upcoming_hint">Show air dates from your library and Seerr. Sonarr is not required.</string>
+    <string name="design_library_lede">Find your next good watch.</string>
+    <string name="design_all">All</string>
+    <string name="design_movies">Movies</string>
+    <string name="design_series">Series</string>
+    <string name="design_collections">Collections</string>
+    <string name="design_browse_all">Browse all</string>
+    <string name="design_coming_on">Airs %1$s</string>
+    <string name="design_not_available">Not in library</string>
+    <string name="design_date_unknown">Date not announced</string>
+    <string name="design_upcoming_failed">Could not load extra air dates. Library episodes are ready.</string>
+    <string name="design_looks">Choose a look</string>
+    <string name="design_look_cinema">Cinema</string>
+    <string name="design_look_compact">Compact</string>
+    <string name="design_look_comfort">Comfort</string>
+    <string name="design_look_hint">Preview below. Every setting can be adjusted individually.</string>
+    <string name="design_alphabet">A–Z</string>
+    <string name="design_show_upcoming">Show upcoming</string>
+    <string name="design_hide_upcoming">Hide upcoming</string>
+    <string name="design_home_preview">Your home preview</string>
+</resources>

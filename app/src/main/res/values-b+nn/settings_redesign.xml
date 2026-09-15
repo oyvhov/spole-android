@@ -1,8 +1,5 @@
 <resources>
     <string name="settings_menu_required">Alltid tilgjengeleg</string>
-    <string name="settings_menu_visible">Synleg i menyen</string>
-    <string name="settings_menu_hidden">Skjult frå menyen</string>
-    <string name="settings_menu_show">Vis i menyen</string>
     <string name="theme_background">Bakgrunn</string>
     <string name="theme_forest">Skog · mjuk kolgrå</string>
     <string name="theme_midnight">Midnatt · djup blå</string>
@@ -35,7 +32,7 @@
     <string name="settings_tv_rows">Rader på Heim</string>
     <string name="settings_tv_rows_hint">Vis eller skjul dei enkelte radene.</string>
     <string name="settings_tv_library_hint">Vel bibliotek som skal lastast, og legg snarvegar i menyen.</string>
-    <string name="watching_order_hint">Blanda etter siste sjåaktivitet. Neste episode bruker tidspunktet for den sist sette episoden i serien.</string>
+    <string name="watching_order_hint">Hald fram og neste episode i éi rad, med sist sett først.</string>
     <string name="settings_tv_menu_hint">Flytt sider med pilene. Heim og Innstillingar er alltid tilgjengelege.</string>
     <string name="settings_tv_startup_hint">Ein rolegare logoanimasjon medan innhaldet blir lasta.</string>
     <string name="settings_tv_hero_hint">Ein utvald tittel over radene dine.</string>

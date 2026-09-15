@@ -121,6 +121,7 @@ fun LibraryDisplayPanel(
 }
 
 /** One labelled group of mutually exclusive chips. Shared with the filter bar. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun <T> Segments(
     label: String,
@@ -132,7 +133,7 @@ internal fun <T> Segments(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = Muted)
-        Row(
+        FlowRow(
             Modifier.selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
@@ -157,9 +158,9 @@ fun Chip(
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(9.dp)
+    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner)
     Box(
-        Modifier.heightIn(min = 36.dp)
+        Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
             .clip(shape)
             .background(if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
             .focusOutline(interaction, shape)
@@ -195,5 +196,9 @@ fun Chip(
 fun LibraryArtType.applyTo(url: String?): String? {
     val address = url ?: return null
     val wanted = api ?: return address
-    return address.replace(Regex("/Images/(Primary|Thumb|Banner|Logo|Backdrop)"), "/Images/$wanted")
+    val originalType = Regex("/Images/(Primary|Thumb|Banner|Logo|Backdrop)").find(address)?.groupValues?.get(1)
+    if (originalType == wanted) return address
+    // Image tags identify one particular image, not the title. Never carry a poster tag to a logo.
+    val replaced = address.replace(Regex("/Images/(Primary|Thumb|Banner|Logo|Backdrop)"), "/Images/$wanted")
+    return replaced.replace(Regex("([?&])tag=[^&]*&?")) { match -> if (match.value.endsWith("&")) match.groupValues[1] else "" }
 }

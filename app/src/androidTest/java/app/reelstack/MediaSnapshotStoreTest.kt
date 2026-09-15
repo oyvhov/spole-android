@@ -100,6 +100,8 @@ class MediaSnapshotStoreTest {
                 ServiceKind.JELLYFIN, artworkUrl = "https://media.example/Items/series-id/Images/Primary",
                 remoteId = "episode-id", mediaType = "Episode", lastActivityEpochMillis = 2000)),
             upcoming = emptyList(),
+            favourites = listOf(LibraryMedia("favourite", "Favourite", "", null, R.drawable.media_placeholder,
+                ServiceKind.JELLYFIN, favourite = true, mediaType = "Movie")),
             recentReleases = listOf(
                 UpcomingMedia(
                     id = "recent-release-1",
@@ -137,9 +139,12 @@ class MediaSnapshotStoreTest {
 
         assertEquals(emptyList<PlaybackSession>(), restored?.sessions)
         assertEquals("The Odyssey", restored?.recentMovies?.single()?.title)
+        assertEquals("favourite", restored?.favourites?.single()?.id)
+        assertEquals(true, restored?.favourites?.single()?.favourite)
         assertEquals(1000L, restored?.resume?.single()?.lastActivityEpochMillis)
         assertEquals(2000L, restored?.nextUp?.single()?.lastActivityEpochMillis)
-        assertNull(restored?.nextUp?.single()?.artworkUrl)
+        // Even a legacy portrait remains visible: the renderer fits it before its first frame.
+        assertEquals("https://media.example/Items/series-id/Images/Primary", restored?.nextUp?.single()?.artworkUrl)
         assertEquals(listOf("next", "resume"), app.reelstack.data.model.combinedWatching(restored!!.resume, restored.nextUp).map { it.id })
         assertEquals(R.drawable.media_placeholder, restored?.recentMovies?.single()?.artworkRes)
         assertEquals(6, restored?.discover?.single()?.seerrStatus)

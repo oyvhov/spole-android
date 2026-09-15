@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="design_reduce_motion">Rolige overganger</string>
+    <string name="design_hero_rotate">Roter utvalget</string>
+    <string name="design_hero_logo">Filmlogo i utvalget</string>
+    <string name="design_hero_compact">Kompakt utvalg</string>
+    <string name="design_start_page">Startside</string>
+    <string name="design_start_hint">Velg siden som åpner når du starter Spole.</string>
+    <string name="design_library_hub">Bibliotekoversikt</string>
+    <string name="design_library_hub_hint">Utvalg, se videre og nye titler fra bibliotekene dine.</string>
+    <string name="design_upcoming_episodes">Kommende episoder</string>
+    <string name="design_upcoming_hint">Vis premieredatoer fra biblioteket og Seerr. Krever ikke Sonarr.</string>
+    <string name="design_library_lede">Neste gode opplevelse ligger her.</string>
+    <string name="design_all">Alt</string>
+    <string name="design_movies">Filmer</string>
+    <string name="design_series">Serier</string>
+    <string name="design_collections">Samlinger</string>
+    <string name="design_browse_all">Bla i alt</string>
+    <string name="design_coming_on">Kommer %1$s</string>
+    <string name="design_not_available">Ikke i biblioteket</string>
+    <string name="design_date_unknown">Dato ikke kunngjort</string>
+    <string name="design_upcoming_failed">Kunne ikke hente flere premieredatoer. Episodene i biblioteket er klare.</string>
+    <string name="design_looks">Velg uttrykk</string>
+    <string name="design_look_cinema">Filmrom</string>
+    <string name="design_look_compact">Oversikt</string>
+    <string name="design_look_comfort">Komfort</string>
+    <string name="design_look_hint">Se resultatet under. Du kan finjustere hvert valg.</string>
+    <string name="design_alphabet">A–Å</string>
+    <string name="design_show_upcoming">Vis kommende</string>
+    <string name="design_hide_upcoming">Skjul kommende</string>
+    <string name="design_home_preview">Slik blir forsiden</string>
+</resources>
