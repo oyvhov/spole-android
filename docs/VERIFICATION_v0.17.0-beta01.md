@@ -21,6 +21,14 @@ Endringane er gjennomgåtte og dokumenterte i [designløftet](DESIGN_REFRESH_202
 
 ## Publisering og oppdateringsflyt
 
-Resultatet av offentleg nedlasting, asset-digest og installasjon gjennom appen blir ført i ein etterfølgjande rapport-commit, utan å flytte release-taggen.
+- Kjeldecommit og uendra release-tag: `7d74bf7c2f63f17141292c10800cb56f4f1ea80d`.
+- GitHub-release `v0.17.0-beta01` er offentleg, ikkje draft, og merkt prerelease. Stabil `latest` er framleis `v0.16.1`.
+- Nøyaktig éin APK er lasta opp, saman med `SHA256SUMS.txt`, korrekt R8-mapping og `SOURCE_COMMIT.txt`.
+- Release-lista er henta utan Authorization-header. Asset-digest og storleik samsvarer med det lokale bygget.
+- APK-en er lasta ned på nytt frå den offentlege release-lenkja. SHA-256 samsvarer med `65728b423ca240623268e5985dead19db5337a5a6970239024d4d30842eb735f`.
+- På den faste TV-profilen 5564 med kode 79 vart Testutgåver slått på. Appoppdateringar → Sjekk no fann `v0.17.0-beta01`. Last ned fullførte, og appen viste Installer etter kontroll av pakken.
+- Android-løyvet for installasjon frå Spole måtte aktiverast. TV-en hadde både debug- og produksjonsappen med same namn; løyvet vart avgrensa til produksjonspakken med ADB, og debug-pakken vart sett tilbake til standard. Sjølve nedlastinga og pakkeverifikasjonen gjekk gjennom appen, og Android sin Update-dialog vart godkjend i UI.
+- Android rapporterte «App installed». Installert pakke er kontrollert som `0.17.0-beta01`, kode 80. Oppstart via Open viste det ekte biblioteket og tidlegare utsjånad/menyval utan ny innlogging. Kontoar og appdata er bevarte.
+- Dette er ein vellukka ende-til-ende-test av GitHub-oppdateringa på TV, ikkje berre `adb install -r`. Ingen ny APK eller flytting av taggen vart gjort etter publisering.
 
 Private skjermbilete, kontoar, signeringsfiler, emulator-data og testloggar skal ikkje publiserast. R8-mapping og kjeldecommit blir lagde ved APK-en som eigne release-assets.
