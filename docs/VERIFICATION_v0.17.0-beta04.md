@@ -21,7 +21,16 @@
 ## Installering og grenser
 
 - Endeleg signert APK installert med `install -r` på lagra review-mobil 5560. Mobilen viste onboarding før oppdatering; eksisterande tilstand vart bevart. Dette er ikkje prov på innlogga mobilkontoar.
-- Ekte TV 5564 blir halden på beta03 til offentleg GitHub-oppdatering kan prøvast. Endeleg resultat blir lagt til etter publisering.
-- Reelle Emby-filmar, avspeling, bibliotek, Rotten Tomatoes og tenarbyte vart kontrollerte i dei føregåande lokale bygga; sjå EMBY_CINEMATIC_DETAILS.md. Endeleg TV-utsjånad blir kontrollert etter oppdateringa.
+- Ekte TV 5564 vart oppdatert frå beta03 gjennom Spole sin eigen GitHub-flyt etter publisering: Sjekk no viste beta04, Last ned fullførte kontrollen, Installer opna Android-dialogen, og Update installerte versjonskode 83. Dette var ikkje `adb install` på TV-en.
+- Reelle Emby-filmar, avspeling, bibliotek, Rotten Tomatoes og tenarbyte vart kontrollerte i dei føregåande lokale bygga; sjå EMBY_CINEMATIC_DETAILS.md. Etter GitHub-oppdateringa viste TV-en ekte innhald og lagra profil att, utan ny innlogging. Blå aksent og eksisterande utsjånadsval var bevarte.
+- Endeleg TV-hero og detaljbakgrunn er visuelt kontrollerte. Ekte Jellyfin-episode vart spelt til 0:06 og pausa; clearlogo og S1 - E5 hadde felles venstrekant i OSD. Avspelinga vart avslutta etter kontrollen. Private bilete ligg berre i ignorert `app/build/spole-beta04-*.png`.
+
+## Offentleg oppdatering
+
+- Publisert prerelease: https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta04
+- APK: https://github.com/oyvhov/spole-android/releases/download/v0.17.0-beta04/Spole-v0.17.0-beta04.apk
+- Release-kjelde: `fe6e1e34dd529d7b5e55281b032aad2258a235a0`.
+- Offentleg metadata henta utan autentisering: ikkje draft, éin APK, riktig storleik og digest.
+- Offentleg nedlastingsfil har same SHA-256 som den bygde APK-en. Mapping og SOURCE_COMMIT er lasta opp.
 - Ingen emulatorbrukardata, kontoar, passord eller signeringsnøklar er del av release-kjelda.
 - Alle HDR-/surround-/undertekstkombinasjonar og automatisk episodeskifte på fysisk TV er ikkje fullstendig verifiserte. Live-TV, platemenyar og offline-nedlasting er ikkje implementerte.
