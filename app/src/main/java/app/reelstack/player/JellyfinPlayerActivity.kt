@@ -79,6 +79,7 @@ private enum class PlayerMenu(val label: Int) {
 }
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
+    private var originalDisplayModeId: Int? = null
     private var miniPlayer by mutableStateOf(false)
     private var enteringMini = false
     internal fun openMiniPlayer() {
@@ -99,6 +100,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        originalDisplayModeId = window.attributes.preferredDisplayModeId.takeIf { it > 0 }
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         enterFullscreen()
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
@@ -122,6 +124,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
             ReelstackTheme {
                 LaunchedEffect(id, service) { model.open(id, preferredAudio, preferredSubtitle, preferredSource, service) }
                 val state by model.state.collectAsStateWithLifecycle()
+                LaunchedEffect(state.videoFrameRate) { matchDisplayRate(state.videoFrameRate) }
                 DisposableEffect(state.playing, state.busy) {
                     if (state.playing || state.busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -140,6 +143,23 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                     onMiniPlayer = if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) ::openMiniPlayer else null)
             }
         }
+    }
+    private fun matchDisplayRate(frameRate: Float) {
+        if (frameRate <= 0f || !isTelevisionDevice()) return
+        val display = windowManager.defaultDisplay
+        val mode = display.supportedModes.minByOrNull { candidate ->
+            val refreshDifference = kotlin.math.abs(candidate.refreshRate - frameRate)
+            if (refreshDifference <= 0.6f) refreshDifference else 100f + refreshDifference
+        } ?: return
+        if (kotlin.math.abs(mode.refreshRate - frameRate) <= 0.6f) {
+            window.attributes = window.attributes.apply { preferredDisplayModeId = mode.modeId }
+        }
+    }
+    private fun isTelevisionDevice() = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    override fun onDestroy() {
+        originalDisplayModeId?.let { id -> window.attributes = window.attributes.apply { preferredDisplayModeId = id } }
+        super.onDestroy()
     }
     private fun enterFullscreen() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -209,6 +229,11 @@ fun PlayerScreen(
     var fillVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf<PlayerMenu?>(null) }
+    var statsVisible by remember { mutableStateOf(false) }
+    var statsTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(statsVisible) {
+        while (statsVisible) { delay(500); statsTick++ }
+    }
     var playbackSpeed by remember(player) { mutableFloatStateOf(player?.playbackParameters?.speed ?: 1f) }
     var scrubbing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -382,7 +407,8 @@ fun PlayerScreen(
                 onToggle, onSeek, { menu = PlayerMenu.AUDIO }, { menu = PlayerMenu.SUBTITLES },
                 { menu = PlayerMenu.QUALITY }, fillVideo, { fillVideo = !fillVideo },
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
-                onSpeed = { menu = PlayerMenu.SPEED }, onChapters = { menu = PlayerMenu.CHAPTERS })
+                onSpeed = { menu = PlayerMenu.SPEED }, onChapters = { menu = PlayerMenu.CHAPTERS },
+                onStats = { statsVisible = !statsVisible })
             if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                 Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
                     .padding(horizontal = 48.dp, vertical = 27.dp).onFocusChanged { nextHasFocus = it.hasFocus })
@@ -433,7 +459,7 @@ fun PlayerScreen(
                             Icon(app.reelstack.ui.components.SpoleIcons.Alert, null, tint = MaterialTheme.colorScheme.error)
                             Text(state.error, modifier = Modifier.padding(vertical = 12.dp))
                             Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
-                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onExternal) { Text(stringResource(R.string.player_external)) }
+                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onExternal) { Text(stringResource(R.string.player_external, state.source.displayName)) }
                         }
                     } else {
                         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
@@ -501,18 +527,17 @@ fun PlayerScreen(
                             Text(playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs)); Text(playbackTime(state.durationMs))
                         }
                         FlowRow(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.SPEED }, modifier = Modifier.testTag("player-speed")) { Text(stringResource(R.string.phase_speed)) }
-                            if (state.chapters.isNotEmpty()) app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.CHAPTERS }, modifier = Modifier.testTag("player-chapters")) { Text(stringResource(R.string.phase_chapters)) }
-                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Sound, null); Text(stringResource(R.string.player_audio)) }
-                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Subtitles, null); Text(stringResource(R.string.player_subtitles_button)) }
-                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy) { Icon(app.reelstack.ui.components.SpoleIcons.Tune, null); Text(stringResource(R.string.player_quality)) }
-                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.testTag("player-frame-mode")) {
-                                Icon(if (fillVideo) app.reelstack.ui.components.SpoleIcons.Contract else app.reelstack.ui.components.SpoleIcons.Expand, null)
-                                Text(stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill))
-                            }
+                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.PlaySimple, stringResource(R.string.phase_speed), "player-speed", labelVisible = true) { menu = PlayerMenu.SPEED }
+                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", "player-stats", labelVisible = true) { statsVisible = !statsVisible }
+                            if (state.chapters.isNotEmpty()) TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters", labelVisible = true) { menu = PlayerMenu.CHAPTERS }
+                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Sound, stringResource(R.string.player_audio), "player-audio", enabled = state.audio.isNotEmpty() && !state.busy, labelVisible = true) { menu = PlayerMenu.AUDIO }
+                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Subtitles, stringResource(R.string.player_subtitles_button), "player-subtitles", enabled = state.subtitles.isNotEmpty() && !state.busy, labelVisible = true) { menu = PlayerMenu.SUBTITLES }
+                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_quality), "player-quality", enabled = !state.busy, labelVisible = true) { menu = PlayerMenu.QUALITY }
+                            TvPlayerAction(if (fillVideo) app.reelstack.ui.components.SpoleIcons.Contract else app.reelstack.ui.components.SpoleIcons.Expand,
+                                stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill), "player-frame-mode", labelVisible = true) { fillVideo = !fillVideo; interaction++ }
                             if (!isTelevision) IconButton(onClick = onRotate) { Icon(app.reelstack.ui.components.SpoleIcons.Rotate, stringResource(R.string.player_rotate)) }
                         }
-                        Text(if (state.direct) stringResource(R.string.player_direct) else stringResource(R.string.player_transcoded), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Text(stringResource(if (state.direct) R.string.player_direct else R.string.player_transcoded, state.source.displayName), color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelMedium)
                         state.warning?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
                     }
@@ -522,21 +547,33 @@ fun PlayerScreen(
             }
         }
         }
+        if (statsVisible && player != null && !state.browsing) {
+            val _tick = statsTick
+            Surface(
+                modifier = Modifier.align(Alignment.TopStart).padding(24.dp).testTag("player-stats-overlay"),
+                color = Color.Black.copy(alpha = .78f), shape = RoundedCornerShape(8.dp),
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Stats for Nerds", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("${state.source.displayName} · ${if (state.direct) "Direct Play" else "Transcode"}", color = Color.White)
+                    Text("${state.videoCodec ?: "ukjent"} · ${state.videoWidth}×${state.videoHeight} · ${state.videoBitrate.takeIf { it > 0 }?.let { "${it / 1_000_000} Mbps" } ?: "bitrate ?"}", color = Color.White)
+                    Text("${state.videoHdr} · ${state.videoFrameRate.takeIf { it > 0 }?.let { "%.2f fps".format(it) } ?: "fps ?"}", color = Color.White)
+                    Text("Buffer ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${if (player.isPlaying) "Playing" else "Paused"}", color = Color.White)
+                }
+            }
+        }
         menu?.let { title ->
             val selectedTrackFocus = remember(title) { FocusRequester() }
             LaunchedEffect(title) {
                 withFrameNanos { }
                 runCatching { selectedTrackFocus.requestFocus() }
             }
-            AlertDialog(onDismissRequest = { menu = null; if (isTelevision) { controls = false; dismissedControls = true } }, title = { Text(stringResource(title.label)) },
-                containerColor = if (isTelevision) Color(0xFF181A1C) else MaterialTheme.colorScheme.surface,
-                titleContentColor = if (isTelevision) Color.White else MaterialTheme.colorScheme.onSurface,
-                textContentColor = if (isTelevision) Color.White else MaterialTheme.colorScheme.onSurface,
-                text = {
+            app.reelstack.ui.components.SpoleChoiceDialog(stringResource(title.label),
+                onDismiss = { menu = null; if (isTelevision) { controls = false; dismissedControls = true } }, content = {
                     val options = when (title) {
                         PlayerMenu.AUDIO -> state.audio.map { it.index to it.label }
                         PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }
-                        PlayerMenu.SPEED -> listOf(75, 100, 125, 150, 200).map { it to "${it / 100f}×" }
+                        PlayerMenu.SPEED -> listOf(50, 75, 100, 125, 150, 200).map { it to "${it / 100f}×" }
                         PlayerMenu.CHAPTERS -> state.chapters.mapIndexed { index, chapter -> index to "${playbackTime(chapter.startPositionMs)} · ${chapter.name}" }
                         else -> listOf(0 to stringResource(R.string.player_auto), 80_000_000 to stringResource(R.string.player_quality_ultra),
                             20_000_000 to stringResource(R.string.player_quality_high), 4_000_000 to stringResource(R.string.player_medium_data), 2_000_000 to stringResource(R.string.player_low_data))
@@ -555,7 +592,6 @@ fun PlayerScreen(
                         options.forEachIndexed { index, (id, label) ->
                             val selected = id == selectedId
                             val initialFocus = selected || (index == 0 && options.none { it.first == selectedId })
-                            val choiceInteraction = remember(title, id) { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             val choose: () -> Unit = {
                                 when (title) {
                                     PlayerMenu.AUDIO -> onAudio(id)
@@ -566,25 +602,9 @@ fun PlayerScreen(
                                 }
                                 menu = null; interaction++
                             }
-                            OutlinedButton(onClick = choose, interactionSource = choiceInteraction,
-                                shape = RoundedCornerShape(12.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .2f)),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White,
-                                    containerColor = if (selected) Color.White.copy(alpha = .12f) else Color.Transparent),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                    .then(if (initialFocus) Modifier.focusRequester(selectedTrackFocus) else Modifier)
-                                    .neutralPlayerFocus(choiceInteraction, RoundedCornerShape(12.dp))) {
-                                if (selected) Icon(app.reelstack.ui.components.SpoleIcons.Done, null, Modifier.padding(end = 8.dp))
-                                Text(label, Modifier.weight(1f))
-                            }
+                            app.reelstack.ui.components.SpoleChoiceRow(label, selected,
+                                Modifier.then(if (initialFocus) Modifier.focusRequester(selectedTrackFocus) else Modifier), choose)
                         }
-                    }
-                }, confirmButton = {
-                    val closeInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                    TextButton(onClick = { menu = null }, interactionSource = closeInteraction,
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
-                        modifier = Modifier.heightIn(min = 48.dp).neutralPlayerFocus(closeInteraction, RoundedCornerShape(12.dp))) {
-                        Text(stringResource(R.string.action_close))
                     }
                 })
         }

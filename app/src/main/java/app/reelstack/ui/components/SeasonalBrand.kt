@@ -92,14 +92,15 @@ internal fun SeasonalBackdrop(modifier: Modifier = Modifier, menu: Boolean = fal
     if (season == Season.NONE) return
     Canvas(modifier.testTag("season-backdrop-$season").clearAndSetSemantics { }) {
         val tint = if (season == Season.CHRISTMAS) Color(0xFF94713D) else Color(0xFF75428E)
-        drawRect(Brush.linearGradient(listOf(tint.copy(alpha = if (menu) .22f else .16f),
+        // The page and hero fade must share exactly the same background colour.
+        if (menu) drawRect(Brush.linearGradient(listOf(tint.copy(alpha = .22f),
             Color.Transparent, tint.copy(alpha = .08f))))
         if (options.seasonalOrnament) {
             // Decoration stays at the edge, away from menu labels and the reading column.
             val menuTop = size.height - 100.dp.toPx()
             if (menu) withTransform({ translate(0f, menuTop) }) {
                 drawSeasonScene(season, 0f, true)
-            } else drawSeasonScene(season, 0f)
+            } else drawSeasonScene(season, 0f, true)
         }
     }
 }
@@ -128,6 +129,33 @@ internal fun DrawScope.drawSeasonScene(season: Season, time: Float, prominent: B
         val star = Offset(right - edge * .43f, minOf(size.height * .64f, edge * .80f))
         drawStar(star, edge * .15f, gold)
         drawStar(Offset(right - edge * .91f, edge * .49f), edge * .065f, gold.copy(alpha = .7f))
+        repeat(3) { index ->
+            val x = right - edge * (1.28f - index * .32f)
+            val y = edge * (.36f + index * .08f)
+            drawLine(gold.copy(alpha = .7f), Offset(x, edge * .12f), Offset(x, y), 1.dp.toPx())
+            drawOval(if (index % 2 == 0) Color(0xFFCC4E5C) else gold,
+                Offset(x - edge * .045f, y), Size(edge * .09f, edge * .12f))
+        }
+        if (!prominent && size.height > edge * 2f) {
+            val base = Offset(right - edge * .38f, size.height * .87f)
+            val tree = Path().apply {
+                moveTo(base.x, base.y - edge * .72f)
+                lineTo(base.x - edge * .30f, base.y)
+                lineTo(base.x + edge * .30f, base.y); close()
+            }
+            drawPath(tree, pine.copy(alpha = .9f))
+            drawLine(Color(0xFFD4AA76), base, base + Offset(0f, edge * .07f), 4.dp.toPx())
+            drawStar(base - Offset(0f, edge * .73f), edge * .075f, gold)
+            repeat(4) { index ->
+                val y = base.y - edge * (.12f + index * .13f)
+                val spread = edge * (.19f - index * .035f)
+                drawLine(gold.copy(alpha = .8f), Offset(base.x - spread, y), Offset(base.x + spread, y + edge * .04f), 1.dp.toPx())
+            }
+            val gift = base + Offset(-edge * .49f, -edge * .06f)
+            drawRect(Color(0xFFC74F5B), gift, Size(edge * .22f, edge * .16f))
+            drawLine(gold, gift + Offset(edge * .11f, 0f), gift + Offset(edge * .11f, edge * .16f), 2.dp.toPx())
+            drawStar(Offset(right - edge * 1.2f, edge * .85f), edge * .065f, gold.copy(alpha = .8f))
+        }
     } else {
         val web = Color(0xFFD8D1E9).copy(alpha = .48f)
         val corner = Offset(right, 0f)
@@ -152,8 +180,34 @@ internal fun DrawScope.drawSeasonScene(season: Season, time: Float, prominent: B
         if (!prominent) {
             drawGhost(Offset(right - edge * .34f, size.height * .77f + sin(time + 2f) * 3.dp.toPx()), edge * .28f, .65f)
             drawSpider(Offset(right - edge * 1.17f, edge * .22f), edge * .09f)
+            if (size.height > edge * 2f) {
+                drawPumpkin(Offset(right - edge * .85f, size.height * .86f), edge * .26f)
+                drawPumpkin(Offset(right - edge * .32f, size.height * .90f), edge * .18f)
+            }
         }
     }
+}
+
+private fun DrawScope.drawPumpkin(center: Offset, radius: Float) {
+    drawLine(Color(0xFF71925A), center - Offset(0f, radius * .65f), center - Offset(-radius * .12f, radius * 1.1f), radius * .15f)
+    for (i in -1..1) drawOval(Color(if (i == 0) 0xFFE99A40 else 0xFFD17A32),
+        center + Offset(radius * (i * .42f - .58f), -radius * .7f), Size(radius * 1.16f, radius * 1.4f))
+    val face = Path().apply {
+        moveTo(center.x - radius * .6f, center.y - radius * .05f)
+        lineTo(center.x - radius * .3f, center.y - radius * .35f)
+        lineTo(center.x - radius * .1f, center.y - radius * .02f); close()
+        moveTo(center.x + radius * .1f, center.y - radius * .02f)
+        lineTo(center.x + radius * .3f, center.y - radius * .35f)
+        lineTo(center.x + radius * .6f, center.y - radius * .05f); close()
+        moveTo(center.x - radius * .5f, center.y + radius * .18f)
+        lineTo(center.x - radius * .2f, center.y + radius * .35f)
+        lineTo(center.x, center.y + radius * .23f)
+        lineTo(center.x + radius * .2f, center.y + radius * .35f)
+        lineTo(center.x + radius * .5f, center.y + radius * .18f)
+        lineTo(center.x + radius * .3f, center.y + radius * .5f)
+        lineTo(center.x - radius * .3f, center.y + radius * .5f); close()
+    }
+    drawPath(face, Color(0xFF312139))
 }
 
 private fun DrawScope.drawStar(center: Offset, radius: Float, tint: Color) {

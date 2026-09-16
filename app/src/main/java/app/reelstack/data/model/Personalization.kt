@@ -125,6 +125,8 @@ data class Personalization(
      */
     val seasonalOrnament: Boolean = true,
     val subtitleStyle: SubtitleStyle = SubtitleStyle.CLEAN,
+    val preferredSubtitleLanguage: SubtitleLanguage = SubtitleLanguage.NORWEGIAN,
+    val fallbackSubtitleLanguage: SubtitleLanguage = SubtitleLanguage.ENGLISH,
     val showLibraryCardNames: Boolean = true,
     val watchNextEnabled: Boolean = false,
 )

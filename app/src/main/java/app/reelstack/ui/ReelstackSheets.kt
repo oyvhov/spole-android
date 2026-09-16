@@ -825,8 +825,9 @@ private fun MediaTrackChoices(
 ) {
     if (details.audioTracks.isEmpty() && details.subtitleTracks.isEmpty() && details.versions.isEmpty()) return
     val selectedAudio = audio ?: details.audioTracks.firstOrNull { it.isDefault }?.index ?: details.audioTracks.firstOrNull()?.index
-    // No stored default means no subtitles, which is what the server does too.
-    val selectedSubtitle = subtitle ?: details.subtitleTracks.firstOrNull { it.isDefault }?.index ?: -1
+    val preferences = app.reelstack.ui.theme.LocalPersonalization.current
+    val selectedSubtitle = subtitle ?: app.reelstack.data.model.preferredSubtitleIndex(details.subtitleTracks,
+        preferences.preferredSubtitleLanguage, preferences.fallbackSubtitleLanguage)
     Column(Modifier.fillMaxWidth().padding(top = 16.dp).testTag("detail-tracks"),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // One track is a fact, not a choice: a single highlighted chip looks like something to
@@ -905,28 +906,18 @@ private fun TrackChooser(label: String, tag: String, options: List<Pair<Int, Str
             tag = "detail-$tag-open",
         ) { open = true }
     }
-    if (open) AlertDialog(
-        onDismissRequest = { open = false },
-        title = { Text(label) },
-        text = {
+    if (open) app.reelstack.ui.components.SpoleChoiceDialog(
+        onDismiss = { open = false },
+        title = label,
+        content = {
             LazyColumn {
                 items(options) { (index, name) ->
-                    app.reelstack.ui.components.SpoleSecondaryButton(
+                    app.reelstack.ui.components.SpoleChoiceRow(name, index == current.first,
                         onClick = { onSelect(index); open = false },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("detail-$tag-$index"),
-                    ) {
-                        // The current one keeps a mark rather than a highlight, so a list of forty
-                        // reads as a list and not as forty buttons in two colours.
-                        Text(
-                            if (index == current.first) "✓  $name" else name,
-                            color = if (index == current.first) Primary else MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
+                    )
                 }
             }
-        },
-        confirmButton = {
-            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) }
         },
     )
 }

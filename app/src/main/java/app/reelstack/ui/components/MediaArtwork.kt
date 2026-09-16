@@ -14,6 +14,8 @@ import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.request.allowHardware
+import coil3.request.transformations
 import app.reelstack.ReelstackApplication
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.network.jellyfinAuthorization
@@ -36,17 +38,19 @@ fun MediaArtwork(
      */
     onAspectRatio: ((Float) -> Unit)? = null,
     alignment: androidx.compose.ui.Alignment = androidx.compose.ui.Alignment.Center,
+    trimTransparent: Boolean = false,
 ) {
     val context = LocalContext.current
     val fallback = if (fallbackRes != 0) painterResource(fallbackRes) else null
     // One binder call per frame per poster is what this used to be. The theme reads it once.
     val fadeDuration = if (app.reelstack.ui.theme.LocalMotionEnabled.current) crossfadeDurationMillis else 0
-    val model = remember(url, fallbackRes, source, fadeDuration) {
+    val model = remember(url, fallbackRes, source, fadeDuration, trimTransparent) {
         runCatching {
             val builder = ImageRequest.Builder(context)
                 .data(url ?: fallbackRes.takeIf { it != 0 })
                 .crossfade(fadeDuration)
             if (url != null) MediaAuthHeaders.forUrl(context, source, url)?.let(builder::httpHeaders)
+            if (trimTransparent) builder.allowHardware(false).transformations(ClearLogoTransformation)
             builder.build()
         }.getOrElse {
             ImageRequest.Builder(context)

@@ -180,6 +180,8 @@ data class RemoteMediaDetails(
     val episode: Int? = null,
     val trailerUrl: String? = null,
     val criticRating: Int? = null,
+    val tmdbRating: Float? = null,
+    val mdblistRating: Float? = null,
 )
 
 data class RemoteRequest(
@@ -642,6 +644,12 @@ object ServicePayloadParser {
             progress = progress,
             criticRating = (item.double("CriticRating") ?: item.double("criticRating"))
                 ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.let { kotlin.math.round(it).toInt() },
+            tmdbRating = (item.double("TmdbRating") ?: item.double("TMDBRating")
+                ?: item.double("CommunityRating")?.times(10.0))
+                ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.toFloat(),
+            mdblistRating = (item.double("MdbListRating") ?: item.double("MDBListRating")
+                ?: item.double("MdbList"))?.let { if (it <= 10.0) it * 10.0 else it }
+                ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.toFloat(),
             remainingMinutes = if (runtime != null && runtime > 0 && position != null)
                 kotlin.math.ceil((runtime - position).coerceAtLeast(0).toDouble() / TICKS_PER_MINUTE).toInt() else null,
             quality = quality,
@@ -702,6 +710,7 @@ object ServicePayloadParser {
                 language = language,
                 isDefault = stream["IsDefault"]?.jsonPrimitive?.booleanOrNull == true,
                 forced = stream["IsForced"]?.jsonPrimitive?.booleanOrNull == true,
+                codec = stream.string("Codec")?.takeIf(String::isNotBlank),
             )
         }
 

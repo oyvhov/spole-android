@@ -64,7 +64,7 @@
     <string name="player_available">In your library</string>
     <string name="player_no_episodes">No available episodes here yet.</string>
     <string name="player_restart">Play from the beginning</string>
-    <string name="player_external">Open in Jellyfin</string>
+    <string name="player_external">Open in %1$s</string>
     <string name="player_rewind">Back 10 seconds</string>
     <string name="player_forward">Forward 10 seconds</string>
     <string name="player_pause">Pause</string>
@@ -76,8 +76,8 @@
     <string name="player_subtitles_button">Subtitles</string>
     <string name="player_quality">Quality</string>
     <string name="player_rotate">Rotate screen</string>
-    <string name="player_direct">Direct from Jellyfin</string>
-    <string name="player_transcoded">Adapted playback from Jellyfin</string>
+    <string name="player_direct">Direct from %1$s</string>
+    <string name="player_transcoded">Adapted playback from %1$s</string>
     <string name="player_off">Off</string>
     <string name="player_auto">Automatic</string>
     <string name="player_medium_data">Less data · 4 Mbit/s</string>

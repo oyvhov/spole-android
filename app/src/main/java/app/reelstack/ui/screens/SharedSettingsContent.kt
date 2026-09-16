@@ -68,6 +68,7 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
                     options.watchNextEnabled, "watch-next") { change(options.copy(watchNextEnabled = it)) }
             SettingsToggleRow(stringResource(R.string.personal_resume), stringResource(R.string.personal_resume_note),
                 options.autoResume, "auto-resume") { change(options.copy(autoResume = it)) }
+            SubtitleLanguageSettings(options, change)
             NextEpisodeSettings(options, change)
             SettingsToggleRow(stringResource(R.string.tv_slow_startup), stringResource(R.string.settings_tv_startup_hint),
                 options.slowStartup, "slow-startup") { change(options.copy(slowStartup = it)) }

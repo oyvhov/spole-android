@@ -7,6 +7,25 @@ import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 
 class WatchingOrderTest {
+    @Test fun combinedWatchingRowsNeverMixSourcesEvenWithIdenticalIds() {
+        val jellyfin = media("same", 10, .4f)
+        val emby = jellyfin.copy(source = ServiceKind.EMBY, progress = .8f)
+        val result = watchingBySource(listOf(jellyfin, emby), listOf(
+            jellyfin.copy(progress = null), emby.copy(id = "next", lastActivityEpochMillis = 20)))
+        assertEquals(listOf("same"), result.getValue(ServiceKind.JELLYFIN).map { it.id })
+        assertEquals(listOf("next", "same"), result.getValue(ServiceKind.EMBY).map { it.id })
+        result.forEach { (source, items) -> assertTrue(items.all { it.source == source }) }
+        assertEquals(.8f, result.getValue(ServiceKind.EMBY).last().progress!!, .001f)
+    }
+
+    @Test fun separateRowsKeepProviderOrderAndOmitEmptySources() {
+        val items = listOf(media("old", 10), media("new", 20))
+        assertEquals(mapOf(ServiceKind.JELLYFIN to items), watchingBySource(items))
+        assertTrue(watchingBySource(emptyList()).isEmpty())
+        val embyNext = media("next").copy(source = ServiceKind.EMBY)
+        assertEquals(mapOf(ServiceKind.EMBY to listOf(embyNext)), watchingBySource(emptyList(), listOf(embyNext)))
+    }
+
     private fun media(id: String, time: Long? = null, progress: Float? = null) = LibraryMedia(id, id, "", progress,
         0, ServiceKind.JELLYFIN, lastActivityEpochMillis = time)
 

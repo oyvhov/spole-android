@@ -48,7 +48,7 @@ internal fun TvCinematicDetails(
             Box(Modifier.fillMaxWidth().height(maxHeight)) {
                 MediaArtwork(details.backdropUrl ?: details.artworkUrl, null, Modifier.matchParentSize(),
                     fallbackRes = details.artworkRes, contentScale = ContentScale.Crop,
-                    source = details.source, protectAspectRatio = false)
+                    source = details.source, protectAspectRatio = false, alignment = Alignment.TopCenter)
                 Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
                     0f to Ink.copy(alpha = if (options.highContrast) 1f else .96f),
                     .55f to Ink.copy(alpha = if (options.highContrast) .98f else .76f),
@@ -74,7 +74,8 @@ internal fun DetailLogo(details: ContentDetails, title: String) {
     var failed by remember(details.key, details.logoUrl) { mutableStateOf(false) }
     if (!details.logoUrl.isNullOrBlank() && !failed) {
         MediaArtwork(details.logoUrl, title, Modifier.width(280.dp).height(72.dp).testTag("detail-title"),
-            contentScale = ContentScale.Fit, source = details.source, onError = { failed = true })
+            contentScale = ContentScale.Fit, source = details.source, onError = { failed = true },
+            alignment = Alignment.CenterStart, trimTransparent = true)
     } else {
         Text(title, style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.testTag("detail-title"))

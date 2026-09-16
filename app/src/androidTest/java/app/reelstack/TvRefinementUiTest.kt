@@ -2,6 +2,7 @@ package app.reelstack
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
@@ -30,6 +31,82 @@ import org.junit.Test
 class TvRefinementUiTest {
     @get:Rule val rule = createComposeRule()
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://example.com", "fixture", userId = "me")
+    @Test fun remoteLongPressOpensMenuWithoutRunningAnAction() {
+        var opened = 0
+        var written = 0
+        val media = LibraryMedia("hold", "Testfilm", "", artworkRes = R.drawable.media_placeholder, source = ServiceKind.EMBY)
+        rule.setContent { Tv {
+            LibraryRail(listOf(media), { opened++ }, false,
+                actions = MediaCardActions({ written++ }, { _, _ -> written++ }, { _, _ -> written++ }))
+        } }
+        val card = rule.onNode(hasClickAction() and hasText("Testfilm"))
+        card.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+        card.performKeyInput {
+            keyDown(androidx.compose.ui.input.key.Key.DirectionCenter)
+            advanceEventTime(900)
+            keyUp(androidx.compose.ui.input.key.Key.DirectionCenter)
+        }
+        rule.onNodeWithTag("card-details").assertIsDisplayed()
+        rule.runOnIdle { assertEquals(0, opened); assertEquals(0, written) }
+        rule.onNodeWithTag("card-details").performClick()
+        rule.runOnIdle { assertEquals(1, opened); assertEquals(0, written) }
+    }
+
+    @Test fun playerStatusNamesActualServiceInEverySupportedLanguage() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        for (language in listOf("nn", "nb", "en")) {
+            val config = Configuration(context.resources.configuration).apply { setLocale(java.util.Locale.forLanguageTag(language)) }
+            val localized = context.createConfigurationContext(config)
+            for (id in listOf(R.string.player_direct, R.string.player_transcoded, R.string.player_external)) {
+                val text = localized.getString(id, "Emby")
+                assertTrue(text.contains("Emby")); assertFalse(text.contains("Jellyfin"))
+            }
+        }
+    }
+
+    @Test fun compactOsdAndTrackMenuStayUsableWithLargeType() {
+        var selected = -1
+        rule.setContent { Tv(2f) {
+            PlayerScreen(PlayerScreenState(title = "Testfilm", source = ServiceKind.EMBY, busy = false,
+                durationMs = 120000, audio = listOf(PlaybackTrack(1, "Norsk", "nor", false), PlaybackTrack(2, "English", "eng", false)), audioIndex = 1),
+                null, {}, {}, {}, {}, {}, {}, { selected = it }, {}, {}, {}, isTelevision = true)
+        } }
+        assertEquals(48.dp, rule.onNodeWithTag("player-audio").getUnclippedBoundsInRoot().width)
+        rule.onNodeWithTag("player-audio").performClick()
+        rule.onNodeWithTag("choice-dialog").assertIsDisplayed()
+        capture("compact-osd-menu-large")
+        rule.onNodeWithText("English").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(2, selected) }
+        capture("compact-osd-large")
+    }
+    @Test fun seasonalHeroFadesIntoTheSamePageColour() {
+        var season by mutableStateOf(Season.CHRISTMAS)
+        rule.setContent { Tv {
+            val options = season.applyTo(Personalization(heroRotate = false, reduceMotion = true))
+            androidx.compose.material3.MaterialTheme(colorScheme = androidx.compose.material3.MaterialTheme.colorScheme.copy(
+                background = androidx.compose.ui.graphics.Color(options.visualTheme.background))) {
+                CompositionLocalProvider(LocalPersonalization provides options, app.reelstack.ui.theme.LocalMotionEnabled provides false) {
+                    Box(Modifier.fillMaxSize().background(app.reelstack.ui.theme.Ink)) {
+                        app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize())
+                        Column {
+                            app.reelstack.ui.components.TabletLibraryFeature(LibraryMedia("scene", "Testfilm", "2026",
+                                artworkRes = R.drawable.media_placeholder, source = ServiceKind.EMBY), {})
+                        }
+                    }
+                }
+            }
+        } }
+        for (value in listOf(Season.CHRISTMAS, Season.HALLOWEEN)) {
+            rule.runOnIdle { season = value }
+            val hero = rule.onNodeWithTag("tablet-library-feature").captureToImage().toPixelMap()
+            val background = androidx.compose.ui.graphics.Color(value.applyTo(Personalization()).visualTheme.background)
+            val pixel = hero[hero.width / 2, hero.height - 1]
+            assertEquals(background.red, pixel.red, .015f)
+            assertEquals(background.green, pixel.green, .015f)
+            assertEquals(background.blue, pixel.blue, .015f)
+            capture("season-$value-hero")
+        }
+    }
     @Test fun libraryServiceMenuWorksWithLargeTypeAndEmbyOnlyFallback() {
         val emby = connection.copy(kind = ServiceKind.EMBY)
         assertEquals(ServiceKind.EMBY, ReelstackUiState(connections = listOf(emby)).librarySource)
@@ -74,7 +151,9 @@ class TvRefinementUiTest {
         val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         val file = java.io.File(context.cacheDir, "osd-alignment-fixture.png")
         val bitmap = android.graphics.Bitmap.createBitmap(100, 100, android.graphics.Bitmap.Config.ARGB_8888)
-        bitmap.eraseColor(android.graphics.Color.WHITE)
+        bitmap.eraseColor(android.graphics.Color.TRANSPARENT)
+        android.graphics.Canvas(bitmap).drawRect(30f, 20f, 90f, 80f,
+            android.graphics.Paint().apply { color = android.graphics.Color.WHITE })
         file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
         rule.setContent { Tv {
@@ -98,7 +177,7 @@ class TvRefinementUiTest {
                     artworkRes = R.drawable.media_placeholder, source = ServiceKind.EMBY, criticRating = 91), listOf("2024", "148 min"))
             }
         } }
-        rule.onNodeWithTag("critic-rating").assertIsDisplayed().assertTextEquals("Rotten Tomatoes  91%")
+        rule.onNodeWithTag("critic-rating").assertIsDisplayed().assertContentDescriptionEquals("Rotten Tomatoes 91%")
         rule.runOnIdle { visible = false }
         rule.onNodeWithTag("critic-rating").assertDoesNotExist()
     }
@@ -305,9 +384,33 @@ class TvRefinementUiTest {
                 homeSections = setOf(HomeSection.CONTINUE_WATCHING)), PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}, showSearch = false)
         } } }
         rule.onAllNodesWithTag("resume-card-episode").assertCountEquals(1)
-        rule.onNodeWithText("Sjå vidare").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Sjå vidare · Jellyfin").assertIsDisplayed()
         rule.runOnIdle { preferences = preferences.copy(combineContinueWatching = false) }
-        rule.onNodeWithText("Neste episode").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithContentDescription("Neste episode · Jellyfin").performScrollTo().assertIsDisplayed()
+    }
+    @Test fun continueAndNextUpStayInSourceLocalRowsAtLargeType() {
+        var combine by mutableStateOf(true)
+        val jellyfin = LibraryMedia("jellyfin-episode", "Jellyfin serie", "S2 - E2", .4f,
+            R.drawable.media_placeholder, ServiceKind.JELLYFIN, mediaType = "Episode")
+        val emby = jellyfin.copy(id = "emby-episode", title = "Emby serie", source = ServiceKind.EMBY)
+        rule.setContent { Tv(2f) {
+            CompositionLocalProvider(LocalPersonalization provides Personalization(showHero = false, combineContinueWatching = combine)) {
+                HomeScreen(ReelstackUiState(connections = listOf(connection, connection.copy(kind = ServiceKind.EMBY)),
+                    resume = listOf(jellyfin, emby), nextUp = listOf(jellyfin.copy(id = "jellyfin-next"), emby.copy(id = "emby-next")),
+                    homeSections = setOf(HomeSection.CONTINUE_WATCHING)), PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}, showSearch = false)
+            }
+        } }
+        fun checkRow(key: String, title: String, present: String, absent: String) {
+            rule.onNodeWithTag("home-feed").performScrollToKey(key)
+            rule.onNodeWithContentDescription(title).assertIsDisplayed()
+            rule.onNode(hasTestTag(present) and hasAnyAncestor(hasTestTag(key))).assertIsDisplayed()
+            rule.onNode(hasTestTag(absent) and hasAnyAncestor(hasTestTag(key))).assertDoesNotExist()
+        }
+        checkRow("continue-watching-JELLYFIN", "Sjå vidare · Jellyfin", "resume-card-jellyfin-episode", "resume-card-emby-next")
+        checkRow("continue-watching-EMBY", "Sjå vidare · Emby", "resume-card-emby-episode", "resume-card-jellyfin-next")
+        rule.runOnIdle { combine = false }
+        checkRow("next-up-JELLYFIN", "Neste episode · Jellyfin", "resume-card-jellyfin-next", "resume-card-emby-next")
+        checkRow("next-up-EMBY", "Neste episode · Emby", "resume-card-emby-next", "resume-card-jellyfin-next")
     }
     @Test fun navigationOptionsReorderHideAndProtectSettings() {
         var value by mutableStateOf(Personalization())

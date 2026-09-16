@@ -63,7 +63,7 @@
     <string name="player_available">I biblioteket</string>
     <string name="player_no_episodes">Ingen tilgjengelige episoder her ennå.</string>
     <string name="player_restart">Spill fra begynnelsen</string>
-    <string name="player_external">Åpne i Jellyfin</string>
+    <string name="player_external">Åpne i %1$s</string>
     <string name="player_rewind">10 sekunder tilbake</string>
     <string name="player_forward">10 sekunder frem</string>
     <string name="player_pause">Sett på pause</string>
@@ -75,8 +75,8 @@
     <string name="player_subtitles_button">Tekst</string>
     <string name="player_quality">Kvalitet</string>
     <string name="player_rotate">Snu skjermen</string>
-    <string name="player_direct">Direkte fra Jellyfin</string>
-    <string name="player_transcoded">Tilpasset avspilling fra Jellyfin</string>
+    <string name="player_direct">Direkte fra %1$s</string>
+    <string name="player_transcoded">Tilpasset avspilling fra %1$s</string>
     <string name="player_off">Av</string>
     <string name="player_auto">Automatisk</string>
     <string name="player_medium_data">Mindre data · 4 Mbit/s</string>

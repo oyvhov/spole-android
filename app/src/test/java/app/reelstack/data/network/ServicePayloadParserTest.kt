@@ -24,6 +24,14 @@ class ServicePayloadParserTest {
         }
         assertEquals(0, ServicePayloadParser.libraryDetails("""{"CriticRating":0}""").criticRating)
     }
+
+    @Test fun keepsNamedExternalRatingsAndStableSubtitleTrackIdentity() {
+        val details = ServicePayloadParser.libraryDetails("""{"Name":"Film","Type":"Movie","CriticRating":91,"CommunityRating":7.6,"MdbListRating":8.1,"MediaStreams":[{"Index":4,"Type":"Subtitle","Codec":"ass","Language":"nb","DisplayTitle":"Norsk (ASS)","IsForced":false}]}""")
+        assertEquals(91, details.criticRating)
+        assertEquals(76f, details.tmdbRating)
+        assertEquals(81f, details.mdblistRating)
+        assertEquals("ass", details.subtitleTracks.single().codec)
+    }
     @Test
     fun castsUseServiceCreditsAndSkipBlankNamesAndNonActors() {
         val seerr = ServicePayloadParser.mediaDetails("""{"title":"Film","credits":{"cast":[

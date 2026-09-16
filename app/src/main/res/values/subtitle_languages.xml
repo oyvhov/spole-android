@@ -1,0 +1,12 @@
+<resources>
+    <string name="subtitle_preferred_language">Preferred subtitle language</string>
+    <string name="subtitle_fallback_language">Fallback subtitle language</string>
+    <string name="subtitle_language_norwegian">Norwegian</string>
+    <string name="subtitle_language_english">English</string>
+    <string name="subtitle_language_swedish">Swedish</string>
+    <string name="subtitle_language_danish">Danish</string>
+    <string name="subtitle_language_german">German</string>
+    <string name="subtitle_language_french">French</string>
+    <string name="subtitle_language_spanish">Spanish</string>
+    <string name="subtitle_language_server">Follow server</string>
+</resources>

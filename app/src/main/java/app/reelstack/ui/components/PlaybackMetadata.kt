@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.ContentDetails
@@ -47,11 +49,19 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>) {
         )
     }
     if (preferences.showRatings && details.criticRating != null) {
-        Text(
-            "Rotten Tomatoes  ${details.criticRating}%",
-            modifier = Modifier.padding(top = 8.dp).testTag("critic-rating"),
-            color = Muted,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Row(Modifier.padding(top = 8.dp).testTag("critic-rating").clearAndSetSemantics {
+            contentDescription = "Rotten Tomatoes ${details.criticRating}%"
+        }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_tomato), null,
+                Modifier.size(20.dp), tint = androidx.compose.ui.graphics.Color.Unspecified)
+            Text("${details.criticRating}%", color = Muted, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+    if (preferences.showRatings && (details.tmdbRating != null || details.mdblistRating != null)) {
+        Row(Modifier.padding(top = 6.dp).testTag("metadata-ratings"),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            details.tmdbRating?.let { Text("TMDB ${"%.1f".format(java.util.Locale.ROOT, it / 10f)}", color = Muted, style = MaterialTheme.typography.bodyMedium) }
+            details.mdblistRating?.let { Text("MDBList ${"%.1f".format(java.util.Locale.ROOT, it / 10f)}", color = Muted, style = MaterialTheme.typography.bodyMedium) }
+        }
     }
 }

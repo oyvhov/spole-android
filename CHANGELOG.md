@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0-beta05 · Spelar og Emby
+
+- Automatisk refresh-rate switching for støtta videofrekvensar på Android TV.
+- Stats for Nerds med faktisk codec, oppløysing, bitrate, HDR, frame rate og buffer.
+- Avspelingsfart frå 0.5x til 2x.
+- Meir robust Emby-avspeling, Emby Connect-grunnlag, stabile spor og kjeldebevisste ratingar.
+
 ## 0.17.0-beta04 · Filmatiske TV-flater og Emby
 
 - Høgare TV-hero i full breidd, med mjuk overgang til bakgrunnen og filmatiske detaljsider.

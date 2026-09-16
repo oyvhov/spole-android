@@ -11,6 +11,7 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.DecoderReuseEvaluation
 import app.reelstack.AppContainer
 import app.reelstack.data.model.*
 import app.reelstack.data.repository.DeviceIdentity
@@ -52,6 +53,12 @@ data class PlayerScreenState(
     /** Title sequences and closing credits the server has marked, if anything has marked them. */
     val segments: List<PlaybackSegment> = emptyList(),
     val source: ServiceKind = ServiceKind.JELLYFIN,
+    val videoCodec: String? = null,
+    val videoWidth: Int = 0,
+    val videoHeight: Int = 0,
+    val videoBitrate: Int = 0,
+    val videoFrameRate: Float = 0f,
+    val videoHdr: String = "SDR",
 )
 
 /**
@@ -87,6 +94,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var started = false
     private var stopped = false
     private var compatible = false
+    private var networkRecoveries = 0
     private var foreground = true
     private var request: Job? = null
     private var generation = 0
@@ -96,6 +104,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var nextEpisodeCancelled = false
     private var preferredAudio: Int? = null
     private var preferredSubtitle: Int? = null
+    private var preferredAudioKey: String? = null
+    private var preferredSubtitleKey: String? = null
     private var preferredSource: String? = null
     private var subtitleCache: SubtitleMemoryCache? = null
     private var subtitleWarmJob: Job? = null
@@ -149,7 +159,13 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 if (next != trackSelectionParameters) trackSelectionParameters = next
             }
             override fun onPlayerError(error: PlaybackException) {
+                android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream code=${error.errorCode}")
                 val position = currentPosition.coerceAtLeast(0)
+                if (networkRecoveries < 2 && recoverablePlaybackFailure(error, plan?.direct == false)) {
+                    networkRecoveries++
+                    prepare(position, autoplay = playWhenReady, retryDelayMillis = networkRecoveries * 1000L)
+                    return
+                }
                 // A single codec fallback, never an endless retry loop or a bitrate increase.
                 if (!compatible && error.errorCode in setOf(PlaybackException.ERROR_CODE_DECODING_FAILED,
                         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED, PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
@@ -161,6 +177,22 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     mutable.update { it.copy(busy = false, playing = false,
                         error = "Avspelinga stoppa. Prøv igjen, vel lågare kvalitet eller opne i medietenaren.") }
                 }
+            }
+        })
+        addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onVideoInputFormatChanged(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                format: Format,
+                decoderReuseEvaluation: DecoderReuseEvaluation?,
+            ) {
+                val hdr = when (format.colorInfo?.colorTransfer) {
+                    C.COLOR_TRANSFER_ST2084 -> "HDR10 / HDR10+"
+                    C.COLOR_TRANSFER_HLG -> "HLG"
+                    else -> "SDR"
+                }
+                mutable.update { it.copy(videoCodec = format.sampleMimeType, videoWidth = format.width,
+                    videoHeight = format.height, videoBitrate = format.bitrate, videoFrameRate = format.frameRate,
+                    videoHdr = hdr) }
             }
         })
     }
@@ -267,7 +299,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     val seerr = container.connectionRepository.get(ServiceKind.SEERR)
                     val id = client.verify(c)
                     val jellyfinAccount = container.accountProfileClient.load(c)
-                    val seerrAccount = seerr.takeIf { it.token.isNotBlank() }?.let { container.accountProfileClient.load(it) }
+                    val seerrAccount = seerr.takeIf { it.token.isNotBlank() }?.let {
+                        runCatching { container.accountProfileClient.load(it) }.getOrNull()
+                    }
                     val access = ViewerAccess(seerr.token.isNotBlank(), buildMap {
                         put(serviceKind, jellyfinAccount); seerrAccount?.let { put(ServiceKind.SEERR, it) }
                     })
@@ -278,13 +312,15 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 check(sameAccount())
                 choose(container.localPlaybackStore.resume(result.first.first, result.second))
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) {
+            catch (error: Exception) {
+                android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=open type=${error.javaClass.simpleName}")
                 mutable.update { it.copy(busy = false, error = "Fekk ikkje opna tittelen. Kontroller den personlege medieinnlogginga og prøv igjen.") }
             }
         }
     }
 
     fun choose(item: PlayableItem) {
+        networkRecoveries = 0
         countdownJob?.cancel()
         nextEpisodeJob?.cancel()
         nextEpisodeCancelled = false
@@ -351,23 +387,31 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         return automaticPlaybackBitrate(network?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true)
     }
 
-    private fun prepare(position: Long, audio: Int? = null, subtitle: Int? = null, forceCompatible: Boolean = compatible, autoplay: Boolean = true) {
+    private fun prepare(position: Long, audio: Int? = null, subtitle: Int? = null, forceCompatible: Boolean = compatible, autoplay: Boolean = true,
+        retryDelayMillis: Long = 0) {
         val c = connection ?: return
         val item = selected ?: return
         val previous = plan?.takeIf { it.item.id == item.id }
-        val audioChoice = audio ?: previous?.audioIndex ?: preferredAudio.takeIf { item.id == rootId }
-        val subtitleChoice = subtitle ?: previous?.subtitleIndex ?: preferredSubtitle.takeIf { item.id == rootId }
+        val audioChoice = audio ?: previous?.audioIndex ?: preferredAudioKey?.let { key ->
+            (previous?.audio ?: plan?.audio)?.firstOrNull { it.key == key }?.index
+        } ?: preferredAudio.takeIf { item.id == rootId }
+        val subtitleChoice = subtitle ?: previous?.subtitleIndex ?: preferredSubtitleKey?.let { key ->
+            (previous?.subtitles ?: plan?.subtitles)?.firstOrNull { it.key == key }?.index
+        } ?: preferredSubtitle.takeIf { item.id == rootId }
         request?.cancel()
         val ticket = ++generation
         stopCurrent()
         mutable.update { it.copy(busy = true, error = null, ended = false, positionMs = position) }
         request = viewModelScope.launch {
             try {
+                if (retryDelayMillis > 0) delay(retryDelayMillis)
                 val prepared = withContext(Dispatchers.IO) {
                     check(sameAccount())
                     client.prepare(c, userId, item, state.value.quality.takeIf { it > 0 } ?: autoBitrate(),
                         // The version the title page picked, until a plan exists and the player owns it.
-                        audioChoice, subtitleChoice, forceCompatible, previous?.sourceId ?: preferredSource.takeIf { item.id == rootId })
+                        audioChoice, subtitleChoice, forceCompatible, previous?.sourceId ?: preferredSource.takeIf { item.id == rootId },
+                        container.preferencesRepository.personalization.preferredSubtitleLanguage,
+                        container.preferencesRepository.personalization.fallbackSubtitleLanguage)
                 }
                 if (ticket != generation || !sameAccount()) return@launch
                 plan = prepared
@@ -394,9 +438,12 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     .createMediaSource(media.build()), position.coerceAtLeast(0))
                 mutable.update { it.copy(audio = prepared.audio, subtitles = prepared.subtitles, audioIndex = prepared.audioIndex,
                     subtitleIndex = prepared.subtitleIndex, direct = prepared.direct) }
+                prepared.audio.firstOrNull { it.index == prepared.audioIndex }?.let { preferredAudioKey = it.key }
+                prepared.subtitles.firstOrNull { it.index == prepared.subtitleIndex }?.let { preferredSubtitleKey = it.key }
                 player.prepare(); player.playWhenReady = foreground && autoplay
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) {
+            catch (error: Exception) {
+                android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=prepare type=${error.javaClass.simpleName}")
                 if (ticket == generation) mutable.update { it.copy(busy = false, playing = false,
                     error = "Fekk ikkje starta videoen. Kontroller nettet og avspelingsløyva i medietenaren, eller prøv igjen.") }
             }
@@ -487,12 +534,16 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         mutable.update { it.copy(nextEpisodeCountdown = null, nextEpisodeDismissed = !it.ended) }
     }
 
-    fun retry() { if (connection == null || selected == null && parent == null) loadRoot()
+    fun retry() { networkRecoveries = 0; if (connection == null || selected == null && parent == null) loadRoot()
         else if (state.value.browsing) loadChildren() else prepare(state.value.positionMs) }
-    fun audio(index: Int) { if (!state.value.busy && state.value.audio.any { it.index == index }) prepare(player.currentPosition, audio = index, autoplay = player.playWhenReady) }
+    fun audio(index: Int) { if (!state.value.busy && state.value.audio.any { it.index == index }) {
+        preferredAudioKey = state.value.audio.first { it.index == index }.key
+        prepare(player.currentPosition, audio = index, autoplay = player.playWhenReady)
+    } }
     fun subtitles(index: Int) {
         if (state.value.busy || index != -1 && state.value.subtitles.none { it.index == index }) return
         val current = plan ?: return
+        preferredSubtitleKey = current.subtitles.firstOrNull { it.index == index }?.key
         val c = connection ?: return
         val oldIsImage = current.subtitles.any { it.index == current.subtitleIndex && !it.isText }
         val newIsImage = current.subtitles.any { it.index == index && !it.isText }

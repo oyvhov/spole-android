@@ -208,6 +208,21 @@ class ServiceConnectionTester(
     private val transport: JsonHttpTransport = HttpTransport(),
     private val deviceId: String = "homereel-android",
 ) {
+    /** Probes the public server-info endpoint and distinguishes Emby from Jellyfin by product. */
+    fun detectMediaServer(baseUrl: String): ServiceKind? {
+        val response = runCatching {
+            transport.get(EndpointValidator.resolve(baseUrl, "System/Info"), emptyMap())
+        }.getOrNull() ?: return null
+        if (response.statusCode !in 200..299) return null
+        val product = Regex("""\"(?:ProductName|productName)\"\s*:\s*\"([^\"]+)\"""")
+            .find(response.body)?.groupValues?.getOrNull(1)?.lowercase().orEmpty()
+        return when {
+            "emby" in product -> ServiceKind.EMBY
+            "jellyfin" in product -> ServiceKind.JELLYFIN
+            else -> null
+        }
+    }
+
     fun test(connection: ServiceConnection): ConnectionTestResult {
         val probe = when (connection.kind) {
             ServiceKind.JELLYFIN -> ServiceProbe("System/Info", "Authorization")
@@ -237,6 +252,8 @@ class ServiceConnectionTester(
                 success = true,
                 latencyMs = elapsed,
                 message = extractVersion(response.body)?.let { "Tilkopla · v$it" } ?: "Tilkopla",
+                detectedKind = if (connection.kind in setOf(ServiceKind.EMBY, ServiceKind.JELLYFIN))
+                    detectProduct(response.body) else null,
             )
             401, 403 -> ConnectionTestResult(false, elapsed, if (connection.sessionCookie) "Seerr-økta er utgått. Logg inn på nytt." else "API-nøkkelen vart avvist")
             404 -> ConnectionTestResult(false, elapsed, "Fann tenesta, men API-stien var ikkje tilgjengeleg")
@@ -253,6 +270,22 @@ class ServiceConnectionTester(
     private fun extractVersion(json: String): String? {
         val pattern = Regex("\\\"(?:Version|version)\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
         return pattern.find(json)?.groupValues?.getOrNull(1)
+    }
+
+    private fun detectProduct(json: String): ServiceKind? {
+        /*
+        val product = Regex("\\\"(?:ProductName|productName)\\\"\\s*:\s*\\\"([^\\\"]+)\\\"")
+            .find(json)?.groupValues?.getOrNull(1)?.lowercase().orEmpty()
+        */
+        val product = runCatching {
+            Json.parseToJsonElement(json).jsonObject["ProductName"]?.jsonPrimitive?.contentOrNull
+                ?: Json.parseToJsonElement(json).jsonObject["productName"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull()?.lowercase().orEmpty()
+        return when {
+            "emby" in product -> ServiceKind.EMBY
+            "jellyfin" in product -> ServiceKind.JELLYFIN
+            else -> null
+        }
     }
 }
 

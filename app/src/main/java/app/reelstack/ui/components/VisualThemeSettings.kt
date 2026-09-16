@@ -138,9 +138,8 @@ internal fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefi
     label: @Composable (T) -> String, swatch: ((T) -> Color)? = null, onChange: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
     SettingsChoiceRow(title, label(selected), "theme-choice-$prefix", swatch?.invoke(selected)) { open = true }
-    if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text(title) },
-        confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
-        text = {
+    if (open) SpoleChoiceDialog(onDismiss = { open = false }, title = title,
+        content = {
             val selectedFocus = remember { FocusRequester() }
             val tv = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
                 android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
@@ -172,7 +171,6 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
     artwork: List<LibraryMedia> = emptyList()) {
     val television = isTelevision()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AppearancePresets(value, onChange)
         if (Season.of(value) != Season.NONE) SeasonalThemeBanner(options = value)
         ThemePreview(value, artwork)
         // A season is a pairing, not a background: red on a red ground is not Christmas, it is a

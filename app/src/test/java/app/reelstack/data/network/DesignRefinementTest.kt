@@ -41,20 +41,4 @@ class DesignRefinementTest {
         val item = ServicePayloadParser.libraryItems("""{"Items":[{"Id":"episode","Name":"Episode","Type":"Episode","ImageTags":{"Primary":"still","Thumb":"thumb"},"BackdropImageTags":["own"]}]}""").single()
         assertNull(item.heroImagePath)
     }
-    @Test fun namedLookSurvivesStorageWithoutChangingPlaybackOrMenu() {
-        val look = Personalization(accent = AccentPalette.CORAL, artworkCorners = ArtworkCorners.SOFT,
-            reduceMotion = true, heroCompact = true, detailBackdrop = false)
-        val saved = decodeAppearances(encodeAppearances(listOf(SavedAppearance.capture(" Filmkveld ", look)))).single()
-        val base = Personalization(autoResume = false, hideTvSidebar = true, startInLibrary = true)
-        val restored = saved.applyTo(base)
-        assertEquals("Filmkveld", saved.name)
-        assertEquals(AccentPalette.CORAL, restored.accent)
-        assertTrue(restored.reduceMotion)
-        assertTrue(restored.heroCompact)
-        assertFalse(restored.detailBackdrop)
-        assertFalse(restored.autoResume)
-        assertTrue(restored.hideTvSidebar)
-        assertTrue(restored.startInLibrary)
-        assertTrue(decodeAppearances("invalid").isEmpty())
-    }
 }

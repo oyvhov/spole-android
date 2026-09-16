@@ -24,8 +24,8 @@ import kotlinx.coroutines.delay
  * Pine, lights and snow for Christmas; ghosts, webs, spiders and embers for Halloween.
  *
  * This is the one place in Spole that exists purely because it is nice, so it is also the one place
- * that has to be easy to switch off and impossible to get in the way. It draws nothing but soft
- * dots at low opacity, sits above the artwork and below every control, carries no semantics for a
+ * that has to be easy to switch off and impossible to get in the way. It draws snow crystals and
+ * sparks over the right-hand artwork, below every control, carries no semantics for a
  * screen reader, and stops entirely when the mood is not seasonal, when the ornament is switched
  * off. Reduced motion and lightweight TV mode retain the static illustration but stop particles
  * and floating ghosts. The drawing clock is limited to roughly twenty updates per second.
@@ -79,12 +79,18 @@ internal fun SeasonalOrnament(modifier: Modifier = Modifier) {
             // Fade in at the edge it enters from and out at the one it leaves by, so nothing ever
             // pops into existence in the middle of the picture.
             val fade = (1f - kotlin.math.abs(travelled - 0.5f) * 2f).coerceIn(0f, 1f)
-            drawCircle(
-                color = tint,
-                radius = flake.radius * density,
-                center = Offset(flake.x * size.width + drift, y),
-                alpha = fade * if (rising) 0.55f else 0.42f,
-            )
+            val center = Offset(flake.x * size.width + drift, y)
+            val radius = flake.radius * density
+            // Keep the reading column clear; snow crystals and sparks stay over the artwork.
+            if (center.x > size.width * .58f) {
+                if (rising) drawLine(tint.copy(alpha = fade * .5f), center,
+                    center + Offset(radius, -radius * 2f), density)
+                else repeat(3) { arm ->
+                    val angle = arm * PI.toFloat() / 3f
+                    val offset = Offset(kotlin.math.cos(angle), sin(angle)) * radius * 1.7f
+                    drawLine(tint.copy(alpha = fade * .65f), center - offset, center + offset, density)
+                }
+            }
         }
     }
 }

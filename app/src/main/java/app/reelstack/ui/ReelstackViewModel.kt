@@ -758,6 +758,8 @@ class ReelstackViewModel(
                                 overview = remote.overview ?: details.overview,
                                 facts = remote.facts,
                                 criticRating = remote.criticRating,
+                                tmdbRating = remote.tmdbRating ?: details.tmdbRating,
+                                mdblistRating = remote.mdblistRating ?: details.mdblistRating,
                                 genres = (remote.genres + details.genres).distinct(),
                                 artworkUrl = remote.artworkUrl ?: details.artworkUrl,
                                 progress = remote.progress ?: details.progress,

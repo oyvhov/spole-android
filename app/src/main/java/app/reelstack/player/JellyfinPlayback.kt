@@ -2,6 +2,9 @@ package app.reelstack.player
 
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.SubtitleLanguage
+import app.reelstack.data.model.MediaTrack
+import app.reelstack.data.model.preferredSubtitleIndex
 import app.reelstack.data.network.*
 import kotlinx.serialization.json.*
 import java.net.URI
@@ -33,7 +36,15 @@ data class PlayableItem(
     val lastPlayedEpochMillis: Long? = null,
 )
 
-data class PlaybackTrack(val index: Int, val label: String, val language: String?, val isText: Boolean = false)
+data class PlaybackTrack(
+    val index: Int, val label: String, val language: String?, val isText: Boolean = false,
+    /** Stable across Emby/Jellyfin stream reordering, unlike [index]. */
+    val key: String = trackKey(label, language, null, false),
+)
+
+internal fun trackKey(label: String, language: String?, codec: String?, forced: Boolean): String =
+    listOf(language.orEmpty().lowercase().trim(), codec.orEmpty().lowercase().trim(),
+        label.lowercase().replace(Regex("\\s+"), " ").trim(), forced.toString()).joinToString("|")
 
 /**
  * A stretch of the file the server has marked: the title sequence, or the closing credits.
@@ -64,7 +75,7 @@ internal fun JsonObject.objects(key: String) = (get(key) as? JsonArray)?.mapNotN
 
 fun parsePlayable(item: JsonObject, baseUrl: String? = null): PlayableItem {
     val type = item.str("Type")
-    require(type in setOf("Movie", "Episode", "Series", "Season")) { "Denne medietypen kan ikkje spelast her." }
+    require(type in setOf("Movie", "Episode", "Video", "Series", "Season")) { "Denne medietypen kan ikkje spelast her." }
     require(type in setOf("Series", "Season") || !item.flag("IsMissing") && item.str("LocationType") != "Virtual") { "Denne episoden ligg ikkje i biblioteket enno." }
     val id = item.str("Id").also { require(it.isNotBlank()) { "Tittelen manglar ein gyldig ID." } }
     val duration = ((item.num("RunTimeTicks") ?: 0) / 10_000).coerceAtLeast(0)
@@ -235,8 +246,9 @@ class MediaPlaybackClient(
     }
 
     fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,
-        audio: Int? = null, subtitle: Int? = null, compatible: Boolean = false, sourceId: String? = null): PlaybackPlan {
-        require(item.type in setOf("Movie", "Episode")) { "Vel ein episode først." }
+        audio: Int? = null, subtitle: Int? = null, compatible: Boolean = false, sourceId: String? = null,
+        preferredLanguage: SubtitleLanguage = SubtitleLanguage.SERVER, fallbackLanguage: SubtitleLanguage = SubtitleLanguage.NONE): PlaybackPlan {
+        require(item.type in setOf("Movie", "Episode", "Video")) { "Vel ein episode først." }
         val detected = if (compatible) DevicePlaybackCapabilities.CONSERVATIVE else
             runCatching { capabilities() }.getOrDefault(DevicePlaybackCapabilities.CONSERVATIVE)
         val payload = buildJsonObject {
@@ -250,7 +262,9 @@ class MediaPlaybackClient(
             audio?.let { put("AudioStreamIndex", it) }; subtitle?.let { put("SubtitleStreamIndex", it) }
             sourceId?.let { put("MediaSourceId", it) }
         }
-        val response = post(c, "Items/${enc(item.id)}/PlaybackInfo", payload)
+        val response = decode(playbackRequest {
+            transport.post(EndpointValidator.resolve(c.baseUrl, "Items/${enc(item.id)}/PlaybackInfo"), headers(c), payload.toString())
+        })
         require(response.str("ErrorCode").isBlank()) { "Medietenaren fann ikkje eit format denne eininga kan spele. Prøv tenarappen." }
         val source = response.objects("MediaSources").firstOrNull { !it.flag("RequiresOpening") && (sourceId == null || it.str("Id") == sourceId) &&
             (it.flag("SupportsDirectPlay") || it.str("TranscodingUrl").isNotBlank()) }
@@ -260,12 +274,25 @@ class MediaPlaybackClient(
         val streams = source.objects("MediaStreams")
         fun tracks(type: String) = streams.filter { it.str("Type") == type }.mapNotNull {
             val index = it.num("Index")?.toInt() ?: return@mapNotNull null
-            PlaybackTrack(index, it.str("DisplayTitle").ifBlank { it.str("Language").ifBlank { "$type ${index + 1}" } },
-                it.str("Language").takeIf(String::isNotBlank), it.flag("IsTextSubtitleStream") || it.str("Codec") in setOf("srt", "subrip", "ass", "ssa", "webvtt", "vtt", "mov_text"))
+            val label = it.str("DisplayTitle").ifBlank { it.str("Language").ifBlank { "$type ${index + 1}" } }
+            val language = it.str("Language").takeIf(String::isNotBlank)
+            val codec = it.str("Codec").takeIf(String::isNotBlank)
+            val forced = it.flag("IsForced")
+            PlaybackTrack(index, label, language, it.flag("IsTextSubtitleStream") || codec in
+                setOf("srt", "subrip", "ass", "ssa", "webvtt", "vtt", "mov_text"),
+                trackKey(label, language, codec, forced))
         }
         val subtitles = tracks("Subtitle")
-        val selectedSubtitle = subtitle ?: source.num("DefaultSubtitleStreamIndex")?.toInt() ?: -1
+        val serverSubtitle = source.num("DefaultSubtitleStreamIndex")?.toInt() ?: -1
+        val selectedSubtitle = subtitle ?: preferredSubtitleIndex(subtitles.map { track ->
+            MediaTrack(track.index, track.label, track.language, track.index == serverSubtitle,
+                streams.firstOrNull { it.num("Index")?.toInt() == track.index }?.flag("IsForced") == true)
+        }, preferredLanguage, fallbackLanguage, serverSubtitle)
         val selectedAudio = audio ?: source.num("DefaultAudioStreamIndex")?.toInt() ?: tracks("Audio").firstOrNull()?.index
+        // The server must negotiate the selected language too, especially for burnt-in subtitles.
+        if (subtitle == null && selectedSubtitle != serverSubtitle) {
+            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, compatible, mediaSourceId)
+        }
         val subtitleTrack = subtitles.firstOrNull { it.index == selectedSubtitle }
         val direct = source.flag("SupportsDirectPlay") && !compatible
         // HLS may still copy video while converting audio. Validate that original video too.
@@ -307,7 +334,7 @@ class MediaPlaybackClient(
         })
     }
 
-    private fun read(c: ServiceConnection, path: String) = decode(transport.get(EndpointValidator.resolve(c.baseUrl, path), headers(c)))
+    private fun read(c: ServiceConnection, path: String) = decode(playbackRequest { transport.get(EndpointValidator.resolve(c.baseUrl, path), headers(c)) })
     private fun post(c: ServiceConnection, path: String, body: JsonObject) = decode(transport.post(EndpointValidator.resolve(c.baseUrl, path), headers(c), body.toString()))
     private fun decode(response: HttpResponse): JsonObject {
         when (response.statusCode) {

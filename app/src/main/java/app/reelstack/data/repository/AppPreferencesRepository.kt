@@ -41,10 +41,6 @@ class AppPreferencesRepository(context: Context) {
 
     private fun displayKey(libraryId: String) = "library_display." + libraryId
 
-    var savedAppearances: List<app.reelstack.data.model.SavedAppearance>
-        get() = app.reelstack.data.model.decodeAppearances(preferences.getString("saved_appearances", null))
-        set(value) = preferences.edit { putString("saved_appearances", app.reelstack.data.model.encodeAppearances(value)) }
-
     var personalization: app.reelstack.data.model.Personalization
         get() = app.reelstack.data.model.Personalization(
             accent = app.reelstack.data.model.AccentPalette.decode(preferences.getString("accent_palette", null)),
@@ -89,6 +85,8 @@ class AppPreferencesRepository(context: Context) {
             showLibraryCardNames = preferences.getBoolean("library_card_names", true),
             watchNextEnabled = preferences.getBoolean("watch_next_enabled", false),
             subtitleStyle = app.reelstack.data.model.SubtitleStyle.entries.firstOrNull { it.name == preferences.getString("subtitle_style", null) } ?: app.reelstack.data.model.SubtitleStyle.CLEAN,
+            preferredSubtitleLanguage = app.reelstack.data.model.SubtitleLanguage.decode(preferences.getString("subtitle_language", null), app.reelstack.data.model.SubtitleLanguage.NORWEGIAN),
+            fallbackSubtitleLanguage = app.reelstack.data.model.SubtitleLanguage.decode(preferences.getString("subtitle_fallback", null), app.reelstack.data.model.SubtitleLanguage.ENGLISH),
         )
         set(value) = preferences.edit {
             putString("accent_palette", value.accent.name)
@@ -131,6 +129,8 @@ class AppPreferencesRepository(context: Context) {
             putBoolean("library_card_names", value.showLibraryCardNames)
             putBoolean("watch_next_enabled", value.watchNextEnabled)
             putString("subtitle_style", value.subtitleStyle.name)
+            putString("subtitle_language", value.preferredSubtitleLanguage.name)
+            putString("subtitle_fallback", value.fallbackSubtitleLanguage.name)
         }
 
     fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
@@ -140,7 +140,7 @@ class AppPreferencesRepository(context: Context) {
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",
                     "seasonal_ornament", "show_next_episode", "next_episode_lead", "auto_play_next_episode",
                     "next_episode_delay", "lightweight_tv", "detail_backdrop", "hero_rotate", "hero_logo",
-                    "hero_compact", "start_in_library", "library_hub", "show_upcoming_episodes", "reduce_motion", "home_row_formats", "library_title", "library_cards_wide", "library_hub_order", "library_hub_hidden", "library_order")) onChange(personalization)
+                    "hero_compact", "start_in_library", "library_hub", "show_upcoming_episodes", "reduce_motion", "home_row_formats", "library_title", "library_cards_wide", "library_hub_order", "library_hub_hidden", "library_order", "subtitle_language", "subtitle_fallback")) onChange(personalization)
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         onChange(personalization)

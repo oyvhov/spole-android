@@ -1,5 +1,16 @@
 # Spole — veikart mot 1.0
 
+## Nyaste lokale releasearbeid — beta05
+
+- [x] PLAYER-02: automatisk refresh-rate switching når Android rapporterer ein matchande modus.
+- [x] PLAYER-02: Stats for Nerds i OSD med faktisk codec, oppløysing, bitrate, HDR, frame rate,
+  buffer og Direct Play/Transcode.
+- [x] PLAYER-02: avspelingsfart utvida til 0.5x–2x.
+- [ ] PLAYER-03: Dolby Vision-detektering, meir komplett passthrough-verifisering og fysisk TV-test.
+
+Dette er implementert lokalt i `0.17.0-beta05` / bygg 84. APK-en er ikkje publisert til ein ekstern
+kanal i denne arbeidsrunden.
+
 Oppdatert 12. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**. Ny testutgåve: **0.16.0-alpha15 / bygg 58**, med rolegare TV-toppfelt og mjuk rotasjon mellom ulike seriar. [Release-notat](docs/release-v0.16.0-alpha15.md) · [Verifikasjon](docs/VERIFICATION_v0.16.0-alpha15.md) · [TV-toppfelt](docs/TV_FEATURE_ALPHA15.md) · [Release-flyt](docs/RELEASE_WORKFLOW.md).
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.

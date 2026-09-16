@@ -281,6 +281,9 @@ data class ContentDetails(
     val trailerUrl: String? = null,
     val logoUrl: String? = null,
     val criticRating: Int? = null,
+    /** Ratings are kept separate so a server's generic critic score is never mislabeled. */
+    val tmdbRating: Float? = null,
+    val mdblistRating: Float? = null,
 )
 
 /** One playable file behind a title. The id is what playback has to be asked for. */
@@ -325,6 +328,7 @@ data class MediaTrack(
     val language: String? = null,
     val isDefault: Boolean = false,
     val forced: Boolean = false,
+    val codec: String? = null,
 )
 
 data class ActivityEvent(
@@ -350,4 +354,5 @@ data class ConnectionTestResult(
     val success: Boolean,
     val latencyMs: Long,
     val message: String,
+    val detectedKind: ServiceKind? = null,
 )

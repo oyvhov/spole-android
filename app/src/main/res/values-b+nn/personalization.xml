@@ -16,7 +16,7 @@
     <string name="personal_large">Stor</string>
     <string name="personal_playback">Avspeling</string>
     <string name="personal_resume">Hald fram der eg slapp</string>
-    <string name="personal_resume_note">Start Jellyfin-avspeling frå den lagra posisjonen din. Slå av for å velje mellom å halde fram og å starte på nytt.</string>
+    <string name="personal_resume_note">Start avspeling frå den lagra posisjonen din. Slå av for å velje mellom å halde fram og å starte på nytt.</string>
     <string name="personal_reset">Nullstill utsjånad</string>
     <string name="personal_preview">Førehandsvising av biletstorleik</string>
     <string name="player_frame_fit">Heile biletet</string>

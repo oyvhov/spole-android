@@ -16,7 +16,7 @@
     <string name="personal_large">Large</string>
     <string name="personal_playback">Playback</string>
     <string name="personal_resume">Continue where I left off</string>
-    <string name="personal_resume_note">Start Jellyfin playback at your saved position. Turn off to choose between continuing and starting over.</string>
+    <string name="personal_resume_note">Start playback at your saved position. Turn off to choose between continuing and starting over.</string>
     <string name="personal_reset">Reset appearance</string>
     <string name="personal_preview">Artwork size preview</string>
     <string name="player_frame_fit">Fit picture</string>

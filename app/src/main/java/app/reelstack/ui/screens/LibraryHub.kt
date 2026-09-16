@@ -29,6 +29,7 @@ import app.reelstack.ui.theme.*
 
 /** A personal front door. Browsing tools stay one press away, each source keeps its own shelves. */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     onTitle: (String) -> Unit, actions: MediaCardActions?, onRetry: () -> Unit,
     sourcePicker: @Composable () -> Unit = {}) {
@@ -70,7 +71,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         contentPadding = PaddingValues(start = gutter, end = gutter, top = if (leadingHero) 0.dp else 20.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (leadingHero) item("feature") { hero() }
-        item("header") {
+        if (options.showLibraryTitle || !leadingHero) item("header") {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (options.showLibraryTitle && inlineHeader) Text(stringResource(R.string.nav_library),
@@ -80,9 +81,6 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
                         style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 12.dp).testTag("library-heading"))
                 }
                 if (!leadingHero) sourcePicker()
-                IconButton(onClick = { editing = true }, modifier = Modifier.testTag("hub-customize")) {
-                    Icon(SpoleIcons.Tune, stringResource(R.string.refine_library_edit))
-                }
             }
         }
         item("libraries") {
@@ -125,6 +123,17 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         }
         if (!state.libraryLoading && libraries.isEmpty() && state.libraryError == null) item("empty") {
             Text(stringResource(R.string.tv_library_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item("customize") {
+            Row(Modifier.fillMaxWidth().testTag("hub-footer"), horizontalArrangement = Arrangement.End) {
+                val label = stringResource(R.string.refine_library_edit)
+                TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                    tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
+                    IconButton(onClick = { editing = true }, modifier = Modifier.testTag("hub-customize")) {
+                        Icon(SpoleIcons.Tune, label)
+                    }
+                }
+            }
         }
     }
 }

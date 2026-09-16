@@ -181,7 +181,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 val opacity by animateFloatAsState(if (title.id == selected.id) 1f else 0f,
                     tween(800), label = "feature-artwork-${title.id}")
                 Box(Modifier.matchParentSize().graphicsLayer { alpha = opacity }) {
-                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false)
+                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false, alignment = Alignment.TopCenter)
                 }
               }
             }
@@ -218,9 +218,11 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                         url = logo,
                         contentDescription = title.title,
                         contentScale = ContentScale.Fit,
+                        alignment = Alignment.CenterStart,
+                        trimTransparent = true,
                         source = title.source,
                         onError = { logoFailed = true },
-                        modifier = Modifier.heightIn(max = titleSlot).widthIn(max = 240.dp)
+                        modifier = Modifier.height(titleSlot).width(240.dp).testTag("hero-clearlogo")
                             .padding(vertical = 2.dp),
                     )
                 } else {

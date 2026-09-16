@@ -10,6 +10,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import app.reelstack.ui.components.tvCardPress
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -177,10 +180,10 @@ fun HomeScreen(
         val personalization = app.reelstack.ui.theme.LocalPersonalization.current
         val combine = personalization.showNextUp && personalization.combineContinueWatching &&
             HomeSection.CONTINUE_WATCHING in state.homeSections
+        val continueRows = app.reelstack.data.model.watchingBySource(state.resume, if (combine) state.nextUp else emptyList())
+        val nextRows = app.reelstack.data.model.watchingBySource(state.nextUp)
         val continueItems = if (combine) app.reelstack.data.model.combinedWatching(state.resume, state.nextUp) else state.resume
-        val incompleteMedia = (state.failedServices + state.serviceWarnings.keys).any {
-            it == ServiceKind.JELLYFIN || it == ServiceKind.EMBY
-        }
+        val watchingSources = (configuredMediaSources + continueRows.keys + nextRows.keys).distinct()
         val tablet = LocalTabletCanvas.current
         val edge = app.reelstack.ui.theme.LocalMediaEdgeToEdge.current
         val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
@@ -258,18 +261,24 @@ fun HomeScreen(
                             )
                     }
                 }
-                if (row == app.reelstack.data.model.HomeRow.CONTINUE_WATCHING && HomeSection.CONTINUE_WATCHING in state.homeSections &&
-                    (continueItems.isNotEmpty() || incompleteMedia || (state.isRefreshing && state.configuredCount > 0))
-                ) {
-                    item(key = "continue-watching") {
-                        SectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), Modifier.padding(
-                            top = if (television && featured != null) 14.dp else ReelLayout.SectionTop,
-                            bottom = ReelLayout.SectionBottom,
-                        ))
-                        if (continueItems.isEmpty() && !state.isRefreshing && incompleteMedia)
-                            EmptySectionLine(stringResource(R.string.home_resume_retry))
-                        else if (continueItems.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
-                        else ResumeRail(continueItems, onLibraryClick, cardActions, rowKey = row.name)
+                if (row == app.reelstack.data.model.HomeRow.CONTINUE_WATCHING && HomeSection.CONTINUE_WATCHING in state.homeSections) {
+                    watchingSources.forEach { source ->
+                        val items = continueRows[source].orEmpty()
+                        val incomplete = source in state.failedServices || source in state.serviceWarnings
+                        if (items.isNotEmpty() || incomplete || (state.isRefreshing && state.configuredCount > 0)) {
+                            item(key = "continue-watching-${source.name}") {
+                                Column(Modifier.testTag("continue-watching-${source.name}")) {
+                                    MediaSectionTitle(stringResource(if (combine) R.string.tv_continue_combined else R.string.home_continue), source, Modifier.padding(
+                                        top = if (television && featured != null) 14.dp else ReelLayout.SectionTop,
+                                        bottom = ReelLayout.SectionBottom,
+                                    ))
+                                    if (items.isEmpty() && !state.isRefreshing && incomplete)
+                                        EmptySectionLine(stringResource(R.string.home_resume_retry))
+                                    else if (items.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
+                                    else ResumeRail(items, onLibraryClick, cardActions, rowKey = row.name)
+                                }
+                            }
+                        }
                     }
                 }
                 // The payoff for the heart on every card. A row that is empty until somebody stars
@@ -282,10 +291,15 @@ fun HomeScreen(
                     }
                 }
                 if (row == app.reelstack.data.model.HomeRow.NEXT_UP && personalization.showNextUp && !combine && state.nextUp.isNotEmpty()) {
-                    item(key = "next-up") {
-                        SectionTitle(stringResource(R.string.tv_next_up), Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
-                        // Next up has no resume point of its own; the other two writes still apply.
-                        ResumeRail(state.nextUp, onLibraryClick, cardActions.withoutResumeRemoval(), rowKey = row.name)
+                    watchingSources.forEach { source ->
+                        val items = nextRows[source].orEmpty()
+                        if (items.isNotEmpty()) item(key = "next-up-${source.name}") {
+                            Column(Modifier.testTag("next-up-${source.name}")) {
+                                MediaSectionTitle(stringResource(R.string.tv_next_up), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                                // Next up has no resume point of its own; the other two writes still apply.
+                                ResumeRail(items, onLibraryClick, cardActions.withoutResumeRemoval(), rowKey = row.name)
+                            }
+                        }
                     }
                 }
                 run {
@@ -864,6 +878,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
                 scaleX = scale
                 scaleY = scale
             }
+            .tvCardPress(onClick, actions?.let { { menuOpen = true } })
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = app.reelstack.ui.components.mediaCardIndication(),
@@ -929,11 +944,12 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
 @Composable
 private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: Boolean, onDetails: () -> Unit, onDismiss: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
+    if (open) app.reelstack.ui.components.SpoleChoiceDialog(media.title, onDismiss) {
+      Column(Modifier.verticalScroll(rememberScrollState())) {
         if (media.source == ServiceKind.JELLYFIN && media.mediaType in listOf("Movie", "Episode") && !media.remoteId.isNullOrBlank()) DropdownMenuItem(
             text = { Text(stringResource(if ((media.progress ?: 0f) > 0f) R.string.tv_resume else R.string.phase_quick_play)) },
             leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null) },
-            onClick = { onDismiss(); app.reelstack.player.JellyfinPlayerActivity.open(context, media.remoteId) },
+            onClick = { onDismiss(); app.reelstack.player.JellyfinPlayerActivity.open(context, media.remoteId, source = media.source) },
             modifier = Modifier.testTag("card-play"))
         DropdownMenuItem(text = { Text(stringResource(R.string.phase_quick_details)) },
             leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Library, null) },
@@ -953,6 +969,7 @@ private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: 
             onClick = { onDismiss(); actions.onPlayed(media, !media.played) },
             modifier = Modifier.testTag("card-played"),
         )
+      }
     }
 }
 
@@ -988,6 +1005,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 scaleX = scale
                 scaleY = scale
             }
+            .tvCardPress(onClick, actions?.let { { menuOpen = true } })
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = app.reelstack.ui.components.mediaCardIndication(),

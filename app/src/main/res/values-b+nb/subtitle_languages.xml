@@ -1,0 +1,12 @@
+<resources>
+    <string name="subtitle_preferred_language">Foretrukket tekstspråk</string>
+    <string name="subtitle_fallback_language">Reservespråk for tekst</string>
+    <string name="subtitle_language_norwegian">Norsk</string>
+    <string name="subtitle_language_english">Engelsk</string>
+    <string name="subtitle_language_swedish">Svensk</string>
+    <string name="subtitle_language_danish">Dansk</string>
+    <string name="subtitle_language_german">Tysk</string>
+    <string name="subtitle_language_french">Fransk</string>
+    <string name="subtitle_language_spanish">Spansk</string>
+    <string name="subtitle_language_server">Følg serveren</string>
+</resources>

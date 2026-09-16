@@ -29,7 +29,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     playFocus: FocusRequester, nextFocus: FocusRequester?, onToggle: () -> Unit, onSeek: (Long) -> Unit,
     onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, fillVideo: Boolean,
     onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
-    onSpeed: () -> Unit = {}, onChapters: () -> Unit = {}) {
+    onSpeed: () -> Unit = {}, onChapters: () -> Unit = {}, onStats: () -> Unit = {}) {
     val timeline = remember { FocusRequester() }
     val tools = remember { FocusRequester() }
     var timelineFocused by remember { mutableStateOf(false) }
@@ -65,6 +65,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
                 Modifier.width(240.dp).height(72.dp).testTag("player-clearlogo"),
                 contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                 alignment = Alignment.CenterStart,
+                trimTransparent = true,
                 source = state.source, onError = { logoFailed = true })
         } else Text(state.title, style = MaterialTheme.typography.titleLarge, color = Color.White,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -117,9 +118,10 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             Text(playbackTime(position), style = MaterialTheme.typography.labelLarge, color = Color.White)
             Text(playbackTime(state.durationMs), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .72f))
         }
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             TvPlayerAction(SpoleIcons.PlaySimple, stringResource(R.string.phase_speed), "player-speed",
                 Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onSpeed() }
+            TvPlayerAction(SpoleIcons.Info, "Stats for Nerds", "player-stats", Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onStats() }
             if (state.chapters.isNotEmpty()) TvPlayerAction(SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters",
                 Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onChapters() }
             TvPlayerAction(SpoleIcons.Sound, stringResource(R.string.player_audio), "player-audio",
@@ -135,25 +137,32 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
                 stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill), "player-frame-mode",
                 Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onFrame() }
         }
+        Text(stringResource(if (state.direct) R.string.player_direct else R.string.player_transcoded, state.source.displayName),
+            style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = .65f))
         if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Color.White, trackColor = Color.White.copy(alpha = .15f))
         state.warning?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .72f)) }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TvPlayerAction(icon: ImageVector, label: String, tag: String, modifier: Modifier = Modifier,
+internal fun TvPlayerAction(icon: ImageVector, label: String, tag: String, modifier: Modifier = Modifier,
     enabled: Boolean = true, labelVisible: Boolean = false, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    Surface(onClick, modifier.heightIn(min = 48.dp).testTag(tag).semantics { contentDescription = label },
-        enabled = enabled, shape = RoundedCornerShape(12.dp), interactionSource = interaction,
-        color = if (focused) Color.White.copy(alpha = .24f) else Color.White.copy(alpha = .08f),
+    val tooltip = rememberTooltipState()
+    val windowFocused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
+    LaunchedEffect(focused, windowFocused) { if (focused && windowFocused) tooltip.show() else tooltip.dismiss() }
+    TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } }, state = tooltip, focusable = false) {
+    Surface(onClick, modifier.size(48.dp).testTag(tag).semantics { contentDescription = label },
+        enabled = enabled, shape = RoundedCornerShape(8.dp), interactionSource = interaction,
+        color = if (focused) Color.White.copy(alpha = .20f) else Color.Transparent,
         border = BorderStroke(1.5.dp, if (focused) Color.White else Color.Transparent),
         contentColor = Color.White.copy(alpha = if (enabled) 1f else .38f)) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, null, Modifier.size(if (labelVisible) 24.dp else 32.dp))
-            if (labelVisible) Text(label, style = MaterialTheme.typography.labelLarge)
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(if (labelVisible) 22.dp else 28.dp))
         }
+    }
     }
 }

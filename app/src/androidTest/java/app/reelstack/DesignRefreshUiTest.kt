@@ -2,6 +2,9 @@ package app.reelstack
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -68,20 +71,24 @@ class DesignRefreshUiTest {
         rule.onRoot().saveRoadmapImage("design-library-phone.png")
     }
 
-    @Test fun themeGalleryPreviewsBeforeApplyingAndPreservesPlaybackChoices() {
-        val initial = Personalization(autoPlayNextEpisode = false, watchNextEnabled = true, showLibraryCardNames = false)
-        var current = initial
-        rule.setContent { Canvas(960, 540, tv = true) { ThemeGallery(initial) { current = it } } }
-        rule.onNodeWithTag("theme-gallery").performClick()
-        rule.onNodeWithTag("theme-preview-HALLOWEEN").performScrollTo().performClick()
-        assertEquals(initial, current)
-        rule.onNodeWithTag("theme-gallery-dialog").saveRoadmapImage("phase4-theme-gallery.png")
-        rule.onNodeWithTag("theme-apply").performClick()
-        assertEquals(VisualTheme.HALLOWEEN, current.visualTheme)
-        assertEquals(AccentPalette.PUMPKIN, current.accent)
-        assertFalse(current.autoPlayNextEpisode)
-        assertTrue(current.watchNextEnabled)
-        assertFalse(current.showLibraryCardNames)
+    @Test fun libraryCustomizationLivesAfterAllShelvesOnTv() {
+        rule.setContent { Canvas(960, 540, tv = true, font = 2f) { LibraryHub(fixtures(), {}, {}, null, {}) } }
+        rule.onNodeWithTag("hub-customize").assertDoesNotExist()
+        rule.onNodeWithTag("library-hub").performScrollToKey("customize")
+        rule.onNodeWithTag("hub-customize").assertIsDisplayed()
+        rule.onRoot().saveRoadmapImage("library-customize-footer-tv.png")
+        rule.onNodeWithTag("hub-customize").performClick()
+        rule.onNodeWithTag("library-title").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun appearanceSettingsKeepSeasonChoiceWithoutLookPresets() {
+        rule.setContent { Canvas(960, 540, tv = true) { Column(Modifier.verticalScroll(rememberScrollState())) {
+            VisualThemeSettings(Personalization(), {})
+        } } }
+        rule.onNodeWithText("Vel uttrykk").assertDoesNotExist()
+        rule.onNodeWithTag("saved-looks").assertDoesNotExist()
+        rule.onNodeWithTag("theme-gallery").assertDoesNotExist()
+        rule.onNodeWithTag("theme-choice-season").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun posterLongPressOffersDetailsWithoutOpeningThem() {
@@ -97,13 +104,30 @@ class DesignRefreshUiTest {
         assertEquals(movie.id, opened)
     }
 
-    @Test fun themeGalleryKeepsActionsInsideNarrowPhoneAtDoubleFont() {
-        rule.setContent { Canvas(320, 740, font = 2f) { ThemeGallery(Personalization()) {} } }
-        rule.onNodeWithTag("theme-gallery").performClick()
-        val dialog = rule.onNodeWithTag("theme-gallery-dialog").fetchSemanticsNode().boundsInRoot
-        val apply = rule.onNodeWithTag("theme-apply").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        assertTrue(apply.left >= dialog.left && apply.right <= dialog.right && apply.bottom <= dialog.bottom)
-        rule.onNodeWithTag("theme-gallery-dialog").saveRoadmapImage("phase4-theme-phone-large.png")
+    @Test fun choiceDialogKeepsCloseInsideNarrowPhoneAtDoubleFont() {
+        rule.setContent { Canvas(320, 740, font = 2f) {
+            SpoleChoiceDialog("Undertekstar", {}) { Text("Norsk") }
+        } }
+        rule.onNodeWithContentDescription("Lukk").assertIsDisplayed()
+        rule.onNodeWithTag("choice-dialog").saveRoadmapImage("choice-phone-large.png")
+    }
+
+    @Test fun subtitleLanguagesOfferNorwegianAndEnglishAtDoubleFont() {
+        var value by mutableStateOf(Personalization())
+        rule.setContent { Canvas(360, 780, font = 2f) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                SubtitleLanguageSettings(value) { value = it }
+            }
+        } }
+        rule.onNodeWithText("Norsk").assertIsDisplayed()
+        rule.onNodeWithText("Engelsk").assertIsDisplayed()
+        rule.onNodeWithTag("theme-choice-subtitle-fallback").performScrollTo().performClick()
+        rule.onNodeWithTag("subtitle-fallback-NORWEGIAN").assertDoesNotExist()
+        rule.onNodeWithTag("subtitle-fallback-SWEDISH").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(SubtitleLanguage.SWEDISH, value.fallbackSubtitleLanguage) }
+        rule.onNodeWithTag("theme-choice-subtitle-language").performScrollTo().performClick()
+        rule.onNodeWithTag("subtitle-language-NONE").performScrollTo().performClick()
+        rule.onNodeWithTag("theme-choice-subtitle-fallback").assertDoesNotExist()
     }
 
     @Test fun advancedOsdSelectsChapterAndReturnsWithOneBack() {
@@ -132,7 +156,7 @@ class DesignRefreshUiTest {
             }
         } }
         rule.onNodeWithText("Alt").assertDoesNotExist()
-        rule.onNodeWithTag("library-hub").performScrollToIndex(2)
+        rule.onNodeWithTag("library-hub").performScrollToKey("libraries")
         rule.onNodeWithTag("hub-library-name-movies").assertIsDisplayed()
         val picture = rule.onNodeWithTag("hub-library-movies").fetchSemanticsNode().boundsInRoot
         val label = rule.onNodeWithTag("hub-library-name-movies").fetchSemanticsNode().boundsInRoot
@@ -196,6 +220,7 @@ class DesignRefreshUiTest {
         val old = repository.personalization
         try {
             val expected = old.copy(startInLibrary = true, heroRotate = false, heroLogo = false,
+                preferredSubtitleLanguage = SubtitleLanguage.SWEDISH, fallbackSubtitleLanguage = SubtitleLanguage.DANISH,
                 heroCompact = true, reduceMotion = true, showUpcomingEpisodes = false,
                 homeRowFormats = mapOf("NEXT_UP" to "THUMB"), showLibraryTitle = true, libraryCardsWide = false,
                 libraryHubOrder = DEFAULT_LIBRARY_HUB.reversed(), libraryHubHidden = setOf("FEATURE"), libraryOrder = listOf("second", "first"))
@@ -241,25 +266,6 @@ class DesignRefreshUiTest {
         }
     }
 
-    @Test fun savedLookCanBeNamedLoadedAndRetainedAcrossRepositoryInstances() {
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        val repository = AppPreferencesRepository(context)
-        val old = repository.savedAppearances
-        val value = mutableStateOf(Personalization(accent = AccentPalette.CORAL))
-        try {
-            repository.savedAppearances = emptyList()
-            rule.setContent { Canvas(360, 780) { Column { AppearancePresets(value.value) { value.value = it } } } }
-            rule.onNodeWithTag("saved-looks").performClick()
-            rule.onNodeWithTag("look-name").performTextInput("Filmtest")
-            rule.onNodeWithTag("look-save").performScrollTo().performClick()
-            rule.runOnIdle {
-                assertEquals("Filmtest", AppPreferencesRepository(context).savedAppearances.single().name)
-                value.value = value.value.copy(accent = AccentPalette.OCEAN)
-            }
-            rule.onNodeWithTag("look-load-Filmtest").performScrollTo().performClick()
-            rule.runOnIdle { assertEquals(AccentPalette.CORAL, value.value.accent) }
-        } finally { repository.savedAppearances = old }
-    }
 
     @Test fun episodeHasAnExplicitSeriesLink() {
         checkEpisodeReadingOrder(1f)

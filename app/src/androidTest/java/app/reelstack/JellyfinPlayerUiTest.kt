@@ -17,15 +17,15 @@ class JellyfinPlayerUiTest {
     private fun screen(state: PlayerScreenState, scale: Float = 1f, close: () -> Unit = {}, subtitle: (Int) -> Unit = {}, choose: (PlayableItem) -> Unit = {}) {
         rule.setContent { val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
-                ReelstackTheme { PlayerScreen(state, null, close, {}, {}, {}, choose, {}, {}, subtitle, {}, {}) }
+                ReelstackTheme { PlayerScreen(state, null, close, {}, {}, {}, choose, {}, {}, subtitle, {}, {}, isTelevision = false) }
             }
         }
     }
     @Test fun pictureCanFillTheScreenAndReturnToUncroppedFit() {
         screen(PlayerScreenState(busy=false,durationMs=20000))
-        rule.onNodeWithText("Fyll skjermen").performScrollTo().performClick()
-        rule.onNodeWithText("Heile biletet").assertIsDisplayed().performClick()
-        rule.onNodeWithText("Fyll skjermen").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Fyll skjermen").performScrollTo().performClick()
+        rule.onNodeWithContentDescription("Heile biletet").assertIsDisplayed().performClick()
+        rule.onNodeWithContentDescription("Fyll skjermen").assertIsDisplayed()
         rule.onNodeWithTag("player-close").assertIsDisplayed()
     }
     @Test fun closeIsAvailableWhileVideoLoads() {
@@ -57,7 +57,7 @@ class JellyfinPlayerUiTest {
         screen(PlayerScreenState(title="Ein lang filmtittel med fleire ord",busy=false,durationMs=20000),
             scale=2f, close={ closed=true })
         val before = rule.onNodeWithTag("player-close").fetchSemanticsNode().boundsInRoot
-        rule.onNodeWithText("Kvalitet",substring=true).performScrollTo()
+        rule.onNodeWithTag("player-quality").performScrollTo()
         val after = rule.onNodeWithTag("player-close").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertEquals(before,after)
         rule.onNodeWithTag("player-close").performTouchInput { click() }
@@ -66,7 +66,7 @@ class JellyfinPlayerUiTest {
     @Test fun textChoiceAndOffAreExplicit() {
         var selected=99
         screen(PlayerScreenState(busy=false,subtitles=listOf(PlaybackTrack(2,"Norsk", "nor",true)),subtitleIndex=2),subtitle={selected=it})
-        rule.onNodeWithText("Tekst",substring=true).performScrollTo().performClick()
+        rule.onNodeWithTag("player-subtitles").performScrollTo().performClick()
         rule.onNodeWithText("Norsk").assertIsDisplayed()
         rule.onNodeWithText("Av",substring=false).performClick()
         assertEquals(-1,selected)
@@ -74,7 +74,7 @@ class JellyfinPlayerUiTest {
     @Test fun largeTextKeepsCloseAndQualityReachable() {
         screen(PlayerScreenState(title="Ein lang filmtittel som framleis skal vere lesbar",busy=false,durationMs=20000),scale=2f)
         rule.onNodeWithTag("player-close").assertIsDisplayed()
-        rule.onNodeWithText("Kvalitet",substring=true).performScrollTo().assertIsDisplayed().performClick()
+        rule.onNodeWithTag("player-quality").performScrollTo().assertIsDisplayed().performClick()
         rule.onNodeWithText("Automatisk").assertIsDisplayed()
     }
     @Test fun episodesAreExplicitAndShowPersonalResume() {

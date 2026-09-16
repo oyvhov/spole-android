@@ -16,7 +16,7 @@
     <string name="personal_large">Stor</string>
     <string name="personal_playback">Avspilling</string>
     <string name="personal_resume">Fortsett der jeg slapp</string>
-    <string name="personal_resume_note">Start Jellyfin-avspilling fra din lagrede posisjon. Slå av for å velge mellom å fortsette og å starte på nytt.</string>
+    <string name="personal_resume_note">Start avspilling fra din lagrede posisjon. Slå av for å velge mellom å fortsette og å starte på nytt.</string>
     <string name="personal_reset">Tilbakestill utseende</string>
     <string name="personal_preview">Forhåndsvisning av bildestørrelse</string>
     <string name="player_frame_fit">Hele bildet</string>

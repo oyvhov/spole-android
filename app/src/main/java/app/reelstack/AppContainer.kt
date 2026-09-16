@@ -18,6 +18,7 @@ class AppContainer(context: Context) {
     val connectionTester = ServiceConnectionTester(deviceId = deviceId)
     val seerrAuthenticationClient = app.reelstack.data.network.SeerrAuthenticationClient()
     val embyAuthenticationClient = app.reelstack.data.network.EmbyAuthenticationClient(deviceId = deviceId)
+    val embyConnectClient = app.reelstack.data.network.EmbyConnectClient()
     val jellyfinAuthenticationClient = JellyfinAuthenticationClient(
         deviceId = deviceId,
     )
