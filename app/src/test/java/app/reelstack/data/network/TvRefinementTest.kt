@@ -37,6 +37,25 @@ class TvRefinementTest {
         assertEquals(listOf("4K", "HDR10", "HEVC", "EAC3 5.1"), detail.quality)
         assertTrue(detail.facts.any { it.startsWith("★") })
     }
+    @Test fun embyLibraryPeekRequestsAndCarriesHeroRatings() {
+        val urls = mutableListOf<String>()
+        val transport = object : JsonHttpTransport {
+            override fun get(url: String, headers: Map<String, String>): HttpResponse {
+                urls += url
+                return HttpResponse(200, """{"Items":[{"Id":"film","Name":"Film","Type":"Movie",
+                    "CommunityRating":8.2,"CriticRating":93}]}""")
+            }
+            override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse = error("Unexpected write")
+        }
+        val client = MediaServerClient(transport)
+        val connection = ServiceConnection(ServiceKind.EMBY, "Emby", "https://media.example", "token", userId = "profile")
+
+        val item = client.libraryPeek(connection, RemoteLibraryView("films", "Filmar", "movies"), limit = 1).single()
+
+        assertEquals(82f, item.tmdbRating)
+        assertEquals(93, item.criticRating)
+        assertTrue(urls.single().contains("Fields=Overview,PrimaryImageAspectRatio,CommunityRating,CriticRating"))
+    }
     @Test fun missingStreamsDoNotInventQualityOrProgress() {
         val detail = ServicePayloadParser.libraryDetails("""{"Name":"Test","Type":"Movie"}""")
         assertTrue(detail.quality.isEmpty())

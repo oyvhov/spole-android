@@ -26,6 +26,11 @@ private data class ServiceProbe(
     val headerName: String,
 )
 
+// Emby omits these scalar values from item lists unless they are explicitly requested.
+// CommunityRating is the server's TMDB/IMDb/TVDB community score; the parser presents it with
+// the TMDB mark when no more specific provider value is available.
+private const val LIBRARY_RATING_FIELDS = "CommunityRating,CriticRating"
+
 /** One page of Seerr results, so Discover can ask for the next one instead of truncating at 20. */
 data class SeerrSearchPage(
     val items: List<RemoteDiscoverItem>,
@@ -425,7 +430,7 @@ class MediaServerClient(
         val allowed = views.filter { includeLibrary(connection, it) }
         if (allowed.isEmpty()) return emptyList()
         val query = "Limit=$RESUME_ITEM_LIMIT&Recursive=true&MediaTypes=Video" +
-            "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
+            "&Fields=Overview,Genres,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=1" +
             "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&EnableUserData=true"
         val groups = allowed.mapNotNull { view ->
             val scoped = "$query&ParentId=${encodePathSegment(view.id)}"
@@ -458,7 +463,7 @@ class MediaServerClient(
         // Episodes count too: the card menu can star one, and a mark that leads nowhere is the
         // thing this row exists to fix.
         val query = "Recursive=true&Filters=IsFavorite&IncludeItemTypes=Movie,Series,Episode&Limit=24" +
-            "&SortBy=SortName&SortOrder=Ascending&EnableUserData=true&Fields=Overview,Genres" +
+            "&SortBy=SortName&SortOrder=Ascending&EnableUserData=true&Fields=Overview,Genres,$LIBRARY_RATING_FIELDS" +
             "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Logo,Backdrop"
         val groups = allowed.mapNotNull { view ->
             runCatching {
@@ -511,7 +516,7 @@ class MediaServerClient(
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
         val userId = userIdentity(connection)?.let(::encodePathSegment) ?: return emptyList()
         val query = "ParentId=${encodePathSegment(view.id)}&Limit=$limit&EnableUserData=true" +
-            "&Fields=Overview,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
+            "&Fields=Overview,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=1" +
             "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&IsMissing=false"
         // Latest is the endpoint built for this and it answers with a bare array. Some builds only
         // have the older user-scoped spelling, and a server with neither still has the ordinary
@@ -546,7 +551,7 @@ class MediaServerClient(
             runCatching {
                 getItems(connection, listOf("Shows/NextUp?UserId=$userId&ParentId=${encodePathSegment(view.id)}" +
                     "&Limit=24&EnableUserData=true&EnableResumable=false" +
-                    "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=2" +
+                    "&Fields=Overview,Genres,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=2" +
                     "&EnableImageTypes=Primary,Thumb,Logo,Backdrop"))
                     .map { it.copy(libraryId = view.id) }
             }.getOrNull()
@@ -592,7 +597,7 @@ class MediaServerClient(
         // film held on both Jellyfin and Emby arrives as two unrelated items and is shown twice.
         val query = "searchTerm=${encode(trimmed).replace("+", "%20")}&Recursive=true" +
             "&IncludeItemTypes=Movie,Series,Episode&Limit=$SEARCH_ITEM_LIMIT" +
-            "&Fields=Overview,Genres,PrimaryImageAspectRatio,ProviderIds,PremiereDate" +
+            "&Fields=Overview,Genres,PrimaryImageAspectRatio,ProviderIds,PremiereDate,$LIBRARY_RATING_FIELDS" +
             "&EnableImages=true&ImageTypeLimit=1" +
             "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&EnableUserData=true&IsMissing=false"
         val groups = allowed.mapNotNull { view ->
@@ -649,7 +654,7 @@ class MediaServerClient(
             "&Recursive=${catalogueType != null}&StartIndex=$offset&Limit=60" + filters.query() +
             (catalogueType?.let { "&IncludeItemTypes=$it" } ?: "") +
             (if (browsingCollections) "" else "&ExcludeItemTypes=BoxSet") +
-            "&CollapseBoxSetItems=false&Fields=Overview,Genres,ProviderIds&EnableUserData=true&IsMissing=false"
+            "&CollapseBoxSetItems=false&Fields=Overview,Genres,ProviderIds,$LIBRARY_RATING_FIELDS&EnableUserData=true&IsMissing=false"
         val paths = if (connection.kind == ServiceKind.EMBY)
             listOf("Users/${encodePathSegment(user)}/Items?$query", "Items?$query")
         else listOf("Items?$query")
@@ -669,7 +674,7 @@ class MediaServerClient(
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
         val user = encodePathSegment(requireNotNull(ownUserId(connection)) { "Profil-ID manglar" })
         val series = encodePathSegment(seriesId)
-        val fields = "&EnableUserData=true&Fields=Overview,ChildCount&EnableImages=true&ImageTypeLimit=1"
+        val fields = "&EnableUserData=true&Fields=Overview,ChildCount,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=1"
         return getItems(connection, listOf(
             "Shows/$series/Seasons?userId=$user$fields",
             "Items?userId=$user&ParentId=$series&IncludeItemTypes=Season&SortBy=IndexNumber$fields",
@@ -679,7 +684,7 @@ class MediaServerClient(
     fun episodes(connection: ServiceConnection, seriesId: String, seasonId: String): List<RemoteLibraryItem> {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
         val user = encodePathSegment(requireNotNull(ownUserId(connection)) { "Profil-ID manglar" })
-        val fields = "&EnableUserData=true&Fields=Overview,PremiereDate&EnableImages=true&ImageTypeLimit=2" +
+        val fields = "&EnableUserData=true&Fields=Overview,PremiereDate,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=2" +
             "&EnableImageTypes=Primary,Thumb,Backdrop"
         // An empty answer counts as a failure here, not as "this season is empty". `getItems` stops
         // at the first route that replies at all, and a server that answers the show-scoped route
@@ -718,7 +723,7 @@ class MediaServerClient(
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
         val user = encodePathSegment(ownUserId(connection) ?: return null)
         val series = encodePathSegment(seriesId)
-        val fields = "&EnableUserData=true&Fields=Overview&EnableImages=true&ImageTypeLimit=1"
+        val fields = "&EnableUserData=true&Fields=Overview,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=1"
         return listOf(
             "Shows/NextUp?userId=$user&seriesId=$series&Limit=1&EnableResumable=true$fields",
             "UserItems/Resume?userId=$user&ParentId=$series&Limit=1&MediaTypes=Video$fields",
@@ -747,7 +752,7 @@ class MediaServerClient(
             val query = "ParentId=${encodePathSegment(view.id)}&Recursive=true&IncludeItemTypes=$type" +
                 "&SortBy=PremiereDate&SortOrder=Descending&Limit=60&IsMissing=false&IsVirtualUnaired=false" +
                 "&MinPremiereDate=$start&MaxPremiereDate=${window.today}T23:59:59Z" +
-                "&Fields=Overview,Genres,ProviderIds,PrimaryImageAspectRatio&EnableImages=true&EnableUserData=false"
+                "&Fields=Overview,Genres,ProviderIds,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&EnableUserData=false"
             runCatching {
                 val paths = if (connection.kind == ServiceKind.JELLYFIN) {
                     listOf("Items?UserId=$userId&$query", "Users/$userId/Items?$query")
@@ -861,7 +866,7 @@ class MediaServerClient(
         val user = encodePathSegment(requireNotNull(ownUserId(connection)))
         return getItems(connection, listOf("Users/$user/Items?PersonIds=${encodePathSegment(personId)}" +
             "&Recursive=true&IncludeItemTypes=Movie,Series&SortBy=SortName&SortOrder=Ascending&Limit=60" +
-            "&EnableUserData=true&Fields=Overview&EnableImages=true&ImageTypeLimit=1"))
+            "&EnableUserData=true&Fields=Overview,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=1"))
     }
 
     fun details(connection: ServiceConnection, itemId: String): RemoteMediaDetails {
@@ -993,7 +998,7 @@ class MediaServerClient(
         groupItems: Boolean,
         parentId: String? = null,
     ): List<String> {
-        val query = "Limit=12&Fields=Overview,Genres,PrimaryImageAspectRatio" +
+        val query = "Limit=12&Fields=Overview,Genres,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS" +
             "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Logo,Backdrop" +
             "&IncludeItemTypes=$itemType&GroupItems=$groupItems" +
             parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty()
