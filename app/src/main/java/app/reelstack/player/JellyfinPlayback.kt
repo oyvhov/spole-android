@@ -167,9 +167,13 @@ class MediaPlaybackClient(
     private val sourceSupported: (JsonObject, Int?) -> Boolean = { _, _ -> true },
     private val videoSupported: (JsonObject) -> Boolean = { true },
 ) {
-    fun headers(connection: ServiceConnection): Map<String, String> = buildMap {
-        put("Authorization", jellyfinAuthorization(deviceId, connection.token))
-        if (connection.kind == ServiceKind.EMBY) put("X-Emby-Token", connection.token)
+    fun headers(connection: ServiceConnection): Map<String, String> = when (connection.kind) {
+        ServiceKind.JELLYFIN -> mapOf("Authorization" to jellyfinAuthorization(deviceId, connection.token))
+        ServiceKind.EMBY -> mapOf(
+            "X-Emby-Token" to connection.token,
+            "X-Emby-Authorization" to embyAuthorization(deviceId),
+        )
+        else -> emptyMap()
     }
 
     fun verify(connection: ServiceConnection): String {

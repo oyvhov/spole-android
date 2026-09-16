@@ -40,7 +40,7 @@ fun devicePlaybackProfile(bitrate: Int, capabilities: DevicePlaybackCapabilities
     // HLS MPEG-TS can copy AVC/HEVC while converting only unsupported audio.
     // AV1/VP9 stay available for direct playback; TS fallback uses AVC.
     putJsonArray("TranscodingProfiles") { add(buildJsonObject {
-        put("Type", "Video"); put("Container", "ts"); put("Protocol", "hls")
+        put("Type", "Video"); put("Container", "ts"); put("Protocol", "hls"); put("Context", "Streaming")
         put("VideoCodec", listOf("h264", "hevc").filter { codec -> capabilities.video.any { it.codec == codec } }.joinToString(",").ifBlank { "h264" })
         put("AudioCodec", "aac")
         put("MaxAudioChannels", (capabilities.audio.firstOrNull { it.codec == "aac" }?.channels ?: 2).toString())

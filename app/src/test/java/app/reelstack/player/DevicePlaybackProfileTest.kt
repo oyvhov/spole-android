@@ -21,6 +21,7 @@ class DevicePlaybackProfileTest {
         assertEquals("8", conditions(profile, "truehd").single().str("Value"))
         assertEquals("6", conditions(profile, "ac3").single().str("Value"))
         assertEquals("8", profile.objects("TranscodingProfiles").single().str("MaxAudioChannels"))
+        assertEquals("Streaming", profile.objects("TranscodingProfiles").single().str("Context"))
     }
     @Test fun sdrDisplayDoesNotAdvertiseHdrOrDolbyVisionFromTenBitDecoderAlone() {
         val profile = devicePlaybackProfile(40_000_000, capable.copy(video = listOf(VideoPlaybackCapability("hevc", 3840, 2160, 10))))

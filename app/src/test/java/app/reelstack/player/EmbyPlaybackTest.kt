@@ -20,6 +20,8 @@ class EmbyPlaybackTest {
         var itemBody: String? = null
         override fun get(url: String, headers: Map<String, String>): HttpResponse {
             assertEquals(if (kind == ServiceKind.EMBY) "fixture" else null, headers["X-Emby-Token"])
+            assertEquals(if (kind == ServiceKind.EMBY) "Emby Client=\"Spole\", Device=\"Android\", DeviceId=\"device\", Version=\"${app.reelstack.BuildConfig.VERSION_NAME}\"" else null,
+                headers["X-Emby-Authorization"])
             assertFalse(url.contains("fixture"))
             reads += url
             return HttpResponse(200, itemBody ?: """{"Id":"$user","Policy":{"EnableMediaPlayback":$allowed}}""")
@@ -27,8 +29,12 @@ class EmbyPlaybackTest {
         override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse {
             postCalls++
             assertEquals(if (kind == ServiceKind.EMBY) "fixture" else null, headers["X-Emby-Token"])
-            assertTrue(headers.getValue("Authorization").contains("Client=\"Spole\""))
-            assertTrue(headers.getValue("Authorization").contains("Token=\"fixture\""))
+            assertEquals(if (kind == ServiceKind.EMBY) "Emby Client=\"Spole\", Device=\"Android\", DeviceId=\"device\", Version=\"${app.reelstack.BuildConfig.VERSION_NAME}\"" else null,
+                headers["X-Emby-Authorization"])
+            if (kind == ServiceKind.JELLYFIN) {
+                assertTrue(headers.getValue("Authorization").contains("Client=\"Spole\""))
+                assertTrue(headers.getValue("Authorization").contains("Token=\"fixture\""))
+            }
             assertFalse(url.contains("fixture"))
             if (transientPlaybackFailures > 0) {
                 transientPlaybackFailures--
