@@ -1,126 +1,130 @@
 <p align="center">
-  <img src="design/brand/spole-icon.svg" width="96" alt="Spole-logo" />
+  <img src="design/brand/spole-icon.svg" width="96" alt="Spole icon" />
 </p>
 
 <h1 align="center">Spole</h1>
-<p align="center">Filmane dine. Seriane dine. Éin stad.</p>
-<p align="center">Android TV · Google TV · Nettbrett · Telefon</p>
+<p align="center">Your movies. Your shows. One place.</p>
+<p align="center">Android TV · Google TV · Tablet · Phone</p>
 <p align="center">
-  <a href="https://github.com/oyvhov/spole-android/releases"><strong>Last ned APK</strong></a>
+  <a href="https://github.com/oyvhov/spole-android/releases"><strong>Download APK</strong></a>
   &nbsp; · &nbsp;
-  <a href="docs/APP_GUIDE.md">Kom i gang</a>
+  <a href="docs/APP_GUIDE.md">Setup guide</a>
   &nbsp; · &nbsp;
-  <a href="https://github.com/oyvhov/spole-android/issues">Meld ein feil</a>
+  <a href="https://github.com/oyvhov/spole-android/issues">Report an issue</a>
 </p>
 
-Spole samlar Jellyfin, Emby, Seerr, Radarr og Sonarr i ein innfødd Android-app.
-Bla i biblioteka dine, spel frå Jellyfin eller Emby og følg førespurnader frå Seerr.
-Grensesnittet tilpassar seg fjernkontroll og berøring, med nynorsk og engelsk som språkval.
+Spole is a native Android client that brings Jellyfin, Emby, Seerr, Radarr and Sonarr
+into one focused experience. Browse each media server as its own library, play from
+Jellyfin or Emby, and track your requests from Seerr.
 
-**Under aktiv utvikling.** Siste publiserte APK er
-[0.17.0-beta04](https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta04).
-Gjeldande kjelde ligg på [main](https://github.com/oyvhov/spole-android/tree/main).
-Alphaversjonar ligg under **Releases**; GitHub si «latest»-lenkje tek ikkje nødvendigvis med desse.
+**Active beta development.** The latest public APK is
+[0.17.0-beta09](https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta09).
+It is signed for in-place updates over earlier Spole beta releases. The source for
+this build is available on [main](https://github.com/oyvhov/spole-android/tree/main).
+Pre-release builds are published under [Releases](https://github.com/oyvhov/spole-android/releases).
 
-## På skjermane dine
+## On your screens
 
 ### TV
-![Spole på TV: hero, aktive avspelingar og innhaldsrader](docs/images/devices/tv-home.png)
+![Spole on TV with cinematic hero, content rows and remote-friendly navigation](docs/images/devices/tv-home.png)
 
-Styr appen med fjernkontrollen. TV-oppsettet har sidepanel, horisontale innhaldsrader,
-eigne innstillingar og ein spelar med søkjelinje, lyd, undertekst og neste episode.
+The TV experience is designed for remote control: a persistent side panel,
+horizontal content rows, focused settings, and a playback OSD with seek, audio,
+subtitles and next-episode controls.
 
-### Nettbrett
-![Spole på nettbrett: Heim med breitt oppsett og sidenavigasjon](docs/images/devices/tablet-home.png)
+### Tablet
+![Spole on tablet with a wide home layout and side navigation](docs/images/devices/tablet-home.png)
 
-Eit breitt oppsett med sidanavigasjon og meir synleg innhald.
+A wide layout keeps navigation visible while giving content more room.
 
-### Telefon
+### Phone
 <p align="center">
-  <img src="docs/images/devices/phone-home.png" width="32%" alt="Spole Heim på telefon" />
+  <img src="docs/images/devices/phone-home.png" width="32%" alt="Spole home on phone" />
   &nbsp;
-  <img src="docs/images/devices/phone-discover.png" width="32%" alt="Oppdag på telefon" />
+  <img src="docs/images/devices/phone-discover.png" width="32%" alt="Discover on phone" />
   &nbsp;
-  <img src="docs/images/devices/phone-settings.png" width="32%" alt="Innstillingar på telefon" />
+  <img src="docs/images/devices/phone-settings.png" width="32%" alt="Settings on phone" />
 </p>
 
-Botnnavigasjon og innstillingar grupperte for mindre skjermar.
+Bottom navigation and grouped settings make the smaller layout easy to scan.
 
-*Bileta er tekne av appen i emulator 13. september 2026, med demodata og utan private
-kontoar. Dei viser utviklingsutgåva, som kan skilje seg frå publisert APK.
-[Sjå alle bileta og korleis dei er anonymiserte](docs/images/devices/README.md).*
+*Screenshots were captured in the emulator on September 13, 2026, using demo data.
+They are representative and may differ from the current beta. [View all device
+screenshots and anonymisation notes](docs/images/devices/README.md).*
 
-### Jul og Halloween
+### Christmas and Halloween
 
 <p>
-  <img src="docs/images/devices/tv-home-christmas.png" width="49%" alt="Juletema på TV med nisselue, lys og varme fargar" />
-  <img src="docs/images/devices/tv-home-halloween.png" width="49%" alt="Halloween på TV med spøkjelse, spindelvev og oransje aksent" />
+  <img src="docs/images/devices/tv-home-christmas.png" width="49%" alt="Christmas theme on TV" />
+  <img src="docs/images/devices/tv-home-halloween.png" width="49%" alt="Halloween theme on TV" />
 </p>
 
-Sesongtema endrar bakgrunn, menyar, aksent og dekor. Dekoren kan slåast av, og redusert rørsle
-bevarer den statiske pynten. [Sjå sesongane på alle tre skjermformat](docs/images/devices/README.md#jul-og-halloween).
+Seasonal themes can change the background, menu accents and decoration. Decoration
+can be disabled, and reduced motion keeps the seasonal styling static. [See the
+seasonal screens for all three form factors](docs/images/devices/README.md#christmas-and-halloween).
 
-Demoen i utviklingsutgåva har 18 bibliotekstitlar, hero på TV og nettbrett, favorittar,
-neste episodar og eit fyldig Oppdag. Nye, fiktive omslag er lagra i appen og fungerer utan nett.
+## Features
 
-## Kva kan eg bruke Spole til?
+- **Separate Jellyfin and Emby experiences.** Libraries, Continue Watching rows and playback state stay tied to the service they came from instead of being mixed together.
+- **Integrated playback.** Spole requests direct playback when possible and can fall back to audio-only or full server transcoding when the device or media requires it. Jellyfin playback is verified on Android TV; Emby playback is implemented, but some files still need investigation. Actual format support depends on the Android device, player and server configuration.
+- **Cinematic detail pages.** Backdrops, clearlogos, seasons, episodes, cast, age ratings, runtime and estimated finish time are presented in an Infuse-inspired TV layout.
+- **Visual ratings.** TMDB and Rotten Tomatoes ratings use their visual marks when the server provides the data, with ratings kept on one clear line.
+- **Remote-first TV navigation.** The interface, menus and playback controls are built around predictable D-pad focus and short actions.
+- **Requests and discovery.** Browse Seerr, request movies or seasons, follow request status, and see upcoming Radarr and Sonarr items when your account has access.
+- **Themes.** Personalise accent colours, seasonal Christmas and Halloween themes, home rows and TV side-panel options.
+- **In-app updates.** Spole can check a published APK on GitHub and verify it before Android asks to install the update.
 
-| Teneste | I Spole |
+The production APK uses a small, plain placeholder when artwork is unavailable. It
+does not bundle the large demo backdrops used during earlier development builds.
+
+## Supported services
+
+| Service | Available in Spole |
 | --- | --- |
-| **Jellyfin** | Bibliotek, hald fram, favorittar og avspeling med lyd- og undertekstval. Quick Connect eller brukarnamn og passord. |
-| **Emby** | Bibliotek, hald fram, favorittar og integrert avspeling med lyd- og undertekstval. |
-| **Seerr** | Oppdag innhald, be om filmar og sesongar og følg dine eigne førespurnader. |
-| **Radarr / Sonarr** | Oversikt over komande innhald og nedlasting når kontoen har tilgang. |
+| **Jellyfin** | Library browsing, separate Continue Watching, favourites, playback, audio and subtitle selection, and Quick Connect or password login. |
+| **Emby** | Library browsing, separate Continue Watching, favourites, playback, audio and subtitle selection, and server or password login. |
+| **Seerr** | Discover titles, request movies and seasons, and follow your own request status. |
+| **Radarr / Sonarr** | Upcoming content and download status when the connected account has access. |
 
-Tenestene er valfrie. Du treng dine eigne tenarar og kontoar; Spole leverer ikkje filmar eller seriar.
-Kontoen sine rettar avgjer kva du kan sjå og gjere.
+All services are optional. You need your own servers and accounts; Spole does not
+provide media. Your account permissions determine what you can view and do.
 
-- **Hald fram der du slapp.** Avspeling i appen frå Jellyfin, med neste episode og val for tidspunkt.
-- **Gjer appen personleg.** Tema og aksentfargar, jul og Halloween, synlege Heim-rader og val for TV-sidepanelet.
-- **Følg førespurnadene dine.** Frå førespurd til tilgjengeleg, med valfrie varsel.
-- **Oppdater i appen.** Spole kan hente ei publisert APK frå GitHub og kontrollere henne før Android spør om installasjon.
+## Getting started
 
-**Klart i kjeldekoden for neste APK:** endre rekkjefølgja på Heim-radene,
-vurdering på filmkort, tenestestatus samla i innstillingane og éin knapp for å
-logge ut av alle tenester på denne eininga. Den utvida offline-demoen kjem også i neste APK.
+1. Download the APK from [Releases](https://github.com/oyvhov/spole-android/releases) and install it on Android 8.0 or newer.
+2. Select **Get started**. Open or paste a setup link from your server administrator, or enter the server addresses manually.
+3. Use **Approve on phone** with Quick Connect, or sign in with a username and password.
+4. Connect Seerr, Emby, Radarr or Sonarr separately when you want those services in the app.
 
-Utviklingsarbeidet har no også innebygd Emby-avspeling for filmar og seriar og
-Infuse-inspirerte TV-detaljar med bakgrunnsbilete, tittellogo og episoderad.
-Sjå [avspelingsstøtte og avgrensingar](docs/APP_GUIDE.md#oppdateringar-og-avgrensingar).
+Other sign-in methods are available under **Other sign-in methods**. A demo mode is
+also available for trying the interface without connecting a server.
 
-## Kom i gang
+When sharing Spole with family or friends, share the APK link and a setup link.
+Setup links contain server addresses, never passwords or access tokens. Each person
+signs in with their own account. See the [user and administrator guide](docs/APP_GUIDE.md).
 
-1. Last ned APK-en frå [Releases](https://github.com/oyvhov/spole-android/releases) og installer på Android 8.0 eller nyare.
-2. Vel **Kom i gang**. Opne eller lim inn ei oppsettslenkje frå den som driftar tenaren, eller skriv inn adressene.
-3. Vel **Godkjenn på mobilen** med Quick Connect, eller bruk brukarnamn og passord.
-4. Har du Seerr på same Jellyfin-oppsett, kan Spole logge inn på begge i den same flyten. Seerr må støtte denne innloggingsmåten.
+## Privacy
 
-Andre innloggingsmåtar finst under **Andre innloggingsmåtar**. Du kan også prøve appen med demodata.
+Credentials are stored encrypted on the device. Spole uses the server addresses you
+provide and has no central account service. TMDB may be used for artwork, while
+GitHub is used for the update catalogue and published updates; those services receive
+the request and your IP address. App update checks also send the Spole version.
+Account credentials are not sent to GitHub.
 
-**Deler du med familie eller vener?** Del APK-lenkja og ei oppsettslenkje frå Spole.
-Lenkja inneheld tenesteadresser, aldri passord eller tilgangsteikn. Kvar brukar loggar inn
-med sin eigen konto. [Les brukar- og administratorguiden](docs/APP_GUIDE.md).
+The screenshots in this repository use demo data. No real names, email addresses,
+server addresses, login codes or access tokens are published in them. Read the
+[privacy policy](docs/PRIVACY.md) for the current source tree.
 
-## Personvern
+## Feedback and development
 
-Innloggingar blir lagra kryptert på eininga. Appen brukar tenesteadressene du legg inn.
-Spole har ingen sentral kontotenar. TMDB blir brukt til bilete, og GitHub til
-tilrådingsliste og oppdateringar; desse tenestene får IP-adressa og ressursførespurnaden.
-Appoppdateringar sender òg Spole-versjonen. Kontoopplysningar blir ikkje sende til GitHub.
+[Report a bug or request a feature](https://github.com/oyvhov/spole-android/issues).
+Include the app version, device and the action that led to the problem. Remove names,
+addresses and login details before sharing screenshots or logs.
 
-Skjermbileta i denne presentasjonen bruker demodata. Ingen ekte namn, e-postadresser,
-serveradresser, innloggingskodar eller tilgangsteikn er publiserte i dei.
-[Personvernerklæringa for gjeldande utviklingsutgåve](https://github.com/oyvhov/spole-android/blob/spole-feature-and-hardening-pass/docs/PRIVACY.md).
+Spole is built with Kotlin and Jetpack Compose. The `main` branch contains the
+current source; release tags identify the source used for each published APK. Read
+the project [AGENTS.md](AGENTS.md) and [docs/AI_INSTRUCTIONS.md](docs/AI_INSTRUCTIONS.md)
+before making changes.
 
-## Tilbakemeldingar og utvikling
-
-[Meld feil eller ønsk ein funksjon](https://github.com/oyvhov/spole-android/issues).
-Ta med appversjon, eining og kva du trykte på. Skjul namn, adresser og innloggingsopplysningar før du deler bilete eller loggar.
-
-Appen er bygd med Kotlin og Jetpack Compose. Bruk
-[utviklingsgreina](https://github.com/oyvhov/spole-android/tree/spole-feature-and-hardening-pass)
-for den nyaste kjeldekoden, og release-taggen for å finne kjelda til ein bestemt APK.
-Les prosjektet si AGENTS.md og docs/AI_INSTRUCTIONS.md før endringar.
-
-Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby, Seerr, Radarr, Sonarr eller TMDB.
-Namna og merka tilhøyrer eigarane sine.
+Spole is not affiliated with or endorsed by Jellyfin, Emby, Seerr, Radarr, Sonarr or
+TMDB. Their names and marks belong to their respective owners.

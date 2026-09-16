@@ -1,59 +1,59 @@
-# Spole på TV, nettbrett og telefon
+# Spole on TV, tablet and phone
 
-Skjermbileta er tekne 13. september 2026 av den faktiske Compose-appen i ei utviklingsutgåve
-etter 0.16.0-alpha24. Dei er ikkje designskisser. Sjå merkinga i hovud-README for kva som er publisert.
+These screenshots were captured on September 13, 2026 from the Compose app in a
+development build. They are representative of the TV, tablet and phone layouts;
+the current public APK is listed on the repository [Releases](https://github.com/oyvhov/spole-android/releases) page.
 
-## Personvern og opphav
+## Privacy and provenance
 
-- Berre isolerte instrumenteringseiningar og appen sine demodata er brukte.
-- Ingen private kontoar, eigne tenaradresser, e-postadresser, tilgangsteikn eller innloggingskodar er med.
-- Namn og aktivitet i demovisninga er oppdikta, og seier ingenting om faktisk sjåarhistorikk.
-- Kontoopplysningar er utelatne før biletet blir teke; dei er ikkje berre sladda med eit gjennomsiktig lag.
-- Bileta er visuelt kontrollerte før publisering. Innhaldskunst kjem frå appen sine eksisterande demoressursar.
-- Den utvida demoen har også tre nye, AI-genererte fiktive omslag. Vurderingar, titlar og aktivitet er eksempeldata.
-- Sesongbileta bruker redusert rørsle for eit stabilt opptak; dei viser statisk pynt, ikkje animerte partiklar.
-- TV-bileta bruker TV-modus. Nettbrettbileta er tekne i eit emulert nettbrettvindauge på 1920 × 1200 pikslar.
-  Telefonbileta bruker den eksisterande isolerte telefonprofilen. Ingen fysisk eining er brukt til desse bileta.
+- Only isolated test devices and the app's demo data were used.
+- No private accounts, personal server addresses, email addresses, access tokens or login codes are included.
+- Names and activity in the demo are fictional and do not represent real viewing history.
+- Account details were removed before capture; they are not merely hidden by an overlay.
+- The images were visually checked before publication.
+- Ratings, titles and activity shown in the demo are example data.
+- Seasonal screenshots use reduced motion for stable captures and show static decoration.
+- TV screenshots use TV mode. Tablet screenshots use a 1920 x 1200 emulated tablet window. Phone screenshots use the existing isolated phone profile.
 
 ## TV
 
-![Heim på TV](tv-home.png)
-![Oppdag på TV](tv-discover.png)
-![Innstillingar på TV](tv-settings.png)
+![Home on TV](tv-home.png)
+![Discover on TV](tv-discover.png)
+![Settings on TV](tv-settings.png)
 
-## Nettbrett
+## Tablet
 
-![Heim på nettbrett](tablet-home.png)
-![Oppdag på nettbrett](tablet-discover.png)
-![Innstillingar på nettbrett](tablet-settings.png)
+![Home on tablet](tablet-home.png)
+![Discover on tablet](tablet-discover.png)
+![Settings on tablet](tablet-settings.png)
 
-## Telefon
+## Phone
 
 <p>
-  <img src="phone-home.png" width="30%" alt="Heim på telefon" />
-  <img src="phone-discover.png" width="30%" alt="Oppdag på telefon" />
-  <img src="phone-settings.png" width="30%" alt="Innstillingar på telefon" />
+  <img src="phone-home.png" width="30%" alt="Home on phone" />
+  <img src="phone-discover.png" width="30%" alt="Discover on phone" />
+  <img src="phone-settings.png" width="30%" alt="Settings on phone" />
 </p>
 
-
-## Jul og Halloween
+## Christmas and Halloween
 
 ### TV
 
-![Jul på TV](tv-home-christmas.png)
-![Halloween på TV](tv-home-halloween.png)
+![Christmas on TV](tv-home-christmas.png)
+![Halloween on TV](tv-home-halloween.png)
 
-### Nettbrett
+### Tablet
 
-![Jul på nettbrett](tablet-home-christmas.png)
-![Halloween på nettbrett](tablet-home-halloween.png)
+![Christmas on tablet](tablet-home-christmas.png)
+![Halloween on tablet](tablet-home-halloween.png)
 
-### Telefon
+### Phone
 
 <p>
-  <img src="phone-home-christmas.png" width="45%" alt="Jul på telefon" />
-  <img src="phone-home-halloween.png" width="45%" alt="Halloween på telefon" />
+  <img src="phone-home-christmas.png" width="45%" alt="Christmas on phone" />
+  <img src="phone-home-halloween.png" width="45%" alt="Halloween on phone" />
 </p>
 
-Reproduserbar fangst ligg i PublicScreenshotsTest på utviklingsgreina.
-Testen må berre køyrast på isolerte testeiningar, aldri på ein profil med ekte kontoar.
+The reproducible capture setup is documented in `PublicScreenshotsTest` in the
+development history. Run it only on isolated test devices, never on a profile
+containing real accounts.

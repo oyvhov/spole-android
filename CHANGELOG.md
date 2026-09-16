@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.17.0-beta09 - TV polish and clearlogo support
+
+- Removed the playback speed action from the TV and mobile OSD to keep remote controls focused.
+- Added clearlogo requests to resume, next-up, library preview and search feeds so hero artwork can use the server's logo artwork.
+- Kept Jellyfin and Emby media flows separate, including Continue Watching state.
+- Removed large bundled demo backdrops from the production APK and replaced them with the minimal plain placeholder. The signed APK is now about 4.26 MB instead of about 11.8 MB.
+- Prevented duplicated hero metadata and kept episode season and episode labels readable.
+- Verified the signed update on an Android TV emulator with Toy Story 5 playback from Jellyfin, clearlogo, rating, age rating, runtime and cast artwork. Emby playback for the same media remains under investigation.
+
+## 0.17.0-beta08 - OSD and production asset cleanup
+
+- Removed the Speed button and its menu logic from the playback OSD.
+- Removed large demo artwork from the production package.
+- Kept the detail page focused on title, ratings, metadata, artwork and playback actions.
+
+> Earlier entries are kept in their original language as historical release notes.
+
 ## 0.17.0-beta05 · Spelar og Emby
 
 - Automatisk refresh-rate switching for støtta videofrekvensar på Android TV.

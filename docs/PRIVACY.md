@@ -1,106 +1,115 @@
-# Personvern i Spole
+# Privacy in Spole
 
-Sist oppdatert: 8. september 2026. Gjeld Spole 0.14.0 og nyare.
+Last updated: September 16, 2026. Applies to Spole 0.17.0-beta09 and newer.
 
-Spole er ein klient for medietenester du sjølv driftar. Utviklaren har ingen tenar, ingen konto
-og ingen database. Det finst ingen stad for oss å samle data om deg, og vi gjer det ikkje.
+Spole is a client for media services that you operate yourself. The developer has no
+central server, account system or database for Spole users. There is nowhere for us
+to collect your media data, and we do not do so.
 
-## Kort sagt
+## In short
 
-- Spole sender medieførespurnadene dine berre til adressene du sjølv skriv inn.
-- Ingenting blir sendt til utviklaren. Det finst ingen analyse, ingen sporing og ingen reklame.
-- Innloggingar blir lagra kryptert på eininga og forlèt henne aldri.
-- To adresser blir kontakta i tillegg til dine eigne tenarar: TMDB for plakatar og GitHub for
-  tilrådingslista. Begge får berre IP-adressa di og kva fil du bad om — aldri kven du er.
+- Spole sends media requests only to the server addresses that you provide.
+- Nothing is sent to the developer. There is no analytics, tracking or advertising.
+- Credentials are stored encrypted on the device and do not leave it through Spole.
+- In addition to your own servers, the app can contact TMDB for artwork and GitHub for the update catalogue. Those services receive the request and your IP address, not your identity or account credentials.
 
-## Kva som blir lagra på eininga
+## What is stored on the device
 
-| Kva | Kvar | Kryptert |
-|---|---|---|
-| Tilgangsteikn og Seerr-sesjonar | app-privat lagring | Ja, med Android Keystore (AES-GCM) |
-| Tenaradresser, brukar-ID og val | app-privat lagring | Nei — dei er ikkje hemmelege |
-| Eit tilfeldig einings-ID | app-privat lagring | Nei |
-| Mellomlagra titlar og plakatadresser | app-privat SQLite | Nei |
-| Feilrapport etter ein krasj | app-privat fil | Nei — adresser og teikn er fjerna |
+| Data | Location | Encrypted |
+| --- | --- | --- |
+| Access tokens and Seerr sessions | App-private storage | Yes, with Android Keystore (AES-GCM) |
+| Server addresses, user IDs and preferences | App-private storage | No; these are not secrets |
+| A random device ID | App-private storage | No |
+| Cached titles and artwork URLs | App-private SQLite database | No |
+| Crash report, if created | App-private file | No; addresses and tokens are removed |
 
-App-privat lagring er berre lesbar for Spole. Tilgangsteikna er i tillegg ekskluderte frå både
-sky-sikkerheitskopiering og einingsoverføring, slik at dei ikkje følgjer med til ei ny eining.
+App-private storage is readable only by Spole. Access tokens are also excluded from
+cloud backup and device transfer so they do not follow an installation to a new device.
 
-**Passord blir aldri lagra.** Dei blir sende éin gong til tenesta du loggar inn på, og deretter
-er det tilgangsteiknet frå tenesta appen held på.
+**Passwords are never stored.** They are sent once to the service you sign in to; Spole
+then keeps the access token returned by that service.
 
-**Avspelingar, køar og aktivitetsfeeden blir aldri skrivne til disk.** Berre titlar og
-plakatadresser blir mellomlagra, slik at framsida har noko å vise medan første oppdatering går.
+**Playback sessions, queues and the activity feed are not written to disk.** Only titles
+and artwork URLs are cached so that Home has something to display while the first refresh runs.
 
-## Kva som blir sendt, og kvar
+## What is sent, and where
 
-**Til dine eigne tenarar** (Jellyfin, Emby, Seerr, Radarr, Sonarr): innlogginga di, søkeorda dine,
-førespurnadene dine og eit einings-ID slik at tenaren kan vise «Spole på Android» i eiga
-einingsliste. Kva desse tenarane loggar, er opp til oppsettet ditt.
+**To your own servers** (Jellyfin, Emby, Seerr, Radarr and Sonarr): your sign-in,
+search terms, requests and a device ID so the server can show "Spole on Android" in
+its device list. What these servers log depends on your own configuration.
 
-**Ved avspeling i den integrerte Jellyfin-spelaren** blir video og undertekstar henta frå din
-Jellyfin-tenar. Tittel-ID, avspelingsøkt, posisjon, pause/stopp og valde spor blir sende tilbake
-til same tenar under din eigen konto, slik at Jellyfin kan lagre framdrifta. Android får
-tittel og avspelingsstatus gjennom ei lokal medieøkt for system- og hovudtelefonkontrollar.
-Video blir bufra i minnet; spelaren lagrar ikkje ei nedlasta filmfil eller ein varig avspelingslogg.
+**During playback in the integrated player:** video and subtitles are fetched from
+the selected Jellyfin or Emby server. The item ID, playback session, position,
+pause/stop events and selected tracks are sent back to that same server under your
+account so it can save progress. Android receives title and playback state through a
+local media session for system and headset controls. Video is buffered in memory; the
+player does not store a downloaded movie file or a permanent playback log.
 
-**Til `image.tmdb.org`**: adressene til plakatar og bakgrunnsbilete som Seerr viser til. TMDB ser
-IP-adressa di og kva bilete du bad om. Ingen kontoinformasjon og ingen tilgangsteikn blir sende
-dit — appen nektar å feste tenesteteikn til noko som ikkje er tenaren din.
+**To `image.tmdb.org`:** poster and backdrop URLs that the app requests for artwork.
+TMDB sees your IP address and the image requested. No account information or access
+tokens are sent there; service credentials are only attached to your own server requests.
 
-**Til `raw.githubusercontent.com`**: éi statisk JSON-fil med tilrådingar. GitHub ser IP-adressa di
-og kva fil du bad om. Ingenting om deg blir sendt. Rada kan slåast av i Innstillingar →
-Tilpass framsida → Anbefalingar, og då blir fila ikkje henta.
+**To `raw.githubusercontent.com`:** one static JSON file containing the update catalogue.
+GitHub sees your IP address and the requested file. Nothing about your media account is
+sent. The catalogue request can be disabled in **Settings -> Home -> Recommendations**.
 
-**Til `api.github.com` og GitHub sine release-adresser**: appen kan sjekke nye offisielle Spole-utgåver ved oppstart, høgst kvar tolvte time. GitHub får IP-adresse og appversjon, men ingen mediekontoar, tilgangsteikn eller bibliotekdata. Automatisk sjekk kan slåast av i Innstillingar → Oppdateringar. APK-en blir berre lasta ned når du vel det; sjekksum, pakkenamn, versjon og signeringssertifikat blir kontrollerte før Android ber om installasjonsgodkjenning. Nedlastinga ligg i appen sitt private mellomlager og kan fjernast av Android.
+**To `api.github.com` and GitHub release URLs:** the app can check for official Spole
+releases at startup, at most every twelve hours. GitHub receives your IP address and
+app version, but no media accounts, access tokens or library data. Automatic checks can
+be disabled under **Settings -> Updates**. An APK is downloaded only after you choose
+the update; the checksum, package name, version and signing certificate are checked
+before Android asks for installation approval. The download stays in app-private cache
+and can be removed by Android.
 
-Ingen andre adresser blir kontakta.
+No other external addresses are contacted by Spole for these features.
 
-## Einings-ID
+## Device ID
 
-Spole lagar eit tilfeldig einings-ID første gongen appen startar, og sender det til Jellyfin og
-Emby slik at dei kan skilje denne eininga frå andre i einingslista si. Det er ikkje eit
-maskinvare-ID: det er tilfeldig, unikt for denne installasjonen, og blir borte når du avinstallerer
-appen.
+Spole creates a random device ID the first time it starts and sends it to Jellyfin and
+Emby so they can distinguish this installation from other devices in their device lists.
+It is not a hardware ID. It is random, unique to the installation and removed when the
+app is uninstalled.
 
-Installasjonar frå før 0.14.0 tek med seg det ID-en dei alt hadde, slik at tenaren din ikkje får ei
-duplisert einingsoppføring etter oppdateringa.
+Installations from before 0.14.0 keep the ID they already had so an update does not
+create a duplicate device entry on the server.
 
-## Krasjrapportar
+## Crash reports
 
-Om Spole stoppar uventa, blir det skrive ei fil på eininga med versjon, einingsmodell og kva som
-gjekk gale. Tenaradresser og alt som liknar eit tilgangsteikn blir fjerna før fila blir skriven.
+If Spole stops unexpectedly, it can write a file containing the app version, device
+model and what went wrong. Server addresses and anything resembling an access token are
+removed before the file is written.
 
-Fila blir aldri sendt nokon stad av seg sjølv. Ho ligg der til du deler henne frå Innstillingar,
-eller slettar henne same stad.
+The file is never sent anywhere automatically. It stays on the device until you share
+it from Settings or delete it there.
 
-## Ukryptert trafikk
+## Unencrypted traffic
 
-Sjølvhosta tenarar står ofte på HTTP inne på eige nett. Spole tillèt det berre for `localhost`,
-`.local`-namn og literale private adresser (10.x, 172.16–31.x, 192.168.x, ::1, fc00::/7,
-fe80::/10). Ei HTTP-adresse mot ein offentleg vert blir avvist, ikkje åtvara om.
+Self-hosted servers often use HTTP on a private home network. Spole permits it only for
+`localhost`, `.local` names and literal private addresses (`10.x`, `172.16-31.x`,
+`192.168.x`, `::1`, `fc00::/7`, `fe80::/10`). An HTTP address pointing to a public host
+is rejected rather than merely warned about.
 
-Bruker du HTTP, viser Innstillingar kva tilkoplingar det gjeld. Utanfor ditt eige nett bør du
-bruke HTTPS gjennom din eigen proxy.
+When HTTP is used, Settings shows which connections are affected. Outside your own
+network, use HTTPS through your own proxy.
 
-## Sletting
+## Deletion
 
-Avinstaller appen. Alt i tabellen over forsvinn med han. Du kan òg logge ut av éi teneste om
-gongen i Innstillingar; det slettar tilgangsteiknet for den tenesta med ein gong.
+Uninstall the app to remove the local data listed above. You can also sign out of one
+service at a time under Settings; that immediately deletes that service's access token.
 
-Spole kan ikkje slette noko frå tenarane dine, og gjer det ikkje. Å trekkje tilbake ein førespurnad
-i appen gjer nøyaktig det Seerr sjølv ville gjort.
+Spole cannot and does not delete anything from your servers. Cancelling a request in
+the app performs the same action that Seerr itself would perform.
 
-## Barn
+## Children
 
-Spole samlar ingen data og har ikkje ei aldersgrense av personvernomsyn. Innhaldet appen viser er
-det som ligg på dine eigne tenarar.
+Spole does not collect data and has no separate age requirement for privacy reasons.
+The content shown by the app is the content available on your own servers.
 
-## Endringar
+## Changes
 
-Denne fila blir oppdatert saman med appen. Datoen øvst seier når. Vesentlege endringar blir òg
-nemnde i `CHANGELOG.md`.
+This file is updated with the app. The date at the top shows when it was last reviewed.
+Significant changes are also recorded in `CHANGELOG.md`.
 
-## Kontakt
+## Contact
 
-Spørsmål om personvern kan sendast som ei sak i GitHub-repoet.
+Privacy questions can be sent as an issue in the [GitHub repository](https://github.com/oyvhov/spole-android/issues).

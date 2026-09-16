@@ -1,81 +1,64 @@
-# Kom i gang med Spole
+# Getting started with Spole
 
-Denne guiden gjeld Spole 0.17.0-beta04.
+This guide applies to Spole 0.17.0-beta09.
 
-## For deg som skal sjå
+## For viewers
 
-1. Installer APK-en frå [Spole sine utgåver](https://github.com/oyvhov/spole-android/releases).
-   Android kan be deg tillate installasjon frå nettlesaren eller filappen du brukar.
-2. Opne Spole og vel **Kom i gang**.
-3. Har du fått ei oppsettslenkje, opne henne eller vel **Eg har ei oppsettslenkje** og lim henne inn.
-   Kontroller tenesteadressene. Utan lenkje kan du skrive adressene sjølv.
-4. Vel **Godkjenn på mobilen**. Godkjenn den viste Quick Connect-koden i ein Jellyfin-klient
-   der du allereie er innlogga med kontoen du vil bruke. Du kan også velje brukarnamn og passord.
-5. Spole opnar Heim når innlogginga er stadfesta. Dersom Seerr er vald i oppsettet,
-   blir den personlege Seerr-innlogginga ordna i same flyt når tenaren støttar det.
+1. Install the APK from [Spole Releases](https://github.com/oyvhov/spole-android/releases). Android may ask you to allow installation from the browser or file app you use.
+2. Open Spole and select **Get started**.
+3. If you received a setup link, open it or select **I have a setup link** and paste it. Check the server addresses; without a link, enter them manually.
+4. Select **Approve on phone** and approve the displayed Quick Connect code in a Jellyfin client where you are already signed in, or choose username and password.
+5. Spole opens Home after sign-in is confirmed. If Seerr was selected during setup, its personal login is completed in the same flow when the server supports it.
 
-På TV kan fjernkontrollappen på mobilen vere lettare å bruke til tekstinntasting.
-Oppsettslenkja er ikkje ei innlogging i seg sjølv; du må godkjenne din eigen konto.
+On TV, a phone remote-control app can make text entry easier. A setup link is not a login by itself; you still approve your own account.
 
-### Om det stoppar
+### When setup stops
 
-- **Lenkja opnar ikkje appen:** installer Spole først, og prøv å lime lenkja inn i oppsettet.
-- **Tenaren svarar ikkje:** kontroller adressa og at telefonen eller TV-en har tilgang til tenaren sitt nettverk.
-- **Quick Connect er ikkje tilgjengeleg:** prøv brukarnamn og passord, eller kontakt den som driftar tenaren.
-- **Jellyfin fungerer, men Seerr feilar:** Seerr må vere kopla til same Jellyfin-tenar og støtte innloggingsmåten.
-  Du kan slå av Seerr i oppsettet og logge inn berre på Jellyfin, eller bruke separate innloggingar.
+- **The link does not open the app:** install Spole first, then paste the link into setup.
+- **The server does not respond:** check the address and confirm that the phone or TV can reach the server network.
+- **Quick Connect is unavailable:** try username and password, or contact the server administrator.
+- **Jellyfin works but Seerr fails:** Seerr must be connected to the same Jellyfin server and support the selected sign-in method. You can disable Seerr and sign in to Jellyfin alone, or use separate sign-ins.
 
-## For deg som deler appen
+## For people sharing the app
 
-1. Opprett ein eigen Jellyfin-konto til kvar brukar. Gi berre tilgang til biblioteka dei skal bruke.
-2. Dersom dei skal kunne be om innhald, set opp Seerr mot same Jellyfin-tenar og kontroller brukarrettane der.
-3. Prøv tenesteadressene frå nettverket mottakaren skal bruke. Ei lokal adresse heimanfrå fungerer ikkje automatisk utanfor heimen.
-4. I Spole, opne Jellyfin under **Innstillingar → Tenester**. Vel **Del oppsett med ein brukar** eller **Kopier oppsettslenkje**.
-5. Send mottakaren [APK-lenkja](https://github.com/oyvhov/spole-android/releases) og oppsettslenkja.
-   Mottakaren loggar inn med sin eigen konto.
+1. Create a separate Jellyfin account for each viewer and grant access only to the libraries they should use.
+2. If viewers should request content, connect Seerr to the same Jellyfin server and check the user's permissions there.
+3. Test the server addresses from the network the recipient will use. A local home address does not automatically work outside the home.
+4. In Spole, open Jellyfin under **Settings -> Services**. Select **Share setup with a user** or **Copy setup link**.
+5. Send the recipient the [APK link](https://github.com/oyvhov/spole-android/releases) and the setup link. The recipient signs in with their own account.
 
-Oppsettslenkja inneheld Jellyfin-adressa og eventuell Seerr-adresse. Ho inneheld ikkje passord,
-tilgangsteikn eller brukarøkt. Adressene kan likevel vere private: del lenkja med mottakarane,
-ikkje som eit offentleg skjermbilete. Ikkje del administratorteikn frå Radarr, Sonarr eller Seerr med vanlege brukarar.
+The setup link contains the Jellyfin address and, optionally, the Seerr address. It
+does not contain passwords, access tokens or a user session. Addresses may still be
+private, so share the link with its intended recipients rather than publishing a
+screenshot. Never share Radarr, Sonarr or Seerr administrator tokens with regular users.
 
-## TV, nettbrett og telefon
+## TV, tablet and phone
 
-- **TV:** bruk retningsknappane og OK. Tilbake går ut av panelet eller skjermen. TV har eigne innstillingskategoriar.
-- **Nettbrett:** breie vindauge får sidanavigasjon og meir plass til innhald.
-- **Telefon:** botnnavigasjon og innstillingar i eigne grupper.
+- **TV:** use the D-pad and OK. Back exits the current panel or screen. TV has its own settings categories and remote-first navigation.
+- **Tablet:** wide windows provide side navigation and more room for content.
+- **Phone:** bottom navigation and grouped settings are used for the smaller layout.
 
-Tema, aksentfarge, sesongtema og synlege Heim-rader kan tilpassast i innstillingane.
-På TV finst også val for å skjule sidepanelet til du navigerer ut mot venstre kant.
+Accent colour, seasonal themes and visible Home rows can be adjusted in Settings.
+On TV, the side panel can also be hidden until you navigate to the left edge.
 
-## Funksjonar i 0.16.0
+## Current features
 
-- **Utvida offline-demo:** 18 bibliotekstitlar med omtale og eksempelvurdering, hero på TV og nettbrett,
-  favorittar, neste episodar og fleire innhaldsrader. Prøv jul og Halloween under Utsjånad.
-  Demoinnhaldet sender ikkje ekte førespurnader og inneheld ikkje avspelbare filmar.
+- **Separate Jellyfin and Emby libraries:** each service keeps its own library, Continue Watching rows and playback state.
+- **Cinematic detail pages:** backdrops, clearlogos, seasons, episodes, cast, age ratings, runtime, estimated finish time and visual ratings when supplied by the server.
+- **Integrated playback:** audio and subtitle selection, file and quality selection, progress reporting and next episode. Direct playback is requested when possible, with audio-only or full server transcoding fallback when required by the device or media.
+- **TV playback controls:** seeking, audio, subtitles, next episode and playback diagnostics. The Speed action is intentionally not part of the current OSD.
+- **Requests and discovery:** Seerr requests plus Radarr and Sonarr upcoming content when the connected account has access.
+- **Themes:** accent colours, Christmas and Halloween styling, with reduced-motion support.
 
-- **Rekkjefølgje på Heim:** Innstillingar → Heim → Rekkjefølgje. Flytt radene med pilene; valet blir lagra.
-- **Filmvurdering:** ei diskret stjerne og poengsum på filmkortet når tenaren har ei vurdering.
-  Valet for å vise vurderingar blir respektert.
-- **Tenestestatus:** ikon og OK-/avviksstatus under Tenester i innstillingane.
-- **Logg ut av alle tenester:** eitt trykk under Tenester loggar ut på denne eininga og viser oppstarten att.
-  Utsjånad og Heim-oppsett blir bevarte. Det loggar ikkje ut andre einingar og slettar ikkje serverkontoane.
+## Updates and limitations
 
-## Oppdateringar og avgrensingar
+Use the app's update check or install a newer APK from Releases over the existing
+installation. You do not need to uninstall first. Pre-release builds can contain bugs.
 
-Bruk appen sin oppdateringssjekk eller installer ein nyare APK frå Releases over den gamle.
-Du treng ikkje avinstallere først. Prerelease-utgåver kan innehalde feil.
+Format support depends on the Android device, player and server transcoding
+permissions. Image-based subtitles may require burn-in. Intro and credits actions
+require markers from the server; Emby uses its chapter markers. Live TV, music,
+disc/ISO menus and offline downloads are outside this playback flow. Child mode,
+QR display for setup links and short setup codes are not implemented.
 
-Frå 0.17.0-beta04 har appen ein felles innebygd spelar for Jellyfin og Emby, med filmar,
-episodar, framdrift, neste episode, lydspor, undertekst, filversjon og kvalitet.
-TV-detaljane viser stort bakgrunnsbilete, tittellogo når tilgjengeleg og episodar i ei vassrett rad.
-TV-heroen går i full breidd og episodeformatet er S2 - E2. Ein liten tenarmeny i
-bibliotekoversikta hugsar siste val. Rotten Tomatoes kjem frå servermetadata når
-tilgjengeleg og følgjer valet om å vise vurderingar.
-
-Formatstøtta følgjer Android-eininga og omkodingsløyva på tenaren. Biletundertekstar
-kan krevje innbrenning. Intro og rulletekst krev markørar frå tenaren; Emby bruker
-kapittelmarkørane sine. Live-TV, musikk, plate-/ISO-menyar og offline-nedlasting
-er ikkje del av denne avspelingsflyten. Barnemodus, QR-vising av oppsettslenkjer
-og korte oppsettkodar er ikkje implementerte.
-
-[Tilbake til Spole](../README.md)
+[Back to Spole](../README.md)
