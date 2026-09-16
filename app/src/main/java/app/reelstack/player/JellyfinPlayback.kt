@@ -154,6 +154,12 @@ fun safePlaybackUrl(baseUrl: String, value: String): String {
 /** Safe fallback when detection fails or a decoder rejects an advertised format. */
 fun phonePlaybackProfile(bitrate: Int): JsonObject = devicePlaybackProfile(bitrate, DevicePlaybackCapabilities.CONSERVATIVE)
 
+private enum class PlaybackCompatibility {
+    DIRECT,
+    AUDIO_ONLY,
+    FULL,
+}
+
 class MediaPlaybackClient(
     private val transport: JsonHttpTransport = HttpTransport(connectTimeoutMs = 5_000, readTimeoutMs = 8_000),
     private val deviceId: String,
@@ -247,17 +253,25 @@ class MediaPlaybackClient(
 
     fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,
         audio: Int? = null, subtitle: Int? = null, compatible: Boolean = false, sourceId: String? = null,
-        preferredLanguage: SubtitleLanguage = SubtitleLanguage.SERVER, fallbackLanguage: SubtitleLanguage = SubtitleLanguage.NONE): PlaybackPlan {
+        preferredLanguage: SubtitleLanguage = SubtitleLanguage.SERVER, fallbackLanguage: SubtitleLanguage = SubtitleLanguage.NONE): PlaybackPlan =
+        prepare(c, user, item, bitrate, audio, subtitle,
+            if (compatible) PlaybackCompatibility.FULL else PlaybackCompatibility.DIRECT,
+            sourceId, preferredLanguage, fallbackLanguage)
+
+    private fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,
+        audio: Int?, subtitle: Int?, compatibility: PlaybackCompatibility, sourceId: String?,
+        preferredLanguage: SubtitleLanguage, fallbackLanguage: SubtitleLanguage): PlaybackPlan {
         require(item.type in setOf("Movie", "Episode", "Video")) { "Vel ein episode først." }
-        val detected = if (compatible) DevicePlaybackCapabilities.CONSERVATIVE else
+        val detected = if (compatibility == PlaybackCompatibility.FULL) DevicePlaybackCapabilities.CONSERVATIVE else
             runCatching { capabilities() }.getOrDefault(DevicePlaybackCapabilities.CONSERVATIVE)
         val payload = buildJsonObject {
             put("UserId", user); put("DeviceProfile", devicePlaybackProfile(bitrate, detected)); put("MaxStreamingBitrate", bitrate)
             // A VOD timeline starting at zero makes Media3 seek positions and server progress identical.
             put("StartTimeTicks", 0); put("IsPlayback", true); put("AutoOpenLiveStream", false)
-            put("EnableDirectPlay", !compatible)
-            put("EnableDirectStream", false); put("EnableTranscoding", true)
-            put("AllowVideoStreamCopy", !compatible); put("AllowAudioStreamCopy", !compatible)
+            put("EnableDirectPlay", compatibility == PlaybackCompatibility.DIRECT)
+            put("EnableDirectStream", compatibility != PlaybackCompatibility.FULL); put("EnableTranscoding", true)
+            put("AllowVideoStreamCopy", compatibility != PlaybackCompatibility.FULL)
+            put("AllowAudioStreamCopy", compatibility == PlaybackCompatibility.DIRECT)
             put("MaxAudioChannels", detected.maxAudioChannels)
             audio?.let { put("AudioStreamIndex", it) }; subtitle?.let { put("SubtitleStreamIndex", it) }
             sourceId?.let { put("MediaSourceId", it) }
@@ -291,17 +305,24 @@ class MediaPlaybackClient(
         val selectedAudio = audio ?: source.num("DefaultAudioStreamIndex")?.toInt() ?: tracks("Audio").firstOrNull()?.index
         // The server must negotiate the selected language too, especially for burnt-in subtitles.
         if (subtitle == null && selectedSubtitle != serverSubtitle) {
-            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, compatible, mediaSourceId)
+            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, compatibility, mediaSourceId,
+                preferredLanguage, fallbackLanguage)
         }
         val subtitleTrack = subtitles.firstOrNull { it.index == selectedSubtitle }
-        val direct = source.flag("SupportsDirectPlay") && !compatible
-        // HLS may still copy video while converting audio. Validate that original video too.
-        if (!compatible && (!videoSupported(source) || direct && !sourceSupported(source, selectedAudio))) {
-            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, true, mediaSourceId)
+        val direct = source.flag("SupportsDirectPlay") && compatibility == PlaybackCompatibility.DIRECT
+        // A rejected audio route must not turn a supported H.264/HEVC picture into a full transcode.
+        if (compatibility != PlaybackCompatibility.FULL && !videoSupported(source)) {
+            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, PlaybackCompatibility.FULL,
+                mediaSourceId, preferredLanguage, fallbackLanguage)
+        }
+        if (direct && !sourceSupported(source, selectedAudio)) {
+            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, PlaybackCompatibility.AUDIO_ONLY,
+                mediaSourceId, preferredLanguage, fallbackLanguage)
         }
         // Image subtitles need burn-in; re-negotiate explicitly instead of silently dropping them.
         if (direct && subtitleTrack != null && !subtitleTrack.isText) {
-            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, true, mediaSourceId)
+            return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, PlaybackCompatibility.FULL,
+                mediaSourceId, preferredLanguage, fallbackLanguage)
         }
         val url = if (direct) "Videos/${enc(item.id)}/stream?static=true&MediaSourceId=${enc(mediaSourceId)}&PlaySessionId=${enc(session)}" else
             source.str("TranscodingUrl").also { require(it.isNotBlank()) { "Medietenaren kan ikkje tilpasse denne fila. Prøv tenarappen." } }

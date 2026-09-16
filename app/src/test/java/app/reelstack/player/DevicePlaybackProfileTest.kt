@@ -65,18 +65,19 @@ class DevicePlaybackProfileTest {
         assertEquals(JsonPrimitive(true), server.calls.single()["EnableDirectPlay"])
         assertEquals(JsonPrimitive(8), server.calls.single()["MaxAudioChannels"])
     }
-    @Test fun actualSourceRejectionRenegotiatesOnceAtSameBitrateWithFullSafeFallback() {
+    @Test fun audioRouteRejectionKeepsSupportedVideoAndConvertsOnlyAudio() {
         val server = Server()
         val plan = JellyfinPlaybackClient(server, "device", { capable }, { _, _ -> false }).prepare(connection, "user", item, 20_000_000, audio=3)
         assertFalse(plan.direct); assertEquals(2, server.calls.size)
         val retry = server.calls.last()
         assertEquals(JsonPrimitive(false), retry["EnableDirectPlay"])
-        assertEquals(JsonPrimitive(false), retry["AllowVideoStreamCopy"])
+        assertEquals(JsonPrimitive(true), retry["EnableDirectStream"])
+        assertEquals(JsonPrimitive(true), retry["AllowVideoStreamCopy"])
         assertEquals(JsonPrimitive(false), retry["AllowAudioStreamCopy"])
         assertEquals(JsonPrimitive(20_000_000), retry["MaxStreamingBitrate"])
         assertEquals(JsonPrimitive(3), retry["AudioStreamIndex"])
         assertEquals(JsonPrimitive("source"), retry["MediaSourceId"])
-        assertEquals(JsonPrimitive(2), retry["MaxAudioChannels"])
+        assertEquals(JsonPrimitive(8), retry["MaxAudioChannels"])
     }
     @Test fun imageSubtitlesCannotLoopWhenServerStillClaimsDirectPlay() {
         val server = Server().apply { imageSubtitle=true }
