@@ -35,9 +35,7 @@ jobs:
         run: chmod +x ./gradlew
 
       # No signing.properties here, and there must not be: the production key lives on the
-      # developer's machine and nowhere else. assembleRelease would fail the check in
-      # app/build.gradle.kts, so CI verifies the parts that do not need a key. The signed
-      # artefact is still built and published by hand.
+      # developer's machine and nowhere else. Normal CI verifies the parts that do not need a key.
       - name: Sjekk språkressursar
         run: python3 scripts/check-translations.py
 
@@ -46,6 +44,18 @@ jobs:
 
       - name: Byggkontroll
         run: ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
+
+      - name: Bygg usignert release for lokal signering
+        if: github.event_name == 'workflow_dispatch'
+        run: ./gradlew --no-daemon assembleRelease -Pspole.allowUnsignedRelease=true
+
+      - name: Lagre usignert release
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: usignert-release
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 1
 
       - name: Lagre testrapportar
         if: always()

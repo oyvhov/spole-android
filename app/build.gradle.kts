@@ -19,10 +19,12 @@ val hasStableReleaseSigning = listOf(
     "keyAlias",
     "keyPassword",
 ).all { signingProperties.getProperty(it).isNullOrBlank().not() }
+val allowsCiUnsignedRelease = providers.gradleProperty("spole.allowUnsignedRelease").orNull == "true" &&
+    System.getenv("CI").equals("true", ignoreCase = true)
 
 tasks.matching { it.name == "validateSigningRelease" || it.name == "packageRelease" }.configureEach {
     doFirst {
-        check(hasStableReleaseSigning) {
+        check(hasStableReleaseSigning || allowsCiUnsignedRelease) {
             "Produksjonsbygg krev signing.properties og den eksisterande Spole-nøkkelen. Ikkje lag ein ny nøkkel."
         }
     }
@@ -41,8 +43,8 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-    versionCode = 85
-    versionName = "0.17.0-beta06"
+        versionCode = 86
+        versionName = "0.17.0-beta07"
 
         testInstrumentationRunner = "app.reelstack.SpoleTestRunner"
         vectorDrawables.useSupportLibrary = true
