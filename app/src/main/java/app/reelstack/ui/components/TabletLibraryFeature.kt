@@ -244,15 +244,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 color = Color.White.copy(alpha = .72f),
                 style = MaterialTheme.typography.labelLarge,
             )
-            // The line under it is the episode's own name — or, for a film, the facts that would
-            // otherwise leave this space blank. A hero that reserves two lines and fills them with
-            // nothing is the wasted space; the film simply has something else to put there.
-            val name = episodeTitle(title.subtitle, title.episode).ifBlank {
-                if (title.season == null && title.episode == null) {
-                    (title.facts + title.genres.take(2)).distinct().take(4).joinToString(" · ")
-                } else ""
-            }
-            Text(if (compactTelevision) listOf(numbers, name).filter(String::isNotBlank).joinToString(" · ") else name,
+            // Films use the metadata row below for facts. Episodes keep their readable title here,
+            // so season and episode numbers are shown once and in the same language everywhere.
+            val name = episodeTitle(title.subtitle, title.episode)
+            if (name.isNotBlank()) Text(if (compactTelevision) listOf(numbers, name).filter(String::isNotBlank).joinToString(" · ") else name,
                 color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
                 minLines = if (compactTelevision) 1 else 2,
                 maxLines = if (compactTelevision) 1 else 2,

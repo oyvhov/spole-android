@@ -29,7 +29,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     playFocus: FocusRequester, nextFocus: FocusRequester?, onToggle: () -> Unit, onSeek: (Long) -> Unit,
     onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, fillVideo: Boolean,
     onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
-    onSpeed: () -> Unit = {}, onChapters: () -> Unit = {}, onStats: () -> Unit = {}) {
+    onChapters: () -> Unit = {}, onStats: () -> Unit = {}) {
     val timeline = remember { FocusRequester() }
     val tools = remember { FocusRequester() }
     var timelineFocused by remember { mutableStateOf(false) }
@@ -119,8 +119,6 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             Text(playbackTime(state.durationMs), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .72f))
         }
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            TvPlayerAction(SpoleIcons.PlaySimple, stringResource(R.string.phase_speed), "player-speed",
-                Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onSpeed() }
             TvPlayerAction(SpoleIcons.Info, "Stats for Nerds", "player-stats", Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onStats() }
             if (state.chapters.isNotEmpty()) TvPlayerAction(SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters",
                 Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onChapters() }

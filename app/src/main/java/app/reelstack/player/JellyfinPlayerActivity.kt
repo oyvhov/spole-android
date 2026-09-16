@@ -75,7 +75,7 @@ import kotlinx.coroutines.launch
 
 private enum class PlayerMenu(val label: Int) {
     AUDIO(R.string.player_audio_tracks), SUBTITLES(R.string.player_subtitles), QUALITY(R.string.player_quality),
-    SPEED(R.string.phase_speed), CHAPTERS(R.string.phase_chapters)
+    CHAPTERS(R.string.phase_chapters)
 }
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
@@ -234,7 +234,6 @@ fun PlayerScreen(
     LaunchedEffect(statsVisible) {
         while (statsVisible) { delay(500); statsTick++ }
     }
-    var playbackSpeed by remember(player) { mutableFloatStateOf(player?.playbackParameters?.speed ?: 1f) }
     var scrubbing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var remoteSeekTargetMs by remember { mutableStateOf<Long?>(null) }
@@ -407,7 +406,7 @@ fun PlayerScreen(
                 onToggle, onSeek, { menu = PlayerMenu.AUDIO }, { menu = PlayerMenu.SUBTITLES },
                 { menu = PlayerMenu.QUALITY }, fillVideo, { fillVideo = !fillVideo },
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
-                onSpeed = { menu = PlayerMenu.SPEED }, onChapters = { menu = PlayerMenu.CHAPTERS },
+                onChapters = { menu = PlayerMenu.CHAPTERS },
                 onStats = { statsVisible = !statsVisible })
             if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                 Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
@@ -527,7 +526,6 @@ fun PlayerScreen(
                             Text(playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs)); Text(playbackTime(state.durationMs))
                         }
                         FlowRow(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.PlaySimple, stringResource(R.string.phase_speed), "player-speed", labelVisible = true) { menu = PlayerMenu.SPEED }
                             TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", "player-stats", labelVisible = true) { statsVisible = !statsVisible }
                             if (state.chapters.isNotEmpty()) TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters", labelVisible = true) { menu = PlayerMenu.CHAPTERS }
                             TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Sound, stringResource(R.string.player_audio), "player-audio", enabled = state.audio.isNotEmpty() && !state.busy, labelVisible = true) { menu = PlayerMenu.AUDIO }
@@ -573,7 +571,6 @@ fun PlayerScreen(
                     val options = when (title) {
                         PlayerMenu.AUDIO -> state.audio.map { it.index to it.label }
                         PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }
-                        PlayerMenu.SPEED -> listOf(50, 75, 100, 125, 150, 200).map { it to "${it / 100f}×" }
                         PlayerMenu.CHAPTERS -> state.chapters.mapIndexed { index, chapter -> index to "${playbackTime(chapter.startPositionMs)} · ${chapter.name}" }
                         else -> listOf(0 to stringResource(R.string.player_auto), 80_000_000 to stringResource(R.string.player_quality_ultra),
                             20_000_000 to stringResource(R.string.player_quality_high), 4_000_000 to stringResource(R.string.player_medium_data), 2_000_000 to stringResource(R.string.player_low_data))
@@ -585,7 +582,6 @@ fun PlayerScreen(
                         val selectedId = when (title) {
                             PlayerMenu.AUDIO -> state.audioIndex
                             PlayerMenu.SUBTITLES -> state.subtitleIndex
-                            PlayerMenu.SPEED -> (playbackSpeed * 100).toInt()
                             PlayerMenu.CHAPTERS -> state.chapters.indexOfLast { it.startPositionMs <= state.positionMs }
                             PlayerMenu.QUALITY -> state.quality
                         }
@@ -597,7 +593,6 @@ fun PlayerScreen(
                                     PlayerMenu.AUDIO -> onAudio(id)
                                     PlayerMenu.SUBTITLES -> onSubtitle(id)
                                     PlayerMenu.QUALITY -> onQuality(id)
-                                    PlayerMenu.SPEED -> { playbackSpeed = id / 100f; player?.setPlaybackSpeed(playbackSpeed) }
                                     PlayerMenu.CHAPTERS -> state.chapters.getOrNull(id)?.let { onSeek(it.startPositionMs) }
                                 }
                                 menu = null; interaction++
