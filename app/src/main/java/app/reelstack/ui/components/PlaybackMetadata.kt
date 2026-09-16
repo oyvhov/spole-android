@@ -4,12 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -53,22 +51,10 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         critic?.let {
-            Row(Modifier.testTag("critic-rating").clearAndSetSemantics { contentDescription = "Rotten Tomatoes $it%" },
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_tomato), null, Modifier.size(22.dp),
-                    tint = androidx.compose.ui.graphics.Color.Unspecified)
-                Text("$it%", color = Muted, style = MaterialTheme.typography.bodyMedium)
-            }
+            RottenTomatoesRating(it, Modifier.testTag("critic-rating"))
         }
         score?.let {
-            Row(Modifier.testTag("tmdb-rating"), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(Modifier.size(width = 42.dp, height = 20.dp).clip(RoundedCornerShape(3.dp))
-                    .background(androidx.compose.ui.graphics.Color(0xFF01B4E4)), contentAlignment = Alignment.Center) {
-                    Text("TMDB", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.labelSmall)
-                }
-                Text("${"%.1f".format(Locale.ROOT, it / 10f)}", color = Muted, style = MaterialTheme.typography.bodyMedium)
-            }
+            TmdbRating(it, Modifier.testTag("tmdb-rating"))
         }
         mdblist?.let {
             Text("MDBList ${"%.1f".format(Locale.ROOT, it / 10f)}", color = Muted,

@@ -469,6 +469,9 @@ class MediaSyncRepository(
         available = item.available,
         premiereDate = item.premiereDate,
         tmdbId = item.tmdbId,
+        criticRating = item.criticRating,
+        tmdbRating = item.tmdbRating,
+        mdblistRating = item.mdblistRating,
     )
 
     /** One series' seasons, or one season's episodes, mapped for the screen. */

@@ -86,6 +86,9 @@ data class RemoteLibraryItem(
     val runtimeMinutes: Int? = null,
     /** Episodes in a season, so a season row can say "8 episodar". */
     val childCount: Int? = null,
+    val criticRating: Int? = null,
+    val tmdbRating: Float? = null,
+    val mdblistRating: Float? = null,
 )
 
 data class RemoteLibraryView(
@@ -340,6 +343,9 @@ object ServicePayloadParser {
                 runtimeMinutes = runtime?.takeIf { it > 0 }?.let { (it / TICKS_PER_MINUTE).toInt() },
                 childCount = item.int("ChildCount") ?: item.int("childCount")
                     ?: item.int("RecursiveItemCount") ?: item.int("recursiveItemCount"),
+                criticRating = criticRating(item),
+                tmdbRating = tmdbRating(item),
+                mdblistRating = mdblistRating(item),
                 favourite = userData?.get("IsFavorite")?.jsonPrimitive?.booleanOrNull == true ||
                     userData?.get("isFavorite")?.jsonPrimitive?.booleanOrNull == true,
                 played = userData?.get("Played")?.jsonPrimitive?.booleanOrNull == true ||
@@ -642,14 +648,9 @@ object ServicePayloadParser {
             overview = item.string("Overview") ?: item.string("overview"),
             facts = libraryFacts(item, mediaType, runtime),
             progress = progress,
-            criticRating = (item.double("CriticRating") ?: item.double("criticRating"))
-                ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.let { kotlin.math.round(it).toInt() },
-            tmdbRating = (item.double("TmdbRating") ?: item.double("TMDBRating")
-                ?: item.double("CommunityRating")?.times(10.0))
-                ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.toFloat(),
-            mdblistRating = (item.double("MdbListRating") ?: item.double("MDBListRating")
-                ?: item.double("MdbList"))?.let { if (it <= 10.0) it * 10.0 else it }
-                ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.toFloat(),
+            criticRating = criticRating(item),
+            tmdbRating = tmdbRating(item),
+            mdblistRating = mdblistRating(item),
             remainingMinutes = if (runtime != null && runtime > 0 && position != null)
                 kotlin.math.ceil((runtime - position).coerceAtLeast(0).toDouble() / TICKS_PER_MINUTE).toInt() else null,
             quality = quality,
@@ -812,6 +813,21 @@ object ServicePayloadParser {
     private fun JsonObject.bool(key: String): Boolean? = this[key]?.jsonPrimitive?.booleanOrNull
     private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
     private fun JsonObject.array(key: String): JsonArray = this[key] as? JsonArray ?: JsonArray(emptyList())
+
+    private fun criticRating(item: JsonObject): Int? =
+        (item.double("CriticRating") ?: item.double("criticRating"))
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }
+            ?.let { kotlin.math.round(it).toInt() }
+
+    private fun tmdbRating(item: JsonObject): Float? =
+        (item.double("TmdbRating") ?: item.double("TMDBRating")
+            ?: item.double("CommunityRating")?.times(10.0))
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.toFloat()
+
+    private fun mdblistRating(item: JsonObject): Float? =
+        (item.double("MdbListRating") ?: item.double("MDBListRating")
+            ?: item.double("MdbList"))?.let { if (it <= 10.0) it * 10.0 else it }
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.toFloat()
 
     private fun stringArray(item: JsonObject, vararg keys: String): List<String> = keys.firstNotNullOfOrNull { key ->
         (item[key] as? JsonArray)?.mapNotNull { value -> value.jsonPrimitive.contentOrNull }?.takeIf(List<String>::isNotEmpty)

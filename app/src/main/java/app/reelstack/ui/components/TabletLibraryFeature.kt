@@ -5,6 +5,8 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
@@ -46,6 +48,7 @@ import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.LocalPersonalization
+import app.reelstack.ui.theme.Muted
 
 /** Only a title already permitted by the visible library rows; never an additional server query. */
 internal fun tabletFeaturedTitle(series: List<LibraryMedia>, sections: Set<HomeSection>): LibraryMedia? =
@@ -138,7 +141,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     // Window and text scale determine the scene once. Media metadata never changes its height.
     val reservedText = with(density) {
         (if (compactTelevision) 28.sp else 36.sp).toDp() * 2 +
-            20.sp.toDp() * (if (compactTelevision) 1 else 3) +
+            20.sp.toDp() * (if (compactTelevision) 2 else 4) +
             (if (compactTelevision) 17.sp else 20.sp).toDp() * 2
     }
     val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } *
@@ -222,7 +225,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                         trimTransparent = true,
                         source = title.source,
                         onError = { logoFailed = true },
-                        modifier = Modifier.height(titleSlot).width(240.dp).testTag("hero-clearlogo")
+                        modifier = Modifier.height(titleSlot).width(if (television) 320.dp else 240.dp).testTag("hero-clearlogo")
                             .padding(vertical = 2.dp),
                     )
                 } else {
@@ -254,6 +257,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 minLines = if (compactTelevision) 1 else 2,
                 maxLines = if (compactTelevision) 1 else 2,
                 overflow = TextOverflow.Ellipsis)
+            HeroMetadataRow(title)
             Text(title.overview.orEmpty(), color = Color.White.copy(alpha = .78f),
                 fontSize = if (compactTelevision) 13.sp else 14.sp,
                 lineHeight = if (compactTelevision) 17.sp else 20.sp,
@@ -276,5 +280,67 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 account()
             }
         }
+    }
+}
+
+/** One restrained line keeps the hero informative without turning it into a details sheet. */
+@Composable
+private fun HeroMetadataRow(title: LibraryMedia) {
+    val preferences = LocalPersonalization.current
+    val type = title.facts.firstOrNull()?.takeUnless { it.startsWith("S") }
+    val year = title.facts.firstOrNull { it.matches(Regex("\\d{4}")) }
+    val runtime = title.runtimeMinutes?.takeIf { it > 0 } ?: title.facts.firstNotNullOfOrNull {
+        Regex("^(\\d+) min$").matchEntire(it)?.groupValues?.get(1)?.toIntOrNull()
+    }
+    val certification = title.facts.firstOrNull { fact ->
+        fact != type && fact != year && !fact.matches(Regex("^\\d+ min$")) &&
+            !fact.startsWith("★") && !fact.matches(Regex("(?i)^S\\d+\\s+E\\d+.*"))
+    }
+    val facts = listOfNotNull(
+        type,
+        year,
+        runtime?.let(::formatHeroRuntime),
+        certification,
+    )
+    val hasRatings = preferences.showRatings &&
+        (title.criticRating != null || title.tmdbRating != null || title.mdblistRating != null)
+    if (facts.isEmpty() && !hasRatings) return
+
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("hero-metadata"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ServiceLogo(title.source, title.source.displayName, Modifier.size(18.dp))
+        facts.forEachIndexed { index, fact ->
+            if (index > 0) HeroMetadataDot()
+            Text(fact, color = Color.White.copy(alpha = .68f), style = MaterialTheme.typography.labelMedium,
+                maxLines = 1)
+        }
+        if (hasRatings && facts.isNotEmpty()) HeroMetadataDot()
+        if (hasRatings) {
+            title.tmdbRating?.let { TmdbRating(it, Modifier.testTag("hero-tmdb-rating")) }
+            title.criticRating?.let { RottenTomatoesRating(it, Modifier.testTag("hero-critic-rating")) }
+            title.mdblistRating?.let {
+                if (title.tmdbRating != null || title.criticRating != null) HeroMetadataDot()
+                Text("MDBList ${"%.1f".format(java.util.Locale.ROOT, it / 10f)}", color = Muted,
+                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.testTag("hero-mdblist-rating"))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroMetadataDot() {
+    Text("·", color = Color.White.copy(alpha = .35f), style = MaterialTheme.typography.labelMedium)
+}
+
+private fun formatHeroRuntime(minutes: Int): String {
+    val hours = minutes / 60
+    val remainder = minutes % 60
+    return when {
+        hours == 0 -> "${minutes}m"
+        remainder == 0 -> "${hours}t"
+        else -> "${hours}t ${remainder}m"
     }
 }

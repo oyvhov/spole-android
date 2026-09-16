@@ -138,6 +138,19 @@ class ServicePayloadParserTest {
     }
 
     @Test
+    fun carriesExternalRatingsIntoLibraryHeroItems() {
+        val item = ServicePayloadParser.libraryItems("""
+            {"Items":[{"Id":"film-1","Name":"The Film","Type":"Movie",
+              "ProductionYear":2025,"RunTimeTicks":59400000000,
+              "CriticRating":86,"CommunityRating":7.4,"MdbListRating":7.1}]}
+        """).single()
+
+        assertEquals(86, item.criticRating)
+        assertEquals(74f, item.tmdbRating)
+        assertEquals(71f, item.mdblistRating)
+    }
+
+    @Test
     fun prefersWideThumbForRecentEpisode() {
         val payload = """
             {"Items":[{

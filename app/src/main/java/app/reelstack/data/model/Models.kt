@@ -138,6 +138,9 @@ data class LibraryMedia(
     val available: Boolean = true,
     val premiereDate: String? = null,
     val tmdbId: Int? = null,
+    val criticRating: Int? = null,
+    val tmdbRating: Float? = null,
+    val mdblistRating: Float? = null,
 )
 
 data class UpcomingMedia(
