@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0-beta10 - Emby playback reliability
+
+- Use Emby's native authorization headers for playback, subtitle and progress requests.
+- Mark the HLS fallback as a streaming profile so Emby can negotiate direct stream and audio-only conversion correctly.
+- Keep Jellyfin authorization isolated from Emby while preserving the existing Jellyfin flow.
+- Added regression coverage for Emby playback headers and streaming profile negotiation.
+
 ## 0.17.0-beta09 - TV polish and clearlogo support
 
 - Removed the playback speed action from the TV and mobile OSD to keep remote controls focused.
