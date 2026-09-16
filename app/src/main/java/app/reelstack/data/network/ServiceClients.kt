@@ -426,7 +426,7 @@ class MediaServerClient(
         if (allowed.isEmpty()) return emptyList()
         val query = "Limit=$RESUME_ITEM_LIMIT&Recursive=true&MediaTypes=Video" +
             "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
-            "&EnableImageTypes=Primary,Thumb,Backdrop&EnableUserData=true"
+            "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&EnableUserData=true"
         val groups = allowed.mapNotNull { view ->
             val scoped = "$query&ParentId=${encodePathSegment(view.id)}"
             val paths = when (connection.kind) {
@@ -459,7 +459,7 @@ class MediaServerClient(
         // thing this row exists to fix.
         val query = "Recursive=true&Filters=IsFavorite&IncludeItemTypes=Movie,Series,Episode&Limit=24" +
             "&SortBy=SortName&SortOrder=Ascending&EnableUserData=true&Fields=Overview,Genres" +
-            "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Backdrop"
+            "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Logo,Backdrop"
         val groups = allowed.mapNotNull { view ->
             runCatching {
                 getItems(connection, listOf("Items?userId=$userId&ParentId=${encodePathSegment(view.id)}&$query"))
@@ -512,7 +512,7 @@ class MediaServerClient(
         val userId = userIdentity(connection)?.let(::encodePathSegment) ?: return emptyList()
         val query = "ParentId=${encodePathSegment(view.id)}&Limit=$limit&EnableUserData=true" +
             "&Fields=Overview,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=1" +
-            "&EnableImageTypes=Primary,Thumb,Backdrop&IsMissing=false"
+            "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&IsMissing=false"
         // Latest is the endpoint built for this and it answers with a bare array. Some builds only
         // have the older user-scoped spelling, and a server with neither still has the ordinary
         // item query — which is why the generic route is last rather than absent.
@@ -547,7 +547,7 @@ class MediaServerClient(
                 getItems(connection, listOf("Shows/NextUp?UserId=$userId&ParentId=${encodePathSegment(view.id)}" +
                     "&Limit=24&EnableUserData=true&EnableResumable=false" +
                     "&Fields=Overview,Genres,PrimaryImageAspectRatio&EnableImages=true&ImageTypeLimit=2" +
-                    "&EnableImageTypes=Primary,Thumb,Backdrop"))
+                    "&EnableImageTypes=Primary,Thumb,Logo,Backdrop"))
                     .map { it.copy(libraryId = view.id) }
             }.getOrNull()
         }
@@ -594,7 +594,7 @@ class MediaServerClient(
             "&IncludeItemTypes=Movie,Series,Episode&Limit=$SEARCH_ITEM_LIMIT" +
             "&Fields=Overview,Genres,PrimaryImageAspectRatio,ProviderIds,PremiereDate" +
             "&EnableImages=true&ImageTypeLimit=1" +
-            "&EnableImageTypes=Primary,Thumb,Backdrop&EnableUserData=true&IsMissing=false"
+            "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&EnableUserData=true&IsMissing=false"
         val groups = allowed.mapNotNull { view ->
             val scoped = "$query&ParentId=${encodePathSegment(view.id)}"
             val paths = when (connection.kind) {
