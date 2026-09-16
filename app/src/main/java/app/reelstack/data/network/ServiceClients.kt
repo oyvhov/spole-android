@@ -1421,8 +1421,12 @@ internal fun jellyfinAuthorization(deviceId: String, token: String? = null): Str
 }
 
 /** Emby keeps the client identity separate from the access token header. */
-internal fun embyAuthorization(deviceId: String): String =
-    "Emby Client=\"Spole\", Device=\"Android\", DeviceId=\"$deviceId\", Version=\"${BuildConfig.VERSION_NAME}\""
+internal fun embyAuthorization(deviceId: String, userId: String = ""): String =
+    buildString {
+        append("Emby")
+        userId.takeIf(String::isNotBlank)?.let { append(" UserId=\"$it\",") }
+        append(" Client=\"Spole\", Device=\"Android\", DeviceId=\"$deviceId\", Version=\"${BuildConfig.VERSION_NAME}\"")
+    }
 
 private fun encode(value: String): String = java.net.URLEncoder.encode(value, Charsets.UTF_8.name())
 

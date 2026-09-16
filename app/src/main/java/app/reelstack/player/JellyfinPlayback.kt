@@ -171,7 +171,7 @@ class MediaPlaybackClient(
         ServiceKind.JELLYFIN -> mapOf("Authorization" to jellyfinAuthorization(deviceId, connection.token))
         ServiceKind.EMBY -> mapOf(
             "X-Emby-Token" to connection.token,
-            "X-Emby-Authorization" to embyAuthorization(deviceId),
+            "X-Emby-Authorization" to embyAuthorization(deviceId, connection.userId),
         )
         else -> emptyMap()
     }

@@ -20,7 +20,7 @@ class EmbyPlaybackTest {
         var itemBody: String? = null
         override fun get(url: String, headers: Map<String, String>): HttpResponse {
             assertEquals(if (kind == ServiceKind.EMBY) "fixture" else null, headers["X-Emby-Token"])
-            assertEquals(if (kind == ServiceKind.EMBY) "Emby Client=\"Spole\", Device=\"Android\", DeviceId=\"device\", Version=\"${app.reelstack.BuildConfig.VERSION_NAME}\"" else null,
+            assertEquals(if (kind == ServiceKind.EMBY) "Emby UserId=\"viewer\", Client=\"Spole\", Device=\"Android\", DeviceId=\"device\", Version=\"${app.reelstack.BuildConfig.VERSION_NAME}\"" else null,
                 headers["X-Emby-Authorization"])
             assertFalse(url.contains("fixture"))
             reads += url
@@ -29,7 +29,7 @@ class EmbyPlaybackTest {
         override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse {
             postCalls++
             assertEquals(if (kind == ServiceKind.EMBY) "fixture" else null, headers["X-Emby-Token"])
-            assertEquals(if (kind == ServiceKind.EMBY) "Emby Client=\"Spole\", Device=\"Android\", DeviceId=\"device\", Version=\"${app.reelstack.BuildConfig.VERSION_NAME}\"" else null,
+            assertEquals(if (kind == ServiceKind.EMBY) "Emby UserId=\"viewer\", Client=\"Spole\", Device=\"Android\", DeviceId=\"device\", Version=\"${app.reelstack.BuildConfig.VERSION_NAME}\"" else null,
                 headers["X-Emby-Authorization"])
             if (kind == ServiceKind.JELLYFIN) {
                 assertTrue(headers.getValue("Authorization").contains("Client=\"Spole\""))
