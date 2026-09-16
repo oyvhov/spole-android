@@ -15,15 +15,7 @@ import app.reelstack.ui.theme.*
 
 @Composable
 fun ServiceSymbol(kind: ServiceKind, modifier: Modifier = Modifier) {
-    if (kind == ServiceKind.JELLYFIN || kind == ServiceKind.EMBY) {
-        ServiceLogo(kind, null, modifier)
-    } else {
-        Icon(when (kind) {
-            ServiceKind.SEERR -> app.reelstack.ui.components.SpoleIcons.Search
-            ServiceKind.SONARR -> app.reelstack.ui.components.SpoleIcons.Screen
-            else -> app.reelstack.ui.components.SpoleIcons.Movie
-        }, null, modifier, tint = PrimarySoft)
-    }
+    ServiceLogo(kind, kind.displayName, modifier)
 }
 
 /**

@@ -38,6 +38,9 @@ jobs:
       # developer's machine and nowhere else. assembleRelease would fail the check in
       # app/build.gradle.kts, so CI verifies the parts that do not need a key. The signed
       # artefact is still built and published by hand.
+      - name: Sjekk språkressursar
+        run: python3 scripts/check-translations.py
+
       - name: Einingstestar og lint
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
 

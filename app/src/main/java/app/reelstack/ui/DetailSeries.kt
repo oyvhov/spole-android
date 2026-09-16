@@ -66,7 +66,7 @@ internal fun DetailAside(
         .filterNot { it.matches(Regex("^S\\d\\d+ E\\d\\d+$")) }
         .filterNot { it in setOf("Film", "Serie", "Episode", "Movie", "Series") }
     val tagline = details.tagline?.takeIf(String::isNotBlank) ?: opening.tagline?.takeIf(String::isNotBlank)
-    if (remaining.isEmpty() && details.criticRating == null && details.quality.isEmpty() && details.genres.isEmpty() && tagline == null && synopsis == null && cast == null) return
+    if (remaining.isEmpty() && details.criticRating == null && details.tmdbRating == null && details.mdblistRating == null && details.quality.isEmpty() && details.genres.isEmpty() && tagline == null && synopsis == null && cast == null) return
     Column(
         Modifier.fillMaxWidth().padding(top = if (tv) 16.dp else 18.dp).testTag("detail-aside"),
         verticalArrangement = Arrangement.spacedBy(10.dp),

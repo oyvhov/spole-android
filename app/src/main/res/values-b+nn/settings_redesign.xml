@@ -38,4 +38,8 @@
     <string name="settings_tv_hero_hint">Ein utvald tittel over radene dine.</string>
     <string name="settings_tv_account_action">Konto og profil</string>
     <string name="settings_tv_connection_action">Tenar og innlogging</string>
+    <string name="settings_playback_start_group">Start og framdrift</string>
+    <string name="settings_playback_media_group">Lyd og undertekst</string>
+    <string name="settings_playback_next_group">Neste episode</string>
+    <string name="settings_playback_quality_group">Kvalitet og stabilitet</string>
 </resources>

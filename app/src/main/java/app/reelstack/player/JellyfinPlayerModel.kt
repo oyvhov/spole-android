@@ -161,16 +161,21 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             override fun onPlayerError(error: PlaybackException) {
                 android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream code=${error.errorCode}")
                 val position = currentPosition.coerceAtLeast(0)
-                if (networkRecoveries < 2 && recoverablePlaybackFailure(error, plan?.direct == false)) {
+                // Emby direct streams can legitimately take longer to deliver the next HLS
+                // segment on a TV. Give the connection retries before treating it as a codec
+                // failure, and allow the buffering watchdog below to request a server stream.
+                if (networkRecoveries < 2 && recoverablePlaybackFailure(error, plan?.direct == false || serviceKind == ServiceKind.EMBY)) {
                     networkRecoveries++
                     prepare(position, autoplay = playWhenReady, retryDelayMillis = networkRecoveries * 1000L)
                     return
                 }
-                // A single codec fallback, never an endless retry loop or a bitrate increase.
-                if (!compatible && error.errorCode in setOf(PlaybackException.ERROR_CODE_DECODING_FAILED,
+                // A single compatible-stream fallback, never an endless retry loop or a bitrate increase.
+                // Direct HLS failures are not always reported as decoder failures, especially on TV.
+                if (!compatible && (error.errorCode in setOf(PlaybackException.ERROR_CODE_DECODING_FAILED,
                         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED, PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
                         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
-                        PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED, PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED)) {
+                        PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED, PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED)
+                    || plan?.direct == true)) {
                     compatible = true
                     prepare(position, forceCompatible = true, autoplay = playWhenReady)
                 } else {
@@ -245,7 +250,15 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             var ticks = 0
             while (isActive) {
                 delay(1_000)
-                if (bufferingSince != 0L && android.os.SystemClock.elapsedRealtime() - bufferingSince > 30_000) {
+                if (bufferingSince != 0L && android.os.SystemClock.elapsedRealtime() - bufferingSince > 45_000) {
+                    if (!compatible) {
+                        compatible = true
+                        val position = player.currentPosition.coerceAtLeast(0)
+                        android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=buffer action=force-compatible")
+                        bufferingSince = 0L
+                        prepare(position, forceCompatible = true, autoplay = player.playWhenReady)
+                        continue
+                    }
                     report("/Stopped"); started = false
                     player.stop()
                     mutable.update { it.copy(busy = false, playing = false,
@@ -417,7 +430,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 plan = prepared
                 stopped = false
                 val http = app.reelstack.data.network.HttpTransport.sharedClient.newBuilder()
-                    .connectTimeout(8, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).build()
+                    .connectTimeout(8, TimeUnit.SECONDS)
+                    .readTimeout(if (serviceKind == ServiceKind.EMBY) 45 else 20, TimeUnit.SECONDS).build()
                 val cache = SubtitleMemoryCache(http.newBuilder().callTimeout(8, TimeUnit.SECONDS).build(), client.headers(c))
                 subtitleCache = cache
                 val upstream = cache.factory(OkHttpDataSource.Factory(http).setDefaultRequestProperties(client.headers(c)))

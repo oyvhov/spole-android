@@ -38,4 +38,8 @@
     <string name="settings_tv_hero_hint">A featured title above your rows.</string>
     <string name="settings_tv_account_action">Account and profile</string>
     <string name="settings_tv_connection_action">Server and sign-in</string>
+    <string name="settings_playback_start_group">Start and resume</string>
+    <string name="settings_playback_media_group">Audio and subtitles</string>
+    <string name="settings_playback_next_group">Next episode</string>
+    <string name="settings_playback_quality_group">Quality and stability</string>
 </resources>

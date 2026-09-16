@@ -16,7 +16,9 @@ fun ServiceLogo(
     val drawable = when (kind) {
         ServiceKind.JELLYFIN -> R.drawable.ic_service_jellyfin
         ServiceKind.EMBY -> R.drawable.ic_service_emby
-        else -> R.drawable.ic_launcher
+        ServiceKind.SEERR -> R.drawable.ic_service_seerr
+        ServiceKind.RADARR -> R.drawable.ic_service_radarr
+        ServiceKind.SONARR -> R.drawable.ic_service_sonarr
     }
     Image(
         painter = painterResource(drawable),

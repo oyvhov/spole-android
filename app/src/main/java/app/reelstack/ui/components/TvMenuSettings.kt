@@ -1,12 +1,27 @@
 package app.reelstack.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.*
+import app.reelstack.ui.theme.Muted
+import app.reelstack.ui.theme.Primary
+import app.reelstack.ui.theme.SurfaceRaised
 
 @Composable
 internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) -> Unit) {
@@ -18,12 +33,69 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
         if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_hide_sidebar), stringResource(R.string.tv_hide_sidebar_help),
             value.hideTvSidebar, "tv-hide-sidebar") { onChange(value.copy(hideTvSidebar = it)) }
         SettingsGroup(stringResource(R.string.refine_menu_order), stringResource(R.string.refine_order_hint))
-        OrderEditor(order, { names.getValue(it) }, value.hiddenMenuItems,
+        TvMenuOrderEditor(order, names, value.hiddenMenuItems,
             setOf("HOME", "SETTINGS") + if (value.startInLibrary) setOf("LIBRARY") else emptySet(),
-            "menu", { onChange(value.copy(menuOrder = it)) },
+            { onChange(value.copy(menuOrder = it)) },
             { id, visible -> onChange(value.copy(hiddenMenuItems = if (visible) value.hiddenMenuItems - id else value.hiddenMenuItems + id)) })
         SpoleSecondaryButton(onClick = { onChange(value.copy(menuOrder = DEFAULT_MENU, hiddenMenuItems = emptySet())) }) {
             Text(stringResource(R.string.tv_reset_menu))
         }
     }
+}
+
+@Composable
+private fun TvMenuOrderEditor(order: List<String>, names: Map<String, String>, hidden: Set<String>, required: Set<String>,
+    onOrder: (List<String>) -> Unit, onVisible: (String, Boolean) -> Unit) {
+    val focus = remember(order.toSet()) { order.associateWith { listOf(FocusRequester(), FocusRequester()) } }
+    order.forEachIndexed { index, id -> key(id) {
+        val interaction = remember { MutableInteractionSource() }
+        val shape = RoundedCornerShape(14.dp)
+        val visible = id !in hidden
+        Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .focusOutline(interaction, shape)
+            .testTag("menu-order-card-$id")
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(30.dp).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
+                Text("${index + 1}", color = Muted, style = MaterialTheme.typography.labelMedium)
+            }
+            Icon(menuIcon(id), null, Modifier.size(22.dp), tint = if (visible) Primary else Muted)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(names.getValue(id), style = MaterialTheme.typography.titleMedium,
+                    color = if (visible) MaterialTheme.colorScheme.onSurface else Muted)
+                Text(if (visible) stringResource(R.string.library_titles_on) else stringResource(R.string.library_titles_off),
+                    style = MaterialTheme.typography.bodySmall, color = Muted)
+            }
+            IconButton(onClick = { if (id !in required) onVisible(id, visible) }, enabled = id !in required,
+                modifier = Modifier.testTag("menu-visible-$id")) {
+                Icon(if (visible) SpoleIcons.Eye else SpoleIcons.EyeOff,
+                    stringResource(if (visible) R.string.refine_hide_named else R.string.refine_show_named, names.getValue(id)),
+                    tint = if (visible) Primary else Muted)
+            }
+            listOf(-1, 1).forEachIndexed { button, direction ->
+                val target = index + direction
+                IconButton(onClick = {
+                    val destination = target.coerceIn(order.indices)
+                    val next = order.toMutableList().apply { removeAt(index); add(destination, id) }
+                    focus.getValue(id)[if (destination == 0) 1 else if (destination == order.lastIndex) 0 else button].requestFocus()
+                    onOrder(next)
+                }, enabled = target in order.indices,
+                    modifier = Modifier.focusRequester(focus.getValue(id)[button])
+                        .testTag("menu-${if (direction < 0) "up" else "down"}-$id")) {
+                    Icon(if (direction < 0) SpoleIcons.ChevronUp else SpoleIcons.ChevronDown,
+                        stringResource(if (direction < 0) R.string.home_order_up else R.string.home_order_down, names.getValue(id)))
+                }
+            }
+        }
+    } }
+}
+
+private fun menuIcon(id: String): ImageVector = when (id) {
+    "HOME" -> SpoleIcons.Home
+    "LIBRARY" -> SpoleIcons.Library
+    "DISCOVER" -> SpoleIcons.Search
+    "ACTIVITY" -> SpoleIcons.Activity
+    else -> SpoleIcons.Settings
 }

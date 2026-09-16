@@ -34,6 +34,8 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
     var titles by remember(cast) { mutableStateOf(emptyList<app.reelstack.data.model.LibraryMedia>()) }
     var loading by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    val tv = isTelevision()
+    val portraitSize = if (tv) 84.dp else 64.dp
     LaunchedEffect(selected) {
         titles = emptyList()
         failed = false
@@ -55,7 +57,7 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
                     enabled = person.remoteId != null && source != null, role = Role.Button) {
                     selected = if (selected == person) null else person
                 }.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(64.dp).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(portraitSize).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
                     if (person.portraitUrl != null) {
                         MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(), fallbackRes = R.drawable.media_placeholder, source = source)
                     } else {
