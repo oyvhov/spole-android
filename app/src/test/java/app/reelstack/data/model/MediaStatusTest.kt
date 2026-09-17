@@ -1,5 +1,6 @@
 package app.reelstack.data.model
 
+import app.reelstack.R
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -13,15 +14,19 @@ class MediaStatusTest {
         assertFalse(media(null).copy(requested = true).canRequest)
     }
 
+    // The statuses are resource ids now, so the test names the message rather than its wording —
+    // the sentences exist in three languages and matching one of them only ever checked that one.
     @Test fun distinguishesAllSeerrStatesWithoutClaimingDownloadProgress() {
         val labels = (1..7).map { seerrStatusLabel(it) }
         assertEquals(7, labels.distinct().size)
-        assertEquals("Ventar på godkjenning", seerrStatusLabel(2))
-        assertEquals("Førespurd", seerrStatusLabel(3))
-        assertEquals("Delvis i biblioteket", seerrStatusLabel(4))
-        assertEquals("Blokkert i Seerr", seerrStatusLabel(6, inLibrary = true))
-        assertTrue(seerrStatusDescription(3).contains("ikkje nødvendigvis starta"))
-        assertEquals("Lagd til", seerrStatusLabel(null, requested = true))
+        assertEquals(R.string.seerr_status_awaiting, seerrStatusLabel(2))
+        assertEquals(R.string.seerr_status_requested, seerrStatusLabel(3))
+        assertEquals(R.string.seerr_status_partial, seerrStatusLabel(4))
+        assertEquals(R.string.seerr_status_blocked, seerrStatusLabel(6, inLibrary = true))
+        assertEquals(R.string.seerr_status_added, seerrStatusLabel(null, requested = true))
+        // "Requested" must not promise a download that has not started.
+        assertEquals(R.string.seerr_desc_requested, seerrStatusDescription(3))
+        assertEquals(7, (1..7).map { seerrStatusDescription(it) }.distinct().size)
     }
 
     @Test fun resolvesMovieFallbackButNeverGuessesUnknownVideoIsASeries() {

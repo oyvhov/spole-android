@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
@@ -80,7 +81,7 @@ class ServiceClientsTest {
             JellyfinAuthenticationClient(transport).authenticate("https://media.example.com", "wrong", "wrong")
         }.exceptionOrNull()
 
-        assertEquals("Feil brukarnamn eller passord", error?.message)
+        assertEquals(app.reelstack.R.string.err_feil_brukarnamn_eller_passord, error?.localizedFailure()?.resId)
     }
 
     @Test
@@ -130,7 +131,7 @@ class ServiceClientsTest {
         val result = ServiceConnectionTester(transport).test(connection(ServiceKind.SEERR, "bad-key"))
 
         assertFalse(result.success)
-        assertEquals("API-nøkkelen vart avvist", result.message)
+        assertEquals(app.reelstack.R.string.conn_key_refused, result.message.resId)
         assertTrue(transport.lastUrl.endsWith("/api/v1/auth/me"))
     }
 
@@ -314,7 +315,7 @@ class ServiceClientsTest {
 
         assertTrue(feed.recentMovies.isEmpty())
         assertTrue(feed.recentSeries.isEmpty())
-        assertTrue(feed.warning != null)
+        assertTrue(feed.warnings.isNotEmpty())
         assertTrue(transport.urls[1].endsWith("/Users/Me"))
         assertTrue(transport.urls[2].endsWith("/Users"))
         assertFalse(transport.urls.any { it.contains("Items/Latest") })
@@ -337,7 +338,7 @@ class ServiceClientsTest {
         assertTrue(feed.sessions.isEmpty())
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
-        assertTrue(feed.warning.orEmpty().contains("Avspelingsøkter er utilgjengelege"))
+        assertTrue(feed.warnings.map { it.resId }.contains(R.string.warn_sessions_unavailable))
     }
 
     @Test
@@ -356,7 +357,7 @@ class ServiceClientsTest {
         assertTrue(feed.sessions.isEmpty())
         assertTrue(feed.recentMovies.isEmpty())
         assertTrue(feed.recentSeries.isEmpty())
-        assertTrue(feed.warning.orEmpty().contains("Mediedelane er utilgjengelege"))
+        assertTrue(feed.warnings.map { it.resId }.contains(R.string.warn_media_parts_unavailable))
         assertTrue(transport.urls.last().endsWith("/System/Info"))
     }
 

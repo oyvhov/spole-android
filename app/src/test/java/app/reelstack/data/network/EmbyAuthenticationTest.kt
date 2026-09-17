@@ -32,7 +32,7 @@ class EmbyAuthenticationTest {
     @Test fun rejectionHasUsefulMessageWithoutLeakingServerResponse() {
         val fake = Fake(HttpResponse(401, "private-password"))
         val error = runCatching { EmbyAuthenticationClient(fake).authenticate("https://e.example", "me", "secret") }.exceptionOrNull()
-        assertEquals("Feil Emby-brukarnamn eller passord.", error?.message)
+        assertEquals(app.reelstack.R.string.err_feil_emby_brukarnamn_eller, error?.localizedFailure()?.resId)
     }
     @Test fun incompleteAuthenticationIsNotSuccess() {
         listOf("{}", """{"AccessToken":"","User":{"Id":"me"}}""", """{"AccessToken":"token","User":{"Id":""}}""").forEach {
@@ -44,7 +44,7 @@ class EmbyAuthenticationTest {
             EmbyAuthenticationClient(Fake(HttpResponse(500, "private server trace")))
                 .authenticate("https://e.example", "me", "secret")
         }.exceptionOrNull()
-        assertEquals("Emby fekk ein tenarfeil under innlogginga (status 500).", error?.message)
+        assertEquals(app.reelstack.R.string.err_emby_fekk_ein_tenarfeil, error?.localizedFailure()?.resId)
         assertFalse(error?.message.orEmpty().contains("private server trace"))
     }
 
@@ -56,7 +56,7 @@ class EmbyAuthenticationTest {
         }
         val error = runCatching { EmbyAuthenticationClient(transport).authenticate("https://e.example", "me", "secret") }
             .exceptionOrNull()
-        assertEquals("Fekk ikkje kontakt med Emby. Sjekk tenaradressa og nettet.", error?.message)
+        assertEquals(app.reelstack.R.string.err_fekk_ikkje_kontakt_med_2, error?.localizedFailure()?.resId)
     }
     @Test fun linkedAccountRequiresPersonalSeerrIdentityAndMatchingMediaId() {
         val account = ServiceAccount(ServiceKind.SEERR, "7", "Same name", mediaUserId = "abc-def")

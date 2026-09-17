@@ -1,6 +1,7 @@
 package app.reelstack.data.network
 
 import app.reelstack.BuildConfig
+import app.reelstack.R
 import okhttp3.ConnectionPool
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -31,7 +32,7 @@ interface JsonHttpTransport {
 
     /** Defaulted so a read-only fake stays valid; only the request flow needs to withdraw anything. */
     fun delete(url: String, headers: Map<String, String>): HttpResponse =
-        error("Denne tenesta støttar ikkje sletting")
+        error("this transport does not implement delete")
 }
 
 class HttpTransport(
@@ -98,7 +99,7 @@ class HttpTransport(
                     val count = input.read(buffer)
                     if (count < 0) break
                     total += count
-                    require(total <= MAX_RESPONSE_BYTES) { "Svaret frå tenaren var for stort" }
+                    if (total > MAX_RESPONSE_BYTES) serviceError(R.string.err_svaret_var_for_stort)
                     output.write(buffer, 0, count)
                 }
                 output.toString(StandardCharsets.UTF_8.name())

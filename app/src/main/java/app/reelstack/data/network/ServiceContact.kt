@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import java.io.IOException
 import javax.net.ssl.SSLException
 
@@ -14,12 +15,12 @@ internal inline fun <T> contacting(service: String, block: () -> T): T = try {
 } catch (_: SSLException) {
     // Self-hosted servers often use a certificate Android does not trust. That is a different
     // problem from an unreachable server, and it needs a different next step.
-    serviceError("Klarte ikkje å opprette ei trygg HTTPS-tilkopling til $service. Sjekk at sertifikatet på tenaren er gyldig og tiltrudd.")
+    serviceError(R.string.err_klarte_ikkje_opprette_trygg, service)
 } catch (error: IOException) {
-    throw ServiceMessage("Fekk ikkje kontakt med $service. Sjekk tenaradressa og nettet.").apply { initCause(error) }
+    throw ServiceMessage(app.reelstack.localization.LocalizedText(R.string.err_kontakt_sjekk_adresse, service)).apply { initCause(error) }
 }
 
 /** Parses a service response body, without putting the raw body or parser text in the message. */
 internal fun serviceJson(body: String, service: String) =
     runCatching { kotlinx.serialization.json.Json.parseToJsonElement(body) }
-        .getOrElse { serviceError("$service sende eit uventa svar. Sjekk at adressa peikar på $service.") }
+        .getOrElse { serviceError(R.string.err_sende_eit_uventa_svar, service, service) }

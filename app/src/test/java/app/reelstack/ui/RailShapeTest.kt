@@ -1,0 +1,46 @@
+package app.reelstack.ui
+
+import app.reelstack.ui.components.orientationDiffers
+import app.reelstack.ui.screens.resumeRailIsWide
+import org.junit.Assert.*
+import org.junit.Test
+
+/**
+ * One shape per rail.
+ *
+ * A shelf that decided the card shape per title put a 2:3 poster next to a 16:9 still and made a row
+ * whose cards differed by nearly three times in width. The shelf decides once; a picture that faces
+ * the other way is fitted into the frame with a blurred copy of itself behind, which is what
+ * [orientationDiffers] is asked about.
+ */
+class RailShapeTest {
+    @Test fun aResumeShelfIsTheWideStillUnlessSomebodyAskedForPosters() {
+        assertTrue(resumeRailIsWide(null))
+        assertTrue(resumeRailIsWide("AUTO"))
+        assertTrue(resumeRailIsWide("THUMB"))
+        assertFalse(resumeRailIsWide("POSTER"))
+    }
+
+    @Test fun theShapeDoesNotDependOnWhatTheShelfHappensToHold() {
+        // Checked on a real Emby shelf: letting the majority media type decide meant five films
+        // outvoted four episodes, and every episode still was letterboxed into a poster frame.
+        val everyFormat = listOf(null, "AUTO", "THUMB")
+        assertEquals("one answer for every shelf", setOf(true), everyFormat.map(::resumeRailIsWide).toSet())
+    }
+
+    @Test fun onlyAnOrientationChangeCountsAsAMismatch() {
+        val wideFrame = 16f / 9f
+        val posterFrame = 2f / 3f
+        // A poster handed to a wide frame, and a still handed to a poster frame.
+        assertTrue(orientationDiffers(sourceRatio = 2f / 3f, frameRatio = wideFrame))
+        assertTrue(orientationDiffers(sourceRatio = 16f / 9f, frameRatio = posterFrame))
+        // The picture already fits.
+        assertFalse(orientationDiffers(sourceRatio = 16f / 9f, frameRatio = wideFrame))
+        assertFalse(orientationDiffers(sourceRatio = 2f / 3f, frameRatio = posterFrame))
+    }
+
+    @Test fun nearlySquareArtworkIsNotWorthABlurredBackplate() {
+        assertFalse("a 4:3 still is close enough to a wide frame", orientationDiffers(4f / 3f, 16f / 9f))
+        assertFalse("nothing to decide without a measurement", orientationDiffers(0f, 16f / 9f))
+    }
+}

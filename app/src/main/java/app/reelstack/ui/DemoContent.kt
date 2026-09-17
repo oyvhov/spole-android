@@ -74,9 +74,9 @@ internal fun demoNextUp() = demoRecentSeries().takeLast(4).mapIndexed { index, m
 internal fun demoFavourites() = (demoRecentMovies().take(3) + demoRecentSeries().takeLast(3)).map { it.copy(favourite = true) }
 
 internal fun demoSessions() = listOf(
-    PlaybackSession("Maya", "TV i stova", "Severance", "S02 E03", .58f, "20 min att", "Direkteavspeling", "4K", false,
+    PlaybackSession("Maya", "TV i stova", "Severance", "S02 E03", .58f, 20, false, "4K", false,
         sessionId = "demo-living-room", source = ServiceKind.JELLYFIN, season = 2, episode = 3),
-    PlaybackSession("Jonas", "Nettbrett", "Service", "S01 E02", .31f, "33 min att", "Direkteavspeling", "1080p", true,
+    PlaybackSession("Jonas", "Nettbrett", "Service", "S01 E02", .31f, 33, false, "1080p", true,
         sessionId = "demo-tablet", source = ServiceKind.EMBY, season = 1, episode = 2),
 )
 
@@ -126,8 +126,11 @@ internal fun demoIncoming() = demoTitles.take(5).mapIndexed { index, title ->
 
 internal fun demoActivity() = demoTitles.take(8).mapIndexed { index, title ->
     ActivityEvent("activity-${title.key}", title.title,
-        when (index % 3) { 0 -> "Godkjend i Seerr"; 1 -> "Lastar ned 42 %"; else -> "I biblioteket" },
-        if (index < 4) "For ${2 + index * 8} min sidan" else "I går", complete = index % 3 == 2,
+        app.reelstack.localization.LocalizedText(
+            when (index % 3) { 0 -> R.string.stage_requested; 1 -> R.string.stage_downloading; else -> R.string.stage_available }),
+        if (index < 4) app.reelstack.localization.LocalizedText.plural(R.plurals.time_minutes_ago, 2 + index * 8)
+        else app.reelstack.localization.LocalizedText(R.string.time_yesterday),
+        complete = index % 3 == 2,
         progress = if (index % 3 == 1) 42 else null, source = if (index % 3 == 0) ServiceKind.SEERR else ServiceKind.RADARR,
         artworkRes = title.art, mediaType = "Movie")
 }

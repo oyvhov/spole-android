@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import kotlinx.serialization.json.*
 
 data class RequestHistoryPage(
@@ -12,7 +13,7 @@ data class RequestHistoryPage(
 /** Advance by server records, including malformed/foreign rows, never by visible cards. */
 internal fun parseRequestHistoryPage(payload: String, userId: String, offset: Int, limit: Int): RequestHistoryPage {
     val root = Json.parseToJsonElement(payload).jsonObject
-    val rows = root["results"] as? JsonArray ?: serviceError("Fekk ikkje lese førespurnadshistorikken.")
+    val rows = root["results"] as? JsonArray ?: serviceError(R.string.err_fekk_ikkje_lese_forespurnadshistorikken)
     val total = (root["pageInfo"] as? JsonObject)?.get("results")?.jsonPrimitive?.intOrNull?.takeIf { it >= 0 }
     val next = Math.addExact(offset, rows.size)
     return RequestHistoryPage(

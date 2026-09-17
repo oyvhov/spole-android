@@ -17,8 +17,8 @@
     <string name="action_delete">Delete</string>
     <string name="language_title">Language</string>
     <string name="language_system">Follow device</string>
-    <string name="language_preview">English · Preview</string>
-    <string name="language_note">English is being completed. Some screens and service messages are still in Norwegian. This does not change the language of your media.</string>
+    <string name="language_preview">English</string>
+    <string name="language_note">Every screen and every message the app writes is in English. Titles, descriptions and anything else your servers send keep the language they were stored in.</string>
     <string name="settings_subtitle">Make Spole yours.</string>
     <string name="settings_services">Your services</string>
     <string name="settings_services_note">Server address and sign-in for each service.</string>

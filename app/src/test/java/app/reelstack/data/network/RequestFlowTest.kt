@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.localization.LocalizedText
 import app.reelstack.data.model.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -19,7 +20,7 @@ class RequestFlowTest {
     @Test fun parsesMissingSeasonsWithoutOfferingAvailableRequestedOrPartialOnes() {
         val details = ServicePayloadParser.mediaDetails(payload)
         assertEquals(listOf(0, 3), details.seasons.filter { it.canRequest }.map { it.number })
-        assertEquals("I biblioteket", details.seasons.first { it.number == 1 }.label)
+        assertEquals(app.reelstack.R.string.season_in_library, details.seasons.first { it.number == 1 }.label)
     }
     @Test fun pendingRequestBlocksSeasonEvenBeforeMediaSeasonSync() {
         val data = """{"seasons":[{"seasonNumber":2}],"mediaInfo":{"requests":[{"status":1,"seasons":[{"seasonNumber":2}]}]}}"""
@@ -54,7 +55,7 @@ class RequestFlowTest {
         assertEquals(RequestStage.REQUESTED, requestProgress(3, emptyList(), emptySet(), emptyList(), 5).stage)
     }
     @Test fun onlySelectedSeasonsCountForReadiness() {
-        val seasons = listOf(RequestSeason(1, "", 8, 5), RequestSeason(2, "", 8, 3))
+        val seasons = listOf(RequestSeason(1, LocalizedText.raw(""), 8, 5), RequestSeason(2, LocalizedText.raw(""), 8, 3))
         assertEquals(RequestStage.REQUESTED, requestProgress(5, seasons, setOf(2), emptyList()).stage)
         assertEquals(RequestStage.AVAILABLE, requestProgress(4, seasons, setOf(1), emptyList()).stage)
     }

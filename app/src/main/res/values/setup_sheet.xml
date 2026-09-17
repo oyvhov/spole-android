@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setup_have_link">I have a setup link</string>
+    <string name="setup_paste_link">Paste the setup link</string>
+    <string name="setup_use_addresses">Use these addresses</string>
+    <string name="setup_line_jellyfin">Jellyfin · %1$s</string>
+    <string name="setup_line_seerr">Seerr · %1$s</string>
+    <string name="setup_change">Change</string>
+    <string name="setup_jellyfin_address">Jellyfin address</string>
+    <string name="setup_jellyfin_hint">https://jellyfin.yourdomain.com</string>
+    <string name="setup_also_seerr">Connect Seerr as well</string>
+    <string name="setup_also_seerr_why">Optional · to request films and series</string>
+    <string name="setup_seerr_address">Seerr address</string>
+    <string name="setup_seerr_hint">https://seerr.yourdomain.com</string>
+    <string name="setup_username">User name</string>
+    <string name="setup_password">Password</string>
+</resources>

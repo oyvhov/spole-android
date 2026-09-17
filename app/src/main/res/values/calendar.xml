@@ -25,4 +25,5 @@
         <item quantity="one">%1$d release this day</item>
         <item quantity="other">%1$d releases this day</item>
     </plurals>
+    <string name="calendar_kind_episode">Episode</string>
 </resources>

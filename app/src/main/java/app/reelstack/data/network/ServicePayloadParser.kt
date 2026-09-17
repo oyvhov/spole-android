@@ -1,5 +1,7 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
+import app.reelstack.localization.LocalizedText
 import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.ServiceKind
 import kotlinx.serialization.json.Json
@@ -27,8 +29,10 @@ data class RemotePlayback(
     val title: String,
     val subtitle: String,
     val progress: Float,
-    val timeLeft: String,
-    val streamMethod: String,
+    /** Minutes left, so the card can spell them in the reader's language. 0 means "almost done". */
+    val remainingMinutes: Int,
+    /** What the server is doing with the file, as a fact rather than as a word. */
+    val transcoding: Boolean,
     val quality: String,
     val paused: Boolean,
     val artworkItemId: String?,
@@ -49,7 +53,7 @@ data class RemoteLibraryItem(
     val artworkImageType: String = "Primary",
     val artworkUrl: String? = null,
     val overview: String? = null,
-    val facts: List<String> = emptyList(),
+    val facts: List<LocalizedText> = emptyList(),
     val genres: List<String> = emptyList(),
     val premiereDate: String? = null,
     val available: Boolean = true,
@@ -102,12 +106,12 @@ data class RemoteQueueItem(
     val id: String,
     val title: String,
     val source: ServiceKind,
-    val status: String,
+    val status: LocalizedText,
     val state: IncomingState,
     val progress: Int?,
     val artworkUrl: String?,
     val overview: String? = null,
-    val facts: List<String> = emptyList(),
+    val facts: List<LocalizedText> = emptyList(),
     val genres: List<String> = emptyList(),
 )
 
@@ -120,8 +124,16 @@ data class RemoteUpcomingItem(
     val artworkUrl: String?,
     val mediaType: String,
     val overview: String? = null,
-    val facts: List<String> = emptyList(),
+    val facts: List<LocalizedText> = emptyList(),
     val genres: List<String> = emptyList(),
+    /**
+     * A disc release rather than a digital one.
+     *
+     * The calendar used to work this out by looking for the nynorsk words "Fysisk utgjeving" among
+     * the facts — so it silently stopped being true the moment the facts were said in any other
+     * language.
+     */
+    val physicalRelease: Boolean = false,
 )
 
 data class RemoteDiscoverItem(
@@ -134,7 +146,7 @@ data class RemoteDiscoverItem(
     val inLibrary: Boolean,
     val requested: Boolean,
     val overview: String? = null,
-    val facts: List<String> = emptyList(),
+    val facts: List<LocalizedText> = emptyList(),
     val genres: List<String> = emptyList(),
     val seerrStatus: Int? = null,
 )
@@ -147,7 +159,7 @@ data class RemoteRecommendationItem(
     val metadata: String,
     val artworkUrl: String?,
     val overview: String? = null,
-    val facts: List<String> = emptyList(),
+    val facts: List<LocalizedText> = emptyList(),
     val genres: List<String> = emptyList(),
 )
 
@@ -156,7 +168,7 @@ data class RemoteMediaDetails(
     val artworkUrl: String?,
     val tagline: String? = null,
     val overview: String? = null,
-    val facts: List<String> = emptyList(),
+    val facts: List<LocalizedText> = emptyList(),
     val genres: List<String> = emptyList(),
     val cast: List<app.reelstack.data.model.CastMember> = emptyList(),
     val seerrStatus: Int? = null,
@@ -307,14 +319,7 @@ object ServicePayloadParser {
                     year?.toString().takeIf { series == null && episodeLabel == null })
                     .distinct()
                     .joinToString(" · ")
-                    .ifBlank {
-                        when (mediaType.lowercase()) {
-                            "movie" -> "Film"
-                            "series" -> "Serie"
-                            "episode" -> "Episode"
-                            else -> "Video"
-                        }
-                    },
+                    .ifBlank { "" },
                 progress = progress,
                 seriesId = item.string("SeriesId") ?: item.string("seriesId"),
                 lastActivityEpochMillis = (userData?.string("LastPlayedDate") ?: userData?.string("lastPlayedDate"))
@@ -380,25 +385,34 @@ object ServicePayloadParser {
                 val title = item.string("title") ?: return@mapNotNull null
                 val digitalRelease = item.string("digitalRelease")
                 val physicalRelease = item.string("physicalRelease")
+                // A disc release and a digital one are different facts, so they travel as
+                // different flags rather than as two sentences one of them is then compared against.
                 val release = listOfNotNull(
-                    digitalRelease?.let { it to "Digital utgjeving" },
-                    physicalRelease?.let { it to "Fysisk utgjeving" },
+                    digitalRelease?.let { it to false },
+                    physicalRelease?.let { it to true },
                 ).firstOrNull { (date, _) ->
                     notBefore == null || calendarInstant(date)?.let { !it.isBefore(notBefore) } == true
                 } ?: return@mapNotNull null
-                val (dateTime, availability) = release
+                val (dateTime, isPhysical) = release
+                val availability =
+                    LocalizedText(if (isPhysical) R.string.release_physical else R.string.release_digital)
                 val year = item.int("year")
                 RemoteUpcomingItem(
                     id = id,
                     title = title,
-                    subtitle = listOfNotNull("Film", year?.toString()).joinToString(" · "),
+                    subtitle = year?.toString().orEmpty(),
                     dateTime = dateTime,
                     source = source,
                     artworkUrl = secureArtwork(item, "poster"),
                     mediaType = "Movie",
                     overview = item.string("overview"),
-                    facts = listOfNotNull("Film", year?.toString(), item.int("runtime")?.let { "$it min" }, availability),
+                    facts = listOfNotNull(
+                        year?.let { LocalizedText.raw(it.toString()) },
+                        item.int("runtime")?.takeIf { it > 0 }?.let { LocalizedText(R.string.media_minutes, it) },
+                        availability,
+                    ),
                     genres = stringArray(item, "genres"),
+                    physicalRelease = isPhysical,
                 )
             } else {
                 val id = item.int("id")?.toString() ?: return@mapNotNull null
@@ -413,7 +427,7 @@ object ServicePayloadParser {
                 RemoteUpcomingItem(
                     id = id,
                     title = title,
-                    subtitle = listOfNotNull(episodeNumber, episodeTitle).joinToString(" · ").ifBlank { "Episode" },
+                    subtitle = listOfNotNull(episodeNumber, episodeTitle).joinToString(" · "),
                     dateTime = item.string("airDateUtc") ?: item.string("airDate") ?: return@mapNotNull null,
                     source = source,
                     artworkUrl = series?.let { secureArtwork(it, "fanart") }
@@ -421,10 +435,9 @@ object ServicePayloadParser {
                     mediaType = "Episode",
                     overview = series?.string("overview") ?: item.string("overview"),
                     facts = listOfNotNull(
-                        "Serie",
-                        series?.int("year")?.toString(),
-                        series?.int("runtime")?.let { "$it min" },
-                        series?.string("network"),
+                        series?.int("year")?.let { LocalizedText.raw(it.toString()) },
+                        series?.int("runtime")?.takeIf { it > 0 }?.let { LocalizedText(R.string.media_minutes, it) },
+                        series?.string("network")?.let { LocalizedText.raw(it) },
                     ),
                     genres = series?.let { stringArray(it, "genres") }.orEmpty(),
                 )
@@ -448,7 +461,7 @@ object ServicePayloadParser {
                 remoteId = remoteId,
                 mediaType = mediaType,
                 title = title,
-                metadata = "${if (mediaType == "movie") "Film" else "Serie"}${year?.let { " · $it" }.orEmpty()}",
+                metadata = year.orEmpty(),
                 artworkUrl = item.string("posterPath")?.let { safeTmdbArtwork(it) },
                 inLibrary = mediaStatus == 5,
                 requested = mediaStatus in 2..4,
@@ -480,7 +493,7 @@ object ServicePayloadParser {
                 remoteId = remoteId,
                 mediaType = mediaType,
                 title = title,
-                metadata = "${if (mediaType == "movie") "Film" else "Serie"}${year?.let { " · $it" }.orEmpty()}",
+                metadata = year.orEmpty(),
                 artworkUrl = item.string("posterPath")?.let(::safeTmdbArtwork)
                     ?: item.string("artworkUrl")?.takeIf { it.startsWith("https://", ignoreCase = true) },
                 overview = item.string("overview"),
@@ -513,7 +526,7 @@ object ServicePayloadParser {
                 availableSeasons = media?.array("seasons").orEmpty().mapNotNull {
                     val season = it as? JsonObject ?: return@mapNotNull null
                     val number = season.int("seasonNumber") ?: return@mapNotNull null
-                    app.reelstack.data.model.RequestSeason(number, "Sesong $number", 0, season.int(statusKey) ?: 1)
+                    app.reelstack.data.model.RequestSeason(number, seasonName(number), 0, season.int(statusKey) ?: 1)
                 },
                 createdAt = request.string("createdAt"),
                 title = media?.string("title") ?: media?.string("name"),
@@ -583,7 +596,7 @@ object ServicePayloadParser {
                 if (pending.any { it.int("status") == 2 }) 3 else 2
             } else recorded
             app.reelstack.data.model.RequestSeason(number,
-                if (number == 0) "Spesialepisodar" else "Sesong $number", season.int("episodeCount") ?: 0, status,
+                seasonName(number), season.int("episodeCount") ?: 0, status,
                 airDate = runCatching { java.time.LocalDate.parse(season.string("airDate")) }.getOrNull())
         }.distinctBy { it.number }.sortedBy { it.number }
     }
@@ -726,9 +739,9 @@ object ServicePayloadParser {
         val index = if (season != null && episode != null) {
             "S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"
         } else {
-            item.string("Type") ?: "Spelar no"
+            item.string("Type").orEmpty()
         }
-        val subtitle = listOfNotNull(index, episodeName).distinct().joinToString(" · ")
+        val subtitle = listOfNotNull(index.takeIf(String::isNotBlank), episodeName).distinct().joinToString(" · ")
         val position = playState.long("PositionTicks") ?: 0L
         val runtime = item.long("RunTimeTicks") ?: 0L
         val remainingMinutes = ((runtime - position).coerceAtLeast(0L) / TICKS_PER_MINUTE).toInt()
@@ -737,18 +750,15 @@ object ServicePayloadParser {
         return RemotePlayback(
             sessionId = session.string("Id") ?: session.string("id") ?: return null,
             userId = session.string("UserId") ?: session.string("userId"),
-            userName = session.string("UserName") ?: "Nokon",
-            deviceName = session.string("DeviceName") ?: session.string("Client") ?: "Ukjend eining",
+            userName = session.string("UserName").orEmpty(),
+            deviceName = (session.string("DeviceName") ?: session.string("Client")).orEmpty(),
             deviceId = session.string("DeviceId"),
             title = title,
             subtitle = subtitle,
             progress = if (runtime > 0L) (position.toDouble() / runtime).toFloat().coerceIn(0f, 1f) else 0f,
-            timeLeft = if (remainingMinutes > 0) "$remainingMinutes min att" else "Snart ferdig",
-            streamMethod = when {
-                session.obj("TranscodingInfo") != null -> "Omkoding"
-                playMethod.equals("Transcode", ignoreCase = true) -> "Omkoding"
-                else -> "Direkteavspeling"
-            },
+            remainingMinutes = remainingMinutes,
+            transcoding = session.obj("TranscodingInfo") != null ||
+                playMethod.equals("Transcode", ignoreCase = true),
             quality = when {
                 width >= 3_840 -> "4K"
                 width >= 1_920 -> "1080p"
@@ -782,9 +792,11 @@ object ServicePayloadParser {
             else -> IncomingState.REQUESTED
         }
         val status = when (state) {
-            IncomingState.READY -> "Klar for import"
-            IncomingState.DOWNLOADING -> progress?.let { "Lastar ned $it %" } ?: "Lastar ned"
-            IncomingState.REQUESTED -> "Ventar i kø"
+            IncomingState.READY -> LocalizedText(R.string.queue_ready_for_import)
+            IncomingState.DOWNLOADING ->
+                progress?.let { LocalizedText(R.string.queue_downloading_percent, it) }
+                    ?: LocalizedText(R.string.queue_downloading)
+            IncomingState.REQUESTED -> LocalizedText(R.string.queue_waiting)
         }
         val artwork = media?.let(::secureArtwork)
         return RemoteQueueItem(
@@ -797,9 +809,8 @@ object ServicePayloadParser {
             artworkUrl = artwork,
             overview = media?.string("overview"),
             facts = listOfNotNull(
-                if (source == ServiceKind.RADARR) "Film" else "Serie",
-                media?.int("year")?.toString(),
-                progress?.let { "$it %" },
+                media?.int("year")?.let { LocalizedText.raw(it.toString()) },
+                progress?.let { LocalizedText.raw("$it %") },
             ),
             genres = media?.let { stringArray(it, "genres") }.orEmpty(),
         )
@@ -836,58 +847,63 @@ object ServicePayloadParser {
     private fun objectNameArray(item: JsonObject, key: String): List<String> = item.array(key)
         .mapNotNull { value -> (value as? JsonObject)?.string("name") }
 
-    private fun libraryFacts(item: JsonObject, mediaType: String, runtimeTicks: Long?): List<String> = buildList {
-        add(
-            when (mediaType.lowercase()) {
-                "movie" -> "Film"
-                "series" -> "Serie"
-                "episode" -> "Episode"
-                else -> mediaType
-            },
-        )
+    /**
+     * What a title is, in facts rather than in a sentence.
+     *
+     * The type word used to lead this list, written out in nynorsk. It is not data: every caller
+     * already carries `mediaType`, so the word belongs where the language is known. What is left
+     * here is either a number or something the server said, and both mean the same in any language.
+     */
+    private fun libraryFacts(item: JsonObject, mediaType: String, runtimeTicks: Long?): List<LocalizedText> = buildList {
         if (mediaType.equals("episode", ignoreCase = true)) {
             val season = item.int("ParentIndexNumber") ?: item.int("parentIndexNumber")
             val episode = item.int("IndexNumber") ?: item.int("indexNumber")
             if (season != null && episode != null) {
-                add("S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}")
+                add(LocalizedText.raw("S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"))
             }
         }
-        (item.int("ProductionYear") ?: item.int("productionYear"))?.let { add(it.toString()) }
-        runtimeTicks?.takeIf { it > 0 }?.let { add("${it / TICKS_PER_MINUTE} min") }
-        (item.string("OfficialRating") ?: item.string("officialRating"))?.let(::add)
-        (item.double("CommunityRating") ?: item.double("communityRating"))?.let { add("★ ${"%.1f".format(it)}") }
+        (item.int("ProductionYear") ?: item.int("productionYear"))?.let { add(LocalizedText.raw(it.toString())) }
+        runtimeTicks?.takeIf { it > 0 }?.let { add(LocalizedText(R.string.media_minutes, (it / TICKS_PER_MINUTE).toInt())) }
+        (item.string("OfficialRating") ?: item.string("officialRating"))?.let { add(LocalizedText.raw(it)) }
+        (item.double("CommunityRating") ?: item.double("communityRating"))?.let {
+            add(LocalizedText.raw("★ ${"%.1f".format(it)}"))
+        }
     }
 
-    private fun discoverFacts(item: JsonObject, mediaType: String, year: String?): List<String> = buildList {
-        add(if (mediaType == "movie") "Film" else "Serie")
-        year?.takeIf { it.length == 4 && it.all(Char::isDigit) }?.let(::add)
+    /** "Sesong 3", or the name a season zero actually has. */
+    private fun seasonName(number: Int): LocalizedText =
+        if (number == 0) LocalizedText(R.string.media_specials) else LocalizedText(R.string.media_season_number, number)
+
+    private fun discoverFacts(item: JsonObject, mediaType: String, year: String?): List<LocalizedText> = buildList {
+        year?.takeIf { it.length == 4 && it.all(Char::isDigit) }?.let { add(LocalizedText.raw(it)) }
         val runtime = item.int("runtime") ?: item.array("episodeRunTime").firstOrNull()?.jsonPrimitive?.intOrNull
-        runtime?.takeIf { it > 0 }?.let { add("$it min") }
-        item.double("voteAverage")?.takeIf { it > 0 }?.let { add("★ ${"%.1f".format(it)}") }
+        runtime?.takeIf { it > 0 }?.let { add(LocalizedText(R.string.media_minutes, it)) }
+        item.double("voteAverage")?.takeIf { it > 0 }?.let { add(LocalizedText.raw("★ ${"%.1f".format(it)}")) }
         item.string("status")?.trim()?.takeIf { it.isNotEmpty() }?.let { add(seerrProductionStatus(it)) }
         if (mediaType == "tv") {
             (item.int("numberOfSeasons") ?: item.int("numberOfSeason"))?.takeIf { it > 0 }?.let {
-                add(if (it == 1) "1 sesong" else "$it sesongar")
+                add(LocalizedText.plural(R.plurals.media_seasons, it))
             }
             item.int("numberOfEpisodes")?.takeIf { it > 0 }?.let {
-                add(if (it == 1) "1 episode" else "$it episodar")
+                add(LocalizedText.plural(R.plurals.media_episodes, it))
             }
             objectNameArray(item, "networks").map(String::trim).filter(String::isNotEmpty)
-                .distinct().takeIf { it.isNotEmpty() }?.joinToString(" · ")?.let(::add)
+                .distinct().takeIf { it.isNotEmpty() }?.joinToString(" · ")?.let { add(LocalizedText.raw(it)) }
         }
     }
 
-    private fun seerrProductionStatus(status: String): String = when (status.lowercase()) {
-        "returning series" -> "Held fram"
-        "ended" -> "Avslutta"
-        "canceled", "cancelled" -> "Kansellert"
-        "in production" -> "Under produksjon"
-        "post production" -> "Etterarbeid"
-        "planned" -> "Planlagd"
-        "pilot" -> "Pilotepisode"
-        "released" -> "Utgjeven"
-        "rumored", "rumoured" -> "Ryktast"
-        else -> status
+    /** Seerr answers in its API's English; the reader gets their own. An unknown value passes through. */
+    private fun seerrProductionStatus(status: String): LocalizedText = when (status.lowercase()) {
+        "returning series" -> LocalizedText(R.string.production_returning)
+        "ended" -> LocalizedText(R.string.production_ended)
+        "canceled", "cancelled" -> LocalizedText(R.string.production_canceled)
+        "in production" -> LocalizedText(R.string.production_in_production)
+        "post production" -> LocalizedText(R.string.production_post)
+        "planned" -> LocalizedText(R.string.production_planned)
+        "pilot" -> LocalizedText(R.string.production_pilot)
+        "released" -> LocalizedText(R.string.production_released)
+        "rumored", "rumoured" -> LocalizedText(R.string.production_rumoured)
+        else -> LocalizedText.raw(status)
     }
 
     private fun safeTmdbArtwork(path: String): String? = when {

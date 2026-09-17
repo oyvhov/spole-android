@@ -13,7 +13,10 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import app.reelstack.AppContainer
+import app.reelstack.R
 import app.reelstack.data.model.*
+import app.reelstack.data.network.readableMessage
+import app.reelstack.data.network.serviceError
 import app.reelstack.data.repository.DeviceIdentity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -29,7 +32,10 @@ data class PlayerScreenState(
     val choices: List<PlayableItem> = emptyList(), val browsing: Boolean = false, val hasMore: Boolean = false,
     val playing: Boolean = false, val ended: Boolean = false, val positionMs: Long = 0, val durationMs: Long = 0,
     val audio: List<PlaybackTrack> = emptyList(), val subtitles: List<PlaybackTrack> = emptyList(),
-    val audioIndex: Int? = null, val subtitleIndex: Int = -1, val direct: Boolean = true,
+    val audioIndex: Int? = null, val subtitleIndex: Int = -1,
+    val mode: PlaybackMode = PlaybackMode.DIRECT_PLAY,
+    /** The server's own reason codes, mapped to a sentence only when they are shown. */
+    val transcodeReasons: List<String> = emptyList(),
     val quality: Int = 0,
     /** Playback intent stays true while a seek buffers; playing alone cannot distinguish a pause. */
     val playWhenReady: Boolean = false,
@@ -59,7 +65,10 @@ data class PlayerScreenState(
     val videoBitrate: Int = 0,
     val videoFrameRate: Float = 0f,
     val videoHdr: String = "SDR",
-)
+) {
+    /** Kept so every reader that only cares whether the file is untouched still compiles. */
+    val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
+}
 
 /**
  * The marked stretch the playhead is inside right now, if any.
@@ -70,6 +79,27 @@ data class PlayerScreenState(
 fun PlayerScreenState.activeSegment(): PlaybackSegment? = segments.firstOrNull { segment ->
     positionMs >= segment.startMs && positionMs < segment.endMs - 1_500
 }
+
+/**
+ * How long a stall is allowed to stay silent, try something else, and finally give up.
+ *
+ * The total wait is unchanged. What is new is that the first two thresholds exist at all: the
+ * player used to sit on a spinner for 45 seconds, quietly switch to a compatibility stream, and sit
+ * on the spinner for another 45 before saying anything.
+ */
+private const val STALL_NOTICE_MS = 8_000L
+private const val STALL_FALLBACK_MS = 18_000L
+private const val STALL_GIVE_UP_MS = 45_000L
+
+/**
+ * A localized string for the player's own messages.
+ *
+ * Top-level rather than a member: as the class's first member, an `androidx.annotation`-annotated
+ * parameter made lint stop honouring the class's `@OptIn(UnstableApi)` and report every media3 call
+ * in the file. Out here the annotation keeps its checking and the opt-in keeps working.
+ */
+private fun AppContainer.appString(@androidx.annotation.StringRes resId: Int, vararg args: Any): String =
+    app.reelstack.localization.AppLanguages.wrap(appContext).getString(resId, *args)
 
 /** Owns one local player, not a remote session controller. Survives rotation; never plays in the background. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -180,7 +210,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     prepare(position, forceCompatible = true, autoplay = playWhenReady)
                 } else {
                     mutable.update { it.copy(busy = false, playing = false,
-                        error = "Avspelinga stoppa. Prøv igjen, vel lågare kvalitet eller opne i medietenaren.") }
+                        error = container.appString(R.string.player_err_stopped)) }
                 }
             }
         })
@@ -241,32 +271,50 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 val failed = runCatching { client.report(event.connection, event.plan, event.event, event.position, event.paused) }.isFailure
                 withContext(Dispatchers.Main) {
                     if (plan?.sessionId == event.plan.sessionId) mutable.update { it.copy(warning =
-                        if (failed) "Fekk ikkje lagra framdrifta i medietenaren. Kontroller nettet." else null) }
+                        if (failed) container.appString(R.string.player_err_progress_not_saved) else null) }
                 }
             }
             reporter.cancel()
         }
         viewModelScope.launch {
             var ticks = 0
+            var stalledNotice = 0
             while (isActive) {
                 delay(1_000)
-                if (bufferingSince != 0L && android.os.SystemClock.elapsedRealtime() - bufferingSince > 45_000) {
-                    if (!compatible) {
-                        compatible = true
-                        val position = player.currentPosition.coerceAtLeast(0)
-                        android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=buffer action=force-compatible")
-                        bufferingSince = 0L
-                        prepare(position, forceCompatible = true, autoplay = player.playWhenReady)
-                        continue
-                    }
+                val stalledMs = if (bufferingSince == 0L) 0L else android.os.SystemClock.elapsedRealtime() - bufferingSince
+                // A spinner that says nothing for three quarters of a minute, and then gives up, is
+                // the worst part of a stream that will not start. The wait is the same length; what
+                // changed is that it now reports what it is doing while it waits.
+                if (stalledMs == 0L) {
+                    if (stalledNotice != 0) { stalledNotice = 0; mutable.update { it.copy(warning = null) } }
+                } else if (stalledMs > STALL_NOTICE_MS && stalledNotice == 0) {
+                    stalledNotice = 1
+                    mutable.update { it.copy(warning = container.appString(R.string.player_stall_waiting, serviceKind.displayName)) }
+                }
+                if (stalledMs > STALL_FALLBACK_MS && !compatible) {
+                    compatible = true
+                    stalledNotice = 2
+                    val position = player.currentPosition.coerceAtLeast(0)
+                    android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=buffer action=force-compatible")
+                    bufferingSince = 0L
+                    mutable.update { it.copy(warning = container.appString(R.string.player_stall_fallback)) }
+                    prepare(position, forceCompatible = true, autoplay = player.playWhenReady)
+                    continue
+                }
+                if (stalledMs > STALL_GIVE_UP_MS) {
                     report("/Stopped"); started = false
                     player.stop()
-                    mutable.update { it.copy(busy = false, playing = false,
-                        error = "Videoen brukar for lang tid på å laste. Prøv igjen, vel lågare kvalitet eller opne i medietenaren.") }
+                    // The reason the server already gave, ahead of the generic advice. "Because
+                    // this device cannot play the audio format" is something a household can act
+                    // on; "the video is taking too long" is not.
+                    val reason = playbackReasonFor(mutable.value)
+                        ?.let { container.appString(R.string.player_reason_because, container.appString(it)) }
+                    mutable.update { it.copy(busy = false, playing = false, warning = null,
+                        error = listOfNotNull(reason, container.appString(R.string.player_stall_failed)).joinToString(" ")) }
                 }
                 if (connection != null && !sameAccount()) {
                     request?.cancel(); generation++; stopCurrent()
-                    mutable.update { it.copy(busy = false, playing = false, error = "Kontoen er endra. Lukk spelaren og opne tittelen på nytt.") }
+                    mutable.update { it.copy(busy = false, playing = false, error = container.appString(R.string.player_err_account_changed)) }
                     connection = null
                 }
                 if (plan != null) mutable.update { it.copy(positionMs = player.currentPosition.coerceAtLeast(0)) }
@@ -318,7 +366,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     val access = ViewerAccess(seerr.token.isNotBlank(), buildMap {
                         put(serviceKind, jellyfinAccount); seerrAccount?.let { put(ServiceKind.SEERR, it) }
                     })
-                    check(access.ownMediaUser(serviceKind) == id) { "Vel den personlege mediekontoen din i innstillingane." }
+                    if (access.ownMediaUser(serviceKind) != id) serviceError(R.string.player_err_pick_personal_account)
                     Triple(c, seerr, id) to client.item(c, id, rootId)
                 }
                 connection = result.first.first; seerrConnection = result.first.second; userId = result.first.third
@@ -327,7 +375,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=open type=${error.javaClass.simpleName}")
-                mutable.update { it.copy(busy = false, error = "Fekk ikkje opna tittelen. Kontroller den personlege medieinnlogginga og prøv igjen.") }
+                mutable.update { it.copy(busy = false, error = error.readableMessage(container.appContext)
+                    ?: container.appString(R.string.player_err_open)) }
             }
         }
     }
@@ -390,7 +439,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 offset += 100
                 mutable.update { it.copy(busy = false, choices = (it.choices + result.first).distinctBy(PlayableItem::id), hasMore = result.second) }
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { mutable.update { it.copy(busy = false, error = "Fekk ikkje henta episodane. Prøv igjen.") } }
+            catch (_: Exception) { mutable.update { it.copy(busy = false, error = container.appString(R.string.player_err_episodes)) } }
         }
     }
 
@@ -451,7 +500,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 player.setMediaSource(DefaultMediaSourceFactory(dataSource).setLoadOnlySelectedTracks(true)
                     .createMediaSource(media.build()), position.coerceAtLeast(0))
                 mutable.update { it.copy(audio = prepared.audio, subtitles = prepared.subtitles, audioIndex = prepared.audioIndex,
-                    subtitleIndex = prepared.subtitleIndex, direct = prepared.direct) }
+                    subtitleIndex = prepared.subtitleIndex, mode = prepared.mode, transcodeReasons = prepared.transcodeReasons) }
                 prepared.audio.firstOrNull { it.index == prepared.audioIndex }?.let { preferredAudioKey = it.key }
                 prepared.subtitles.firstOrNull { it.index == prepared.subtitleIndex }?.let { preferredSubtitleKey = it.key }
                 player.prepare(); player.playWhenReady = foreground && autoplay
@@ -459,7 +508,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             catch (error: Exception) {
                 android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=prepare type=${error.javaClass.simpleName}")
                 if (ticket == generation) mutable.update { it.copy(busy = false, playing = false,
-                    error = "Fekk ikkje starta videoen. Kontroller nettet og avspelingsløyva i medietenaren, eller prøv igjen.") }
+                    error = error.readableMessage(container.appContext)
+                        ?: container.appString(R.string.player_err_start)) }
             }
         }
     }

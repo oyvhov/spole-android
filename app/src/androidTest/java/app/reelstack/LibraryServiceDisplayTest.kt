@@ -1,5 +1,6 @@
 package app.reelstack
 
+import app.reelstack.localization.LocalizedText
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -23,7 +24,7 @@ class LibraryServiceDisplayTest {
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Jellyfin", "https://media.example", "fixture", state = ConnectionState.CONNECTED)
     private fun library(id: String) = ReelstackUiState(connections = listOf(connection), libraryPath = listOf(id to "Filmar"),
         libraryEntries = listOf(
-            RemoteLibraryItem("rated", "Ein vurdert film", "2026", null, "Movie", null, facts = listOf("2026", "★ 7,8")),
+            RemoteLibraryItem("rated", "Ein vurdert film", "2026", null, "Movie", null, facts = listOf(LocalizedText.raw("2026"), LocalizedText.raw("★ 7,8"))),
             RemoteLibraryItem("unrated", "Utan vurdering", "2026", null, "Movie", null),
         ))
 

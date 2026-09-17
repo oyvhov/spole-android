@@ -182,7 +182,7 @@ class MediaSnapshotStore(context: Context) {
     private fun toLibrary(row: CachedMediaRow) = LibraryMedia(
         id = row.id,
         title = row.title,
-        subtitle = row.subtitle.nynorskLegacyText(),
+        subtitle = row.subtitle,
         progress = row.progress,
         lastActivityEpochMillis = row.lastActivityEpochMillis,
         artworkRes = R.drawable.media_placeholder,
@@ -198,8 +198,8 @@ class MediaSnapshotStore(context: Context) {
     private fun toUpcoming(row: CachedMediaRow) = UpcomingMedia(
         id = row.id,
         title = row.title,
-        subtitle = row.subtitle.nynorskLegacyText(),
-        dateLabel = row.dateLabel.orEmpty().nynorskLegacyText(),
+        subtitle = row.subtitle,
+        dateLabel = row.dateLabel.orEmpty(),
         airDateEpochMillis = row.airDateEpochMillis ?: 0,
         artworkRes = R.drawable.media_placeholder,
         source = kind(row.source),
@@ -213,7 +213,7 @@ class MediaSnapshotStore(context: Context) {
     private fun toDiscover(row: CachedMediaRow) = DiscoverMedia(
         id = row.id,
         title = row.title,
-        metadata = row.subtitle.nynorskLegacyText(),
+        metadata = row.subtitle,
         artworkRes = R.drawable.media_placeholder,
         inLibrary = row.inLibrary,
         requested = row.requested,
@@ -228,25 +228,13 @@ class MediaSnapshotStore(context: Context) {
 
     private fun kind(name: String) = ServiceKind.entries.firstOrNull { it.name == name } ?: ServiceKind.JELLYFIN
 
-    /**
-     * A row cached by an older build — or one whose server labels types in English — must still
-     * read as nynorsk. Carried over from the JSON store this replaced.
-     */
-    private fun String.nynorskLegacyText(): String = this
-        .replace("Direct play", "Direkteavspeling", ignoreCase = true)
-        .replace(" min left", " min att", ignoreCase = true)
-        .replace("Movie ·", "Film ·", ignoreCase = true)
-        .replace("Series ·", "Serie ·", ignoreCase = true)
-        .replace("Tonight", "I kveld", ignoreCase = true)
-        .replace("Tomorrow", "I morgon", ignoreCase = true)
-        .replace("Today", "I dag", ignoreCase = true)
-        .replace("Downloading", "Lastar ned", ignoreCase = true)
-        .replace("Requested", "Lagd til", ignoreCase = true)
-        .replace("Bestilt", "Lagd til", ignoreCase = true)
-        .replace("Approved by Seerr", "Godkjend i Seerr", ignoreCase = true)
-        .replace("Imported by Radarr", "Importert av Radarr", ignoreCase = true)
-        .replace(Regex("([0-9]+) min ago", RegexOption.IGNORE_CASE), "For $1 min sidan")
-        .replace("Yesterday", "I går", ignoreCase = true)
+    // A previous build translated cached text back into nynorsk on the way out — a table of
+    // "Today" -> "I dag" and "Direct play" -> "Direkteavspeling". That was the only way to keep a
+    // cached row readable when the words were written into the cache. They are not any more: a
+    // session carries minutes and a flag, and a date is formatted for the reader when it is drawn.
+    // Forcing nynorsk onto a cached row would now be the bug, not the fix, on an English install.
+    // A row written by an older build keeps its old wording until the next sync replaces it.
+
 
     companion object {
         private const val CACHE_ITEM_LIMIT = 60

@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import org.junit.Assert.assertEquals
@@ -85,7 +86,7 @@ class ResumeAndLibrarySearchTest {
             else HttpResponse(500, "")
         }
         val error = runCatching { MediaServerClient(transport).resume(connection, "me") }.exceptionOrNull()
-        assertEquals("Fekk ikkje henta Hald fram å sjå", error?.message)
+        assertEquals(R.string.err_kunne_ikkje_hente_hald_fram, error?.localizedFailure()?.resId)
     }
 
     @Test fun librarySearchEscapesTheTermAndSkipsExcludedLibraries() {

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dei siste setningane som stod skrivne rett inn i grensesnittkoden. -->
+<resources>
+    <string name="skeleton_loading_playing">Lastar aktive avspelingar</string>
+    <string name="skeleton_loading_recommendations">Lastar anbefalingar</string>
+    <string name="skeleton_loading_upcoming">Lastar komande utgjevingar</string>
+    <string name="skeleton_loading_downloads">Lastar nedlastingar</string>
+    <string name="skeleton_loading_search">Lastar søkjeresultat</string>
+    <string name="skeleton_loading_activity">Lastar aktivitet</string>
+    <string name="skeleton_loading_details">Hentar fleire detaljar</string>
+    <string name="home_playback_details">Avspelingsdetaljar</string>
+    <string name="remote_sending_command">Sender kommando…</string>
+    <string name="setup_share_with_user">Del oppsett med ein brukar</string>
+    <string name="setup_copy_link">Kopier oppsettslenkje</string>
+    <string name="setup_share_note">Deler berre tenesteadressene. Brukaren loggar inn med sin eigen konto.</string>
+    <string name="setup_clip_label">Spole-oppsett</string>
+    <string name="server_address_example">https://spole.dømet.no</string>
+    <string name="welcome_headline">Velkomen til Spole</string>
+    <string name="welcome_subtitle">Filmane og seriane dine, samla på éin stad.</string>
+    <string name="welcome_get_started">Kom i gang</string>
+    <string name="welcome_get_started_note">Jellyfin · Seerr valfritt</string>
+    <string name="welcome_setup_hint">Bruk oppsettslenkja eller adressene du har fått frå den som deler biblioteket med deg.</string>
+    <string name="welcome_other_methods">Andre innloggingsmåtar</string>
+    <string name="setup_making_code">Lagar kode…</string>
+    <string name="setup_finishing_sign_in">Fullfører innlogginga…</string>
+    <string name="session_paused">På pause</string>
+    <string name="session_playing_now">Spelar no</string>
+    <string name="activity_filter_all">Alle</string>
+    <string name="activity_filter_in_progress">På veg</string>
+    <string name="activity_filter_ready">Klare</string>
+    <string name="details_eyebrow_in_library">I biblioteket ditt</string>
+    <string name="details_eyebrow_discover">Oppdag i Seerr</string>
+    <string name="queue_last_reported_state">Siste rapporterte tilstand frå %1$s.</string>
+    <string name="notice_signed_out_of">Logga ut av %1$s på denne eininga</string>
+    <string name="session_watching">%1$s ser på %2$s</string>
+</resources>

@@ -1,5 +1,144 @@
 # Spole — veikart mot 1.0
 
+## 0.17.1 — Grunnfeste
+
+Milepåle oppretta 17. september 2026 etter [full gjennomgang av app og kode](docs/REVIEW_2026-09-17.md)
+på `emulator-5564` med ekte Jellyfin- og Emby-kontoar.
+
+**Resultat for brukaren:** appen kan ikkje låse seg, radene ser ferdige ut på avstand, og avspelinga
+seier kva ho gjer. Ingen nye funksjonar.
+
+Ein milepåle er ferdig når akseptansekravet er dokumentert oppfylt, ikkje når koden er skriven.
+
+Tredje arbeidsrunde er gjord 17. september: **598 einingstestar bestod, 0 lint-feil med
+`HardcodedText` sett til `error`**, katalogen er på **1208 nøklar × 3 språk**, og det finst ikkje
+lenger ein einaste norsk strenglitteral i `app/src/main/java`. GF-1 og GF-6 er ferdige. Ein signert
+release er installert over produksjonspakka på `emulator-5564` og kontrollert med dei ekte
+Jellyfin-, Emby- og Seerr-kontoane — på nynorsk og på engelsk.
+[Kva som er gjort, kva som ikkje er kontrollert](docs/VERIFICATION_GRUNNFESTE.md).
+
+### Kritisk
+
+- [x] **GF-1: Ingen fokusfelle i popupark.** *Ferdig, med akseptansen oppfylt.* Avvisinga skjer i
+  `finally`, inngangsanimasjonen har ei grense, og Tilbake går utanom `dismissEnabled`.
+  Akseptansen stod fast fordi testane kravde ein emulator denne maskina ikkje kan starte utan
+  rot-passord. Det var feil instrument: sviket var ein coroutine som aldri kom vidare, og det
+  reproduserer ein virtuell klokke på JVM-en. Logikken er henta ut som `sheetShouldLeave` og
+  `runSheetExit` og har **10 einingstestar** — medrekna den avbrotne animasjonen, ein som kastar,
+  og ein som heng forbi grensa. Dei tre Compose-testane køyrer no under **Robolectric**, mot eit
+  ekte dialogvindauge, og trykkjer Tilbake i den første ramma vindauget finst i.
+  *Kravet:* `StableSheetDialog` skal aldri kunne bli ståande
+  usynleg med fokus. Tilbake skal vere ein veg ut i alle tilstandar, også medan inngangs- eller
+  utgangsanimasjonen går og medan ei Seerr-sending står på.
+  *Akseptanse:* einingstest som lukkar arket medan animasjonen er kansellert, og Compose-test som
+  trykkjer Tilbake i første ramme etter opning. Arket er borte etterpå i begge. **Begge køyrer i
+  kvart bygg.**
+- [x] **GF-2: Éi form per rad.** *Ferdig.* Kontrollert med ekte bibliotek på begge tenarane. Den
+  første regelen — fleirtalet av medietypen avgjer — var feil, og Emby-rada viste kvifor: fem
+  påbyrja filmar slo fire påbyrja episodar, og episodebileta hamna i ståande plakatrammer. `AUTO`
+  er no alltid det breie biletet. Radoverskriftene tek òg med tenesta på TV.
+  *Kravet:* Alle kort i ei rad har same ramme. Blir eit bilete levert i feil
+  orientering, fyller ein uskarp kopi av same bilete ramma bak det — same mønster som detaljsida
+  alt bruker. Per-rad-valet POSTER/THUMB/AUTO held fram med å verke; AUTO blir avgjort éin gong per
+  rad, ikkje per kort.
+  *Akseptanse:* Compose-test som måler breidda på alle korta i ei blanda rad og krev same verdi.
+- [x] **GF-3: Avspelinga fortel kva ho gjer.** *Ferdig.* 10 einingstestar, og kontrollert mot den
+  ekte Emby-tenaren: direkte avspeling på ein H264/AAC-episode, og «Full omkoding på Emby. Fordi
+  denne eininga kan ikkje spele lydformatet.» på fila som feila i gjennomgangen. «Ventar på Emby…»
+  kom ved 8 s og fallbacken ved 18 s.
+  *Kravet:* `PlaybackPlan` ber eit avspelingsnivå med fire
+  verdiar og grunnane frå tenaren, ikkje eit `Boolean`. OSD og Stats for Nerds viser nivået og
+  grunnen. Buffering gir melding før 45 sekund, ikkje etter.
+  *Akseptanse:* einingstestar for alle fire nivåa mot ekte `PlaybackInfo`-svar, og ein test som
+  kontrollerer at meldinga kjem ved terskelen.
+
+### Viktig
+
+- [x] **GF-4: Synleg fokus på avstand.** *Ferdig.* Kontrollert på TV-emulatoren: det fokuserte
+  kortet måler 1,06× i `uiautomator`-dumpen, og OSD-en bruker same ramme som resten av appen.
+  *Kravet:* Fokuserte kort og OSD-knappar bruker skalering, skugge og
+  ei tydeleg ramme samstundes. Redusert rørsle gir ramme og skugge utan skalering.
+  *Akseptanse:* visuell kontroll på TV-emulator ved fokus over lys plakat, og test som stadfestar at
+  skaleringa fell bort ved redusert rørsle.
+- [~] **GF-5: Skjermlesaren følgjer fokuset.** *Delvis.* Før hadde ingen kort eller knappar eit
+  namn; no har alle eitt — «Spel av» på detaljsida er kontrollert med ekte data. Men på kort ligg
+  `focused="true"` på innpakkingsnoden fokusskaleringa lagar, så kravet slik det er formulert under
+  er ikkje heilt oppfylt.
+  *Kravet:* Kvart fokuserbart kort og kvar OSD-knapp samlar
+  semantikken sin, slik at noden som har fokus har ein etikett.
+  *Akseptanse:* `uiautomator`-dump på framside, bibliotek, detaljar og spelar; noden med
+  `focused="true"` har ikkje-tom `content-desc` på alle fire.
+- [x] **GF-6: Alle brukartekstar i ressursar.** *Ferdig.* Søket etter norske strenglitteralar i
+  heile `app/src/main/java` gir **null treff**, og katalogen er på **1208 nøklar × 3 språk**.
+  Kontrollert på TV-emulatoren med ekte Seerr-data, same skjerm i to språk: «Sesong 2» ↔ «Season 2»,
+  «På veg · 23» ↔ «In progress · 23», «Førespurd» ↔ «Requested».
+  Tre klasser av feil kom fram undervegs, og ingen av dei var omsetjing:
+  (1) råd som «Seerr-kontoen er endra. Sjekk innlogginga før du sender.» var kasta som `check()`,
+  som grensesnittet med rette byter ut med ei generell melding — så rådet vart skrive, sendt ut og
+  aldri lese. Det same galdt nitten setningar i spelaren.
+  (2) `friendlyError` klassifiserte ein tenarfeil ved å søkje etter det nynorske ordet «profil» i
+  unntaksmeldinga, og slutta å verke i stillheit då meldingane vart ressurs-ID-ar.
+  (3) **Medielinjene las seg sjølve tilbake.** Parseren skreiv «Film · 2024» og «Sesong 3», og
+  andre lag las dei att: bibliotekrutenettet filtrerte typeordet vekk etter namn, kalenderen
+  avgjorde at ei utgjeving var fysisk ved å samanlikne med strengen «Fysisk utgjeving», og
+  sesongoverskrifta matcha «Sesong 3». Kvar av dei var rett i nøyaktig eitt språk. No ber
+  `LocalizedText` òg tenartekst, så ein «fakta» er anten ein ressurs appen eig eller noko tenaren
+  sa — `MediaLineTest` held på at det ikkje finst ein tredje slag.
+  Språkvalet er ein del av mellomlagerfingeravtrykket, så eit språkbyte skriv radene på nytt i
+  staden for å la heimskjermen stå halvt på nynorsk.
+  *Kravet:* Feilmeldingar i data- og nettverkslaget ber ein
+  `@StringRes`, ikkje ein `String`. Oppsettsarket, Seerr-statusane og Stats for Nerds bruker
+  ressursar.
+  *Akseptanse:* `check-translations.py` går grønt, og lint-regelen `HardcodedText` står på
+  `error` utan å feile bygget. **Begge oppfylte.**
+- [x] **GF-7: Demoregelen er éin regel.** *Omformulert og ferdig.* Det opphavlege funnet var
+  overdrive: `initialState` handhevar allereie regelen, og appen merkjer demomodus synleg. Det
+  verkelege problemet var at regelen stod skriven ut tolv gonger. Han er no éin funksjon,
+  `demoContent`, med 4 einingstestar.
+- [x] **GF-8: Heroen spelar av.** *Ferdig.* Kontrollert med ekte data: heroen viser «Sjå meir» og
+  «Spel av» side om side. Knappen ligg til høgre for «Sjå meir», ikkje til venstre, fordi to
+  eksisterande testar held «Sjå meir» til lovnaden om at handlinga aldri flyttar seg medan heroen
+  roterer.
+  *Kravet:* Er tittelen påbyrja, er hovudknappen «Hald fram» med posisjon og
+  startar avspelinga. «Sjå meir» blir andreknapp.
+  *Akseptanse:* Compose-test for påbyrja og upåbyrja tittel.
+- [~] **GF-9: Trygg sone på TV.** *Kontrollert, og kravet er ikkje oppfylt slik det står.*
+  `ReelLayout.TvSafeEdge` på 48 dp finst, men blir berre gitt som **botnmarg**, frå `ReelstackApp`
+  og `LibraryHub` — som er det han vart laga for, å hindre at Aktivitet kutta den andre rada si.
+  Målt på TV-emulatoren med ekte data: Innstillingar har 72 dp botnmarg og er i orden; **Bibliotek
+  har 18 dp**, fordi den nedste hylla er siste elementet og lista aldri rullar ned til
+  botnpaddinga. Sidemargane er per skjerm (24–42 dp), ikkje 48.
+  *Kravet:* Felles innhaldsmarg på 48 dp på TV-flatene. Rader kikar fram i
+  staden for å bli kutta av skjermkanten.
+  *Akseptanse:* visuell kontroll av Bibliotek, Innstillingar og Aktivitet på TV-emulator.
+  **Neste steg:** gi `LibraryHub` botnmargen som `Modifier.padding` på sjølve raden i staden for
+  som `contentPadding`, eller avgrens kravet til botnkanten og skriv det slik i veikartet.
+
+### Seinare i milepålen
+
+- [x] **GF-10: Tittel under kortet.** *Ferdig og kontrollert med ekte data.* Oppdag og Aktivitet
+  har tittel, type og status under plakaten; plakaten ber berre typemerket og statusikonet.
+  «Fleire val» er flytta ut av plakathjørnet.
+- [ ] **GF-11: Skjermnær tilstand.** `ReelstackUiState` blir delt i skjermnære typar utleidde med
+  `map`, éin skjerm om gongen. Ingen omskriving av ViewModel-en.
+- [ ] **GF-12: Vel distribusjonskanal.** Avgjer om Play-butikken er eit mål. Er han det, del bygget
+  i `github` og `play` slik at `REQUEST_INSTALL_PACKAGES` berre finst i den eine.
+- [ ] **GF-13: Polering.** Punkta i [REV-13](docs/REVIEW_2026-09-17.md#rev-13--polering).
+
+### Manuelle steg som ventar på deg
+
+Dette er alt eg ikkje kan gjere frå ei økt, med grunnen:
+
+1. **Kople til Radarr eller Sonarr på review-kontoen** (blokkerer kalenderen). Utan dei har
+   «Kjem snart» null oppføringar, og skiljet mellom filmutgjeving og episode kan berre kontrollerast
+   mot testdata. Datoane, daggruppene og den dempa kjelda er kontrollerte på både nynorsk og
+   engelsk.
+2. **Bruk ein 12-timarsklokke-profil éin gong.** Klokkeslettet følgjer no systemvalet
+   (`is24HourFormat`), men review-eininga står på 24 timar, så 12-timarsvegen er berre
+   einingstesta.
+3. **Dei fysiske telefontestane** frå 0.16 står framleis att: 60-minutts avspeling, nettbrot,
+   kontobyte og kaldstartsmåling på ekte maskinvare.
+
 ## Nyaste lokale releasearbeid — beta05
 
 - [x] PLAYER-02: automatisk refresh-rate switching når Android rapporterer ein matchande modus.
@@ -80,6 +219,7 @@ Ny kjeldebolk: [Breitt innhald og ekte Google TV-test](docs/WIDE_CONTENT_TV_PASS
 | --- | --- | --- | --- |
 | 1 | **0.16 — Stabil kvardag** | Appen toler ekte bruk, nettproblem og lange avspelingar. | Baseline frå 0.15.1 |
 | 2 | **0.17 — Heile den personlege flyten** | Finn, legg til, følg og sjå utan uklare statusar. | Stabil konto- og databehandling |
+| 2b | **0.17.1 — Grunnfeste** | Appen låser seg ikkje, radene ser ferdige ut, og avspelinga seier kva ho gjer. | [Gjennomgangen 17. september](docs/REVIEW_2026-09-17.md) |
 | 3 | **0.18 — Spole-finishen, språk og nettbrett** | Ei konsekvent oppleving på mobil og nettbrett, på nynorsk og engelsk. | Avklart innhald, brukarhandlingar og språkgrunnlag |
 | 4 | **0.19 — Lukka beta** | Funksjonsfryst kandidat, prøvd av fleire og klar for butikkvurdering. | Godkjende kjerneflytar og publiseringsførebuingar |
 | 5 | **1.0 — Første offentlege lansering** | Ei avgrensa, påliteleg og godt støtta førsteutgåve. | Beta- og lanseringskrava nedanfor |

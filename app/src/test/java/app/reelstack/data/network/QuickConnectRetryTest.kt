@@ -34,7 +34,7 @@ class QuickConnectRetryTest {
     @Test fun expiredCodeIsNotRetried() = runBlocking {
         var calls = 0
         try {
-            retryQuickConnectRead(pause = { fail("No pause") }) { calls++; throw ServiceMessage("Expired") }
+            retryQuickConnectRead(pause = { fail("No pause") }) { calls++; throw ServiceMessage(app.reelstack.localization.LocalizedText(app.reelstack.R.string.err_quick_connect_koden_utgatt)) }
         } catch (_: ServiceMessage) { }
         assertEquals(1, calls)
     }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- What the server is doing with the file, in four words rather than two. -->
+    <string name="player_mode_direct">Direct play from %1$s</string>
+    <string name="player_mode_remux">Direct stream from %1$s · repackaged only</string>
+    <string name="player_mode_audio">Video direct from %1$s · audio converted</string>
+    <string name="player_mode_transcode">Full transcode on %1$s</string>
+
+    <!-- Why the server could not send the file untouched. -->
+    <string name="player_reason_because">Because %1$s.</string>
+    <string name="player_reason_audio_codec">this device cannot play the audio format</string>
+    <string name="player_reason_audio_channels">this device cannot play that many audio channels</string>
+    <string name="player_reason_video_codec">this device cannot decode the video format</string>
+    <string name="player_reason_container">the device cannot read the file container</string>
+    <string name="player_reason_subtitle">the subtitle has to be burned into the picture</string>
+    <string name="player_reason_bitrate">the bitrate is above the limit set for this stream</string>
+    <string name="player_reason_resolution">the resolution is above what this device reports</string>
+    <string name="player_reason_video_range">this device cannot show that colour range</string>
+    <string name="player_reason_profile">the video profile or level is outside what the decoder accepts</string>
+    <string name="player_reason_other">the server could not send the file as it is</string>
+
+    <!-- A stall that is still a stall, but no longer a silent one. -->
+    <string name="player_stall_waiting">Waiting for %1$s…</string>
+    <string name="player_stall_fallback">Trying a simpler stream.</string>
+    <string name="player_stall_failed">The video is taking too long to load. Try again, pick a lower quality, or open it in the media server.</string>
+
+    <!-- Stats for Nerds. The panel keeps its name; everything around it is translated. -->
+    <string name="player_stats_title">Stats for Nerds</string>
+    <string name="player_stats_unknown">unknown</string>
+    <string name="player_stats_video">Video</string>
+    <string name="player_stats_audio">Audio</string>
+    <string name="player_stats_buffer">Buffer</string>
+    <string name="player_stats_playing">playing</string>
+    <string name="player_stats_paused">paused</string>
+    <string name="player_stats_dropped">%1$d dropped frames</string>
+    <string name="player_err_stopped">Playback stopped. Try again, pick a lower quality, or open it in the media server.</string>
+    <string name="player_err_account_changed">The account changed. Close the player and open the title again.</string>
+    <string name="player_err_open">Could not open the title. Check the personal media sign-in and try again.</string>
+    <string name="player_err_episodes">Could not load the episodes. Try again.</string>
+    <string name="player_err_start">Could not start the video. Check your network and the playback permissions on the media server, or try again.</string>
+</resources>

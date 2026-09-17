@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_in_library">In the library</string>
+    <string name="season_partly_in_library">Partly in the library</string>
+    <string name="season_awaiting_approval">Awaiting approval</string>
+    <string name="season_requested">Requested</string>
+    <string name="season_blocked">Blocked</string>
+    <string name="season_missing">Not in the library</string>
+    <string name="season_unknown">Status unknown</string>
+    <string name="season_premiere_unknown">Premiere date not set</string>
+    <string name="season_airs_on">Airs %1$s</string>
+    <string name="season_next_episode">Next episode · %1$s · %2$s</string>
+    <string name="stage_requested">Requested</string>
+    <string name="stage_requested_why">Waiting for approval, or for a release to be found.</string>
+    <string name="stage_downloading">Downloading</string>
+    <string name="stage_downloading_why">A download was found. It is not in the library yet.</string>
+    <string name="stage_importing">Being added to the library</string>
+    <string name="stage_importing_why">The download finished. Waiting for Seerr to register it.</string>
+    <string name="stage_available">In the library</string>
+    <string name="stage_available_why">Done · ready to watch in your media library.</string>
+    <string name="stage_declined">Declined</string>
+    <string name="stage_declined_why">The request was declined in Seerr.</string>
+    <string name="stage_failed">Needs attention</string>
+    <string name="stage_failed_why">Seerr or the download client is reporting an error.</string>
+    <string name="stage_unknown">Status unknown</string>
+    <string name="stage_unknown_why">Could not refresh the status. Trying again later.</string>
+    <string name="stage_watching">Following</string>
+    <string name="stage_watching_why">Notifications only. No new request has been sent.</string>
+    <string name="time_just_now">Just now</string>
+    <string name="time_recently">Recently</string>
+    <string name="time_yesterday">Yesterday</string>
+    <string name="cal_today">Today</string>
+    <string name="cal_tomorrow">Tomorrow</string>
+    <string name="activity_detail">%1$s · %2$s</string>
+    <plurals name="time_minutes_ago">
+        <item quantity="one">%d minute ago</item>
+        <item quantity="other">%d minutes ago</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <string name="activity_detail_stage">%1$s · %2$s</string>
+    <string name="activity_detail_stage_raw">%1$s · %2$s</string>
+    <string name="time_now">Now</string>
+    <string name="activity_registered">This event was recorded %1$s.</string>
+    <string name="flow_badge_following">FOLLOWING</string>
+</resources>

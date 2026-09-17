@@ -1,5 +1,7 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
+import app.reelstack.localization.LocalizedText
 import app.reelstack.BuildConfig
 import app.reelstack.data.model.ConnectionTestResult
 import app.reelstack.data.model.ServiceConnection
@@ -54,7 +56,7 @@ data class MediaServerFeed(
     val nextUp: List<RemoteLibraryItem> = emptyList(),
     /** What this profile has starred, so the mark on a card leads somewhere. */
     val favourites: List<RemoteLibraryItem> = emptyList(),
-    val warning: String? = null,
+    val warnings: List<LocalizedText> = emptyList(),
     val recentReleases: List<RemoteUpcomingItem> = emptyList(),
     val releasesFailed: Boolean = false,
     val releaseCandidates: List<RemoteLibraryItem> = emptyList(),
@@ -97,14 +99,12 @@ class JellyfinAuthenticationClient(
         }
 
         when (response.statusCode) {
-            401, 403 -> serviceError("Feil brukarnamn eller passord")
-            404 -> serviceError("Fann Jellyfin, men innlogging med brukarkonto er ikkje tilgjengeleg")
+            401, 403 -> serviceError(R.string.err_feil_brukarnamn_eller_passord)
+            404 -> serviceError(R.string.err_fann_jellyfin_men_innlogging)
             in 200..299 -> Unit
-            in 500..599 -> serviceError(
-                "Jellyfin klarte ikkje å opprette innloggingsøkta (tenarfeil ${response.statusCode})",
-            )
+            in 500..599 -> serviceError(R.string.err_jellyfin_okt_tenarfeil, response.statusCode)
             in 300..399 -> serviceError(redirectMessage(ServiceKind.JELLYFIN, response.location))
-            else -> serviceError("Jellyfin svara med status ${response.statusCode}")
+            else -> serviceError(R.string.err_jellyfin_svara_med_status, response.statusCode)
         }
 
         return parseAuthentication(response.body)
@@ -120,10 +120,10 @@ class JellyfinAuthenticationClient(
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            404 -> serviceError("Denne Jellyfin-tenaren støttar ikkje Quick Connect")
-            401, 403 -> serviceError("Quick Connect er ikkje slått på i Jellyfin")
-            in 500..599 -> serviceError("Quick Connect er ikkje slått på, eller Jellyfin klarte ikkje å lage ein kode")
-            else -> serviceError("Jellyfin svara med status ${response.statusCode}")
+            404 -> serviceError(R.string.err_denne_jellyfin_tenaren_stottar)
+            401, 403 -> serviceError(R.string.err_quick_connect_ikkje_slatt)
+            in 500..599 -> serviceError(R.string.err_quick_connect_ikkje_slatt_2)
+            else -> serviceError(R.string.err_jellyfin_svara_med_status, response.statusCode)
         }
         return parseQuickConnect(response.body)
     }
@@ -137,9 +137,9 @@ class JellyfinAuthenticationClient(
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            404 -> serviceError("Quick Connect-koden er ikkje lenger gyldig")
-            401, 403 -> serviceError("Jellyfin avviste Quick Connect-førespurnaden")
-            else -> serviceError("Jellyfin svara med status ${response.statusCode}")
+            404 -> serviceError(R.string.err_quick_connect_koden_ikkje)
+            401, 403 -> serviceError(R.string.err_jellyfin_avviste_quick_connect)
+            else -> serviceError(R.string.err_jellyfin_svara_med_status, response.statusCode)
         }
         return parseQuickConnect(response.body)
     }
@@ -155,9 +155,9 @@ class JellyfinAuthenticationClient(
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            401, 403 -> serviceError("Quick Connect-koden vart ikkje godkjend")
-            404 -> serviceError("Quick Connect-koden er ikkje lenger gyldig")
-            else -> serviceError("Jellyfin svara med status ${response.statusCode}")
+            401, 403 -> serviceError(R.string.err_quick_connect_koden_vart)
+            404 -> serviceError(R.string.err_quick_connect_koden_ikkje)
+            else -> serviceError(R.string.err_jellyfin_svara_med_status, response.statusCode)
         }
         return parseAuthentication(response.body)
     }
@@ -170,38 +170,38 @@ class JellyfinAuthenticationClient(
                 mapOf("Authorization" to jellyfinAuthorization(deviceId, accessToken)), "{}",
             )
         }
-        check(response.statusCode in 200..299 && response.body.trim() == "true") {
-            "Fekk ikkje kopla Seerr til denne Jellyfin-tenaren. Sjekk at Seerr brukar same tenar."
+        if (response.statusCode !in 200..299 || response.body.trim() != "true") {
+            serviceError(R.string.err_seerr_ikkje_same_jellyfin)
         }
     }
 
     private fun parseAuthentication(body: String): ServiceAuthentication {
-        val root = parseObject(body, "Jellyfin sende eit ugyldig innloggingssvar")
+        val root = parseObject(body, R.string.err_jellyfin_ugyldig_innloggingssvar)
         val token = root["AccessToken"]?.jsonPrimitive?.contentOrNull
             ?: root["accessToken"]?.jsonPrimitive?.contentOrNull
-            ?: serviceError("Jellyfin sende ikkje tilbake eit tilgangsteikn")
+            ?: serviceError(R.string.err_jellyfin_sende_ikkje_tilbake)
         val user = root["User"]?.jsonObject ?: root["user"]?.jsonObject
         val userId = user?.get("Id")?.jsonPrimitive?.contentOrNull
             ?: user?.get("id")?.jsonPrimitive?.contentOrNull
-            ?: serviceError("Jellyfin sende ikkje tilbake ein profil-ID")
+            ?: serviceError(R.string.err_jellyfin_sende_ikkje_tilbake_2)
         return ServiceAuthentication(accessToken = token, userId = userId)
     }
 
     private fun parseQuickConnect(body: String): QuickConnectChallenge {
-        val root = parseObject(body, "Jellyfin sende eit ugyldig Quick Connect-svar")
+        val root = parseObject(body, R.string.err_jellyfin_ugyldig_quick_connect)
         val secret = root["Secret"]?.jsonPrimitive?.contentOrNull
             ?: root["secret"]?.jsonPrimitive?.contentOrNull
-            ?: serviceError("Jellyfin sende ikkje tilbake ein Quick Connect-hemmelegheit")
+            ?: serviceError(R.string.err_jellyfin_sende_ikkje_tilbake_3)
         val code = root["Code"]?.jsonPrimitive?.contentOrNull
             ?: root["code"]?.jsonPrimitive?.contentOrNull
-            ?: serviceError("Jellyfin sende ikkje tilbake ein Quick Connect-kode")
+            ?: serviceError(R.string.err_jellyfin_sende_ikkje_tilbake_4)
         val authenticated = root["Authenticated"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
             ?: root["authenticated"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
             ?: false
         return QuickConnectChallenge(secret = secret, code = code, authenticated = authenticated)
     }
 
-    private fun parseObject(body: String, message: String) =
+    private fun parseObject(body: String, @androidx.annotation.StringRes message: Int) =
         runCatching { Json.parseToJsonElement(body).jsonObject }.getOrElse { serviceError(message) }
 
     private companion object {
@@ -256,19 +256,24 @@ class ServiceConnectionTester(
             in 200..299 -> ConnectionTestResult(
                 success = true,
                 latencyMs = elapsed,
-                message = extractVersion(response.body)?.let { "Tilkopla · v$it" } ?: "Tilkopla",
+                message = extractVersion(response.body)
+                    ?.let { LocalizedText(R.string.conn_ok_version, it) }
+                    ?: LocalizedText(R.string.conn_ok),
                 detectedKind = if (connection.kind in setOf(ServiceKind.EMBY, ServiceKind.JELLYFIN))
                     detectProduct(response.body) else null,
             )
-            401, 403 -> ConnectionTestResult(false, elapsed, if (connection.sessionCookie) "Seerr-økta er utgått. Logg inn på nytt." else "API-nøkkelen vart avvist")
-            404 -> ConnectionTestResult(false, elapsed, "Fann tenesta, men API-stien var ikkje tilgjengeleg")
+            401, 403 -> ConnectionTestResult(false, elapsed, LocalizedText(
+                if (connection.sessionCookie) R.string.conn_session_expired else R.string.conn_key_refused))
+            404 -> ConnectionTestResult(false, elapsed, LocalizedText(R.string.conn_path_missing))
             // This is where a misconfigured address is actually discovered, so the redirect target
             // belongs here more than anywhere else: the user is standing in the very sheet that
             // holds the field they need to change.
             in 300..399 -> ConnectionTestResult(false, elapsed, redirectMessage(connection.kind, response.location))
             429 -> ConnectionTestResult(false, elapsed, busyMessage(connection.kind, response.retryAfterSeconds))
-            in 500..599 -> ConnectionTestResult(false, elapsed, "${connection.kind.displayName} er utilgjengeleg no")
-            else -> ConnectionTestResult(false, elapsed, "Tenaren svara med status ${response.statusCode}")
+            in 500..599 -> ConnectionTestResult(false, elapsed,
+                LocalizedText(R.string.err_utilgjengeleg, connection.kind.displayName))
+            else -> ConnectionTestResult(false, elapsed,
+                LocalizedText(R.string.conn_status, response.statusCode))
         }
     }
 
@@ -320,10 +325,10 @@ class MediaServerClient(
             ?.let { mapOf(connection.kind to it) }.orEmpty())
 
     fun feed(connection: ServiceConnection, access: ViewerAccess = localAccess(connection)): MediaServerFeed {
-        val warnings = mutableListOf<String>()
+        val warnings = mutableListOf<LocalizedText>()
         val sessionsResult = runCatching { sessions(connection, access) }
         val sessions = sessionsResult.getOrElse {
-            warnings += "Avspelingsøkter er utilgjengelege"
+            warnings += LocalizedText(R.string.warn_sessions_unavailable)
             emptyList()
         }
         val allowFallback = !access.seerrConfigured || access.isAdmin
@@ -332,11 +337,11 @@ class MediaServerClient(
             ?: runCatching { preferredAvailableUserId(connection) }.getOrNull() else null
         if (userId == null && !allowFallback) {
             return MediaServerFeed(sessions = sessions, recentMovies = emptyList(), recentSeries = emptyList(),
-                warning = "Bibliotekprofilen kunne ikkje stadfestast. Prøver igjen.")
+                warnings = listOf(LocalizedText(R.string.err_bibliotekprofilen_prover_igjen)))
         }
 
         val encodedUserId = userId?.let(::encodePathSegment)
-        val viewsResult = runCatching { libraryViews(connection, requireNotNull(encodedUserId) { "Profil-ID manglar" }) }
+        val viewsResult = runCatching { libraryViews(connection, requireNotNull(encodedUserId) { "profile id missing" }) }
 
         val moviesResult = runCatching {
             latestAcrossLibraries(
@@ -348,7 +353,7 @@ class MediaServerClient(
             )
         }
         val movies = moviesResult.getOrElse {
-            warnings += "Nyleg lagde til filmar er utilgjengelege"
+            warnings += LocalizedText(R.string.warn_recent_movies_unavailable)
             emptyList()
         }
         val seriesResult = runCatching {
@@ -361,15 +366,15 @@ class MediaServerClient(
             )
         }
         val series = seriesResult.getOrElse {
-            warnings += "Nyleg lagde til seriar er utilgjengelege"
+            warnings += LocalizedText(R.string.warn_recent_series_unavailable)
             emptyList()
         }
 
         val resumeResult = runCatching {
-            resume(connection, requireNotNull(encodedUserId) { "Profil-ID manglar" }, viewsResult.getOrThrow())
+            resume(connection, requireNotNull(encodedUserId) { "profile id missing" }, viewsResult.getOrThrow())
         }
         val resume = resumeResult.getOrElse {
-            warnings += "Hald fram å sjå er utilgjengeleg"
+            warnings += LocalizedText(R.string.warn_resume_unavailable)
             emptyList()
         }
 
@@ -380,7 +385,7 @@ class MediaServerClient(
         val nextUp = runCatching {
             nextUp(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
         }.getOrElse {
-            warnings += "Neste episode er utilgjengeleg"
+            warnings += LocalizedText(R.string.warn_next_up_unavailable)
             emptyList()
         }
 
@@ -390,12 +395,12 @@ class MediaServerClient(
         }.getOrDefault(emptyList())
 
         if (userId == null && connection.kind == ServiceKind.EMBY) {
-            warnings += "Legg til profil-ID for bibliotekradene frå Emby"
+            warnings += LocalizedText(R.string.warn_emby_profile_id)
         }
         val anyFeedCallSucceeded = sessionsResult.isSuccess || moviesResult.isSuccess || seriesResult.isSuccess
         if (!anyFeedCallSucceeded) {
             verifyConnection(connection)
-            warnings += "Mediedelane er utilgjengelege"
+            warnings += LocalizedText(R.string.warn_media_parts_unavailable)
         }
 
         return MediaServerFeed(
@@ -405,7 +410,7 @@ class MediaServerClient(
             resume = resume,
             nextUp = nextUp,
             favourites = favourites,
-            warning = warnings.distinct().takeIf { it.isNotEmpty() }?.joinToString(" · "),
+            warnings = warnings.distinct(),
             recentReleases = releasesResult.getOrDefault(emptyList()).filter { it.mediaType == "Episode" }
                 .mapNotNull { libraryRelease(it, connection.kind, ReleaseWindow()) },
             releasesFailed = releasesResult.isFailure,
@@ -440,7 +445,7 @@ class MediaServerClient(
             }
             runCatching { getItems(connection, paths).map { it.copy(libraryId = view.id) } }.getOrNull()
         }
-        check(groups.isNotEmpty()) { "Fekk ikkje henta Hald fram å sjå" }
+        if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_hald_fram)
         return interleave(groups).distinctBy(RemoteLibraryItem::id)
             .sortedByDescending { it.lastActivityEpochMillis ?: Long.MIN_VALUE }.take(RESUME_ITEM_LIMIT)
     }
@@ -556,7 +561,7 @@ class MediaServerClient(
                     .map { it.copy(libraryId = view.id) }
             }.getOrNull()
         }
-        check(groups.isNotEmpty()) { "Fekk ikkje henta neste episode" }
+        if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_neste_episode)
         val episodes = interleave(groups).distinctBy(RemoteLibraryItem::id).take(24)
         val series = episodes.filter { it.lastActivityEpochMillis == null }.mapNotNull { it.seriesId }.distinct().take(6)
         if (series.isEmpty()) return episodes
@@ -608,7 +613,7 @@ class MediaServerClient(
             }
             runCatching { getItems(connection, paths) }.getOrNull()
         }
-        check(groups.isNotEmpty()) { "Fekk ikkje søkt i biblioteket" }
+        if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_soke_i_biblioteket)
         return interleave(groups).distinctBy(RemoteLibraryItem::id).take(SEARCH_ITEM_LIMIT)
     }
 
@@ -616,7 +621,7 @@ class MediaServerClient(
     fun browseLibraries(connection: ServiceConnection): List<RemoteLibraryView> {
         require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
-        require(!user.isNullOrBlank()) { "Profil-ID manglar" }
+        require(!user.isNullOrBlank()) { "caller must pass a profile id" }
         return libraryViews(connection, encodePathSegment(user)).map { it.copy(artworkUrl = artworkUrl(connection, it.id)) }
     }
 
@@ -638,7 +643,7 @@ class MediaServerClient(
         filters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters()): List<RemoteLibraryItem> {
         require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && parentId.isNotBlank() && offset >= 0)
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
-        require(!user.isNullOrBlank()) { "Profil-ID manglar" }
+        require(!user.isNullOrBlank()) { "caller must pass a profile id" }
         val catalogueType = when (collectionType?.lowercase(java.util.Locale.ROOT)) {
             "movies" -> "Movie"
             "tvshows" -> "Series"
@@ -760,7 +765,7 @@ class MediaServerClient(
                 getItems(connection, paths)
             }.getOrNull()
         }
-        check(groups.isNotEmpty()) { "Fekk ikkje henta nye utgjevingar frå biblioteka" }
+        if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_nye_utgjevingar)
         return groups.flatten().distinctBy(RemoteLibraryItem::id).filter { it.available }
     }
 
@@ -802,7 +807,7 @@ class MediaServerClient(
         collection: String,
     ) {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
-        require(userId.isNotBlank()) { "Manglar profil-ID for denne tenesta." }
+        require(userId.isNotBlank()) { "connection has no profile id" }
         val item = encodePathSegment(itemId)
         val user = encodePathSegment(userId)
         val paths = when (connection.kind) {
@@ -837,7 +842,7 @@ class MediaServerClient(
      */
     fun clearResume(connection: ServiceConnection, userId: String, itemId: String) {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
-        require(userId.isNotBlank()) { "Manglar profil-ID for denne tenesta." }
+        require(userId.isNotBlank()) { "connection has no profile id" }
         val item = encodePathSegment(itemId)
         val user = encodePathSegment(userId)
         val cleared = buildJsonObject { put("PlaybackPositionTicks", 0L); put("PlayedPercentage", 0.0) }.toString()
@@ -889,7 +894,7 @@ class MediaServerClient(
             if (response.statusCode in 200..299) return ServicePayloadParser.libraryDetails(response.body, connection.baseUrl)
         }
         lastResponse?.requireSuccess(connection.kind)
-        serviceError("Fekk ikkje henta detaljar frå ${connection.kind.displayName}")
+        serviceError(R.string.err_fekk_ikkje_henta_detaljar, connection.kind.displayName)
     }
 
     /** Resolve only a series the signed-in user can read. No title matching or admin key. */
@@ -956,12 +961,12 @@ class MediaServerClient(
                 getItems(connection, latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id))
             }.getOrNull()
         }
-        if (successfulGroups.isEmpty()) serviceError("Fekk ikkje oppdatert dei valde biblioteka")
+        if (successfulGroups.isEmpty()) serviceError(R.string.err_fekk_ikkje_oppdatert_dei)
         return interleave(successfulGroups).distinctBy(RemoteLibraryItem::id).take(LATEST_ITEM_LIMIT)
     }
 
     private fun getItems(connection: ServiceConnection, paths: List<String>, preferEpisodeStill: Boolean = false): List<RemoteLibraryItem> {
-        require(paths.isNotEmpty()) { "Dette biblioteket krev ein profil-ID" }
+        require(paths.isNotEmpty()) { "library request needs a profile id" }
         var lastResponse: HttpResponse? = null
         var authenticationFailure: HttpResponse? = null
         paths.forEach { path ->
@@ -1013,7 +1018,7 @@ class MediaServerClient(
             ServiceKind.EMBY -> userId?.let {
                 listOf("Users/$it/Items/Latest?$query&EnableUserData=true")
             }.orEmpty()
-            ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> serviceError("Medietenaren er ikkje støtta")
+            ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> serviceError(R.string.err_medietenaren_ikkje_stotta)
         }
     }
 
@@ -1143,7 +1148,7 @@ class SeerrServiceClient(
 
     fun search(connection: ServiceConnection, query: String, page: Int = 1): SeerrSearchPage {
         require(connection.kind == ServiceKind.SEERR)
-        require(page >= 1) { "Sidetalet må vere minst 1" }
+        require(page >= 1) { "page is 1-based" }
         val encodedQuery = encode(query).replace("+", "%20")
         val response = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "api/v1/search?query=$encodedQuery&page=$page&language=nb"),
@@ -1290,17 +1295,17 @@ class SeerrServiceClient(
     fun request(connection: ServiceConnection, mediaType: String, remoteId: Int, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {
         require(connection.kind == ServiceKind.SEERR)
         require(mediaType == "movie" || mediaType == "tv")
-        require(connection.sessionCookie && expectedUserId.isNotBlank()) {
-            "Logg inn personleg i Seerr. Ein administratornøkkel kan ikkje sende førespurnader som deg."
+        if (!connection.sessionCookie || expectedUserId.isBlank()) {
+            serviceError(R.string.err_seerr_logg_inn_personleg_send)
         }
         val actor = AccountProfileClient(transport = transport).load(connection)
-        check(actor.isPersonal && actor.id == expectedUserId) { "Seerr-kontoen er endra. Sjekk innlogginga før du sender." }
-        check(actor.canRequestType(mediaType)) { "Seerr-kontoen kan ikkje leggje til denne medietypen." }
+        if (!actor.isPersonal || actor.id != expectedUserId) serviceError(R.string.err_seerr_konto_endra_send)
+        if (!actor.canRequestType(mediaType)) serviceError(R.string.err_seerr_medietype_ikkje_lov)
         if (mediaType == "tv") {
-            require(seasons.isNotEmpty() && seasons.all { it >= 0 }) { "Vel minst éin sesong." }
+            if (seasons.isEmpty() || seasons.any { it < 0 }) serviceError(R.string.err_vel_minst_ein_sesong)
             val fresh = details(connection, mediaType, remoteId)
-            check(fresh.seerrStatus != 6 && seasons.all { number -> fresh.seasons.any { it.number == number && it.canRequest } }) {
-                "Sesongane er endra eller alt førespurde. Opne førespurnaden på nytt."
+            if (fresh.seerrStatus == 6 || seasons.any { number -> fresh.seasons.none { it.number == number && it.canRequest } }) {
+                serviceError(R.string.err_sesongane_er_endra)
             }
         }
         val body = buildJsonObject {
@@ -1314,7 +1319,7 @@ class SeerrServiceClient(
             body,
         )
         response.requireSuccess(connection.kind)
-        check(response.statusCode != 202) { "Ingen nye sesongar vart lagde til. Sjekk sesongane på nytt." }
+        if (response.statusCode == 202) serviceError(R.string.err_ingen_nye_sesongar)
     }
 
     /**
@@ -1324,28 +1329,28 @@ class SeerrServiceClient(
      */
     fun cancelRequest(connection: ServiceConnection, requestId: Int, expectedUserId: String = connection.userId) {
         require(connection.kind == ServiceKind.SEERR)
-        require(requestId > 0) { "Førespurnaden manglar ein gyldig ID." }
-        require(connection.sessionCookie && expectedUserId.isNotBlank()) {
-            "Logg inn personleg i Seerr for å trekkje tilbake ein førespurnad."
+        if (requestId <= 0) serviceError(R.string.err_forespurnad_manglar_id)
+        if (!connection.sessionCookie || expectedUserId.isBlank()) {
+            serviceError(R.string.err_seerr_logg_inn_personleg_trekk)
         }
         val actor = AccountProfileClient(transport = transport).load(connection)
-        check(actor.isPersonal && actor.id == expectedUserId) { "Seerr-kontoen er endra. Sjekk innlogginga før du held fram." }
+        if (!actor.isPersonal || actor.id != expectedUserId) serviceError(R.string.err_seerr_konto_endra_hald_fram)
 
         val requestHeaders = headers(connection)
         val existing = transport.get(
             EndpointValidator.resolve(connection.baseUrl, "api/v1/request/$requestId"),
             requestHeaders,
         )
-        if (existing.statusCode == 404) serviceError("Førespurnaden finst ikkje lenger i Seerr.")
+        if (existing.statusCode == 404) serviceError(R.string.err_forespurnaden_finst_ikkje_lenger)
         existing.requireSuccess(connection.kind)
         val owner = ServicePayloadParser.requestOwnerId(existing.body)
-        check(owner == null || owner == actor.id) { "Denne førespurnaden tilhøyrer ein annan konto." }
+        if (owner != null && owner != actor.id) serviceError(R.string.err_forespurnaden_tilhoyrer_annan)
 
         val response = transport.delete(
             EndpointValidator.resolve(connection.baseUrl, "api/v1/request/$requestId"),
             requestHeaders,
         )
-        if (response.statusCode == 404) serviceError("Førespurnaden var alt fjerna i Seerr.")
+        if (response.statusCode == 404) serviceError(R.string.err_forespurnaden_var_alt_fjerna)
         response.requireSuccess(connection.kind)
     }
 
@@ -1440,14 +1445,16 @@ private fun encodePathSegment(value: String): String = encode(value).replace("+"
 private fun HttpResponse.requireSuccess(kind: ServiceKind) {
     when (statusCode) {
         in 200..299 -> Unit
-        401 -> serviceError(if (kind == ServiceKind.SEERR) "Logg inn på Seerr på nytt i Innstillingar." else "${kind.displayName} avviste API-nøkkelen")
-        403 -> serviceError(if (kind == ServiceKind.SEERR) "Seerr gav ikkje kontoen tilgang til denne handlinga." else "${kind.displayName} avviste API-nøkkelen")
-        404 -> serviceError("${kind.displayName} tilbyr ikkje dette API-endepunktet")
-        408 -> serviceError("${kind.displayName} er mellombels oppteken")
+        401 -> if (kind == ServiceKind.SEERR) serviceError(R.string.err_seerr_logg_inn_nytt)
+            else serviceError(R.string.err_avviste_api_nokkel, kind.displayName)
+        403 -> if (kind == ServiceKind.SEERR) serviceError(R.string.err_seerr_ingen_tilgang)
+            else serviceError(R.string.err_avviste_api_nokkel, kind.displayName)
+        404 -> serviceError(R.string.err_tilbyr_ikkje_dette_api, kind.displayName)
+        408 -> serviceError(R.string.err_mellombels_oppteken, kind.displayName)
         429 -> serviceError(busyMessage(kind, retryAfterSeconds))
         in 300..399 -> serviceError(redirectMessage(kind, location))
-        in 500..599 -> serviceError("${kind.displayName} er utilgjengeleg no")
-        else -> serviceError("${kind.displayName} svara med status $statusCode")
+        in 500..599 -> serviceError(R.string.err_utilgjengeleg, kind.displayName)
+        else -> serviceError(R.string.err_svara_med_status_2, kind.displayName, statusCode)
     }
 }
 
@@ -1457,7 +1464,7 @@ private fun HttpResponse.requireSuccess(kind: ServiceKind) {
  * never followed automatically, so without this the user got "svara med status 301" and no idea
  * that the fix is one address change in Innstillingar.
  */
-internal fun redirectMessage(kind: ServiceKind, location: String?): String {
+internal fun redirectMessage(kind: ServiceKind, location: String?): LocalizedText {
     val target = location?.let { runCatching { java.net.URI(it) }.getOrNull() }
         ?.takeIf { it.isAbsolute && !it.host.isNullOrBlank() }
         // Only scheme, host and port. The path of a redirect is not something the user types into
@@ -1469,16 +1476,18 @@ internal fun redirectMessage(kind: ServiceKind, location: String?): String {
             if (uri.port != -1) append(":${uri.port}")
         } }
     return if (target != null) {
-        "${kind.displayName} sender deg vidare til $target. Bruk den adressa i Innstillingar."
+        LocalizedText(R.string.err_vidaresending_adresse, kind.displayName, target)
     } else {
-        "${kind.displayName} sender deg vidare til ei anna adresse. Sjekk kva adresse tenaren " +
-            "faktisk svarar på, og bruk den i Innstillingar."
+        LocalizedText(R.string.err_vidaresending_ukjend, kind.displayName)
     }
 }
 
 /** Repeats the server's own `Retry-After` when it gave one, so "vent litt" has a number in it. */
-internal fun busyMessage(kind: ServiceKind, retryAfterSeconds: Long?): String = when {
-    retryAfterSeconds == null || retryAfterSeconds <= 0 -> "${kind.displayName} er mellombels oppteken"
-    retryAfterSeconds < 60 -> "${kind.displayName} er mellombels oppteken. Prøv igjen om $retryAfterSeconds sekund."
-    else -> "${kind.displayName} er mellombels oppteken. Prøv igjen om ${retryAfterSeconds / 60} minutt."
+internal fun busyMessage(kind: ServiceKind, retryAfterSeconds: Long?): LocalizedText = when {
+    retryAfterSeconds == null || retryAfterSeconds <= 0 ->
+        LocalizedText(R.string.err_mellombels_oppteken, kind.displayName)
+    retryAfterSeconds < 60 ->
+        LocalizedText(R.string.err_oppteken_sekund, kind.displayName, retryAfterSeconds)
+    else ->
+        LocalizedText(R.string.err_oppteken_minutt, kind.displayName, retryAfterSeconds / 60)
 }

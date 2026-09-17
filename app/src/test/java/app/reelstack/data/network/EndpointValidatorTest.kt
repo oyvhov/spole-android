@@ -16,15 +16,20 @@ class EndpointValidatorTest {
         }
     }
 
+    /**
+     * Which rule rejected the address, not how it was worded — the wording lives in three
+     * languages now, and pinning one of them here would only ever test that one.
+     */
     @Test fun invalidAddressesHaveActionableMessages() {
         val cases = mapOf(
-            " " to "Skriv inn tenaradressa først",
-            "https://media .example.com" to "Tenaradressa inneheld mellomrom. Fjern dei og prøv igjen.",
-            "https://media.example.com:99999" to "Portnummeret må vere mellom 1 og 65535",
-            "ftp://media.example.com" to "Berre HTTP- og HTTPS-adresser er støtta",
+            " " to app.reelstack.R.string.endpoint_blank,
+            "https://media .example.com" to app.reelstack.R.string.endpoint_whitespace,
+            "https://media.example.com:99999" to app.reelstack.R.string.endpoint_port,
+            "ftp://media.example.com" to app.reelstack.R.string.endpoint_scheme,
         )
         cases.forEach { (input, expected) ->
-            assertEquals(expected, runCatching { EndpointValidator.normalizeBaseUrl(input) }.exceptionOrNull()?.message)
+            val failure = runCatching { EndpointValidator.normalizeBaseUrl(input) }.exceptionOrNull()
+            assertEquals(input, expected, failure?.localizedFailure()?.resId)
         }
     }
 
@@ -107,8 +112,8 @@ class EndpointValidatorTest {
             "http://fe80.example.com",
         ).forEach { address ->
             assertEquals(
-                "Vanleg HTTP er berre tillate for localhost eller private lokalnettadresser",
-                runCatching { EndpointValidator.normalizeBaseUrl(address) }.exceptionOrNull()?.message,
+                app.reelstack.R.string.endpoint_cleartext,
+                runCatching { EndpointValidator.normalizeBaseUrl(address) }.exceptionOrNull()?.localizedFailure()?.resId,
             )
         }
     }

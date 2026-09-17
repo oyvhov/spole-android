@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The last of the sentences that lived in code.
+
+    Most of these were never read by anyone: the player wrote careful advice into require() and
+    error(), and the model replaced all of it with one generic line before it reached the screen.
+    They are service failures now, so the player can repeat the one that actually happened.
+-->
+<resources>
+    <string name="player_err_media_type">This kind of title cannot be played here.</string>
+    <string name="player_err_episode_missing">This episode is not in the library yet.</string>
+    <string name="player_err_sign_in_media">Sign in to the media server to play.</string>
+    <string name="player_err_account_switched">The media account changed. Sign in again.</string>
+    <string name="player_err_no_permission">This media account is not allowed to play.</string>
+    <string name="player_err_pick_episode">Pick an episode first.</string>
+    <string name="player_err_no_format">The media server found no format this device can play. Try the server app.</string>
+    <string name="player_err_no_version">No playable version. Check the playback and transcoding permissions on the media server.</string>
+    <string name="player_err_server_incomplete">The media server sent an incomplete answer. Try again.</string>
+    <string name="player_err_cannot_adapt">The media server cannot adapt this file. Try the server app.</string>
+    <string name="player_err_refused">The media server refused playback. Check the sign-in and the playback permissions.</string>
+    <string name="player_err_not_available">This title is not available on the media server right now.</string>
+    <string name="player_err_moved">The media address has moved. Check the server address in settings.</string>
+    <string name="player_err_server_failed">Could not start playback from the media server. Try again.</string>
+    <string name="player_err_emby_sign_in">Sign in to Emby again to confirm the account.</string>
+    <string name="player_err_service_no_playback">This service does not support playback.</string>
+    <string name="player_err_progress_not_saved">Could not save your progress on the media server. Check your network.</string>
+    <string name="player_err_pick_personal_account">Pick your own media account in settings.</string>
+    <string name="setup_step_services">1 of 2 · Your services</string>
+    <string name="setup_step_sign_in">2 of 2 · Sign in</string>
+    <string name="setup_heading_signing_in">Signing in</string>
+    <string name="setup_heading_approve">Approve in Jellyfin</string>
+    <string name="setup_heading_pick_sign_in">Choose a sign-in</string>
+    <string name="setup_heading_connect">Connect your services</string>
+    <string name="setup_account_note">Use your Jellyfin account. The password is not stored.</string>
+    <string name="setup_approve_note">Approve on your phone if you are already signed in to Jellyfin there.</string>
+    <string name="setup_one_approval_note">This single approval connects both services. The page moves on by itself.</string>
+    <string name="setup_page_continues">This page moves on by itself once you have approved.</string>
+    <string name="setup_confirming_account">Confirming your account…</string>
+    <string name="setup_try_again">Try again</string>
+    <string name="setup_sign_in">Sign in</string>
+    <string name="setup_approve_on_phone">Approve on the phone</string>
+    <string name="setup_approve_on_phone_instead">Approve on the phone instead</string>
+    <string name="setup_share_chooser">Share Spole setup</string>
+    <string name="setup_share_unavailable">Use Copy setup link on this device.</string>
+    <string name="setup_link_copied">Setup link copied</string>
+    <string name="remote_time_left">Time left</string>
+    <string name="remote_resume">Resume</string>
+    <string name="remote_pause">Pause</string>
+    <string name="home_resume_playback">Resume playback</string>
+    <string name="home_pause_playback">Pause playback</string>
+    <string name="open_in_browser">Open in the browser</string>
+    <string name="open_in_app">Open in the app</string>
+    <string name="open_in_named_app">Open in %1$s</string>
+    <string name="warn_cleartext_http">HTTP is unencrypted. Prefer HTTPS outside your own trusted local network.</string>
+    <string name="warn_request_in_flight">Wait until the request has finished before switching account.</string>
+    <string name="details_tracked_fallback">See the progress and the source for this title.</string>
+    <string name="connection_detail_demo">Demo data</string>
+    <string name="connection_detail_configured">Configured</string>
+    <string name="connection_detail_unreadable">The sign-in cannot be read on this device · Sign in again</string>
+    <string name="err_nokre_utgjevingsdatoar">Some release dates could not be loaded. Try refreshing.</string>
+    <string name="err_nokre_nye_utgjevingar">Some new releases could not be loaded. Try refreshing.</string>
+    <string name="err_avspelingskjelda_ikkje_tilgjengeleg">That playback source is not available.</string>
+    <string name="err_bibliotekprofilen_prover_igjen">The library profile could not be confirmed. Trying again.</string>
+    <string name="err_sync_generic">Could not update %1$s</string>
+    <string name="warn_sessions_unavailable">Active playback is unavailable</string>
+    <string name="warn_recent_movies_unavailable">Recently added films are unavailable</string>
+    <string name="warn_recent_series_unavailable">Recently added episodes are unavailable</string>
+    <string name="warn_resume_unavailable">Keep watching is unavailable</string>
+    <string name="warn_next_up_unavailable">Next episode is unavailable</string>
+    <string name="warn_emby_profile_id">Add a profile id for the library shelves from Emby</string>
+    <string name="warn_media_parts_unavailable">The media sections are unavailable</string>
+    <string name="seerr_status_blocked">Blocked in Seerr</string>
+    <string name="seerr_status_in_library">In your library</string>
+    <string name="seerr_status_partial">Partly in your library</string>
+    <string name="seerr_status_requested">Requested</string>
+    <string name="seerr_status_awaiting">Awaiting approval</string>
+    <string name="seerr_status_added">Added</string>
+    <string name="seerr_status_removed">Removed from the library</string>
+    <string name="seerr_status_can_add">Can be added</string>
+    <string name="seerr_desc_blocked">An administrator has blocked this title in Seerr.</string>
+    <string name="seerr_desc_in_library">Ready to watch in your media library.</string>
+    <string name="seerr_desc_partial">Some of the content is available, but not all of it.</string>
+    <string name="seerr_desc_requested">Seerr is working on the title. The download has not necessarily started.</string>
+    <string name="seerr_desc_awaiting">An administrator has to approve the title in Seerr.</string>
+    <string name="seerr_desc_removed">Seerr reports that the content was removed. It can be added again.</string>
+    <string name="seerr_desc_default">Availability and actions are governed by your Seerr account.</string>
+    <string name="notification_channel_ready">Ready in the library</string>
+    <string name="notification_channel_downloading">Downloading</string>
+    <string name="notification_channel_failed">Requests that stopped</string>
+    <string name="notification_movie_ready">The film is ready to watch.</string>
+    <string name="notification_season_ready">Season %1$s is in the library, according to Seerr.</string>
+    <string name="notification_downloading_percent">Downloading · %1$d %%</string>
+    <string name="notification_downloading_started">The download has started.</string>
+    <string name="notification_request_failed">The request stopped. Open Spole to see what happened.</string>
+    <string name="server_default_name_jellyfin">Home server</string>
+    <string name="server_default_name_emby">Cabin server</string>
+    <string name="session_finishing_soon">Finishing soon</string>
+    <string name="session_method_direct">Direct play</string>
+    <string name="session_method_transcode">Transcoding</string>
+    <string name="session_unknown_person">Someone</string>
+    <string name="session_unknown_device">Unknown device</string>
+    <plurals name="session_time_left">
+        <item quantity="one">%d min left</item>
+        <item quantity="other">%d min left</item>
+    </plurals>
+    <plurals name="session_minutes">
+        <item quantity="one">%d min</item>
+        <item quantity="other">%d min</item>
+    </plurals>
+</resources>

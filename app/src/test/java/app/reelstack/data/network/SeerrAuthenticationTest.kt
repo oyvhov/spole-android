@@ -54,14 +54,14 @@ class SeerrAuthenticationTest {
     @Test fun oldSeerrOffersAccountLoginWhenQuickConnectIsMissing() {
         val transport = FakeTransport(mutableListOf(HttpResponse(200, "{}"), HttpResponse(404, "{}")))
         val error = runCatching { SeerrAuthenticationClient(transport).initiateQuickConnect("https://s.example") }.exceptionOrNull()
-        assertTrue(error?.message.orEmpty().contains("Vel Jellyfin-konto"))
+        assertEquals(app.reelstack.R.string.err_seerr_quick_connect_versjon, error?.localizedFailure()?.resId)
     }
 
     @Test fun rejectedCredentialsDoNotBecomeSession() {
         val transport = FakeTransport(mutableListOf(HttpResponse(200, "{}"), HttpResponse(401, "{}")))
-        assertEquals("Feil Jellyfin-brukarnamn eller passord.", runCatching {
+        assertEquals(app.reelstack.R.string.err_feil_jellyfin_brukarnamn_eller, runCatching {
             SeerrAuthenticationClient(transport).authenticate("https://s.example", "a", "b")
-        }.exceptionOrNull()?.message)
+        }.exceptionOrNull()?.localizedFailure()?.resId)
     }
 
     @Test fun cookieAllowlistDropsAttributesAndOtherSitesTrackingCookies() {

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The media line: what a title is, how long, how many seasons.
+
+    The parser knows the numbers and composed the sentence from them, which meant "Film · 2024"
+    and "1 sesong" were written in nynorsk in the data layer and stayed nynorsk in every language.
+    It carries the numbers now; the words are here.
+-->
+<resources>
+    <string name="media_kind_movie">Film</string>
+    <string name="media_kind_series">Series</string>
+    <string name="media_kind_episode">Episode</string>
+    <string name="media_kind_video">Video</string>
+    <string name="media_minutes">%1$d min</string>
+    <string name="media_season_number">Season %1$d</string>
+    <string name="media_specials">Specials</string>
+    <string name="queue_ready_for_import">Ready to import</string>
+    <string name="queue_downloading_percent">Downloading · %1$d %%</string>
+    <string name="queue_downloading">Downloading</string>
+    <string name="queue_waiting">Waiting in the queue</string>
+    <string name="notification_title_downloading">%1$s · downloading</string>
+    <string name="activity_group_yesterday">YESTERDAY</string>
+    <string name="err_fann_ikkje_profilen">Could not find your profile on %1$s.</string>
+    <string name="production_returning">Returning</string>
+    <string name="production_ended">Ended</string>
+    <string name="production_canceled">Cancelled</string>
+    <string name="production_in_production">In production</string>
+    <string name="production_post">Post-production</string>
+    <string name="production_planned">Planned</string>
+    <string name="production_pilot">Pilot</string>
+    <string name="production_released">Released</string>
+    <string name="production_rumoured">Rumoured</string>
+    <plurals name="media_seasons">
+        <item quantity="one">%d season</item>
+        <item quantity="other">%d seasons</item>
+    </plurals>
+    <plurals name="media_episodes">
+        <item quantity="one">%d episode</item>
+        <item quantity="other">%d episodes</item>
+    </plurals>
+    <string name="release_in_library">In the library</string>
+    <string name="release_digital">Digital release</string>
+    <string name="activity_group_today">TODAY</string>
+    <string name="activity_group_earlier">EARLIER</string>
+    <string name="notification_title_ready">%1$s · in the library</string>
+    <string name="notification_title_failed">%1$s · stopped</string>
+    <string name="release_new_title_movie">New film</string>
+    <string name="release_new_title_series">New series</string>
+    <string name="release_physical">Disc release</string>
+</resources>

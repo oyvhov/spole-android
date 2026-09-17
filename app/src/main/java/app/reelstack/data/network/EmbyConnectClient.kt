@@ -1,6 +1,7 @@
 package app.reelstack.data.network
 
 import app.reelstack.BuildConfig
+import app.reelstack.R
 import app.reelstack.data.model.ServiceKind
 import kotlinx.serialization.json.*
 
@@ -25,11 +26,11 @@ class EmbyConnectClient(
             mapOf("X-Application" to application),
             buildJsonObject { put("nameOrEmail", username); put("rawpw", password) }.toString(),
         )
-        require(response.statusCode in 200..299) { "Emby Connect avviste innlogginga." }
+        if (response.statusCode !in 200..299) serviceError(R.string.err_emby_connect_avviste)
         val root = parse(response.body)
         return EmbyConnectSession(
-            root.str("ConnectAccessToken").also { require(it.isNotBlank()) { "Emby Connect sende ikkje tilgangsteikn." } },
-            root.str("ConnectUserId").also { require(it.isNotBlank()) { "Emby Connect sende ingen brukar-ID." } },
+            root.str("ConnectAccessToken").also { if (it.isBlank()) serviceError(R.string.err_emby_connect_ufullstendig) },
+            root.str("ConnectUserId").also { if (it.isBlank()) serviceError(R.string.err_emby_connect_ufullstendig) },
         )
     }
 
@@ -38,7 +39,7 @@ class EmbyConnectClient(
             "$CONNECT_BASE/service/servers?userId=${enc(session.userId)}",
             mapOf("X-Application" to application, "X-Connect-UserToken" to session.accessToken),
         )
-        require(response.statusCode in 200..299) { "Emby Connect kunne ikkje hente serverane." }
+        if (response.statusCode !in 200..299) serviceError(R.string.err_emby_connect_serverliste)
         val array = Json.parseToJsonElement(response.body) as? JsonArray ?: JsonArray(emptyList())
         return array.mapNotNull { value ->
             val item = value as? JsonObject ?: return@mapNotNull null
@@ -59,11 +60,11 @@ class EmbyConnectClient(
                 "X-Emby-Authorization" to "Emby Client=\"Spole\", Device=\"Android\", DeviceId=\"emby-connect\", Version=\"${BuildConfig.VERSION_NAME}\"",
             ),
         )
-        require(response.statusCode in 200..299) { "Emby-serveren kunne ikkje fullføre Emby Connect." }
+        if (response.statusCode !in 200..299) serviceError(R.string.err_emby_server_connect)
         val root = parse(response.body)
         return ServiceAuthentication(
-            root.str("AccessToken").also { require(it.isNotBlank()) { "Emby-serveren sende ikkje lokalt tilgangsteikn." } },
-            root.str("LocalUserId").also { require(it.isNotBlank()) { "Emby-serveren sende ingen lokal profil." } },
+            root.str("AccessToken").also { if (it.isBlank()) serviceError(R.string.err_emby_server_ufullstendig) },
+            root.str("LocalUserId").also { if (it.isBlank()) serviceError(R.string.err_emby_server_ufullstendig) },
         )
     }
 

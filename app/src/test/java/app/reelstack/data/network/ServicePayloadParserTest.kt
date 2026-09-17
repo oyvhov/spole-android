@@ -1,4 +1,6 @@
 package app.reelstack.data.network
+import app.reelstack.localization.LocalizedText
+import app.reelstack.R
 import org.junit.Assert.assertNull
 
 import app.reelstack.data.model.IncomingState
@@ -13,9 +15,9 @@ class ServicePayloadParserTest {
     @Test fun detailFactsExcludeStudiosAndStatusAndKeepRealCriticRating() {
         val details = ServicePayloadParser.libraryDetails("""{"Name":"Film","Type":"Movie","ProductionYear":2024,
             "Studios":[{"Name":"Studio name"}],"Status":"Ended","CommunityRating":7.5,"CriticRating":90}""")
-        assertFalse(details.facts.any { it.contains("Studio") || it == "Ended" })
+        assertFalse(details.facts.any { it.literal?.contains("Studio") == true || it.resId == R.string.production_ended })
         assertEquals(90, details.criticRating)
-        assertTrue(details.facts.contains("2024"))
+        assertTrue(details.facts.any { it.literal == "2024" })
     }
 
     @Test fun missingOrInvalidCriticRatingsAreNotInvented() {
@@ -76,7 +78,7 @@ class ServicePayloadParserTest {
 
         assertEquals(1, items.size)
         assertEquals("github-recommendation-tv-95396", items.single().id)
-        assertEquals("Serie · 2022", items.single().metadata)
+        assertEquals("2022", items.single().metadata)
         assertEquals("https://image.tmdb.org/t/p/w500/poster.jpg", items.single().artworkUrl)
     }
 
@@ -226,7 +228,7 @@ class ServicePayloadParserTest {
         val item = ServicePayloadParser.queue(payload, ServiceKind.RADARR).single()
 
         assertEquals("Dune: Messiah", item.title)
-        assertEquals("Lastar ned 75 %", item.status)
+        assertEquals(LocalizedText(R.string.queue_downloading_percent, 75), item.status)
         assertEquals(75, item.progress)
         assertEquals(IncomingState.DOWNLOADING, item.state)
         assertEquals("https://art.example/poster.jpg", item.artworkUrl)
@@ -273,7 +275,7 @@ class ServicePayloadParserTest {
         val item = ServicePayloadParser.upcoming(payload, ServiceKind.RADARR).single()
 
         assertEquals("The Odyssey", item.title)
-        assertEquals("Film · 2026", item.subtitle)
+        assertEquals("2026", item.subtitle)
         assertEquals("2026-09-08T00:00:00Z", item.dateTime)
         assertEquals("https://art.example/odyssey.jpg", item.artworkUrl)
     }
@@ -290,7 +292,7 @@ class ServicePayloadParserTest {
         val items = ServicePayloadParser.upcoming(payload, ServiceKind.RADARR)
 
         assertEquals(listOf("Digital film"), items.map { it.title })
-        assertTrue(items.single().facts.contains("Digital utgjeving"))
+        assertTrue(items.single().facts.any { it.resId == R.string.release_digital })
     }
 
     @Test
@@ -307,7 +309,7 @@ class ServicePayloadParserTest {
         ).single()
 
         assertEquals("2026-09-12T00:00:00Z", item.dateTime)
-        assertTrue(item.facts.contains("Fysisk utgjeving"))
+        assertTrue(item.facts.any { it.resId == R.string.release_physical })
     }
 
     @Test
@@ -336,10 +338,10 @@ class ServicePayloadParserTest {
         val items = ServicePayloadParser.discover(payload)
 
         assertTrue(items[0].inLibrary)
-        assertEquals("Film · 2026", items[0].metadata)
+        assertEquals("2026", items[0].metadata)
         assertEquals("https://image.tmdb.org/t/p/w500/horizon.jpg", items[0].artworkUrl)
         assertTrue(items[1].requested)
-        assertEquals("Serie · 2025", items[1].metadata)
+        assertEquals("2025", items[1].metadata)
     }
 
     @Test
@@ -374,7 +376,16 @@ class ServicePayloadParserTest {
         assertEquals("The Odyssey", details.title)
         assertEquals("https://image.tmdb.org/t/p/w500/odyssey.jpg", details.artworkUrl)
         assertEquals("Ei lang reise.", details.overview)
-        assertEquals(listOf("Film", "2026", "149 min", "★ 8.4"), details.facts)
+        // A year and a rating came from TMDB and read the same everywhere; the runtime is ours
+        // to write, so it travels as a number.
+        assertEquals(
+            listOf(
+                LocalizedText.raw("2026"),
+                LocalizedText(app.reelstack.R.string.media_minutes, 149),
+                LocalizedText.raw("★ 8.4"),
+            ),
+            details.facts,
+        )
         assertEquals(listOf("Eventyr"), details.genres)
     }
 }

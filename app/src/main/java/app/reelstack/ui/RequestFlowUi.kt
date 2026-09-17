@@ -44,6 +44,7 @@ import app.reelstack.ui.components.RequestIdentity
 import app.reelstack.ui.components.SheetToolbar
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.theme.*
+import app.reelstack.ui.theme.Text as TextColor
 
 @Composable
 fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, onNotify: (Boolean) -> Unit,
@@ -235,20 +236,30 @@ fun TrackedRequestCard(
                             onClickLabel = stringResource(R.string.flow_detail_named, item.title), onClick = onDetails)
                         .testTag("tracked-details-${item.key}"),
                 ) {
+                  // The poster stays a poster.
+                  //
+                  // The title used to be printed across the bottom of it, on top of the title the
+                  // poster already carries — "Practical Magic 2" over the PRACTICAL MAGIC logo. The
+                  // words now sit under the picture, where they are legible and appear once.
                   Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)
                       .focusOutline(detailsInteraction, artworkShape).clip(artworkShape)) {
                     MediaArtwork(item.artworkUrl, null, Modifier.fillMaxSize(), fallbackRes = app.reelstack.R.drawable.media_placeholder, ContentScale.Fit, ServiceKind.SEERR)
-                    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                        0f to androidx.compose.ui.graphics.Color.Transparent,
-                        .35f to androidx.compose.ui.graphics.Color.Transparent,
-                        .65f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .64f),
-                        1f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .94f))))
-                    Column(Modifier.align(Alignment.BottomStart).padding(12.dp)) {
-                        Text(item.title, color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp,
-                            lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
+                    // A request and a title you only follow looked identical. This says which.
+                    if (item.availabilityOnly) Text(
+                        stringResource(R.string.flow_badge_following),
+                        color = androidx.compose.ui.graphics.Color.White, fontSize = 10.sp, lineHeight = 14.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp,
+                        modifier = Modifier.align(Alignment.TopStart).padding(10.dp)
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .72f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                  }
+                  Column(Modifier.fillMaxWidth().padding(top = 9.dp)) {
+                        Text(item.title, color = TextColor, fontSize = 15.sp,
+                            lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         Text((if (item.seasons.isEmpty()) stringResource(R.string.flow_film) else stringResource(R.string.flow_season_numbers, item.seasons.sorted().joinToString(", "))) +
-                            (if (item.is4k) " · 4K" else ""), color = androidx.compose.ui.graphics.Color.White.copy(alpha = .75f),
+                            (if (item.is4k) " · 4K" else ""), color = Muted,
                             fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -261,7 +272,7 @@ fun TrackedRequestCard(
                                 tint = when (item.stage) {
                                     RequestStage.AVAILABLE -> Success
                                     RequestStage.FAILED, RequestStage.DECLINED -> Warning
-                                    else -> androidx.compose.ui.graphics.Color.White
+                                    else -> Muted
                                 }, modifier = Modifier.size(16.dp),
                             )
                             Text(
@@ -269,18 +280,22 @@ fun TrackedRequestCard(
                                 color = when (item.stage) {
                                     RequestStage.AVAILABLE -> Success
                                     RequestStage.DECLINED, RequestStage.FAILED -> Warning
-                                    else -> androidx.compose.ui.graphics.Color.White
+                                    else -> TextColor
                                 },
                                 fontSize = 13.sp, lineHeight = 18.sp,
                                 modifier = Modifier.padding(start = 6.dp),
                             )
                         }
                     }
-                    if (television && showActions && active) Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                    // Under the card, not on top of the artwork. As a circle in the poster's
+                    // corner it covered the picture on every card, focused or not — and on a title
+                    // whose name runs along the top edge, it covered that too.
+                    if (television && showActions && active) Box {
                         IconButton(onClick = { options = true }, interactionSource = notifyInteraction,
-                            modifier = Modifier.focusOutline(notifyInteraction, CircleShape, glow = false).background(
-                            androidx.compose.ui.graphics.Color.Black.copy(alpha = .7f), CircleShape).testTag("request-options-${item.key}")) {
-                            Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.activity_more_options), tint = androidx.compose.ui.graphics.Color.White)
+                            modifier = Modifier.focusOutline(notifyInteraction, CircleShape, glow = false)
+                                .testTag("request-options-${item.key}")) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.Tune,
+                                stringResource(R.string.activity_more_options), tint = Muted)
                         }
                         DropdownMenu(expanded = options, onDismissRequest = { options = false }) {
                             DropdownMenuItem(text = { Text(notificationLabel) }, onClick = {
@@ -296,7 +311,6 @@ fun TrackedRequestCard(
                         }
                     }
                   }
-                }
             if (showActions && !television) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (active && !item.availabilityOnly && item.stage != RequestStage.UNKNOWN) CompactRequestProgress(item, Modifier.weight(1f).padding(end = 4.dp))
                 if (active) {

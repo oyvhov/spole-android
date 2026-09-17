@@ -8,7 +8,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import app.reelstack.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
@@ -44,41 +46,41 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (!draft.setupImported || codeStep) Text(if (codeStep) "2 av 2 · Logg inn" else "1 av 2 · Tenestene dine",
+        if (!draft.setupImported || codeStep) Text(stringResource(if (codeStep) R.string.setup_step_sign_in else R.string.setup_step_services),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(if (codeStep) { if (account) "Loggar inn" else "Godkjenn i Jellyfin" }
-            else if (draft.setupImported && !editingAddresses) "Vel innlogging" else "Kople til tenestene dine",
+        Text(stringResource(if (codeStep) { if (account) R.string.setup_heading_signing_in else R.string.setup_heading_approve }
+            else if (draft.setupImported && !editingAddresses) R.string.setup_heading_pick_sign_in else R.string.setup_heading_connect),
             style = MaterialTheme.typography.headlineMedium)
         if (!codeStep) {
             if (!draft.setupImported) SpoleSecondaryButton(onClick = { importing = !importing }, modifier = Modifier.fillMaxWidth()) {
-                Text("Eg har ei oppsettslenkje")
+                Text(stringResource(R.string.setup_have_link))
             }
             if (importing) {
                 OutlinedTextField(setupLink, { setupLink = it }, Modifier.fillMaxWidth().testTag("setup-link"),
-                    label = { Text("Lim inn oppsettslenkja") }, shape = buttonShape, singleLine = true,
+                    label = { Text(stringResource(R.string.setup_paste_link)) }, shape = buttonShape, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false))
                 SpoleSecondaryButton(onClick = { onImport(setupLink); importing = false; setupLink = "" },
-                    modifier = Modifier.fillMaxWidth().testTag("setup-import")) { Text("Bruk adressene") }
+                    modifier = Modifier.fillMaxWidth().testTag("setup-import")) { Text(stringResource(R.string.setup_use_addresses)) }
             }
             if (!editingAddresses) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Jellyfin · ${draft.url}", style = MaterialTheme.typography.bodyMedium,
+                        Text(stringResource(R.string.setup_line_jellyfin, draft.url), style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("setup-jellyfin-url"))
-                        if (draft.alsoConnect) Text("Seerr · ${draft.companionUrl}", style = MaterialTheme.typography.bodyMedium,
+                        if (draft.alsoConnect) Text(stringResource(R.string.setup_line_seerr, draft.companionUrl), style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("setup-seerr-url"))
                     }
-                    TextButton(onClick = { editingAddresses = true }, modifier = Modifier.testTag("setup-edit-addresses")) { Text("Endre") }
+                    TextButton(onClick = { editingAddresses = true }, modifier = Modifier.testTag("setup-edit-addresses")) { Text(stringResource(R.string.setup_change)) }
                 }
             }
             if (editingAddresses) OutlinedTextField(draft.url, onJellyfin, Modifier.fillMaxWidth().testTag("setup-jellyfin-url"),
                 shape = buttonShape,
-                label = { Text("Jellyfin-adresse") }, placeholder = { Text("https://jellyfin.dittdomene.no") },
+                label = { Text(stringResource(R.string.setup_jellyfin_address)) }, placeholder = { Text(stringResource(R.string.setup_jellyfin_hint)) },
                 singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false))
             Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Kople til Seerr òg")
-                    Text("Valfritt · for å ønskje filmar og seriar", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.setup_also_seerr))
+                    Text(stringResource(R.string.setup_also_seerr_why), style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(draft.alsoConnect, {
                     if (it && draft.companionUrl.isBlank()) editingAddresses = true
@@ -87,27 +89,27 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
             }
             if (draft.alsoConnect && editingAddresses) OutlinedTextField(draft.companionUrl, onSeerr, Modifier.fillMaxWidth().testTag("setup-seerr-url"),
                 shape = buttonShape,
-                label = { Text("Seerr-adresse") }, placeholder = { Text("https://seerr.dittdomene.no") },
+                label = { Text(stringResource(R.string.setup_seerr_address)) }, placeholder = { Text(stringResource(R.string.setup_seerr_hint)) },
                 singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false))
-            if (!draft.setupImported || account) Text(if (account) "Bruk Jellyfin-kontoen din. Passordet blir ikkje lagra." else
-                "Godkjenn på mobilen dersom du alt er innlogga i Jellyfin der.",
+            if (!draft.setupImported || account) Text(stringResource(if (account) R.string.setup_account_note else
+                R.string.setup_approve_note),
                 style = MaterialTheme.typography.bodyMedium)
             if (account) {
                 OutlinedTextField(draft.username, onUsername, Modifier.fillMaxWidth().testTag("setup-username"),
-                    label = { Text("Brukarnamn") }, shape = buttonShape, singleLine = true,
+                    label = { Text(stringResource(R.string.setup_username)) }, shape = buttonShape, singleLine = true,
                     keyboardOptions = KeyboardOptions(autoCorrectEnabled = false))
                 OutlinedTextField(draft.password, onPassword, Modifier.fillMaxWidth().testTag("setup-password"),
-                    label = { Text("Passord") }, shape = buttonShape, singleLine = true,
+                    label = { Text(stringResource(R.string.setup_password)) }, shape = buttonShape, singleLine = true,
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false))
             }
         } else if (draft.quickConnectWaiting) {
             QuickConnectPanel(draft)
-            Text(if (draft.alsoConnect) "Denne eine godkjenninga koplar til begge tenestene. Denne sida går vidare av seg sjølv."
-                else "Denne sida går vidare av seg sjølv når du har godkjent.")
+            Text(if (draft.alsoConnect) stringResource(R.string.setup_one_approval_note)
+                else stringResource(R.string.setup_page_continues))
         } else {
             LinearProgressIndicator(Modifier.fillMaxWidth())
-            Text(if (account) "Stadfestar kontoen din…" else if (draft.quickConnectCode == null) "Lagar kode…" else "Fullfører innlogginga…",
+            Text(if (account) stringResource(R.string.setup_confirming_account) else stringResource(if (draft.quickConnectCode == null) R.string.setup_making_code else R.string.setup_finishing_sign_in),
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         }
         draft.error?.let {
@@ -118,12 +120,12 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
             enabled = draft.url.isNotBlank() && (!draft.alsoConnect || draft.companionUrl.isNotBlank()) && (!account || draft.username.isNotBlank()),
             interactionSource = startInteraction, shape = buttonShape,
             modifier = Modifier.fillMaxWidth().focusRequester(startFocus).focusOutline(startInteraction, buttonShape).testTag("setup-start")) {
-            Text(if (draft.error != null) "Prøv igjen" else if (account) "Logg inn" else "Godkjenn på mobilen")
+            Text(stringResource(if (draft.error != null) R.string.setup_try_again else if (account) R.string.setup_sign_in else R.string.setup_approve_on_phone))
         }
         if (!busy) SpoleSecondaryButton(onClick = {
             onAuthMode(if (account) ConnectionAuthMode.QUICK_CONNECT else ConnectionAuthMode.ACCOUNT)
         }, modifier = Modifier.fillMaxWidth().testTag("setup-method")) {
-            Text(if (account) "Godkjenn på mobilen i staden" else "Brukarnamn og passord")
+            Text(if (account) stringResource(R.string.setup_approve_on_phone_instead) else "Brukarnamn og passord")
         }
         SpoleSecondaryButton(onClick = onClose,
             modifier = Modifier.fillMaxWidth().focusRequester(action).testTag("setup-cancel")) {

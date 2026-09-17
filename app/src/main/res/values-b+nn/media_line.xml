@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Medielinja: kva ein tittel er, kor lang han er, kor mange sesongar. -->
+<resources>
+    <string name="media_kind_movie">Film</string>
+    <string name="media_kind_series">Serie</string>
+    <string name="media_kind_episode">Episode</string>
+    <string name="media_kind_video">Video</string>
+    <string name="media_minutes">%1$d min</string>
+    <string name="media_season_number">Sesong %1$d</string>
+    <string name="media_specials">Spesialepisodar</string>
+    <string name="queue_ready_for_import">Klar for import</string>
+    <string name="queue_downloading_percent">Lastar ned · %1$d %%</string>
+    <string name="queue_downloading">Lastar ned</string>
+    <string name="queue_waiting">Ventar i kø</string>
+    <string name="notification_title_downloading">%1$s · lastar ned</string>
+    <string name="activity_group_yesterday">I GÅR</string>
+    <string name="err_fann_ikkje_profilen">Fann ikkje profilen din på %1$s.</string>
+    <string name="production_returning">Held fram</string>
+    <string name="production_ended">Avslutta</string>
+    <string name="production_canceled">Kansellert</string>
+    <string name="production_in_production">Under produksjon</string>
+    <string name="production_post">Etterarbeid</string>
+    <string name="production_planned">Planlagd</string>
+    <string name="production_pilot">Pilotepisode</string>
+    <string name="production_released">Utgjeven</string>
+    <string name="production_rumoured">Ryktast</string>
+    <plurals name="media_seasons">
+        <item quantity="one">%d sesong</item>
+        <item quantity="other">%d sesongar</item>
+    </plurals>
+    <plurals name="media_episodes">
+        <item quantity="one">%d episode</item>
+        <item quantity="other">%d episodar</item>
+    </plurals>
+    <string name="release_in_library">I biblioteket</string>
+    <string name="release_digital">Digital utgjeving</string>
+    <string name="activity_group_today">I DAG</string>
+    <string name="activity_group_earlier">TIDLEGARE</string>
+    <string name="notification_title_ready">%1$s · i biblioteket</string>
+    <string name="notification_title_failed">%1$s · stoppa</string>
+    <string name="release_new_title_movie">Ny film</string>
+    <string name="release_new_title_series">Ny serie</string>
+    <string name="release_physical">Fysisk utgjeving</string>
+</resources>

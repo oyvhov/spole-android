@@ -33,8 +33,53 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal val LocalSheetKeyboardEntry = staticCompositionLocalOf { false }
+
+/** Entrance and exit durations, and the bounds that keep either from becoming a focus trap. */
+internal const val ENTER_MS = 320
+internal const val EXIT_MS = 200
+private const val ENTER_TIMEOUT_MS = 900L
+private const val EXIT_TIMEOUT_MS = 600L
+
+/**
+ * Whether this particular request is allowed to take the sheet away.
+ *
+ * Two different gestures arrive here and they are not the same promise. An outside tap and the
+ * toolbar button are *guarded*: a sheet that is committing a Seerr request has good reason to
+ * refuse them. Back is not guarded, because it is the only way out of a full-screen modal, and a
+ * request that never returns would otherwise strand the reader in the sheet for good.
+ *
+ * [closing] latches. That is deliberate — a second exit animation over the first would be a mess —
+ * but it is also what turned a lost frame into a permanent trap once, so [runSheetExit] guarantees
+ * the dismissal that clears it.
+ */
+internal fun sheetShouldLeave(guarded: Boolean, canDismiss: Boolean, closing: Boolean): Boolean =
+    !closing && (!guarded || canDismiss)
+
+/**
+ * Plays the exit and then dismisses, whatever the exit does.
+ *
+ * On 16 September 2026 Spole was found on the TV home screen behind a `DIM_BEHIND` dialog window
+ * that was focused, drew nothing and ignored Back. The dismissal was the *last statement after* the
+ * animation, so an animation that was cancelled, or that waited on a frame clock which was not
+ * running, simply never reached it — while `closing` stayed latched and swallowed every later press.
+ *
+ * `finally` covers all three endings: finished, timed out, and cancelled. The timeout is the second
+ * half of the same promise — an animation that hangs cannot hold the dismissal hostage either.
+ */
+internal suspend fun runSheetExit(
+    timeoutMs: Long = EXIT_TIMEOUT_MS,
+    dismiss: () -> Unit,
+    animateOut: suspend () -> Unit,
+) {
+    try {
+        withTimeoutOrNull(timeoutMs) { animateOut() }
+    } finally {
+        dismiss()
+    }
+}
 
 /** A reading modal: one measured surface, one non-overshooting entrance, no drag anchors. */
 @Composable
@@ -58,24 +103,54 @@ internal fun StableSheetDialog(
     val keyboardEntry = remember { openerInput.inputMode == InputMode.Keyboard }
     val dismissLabel = stringResource(R.string.sheet_dismiss)
     val dialogLabel = stringResource(R.string.sheet_title)
-    val close = {
-        if (canDismiss && !closing) {
-            closing = true
-            closeStartedLatest()
-            scope.launch {
-                progress.animateTo(0f, tween(200))
-                dismissLatest()
-            }
+    // Leaving is not allowed to depend on an animation finishing.
+    //
+    // The sheet is a real dialog window: it holds focus for as long as it is composed. When the
+    // exit animation was the thing that called `onDismiss`, a cancelled or never-scheduled
+    // animation left the window in place with `closing` latched true — invisible, because the
+    // surface's alpha follows the same progress value, and deaf, because every later Back press hit
+    // the same latch. The dismissal now happens in `finally`, so a lost frame clock, a cancelled
+    // scope or a composition going away all still take the sheet with them.
+    val leave = leave@{ guarded: Boolean ->
+        if (!sheetShouldLeave(guarded = guarded, canDismiss = canDismiss, closing = closing)) return@leave
+        closing = true
+        closeStartedLatest()
+        scope.launch {
+            runSheetExit(dismiss = { dismissLatest() }) { progress.animateTo(0f, tween(EXIT_MS)) }
         }
+        Unit
     }
+    // What the content and the scrim call. A sheet that is committing something still refuses this.
+    val close = { leave(true) }
     LaunchedEffect(Unit) {
         // Android honours the user's system touch-feedback preference.
         hostView.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
-        progress.animateTo(1f, tween(320, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
+        // Bounded on purpose. If the window is composed while it cannot draw, `animateTo` waits on
+        // a frame clock that is not running, and an unbounded wait here is exactly what produced a
+        // fully transparent sheet that still owned the focus. Past the bound the sheet simply
+        // appears, which is always better than a modal nobody can see.
+        withTimeoutOrNull(ENTER_TIMEOUT_MS) {
+            progress.animateTo(1f, tween(ENTER_MS, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
+        }
+        if (progress.value < 1f && !closing) progress.snapTo(1f)
+        entered = true
+    }
+    // The last line of defence. If the host state did not actually drop the sheet after the
+    // dismissal ran, the window would stay — transparent, focused and, with `closing` latched,
+    // deaf to Back. Rather than leave that, put the sheet back on screen: a visible modal the user
+    // can read and close beats an invisible one they cannot.
+    LaunchedEffect(closing) {
+        if (!closing) return@LaunchedEffect
+        kotlinx.coroutines.delay(EXIT_TIMEOUT_MS + 400)
+        closing = false
+        progress.snapTo(1f)
         entered = true
     }
     Dialog(
-        onDismissRequest = close,
+        // Back is not a suggestion. Outside taps and the toolbar button still respect a sheet that
+        // is committing something, but the remote's Back key is the one way out that must work in
+        // every state — a request that is already on its way finishes on its own.
+        onDismissRequest = { leave(false) },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false,

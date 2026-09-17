@@ -43,8 +43,8 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-        versionCode = 89
-        versionName = "0.17.0-beta10"
+        versionCode = 90
+        versionName = "0.17.0-beta11"
 
         testInstrumentationRunner = "app.reelstack.SpoleTestRunner"
         vectorDrawables.useSupportLibrary = true
@@ -92,6 +92,23 @@ android {
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged resources and the manifest to stand up a real window.
+            isIncludeAndroidResources = true
+            all { it.systemProperty("robolectric.logging.enabled", "false") }
+        }
+    }
+
+    // A sentence written into a Composable is a sentence that exists in one language only, and
+    // nothing catches it later: the app still builds, still runs, and quietly shows English —
+    // or nynorsk — to everyone. Lint sees every one of them, so the rule is an error rather than
+    // a warning in a list of eighty. The build is not set to abort on it: the point is that the
+    // report cannot show one, and `lintDebug` says so in its exit code.
+    lint {
+        error += "HardcodedText"
     }
 }
 
@@ -142,6 +159,17 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     testImplementation("junit:junit:4.13.2")
+    // The sheet freeze of 16 September was a coroutine-cancellation bug. A virtual clock reproduces
+    // it in milliseconds on the JVM; an emulator was never the right instrument for it.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    // Robolectric runs the Compose tests that genuinely need a window — a dialog that has to be
+    // leavable is one of them — on the JVM. The alternative was an emulator this machine cannot
+    // start without a root password, which is not a dependency the test suite should have.
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.test.ext:junit:1.3.0")
+    debugImplementation(composeBom)
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

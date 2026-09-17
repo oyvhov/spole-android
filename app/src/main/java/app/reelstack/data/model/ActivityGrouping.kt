@@ -1,5 +1,6 @@
 package app.reelstack.data.model
 
+import app.reelstack.R
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -8,15 +9,15 @@ import java.time.ZoneId
  * Buckets an event by the day it happened, so a long feed can be skimmed instead of read as one
  * undifferentiated list.
  *
- * Prefers the real timestamp. The display string is only a fallback for demo and legacy cached
- * events that carry none, and reading it needs care: "For 5 dagar sidan" and "For 5 min sidan"
- * share the "For " prefix without sharing a day, so the unit decides the bucket, not the prefix.
+ * Prefers the real timestamp. Without one, the bucket comes from *which* sentence the event
+ * carries, not from its words: matching on "I går" worked only for as long as the app spoke one
+ * language, and silently put every English event in "Earlier" the moment it spoke two.
  */
 fun activityDayGroup(
     event: ActivityEvent,
     zone: ZoneId = ZoneId.systemDefault(),
     today: LocalDate = LocalDate.now(zone),
-): String {
+): Int {
     event.timeEpochMillis?.let { millis ->
         val date = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
         return when {
@@ -25,20 +26,16 @@ fun activityDayGroup(
             else -> ACTIVITY_GROUP_EARLIER
         }
     }
-    val time = event.time.trim()
-    return when {
-        time.isBlank() -> ACTIVITY_GROUP_EARLIER
-        time.startsWith("I går", ignoreCase = true) -> ACTIVITY_GROUP_YESTERDAY
-        time.startsWith("I dag", ignoreCase = true) -> ACTIVITY_GROUP_TODAY
-        time.equals("No", ignoreCase = true) || time.equals("No nettopp", ignoreCase = true) ||
-            time.equals("Akkurat no", ignoreCase = true) -> ACTIVITY_GROUP_TODAY
-        time.startsWith("For ", ignoreCase = true) ->
-            if (time.contains(" dag", ignoreCase = true)) ACTIVITY_GROUP_EARLIER else ACTIVITY_GROUP_TODAY
-        // An unknown age is never claimed as today.
+    return when (event.time.resId) {
+        R.string.time_yesterday -> ACTIVITY_GROUP_YESTERDAY
+        R.string.time_now, R.string.time_just_now,
+        R.plurals.time_minutes_ago, R.plurals.time_hours_ago -> ACTIVITY_GROUP_TODAY
+        // An unknown age, and anything counted in days, is never claimed as today.
         else -> ACTIVITY_GROUP_EARLIER
     }
 }
 
-const val ACTIVITY_GROUP_TODAY = "I DAG"
-const val ACTIVITY_GROUP_YESTERDAY = "I GÅR"
-const val ACTIVITY_GROUP_EARLIER = "TIDLEGARE"
+/** Day buckets as resource ids: the bucket is a decision, the heading is a word. */
+val ACTIVITY_GROUP_TODAY = R.string.activity_group_today
+val ACTIVITY_GROUP_YESTERDAY = R.string.activity_group_yesterday
+val ACTIVITY_GROUP_EARLIER = R.string.activity_group_earlier

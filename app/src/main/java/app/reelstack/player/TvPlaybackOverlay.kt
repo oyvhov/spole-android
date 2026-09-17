@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.testTag
@@ -21,6 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.ui.components.SpoleIcons
+import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusScale
 
 /** One transport row, one timeline and one tools row, with explicit vertical remote paths. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -106,10 +109,13 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
                 setProgress { fraction -> onSeek((fraction.coerceIn(0f, 1f) * state.durationMs).toLong()); true }
             }.focusable(state.durationMs > 0)
             .padding(horizontal = 12.dp).testTag("player-timeline"), contentAlignment = Alignment.CenterStart) {
-            Box(Modifier.fillMaxWidth().height(if (timelineFocused) 8.dp else 4.dp).background(Color.White.copy(alpha = .28f), RoundedCornerShape(4.dp)))
-            Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(if (timelineFocused) 8.dp else 4.dp).background(Color.White, RoundedCornerShape(4.dp)))
+            // A 4 dp line with a 4 dp dot is a control you have to lean forward to read. The
+            // unfocused state is what you look at while the film is playing, so it is the one that
+            // had to grow.
+            Box(Modifier.fillMaxWidth().height(if (timelineFocused) 8.dp else 6.dp).background(Color.White.copy(alpha = .28f), RoundedCornerShape(4.dp)))
+            Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(if (timelineFocused) 8.dp else 6.dp).background(Color.White, RoundedCornerShape(4.dp)))
             Canvas(Modifier.matchParentSize()) {
-                val radius = if (timelineFocused) 11.dp.toPx() else 4.dp.toPx()
+                val radius = if (timelineFocused) 11.dp.toPx() else 6.dp.toPx()
                 drawCircle(Color.White, radius, androidx.compose.ui.geometry.Offset(
                     (size.width * progress).coerceIn(radius, size.width.coerceAtLeast(radius * 2) - radius), size.height / 2))
             }
@@ -135,8 +141,17 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
                 stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill), "player-frame-mode",
                 Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onFrame() }
         }
-        Text(stringResource(if (state.direct) R.string.player_direct else R.string.player_transcoded, state.source.displayName),
-            style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = .65f))
+        // Four modes, not two. Copying the picture and converting only the sound is a different
+        // thing from re-encoding the picture, and this is the line where the household finds out
+        // which one their server is doing.
+        Text(
+            listOfNotNull(
+                stringResource(playbackModeLabel(state.mode), state.source.displayName),
+                playbackReasonFor(state)?.let { stringResource(R.string.player_reason_because, stringResource(it)) },
+            ).joinToString(". "),
+            style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = .65f),
+            modifier = Modifier.testTag("player-mode-line"),
+        )
         if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Color.White, trackColor = Color.White.copy(alpha = .15f))
         state.warning?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .72f)) }
     }
@@ -151,12 +166,19 @@ internal fun TvPlayerAction(icon: ImageVector, label: String, tag: String, modif
     val tooltip = rememberTooltipState()
     val windowFocused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
     LaunchedEffect(focused, windowFocused) { if (focused && windowFocused) tooltip.show() else tooltip.dismiss() }
+    val shape = RoundedCornerShape(8.dp)
+    // The transport row used to draw its own 1.5 dp edge while every card in the app used
+    // `focusOutline` — two different answers to the same question, and the weaker one sat over
+    // moving video where contrast is worst. One treatment now, plus the same lift the rails have.
+    val scale = focusScale(focused, pressed = false)
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text(label) } }, state = tooltip, focusable = false) {
-    Surface(onClick, modifier.size(48.dp).testTag(tag).semantics { contentDescription = label },
-        enabled = enabled, shape = RoundedCornerShape(8.dp), interactionSource = interaction,
+    Surface(onClick,
+        modifier.size(48.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+            .focusOutline(interaction, shape)
+            .testTag(tag).semantics(mergeDescendants = true) { contentDescription = label; role = Role.Button },
+        enabled = enabled, shape = shape, interactionSource = interaction,
         color = if (focused) Color.White.copy(alpha = .20f) else Color.Transparent,
-        border = BorderStroke(1.5.dp, if (focused) Color.White else Color.Transparent),
         contentColor = Color.White.copy(alpha = if (enabled) 1f else .38f)) {
         Box(contentAlignment = Alignment.Center) {
             Icon(icon, null, Modifier.size(if (labelVisible) 22.dp else 28.dp))

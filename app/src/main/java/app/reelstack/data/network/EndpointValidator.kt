@@ -1,28 +1,31 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import java.net.URI
 import java.util.Locale
 
 object EndpointValidator {
+    /**
+     * Every rejection here names a resource, not a sentence.
+     *
+     * This runs in the data layer, which has no business knowing the reader's language — and for a
+     * long time it decided anyway, in nynorsk, on the very first screen a new user sees.
+     */
     fun normalizeBaseUrl(value: String): String {
-        require(value.isNotBlank()) { "Skriv inn tenaradressa først" }
-        require(value.trim().none(Char::isWhitespace)) { "Tenaradressa inneheld mellomrom. Fjern dei og prøv igjen." }
+        if (value.isBlank()) invalidEndpoint(R.string.endpoint_blank)
+        if (value.trim().any(Char::isWhitespace)) invalidEndpoint(R.string.endpoint_whitespace)
         val candidate = value.trim().let {
             if (it.contains("://")) it else "https://$it"
         }
         val uri = runCatching { URI(candidate) }
-            .getOrElse { throw IllegalArgumentException("Skriv inn ei gyldig tenaradresse") }
+            .getOrElse { invalidEndpoint(R.string.endpoint_invalid) }
 
         val scheme = uri.scheme?.lowercase(Locale.ROOT)
-        require(scheme == "http" || scheme == "https") {
-            "Berre HTTP- og HTTPS-adresser er støtta"
-        }
-        require(!uri.host.isNullOrBlank()) { "Skriv inn ei fullstendig tenaradresse" }
-        require(uri.userInfo == null) { "Ikkje legg inn påloggingsdata i tenaradressa" }
-        require(uri.port == -1 || uri.port in 1..65535) { "Portnummeret må vere mellom 1 og 65535" }
-        require(scheme != "http" || isTrustedLanHost(uri.host)) {
-            "Vanleg HTTP er berre tillate for localhost eller private lokalnettadresser"
-        }
+        if (scheme != "http" && scheme != "https") invalidEndpoint(R.string.endpoint_scheme)
+        if (uri.host.isNullOrBlank()) invalidEndpoint(R.string.endpoint_incomplete)
+        if (uri.userInfo != null) invalidEndpoint(R.string.endpoint_credentials)
+        if (uri.port != -1 && uri.port !in 1..65535) invalidEndpoint(R.string.endpoint_port)
+        if (scheme == "http" && !isTrustedLanHost(uri.host)) invalidEndpoint(R.string.endpoint_cleartext)
 
         val path = (uri.path ?: "").trimEnd('/')
         return URI(scheme, null, uri.host.lowercase(Locale.ROOT), uri.port, path.ifEmpty { null }, null, null).toString()

@@ -1,5 +1,7 @@
 package app.reelstack.data.network
 
+import app.reelstack.localization.LocalizedText
+import app.reelstack.R
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import org.junit.Assert.assertEquals
@@ -125,13 +127,27 @@ class SeerrDetailsTest {
                 "networks":[{"name":"Apple TV+"},{"name":" Apple TV+ "},{"name":" "},{},{"name":"Network B"}]}""",
         )
 
-        assertEquals(listOf("Serie", "2023", "49 min", "Held fram", "2 sesongar", "20 episodar", "Apple TV+ · Network B"), details.facts)
+        assertEquals(
+            listOf(
+                LocalizedText.raw("2023"),
+                LocalizedText(R.string.media_minutes, 49),
+                LocalizedText(R.string.production_returning),
+                LocalizedText.plural(R.plurals.media_seasons, 2),
+                LocalizedText.plural(R.plurals.media_episodes, 20),
+                LocalizedText.raw("Apple TV+ · Network B"),
+            ),
+            details.facts,
+        )
     }
 
     @Test
     fun parsesSingularCountsAndDocumentedSeasonAlias() {
+        // The singular form is the resource's job now; the parser only says "one".
         assertEquals(
-            listOf("Serie", "1 sesong", "1 episode"),
+            listOf(
+                LocalizedText.plural(R.plurals.media_seasons, 1),
+                LocalizedText.plural(R.plurals.media_episodes, 1),
+            ),
             ServicePayloadParser.mediaDetails("""{"name":"Pilot","numberOfSeason":1,"numberOfEpisodes":1}""").facts,
         )
     }
@@ -139,23 +155,33 @@ class SeerrDetailsTest {
     @Test
     fun omitsMissingAndNonpositiveCountsWithoutInventingFacts() {
         listOf("{}", """{"numberOfSeasons":0,"numberOfEpisodes":-1,"networks":null,"status":" "}""").forEach {
-            assertEquals(listOf("Serie"), ServicePayloadParser.mediaDetails(it).facts)
+            assertEquals(emptyList<LocalizedText>(), ServicePayloadParser.mediaDetails(it).facts)
         }
         assertEquals(
-            listOf("Film", "Utgjeven"),
+            listOf(LocalizedText(R.string.production_released)),
             ServicePayloadParser.mediaDetails("""{"title":"Film","status":"Released","numberOfSeasons":2,"numberOfEpisodes":20}""").facts,
         )
     }
 
     @Test
     fun normalizesKnownProductionStatusesAndPreservesUnknownValues() {
+        // Which sentence, not which words — so the mapping is checked once and holds in every
+        // language. An unknown status is not ours to translate and passes through as it came.
         mapOf(
-            "Returning Series" to "Held fram", "Ended" to "Avslutta", "Canceled" to "Kansellert",
-            "Cancelled" to "Kansellert", "In Production" to "Under produksjon", "Post Production" to "Etterarbeid",
-            "Planned" to "Planlagd", "Pilot" to "Pilotepisode", "Released" to "Utgjeven", "Rumored" to "Ryktast",
-            "  RETURNING SERIES  " to "Held fram", "Ukjend status" to "Ukjend status",
+            "Returning Series" to LocalizedText(R.string.production_returning),
+            "Ended" to LocalizedText(R.string.production_ended),
+            "Canceled" to LocalizedText(R.string.production_canceled),
+            "Cancelled" to LocalizedText(R.string.production_canceled),
+            "In Production" to LocalizedText(R.string.production_in_production),
+            "Post Production" to LocalizedText(R.string.production_post),
+            "Planned" to LocalizedText(R.string.production_planned),
+            "Pilot" to LocalizedText(R.string.production_pilot),
+            "Released" to LocalizedText(R.string.production_released),
+            "Rumored" to LocalizedText(R.string.production_rumoured),
+            "  RETURNING SERIES  " to LocalizedText(R.string.production_returning),
+            "Ukjend status" to LocalizedText.raw("Ukjend status"),
         ).forEach { (raw, expected) ->
-            assertEquals(listOf("Serie", expected), ServicePayloadParser.mediaDetails("""{"name":"Silo","status":"$raw"}""").facts)
+            assertEquals(listOf(expected), ServicePayloadParser.mediaDetails("""{"name":"Silo","status":"$raw"}""").facts)
         }
     }
 

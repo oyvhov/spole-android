@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import app.reelstack.BuildConfig
 import app.reelstack.data.model.ServiceKind
 import java.io.IOException
@@ -19,23 +20,23 @@ class EmbyAuthenticationClient(
                 buildJsonObject { put("Username", username); put("Pw", password) }.toString(),
             )
         } catch (_: IOException) {
-            serviceError("Fekk ikkje kontakt med Emby. Sjekk tenaradressa og nettet.")
+            serviceError(R.string.err_fekk_ikkje_kontakt_med_2)
         }
         when (response.statusCode) {
             in 200..299 -> Unit
-            400 -> serviceError("Emby avviste innloggingskallet. Sjekk brukarnamnet og prøv igjen.")
-            401, 403 -> serviceError("Feil Emby-brukarnamn eller passord.")
-            404 -> serviceError("Fann ikkje Emby-innlogginga. Sjekk tenaradressa.")
-            in 500..599 -> serviceError("Emby fekk ein tenarfeil under innlogginga (status ${response.statusCode}).")
+            400 -> serviceError(R.string.err_emby_avviste_innloggingskallet_sjekk)
+            401, 403 -> serviceError(R.string.err_feil_emby_brukarnamn_eller)
+            404 -> serviceError(R.string.err_fann_ikkje_emby_innlogginga)
+            in 500..599 -> serviceError(R.string.err_emby_fekk_ein_tenarfeil, response.statusCode)
             in 300..399 -> serviceError(redirectMessage(ServiceKind.EMBY, response.location))
-            else -> serviceError("Emby kunne ikkje logge deg inn (status ${response.statusCode}).")
+            else -> serviceError(R.string.err_emby_kunne_ikkje_logge, response.statusCode)
         }
         val root = runCatching { Json.parseToJsonElement(response.body).jsonObject }.getOrNull()
-            ?: serviceError("Emby sende eit ugyldig innloggingssvar.")
+            ?: serviceError(R.string.err_emby_sende_eit_ugyldig)
         val token = root["AccessToken"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-            ?: serviceError("Emby sende ikkje eit tilgangsteikn.")
+            ?: serviceError(R.string.err_emby_sende_ikkje_eit)
         val userId = root["User"]?.jsonObject?.get("Id")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-            ?: serviceError("Emby sende ingen profil-ID.")
+            ?: serviceError(R.string.err_emby_sende_ingen_profil)
         return ServiceAuthentication(token, userId)
     }
 }

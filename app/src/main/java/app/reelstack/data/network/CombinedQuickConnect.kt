@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import app.reelstack.data.model.ServiceAccount
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
@@ -18,14 +19,14 @@ internal suspend fun connectSeerrWithJellyfin(
     pause: suspend () -> Unit = { delay(1_000) },
 ): ServiceConnection {
     require(jellyfin.kind == ServiceKind.JELLYFIN && jellyfin.token.isNotBlank())
-    check(loadAccount(jellyfin).id == jellyfin.userId) { "Jellyfin stadfesta ikkje kontoen." }
+    if (loadAccount(jellyfin).id != jellyfin.userId) serviceError(R.string.err_jellyfin_stadfesta_ikkje)
     coroutineContext.ensureActive()
     var challenge = seerrClient.initiateQuickConnect(seerrUrl)
     coroutineContext.ensureActive()
     // Prove the full secret belongs to this server before authorizing a short numeric code.
     val localChallenge = retryQuickConnectRead { jellyfinClient.quickConnectState(jellyfin.baseUrl, challenge.secret) }
-    check(localChallenge.secret == challenge.secret && localChallenge.code == challenge.code) {
-        "Seerr er ikkje kopla til denne Jellyfin-tenaren."
+    if (localChallenge.secret != challenge.secret || localChallenge.code != challenge.code) {
+        serviceError(R.string.err_seerr_ikkje_kopla_jellyfin)
     }
     coroutineContext.ensureActive()
     jellyfinClient.authorizeQuickConnect(jellyfin.baseUrl, jellyfin.token, challenge.code)
@@ -36,13 +37,13 @@ internal suspend fun connectSeerrWithJellyfin(
         pause = { pause() },
         read = { current -> seerrClient.quickConnectState(seerrUrl, current) },
     )
-    check(challenge.authenticated) { "Seerr vart ikkje klar. Prøv igjen." }
+    if (!challenge.authenticated) serviceError(R.string.err_seerr_vart_ikkje_klar)
     coroutineContext.ensureActive()
     val auth = seerrClient.authenticateWithQuickConnect(seerrUrl, challenge)
     val other = ServiceConnection(ServiceKind.SEERR, "Seerr", seerrUrl, auth.accessToken,
         userId = auth.userId, sessionCookie = true)
-    check(matchesJellyfinAccount(loadAccount(other), jellyfin.userId)) {
-        "Seerr brukar ein annan Jellyfin-konto. Vel separate innloggingar."
+    if (!matchesJellyfinAccount(loadAccount(other), jellyfin.userId)) {
+        serviceError(R.string.err_seerr_annan_jellyfin_konto)
     }
     coroutineContext.ensureActive()
     return other

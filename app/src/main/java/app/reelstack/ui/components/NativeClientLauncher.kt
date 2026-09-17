@@ -1,6 +1,7 @@
 package app.reelstack.ui.components
 
 import android.content.Context
+import app.reelstack.R
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -26,12 +27,12 @@ object NativeClientLauncher {
      */
     fun resolve(context: Context, url: String): Target {
         val handlers = runCatching { nonBrowserHandlers(context, url) }.getOrDefault(emptyList())
-        val packageName = handlers.firstOrNull() ?: return Target(null, "Opne i nettlesaren")
+        val packageName = handlers.firstOrNull() ?: return Target(null, context.getString(R.string.open_in_browser))
         val label = runCatching {
             val info = context.packageManager.getApplicationInfo(packageName, 0)
             context.packageManager.getApplicationLabel(info).toString()
         }.getOrNull()?.takeIf { it.isNotBlank() }
-        return Target(packageName, label?.let { "Opne i $it" } ?: "Opne i appen")
+        return Target(packageName, label?.let { context.getString(R.string.open_in_named_app, it) } ?: context.getString(R.string.open_in_app))
     }
 
     /** Returns false when nothing could handle the link, so the caller can say so. */

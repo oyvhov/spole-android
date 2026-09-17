@@ -74,7 +74,7 @@ class AccountProfileClientTest {
         val error = runCatching { AccountProfileClient(transport = transport).load(emby.copy(userId = "")) }
             .exceptionOrNull()
 
-        assertEquals("Logg inn med Emby-kontoen din for å stadfeste profilen.", error?.message)
+        assertEquals(app.reelstack.R.string.err_logg_inn_med_emby, error?.localizedFailure()?.resId)
         assertTrue(transport.urls.isEmpty())
     }
 
@@ -223,7 +223,7 @@ class AccountProfileClientTest {
         val failure = runCatching { AccountProfileClient(transport = transport).load(jellyfin) }.exceptionOrNull()
 
         assertTrue(failure is ServiceMessage)
-        assertTrue(failure?.message.orEmpty().contains("personleg konto"))
+        assertEquals(app.reelstack.R.string.err_kunne_ikkje_stadfeste_ein, failure?.localizedFailure()?.resId)
         assertEquals(listOf("${jellyfin.baseUrl}/Users/Me"), transport.urls)
         assertFalse(failure.toString().contains("test-token-private-body"))
     }
@@ -235,8 +235,10 @@ class AccountProfileClientTest {
             val failure = runCatching { AccountProfileClient(transport = transport).load(seerr) }.exceptionOrNull()
 
             assertTrue(failure is ServiceMessage)
-            assertTrue(failure?.message.orEmpty().contains("Seerr"))
+            // The service is named through the message's arguments, never by pasting the body in.
+            assertEquals(listOf<Any>("Seerr"), failure?.localizedFailure()?.args)
             assertFalse(failure.toString().contains("test-secret"))
+            assertFalse(failure?.localizedFailure().toString().contains("test-secret"))
             assertFalse(failure.toString().contains(seerr.token))
             assertEquals(null, failure?.cause)
         }
@@ -260,7 +262,7 @@ class AccountProfileClientTest {
         val failure = runCatching { AccountProfileClient(transport = RecordingTransport()).load(seerr) }.exceptionOrNull()
 
         assertTrue(failure is ServiceMessage)
-        assertTrue(failure?.message.orEmpty().contains("Fekk ikkje kontakt"))
+        assertEquals(app.reelstack.R.string.err_fekk_ikkje_kontakt_med, failure?.localizedFailure()?.resId)
         assertFalse(failure.toString().contains("private transport context"))
         assertEquals(null, failure?.cause)
     }

@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import app.reelstack.R
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.components.ServiceSymbol
@@ -31,8 +33,8 @@ internal fun SimpleWelcomeScreen(onCombined: () -> Unit, onOther: () -> Unit, mo
             Column(Modifier.widthIn(max = 520.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 SpoleBrandMark(Modifier.size(48.dp))
-                Text("Velkomen til Spole", style = MaterialTheme.typography.headlineLarge)
-                Text("Filmane og seriane dine, samla på éin stad.", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.welcome_headline), style = MaterialTheme.typography.headlineLarge)
+                Text(stringResource(R.string.welcome_subtitle), style = MaterialTheme.typography.bodyLarge)
                 Button(onClick = onCombined, interactionSource = interaction, shape = shape,
                     modifier = Modifier.fillMaxWidth().focusRequester(first).focusOutline(interaction, shape)
                     .testTag("setup-combined"), contentPadding = PaddingValues(20.dp)) {
@@ -40,15 +42,15 @@ internal fun SimpleWelcomeScreen(onCombined: () -> Unit, onOther: () -> Unit, mo
                         ServiceSymbol(ServiceKind.JELLYFIN, Modifier.size(24.dp))
                         ServiceSymbol(ServiceKind.SEERR, Modifier.size(24.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Kom i gang", style = MaterialTheme.typography.titleMedium)
-                            Text("Jellyfin · Seerr valfritt", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.welcome_get_started), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.welcome_get_started_note), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
-                Text("Bruk oppsettslenkja eller adressene du har fått frå den som deler biblioteket med deg.",
+                Text(stringResource(R.string.welcome_setup_hint),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SpoleSecondaryButton(onClick = onOther, modifier = Modifier.fillMaxWidth().testTag("setup-other")) {
-                    Text("Andre innloggingsmåtar")
+                    Text(stringResource(R.string.welcome_other_methods))
                 }
             }
         }

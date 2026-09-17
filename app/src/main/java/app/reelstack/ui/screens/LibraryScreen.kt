@@ -194,9 +194,12 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             }
             if (!connected) item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.library_connect)) }
             items(state.libraryEntries, key = { it.id }) { entry ->
+                // The grid reads the sync layer's own rows, so the decisions become words here.
+                val factContext = androidx.compose.ui.platform.LocalContext.current
+                val factWords = remember(entry.id, entry.facts) { entry.facts.map { it.text(factContext) } }
                 val rating = if (entry.mediaType.equals("Movie", ignoreCase = true) &&
                     showRatings)
-                    app.reelstack.data.model.communityRatingLabel(entry.facts) else null
+                    app.reelstack.data.model.communityRatingLabel(factWords) else null
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
                 val focused by interaction.collectIsFocusedAsState()
@@ -259,10 +262,13 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                             title()
                             if (rating != null) app.reelstack.ui.components.LibraryRating(rating,
                                 Modifier.padding(top = 6.dp).testTag("library-rating-${entry.id}"))
-                            val facts = entry.facts
+                            // The type word used to lead this list and had to be filtered out by
+                            // name, which only ever worked in nynorsk. The parser does not write it
+                            // any more — the kind is derived from `mediaType` where the language is
+                            // known — so there is nothing to filter.
+                            val facts = factWords
                                 .filterNot { it.trimStart().startsWith("★") &&
                                     (entry.mediaType.equals("Movie", ignoreCase = true) || !showRatings) }
-                                .filterNot { it in setOf("Film", "Serie", "Episode", "Movie", "Series") }
                                 .filterNot { it.matches(Regex("""^S\d\d+ E\d\d+$""")) }
                                 // The line under the title already carries the year for a film or a
                                 // series; repeating it two lines later reads as a mistake.

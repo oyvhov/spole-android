@@ -45,7 +45,7 @@ object CrashReporter {
             appendLine("--- ${Instant.now()}")
             appendLine("Spole ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             appendLine("${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-            appendLine("Tråd: ${thread.name}")
+            appendLine("thread: ${thread.name}")
             appendLine(scrub(trace))
         }
 

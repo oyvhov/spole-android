@@ -48,7 +48,7 @@ class ViewerAccessTest {
         val transport = Transport { error("Must not fetch another viewer's library") }
         val feed = MediaServerClient(transport).feed(connection, ViewerAccess(true, emptyMap()))
         assertTrue(feed.resume.isEmpty())
-        assertNotNull(feed.warning)
+        assertTrue(feed.warnings.isNotEmpty())
         assertTrue(transport.urls.isEmpty())
     }
     @Test fun sharedAdminMediaTokenDoesNotElevateOrdinarySeerrUser() {

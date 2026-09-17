@@ -15,7 +15,7 @@ internal class SubtitleMemoryCache(private val http: OkHttpClient, private val h
         files[url]?.let { return it }
         val request = Request.Builder().url(url).apply { headers.forEach { (key, value) -> header(key, value) } }.build()
         val bytes = http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Kunne ikkje hente undertekst")
+            if (!response.isSuccessful) throw IOException("subtitle fetch failed")
             val body = response.body ?: throw IOException("Tom undertekst")
             body.byteStream().use { input ->
                 val out = java.io.ByteArrayOutputStream()
@@ -23,7 +23,7 @@ internal class SubtitleMemoryCache(private val http: OkHttpClient, private val h
                 while (true) {
                     val count = input.read(buffer)
                     if (count < 0) break
-                    if (out.size() + count > 2 * 1024 * 1024) throw IOException("Undertekstfila er for stor")
+                    if (out.size() + count > 2 * 1024 * 1024) throw IOException("subtitle exceeds the size limit")
                     out.write(buffer, 0, count)
                 }
                 out.toByteArray()

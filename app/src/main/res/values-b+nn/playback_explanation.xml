@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_mode_direct">Direkte avspeling frå %1$s</string>
+    <string name="player_mode_remux">Direktestrøyming frå %1$s · berre pakka om</string>
+    <string name="player_mode_audio">Video direkte frå %1$s · lyd omkoda</string>
+    <string name="player_mode_transcode">Full omkoding på %1$s</string>
+
+    <string name="player_reason_because">Fordi %1$s.</string>
+    <string name="player_reason_audio_codec">denne eininga kan ikkje spele lydformatet</string>
+    <string name="player_reason_audio_channels">denne eininga kan ikkje spele så mange lydkanalar</string>
+    <string name="player_reason_video_codec">denne eininga kan ikkje dekode videoformatet</string>
+    <string name="player_reason_container">eininga kan ikkje lese filformatet</string>
+    <string name="player_reason_subtitle">underteksten må brennast inn i biletet</string>
+    <string name="player_reason_bitrate">bitraten er over grensa som er sett for denne straumen</string>
+    <string name="player_reason_resolution">oppløysinga er høgare enn det eininga melder om</string>
+    <string name="player_reason_video_range">denne eininga kan ikkje vise det fargeområdet</string>
+    <string name="player_reason_profile">videoprofilen eller nivået er utanfor det dekodaren godtek</string>
+    <string name="player_reason_other">tenaren fekk ikkje sendt fila som ho er</string>
+
+    <string name="player_stall_waiting">Ventar på %1$s…</string>
+    <string name="player_stall_fallback">Prøver ei enklare avspeling.</string>
+    <string name="player_stall_failed">Videoen brukar for lang tid på å laste. Prøv igjen, vel lågare kvalitet eller opne i medietenaren.</string>
+
+    <string name="player_stats_title">Stats for Nerds</string>
+    <string name="player_stats_unknown">ukjend</string>
+    <string name="player_stats_video">Video</string>
+    <string name="player_stats_audio">Lyd</string>
+    <string name="player_stats_buffer">Buffer</string>
+    <string name="player_stats_playing">spelar</string>
+    <string name="player_stats_paused">pausa</string>
+    <string name="player_stats_dropped">%1$d dropna bilete</string>
+    <string name="player_err_stopped">Avspelinga stoppa. Prøv igjen, vel lågare kvalitet eller opne i medietenaren.</string>
+    <string name="player_err_account_changed">Kontoen er endra. Lukk spelaren og opne tittelen på nytt.</string>
+    <string name="player_err_open">Fekk ikkje opna tittelen. Kontroller den personlege medieinnlogginga og prøv igjen.</string>
+    <string name="player_err_episodes">Fekk ikkje henta episodane. Prøv igjen.</string>
+    <string name="player_err_start">Fekk ikkje starta videoen. Kontroller nettet og avspelingsløyva i medietenaren, eller prøv igjen.</string>
+</resources>

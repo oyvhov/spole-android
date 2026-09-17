@@ -2,6 +2,7 @@ package app.reelstack.ui.screens
 
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.isTelevision
+import app.reelstack.ui.components.playableNow
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -90,7 +91,6 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.isSeries
-import app.reelstack.data.model.seerrStatusLabel
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.HomeSearchEntry
@@ -106,6 +106,7 @@ import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.ReelPage
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import app.reelstack.ui.theme.Primary
@@ -508,10 +509,15 @@ private fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modi
         heading()
         contentDescription = "$title · ${source.displayName}"
     }) {
+        // Two shelves called "Hald fram å sjå", told apart only by a small mark at the far right
+        // of a 16:9 screen, is not telling them apart. On television the service joins the
+        // heading, where the eye already is; the mark on the right stays as confirmation.
         Text(
-            text = title,
+            text = if (isTelevision()) "$title · ${source.displayName}" else title,
             color = TextColor,
             style = MaterialTheme.typography.titleLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(end = 12.dp),
         )
         // Mark and label stay centred on each other; the pair sits on the heading's baseline.
@@ -554,7 +560,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             .focusOutline(interaction, RoundedCornerShape(16.dp))
             .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
-            .semantics { role = Role.Button }
+            .semantics(mergeDescendants = true) { role = Role.Button }
             .testTag("recommendation-${media.id}"),
     ) {
         MediaArtwork(media.artworkUrl, media.title, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
@@ -692,7 +698,8 @@ private fun NowPlayingCard(
         MediaArtwork(
             url = session.artworkUrl,
             fallbackRes = app.reelstack.ui.demoSessionArtwork(session),
-            contentDescription = "${session.userName} ser på ${session.title}",
+            contentDescription = stringResource(R.string.session_watching,
+                app.reelstack.ui.components.sessionWho(session), session.title),
             contentScale = ContentScale.Crop,
             source = session.source,
             modifier = Modifier.matchParentSize(),
@@ -732,11 +739,11 @@ private fun NowPlayingCard(
                     gapSize = 0.dp,
                     modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                 )
-                Text(session.timeLeft, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 12.dp))
+                Text(app.reelstack.ui.components.sessionTimeLeft(session), color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 12.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
                 Column(Modifier.weight(1f).padding(end = 6.dp)) {
-                    Text(session.streamMethod, color = TextColor, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(app.reelstack.ui.components.sessionMethod(session), color = TextColor, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(session.quality, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp)
                 }
                 Surface(
@@ -759,7 +766,7 @@ private fun NowPlayingCard(
                             AnimatedContent(session.paused, label = "play-pause") { paused ->
                                 Icon(
                                     if (paused) app.reelstack.ui.components.SpoleIcons.Play else app.reelstack.ui.components.SpoleIcons.Pause,
-                                    contentDescription = if (paused) "Hald fram avspelinga" else "Set avspelinga på pause",
+                                    contentDescription = stringResource(if (paused) R.string.home_resume_playback else R.string.home_pause_playback),
                                     modifier = Modifier.size(26.dp),
                                 )
                             }
@@ -771,7 +778,7 @@ private fun NowPlayingCard(
                     onClick = onOpen,
                     modifier = Modifier.size(52.dp).background(SurfaceRaised.copy(alpha = 0.92f), CircleShape),
                 ) {
-                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, contentDescription = "Avspelingsdetaljar", tint = TextColor)
+                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, contentDescription = stringResource(R.string.home_playback_details), tint = TextColor)
                 }
             }
         }
@@ -801,20 +808,70 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
 }
 
 /**
- * Partly watched titles. Each card keeps the shape of its own artwork — a film stays a poster and
- * an episode stays a wide still — while a shared artwork height keeps every title on one baseline.
+ * Partly watched titles.
+ *
+ * Every card in the rail gets the same frame. Letting each card keep the shape of its own artwork
+ * read well on paper — a film stays a poster, an episode stays a wide still — but a shelf holding
+ * both came out with cards nearly three times wider than their neighbours, and a row with no shared
+ * edge reads as a bug rather than as a choice. The shelf picks one shape; artwork that faces the
+ * other way is fitted into it with a blurred copy of itself behind.
  */
 @Composable
 internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null, rowKey: String? = null) {
     val format = app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats[rowKey]
+    val chosenWide = resumeRailIsWide(format)
     val titleLines = if (isTelevision()) 1 else 2
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState)
     LazyRow(state = railState, contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
-            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30, actions = actions, format = format) { onClick(media.id) }
+            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30, actions = actions, wide = chosenWide) { onClick(media.id) }
         }
     }
+}
+
+/**
+ * The one shape a resume shelf uses, decided before the first card is laid out.
+ *
+ * An explicit per-row choice wins; `AUTO` is always the wide still. A first attempt let the majority
+ * media type decide, and on a real Emby shelf — five part-watched films, four part-watched episodes
+ * — the films won and every episode still ended up letterboxed into a tall poster frame with grey
+ * bands above and below it. The reverse costs far less: a poster inside a wide frame is a small
+ * picture with a blurred edge, which is what the Jellyfin shelf already looked like and read fine.
+ * It is also the shape the shelf is *for* — a frame from where you stopped, with a progress bar
+ * along the bottom — and the shape every television interface uses for it.
+ */
+internal fun resumeRailIsWide(format: String?): Boolean = format != "POSTER"
+
+/**
+ * The day word on a "Kjem snart" card, decided against the clock rather than stored with the row.
+ *
+ * The sync writes [UpcomingMedia.dateLabel] once and the snapshot store keeps it, so a label that
+ * said "I dag" when it was written still said "I dag" the next morning — which is why the day word
+ * left the repository. It belongs here, where the clock is actually read. Anything the label
+ * already carries after the separator is an airtime and is kept, so a Sonarr row still reads
+ * "I morgon · 21:00" rather than losing the time along with the date.
+ *
+ * A row with no usable timestamp keeps the date it was given; inventing "today" for an unknown
+ * date is the one outcome worse than a stale one.
+ */
+internal fun upcomingDayLabel(
+    dateLabel: String,
+    airDateEpochMillis: Long,
+    today: LocalDate,
+    zone: ZoneId,
+    todayWord: String,
+    tomorrowWord: String,
+): String {
+    if (airDateEpochMillis <= 0L) return dateLabel
+    val date = Instant.ofEpochMilli(airDateEpochMillis).atZone(zone).toLocalDate()
+    val word = when (date) {
+        today -> todayWord
+        today.plusDays(1) -> tomorrowWord
+        else -> return dateLabel
+    }
+    val time = dateLabel.substringAfter(" · ", "")
+    return if (time.isBlank()) word else "$word · $time"
 }
 
 /**
@@ -845,10 +902,10 @@ data class MediaCardActions(
 
 @Composable
 private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
-    actions: MediaCardActions? = null, format: String? = null, onClick: () -> Unit) {
-    val wide = if (format == "POSTER") false else if (format == "THUMB") true else !media.mediaType.equals("Movie", ignoreCase = true)
+    actions: MediaCardActions? = null, wide: Boolean, onClick: () -> Unit) {
     val artworkHeight = ReelLayout.EpisodeHeight * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
-    val cardWidth = if (wide) artworkHeight * 16f / 9f else artworkHeight * 2f / 3f
+    val frameRatio = if (wide) 16f / 9f else 2f / 3f
+    val cardWidth = artworkHeight * frameRatio
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
@@ -859,11 +916,8 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
         label = "resume-card-reveal",
     )
     val focused by interactionSource.collectIsFocusedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed && app.reelstack.ui.theme.LocalMotionEnabled.current) 0.985f else 1f,
-        animationSpec = androidx.compose.animation.core.tween(120),
-        label = "resume-card-spring",
-    )
+    // Focus lifts the card; press dips it. Two signals, one number.
+    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
     var menuOpen by remember(media.id) { mutableStateOf(false) }
     val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
     val resumeLabel = if (percent > 0) stringResource(R.string.home_resume_description, media.title, percent)
@@ -889,17 +943,22 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
                 onLongClick = actions?.let { { menuOpen = true } },
                 onLongClickLabel = stringResource(R.string.library_card_options, media.title),
             )
-            .semantics { role = Role.Button }
+            // Plain `semantics`, deliberately. `mergeDescendants = true` here starts a *second*
+            // merging root under the clickable node, and the name lands on a child that a screen
+            // reader never focuses; without it the property merges into the clickable node's own
+            // config, which is the node that takes focus. Checked both ways with `uiautomator dump`
+            // on the TV emulator.
+            .semantics { contentDescription = resumeLabel; role = Role.Button }
             .testTag("resume-card-${media.id}"),
     ) {
         if (actions != null) MediaCardMenu(media, actions, menuOpen, onDetails = onClick) { menuOpen = false }
         Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))
             .focusOutline(interactionSource, RoundedCornerShape(ReelLayout.ArtworkCorner))) {
-            MediaArtwork(
+            app.reelstack.ui.components.RailArtwork(
                 url = (if (!wide) media.posterUrl else null) ?: media.artworkUrl,
-                fallbackRes = media.artworkRes,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                frameRatio = frameRatio,
+                fallbackRes = media.artworkRes,
                 source = media.source,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -946,10 +1005,12 @@ private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: 
     val context = androidx.compose.ui.platform.LocalContext.current
     if (open) app.reelstack.ui.components.SpoleChoiceDialog(media.title, onDismiss) {
       Column(Modifier.verticalScroll(rememberScrollState())) {
-        if (media.source == ServiceKind.JELLYFIN && media.mediaType in listOf("Movie", "Episode") && !media.remoteId.isNullOrBlank()) DropdownMenuItem(
+        // Emby gained a player in 0.17.0-beta04; this menu kept asking for Jellyfin. The condition
+        // now lives in one place so the next service to gain one is a single edit.
+        if (media.playableNow()) DropdownMenuItem(
             text = { Text(stringResource(if ((media.progress ?: 0f) > 0f) R.string.tv_resume else R.string.phase_quick_play)) },
             leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null) },
-            onClick = { onDismiss(); app.reelstack.player.JellyfinPlayerActivity.open(context, media.remoteId, source = media.source) },
+            onClick = { onDismiss(); app.reelstack.player.JellyfinPlayerActivity.open(context, media.remoteId.orEmpty(), source = media.source) },
             modifier = Modifier.testTag("card-play"))
         DropdownMenuItem(text = { Text(stringResource(R.string.phase_quick_details)) },
             leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Library, null) },
@@ -980,6 +1041,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
     val cardWidth = (if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val artworkHeight = if (wide) cardWidth * 9f / 16f else cardWidth * 1.5f
     val artworkShape = RoundedCornerShape(ReelLayout.ArtworkCorner)
+    val cardLabel = listOf(media.title, media.subtitle).filter(String::isNotBlank).joinToString(", ")
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
@@ -990,11 +1052,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
         animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
         label = "library-card-reveal",
     )
-    val scale by animateFloatAsState(
-        targetValue = if (pressed && app.reelstack.ui.theme.LocalMotionEnabled.current) 0.985f else 1f,
-        animationSpec = androidx.compose.animation.core.tween(120),
-        label = "library-card-spring",
-    )
+    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
     Column(
         modifier = Modifier
             .width(cardWidth)
@@ -1010,10 +1068,12 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 interactionSource = interactionSource,
                 indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClick = onClick,
+                onClickLabel = media.title,
                 onLongClick = actions?.let { { menuOpen = true } },
                 onLongClickLabel = stringResource(R.string.library_card_options, media.title),
             )
-            .semantics { role = Role.Button },
+            // See ResumeCard on why this is a plain `semantics` block.
+            .semantics { contentDescription = cardLabel; role = Role.Button },
     ) {
         Box(
             modifier = Modifier
@@ -1022,11 +1082,11 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .testTag("library-artwork-${media.id}")
                 .clip(artworkShape).focusOutline(interactionSource, artworkShape),
         ) {
-            MediaArtwork(
+            app.reelstack.ui.components.RailArtwork(
                 url = (if (wide) media.heroUrl else media.posterUrl) ?: media.artworkUrl,
+                contentDescription = null,
+                frameRatio = if (wide) 16f / 9f else 2f / 3f,
                 fallbackRes = media.artworkRes,
-                contentDescription = media.title,
-                contentScale = ContentScale.Crop,
                 source = media.source,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -1095,7 +1155,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         alpha = reveal; translationY = (1f - reveal) * 18f; scaleX = scale; scaleY = scale
     }.clip(shape).background(SurfaceRaised).focusOutline(interactionSource, shape)
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(), onClick = onClick)
-        .semantics { role = Role.Button }.testTag("upcoming-cover-${media.id}")) {
+        .semantics(mergeDescendants = true) { role = Role.Button }.testTag("upcoming-cover-${media.id}")) {
         MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(
             0f to Color.Black.copy(alpha = .12f), .35f to Color.Transparent,
@@ -1103,7 +1163,9 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         Row(Modifier.align(Alignment.TopStart).padding(14.dp).background(Color.Black.copy(alpha = .76f), CircleShape)
             .padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(app.reelstack.ui.components.SpoleIcons.Clock, null, tint = Primary, modifier = Modifier.size(14.dp))
-            Text(media.dateLabel, color = Color.White, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
+            Text(upcomingDayLabel(media.dateLabel, media.airDateEpochMillis, LocalDate.now(), ZoneId.systemDefault(),
+                stringResource(R.string.calendar_today), stringResource(R.string.calendar_tomorrow)),
+                color = Color.White, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 6.dp))
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 70.dp)) {
@@ -1166,7 +1228,7 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp)
-            .semantics { role = Role.Button },
+            .semantics(mergeDescendants = true) { role = Role.Button },
     ) {
         MediaArtwork(
             url = media.artworkUrl,

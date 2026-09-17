@@ -24,13 +24,32 @@ class AppContainer(context: Context) {
     )
     val preferencesRepository = AppPreferencesRepository(appContext)
     val mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId, includeLibrary = preferencesRepository::includesLibrary)
-    val mediaSyncRepository = MediaSyncRepository(mediaServerClient = mediaServerClient)
+    // The repository formats dates; it should do so in the language the app is set to, which is not
+    // always the device's.
+    val mediaSyncRepository = MediaSyncRepository(
+        locale = androidx.core.os.ConfigurationCompat.getLocales(
+            app.reelstack.localization.AppLanguages.wrap(appContext).resources.configuration,
+        )[0] ?: java.util.Locale.getDefault(),
+        use24HourClock = android.text.format.DateFormat.is24HourFormat(appContext),
+        words = { it.text(appContext) },
+        mediaServerClient = mediaServerClient,
+    )
     val sessionSocket = app.reelstack.data.network.JellyfinSessionSocket(deviceId = deviceId)
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
     val localPlaybackStore = app.reelstack.data.repository.LocalPlaybackStore(appContext)
     val watchNextSync by lazy { app.reelstack.player.WatchNextSync(this) }
+    /**
+     * What the cached rows belong to.
+     *
+     * The language is part of it, because the rows hold text: "Film · 2024" is written when the
+     * row is cached, not when it is drawn. Switching language changes the fingerprint, the old rows
+     * stop matching, and the next sync writes them in the new language — instead of a home screen
+     * that stays half-nynorsk until something happens to refresh it.
+     */
     fun mediaFingerprint(connections: List<app.reelstack.data.model.ServiceConnection>): String =
-        MediaSnapshotStore.fingerprint(connections) + preferencesRepository.librarySelectionFingerprint(connections)
+        MediaSnapshotStore.fingerprint(connections) +
+            preferencesRepository.librarySelectionFingerprint(connections) +
+            "|lang=" + app.reelstack.localization.AppLanguages.selected(appContext).tag
 
     val requestTrackingRepository = app.reelstack.data.repository.RequestTrackingRepository(appContext)
     val requestHistoryRepository = app.reelstack.data.repository.RequestHistoryRepository()

@@ -46,7 +46,6 @@ import app.reelstack.ui.components.ServiceSymbol
 import app.reelstack.data.model.canRequest
 import app.reelstack.data.model.hasTitleMetadata
 import app.reelstack.data.model.canRequestType
-import app.reelstack.data.model.seerrStatusLabel
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -147,8 +146,11 @@ enum class LibraryFilter(val label: String) {
     ALL("Alle titlar"), AVAILABLE("I biblioteket"), REQUESTABLE("Kan leggjast til")
 }
 
-enum class PersonalActivityFilter(val label: String) {
-    ALL("Alle"), IN_PROGRESS("På veg"), READY("Klare")
+/** Stable filter identities; the visible label is a resource, not the state. */
+enum class PersonalActivityFilter(@androidx.annotation.StringRes val label: Int) {
+    ALL(R.string.activity_filter_all),
+    IN_PROGRESS(R.string.activity_filter_in_progress),
+    READY(R.string.activity_filter_ready),
 }
 
 enum class ActivityFilter(val label: String, val source: ServiceKind?) {
@@ -615,7 +617,7 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null, tint = Success, modifier = Modifier.size(12.dp))
-                Text("I biblioteket", color = Color.White, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold,
+                Text(stringResource(R.string.filter_available), color = Color.White, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 5.dp))
             }
         }
@@ -654,14 +656,20 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
         .clickable(interactionSource = cardInteraction, indication = app.reelstack.ui.components.mediaCardIndication(),
             onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onDetails)
         .testTag("discover-cover-${media.id}")) {
+      // The poster carries the picture and two small badges. Everything with words in it sits
+      // below it.
+      //
+      // The title used to be printed across the bottom of the artwork — and a poster almost always
+      // has the title printed on it already, so every card showed it twice, the app's copy landing
+      // on top of the designer's. "Neagley" over NEAGLEY. The library grid has always put the title
+      // under the card; this is the same.
       Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)
           .focusOutline(cardInteraction, artworkShape).clip(artworkShape).background(SurfaceRaised)) {
         MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
+        // Only enough shading for the badges to read against a bright poster.
         Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-            0f to Color.Transparent, .35f to Color.Transparent, .68f to Color.Black.copy(alpha = .64f), 1f to Color.Black.copy(alpha = .96f))))
-        // Badge at the top, text block anchored to the bottom. Alignment rather than a fixed
-        // spacer. The grid gives large text a wider cell while preserving the poster's shape.
-        Row(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(12.dp),
+            0f to Color.Black.copy(alpha = .45f), .3f to Color.Transparent)))
+        Row(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically) {
             // A type badge classifies, it does not act, so it stays off the accent colour.
             Text(if (media.isSeries) stringResource(R.string.media_series) else stringResource(R.string.media_movie), color = Color.White, fontSize = 10.sp, lineHeight = 14.sp,
@@ -677,33 +685,33 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
                     modifier = Modifier.background(Color.Black.copy(alpha = .75f), CircleShape).padding(7.dp).size(19.dp))
             }
         }
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(12.dp)) {
-            Text(media.metadata, color = Color.White.copy(alpha = .82f), fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
-                minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-            if (actionable) {
-                Button(onClick = onRequest, enabled = !requesting, interactionSource = actionInteraction,
-                    shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
-                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp)
-                        .focusOutline(actionInteraction, RoundedCornerShape(10.dp), glow = false)
-                        .semantics {
-                            contentDescription = actionLabel
-                        }) {
-                    if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
-                    else Icon(if (media.isSeries) app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add, null, Modifier.size(14.dp))
-                    Text(when { requesting -> stringResource(R.string.media_sending); media.isSeries -> stringResource(R.string.media_seasons); else -> stringResource(R.string.media_add) },
-                        fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 5.dp))
-                }
-            } else {
-                // Nothing to do here beyond opening the card, so this is a status line, not a button.
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp)) {
-                    Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.Clock,
-                        null, tint = if (media.inLibrary || media.seerrStatus == 5) Success else Muted, modifier = Modifier.size(13.dp))
-                    Text(statusLabel, color = Color.White.copy(alpha = .82f), fontSize = 12.sp, maxLines = 2,
-                        lineHeight = 16.sp, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
-                }
+      }
+      Column(Modifier.fillMaxWidth().padding(top = 9.dp)) {
+        Text(media.metadata, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(media.title, color = TextColor, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
+            minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+        if (actionable) {
+            Button(onClick = onRequest, enabled = !requesting, interactionSource = actionInteraction,
+                shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
+                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp)
+                    .focusOutline(actionInteraction, RoundedCornerShape(10.dp), glow = false)
+                    .semantics {
+                        contentDescription = actionLabel
+                    }) {
+                if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
+                else Icon(if (media.isSeries) app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add, null, Modifier.size(14.dp))
+                Text(when { requesting -> stringResource(R.string.media_sending); media.isSeries -> stringResource(R.string.media_seasons); else -> stringResource(R.string.media_add) },
+                    fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 5.dp))
+            }
+        } else {
+            // Nothing to do here beyond opening the card, so this is a status line, not a button.
+            Row(verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp)) {
+                Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.Clock,
+                    null, tint = if (media.inLibrary || media.seerrStatus == 5) Success else Muted, modifier = Modifier.size(13.dp))
+                Text(statusLabel, color = Muted, fontSize = 12.sp, maxLines = 2,
+                    lineHeight = 16.sp, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
             }
         }
       }
@@ -754,7 +762,10 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     // The same cell and gap as Discover, from the one place that decides it.
     LazyVerticalGrid(columns = GridCells.Adaptive(posterCell()),
         horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(if (tvActivity) 16.dp else 28.dp),
-        contentPadding = if (tvActivity) PaddingValues(24.dp) else screenPadding(contentPadding),
+        // The television branch used to ignore the padding it was handed and use a flat 24 dp,
+        // which put the second row of cards against the bottom bezel.
+        contentPadding = if (tvActivity) PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp,
+            bottom = 24.dp + contentPadding.calculateBottomPadding()) else screenPadding(contentPadding),
         modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
         item(span = { GridItemSpan(maxLineSpan) }) {
           Column(Modifier.fillMaxWidth().testTag("activity-heading-block")) {
@@ -910,13 +921,13 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     modifier = Modifier.padding(top = 20.dp))
             }
             // Group by day so a long feed can be skimmed instead of read as one undifferentiated list.
-            var lastGroup: String? = null
+            var lastGroup: Int? = null
             events.forEach { event ->
                 val group = activityDayGroup(event)
                 if (group != lastGroup) {
                     lastGroup = group
                     item(key = "group-${event.id}", span = { GridItemSpan(maxLineSpan) }) {
-                        Text(group, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.sp,
+                        Text(stringResource(group), color = Muted, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(top = 20.dp, bottom = 2.dp).semantics { heading() })
                     }
@@ -979,11 +990,11 @@ private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
                     tint = if (event.complete) Success else Muted,
                     modifier = Modifier.padding(top = 1.dp).size(14.dp),
                 )
-                Text(event.detail, color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                Text(event.detail.text(LocalContext.current), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.weight(1f).padding(start = 6.dp))
             }
             // The detail line already names the service, so the meta line carries only the time.
-            event.time.takeIf { it.isNotBlank() }?.let {
+            event.time.text(LocalContext.current).takeIf { it.isNotBlank() }?.let {
                 Text(it, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 5.dp))
             }
             event.progress?.let { progress ->

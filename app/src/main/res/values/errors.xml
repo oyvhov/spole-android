@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Everything the network layer and the address field can say to a person.
+
+    These used to be written out in nynorsk inside the data layer, so an English installation met
+    nynorsk the moment anything went wrong — at exactly the point where wording matters most.
+-->
+<resources>
+    <!-- The address field. -->
+    <string name="endpoint_blank">Enter the server address first</string>
+    <string name="endpoint_whitespace">The server address contains spaces. Remove them and try again.</string>
+    <string name="endpoint_invalid">Enter a valid server address</string>
+    <string name="endpoint_scheme">Only HTTP and HTTPS addresses are supported</string>
+    <string name="endpoint_incomplete">Enter a complete server address</string>
+    <string name="endpoint_credentials">Do not put sign-in details in the server address</string>
+    <string name="endpoint_port">The port number must be between 1 and 65535</string>
+    <string name="endpoint_cleartext">Plain HTTP is only allowed for localhost or private local network addresses</string>
+
+    <!-- Accounts and profiles. -->
+    <string name="err_logg_inn_med_emby">Sign in with your Emby account to confirm the profile.</string>
+    <string name="err_kontovisning_berre_stotta_for">Account details are only available for Jellyfin and Seerr.</string>
+    <string name="err_fekk_ikkje_kontakt_med">Could not reach %1$s. Try again.</string>
+    <string name="err_kunne_ikkje_stadfeste_ein">%1$s could not confirm a personal account. Sign in again.</string>
+    <string name="err_avviste_kontotilgangen_logg_inn">%1$s refused access to the account. Sign in again.</string>
+    <string name="err_tilbyr_ikkje_kontoinformasjon_denne">%1$s does not offer account details at this address.</string>
+    <string name="err_mellombels_oppteken_prov_igjen">%1$s is busy right now. Try again shortly.</string>
+    <string name="err_utilgjengeleg_prov_igjen_seinare">%1$s is unavailable right now. Try again later.</string>
+    <string name="err_svara_med_status">%1$s answered with status %2$s.</string>
+    <string name="err_sende_ugyldig_kontoinformasjon">%1$s sent invalid account details.</string>
+    <string name="err_kontotypen_ikkje_stotta">That account type is not supported.</string>
+    <string name="err_sende_ingen_konto">%1$s sent no account ID.</string>
+    <string name="err_sende_ikkje_noko_brukarnamn">%1$s sent no user name.</string>
+    <string name="err_seerr_sende_ingen_gyldig">Seerr sent no valid account ID.</string>
+
+    <!-- Emby sign-in. -->
+    <string name="err_fekk_ikkje_kontakt_med_2">Could not reach Emby. Check the server address and your network.</string>
+    <string name="err_emby_avviste_innloggingskallet_sjekk">Emby refused the sign-in request. Check the user name and try again.</string>
+    <string name="err_feil_emby_brukarnamn_eller">Wrong Emby user name or password.</string>
+    <string name="err_fann_ikkje_emby_innlogginga">Could not find the Emby sign-in. Check the server address.</string>
+    <string name="err_emby_fekk_ein_tenarfeil">Emby hit a server error while signing in (status %1$s).</string>
+    <string name="err_emby_kunne_ikkje_logge">Emby could not sign you in (status %1$s).</string>
+    <string name="err_emby_sende_eit_ugyldig">Emby sent an invalid sign-in response.</string>
+    <string name="err_emby_sende_ikkje_eit">Emby sent no access token.</string>
+    <string name="err_emby_sende_ingen_profil">Emby sent no profile ID.</string>
+
+    <!-- Catalogues and history. -->
+    <string name="err_github_lista_svara_med">The GitHub catalogue answered with status %1$s</string>
+    <string name="err_fann_ikkje_tilradingslista_status">Could not find the recommendation list (status %1$s)</string>
+    <string name="err_fekk_ikkje_lese_forespurnadshistorikken">Could not read the request history.</string>
+
+    <!-- Jellyfin and Quick Connect. -->
+    <string name="err_quick_connect_koden_utgatt">The Quick Connect code has expired. Create a new one.</string>
+    <string name="err_feil_jellyfin_brukarnamn_eller">Wrong Jellyfin user name or password.</string>
+    <string name="err_seerr_avviste_innlogginga_sjekk">Seerr refused the sign-in. Check that the account has access and that Jellyfin sign-in is switched on.</string>
+    <string name="err_feil_brukarnamn_eller_passord">Wrong user name or password</string>
+    <string name="err_fann_jellyfin_men_innlogging">Found Jellyfin, but signing in with a user account is not available</string>
+    <string name="err_jellyfin_svara_med_status">Jellyfin answered with status %1$s</string>
+    <string name="err_denne_jellyfin_tenaren_stottar">This Jellyfin server does not support Quick Connect</string>
+    <string name="err_quick_connect_ikkje_slatt">Quick Connect is switched off in Jellyfin</string>
+    <string name="err_quick_connect_ikkje_slatt_2">Quick Connect is switched off, or Jellyfin could not create a code</string>
+    <string name="err_quick_connect_koden_ikkje">The Quick Connect code is no longer valid</string>
+    <string name="err_jellyfin_avviste_quick_connect">Jellyfin refused the Quick Connect request</string>
+    <string name="err_quick_connect_koden_vart">The Quick Connect code was not approved</string>
+    <string name="err_jellyfin_sende_ikkje_tilbake">Jellyfin sent no access token</string>
+    <string name="err_jellyfin_sende_ikkje_tilbake_2">Jellyfin sent no profile ID</string>
+    <string name="err_jellyfin_sende_ikkje_tilbake_3">Jellyfin sent no Quick Connect secret</string>
+    <string name="err_jellyfin_sende_ikkje_tilbake_4">Jellyfin sent no Quick Connect code</string>
+
+    <!-- Libraries and requests. -->
+    <string name="err_fekk_ikkje_henta_detaljar">Could not load details from %1$s</string>
+    <string name="err_fekk_ikkje_oppdatert_dei">Could not update the selected libraries</string>
+    <string name="err_medietenaren_ikkje_stotta">That media server is not supported</string>
+    <string name="err_forespurnaden_finst_ikkje_lenger">The request no longer exists in Seerr.</string>
+    <string name="err_forespurnaden_var_alt_fjerna">The request had already been removed in Seerr.</string>
+
+    <!-- Transport. -->
+    <string name="err_tilbyr_ikkje_dette_api">%1$s does not offer this API endpoint</string>
+    <string name="err_mellombels_oppteken">%1$s is busy right now</string>
+    <string name="err_utilgjengeleg">%1$s is unavailable right now</string>
+    <string name="err_svara_med_status_2">%1$s answered with status %2$s</string>
+    <string name="err_klarte_ikkje_opprette_trygg">Could not open a secure HTTPS connection to %1$s. Check that the certificate on the server is valid and trusted.</string>
+    <string name="err_sende_eit_uventa_svar">%1$s sent an unexpected response. Check that the address points at %2$s.</string>
+    <string name="err_kontakt_sjekk_adresse">Could not reach %1$s. Check the server address and your network.</string>
+    <string name="err_jellyfin_okt_tenarfeil">Jellyfin could not create the sign-in session (server error %1$s)</string>
+    <string name="err_seerr_quick_connect_versjon">This version of Seerr does not support Quick Connect. Choose a Jellyfin account.</string>
+    <string name="err_fann_ikkje_seerr">Could not find Seerr. Check the server address.</string>
+    <string name="err_seerr_quick_connect_start">Could not start Quick Connect through Seerr. Try a Jellyfin account.</string>
+    <string name="err_seerr_innlogging_aktivert">Seerr could not sign you in. Check that Jellyfin sign-in is enabled on the server.</string>
+    <string name="err_seerr_logg_inn_nytt">Sign in to Seerr again under Settings.</string>
+    <string name="err_avviste_api_nokkel">%1$s refused the API key</string>
+    <string name="err_seerr_ingen_tilgang">Seerr did not grant the account access to this action.</string>
+    <string name="err_vidaresending_adresse">%1$s redirects you to %2$s. Use that address under Settings.</string>
+    <string name="err_vidaresending_ukjend">%1$s redirects you to a different address. Check which address the server actually answers on, and use that under Settings.</string>
+    <string name="err_oppteken_sekund">%1$s is busy right now. Try again in %2$s seconds.</string>
+    <string name="err_oppteken_minutt">%1$s is busy right now. Try again in %2$s minutes.</string>
+    <string name="conn_ok">Connected</string>
+    <string name="conn_ok_version">Connected · v%1$s</string>
+    <string name="conn_session_expired">The Seerr session has expired. Sign in again.</string>
+    <string name="conn_key_refused">The API key was refused</string>
+    <string name="conn_path_missing">Found the service, but the API path was not available</string>
+    <string name="conn_status">The server answered with status %1$s</string>
+    <string name="err_jellyfin_ugyldig_innloggingssvar">Jellyfin sent an invalid sign-in response</string>
+    <string name="err_jellyfin_ugyldig_quick_connect">Jellyfin sent an invalid Quick Connect response</string>
+
+    <!--
+        Sentences the data layer used to keep to itself.
+
+        Each one was written as advice a person could act on, then thrown as a check(), which the
+        UI is right to treat as a defect and replace with a generic message. So the advice never
+        reached anyone. They are service failures now, and they travel in the reader's language.
+    -->
+    <string name="err_kunne_ikkje_hente_hald_fram">Could not load Keep watching. Try again.</string>
+    <string name="err_kunne_ikkje_hente_neste_episode">Could not load the next episode. Try again.</string>
+    <string name="err_kunne_ikkje_soke_i_biblioteket">Could not search the library. Try again.</string>
+    <string name="err_kunne_ikkje_hente_nye_utgjevingar">Could not load new releases from the libraries. Try again.</string>
+    <string name="err_seerr_logg_inn_personleg_send">Sign in to Seerr with your own account. An administrator key cannot send requests as you.</string>
+    <string name="err_seerr_logg_inn_personleg_trekk">Sign in to Seerr with your own account to withdraw a request.</string>
+    <string name="err_seerr_konto_endra_send">The Seerr account changed. Check the sign-in before sending.</string>
+    <string name="err_seerr_konto_endra_hald_fram">The Seerr account changed. Check the sign-in before continuing.</string>
+    <string name="err_seerr_konto_endra_sesongar">The Seerr account changed. Open the seasons again.</string>
+    <string name="err_seerr_medietype_ikkje_lov">This Seerr account is not allowed to add that kind of title.</string>
+    <string name="err_vel_minst_ein_sesong">Pick at least one season.</string>
+    <string name="err_sesongane_er_endra">The seasons changed or are already requested. Open the request again.</string>
+    <string name="err_ingen_nye_sesongar">No new seasons were added. Check the seasons again.</string>
+    <string name="err_forespurnad_manglar_id">The request has no valid id. Refresh the list and try again.</string>
+    <string name="err_forespurnaden_tilhoyrer_annan">This request belongs to another account.</string>
+    <string name="err_fann_ikkje_forespurnaden">Could not find that request. Refresh the list and try again.</string>
+    <string name="err_forespurnaden_manglar_seerr_id">This request has no Seerr id. Refresh the list and try again.</string>
+    <string name="err_logg_inn_personleg_folg">Sign in with your own account to follow requests.</string>
+    <string name="err_emby_connect_avviste">Emby Connect refused the sign-in. Check the address and the password.</string>
+    <string name="err_emby_connect_ufullstendig">Emby Connect did not return a complete account. Try again.</string>
+    <string name="err_emby_connect_serverliste">Emby Connect could not list your servers. Try again.</string>
+    <string name="err_emby_server_connect">The Emby server could not finish the Emby Connect sign-in.</string>
+    <string name="err_emby_server_ufullstendig">The Emby server did not return a local account. Try again.</string>
+    <string name="err_seerr_ingen_quick_connect">Seerr gave no Quick Connect code. Sign in with the Jellyfin account instead.</string>
+    <string name="err_seerr_inga_okt">Seerr did not start a session. Check the server address and try again.</string>
+    <string name="err_seerr_ingen_brukarkonto">Seerr did not return an account. Sign in again.</string>
+    <string name="err_seerr_ugyldig_okt">The session from Seerr is not valid. Sign in again.</string>
+    <string name="err_jellyfin_stadfesta_ikkje">Jellyfin did not confirm the account. Sign in again.</string>
+    <string name="err_seerr_ikkje_kopla_jellyfin">Seerr is not connected to this Jellyfin server.</string>
+    <string name="err_seerr_vart_ikkje_klar">Seerr was not ready in time. Try again.</string>
+    <string name="err_seerr_annan_jellyfin_konto">Seerr uses a different Jellyfin account. Choose separate sign-ins.</string>
+    <string name="err_oppsettslenkje_berre_adresser">A setup link may only carry server addresses, never sign-in details.</string>
+    <string name="err_oppsettslenkje_for_lang">The setup link is too long.</string>
+    <string name="err_oppsettslenkje_ikkje_spole">This is not a Spole setup link.</string>
+    <string name="err_oppsettslenkje_ufullstendig">The setup link is incomplete.</string>
+    <string name="err_oppsettslenkje_ukjende_felt">The setup link has unknown or repeated fields.</string>
+    <string name="err_tilkoplinga_ikkje_tilgjengeleg">The connection to %1$s is not available.</string>
+    <string name="err_avspelingsokta_ikkje_tilgjengeleg">That playback session is no longer available.</string>
+    <string name="err_svaret_var_for_stort">The answer from the server was too large to read.</string>
+    <string name="err_logg_inn_for_a_sja_kontoen">Sign in to %1$s to see your account.</string>
+    <string name="err_seerr_ikkje_same_jellyfin">Could not connect Seerr to this Jellyfin server. Check that Seerr uses the same server.</string>
+    <string name="err_sesongstatusen_er_endra">The season status changed. Check it again before turning on alerts.</string>
+</resources>

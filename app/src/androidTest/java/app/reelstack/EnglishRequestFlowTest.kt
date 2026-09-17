@@ -1,5 +1,6 @@
 package app.reelstack
 
+import app.reelstack.localization.LocalizedText
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +30,7 @@ class EnglishRequestFlowTest {
     @Test fun seasonSelectionAndReadyNotificationRemainExplicitInEnglish() {
         var draft by mutableStateOf(RequestDraft(
             DiscoverMedia("fixture", "Test series", "Serie", R.drawable.media_placeholder, true, mediaType = "tv"),
-            listOf(RequestSeason(1, "Sesong 1", 1, 5), RequestSeason(2, "Sesong 2", 8, 1)), loading = false))
+            listOf(RequestSeason(1, LocalizedText.raw("Sesong 1"), 1, 5), RequestSeason(2, LocalizedText.raw("Sesong 2"), 8, 1)), loading = false))
         var sent = 0
         rule.setContent { English {
             RequestComposer(ReelstackUiState(requestDraft = draft), { number, checked ->
@@ -66,8 +67,8 @@ class EnglishRequestFlowTest {
     @Test fun datesMissingDatesAndPartialStatusUseUiLanguage() {
         val today = LocalDate.of(2026, 9, 9)
         rule.setContent { English { Column {
-            androidx.compose.material3.Text(seasonDescription(RequestSeason(2, "Sesong 2", 8, 4), today))
-            androidx.compose.material3.Text(seasonDescription(RequestSeason(3, "Sesong 3", 8, 1), today))
+            androidx.compose.material3.Text(seasonDescription(RequestSeason(2, LocalizedText.raw("Sesong 2"), 8, 4), today))
+            androidx.compose.material3.Text(seasonDescription(RequestSeason(3, LocalizedText.raw("Sesong 3"), 8, 1), today))
             androidx.compose.material3.Text(nextEpisodeDescription(SeriesNextEpisode(3, 2, today.plusDays(2)), today)!!)
         } } }
         rule.onNodeWithText("Partially in your library").assertExists()

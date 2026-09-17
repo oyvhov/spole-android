@@ -1,51 +1,70 @@
 package app.reelstack.data.model
 
+import androidx.annotation.StringRes
+import app.reelstack.R
+import app.reelstack.localization.LocalizedText
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 data class RequestSeason(
-    val number: Int, val name: String, val episodes: Int, val status: Int,
+    val number: Int, val name: LocalizedText, val episodes: Int, val status: Int,
     val airDate: LocalDate? = null,
 ) {
     val canRequest: Boolean get() = status == 1 || status == 7
     val canWatch: Boolean get() = status in 2..4
-    val label: String get() = when (status) {
-        5 -> "I biblioteket"
-        4 -> "Delvis i biblioteket"
-        2 -> "Ventar på godkjenning"
-        3 -> "Førespurd"
-        6 -> "Blokkert"
-        1, 7 -> "Manglar i biblioteket"
-        else -> "Status ukjend"
+    @get:StringRes val label: Int get() = when (status) {
+        5 -> R.string.season_in_library
+        4 -> R.string.season_partly_in_library
+        2 -> R.string.season_awaiting_approval
+        3 -> R.string.season_requested
+        6 -> R.string.season_blocked
+        1, 7 -> R.string.season_missing
+        else -> R.string.season_unknown
     }
 
-    fun description(today: LocalDate = LocalDate.now()): String = when {
-        !canRequest -> label
-        airDate == null -> "Premiere ikkje avklart"
-        airDate > today -> "Kjem ${airDate.format(SEASON_DATE)}"
-        else -> label
+    /**
+     * What to say about this season, as a resource plus its arguments.
+     *
+     * The date used to be formatted here against a hardcoded `nn-NO` locale, so an English
+     * installation got Norwegian month names inside an English sentence.
+     */
+    fun description(today: LocalDate = LocalDate.now(), locale: Locale = Locale.getDefault()): LocalizedText = when {
+        !canRequest -> LocalizedText(label)
+        airDate == null -> LocalizedText(R.string.season_premiere_unknown)
+        airDate > today -> LocalizedText(R.string.season_airs_on, airDate.format(seasonDate(locale)))
+        else -> LocalizedText(label)
     }
 }
 
-private val SEASON_DATE = DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.forLanguageTag("nn-NO"))
+/** The reader's own month names, not the ones whoever wrote this code happened to speak. */
+internal fun seasonDate(locale: Locale): DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d. MMM yyyy", locale)
 
 data class SeriesNextEpisode(val season: Int, val episode: Int, val airDate: LocalDate) {
-    fun description(today: LocalDate = LocalDate.now()): String? = if (airDate < today) null else
-        "Neste episode · S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')} · ${airDate.format(SEASON_DATE)}"
+    fun description(today: LocalDate = LocalDate.now(), locale: Locale = Locale.getDefault()): LocalizedText? =
+        if (airDate < today) null else LocalizedText(
+            R.string.season_next_episode,
+            "S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}",
+            airDate.format(seasonDate(locale)),
+        )
 }
 
 data class RequestDownload(val season: Int?, val status: String, val size: Double, val remaining: Double)
 
-enum class RequestStage(val label: String, val explanation: String) {
-    REQUESTED("Førespurd", "Ventar på godkjenning eller at ei utgåve blir funnen."),
-    DOWNLOADING("Lastar ned", "Ei nedlasting er funnen. Innhaldet er ikkje i biblioteket enno."),
-    IMPORTING("Blir lagt i biblioteket", "Nedlastinga er ferdig. Ventar på at Seerr registrerer innhaldet."),
-    AVAILABLE("I biblioteket", "Ferdig · klart til å sjå i mediebiblioteket ditt."),
-    DECLINED("Avvist", "Førespurnaden vart avvist i Seerr."),
-    FAILED("Treng tilsyn", "Seerr eller nedlastingsklienten melder om ein feil."),
-    UNKNOWN("Status ukjend", "Fekk ikkje oppdatert status. Prøver igjen seinare."),
-    WATCHING("Følgjer med", "Berre varsel. Ingen ny førespurnad er sendt."),
+enum class RequestStage(@StringRes val label: Int, @StringRes val explanation: Int) {
+    REQUESTED(R.string.stage_requested, R.string.stage_requested_why),
+    DOWNLOADING(R.string.stage_downloading, R.string.stage_downloading_why),
+    IMPORTING(R.string.stage_importing, R.string.stage_importing_why),
+    AVAILABLE(R.string.stage_available, R.string.stage_available_why),
+    DECLINED(R.string.stage_declined, R.string.stage_declined_why),
+    FAILED(R.string.stage_failed, R.string.stage_failed_why),
+    UNKNOWN(R.string.stage_unknown, R.string.stage_unknown_why),
+    WATCHING(R.string.stage_watching, R.string.stage_watching_why),
+    ;
+
+    /** True for the stages that are a request in flight, as opposed to one that only follows. */
+    val isRequest: Boolean get() = this != WATCHING
 }
 
 data class RequestProgress(val stage: RequestStage, val percent: Int? = null)

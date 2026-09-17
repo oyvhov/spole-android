@@ -40,8 +40,8 @@ class UiConsistencyTest {
         rule.setContent {
             ReelstackTheme {
                 ActivityScreen(ReelstackUiState(activity = listOf(
-                    ActivityEvent("one", "Film A", "Ventar på godkjenning", "No", source = ServiceKind.SEERR),
-                    ActivityEvent("two", "Film B", "Lastar ned", "No", source = ServiceKind.RADARR),
+                    ActivityEvent("one", "Film A", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_requested), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_now), source = ServiceKind.SEERR),
+                    ActivityEvent("two", "Film B", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_downloading), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_now), source = ServiceKind.RADARR),
                 )), PaddingValues(0.dp), { opened = it })
             }
         }

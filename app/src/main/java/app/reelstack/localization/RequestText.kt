@@ -2,6 +2,7 @@ package app.reelstack.localization
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import app.reelstack.R
 import app.reelstack.data.model.RequestSeason
@@ -36,13 +37,15 @@ fun requestStageExplanation(stage: RequestStage): String = stringResource(when (
     RequestStage.WATCHING -> R.string.flow_explain_watching
 })
 
+/**
+ * The season's name, in the reader's language.
+ *
+ * This used to compare the stored name against "Sesong 3" and "Spesialepisodar" to decide whether
+ * it was one of ours — which only worked while the parser wrote it in nynorsk. The name arrives as
+ * a decision now, so there is nothing left to guess.
+ */
 @Composable
-fun seasonDisplayName(season: RequestSeason): String =
-    when (season.name) {
-        "Sesong ${season.number}", "Season ${season.number}" -> stringResource(R.string.flow_season_name, season.number)
-        "Spesialepisodar" -> stringResource(R.string.flow_specials)
-        else -> season.name
-    }
+fun seasonDisplayName(season: RequestSeason): String = season.name.text(LocalContext.current)
 
 @Composable
 private fun requestDate(date: LocalDate): String =

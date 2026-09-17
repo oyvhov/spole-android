@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import app.reelstack.data.model.ServiceKind
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -32,7 +33,7 @@ class SeerrAuthenticationClient(private val transport: JsonHttpTransport = HttpT
         val root = serviceJson(response.body, SEERR).jsonObject
         val code = root["code"]?.jsonPrimitive?.contentOrNull.orEmpty()
         val secret = root["secret"]?.jsonPrimitive?.contentOrNull.orEmpty()
-        check(code.isNotBlank() && secret.isNotBlank()) { "Seerr gav ingen Quick Connect-kode. Prøv Jellyfin-konto." }
+        if (code.isBlank() || secret.isBlank()) serviceError(R.string.err_seerr_ingen_quick_connect)
         return QuickConnectChallenge(secret, code, false, mergeSeerrCookies(cookies, response.setCookies))
     }
 
@@ -42,7 +43,7 @@ class SeerrAuthenticationClient(private val transport: JsonHttpTransport = HttpT
             transport.get(EndpointValidator.resolve(baseUrl, "api/v1/auth/jellyfin/quickconnect/check?secret=$secret"),
                 seerrCookieHeaders(challenge.cookies))
         }
-        if (response.statusCode == 404) serviceError("Quick Connect-koden er utgått. Lag ein ny kode.")
+        if (response.statusCode == 404) serviceError(R.string.err_quick_connect_koden_utgatt)
         requireSuccess(response, quickConnect = true)
         val root = serviceJson(response.body, SEERR).jsonObject
         return challenge.copy(authenticated = root["authenticated"]?.jsonPrimitive?.contentOrNull == "true",
@@ -68,24 +69,24 @@ class SeerrAuthenticationClient(private val transport: JsonHttpTransport = HttpT
     private fun authenticated(response: HttpResponse, existingCookies: String): ServiceAuthentication {
         requireSuccess(response)
         val cookies = mergeSeerrCookies(existingCookies, response.setCookies)
-        check(cookies.split("; ").any { it.startsWith("connect.sid=") && it.substringAfter('=').isNotBlank() }) {
-            "Seerr gav inga innloggingsøkt. Sjekk tenaradressa og prøv igjen."
+        if (cookies.split("; ").none { it.startsWith("connect.sid=") && it.substringAfter('=').isNotBlank() }) {
+            serviceError(R.string.err_seerr_inga_okt)
         }
         val root = serviceJson(response.body, SEERR).jsonObject
         val userId = root["id"]?.jsonPrimitive?.contentOrNull.orEmpty()
-        check(userId.isNotBlank()) { "Seerr gav ingen brukarkonto tilbake." }
+        if (userId.isBlank()) serviceError(R.string.err_seerr_ingen_brukarkonto)
         return ServiceAuthentication(cookies, userId)
     }
 
     private fun requireSuccess(response: HttpResponse, quickConnect: Boolean = false) {
         when (response.statusCode) {
             in 200..299 -> Unit
-            401 -> serviceError("Feil Jellyfin-brukarnamn eller passord.")
-            403 -> serviceError("Seerr avviste innlogginga. Sjekk at kontoen har tilgang og at Jellyfin-innlogging er slått på.")
-            404 -> serviceError(if (quickConnect) "Denne Seerr-versjonen støttar ikkje Quick Connect. Vel Jellyfin-konto." else "Fann ikkje Seerr. Sjekk tenaradressa.")
+            401 -> serviceError(R.string.err_feil_jellyfin_brukarnamn_eller)
+            403 -> serviceError(R.string.err_seerr_avviste_innlogginga_sjekk)
+            404 -> serviceError(if (quickConnect) R.string.err_seerr_quick_connect_versjon else R.string.err_fann_ikkje_seerr)
             429 -> serviceError(busyMessage(ServiceKind.SEERR, response.retryAfterSeconds))
             in 300..399 -> serviceError(redirectMessage(ServiceKind.SEERR, response.location))
-            else -> serviceError(if (quickConnect) "Fekk ikkje starta Quick Connect via Seerr. Prøv Jellyfin-konto." else "Seerr kunne ikkje logge deg inn. Sjekk at Jellyfin-innlogging er aktivert på tenaren.")
+            else -> serviceError(if (quickConnect) R.string.err_seerr_quick_connect_start else R.string.err_seerr_innlogging_aktivert)
         }
     }
 
@@ -114,7 +115,7 @@ internal fun seerrCookieHeaders(cookies: String): Map<String, String> = buildMap
         ?.substringAfter('=')
     if (!csrf.isNullOrBlank()) {
         val decoded = URLDecoder.decode(csrf, "UTF-8")
-        require(decoded.none { it == '\r' || it == '\n' }) { "Ugyldig økt frå Seerr" }
+        if (decoded.any { it == '\r' || it == '\n' }) serviceError(R.string.err_seerr_ugyldig_okt)
         put("X-XSRF-TOKEN", decoded)
     }
 }

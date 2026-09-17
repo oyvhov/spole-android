@@ -27,6 +27,16 @@ object ReelLayout {
     val PageTop = 32.dp
 
     /**
+     * What a television keeps between the last row and the edge of the panel.
+     *
+     * Sets and projectors still overscan, and even the ones that do not put the bottom row right
+     * against the bezel where a row reads as cut off rather than as continuing. Google asks for
+     * about 5% of the height; at 1080p that is this. Phones and tablets do not need it and do not
+     * get it.
+     */
+    val TvSafeEdge = 48.dp
+
+    /**
      * One rhythm for every section heading on a page. Home used to mix 24/25/28 above and
      * 4/12/13 below for headings at the same level; the differences were nobody's decision.
      */

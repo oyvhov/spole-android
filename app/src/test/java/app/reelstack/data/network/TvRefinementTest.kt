@@ -35,7 +35,7 @@ class TvRefinementTest {
         assertEquals(.25f, detail.progress!!, .001f)
         assertEquals(8, detail.remainingMinutes)
         assertEquals(listOf("4K", "HDR10", "HEVC", "EAC3 5.1"), detail.quality)
-        assertTrue(detail.facts.any { it.startsWith("★") })
+        assertTrue(detail.facts.any { it.literal?.startsWith("★") == true })
     }
     @Test fun embyLibraryPeekRequestsAndCarriesHeroRatings() {
         val urls = mutableListOf<String>()

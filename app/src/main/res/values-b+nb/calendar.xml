@@ -25,4 +25,5 @@
         <item quantity="one">%1$d utgivelse denne dagen</item>
         <item quantity="other">%1$d utgivelser denne dagen</item>
     </plurals>
+    <string name="calendar_kind_episode">Episode</string>
 </resources>

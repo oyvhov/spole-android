@@ -99,7 +99,11 @@ class NowPlayingWidget : AppWidgetProvider() {
         val detail = listOfNotNull(
             first.subtitle.takeIf(String::isNotBlank),
             first.userName.takeIf(String::isNotBlank),
-            first.timeLeft.takeIf(String::isNotBlank),
+            if (first.remainingMinutes > 0) {
+                context.resources.getQuantityString(R.plurals.session_time_left, first.remainingMinutes, first.remainingMinutes)
+            } else {
+                context.getString(R.string.session_finishing_soon)
+            },
         ).joinToString(" · ")
         return views(context, first.title, detail, heading)
     }

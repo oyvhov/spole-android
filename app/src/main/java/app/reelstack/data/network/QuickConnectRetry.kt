@@ -18,7 +18,7 @@ internal suspend fun <T> retryQuickConnectRead(
             pause(1_000L * (attempt + 1))
         }
     }
-    error("Uventa Quick Connect-tilstand")
+    error("unreachable: Quick Connect state is neither approved nor pending")
 }
 
 /**

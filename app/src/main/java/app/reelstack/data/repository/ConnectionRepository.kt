@@ -1,6 +1,7 @@
 package app.reelstack.data.repository
 
 import android.content.Context
+import app.reelstack.R
 import kotlinx.coroutines.flow.asStateFlow
 import androidx.core.content.edit
 import app.reelstack.data.model.ConnectionState
@@ -9,6 +10,9 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.security.EncryptedTokenStore
 
 class ConnectionRepository(context: Context) {
+    // The application context: a row label has to be read in the language the app is set to, and
+    // this repository outlives whatever happened to construct it.
+    private val appContext = context.applicationContext
     private val preferences = context.getSharedPreferences("reelstack_connections", Context.MODE_PRIVATE)
     private val tokenStore = EncryptedTokenStore(context)
     private val tokenCache = mutableMapOf<ServiceKind, String>()
@@ -53,9 +57,9 @@ class ConnectionRepository(context: Context) {
                 else -> ConnectionState.CONNECTED
             },
             detail = when {
-                savedUrl.isNullOrBlank() -> "Demodata"
-                unreadable -> "Innlogginga kan ikkje lesast på denne eininga · Logg inn på nytt"
-                else -> "Konfigurert"
+                savedUrl.isNullOrBlank() -> appContext.getString(R.string.connection_detail_demo)
+                unreadable -> appContext.getString(R.string.connection_detail_unreadable)
+                else -> appContext.getString(R.string.connection_detail_configured)
             },
         )
     }
@@ -122,8 +126,8 @@ class ConnectionRepository(context: Context) {
     }
 
     private fun defaultName(kind: ServiceKind): String = when (kind) {
-        ServiceKind.JELLYFIN -> "Heimetenar"
-        ServiceKind.EMBY -> "Hyttetenar"
+        ServiceKind.JELLYFIN -> appContext.getString(R.string.server_default_name_jellyfin)
+        ServiceKind.EMBY -> appContext.getString(R.string.server_default_name_emby)
         else -> kind.displayName
     }
 }

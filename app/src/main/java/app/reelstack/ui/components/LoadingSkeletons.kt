@@ -1,6 +1,8 @@
 package app.reelstack.ui.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.res.stringResource
+import app.reelstack.R
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -78,11 +80,12 @@ private fun ShimmerBlock(
 
 @Composable
 fun NowPlayingSkeleton(modifier: Modifier = Modifier) {
+    val playing = stringResource(R.string.skeleton_loading_playing)
     ShimmerBlock(
         modifier = modifier
             .fillMaxWidth()
             .height(292.dp)
-            .clearAndSetSemantics { contentDescription = "Lastar aktive avspelingar" },
+            .clearAndSetSemantics { contentDescription = playing },
         shape = RoundedCornerShape(ReelLayout.ArtworkCorner),
     )
 }
@@ -122,10 +125,11 @@ fun LibraryRailSkeleton(description: String, modifier: Modifier = Modifier, wide
 
 @Composable
 fun RecommendationSkeleton(modifier: Modifier = Modifier) {
+    val recommendations = stringResource(R.string.skeleton_loading_recommendations)
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         userScrollEnabled = false,
-        modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar anbefalingar" },
+        modifier = modifier.clearAndSetSemantics { contentDescription = recommendations },
     ) {
         items(3) {
             ShimmerBlock(Modifier.width(164.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).height(258.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale), RoundedCornerShape(ReelLayout.ArtworkCorner))
@@ -135,10 +139,11 @@ fun RecommendationSkeleton(modifier: Modifier = Modifier) {
 
 @Composable
 fun UpcomingSkeleton(modifier: Modifier = Modifier) {
+    val upcoming = stringResource(R.string.skeleton_loading_upcoming)
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         userScrollEnabled = false,
-        modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar komande utgjevingar" },
+        modifier = modifier.clearAndSetSemantics { contentDescription = upcoming },
     ) {
         items(3) { index ->
             ShimmerBlock(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).height(226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale), RoundedCornerShape(ReelLayout.ArtworkCorner))
@@ -148,8 +153,9 @@ fun UpcomingSkeleton(modifier: Modifier = Modifier) {
 
 @Composable
 fun IncomingSkeleton(modifier: Modifier = Modifier) {
+    val downloads = stringResource(R.string.skeleton_loading_downloads)
     Column(
-        modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar nedlastingar" },
+        modifier = modifier.clearAndSetSemantics { contentDescription = downloads },
     ) {
         repeat(2) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
@@ -166,17 +172,19 @@ fun IncomingSkeleton(modifier: Modifier = Modifier) {
 
 @Composable
 fun DiscoverSkeleton(modifier: Modifier = Modifier) {
+    val results = stringResource(R.string.skeleton_loading_search)
     ShimmerBlock(
         modifier = modifier.height(300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
-            .clearAndSetSemantics { contentDescription = "Lastar søkjeresultat" },
+            .clearAndSetSemantics { contentDescription = results },
         shape = RoundedCornerShape(ReelLayout.ArtworkCorner),
     )
 }
 
 @Composable
 fun ActivitySkeleton(modifier: Modifier = Modifier) {
+    val activity = stringResource(R.string.skeleton_loading_activity)
     Column(
-        modifier = modifier.clearAndSetSemantics { contentDescription = "Lastar aktivitet" },
+        modifier = modifier.clearAndSetSemantics { contentDescription = activity },
     ) {
         repeat(3) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -193,8 +201,9 @@ fun ActivitySkeleton(modifier: Modifier = Modifier) {
 
 @Composable
 fun DetailTextSkeleton(modifier: Modifier = Modifier) {
+    val details = stringResource(R.string.skeleton_loading_details)
     Column(
-        modifier = modifier.clearAndSetSemantics { contentDescription = "Hentar fleire detaljar" },
+        modifier = modifier.clearAndSetSemantics { contentDescription = details },
     ) {
         ShimmerBlock(Modifier.fillMaxWidth().height(13.dp), RoundedCornerShape(7.dp))
         ShimmerBlock(Modifier.padding(top = 9.dp).fillMaxWidth().height(13.dp), RoundedCornerShape(7.dp))

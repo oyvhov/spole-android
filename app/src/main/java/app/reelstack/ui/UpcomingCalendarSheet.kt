@@ -36,6 +36,7 @@ import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.AppFilterRow
 import app.reelstack.ui.components.SheetToolbar
 import app.reelstack.ui.theme.*
+import app.reelstack.ui.theme.Text as TextColor
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -206,12 +207,35 @@ private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
                 Text(media.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(media.subtitle.replace(" · TBA", ""), color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+                // What kind of thing this is, then where it came from — in that order, because the
+                // first is what the reader is scanning for and the second is only provenance.
+                //
+                // Both used to be drawn in the accent colour. The project's own rule is that the
+                // accent is the action colour and never goes on a passive source name, and a
+                // calendar where every line is accent-coloured has no emphasis left to spend.
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-                    Icon(if (isMovie) app.reelstack.ui.components.SpoleIcons.Movie else app.reelstack.ui.components.SpoleIcons.Screen, contentDescription = null, tint = PrimarySoft, modifier = Modifier.size(12.dp))
+                    Icon(
+                        if (isMovie) app.reelstack.ui.components.SpoleIcons.Movie else app.reelstack.ui.components.SpoleIcons.Screen,
+                        contentDescription = null, tint = Muted, modifier = Modifier.size(12.dp),
+                    )
                     Text(
-                        if (!isMovie) if (media.source == ServiceKind.SONARR) stringResource(R.string.calendar_source_time, media.source.displayName, time) else media.source.displayName
-                        else if ("Fysisk utgjeving" in media.facts) stringResource(R.string.calendar_physical) else stringResource(R.string.calendar_home_release),
-                        color = PrimarySoft, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 5.dp),
+                        if (isMovie) {
+                            if (media.physicalRelease) stringResource(R.string.calendar_physical)
+                            else stringResource(R.string.calendar_home_release)
+                        } else {
+                            stringResource(R.string.calendar_kind_episode)
+                        },
+                        color = TextColor, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 5.dp),
+                    )
+                    Text(
+                        if (!isMovie && media.source == ServiceKind.SONARR) {
+                            stringResource(R.string.calendar_source_time, media.source.displayName, time)
+                        } else {
+                            media.source.displayName
+                        },
+                        color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
             }

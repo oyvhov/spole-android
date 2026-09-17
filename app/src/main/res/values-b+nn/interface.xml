@@ -16,8 +16,8 @@
     <string name="action_delete">Slett</string>
     <string name="language_title">Språk</string>
     <string name="language_system">Følg eininga</string>
-    <string name="language_preview">English · Førehandsvising</string>
-    <string name="language_note">Engelsk er under arbeid. Nokre skjermar og tenestemeldingar er framleis på norsk. Dette endrar ikkje språket på medieinnhaldet ditt.</string>
+    <string name="language_preview">English</string>
+    <string name="language_note">Alle skjermar og alle meldingar appen skriv, finst på engelsk. Titlar, omtalar og alt anna tenarane dine sender, held språket dei er lagra i.</string>
     <string name="settings_subtitle">Gjer Spole til ditt.</string>
     <string name="settings_services">Tenestene dine</string>
     <string name="settings_services_note">Tenaradresse og innlogging for kvar teneste.</string>

@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.annotation.StringRes
+import app.reelstack.R
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -21,10 +23,10 @@ import app.reelstack.data.model.TrackedRequest
  * failed" can be tuned — or silenced — separately in system settings. A single channel forced one
  * choice on both, and turning off a failure you did not care about also lost the ready alert.
  */
-enum class NotificationEvent(val channelId: String, val channelName: String, val importance: Int) {
-    READY("library-ready", "Klart i biblioteket", NotificationManager.IMPORTANCE_DEFAULT),
-    DOWNLOADING("request-downloading", "Lastar ned", NotificationManager.IMPORTANCE_LOW),
-    FAILED("request-failed", "Førespurnader som stoppa", NotificationManager.IMPORTANCE_DEFAULT),
+enum class NotificationEvent(val channelId: String, @StringRes val channelName: Int, val importance: Int) {
+    READY("library-ready", R.string.notification_channel_ready, NotificationManager.IMPORTANCE_DEFAULT),
+    DOWNLOADING("request-downloading", R.string.notification_channel_downloading, NotificationManager.IMPORTANCE_LOW),
+    FAILED("request-failed", R.string.notification_channel_failed, NotificationManager.IMPORTANCE_DEFAULT),
 }
 
 object LibraryNotifications {
@@ -37,7 +39,7 @@ object LibraryNotifications {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         NotificationEvent.entries.forEach { event ->
             manager.createNotificationChannel(
-                NotificationChannel(event.channelId, event.channelName, event.importance),
+                NotificationChannel(event.channelId, context.getString(event.channelName), event.importance),
             )
         }
     }
@@ -54,12 +56,13 @@ object LibraryNotifications {
         val seasons = item.seasons.sorted().joinToString(", ")
         val subtitle = when (event) {
             NotificationEvent.READY ->
-                if (item.seasons.isEmpty()) "Filmen er klar til å sjå."
-                else "Sesong $seasons er i biblioteket, ifølgje Seerr."
+                if (item.seasons.isEmpty()) context.getString(R.string.notification_movie_ready)
+                else context.getString(R.string.notification_season_ready, seasons)
             NotificationEvent.DOWNLOADING ->
-                item.percent?.let { "Lastar ned · $it %" } ?: "Nedlastinga har starta."
+                item.percent?.let { context.getString(R.string.notification_downloading_percent, it) }
+                    ?: context.getString(R.string.notification_downloading_started)
             NotificationEvent.FAILED ->
-                "Førespurnaden stoppa. Opne Spole for å sjå kva som skjedde."
+                context.getString(R.string.notification_request_failed)
         }
         // Artwork is optional. Never attach server credentials or follow an image redirect.
         val picture = artworkLoader(item.artworkUrl)
@@ -68,11 +71,14 @@ object LibraryNotifications {
             val builder = NotificationCompat.Builder(context, channel)
                 .setSmallIcon(app.reelstack.R.drawable.ic_notification_library)
                 .setContentTitle(
-                    when (event) {
-                        NotificationEvent.READY -> "${item.title} · i biblioteket"
-                        NotificationEvent.DOWNLOADING -> "${item.title} · lastar ned"
-                        NotificationEvent.FAILED -> "${item.title} · stoppa"
-                    },
+                    context.getString(
+                        when (event) {
+                            NotificationEvent.READY -> R.string.notification_title_ready
+                            NotificationEvent.DOWNLOADING -> R.string.notification_title_downloading
+                            NotificationEvent.FAILED -> R.string.notification_title_failed
+                        },
+                        item.title,
+                    ),
                 )
                 .setContentText(subtitle)
                 .setContentIntent(pending).setAutoCancel(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)

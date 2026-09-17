@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 /**
  * A small public catalogue kept in GitHub instead of a new application backend. The app caches
  * the parsed result in the normal dashboard snapshot, so a temporary GitHub outage does not make
@@ -25,10 +26,10 @@ class RecommendationsClient(
             if (response.statusCode in 200..299) return ServicePayloadParser.recommendations(response.body)
             // Only a missing file is worth stepping past. A 500 or a rejected request says the
             // host is unhappy, and asking it the same question again will not change that.
-            if (response.statusCode != 404) serviceError("GitHub-lista svara med status ${response.statusCode}")
+            if (response.statusCode != 404) serviceError(R.string.err_github_lista_svara_med, response.statusCode)
             lastStatus = response.statusCode
         }
-        serviceError("Fann ikkje tilrådingslista (status ${lastStatus ?: 404})")
+        serviceError(R.string.err_fann_ikkje_tilradingslista_status, lastStatus ?: 404)
     }
 
     private companion object {

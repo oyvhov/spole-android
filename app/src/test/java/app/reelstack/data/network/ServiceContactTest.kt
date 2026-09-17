@@ -22,51 +22,55 @@ class ServiceContactTest {
         override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse = throw error
     }
 
-    private fun message(block: () -> Unit): String = runCatching { block() }.exceptionOrNull()?.message.orEmpty()
+    /** Which sentence the failure names, and what it puts into it. */
+    private fun failure(block: () -> Any?) = runCatching { block() }.exceptionOrNull()?.localizedFailure()
+
+    private fun message(block: () -> Any?) = failure(block)?.resId
+
+    private fun args(block: () -> Any?) = failure(block)?.args.orEmpty().joinToString(" ")
 
     @Test fun jellyfinLoginReportsContactFailureInsteadOfTheRawHostname() {
         val transport = Failing(UnknownHostException("jellyfin.tunet"))
         val client = JellyfinAuthenticationClient(transport)
-        listOf<() -> Unit>(
+        listOf<() -> Any?>(
             { client.authenticate("https://jellyfin.example", "me", "secret") },
             { client.initiateQuickConnect("https://jellyfin.example") },
             { client.quickConnectState("https://jellyfin.example", "secret") },
             { client.authenticateWithQuickConnect("https://jellyfin.example", "secret") },
         ).forEach { call ->
-            val text = message(call)
-            assertEquals("Fekk ikkje kontakt med Jellyfin. Sjekk tenaradressa og nettet.", text)
-            assertFalse(text.contains("jellyfin.tunet"))
+            assertEquals(app.reelstack.R.string.err_kontakt_sjekk_adresse, message(call))
+            assertEquals("Jellyfin", args(call))
+            assertFalse(args(call).contains("jellyfin.tunet"))
         }
     }
 
     @Test fun seerrLoginReportsContactFailureInsteadOfTheRawAddressAndPort() {
         val transport = Failing(ConnectException("Failed to connect to /10.0.0.5:5055"))
-        val text = message { SeerrAuthenticationClient(transport).authenticate("https://seerr.example", "me", "secret") }
-        assertEquals("Fekk ikkje kontakt med Seerr. Sjekk tenaradressa og nettet.", text)
-        assertFalse(text.contains("10.0.0.5"))
+        val call = { SeerrAuthenticationClient(transport).authenticate("https://seerr.example", "me", "secret") }
+        assertEquals(app.reelstack.R.string.err_kontakt_sjekk_adresse, message(call))
+        assertEquals("Seerr", args(call))
+        assertFalse(args(call).contains("10.0.0.5"))
     }
 
     /** A self-hosted certificate is a different problem from an unreachable server. */
     @Test fun anUntrustedCertificateGetsItsOwnNextStep() {
         val transport = Failing(SSLHandshakeException("Trust anchor for certification path not found."))
-        val text = message { JellyfinAuthenticationClient(transport).authenticate("https://jellyfin.example", "me", "s") }
-        assertEquals(
-            "Klarte ikkje å opprette ei trygg HTTPS-tilkopling til Jellyfin. " +
-                "Sjekk at sertifikatet på tenaren er gyldig og tiltrudd.",
-            text,
-        )
-        assertFalse(text.contains("Trust anchor"))
+        val call = { JellyfinAuthenticationClient(transport).authenticate("https://jellyfin.example", "me", "s") }
+        assertEquals(app.reelstack.R.string.err_klarte_ikkje_opprette_trygg, message(call))
+        assertEquals("Jellyfin", args(call))
+        assertFalse(args(call).contains("Trust anchor"))
     }
 
     @Test fun theConnectionTestNamesTheServiceItCouldNotReach() {
         val transport = Failing(UnknownHostException("radarr.tunet"))
-        val text = message {
+        val call = {
             ServiceConnectionTester(transport).test(
                 ServiceConnection(ServiceKind.RADARR, "Radarr", "https://radarr.example", "key"),
             )
         }
-        assertEquals("Fekk ikkje kontakt med Radarr. Sjekk tenaradressa og nettet.", text)
-        assertFalse(text.contains("radarr.tunet"))
+        assertEquals(app.reelstack.R.string.err_kontakt_sjekk_adresse, message(call))
+        assertEquals("Radarr", args(call))
+        assertFalse(args(call).contains("radarr.tunet"))
     }
 
     /** A reverse proxy that answers 200 with an HTML error page must not leak parser text. */
@@ -76,10 +80,10 @@ class ServiceContactTest {
             override fun post(url: String, headers: Map<String, String>, jsonBody: String) =
                 HttpResponse(200, "<html>502 Bad Gateway</html>")
         }
-        val text = message { SeerrAuthenticationClient(transport).initiateQuickConnect("https://seerr.example") }
-        assertEquals("Seerr sende eit uventa svar. Sjekk at adressa peikar på Seerr.", text)
-        assertFalse(text.contains("JSON"))
-        assertFalse(text.contains("html"))
+        val call = { SeerrAuthenticationClient(transport).initiateQuickConnect("https://seerr.example") }
+        assertEquals(app.reelstack.R.string.err_sende_eit_uventa_svar, message(call))
+        assertFalse(args(call).contains("JSON"))
+        assertFalse(args(call).contains("html"))
     }
 
     @Test fun aReachableServerStillReportsItsOwnStatusCode() {
@@ -88,13 +92,13 @@ class ServiceContactTest {
             override fun post(url: String, headers: Map<String, String>, jsonBody: String) = HttpResponse(401, "")
         }
         assertEquals(
-            "Feil brukarnamn eller passord",
+            app.reelstack.R.string.err_feil_brukarnamn_eller_passord,
             message { JellyfinAuthenticationClient(transport).authenticate("https://jellyfin.example", "me", "s") },
         )
         val result = ServiceConnectionTester(transport)
             .test(ServiceConnection(ServiceKind.SONARR, "Sonarr", "https://sonarr.example", "key"))
         assertFalse(result.success)
-        assertEquals("API-nøkkelen vart avvist", result.message)
+        assertEquals(app.reelstack.R.string.conn_key_refused, result.message.resId)
     }
 
     @Test fun aWorkingConnectionTestStillSucceeds() {
@@ -105,6 +109,7 @@ class ServiceContactTest {
         val result = ServiceConnectionTester(transport)
             .test(ServiceConnection(ServiceKind.RADARR, "Radarr", "https://radarr.example", "key"))
         assertTrue(result.success)
-        assertEquals("Tilkopla · v4.0.0", result.message)
+        assertEquals(app.reelstack.R.string.conn_ok_version, result.message.resId)
+        assertEquals(listOf<Any>("4.0.0"), result.message.args)
     }
 }

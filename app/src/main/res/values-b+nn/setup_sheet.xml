@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setup_have_link">Eg har ei oppsettslenkje</string>
+    <string name="setup_paste_link">Lim inn oppsettslenkja</string>
+    <string name="setup_use_addresses">Bruk adressene</string>
+    <string name="setup_line_jellyfin">Jellyfin · %1$s</string>
+    <string name="setup_line_seerr">Seerr · %1$s</string>
+    <string name="setup_change">Endre</string>
+    <string name="setup_jellyfin_address">Jellyfin-adresse</string>
+    <string name="setup_jellyfin_hint">https://jellyfin.dittdomene.no</string>
+    <string name="setup_also_seerr">Kople til Seerr òg</string>
+    <string name="setup_also_seerr_why">Valfritt · for å ønskje filmar og seriar</string>
+    <string name="setup_seerr_address">Seerr-adresse</string>
+    <string name="setup_seerr_hint">https://seerr.dittdomene.no</string>
+    <string name="setup_username">Brukarnamn</string>
+    <string name="setup_password">Passord</string>
+</resources>

@@ -1,6 +1,7 @@
 package app.reelstack.data.repository
 
 import app.reelstack.R
+import app.reelstack.localization.LocalizedText
 import app.reelstack.data.model.ActivityEvent
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.IncomingMedia
@@ -28,6 +29,8 @@ import app.reelstack.data.network.RecommendationsClient
 import app.reelstack.data.network.SeerrFeed
 import app.reelstack.data.network.SeerrServiceClient
 import app.reelstack.data.network.SeerrReleaseClient
+import app.reelstack.data.network.localizedFailure
+import app.reelstack.data.network.serviceError
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -52,17 +55,17 @@ data class MediaSyncSnapshot(
     val incoming: List<IncomingMedia>,
     val discover: List<DiscoverMedia>,
     val recommendations: List<DiscoverMedia> = emptyList(),
-    val recommendationsError: String? = null,
+    val recommendationsError: LocalizedText? = null,
     val activity: List<ActivityEvent>,
     val successfulServices: Set<ServiceKind>,
-    val errors: Map<ServiceKind, String>,
+    val errors: Map<ServiceKind, LocalizedText>,
     val refreshedAt: Instant,
-    val warnings: Map<ServiceKind, String> = emptyMap(),
+    val warnings: Map<ServiceKind, List<LocalizedText>> = emptyMap(),
     val adminView: Boolean = false,
     /** Services that only answered on their alternate address, so the switch can be persisted. */
     val switchedToAlternate: Set<ServiceKind> = emptySet(),
-    val upcomingError: String? = null,
-    val recentReleasesError: String? = null,
+    val upcomingError: LocalizedText? = null,
+    val recentReleasesError: LocalizedText? = null,
 )
 
 data class LibraryFeedUpdate(
@@ -75,6 +78,26 @@ data class LibraryFeedUpdate(
 )
 
 class MediaSyncRepository(
+    /**
+     * Only for the month and weekday names a date carries. Everything else this class says to a
+     * person travels as a [LocalizedText] — a resource and its arguments — so the repository stays
+     * free of a Context and its unit tests keep running on the JVM.
+     */
+    private val locale: Locale = Locale.getDefault(),
+    /**
+     * The device's own clock setting, which is not something a locale can answer: an English
+     * reader in Norway may well have the 24-hour clock on, and Android keeps that as a separate
+     * system switch. It arrives as a plain flag so this class still needs no Context.
+     */
+    private val use24HourClock: Boolean = true,
+    /**
+     * Turns a decision into words. The sync layer knows a title is a film released in 2024; only
+     * whoever holds a Context knows whether that reads "Film · 2024" or "Movie · 2024".
+     *
+     * The default is for tests: it keeps whatever came from a server and drops the rest, so a test
+     * can assert on the decisions without standing up Android resources.
+     */
+    private val words: (LocalizedText) -> String = { it.literal.orEmpty() },
     private val mediaServerClient: MediaServerClient = MediaServerClient(),
     private val queueServiceClient: QueueServiceClient = QueueServiceClient(),
     private val seerrServiceClient: SeerrServiceClient = SeerrServiceClient(),
@@ -157,7 +180,7 @@ class MediaSyncRepository(
         val payloads = results.mapNotNull { it.second.getOrNull() }
         val mediaPayloads = payloads.filterIsInstance<ServicePayload.Media>()
         val warnings = mediaPayloads.mapNotNull { payload ->
-            payload.feed.warning?.let { payload.kind to it }
+            payload.feed.warnings.takeIf { it.isNotEmpty() }?.let { payload.kind to it }
         }.toMap()
         val queuePayloads = payloads.filterIsInstance<ServicePayload.Queue>()
         val queue = queuePayloads.flatMap { it.feed.queue }
@@ -212,7 +235,7 @@ class MediaSyncRepository(
                                 seerrStatus = status ?: recommendation.seerrStatus,
                                 artworkUrl = remote.artworkUrl ?: recommendation.artworkUrl,
                                 overview = remote.overview ?: recommendation.overview,
-                                facts = (remote.facts + recommendation.facts).distinct(),
+                                facts = (remote.facts.map(words) + recommendation.facts).distinct(),
                                 genres = (remote.genres + recommendation.genres).distinct(),
                             )
                         },
@@ -253,7 +276,7 @@ class MediaSyncRepository(
             incoming = if (access.isAdmin) queue.map(::incomingMedia).distinctBy { it.id } else emptyList(),
             discover = discover,
             recommendations = recommendations,
-            recommendationsError = recommendationResult.exceptionOrNull()?.message,
+            recommendationsError = recommendationResult.exceptionOrNull()?.let { friendlyError(ServiceKind.SEERR, it) },
             activity = activity,
             successfulServices = successful,
             errors = errors,
@@ -262,10 +285,10 @@ class MediaSyncRepository(
             adminView = access.isAdmin,
             switchedToAlternate = switchedToAlternate,
             upcomingError = if (errors.keys.any { it in setOf(ServiceKind.RADARR, ServiceKind.SONARR) })
-                "Nokre utgjevingsdatoar kunne ikkje hentast. Prøv å oppdatere." else null,
+                LocalizedText(R.string.err_nokre_utgjevingsdatoar) else null,
             recentReleasesError = if (catalogueResult?.isFailure == true || catalogue?.incomplete == true ||
                 mediaPayloads.any { it.feed.releasesFailed } || errors.keys.any { it != ServiceKind.SEERR })
-                "Nokre nye utgjevingar kunne ikkje hentast. Prøv å oppdatere." else null,
+                LocalizedText(R.string.err_nokre_nye_utgjevingar) else null,
         )
     }
 
@@ -289,20 +312,21 @@ class MediaSyncRepository(
      * refresh reads back what the server actually stored.
      */
     fun clearResume(connection: ServiceConnection, media: LibraryMedia) =
-        mediaServerClient.clearResume(connection, mediaUser(connection), requireNotNull(media.remoteId) { "Tittelen manglar ID" })
+        mediaServerClient.clearResume(connection, mediaUser(connection), requireNotNull(media.remoteId) { "title has no remote id" })
 
     fun setFavourite(connection: ServiceConnection, media: LibraryMedia, favourite: Boolean) =
-        mediaServerClient.setFavourite(connection, mediaUser(connection), requireNotNull(media.remoteId) { "Tittelen manglar ID" }, favourite)
+        mediaServerClient.setFavourite(connection, mediaUser(connection), requireNotNull(media.remoteId) { "title has no remote id" }, favourite)
 
     fun setPlayed(connection: ServiceConnection, media: LibraryMedia, played: Boolean) =
         mediaServerClient.setPlayed(connection, mediaUser(connection), requireNotNull(media.remoteId) { "Tittelen manglar ID" }, played)
 
     private fun mediaUser(connection: ServiceConnection): String =
-        requireNotNull(mediaServerClient.userIdentity(connection)) { "Fann ikkje profilen på ${connection.kind.displayName}" }
+        mediaServerClient.userIdentity(connection)
+            ?: serviceError(R.string.err_fann_ikkje_profilen, connection.kind.displayName)
 
     fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {
-        val remoteId = requireNotNull(media.remoteId) { "Tittelen manglar medie-ID frå Seerr" }
-        val mediaType = requireNotNull(media.mediaType) { "Tittelen manglar medietype frå Seerr" }
+        val remoteId = requireNotNull(media.remoteId) { "title has no Seerr media id" }
+        val mediaType = requireNotNull(media.mediaType) { "title has no Seerr media type" }
         seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId, seasons)
     }
 
@@ -365,8 +389,8 @@ class MediaSyncRepository(
     fun details(connection: ServiceConnection, media: DiscoverMedia): RemoteMediaDetails =
         seerrServiceClient.details(
             connection,
-            requireNotNull(media.mediaType) { "Medietypen manglar" },
-            requireNotNull(media.remoteId) { "Medie-ID-en manglar" },
+            requireNotNull(media.mediaType) { "media type missing" },
+            requireNotNull(media.remoteId) { "media id missing" },
         )
 
     fun personTitles(connection: ServiceConnection, personId: String): List<LibraryMedia> =
@@ -375,7 +399,7 @@ class MediaSyncRepository(
     fun details(connection: ServiceConnection, media: LibraryMedia): RemoteMediaDetails =
         mediaServerClient.details(
             connection,
-            requireNotNull(media.remoteId) { "Medie-ID-en manglar" },
+            requireNotNull(media.remoteId) { "media id missing" },
         )
 
     fun setPlaybackPaused(
@@ -383,14 +407,14 @@ class MediaSyncRepository(
         session: PlaybackSession,
         paused: Boolean,
     ) {
-        val source = requireNotNull(session.source) { "Avspelingskjelda er ikkje tilgjengeleg" }
-        val sessionId = requireNotNull(session.sessionId) { "Avspelingsøkta er ikkje tilgjengeleg" }
+        val source = session.source ?: serviceError(R.string.err_avspelingskjelda_ikkje_tilgjengeleg)
+        val sessionId = session.sessionId ?: serviceError(R.string.err_avspelingsokta_ikkje_tilgjengeleg)
         val connection = connections.firstOrNull { it.kind == source && it.baseUrl.isNotBlank() }
-            ?: error("Tilkoplinga til ${source.displayName} er ikkje tilgjengeleg")
+            ?: serviceError(R.string.err_tilkoplinga_ikkje_tilgjengeleg, source.displayName)
         val accounts = connections.filter { it.kind == source || it.kind == ServiceKind.SEERR }
             .mapNotNull { c -> runCatching { accountProfileClient.load(c) }.getOrNull()?.let { c.kind to it } }.toMap()
         val access = ViewerAccess(connections.any { it.kind == ServiceKind.SEERR && it.token.isNotBlank() }, accounts)
-        check(mediaServerClient.sessions(connection, access).any { it.sessionId == sessionId }) { "Avspelingsøkta er ikkje tilgjengeleg" }
+        if (mediaServerClient.sessions(connection, access).none { it.sessionId == sessionId }) serviceError(R.string.err_avspelingsokta_ikkje_tilgjengeleg)
         mediaServerClient.setPaused(connection, sessionId, paused)
     }
 
@@ -421,7 +445,7 @@ class MediaSyncRepository(
             queueServiceClient.feed(connection, includeQueue = access.isAdmin),
         )
         ServiceKind.SEERR -> ServicePayload.Seerr(connection.kind, seerrServiceClient.feed(connection,
-            requireNotNull(access.accounts[ServiceKind.SEERR]) { "Fekk ikkje stadfesta Seerr-kontoen" }))
+            requireNotNull(access.accounts[ServiceKind.SEERR]) { "Seerr account not confirmed" }))
     }
 
     private fun playbackSession(item: RemotePlayback, source: ServiceKind) = PlaybackSession(
@@ -430,8 +454,8 @@ class MediaSyncRepository(
         title = item.title,
         subtitle = item.subtitle,
         progress = item.progress,
-        timeLeft = item.timeLeft,
-        streamMethod = item.streamMethod,
+        remainingMinutes = item.remainingMinutes,
+        transcoding = item.transcoding,
         quality = item.quality,
         paused = item.paused,
         artworkUrl = item.artworkUrl,
@@ -456,7 +480,7 @@ class MediaSyncRepository(
         posterUrl = item.posterUrl,
         remoteId = item.id,
         overview = item.overview,
-        facts = item.facts,
+        facts = listOf(words(mediaKind(item.mediaType))) + item.facts.map(words),
         genres = item.genres,
         mediaType = item.mediaType,
         lastActivityEpochMillis = item.lastActivityEpochMillis,
@@ -494,12 +518,12 @@ class MediaSyncRepository(
         id = item.id,
         title = item.title,
         source = item.source,
-        status = item.status,
+        status = words(item.status),
         state = item.state,
         artworkRes = R.drawable.media_placeholder,
         artworkUrl = item.artworkUrl,
         overview = item.overview,
-        facts = item.facts,
+        facts = listOf(words(mediaKind(item.source.name))) + item.facts.map(words),
         genres = item.genres,
         progress = item.progress,
     )
@@ -509,16 +533,17 @@ class MediaSyncRepository(
         return UpcomingMedia(
             id = "${item.source.name.lowercase()}-${item.id}",
             title = item.title,
-            subtitle = item.subtitle,
+            subtitle = mediaLine(item.mediaType, item.subtitle),
             dateLabel = calendarLabel(instant, item.source),
             airDateEpochMillis = instant.toEpochMilli(),
             artworkRes = R.drawable.media_placeholder,
             source = item.source,
             artworkUrl = item.artworkUrl,
             overview = item.overview,
-            facts = item.facts,
+            facts = listOf(words(mediaKind(item.mediaType))) + item.facts.map(words),
             genres = item.genres,
             mediaType = item.mediaType,
+            physicalRelease = item.physicalRelease,
         )
     }
 
@@ -534,14 +559,14 @@ class MediaSyncRepository(
         remoteId = item.remoteId,
         mediaType = item.mediaType,
         overview = item.overview,
-        facts = item.facts,
+        facts = listOf(words(mediaKind(item.mediaType))) + item.facts.map(words),
         genres = item.genres,
     )
 
     private fun recommendationMedia(item: RemoteRecommendationItem) = DiscoverMedia(
         id = item.id,
         title = item.title,
-        metadata = item.metadata,
+        metadata = mediaLine(item.mediaType, item.metadata),
         artworkRes = R.drawable.media_placeholder,
         inLibrary = false,
         requested = false,
@@ -549,15 +574,32 @@ class MediaSyncRepository(
         remoteId = item.remoteId,
         mediaType = item.mediaType,
         overview = item.overview,
-        facts = item.facts,
+        facts = listOf(words(mediaKind(item.mediaType))) + item.facts.map(words),
         genres = item.genres,
     )
+
+    /**
+     * What kind of thing this is, as a word.
+     *
+     * Every caller already carries `mediaType`, so the word is derived rather than stored — which
+     * is what makes it possible to say it in a different language without re-fetching anything.
+     */
+    private fun mediaKind(mediaType: String?): LocalizedText = when (mediaType?.lowercase()) {
+        "movie", "radarr" -> LocalizedText(R.string.media_kind_movie)
+        "series", "tv", "sonarr" -> LocalizedText(R.string.media_kind_series)
+        "episode" -> LocalizedText(R.string.media_kind_episode)
+        else -> LocalizedText(R.string.media_kind_video)
+    }
+
+    /** The kind, then whatever else is worth saying about it. */
+    private fun mediaLine(mediaType: String?, rest: String?): String =
+        listOfNotNull(words(mediaKind(mediaType)), rest?.takeIf { it.isNotBlank() }).joinToString(" · ")
 
     private fun queueActivity(item: RemoteQueueItem) = ActivityEvent(
         id = "activity-${item.id}",
         title = item.title,
-        detail = "${item.source.displayName} · ${item.status}",
-        time = "No",
+        detail = LocalizedText(R.string.activity_detail_stage_raw, item.source.displayName, item.status),
+        time = LocalizedText(R.string.time_now),
         timeEpochMillis = Instant.now().toEpochMilli(),
         progress = item.progress,
         complete = item.state == IncomingState.READY,
@@ -574,8 +616,9 @@ class MediaSyncRepository(
         val created = createdInstant(request.createdAt)
         return ActivityEvent(
             id = "seerr-request-${request.id}",
-            title = discovered?.title ?: request.title ?: if (request.mediaType == "movie") "Ny film" else "Ny serie",
-            detail = progress.stage.label + " · ${request.requestedBy}",
+            title = discovered?.title ?: request.title ?: words(LocalizedText(if (request.mediaType == "movie") R.string.release_new_title_movie else R.string.release_new_title_series)),
+            detail = LocalizedText(R.string.activity_detail_stage, progress.stage.label, request.requestedBy),
+            stage = progress.stage,
             time = relativeTime(created),
             timeEpochMillis = created?.toEpochMilli(),
             complete = progress.stage == app.reelstack.data.model.RequestStage.AVAILABLE,
@@ -594,48 +637,60 @@ class MediaSyncRepository(
                 LocalDate.parse(value.take(10)).atStartOfDay(ZoneId.systemDefault()).toInstant()
             }.getOrNull()
 
+    /**
+     * The date itself, and nothing that expires.
+     *
+     * This used to bake "I dag" / "I morgon" into the label — and the label is cached, so a row
+     * stored today still said "I dag" tomorrow. Today and tomorrow are a rendering decision that
+     * belongs where the clock is read; the cache keeps the date. The month and weekday names now
+     * follow the reader's language rather than a hardcoded nn-NO, and an episode's airtime follows
+     * the device's 12/24-hour setting rather than always being written as 20:00.
+     */
     private fun calendarLabel(instant: Instant, source: ServiceKind): String {
         val zone = ZoneId.systemDefault()
         val dateTime = instant.atZone(zone)
-        val today = LocalDate.now(zone)
-        val date = dateTime.toLocalDate()
-        val day = when (date) {
-            today -> "I dag"
-            today.plusDays(1) -> "I morgon"
-            else -> date.format(DateTimeFormatter.ofPattern("EEE d. MMM", Locale.forLanguageTag("nn-NO")))
+        val day = dateTime.toLocalDate().format(DateTimeFormatter.ofPattern("EEE d. MMM", locale))
+        return if (source == ServiceKind.SONARR) {
+            "$day · ${dateTime.format(timeFormatter)}"
+        } else {
+            day
         }
-        return if (source == ServiceKind.SONARR) "$day · ${dateTime.format(DateTimeFormatter.ofPattern("HH:mm"))}" else day
     }
+
+    private val timeFormatter: DateTimeFormatter =
+        if (use24HourClock) DateTimeFormatter.ofPattern("HH:mm", locale)
+        else DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT).withLocale(locale)
 
     private fun createdInstant(createdAt: String?): Instant? =
         createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
 
-    private fun relativeTime(instant: Instant?): String {
-        if (instant == null) return "Nyleg"
+    /**
+     * Plural forms come from the resources, so "1 minutt" and "5 minutt" can differ per language —
+     * and an English reader gets "1 minute ago" rather than "For 1 min sidan".
+     */
+    private fun relativeTime(instant: Instant?): LocalizedText {
+        if (instant == null) return LocalizedText(R.string.time_recently)
         val duration = Duration.between(instant, Instant.now()).coerceAtLeast(Duration.ZERO)
         return when {
-            duration.toMinutes() < 1 -> "Akkurat no"
-            duration.toHours() < 1 -> "For ${duration.toMinutes()} min sidan"
-            duration.toDays() < 1 -> "For ${duration.toHours()} t sidan"
-            duration.toDays() == 1L -> "I går"
-            else -> "For ${duration.toDays()} dagar sidan"
+            duration.toMinutes() < 1 -> LocalizedText(R.string.time_just_now)
+            duration.toHours() < 1 -> LocalizedText.plural(R.plurals.time_minutes_ago, duration.toMinutes().toInt())
+            duration.toDays() < 1 -> LocalizedText.plural(R.plurals.time_hours_ago, duration.toHours().toInt())
+            duration.toDays() == 1L -> LocalizedText(R.string.time_yesterday)
+            else -> LocalizedText.plural(R.plurals.time_days_ago, duration.toDays().toInt())
         }
     }
 
-    private fun friendlyError(kind: ServiceKind, error: Throwable): String {
-        val message = error.message.orEmpty()
-        return when {
-            message.contains("avviste", ignoreCase = true) || message.contains("rejected", ignoreCase = true) ->
-                "API-nøkkelen vart avvist"
-            message.contains("endepunkt", ignoreCase = true) || message.contains("endpoint", ignoreCase = true) ->
-                "API-endepunktet er utilgjengeleg"
-            message.contains("profil", ignoreCase = true) || message.contains("profile", ignoreCase = true) ->
-                "Fann ingen medieprofil — legg til profil-ID"
-            message.contains("for stort", ignoreCase = true) || message.contains("too large", ignoreCase = true) ->
-                "Svaret var større enn tryggleiksgrensa"
-            else -> "Fekk ikkje oppdatert ${kind.displayName}"
-        }
-    }
+    /**
+     * What to put beside a service that did not answer.
+     *
+     * This used to guess, by searching the exception message for the nynorsk word "profil" or
+     * "avviste" — which meant it only ever worked in one language, and stopped working entirely
+     * once those messages became resource ids. A failure that was written for a person already
+     * carries its own sentence; anything else is a defect, and the generic line is the honest
+     * answer for it.
+     */
+    private fun friendlyError(kind: ServiceKind, error: Throwable): LocalizedText =
+        error.localizedFailure() ?: LocalizedText(R.string.err_sync_generic, kind.displayName)
 
     private sealed interface ServicePayload {
         val kind: ServiceKind

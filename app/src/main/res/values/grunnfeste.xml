@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The last sentences that were still written into Composables.
+
+    Lint's HardcodedText rule does not see them: it reads XML layouts and setText, and a Compose
+    Text("…") is neither. So these survived a screen the rest of the app had already left, and
+    an English installation met nynorsk on the welcome screen and in every screen-reader
+    announcement while a shelf was loading.
+-->
+<resources>
+    <string name="skeleton_loading_playing">Loading active playback</string>
+    <string name="skeleton_loading_recommendations">Loading recommendations</string>
+    <string name="skeleton_loading_upcoming">Loading upcoming releases</string>
+    <string name="skeleton_loading_downloads">Loading downloads</string>
+    <string name="skeleton_loading_search">Loading search results</string>
+    <string name="skeleton_loading_activity">Loading activity</string>
+    <string name="skeleton_loading_details">Loading more details</string>
+    <string name="home_playback_details">Playback details</string>
+    <string name="remote_sending_command">Sending command…</string>
+    <string name="setup_share_with_user">Share the setup with someone</string>
+    <string name="setup_copy_link">Copy setup link</string>
+    <string name="setup_share_note">Shares the server addresses only. The other person signs in with their own account.</string>
+    <string name="setup_clip_label">Spole setup</string>
+    <string name="server_address_example">https://spole.example.com</string>
+    <string name="welcome_headline">Welcome to Spole</string>
+    <string name="welcome_subtitle">Your films and series, gathered in one place.</string>
+    <string name="welcome_get_started">Get started</string>
+    <string name="welcome_get_started_note">Jellyfin · Seerr optional</string>
+    <string name="welcome_setup_hint">Use the setup link or the addresses you were given by whoever shares the library with you.</string>
+    <string name="welcome_other_methods">Other ways to sign in</string>
+    <string name="setup_making_code">Creating a code…</string>
+    <string name="setup_finishing_sign_in">Finishing the sign-in…</string>
+    <string name="session_paused">Paused</string>
+    <string name="session_playing_now">Playing now</string>
+    <string name="activity_filter_all">All</string>
+    <string name="activity_filter_in_progress">Under way</string>
+    <string name="activity_filter_ready">Ready</string>
+    <string name="details_eyebrow_in_library">In your library</string>
+    <string name="details_eyebrow_discover">Discover in Seerr</string>
+    <string name="queue_last_reported_state">Last state reported by %1$s.</string>
+    <string name="notice_signed_out_of">Signed out of %1$s on this device</string>
+    <string name="session_watching">%1$s is watching %2$s</string>
+</resources>

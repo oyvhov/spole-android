@@ -27,6 +27,30 @@ internal fun mediaCardIndication(): androidx.compose.foundation.Indication? {
     return if (television) null else androidx.compose.foundation.LocalIndication.current
 }
 
+/**
+ * The other half of focus on a television.
+ *
+ * An outline alone is one signal, and from three metres away over a bright poster it is the weakest
+ * one available. Every television interface people already know — the Google TV launcher included —
+ * lifts the focused card as well, because size reads at a distance where a two-pixel edge does not.
+ *
+ * Deliberately small: 1.06 is enough to see and small enough that a row does not shove its
+ * neighbours around. Press still wins, so a card that is being clicked dips under the finger, and
+ * reduced motion drops the scaling entirely and leaves the outline and shadow to do the work.
+ */
+@Composable
+internal fun focusScale(focused: Boolean, pressed: Boolean): Float {
+    val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
+    val target = when {
+        pressed && motion -> 0.985f
+        !motion -> 1f
+        focused -> 1.06f
+        else -> 1f
+    }
+    val scale by animateFloatAsState(target, tween(if (motion) 140 else 0), label = "focus-scale")
+    return scale
+}
+
 /** Draw-only keyboard focus with soft accent glow and ambient drop shadow. */
 @Composable
 internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow: Boolean = true): Modifier {

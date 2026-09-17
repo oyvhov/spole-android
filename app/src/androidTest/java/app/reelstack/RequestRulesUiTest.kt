@@ -1,5 +1,6 @@
 package app.reelstack
 
+import app.reelstack.localization.LocalizedText
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
@@ -24,7 +25,7 @@ class RequestRulesUiTest {
     private val account = ServiceAccount(ServiceKind.SEERR,"7","Testperson",permissions=32)
     private fun state(draft: RequestDraft) = ReelstackUiState(connections = listOf(connection),
         accounts = mapOf(ServiceKind.SEERR to account), requestDraft = draft, notificationsEnabled = false)
-    private val draft = RequestDraft(media, listOf(RequestSeason(1,"Sesong 1",8,1),RequestSeason(2,"Sesong 2",8,1)),
+    private val draft = RequestDraft(media, listOf(RequestSeason(1, LocalizedText.raw("Sesong 1"),8,1),RequestSeason(2, LocalizedText.raw("Sesong 2"),8,1)),
         selected = setOf(1,2), loading = false, rules = RequestRules(true,true,RequestQuota(5,1,7)))
 
     @Test fun exceedingSeasonQuotaDisablesSendUntilSelectionFits() {

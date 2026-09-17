@@ -16,8 +16,8 @@
     <string name="action_delete">Slett</string>
     <string name="language_title">Språk</string>
     <string name="language_system">Følg enheten</string>
-    <string name="language_preview">English · Forhåndsvisning</string>
-    <string name="language_note">Engelsk er under arbeid. Noen skjermer og tjenestemeldinger er fremdeles på norsk. Dette endrer ikke språket på medieinnholdet ditt.</string>
+    <string name="language_preview">English</string>
+    <string name="language_note">Alle skjermer og alle meldinger appen skriver, finnes på engelsk. Titler, omtaler og alt annet serverne dine sender, beholder språket de er lagret i.</string>
     <string name="settings_subtitle">Gjør Spole til ditt.</string>
     <string name="settings_services">Tjenestene dine</string>
     <string name="settings_services_note">Serveradresse og innlogging for hver tjeneste.</string>

@@ -45,7 +45,7 @@ class WideContentTest {
 
     @Test fun sessionDetailsAndPlaybackAreSeparateAndPendingCannotRepeat() {
         val session = PlaybackSession("Test", "TV", "A long series title", "S01 E02 · Episode", .5f,
-            "10 min", "Direct", "1080p", false, sessionId = "fixture")
+            10, false, "1080p", false, sessionId = "fixture")
         var pending by mutableStateOf(false)
         var opened = 0
         var toggled = 0

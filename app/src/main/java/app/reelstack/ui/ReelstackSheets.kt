@@ -2,6 +2,7 @@ package app.reelstack.ui
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.SpoleSecondaryButton
 
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.text.KeyboardOptions
@@ -786,7 +787,12 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
             onClick = { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId, audioIndex, subtitleIndex, versionId, source) },
             interactionSource = playInteraction,
             modifier = (if (television) Modifier.widthIn(min = 220.dp, max = 420.dp) else Modifier.fillMaxWidth())
-                .heightIn(min = 52.dp).focusRequester(playFocus).focusOutline(playInteraction, shape).testTag("play-in-spole"),
+                .heightIn(min = 52.dp).focusRequester(playFocus).focusOutline(playInteraction, shape)
+                // Named on the node that takes focus. The label lives in a child Text, and the
+                // progress overlay drawn on top of the button is a sibling of it — which left the
+                // focused node itself with nothing for a screen reader to read out.
+                .semantics(mergeDescendants = true) { contentDescription = label; role = Role.Button }
+                .testTag("play-in-spole"),
             shape = shape,
         ) {
             Icon(app.reelstack.ui.components.SpoleIcons.Play, null, Modifier.size(20.dp))
@@ -1058,7 +1064,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
             ) {
                 Box(Modifier.size(7.dp).background(Primary, CircleShape))
                 Text(
-                    if (session.paused) "På pause" else "Spelar no",
+                    stringResource(if (session.paused) R.string.session_paused else R.string.session_playing_now),
                     color = Color.White,
                     fontSize = 12.sp, lineHeight = 17.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -1102,10 +1108,10 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 14.dp),
             ) {
-                SessionMetric(stringResource(R.string.details_playback), session.streamMethod, Modifier.weight(1f))
+                SessionMetric(stringResource(R.string.details_playback), app.reelstack.ui.components.sessionMethod(session), Modifier.weight(1f))
                 SessionMetric("Kvalitet", session.quality, Modifier.weight(1f))
                 // The value already ends in "att"; repeating it in the label read as "att att".
-                SessionMetric("Tid igjen", session.timeLeft.removeSuffix(" att"), Modifier.weight(1f))
+                SessionMetric(stringResource(R.string.remote_time_left), pluralStringResource(R.plurals.session_minutes, session.remainingMinutes, session.remainingMinutes), Modifier.weight(1f))
             }
         }
         Button(
@@ -1117,7 +1123,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
         ) {
             if (state.pendingSessionKey == session.key) {
                 CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                Text("Sender kommando…", modifier = Modifier.padding(start = 8.dp))
+                Text(stringResource(R.string.remote_sending_command), modifier = Modifier.padding(start = 8.dp))
             } else {
                 AnimatedContent(
                     targetState = session.paused,
@@ -1126,7 +1132,7 @@ private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlayback
                 ) { paused ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(if (paused) app.reelstack.ui.components.SpoleIcons.Play else app.reelstack.ui.components.SpoleIcons.Pause, contentDescription = null)
-                        Text(if (paused) "Hald fram" else "Set på pause", modifier = Modifier.padding(start = 8.dp))
+                        Text(stringResource(if (paused) R.string.remote_resume else R.string.remote_pause), modifier = Modifier.padding(start = 8.dp))
                     }
                 }
             }
@@ -1198,22 +1204,28 @@ internal fun ConnectionEditorSheet(
         if (configured) {
             ConnectedServiceSummary(draft.kind, detailsExpanded) { detailsExpanded = !detailsExpanded }
             if (setupLink != null) {
+                // Read here rather than inside the click handlers: a lambda that runs after the
+                // composition is not a place a resource can be looked up from.
+                val shareTitle = stringResource(R.string.setup_share_chooser)
+                val shareUnavailable = stringResource(R.string.setup_share_unavailable)
+                val clipLabel = stringResource(R.string.setup_clip_label)
+                val linkCopied = stringResource(R.string.setup_link_copied)
                 SpoleSecondaryButton(onClick = {
                     runCatching {
                         shareContext.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(android.content.Intent.EXTRA_TEXT, setupLink)
-                        }, "Del Spole-oppsett"))
+                        }, shareTitle))
                     }.onFailure {
-                        android.widget.Toast.makeText(shareContext, "Bruk Kopier oppsettslenkje på denne eininga.", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(shareContext, shareUnavailable, android.widget.Toast.LENGTH_LONG).show()
                     }
-                }, modifier = Modifier.fillMaxWidth()) { Text("Del oppsett med ein brukar") }
+                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.setup_share_with_user)) }
                 SpoleSecondaryButton(onClick = {
                     shareContext.getSystemService(android.content.ClipboardManager::class.java)
-                        .setPrimaryClip(android.content.ClipData.newPlainText("Spole-oppsett", setupLink))
-                    android.widget.Toast.makeText(shareContext, "Oppsettslenkja er kopiert", android.widget.Toast.LENGTH_SHORT).show()
-                }, modifier = Modifier.fillMaxWidth()) { Text("Kopier oppsettslenkje") }
-                Text("Deler berre tenesteadressene. Brukaren loggar inn med sin eigen konto.", style = MaterialTheme.typography.bodySmall)
+                        .setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, setupLink))
+                    android.widget.Toast.makeText(shareContext, linkCopied, android.widget.Toast.LENGTH_SHORT).show()
+                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.setup_copy_link)) }
+                Text(stringResource(R.string.setup_share_note), style = MaterialTheme.typography.bodySmall)
             }
         }
         AnimatedVisibility(
@@ -1392,7 +1404,7 @@ internal fun ConnectionEditorSheet(
             OutlinedTextField(
                 value = draft.alternateUrl, onValueChange = onAlternateUrlChange,
                 label = { Text(stringResource(R.string.account_alternate)) }, singleLine = true, enabled = !draft.saving,
-                placeholder = { Text("https://spole.dømet.no") },
+                placeholder = { Text(stringResource(R.string.server_address_example)) },
                 supportingText = {
                     Text(stringResource(R.string.account_alternate_hint))
                 },

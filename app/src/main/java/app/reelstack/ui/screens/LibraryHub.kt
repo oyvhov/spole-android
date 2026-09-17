@@ -68,7 +68,8 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
             } })
     }
     LazyColumn(state = list, modifier = Modifier.fillMaxSize().testTag("library-hub"),
-        contentPadding = PaddingValues(start = gutter, end = gutter, top = if (leadingHero) 0.dp else 20.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(start = gutter, end = gutter, top = if (leadingHero) 0.dp else 20.dp,
+            bottom = if (tv) ReelLayout.TvSafeEdge else 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (leadingHero) item("feature") { hero() }
         if (options.showLibraryTitle || !leadingHero) item("header") {

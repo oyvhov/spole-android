@@ -16,7 +16,7 @@ class DisplayMetadataTest {
     @Test fun actualServerRatingSurvivesLibraryParsing() {
         val item = app.reelstack.data.network.ServicePayloadParser.libraryItems(
             """{"Items":[{"Id":"movie","Name":"Film","Type":"Movie","CommunityRating":7.8}]}""").single()
-        assertEquals(7.8, communityRatingLabel(item.facts)!!.replace(',', '.').toDouble(), 0.01)
+        assertEquals(7.8, communityRatingLabel(item.facts.map { it.literal.orEmpty() })!!.replace(',', '.').toDouble(), 0.01)
     }
     @Test fun storedTokenDoesNotMeanTheServiceIsHealthy() {
         assertEquals(ServiceHealth.UNCHECKED, connection.health())

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_in_library">I biblioteket</string>
+    <string name="season_partly_in_library">Delvis i biblioteket</string>
+    <string name="season_awaiting_approval">Venter på godkjenning</string>
+    <string name="season_requested">Forespurt</string>
+    <string name="season_blocked">Blokkert</string>
+    <string name="season_missing">Mangler i biblioteket</string>
+    <string name="season_unknown">Status ukjent</string>
+    <string name="season_premiere_unknown">Premiere ikke avklart</string>
+    <string name="season_airs_on">Kommer %1$s</string>
+    <string name="season_next_episode">Neste episode · %1$s · %2$s</string>
+    <string name="stage_requested">Forespurt</string>
+    <string name="stage_requested_why">Venter på godkjenning eller at en utgivelse blir funnet.</string>
+    <string name="stage_downloading">Laster ned</string>
+    <string name="stage_downloading_why">En nedlasting er funnet. Innholdet er ikke i biblioteket ennå.</string>
+    <string name="stage_importing">Blir lagt i biblioteket</string>
+    <string name="stage_importing_why">Nedlastingen er ferdig. Venter på at Seerr registrerer innholdet.</string>
+    <string name="stage_available">I biblioteket</string>
+    <string name="stage_available_why">Ferdig · klart til å se i mediebiblioteket ditt.</string>
+    <string name="stage_declined">Avvist</string>
+    <string name="stage_declined_why">Forespørselen ble avvist i Seerr.</string>
+    <string name="stage_failed">Trenger tilsyn</string>
+    <string name="stage_failed_why">Seerr eller nedlastingsklienten melder om en feil.</string>
+    <string name="stage_unknown">Status ukjent</string>
+    <string name="stage_unknown_why">Fikk ikke oppdatert status. Prøver igjen senere.</string>
+    <string name="stage_watching">Følger med</string>
+    <string name="stage_watching_why">Bare varsler. Ingen ny forespørsel er sendt.</string>
+    <string name="time_just_now">Akkurat nå</string>
+    <string name="time_recently">Nylig</string>
+    <string name="time_yesterday">I går</string>
+    <string name="cal_today">I dag</string>
+    <string name="cal_tomorrow">I morgen</string>
+    <string name="activity_detail">%1$s · %2$s</string>
+    <plurals name="time_minutes_ago">
+        <item quantity="one">For %d minutt siden</item>
+        <item quantity="other">For %d minutter siden</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="one">For %d time siden</item>
+        <item quantity="other">For %d timer siden</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="one">For %d dag siden</item>
+        <item quantity="other">For %d dager siden</item>
+    </plurals>
+    <string name="activity_detail_stage">%1$s · %2$s</string>
+    <string name="activity_detail_stage_raw">%1$s · %2$s</string>
+    <string name="time_now">Nå</string>
+    <string name="activity_registered">Denne hendelsen ble registrert %1$s.</string>
+    <string name="flow_badge_following">FØLGER</string>
+</resources>

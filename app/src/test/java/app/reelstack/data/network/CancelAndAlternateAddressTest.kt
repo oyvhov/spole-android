@@ -1,5 +1,6 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import org.junit.Assert.assertEquals
@@ -55,7 +56,7 @@ class CancelAndAlternateAddressTest {
             }
         }
         val error = runCatching { SeerrServiceClient(transport).cancelRequest(seerr, 42, "7") }.exceptionOrNull()
-        assertEquals("Denne førespurnaden tilhøyrer ein annan konto.", error?.message)
+        assertEquals(R.string.err_forespurnaden_tilhoyrer_annan, error?.localizedFailure()?.resId)
         assertFalse(transport.calls.any { it.startsWith("DELETE") })
     }
 
@@ -63,10 +64,7 @@ class CancelAndAlternateAddressTest {
         val apiKey = seerr.copy(sessionCookie = false)
         val transport = Fake { _, _ -> HttpResponse(200, me("7")) }
         val error = runCatching { SeerrServiceClient(transport).cancelRequest(apiKey, 42, "7") }.exceptionOrNull()
-        assertEquals(
-            "Logg inn personleg i Seerr for å trekkje tilbake ein førespurnad.",
-            error?.message,
-        )
+        assertEquals(R.string.err_seerr_logg_inn_personleg_trekk, error?.localizedFailure()?.resId)
         assertFalse(transport.calls.any { it.startsWith("DELETE") })
     }
 
@@ -75,7 +73,7 @@ class CancelAndAlternateAddressTest {
             if (url.endsWith("auth/me")) HttpResponse(200, me("7")) else HttpResponse(404, "")
         }
         val error = runCatching { SeerrServiceClient(transport).cancelRequest(seerr, 42, "7") }.exceptionOrNull()
-        assertEquals("Førespurnaden finst ikkje lenger i Seerr.", error?.message)
+        assertEquals(app.reelstack.R.string.err_forespurnaden_finst_ikkje_lenger, error?.localizedFailure()?.resId)
     }
 
     /** The two addresses are two routes to one server, so local data must not be keyed on the route. */

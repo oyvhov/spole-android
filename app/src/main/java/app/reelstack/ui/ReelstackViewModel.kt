@@ -194,6 +194,24 @@ data class ReelstackUiState(
 class ReelstackViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
+    /**
+     * The word for a kind of title.
+     *
+     * The sync layer derives this from `mediaType` for the rows it builds; the sheet builds its own
+     * from a card the user tapped, so it needs the same answer from the same place.
+     */
+    @androidx.annotation.StringRes
+    private fun mediaKindRes(mediaType: String?): Int = when (mediaType?.lowercase()) {
+        "movie" -> R.string.media_kind_movie
+        "series", "tv" -> R.string.media_kind_series
+        "episode" -> R.string.media_kind_episode
+        else -> R.string.media_kind_video
+    }
+
+    /** A list of decisions, rendered once in the language the app is set to. */
+    private fun words(items: List<app.reelstack.localization.LocalizedText>): List<String> =
+        items.map { it.text(container.appContext) }
+
     private fun appString(@androidx.annotation.StringRes resId: Int, vararg args: Any): String =
         app.reelstack.localization.AppLanguages.wrap(container.appContext).getString(resId, *args)
 
@@ -298,7 +316,7 @@ class ReelstackViewModel(
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (error: Exception) {
                 _uiState.update { it.copy(libraryChoicesLoading = false,
-                    libraryChoicesError = error.readableMessage() ?: appString(R.string.library_failed)) }
+                    libraryChoicesError = error.readableMessage(container.appContext) ?: appString(R.string.library_failed)) }
             }
         }
     }
@@ -378,7 +396,7 @@ class ReelstackViewModel(
                 })
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (error: Exception) {
-                if (isActive) _uiState.update { it.copy(libraryLoading = false, libraryError = error.readableMessage() ?: container.appContext.getString(R.string.library_failed)) }
+                if (isActive) _uiState.update { it.copy(libraryLoading = false, libraryError = error.readableMessage(container.appContext) ?: container.appContext.getString(R.string.library_failed)) }
             }
         }
     }
@@ -555,7 +573,7 @@ class ReelstackViewModel(
             val source = _uiState.value.librarySource
             val media = LibraryMedia("${source.name.lowercase(java.util.Locale.ROOT)}-${entry.id}", entry.title, entry.subtitle, entry.progress,
                 R.drawable.media_placeholder, source, entry.artworkUrl, entry.id,
-                entry.overview, entry.facts, entry.genres, entry.mediaType)
+                entry.overview, words(entry.facts), entry.genres, entry.mediaType)
             _uiState.update { it.copy(libraryDetailMedia = media) }
             openLibraryDetails(media.id)
         }
@@ -602,7 +620,7 @@ class ReelstackViewModel(
         if (sheet is AppSheet.ConnectionEditor) {
             if (!_uiState.value.canEditConnection(sheet.kind)) return
             if (_uiState.value.requestingMediaIds.isNotEmpty()) {
-                _uiState.update { it.copy(snackbar = "Vent til førespurnaden er ferdig før du byter konto.") }
+                _uiState.update { it.copy(snackbar = appString(R.string.warn_request_in_flight)) }
                 return
             }
             connectionJob?.cancel()
@@ -626,7 +644,7 @@ class ReelstackViewModel(
                     ConnectionAuthMode.API_KEY
                 },
                 warning = existing.baseUrl.takeIf(String::isNotBlank)?.let {
-                    if (EndpointValidator.isCleartext(it)) "HTTP er ukryptert. Bruk helst HTTPS utanfor det trygge lokalnettet ditt." else null
+                    if (EndpointValidator.isCleartext(it)) appString(R.string.warn_cleartext_http) else null
                 },
             )
         }
@@ -756,7 +774,7 @@ class ReelstackViewModel(
                                 season = remote.season ?: details.season,
                                 episode = remote.episode ?: details.episode,
                                 overview = remote.overview ?: details.overview,
-                                facts = remote.facts,
+                                facts = words(remote.facts),
                                 criticRating = remote.criticRating,
                                 tmdbRating = remote.tmdbRating ?: details.tmdbRating,
                                 mdblistRating = remote.mdblistRating ?: details.mdblistRating,
@@ -899,8 +917,10 @@ class ReelstackViewModel(
                 contentDetails = ContentDetails(
                     key = media.id,
                     title = media.title,
-                    eyebrow = if (media.inLibrary) "I biblioteket ditt" else "Oppdag i Seerr",
-                    subtitle = media.metadata,
+                    eyebrow = appString(if (media.inLibrary) R.string.details_eyebrow_in_library else R.string.details_eyebrow_discover),
+                    // The kind, then the year: the detail sheet has no type badge to carry it.
+                    subtitle = listOfNotNull(appString(mediaKindRes(media.mediaType)),
+                        media.metadata.takeIf { it.isNotBlank() }).joinToString(" · "),
                     overview = media.overview,
                     facts = media.facts,
                     genres = media.genres,
@@ -908,9 +928,9 @@ class ReelstackViewModel(
                     artworkUrl = media.artworkUrl,
                     source = ServiceKind.SEERR,
                     mediaType = resolvedMediaType(media.mediaType, media.metadata),
-                    statusTitle = seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested),
+                    statusTitle = appString(seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested)),
                     libraryAvailable = media.inLibrary || media.seerrStatus == 5,
-                    statusDescription = seerrStatusDescription(media.seerrStatus, media.inLibrary),
+                    statusDescription = appString(seerrStatusDescription(media.seerrStatus, media.inLibrary)),
                     loading = connection != null && media.remoteId != null && media.mediaType != null,
                 ),
             )
@@ -927,13 +947,13 @@ class ReelstackViewModel(
                         current.copy(
                             contentDetails = details.copy(
                                 title = remote.title ?: details.title,
-                                statusTitle = remote.seerrStatus?.let { seerrStatusLabel(it) } ?: details.statusTitle,
+                                statusTitle = remote.seerrStatus?.let { appString(seerrStatusLabel(it)) } ?: details.statusTitle,
                                 libraryAvailable = remote.seerrStatus == 5,
-                                statusDescription = remote.seerrStatus?.let { seerrStatusDescription(it) } ?: details.statusDescription,
+                                statusDescription = remote.seerrStatus?.let { appString(seerrStatusDescription(it)) } ?: details.statusDescription,
                                 tagline = remote.tagline ?: details.tagline,
                                 cast = remote.cast,
                                 overview = remote.overview ?: details.overview,
-                                facts = (remote.facts + details.facts).distinct(),
+                                facts = (words(remote.facts) + details.facts).distinct(),
                                 genres = (remote.genres + details.genres).distinct(),
                                 artworkUrl = remote.artworkUrl ?: details.artworkUrl,
                                 loading = false,
@@ -1007,7 +1027,7 @@ class ReelstackViewModel(
                 title = media.title,
                 eyebrow = "Nedlasting · ${media.source.displayName}",
                 subtitle = media.status,
-                overview = media.overview ?: "Sjå framdrift og kjelde for denne tittelen.",
+                overview = media.overview ?: appString(R.string.details_tracked_fallback),
                 facts = (media.facts + media.source.displayName + media.status).distinct(),
                 genres = media.genres,
                 artworkRes = media.artworkRes,
@@ -1015,7 +1035,7 @@ class ReelstackViewModel(
                 source = media.source,
                 mediaType = if (media.source == ServiceKind.RADARR) "Movie" else "Episode",
                 statusTitle = media.status,
-                statusDescription = "Siste rapporterte tilstand frå ${media.source.displayName}.",
+                statusDescription = appString(R.string.queue_last_reported_state, media.source.displayName),
             ),
         )
     }
@@ -1038,9 +1058,10 @@ class ReelstackViewModel(
                 key = event.id,
                 title = event.title,
                 eyebrow = "Aktivitet${event.source?.let { " · ${it.displayName}" }.orEmpty()}",
-                subtitle = event.detail,
-                overview = "Denne hendinga vart registrert ${event.time.lowercase()}.",
-                facts = listOfNotNull(event.source?.displayName, event.progress?.let { "$it %" }, event.time),
+                subtitle = event.detail.text(container.appContext),
+                overview = appString(R.string.activity_registered, event.time.text(container.appContext).lowercase()),
+                facts = listOfNotNull(event.source?.displayName, event.progress?.let { "$it %" },
+                    event.time.text(container.appContext)),
                 artworkRes = event.artworkRes ?: R.drawable.media_placeholder,
                 artworkUrl = event.artworkUrl,
                 source = event.source,
@@ -1210,7 +1231,7 @@ class ReelstackViewModel(
         requestDraftJob?.cancel()
         _uiState.update { it.copy(activeSheet = AppSheet.RequestComposer, requestDraft = RequestDraft(media), returnToCalendar = false) }
         if (connection == null && state.configuredCount == 0) {
-            val seasons = if (media.mediaType == "tv") listOf(RequestSeason(1, "Sesong 1", 8, 1)) else emptyList()
+            val seasons = if (media.mediaType == "tv") listOf(RequestSeason(1, app.reelstack.localization.LocalizedText(R.string.media_season_number, 1), 8, 1)) else emptyList()
             _uiState.update { it.copy(requestDraft = RequestDraft(media, seasons, loading = false)) }
             return
         }
@@ -1371,7 +1392,7 @@ class ReelstackViewModel(
                         if (state.trackedRequests.firstOrNull { it.key == key }?.availabilityOnly == true) appString(R.string.flow_unfollowed_season)
                         else appString(R.string.flow_withdrawn_request)
                     }
-                    else result.exceptionOrNull()?.readableMessage()
+                    else result.exceptionOrNull()?.readableMessage(container.appContext)
                         ?: appString(R.string.error_withdraw_request),
                 )
             }
@@ -1527,8 +1548,9 @@ class ReelstackViewModel(
                             ActivityEvent(
                                 id = "seerr-request-${media.id}",
                                 title = media.title,
-                                detail = appString(R.string.flow_sent_as_title, account.displayName),
-                                time = appString(R.string.flow_just_now),
+                                detail = app.reelstack.localization.LocalizedText(
+                                    R.string.flow_sent_as_title, account.displayName),
+                                time = app.reelstack.localization.LocalizedText(R.string.flow_just_now),
                                 timeEpochMillis = System.currentTimeMillis(),
                                 source = ServiceKind.SEERR,
                                 artworkRes = media.artworkRes,
@@ -1789,6 +1811,11 @@ class ReelstackViewModel(
                 val seerrLive = ServiceKind.SEERR in snapshot.successfulServices
                 val activityLive = queueLive || seerrLive
                 val anySuccess = snapshot.successfulServices.isNotEmpty()
+                // A service can report several things at once. They are joined here, once, in the
+                // language the app is set to; the sync layer only decided which sentences apply.
+                val serviceWarnings = snapshot.warnings.mapValues { (_, sentences) ->
+                    sentences.joinToString(" · ") { it.text(container.appContext) }
+                }
 
                 current.copy(
                     adminView = snapshot.adminView,
@@ -1806,8 +1833,8 @@ class ReelstackViewModel(
                     // Release metadata does not require administrator queue credentials.
                     recentReleases = snapshot.recentReleases,
                     upcoming = snapshot.upcoming,
-                    recentReleasesError = snapshot.recentReleasesError,
-                    upcomingError = snapshot.upcomingError,
+                    recentReleasesError = snapshot.recentReleasesError?.text(container.appContext),
+                    upcomingError = snapshot.upcomingError?.text(container.appContext),
                     incoming = snapshot.incoming,
                     discover = when {
                         ServiceKind.SEERR !in configuredKinds -> emptyList()
@@ -1821,18 +1848,19 @@ class ReelstackViewModel(
                         else -> emptyList()
                     },
                     activity = snapshot.activity,
+                    // Several sentences per service, joined once and in the reader’s language.
                     connections = connectionsNow.map { connection ->
                         when {
-                            connection.baseUrl.isBlank() -> connection.copy(state = ConnectionState.DEMO, detail = "Demodata")
+                            connection.baseUrl.isBlank() -> connection.copy(state = ConnectionState.DEMO, detail = appString(R.string.connection_detail_demo))
                             connection.kind in snapshot.errors -> connection.copy(
                                 state = ConnectionState.ERROR,
-                                detail = snapshot.errors.getValue(connection.kind),
+                                detail = snapshot.errors.getValue(connection.kind).text(container.appContext),
                             )
                             connection.kind in snapshot.successfulServices -> connection.copy(
                                 state = ConnectionState.CONNECTED,
                                 detail = when {
                                     connection.kind in snapshot.switchedToAlternate -> appString(R.string.connection_active_switched_alternate)
-                                    else -> snapshot.warnings[connection.kind]?.let { appString(R.string.connection_connected_with_warning, it) }
+                                    else -> serviceWarnings[connection.kind]?.let { appString(R.string.connection_connected_with_warning, it) }
                                         ?: appString(R.string.connection_active_updated_now)
                                 },
                             )
@@ -1849,7 +1877,7 @@ class ReelstackViewModel(
                     lastUpdatedEpochMillis = if (anySuccess) snapshot.refreshedAt.toEpochMilli() else current.lastUpdatedEpochMillis,
                     hasCachedData = !anySuccess && current.hasCachedData,
                     failedServices = snapshot.errors.keys,
-                    serviceWarnings = snapshot.warnings,
+                    serviceWarnings = serviceWarnings,
                     snackbar = if (userInitiated) {
                         when {
                             snapshot.errors.isNotEmpty() -> appQuantityString(R.plurals.notice_sync_services_check, snapshot.errors.size, snapshot.errors.size)
@@ -1931,7 +1959,7 @@ class ReelstackViewModel(
                 error = null,
                 warning = runCatching {
                     if (value.isNotBlank() && EndpointValidator.isCleartext(value)) {
-                        "HTTP er ukryptert. Bruk helst HTTPS utanfor det trygge lokalnettet ditt."
+                        appString(R.string.warn_cleartext_http)
                     } else null
                 }.getOrNull(),
             )
@@ -2022,7 +2050,7 @@ class ReelstackViewModel(
                         )
                     }
                 }.getOrElse { error ->
-                    updateDraft { copy(saving = false, error = error.readableMessage() ?: appString(R.string.error_jellyfin_rejected)) }
+                    updateDraft { copy(saving = false, error = error.readableMessage(container.appContext) ?: appString(R.string.error_jellyfin_rejected)) }
                     return@launch
                 }
             } else null
@@ -2052,7 +2080,7 @@ class ReelstackViewModel(
                         other
                     }
                 }.getOrElse { error ->
-                    val failureDetail = error.readableMessage() ?: appString(R.string.error_companion_failed)
+                    val failureDetail = error.readableMessage(container.appContext) ?: appString(R.string.error_companion_failed)
                     updateDraft { copy(saving = false, error = appString(R.string.error_no_connections_changed, failureDetail)) }
                     return@launch
                 }
@@ -2174,7 +2202,7 @@ class ReelstackViewModel(
                 quickConnectWaiting = false,
                 error = if (kind == ServiceKind.SEERR) {
                     appString(R.string.error_quick_connect_seerr_unavailable)
-                } else error.readableMessage() ?: fallback,
+                } else error.readableMessage(container.appContext) ?: fallback,
             )
         }
     }
@@ -2185,7 +2213,7 @@ class ReelstackViewModel(
             if (personalLogin && connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
                 val account = container.accountProfileClient.load(connection)
                 check(account.id == connection.userId) { appString(R.string.error_account_verify) }
-                return app.reelstack.data.model.ConnectionTestResult(true, 0, appString(R.string.status_signed_in))
+                return app.reelstack.data.model.ConnectionTestResult(true, 0, app.reelstack.localization.LocalizedText(R.string.status_signed_in))
             }
             return container.connectionTester.test(connection)
         }
@@ -2200,13 +2228,13 @@ class ReelstackViewModel(
             withContext(Dispatchers.IO) { verify(candidate) }
         }.getOrElse { error ->
             updateDraft {
-                copy(saving = false, error = error.readableMessage() ?: appString(R.string.error_service_unreachable))
+                copy(saving = false, error = error.readableMessage(container.appContext) ?: appString(R.string.error_service_unreachable))
             }
             return
         }
 
         if (!result.success) {
-            updateDraft { copy(saving = false, error = result.message) }
+            updateDraft { copy(saving = false, error = result.message.text(container.appContext)) }
             return
         }
 
@@ -2233,7 +2261,7 @@ class ReelstackViewModel(
         val saved = candidate.copy(
             state = ConnectionState.CONNECTED,
             latencyMs = result.latencyMs,
-            detail = result.message,
+            detail = result.message.text(container.appContext),
         )
         _uiState.update { state ->
             state.copy(
@@ -2348,7 +2376,7 @@ class ReelstackViewModel(
                 accountErrors = it.accountErrors - kind,
                 activeSheet = null,
                 failedServices = it.failedServices - kind,
-                snackbar = "Logga ut av ${kind.displayName} på denne eininga",
+                snackbar = appString(R.string.notice_signed_out_of, kind.displayName),
             )
         }
         connectionDraft.value = null
@@ -2395,6 +2423,20 @@ class ReelstackViewModel(
     }
 }
 
+/**
+ * Whether a shelf may fall back to demo titles.
+ *
+ * The project rule is that demo content belongs to an app nobody has connected anything to yet. It
+ * is emphatically not an empty state: a household whose Jellyfin is down must see that their
+ * Jellyfin is down, not five films they do not own. Written once and tested, because it used to be
+ * written out at every one of twelve call sites.
+ */
+internal fun <T> demoContent(
+    configuredKinds: Set<ServiceKind>,
+    servedByRealService: Boolean,
+    demo: () -> List<T>,
+): List<T> = if (servedByRealService || configuredKinds.isNotEmpty()) emptyList() else demo()
+
 private fun initialState(container: AppContainer): ReelstackUiState {
     val connections = container.connectionRepository.list()
     val configuredKinds = connections.filter { it.baseUrl.isNotBlank() }.mapTo(mutableSetOf()) { it.kind }
@@ -2413,48 +2455,21 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         libraryIcons = connections.sortedBy { it.kind != container.preferencesRepository.preferredLibrarySource }
             .firstOrNull { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank() }
             ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
-        sessions = when {
-            hasMediaServer -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoSessions() else emptyList()
-        },
-        resume = when {
-            hasMediaServer -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoResume() else emptyList()
-        },
-        recentMovies = when {
-            hasMediaServer -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoRecentMovies() else emptyList()
-        },
-        nextUp = if (hasMediaServer) emptyList() else if (configuredKinds.isEmpty()) demoNextUp() else emptyList(),
-        favourites = if (configuredKinds.isEmpty()) demoFavourites() else emptyList(),
-        recentSeries = when {
-            hasMediaServer -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoRecentSeries() else emptyList()
-        },
-        upcoming = when {
-            hasQueueService -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoUpcoming() else emptyList()
-        },
-        recentReleases = when {
-            hasQueueService -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoRecentReleases() else emptyList()
-        },
-        incoming = when {
-            hasQueueService -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoIncoming() else emptyList()
-        },
-        discover = when {
-            hasSeerr -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoDiscover() else emptyList()
-        },
-        recommendations = when {
-            configuredKinds.isEmpty() -> demoRecommendations()
-            else -> emptyList()
-        },
-        activity = when {
-            hasQueueService || hasSeerr -> emptyList()
-            else -> if (configuredKinds.isEmpty()) demoActivity() else emptyList()
-        },
+        // Ten copies of the same rule, written out ten times, is ten chances to get it wrong once.
+        // `demoContent` is the rule: show made-up titles only when the app has nothing at all set
+        // up, and never as a fallback for a service that is configured but not answering.
+        sessions = demoContent(configuredKinds, hasMediaServer, ::demoSessions),
+        resume = demoContent(configuredKinds, hasMediaServer, ::demoResume),
+        recentMovies = demoContent(configuredKinds, hasMediaServer, ::demoRecentMovies),
+        nextUp = demoContent(configuredKinds, hasMediaServer, ::demoNextUp),
+        favourites = demoContent(configuredKinds, servedByRealService = false, demo = ::demoFavourites),
+        recentSeries = demoContent(configuredKinds, hasMediaServer, ::demoRecentSeries),
+        upcoming = demoContent(configuredKinds, hasQueueService, ::demoUpcoming),
+        recentReleases = demoContent(configuredKinds, hasQueueService, ::demoRecentReleases),
+        incoming = demoContent(configuredKinds, hasQueueService, ::demoIncoming),
+        discover = demoContent(configuredKinds, hasSeerr, ::demoDiscover),
+        recommendations = demoContent(configuredKinds, servedByRealService = false, demo = ::demoRecommendations),
+        activity = demoContent(configuredKinds, hasQueueService || hasSeerr, ::demoActivity),
         notificationsEnabled = container.preferencesRepository.notificationsEnabled,
         wifiOnly = container.preferencesRepository.wifiOnly,
         homeSections = container.preferencesRepository.visibleHomeSections,

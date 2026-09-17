@@ -1,5 +1,7 @@
 package app.reelstack.data.network
 
+import app.reelstack.R
+import app.reelstack.localization.LocalizedText
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import kotlinx.coroutines.CancellationException
@@ -28,7 +30,8 @@ internal fun libraryRelease(item: RemoteLibraryItem, source: ServiceKind, window
     // A movie's library PremiereDate is normally cinema, not digital. Never use it here.
     if (!item.available || !window.recent(item.premiereDate) || item.mediaType != "Episode") return null
     return RemoteUpcomingItem(item.id, item.title, item.subtitle, requireNotNull(item.premiereDate), source,
-        item.artworkUrl, item.mediaType, item.overview, item.facts + "I biblioteket", item.genres)
+        item.artworkUrl, item.mediaType, item.overview,
+        item.facts + LocalizedText(R.string.release_in_library), item.genres)
 }
 
 data class ReleaseCatalogue(
@@ -63,7 +66,7 @@ class SeerrReleaseClient(
         val headers = if (connection.sessionCookie) seerrCookieHeaders(connection.token) else mapOf("X-Api-Key" to connection.token)
         fun get(path: String): String {
             val response = transport.get(EndpointValidator.resolve(connection.baseUrl, "api/v1/$path"), headers)
-            check(response.statusCode in 200..299) { "Fekk ikkje henta utgjevingsdatoar frå Seerr (${response.statusCode})" }
+            check(response.statusCode in 200..299) { "release dates: Seerr answered ${response.statusCode}" }
             return response.body
         }
         val limit = Semaphore(4)
@@ -73,7 +76,8 @@ class SeerrReleaseClient(
                 seerrReleases(get("movie/${item.tmdbId}"), "movie", window).filter { window.recent(it.dateTime) }.map { release ->
                     release.copy(id = item.id, source = candidate.source, title = item.title, subtitle = item.subtitle,
                         artworkUrl = item.artworkUrl ?: release.artworkUrl,
-                        overview = item.overview ?: release.overview, facts = release.facts + "I biblioteket")
+                        overview = item.overview ?: release.overview,
+                        facts = release.facts + LocalizedText(R.string.release_in_library))
                 }
             } }
         } }.awaitAll()
@@ -116,9 +120,9 @@ internal fun seerrReleases(payload: String, type: String, window: ReleaseWindow)
         // Earliest home release, not a later regional re-release. No cinema-date fallback.
         val release = dates.minOrNull() ?: return emptyList()
         if (!window.recent(release.toString()) && !window.upcoming(release.toString())) return emptyList()
-        return listOf(RemoteUpcomingItem("movie-$id", title, "Film · ${premiere.year}", release.toString(),
+        return listOf(RemoteUpcomingItem("movie-$id", title, premiere.year.toString(), release.toString(),
             ServiceKind.SEERR, art(root.text("posterPath")), "Movie", details.overview,
-            details.facts + "Digital utgjeving", genres))
+            details.facts + LocalizedText(R.string.release_digital), genres))
     }
     if (type != "tv") return emptyList()
     val episodes = listOfNotNull(root["lastEpisodeToAir"] as? JsonObject, root["nextEpisodeToAir"] as? JsonObject)
@@ -132,6 +136,6 @@ internal fun seerrReleases(payload: String, type: String, window: ReleaseWindow)
             listOfNotNull(label, episode.text("name")?.takeIf { it.isNotBlank() && it != "TBA" }).joinToString(" · "),
             date, ServiceKind.SEERR, art(episode.text("stillPath")) ?: art(root.text("backdropPath")) ?: details.artworkUrl,
             "Episode", episode.text("overview")?.takeIf(String::isNotBlank) ?: details.overview,
-            details.facts + label, genres)
+            details.facts + LocalizedText.raw(label), genres)
     }
 }

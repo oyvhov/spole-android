@@ -1,6 +1,7 @@
 package app.reelstack.data.repository
 
 import android.content.Context
+import app.reelstack.R
 import androidx.core.content.edit
 import app.reelstack.data.model.*
 import app.reelstack.data.network.*
@@ -50,17 +51,17 @@ class RequestTrackingRepository(
         require(connection.kind == ServiceKind.SEERR && connection.sessionCookie && media.mediaType == "tv" && media.remoteId != null && number >= 0)
         if (enabled) {
             val actor = profiles.load(connection)
-            check(actor.isPersonal && actor.id == userId) { "Seerr-kontoen er endra. Opne sesongane på nytt." }
+            if (!actor.isPersonal || actor.id != userId) serviceError(R.string.err_seerr_konto_endra_sesongar)
         }
         val detail = if (enabled) client.details(connection, "tv", media.remoteId, includeOverviewFallback = false) else null
-        if (enabled) check(detail?.seerrStatus != 6 && detail?.seasons?.any { it.number == number && it.canWatch } == true) {
-            "Sesongstatusen er endra. Sjekk på nytt før du slår på varsel."
+        if (enabled && (detail?.seerrStatus == 6 || detail?.seasons?.any { it.number == number && it.canWatch } != true)) {
+            serviceError(R.string.err_sesongstatusen_er_endra)
         }
         val scope = scope(connection, userId)
         synchronized(lock) {
             val active = ConnectionRepository(context).list().firstOrNull { it.kind == ServiceKind.SEERR }
-            check(active?.token == connection.token && active.baseUrl == connection.baseUrl && active.sessionCookie) {
-                "Seerr-kontoen er endra. Opne sesongane på nytt."
+            if (active?.token != connection.token || active.baseUrl != connection.baseUrl || !active.sessionCookie) {
+                serviceError(R.string.err_seerr_konto_endra_sesongar)
             }
             val items = list(scope)
             // Reuse an exact single-season personal request, preserving its ID and alert history.
@@ -98,13 +99,13 @@ class RequestTrackingRepository(
     /** Withdraws the request in Seerr, then drops the local follow so it cannot reappear. */
     fun cancel(connection: ServiceConnection, userId: String, key: String) {
         val scope = scope(connection, userId)
-        val tracked = list(scope).firstOrNull { it.key == key } ?: error("Fann ikkje førespurnaden.")
+        val tracked = list(scope).firstOrNull { it.key == key } ?: serviceError(R.string.err_fann_ikkje_forespurnaden)
         if (tracked.availabilityOnly) {
             removeLocalWatch(scope, key)
             return
         }
         val requestId = tracked.requestId
-            ?: error("Denne førespurnaden manglar Seerr-ID. Oppdater lista og prøv igjen.")
+            ?: serviceError(R.string.err_forespurnaden_manglar_seerr_id)
         client.cancelRequest(connection, requestId, userId)
         synchronized(lock) {
             val remaining = list(scope).filterNot { it.key == key }
@@ -114,7 +115,7 @@ class RequestTrackingRepository(
 
     fun refresh(connection: ServiceConnection): Pair<String, List<TrackedRequest>> {
         val actor = profiles.load(connection)
-        check(actor.isPersonal) { "Logg inn personleg for å følgje førespurnader." }
+        if (!actor.isPersonal) serviceError(R.string.err_logg_inn_personleg_folg)
         val scope = scope(connection, actor.id)
         val remote = client.requests(connection, actor.id).filter { it.ownerId == actor.id }
         // Import existing personal requests too. Notifications on old requests remain opt-in.

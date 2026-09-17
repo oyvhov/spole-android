@@ -1,11 +1,14 @@
 package app.reelstack.data.model
 
-enum class ServiceKind(val displayName: String, val role: String) {
-    JELLYFIN("Jellyfin", "Medietenar"),
-    EMBY("Emby", "Medietenar"),
-    SEERR("Seerr", "Legg til innhald"),
-    RADARR("Radarr", "Filmar"),
-    SONARR("Sonarr", "Seriar"),
+import androidx.annotation.StringRes
+import app.reelstack.R
+
+enum class ServiceKind(val displayName: String) {
+    JELLYFIN("Jellyfin"),
+    EMBY("Emby"),
+    SEERR("Seerr"),
+    RADARR("Radarr"),
+    SONARR("Sonarr"),
 }
 
 enum class ConnectionState {
@@ -75,13 +78,15 @@ data class ServiceConnection(
 }
 
 data class PlaybackSession(
+    /** Blank when the server did not say; the screen supplies the word, not the parser. */
     val userName: String,
     val deviceName: String,
     val title: String,
     val subtitle: String,
     val progress: Float,
-    val timeLeft: String,
-    val streamMethod: String,
+    /** Minutes left. 0 means the title is nearly over. */
+    val remainingMinutes: Int,
+    val transcoding: Boolean,
     val quality: String,
     val paused: Boolean,
     val artworkUrl: String? = null,
@@ -156,6 +161,8 @@ data class UpcomingMedia(
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val mediaType: String = "Video",
+    /** A disc release rather than a digital one. See RemoteUpcomingItem for why this is a flag. */
+    val physicalRelease: Boolean = false,
 )
 
 val UpcomingMedia.isMovieRelease: Boolean
@@ -209,15 +216,17 @@ val DiscoverMedia.isSeries: Boolean
 val DiscoverMedia.canRequest: Boolean
     get() = if (isSeries) seerrStatus != 6 else !inLibrary && !requested && seerrStatus !in 2..6
 
-fun seerrStatusLabel(status: Int?, inLibrary: Boolean = false, requested: Boolean = false): String = when {
-    status == 6 -> "Blokkert i Seerr"
-    status == 5 || inLibrary -> "I biblioteket ditt"
-    status == 4 -> "Delvis i biblioteket"
-    status == 3 -> "Førespurd"
-    status == 2 -> "Ventar på godkjenning"
-    requested -> "Lagd til"
-    status == 7 -> "Fjerna frå biblioteket"
-    else -> "Kan leggjast til"
+/** Which sentence, not which words: the caller holds the Context and picks the language. */
+@StringRes
+fun seerrStatusLabel(status: Int?, inLibrary: Boolean = false, requested: Boolean = false): Int = when {
+    status == 6 -> R.string.seerr_status_blocked
+    status == 5 || inLibrary -> R.string.seerr_status_in_library
+    status == 4 -> R.string.seerr_status_partial
+    status == 3 -> R.string.seerr_status_requested
+    status == 2 -> R.string.seerr_status_awaiting
+    requested -> R.string.seerr_status_added
+    status == 7 -> R.string.seerr_status_removed
+    else -> R.string.seerr_status_can_add
 }
 
 fun resolvedMediaType(type: String?, subtitle: String): String? = when {
@@ -229,14 +238,15 @@ fun resolvedMediaType(type: String?, subtitle: String): String? = when {
     else -> null
 }
 
-fun seerrStatusDescription(status: Int?, inLibrary: Boolean = false): String = when {
-    status == 6 -> "Denne tittelen er blokkert av administratoren i Seerr."
-    status == 5 || inLibrary -> "Klart til å sjå i mediebiblioteket ditt."
-    status == 4 -> "Noko av innhaldet er tilgjengeleg, men ikkje alt."
-    status == 3 -> "Seerr behandlar tittelen. Nedlastinga er ikkje nødvendigvis starta."
-    status == 2 -> "Ein administrator må godkjenne tittelen i Seerr."
-    status == 7 -> "Seerr melder at innhaldet er fjerna. Det kan leggjast til på nytt."
-    else -> "Tilgjenge og handlingar blir styrte av Seerr-kontoen din."
+@StringRes
+fun seerrStatusDescription(status: Int?, inLibrary: Boolean = false): Int = when {
+    status == 6 -> R.string.seerr_desc_blocked
+    status == 5 || inLibrary -> R.string.seerr_desc_in_library
+    status == 4 -> R.string.seerr_desc_partial
+    status == 3 -> R.string.seerr_desc_requested
+    status == 2 -> R.string.seerr_desc_awaiting
+    status == 7 -> R.string.seerr_desc_removed
+    else -> R.string.seerr_desc_default
 }
 
 data class CastMember(val name: String, val role: String? = null, val portraitUrl: String? = null, val remoteId: String? = null)
@@ -337,8 +347,16 @@ data class MediaTrack(
 data class ActivityEvent(
     val id: String,
     val title: String,
-    val detail: String,
-    val time: String,
+    /** The status line, as a resource and its arguments — the words are chosen where a Context is. */
+    val detail: app.reelstack.localization.LocalizedText,
+    val time: app.reelstack.localization.LocalizedText,
+    /**
+     * Which stage a Seerr request is at, or null for anything that is not one.
+     *
+     * A request in flight and a title you only follow looked identical on the activity timeline:
+     * same card, same grey line. This is what lets them be told apart.
+     */
+    val stage: RequestStage? = null,
     /**
      * When the event actually happened. [time] is a display string ("For 5 dagar sidan"), and two
      * such strings can share a prefix without sharing a day, so day grouping reads this instead.
@@ -356,6 +374,7 @@ data class ActivityEvent(
 data class ConnectionTestResult(
     val success: Boolean,
     val latencyMs: Long,
-    val message: String,
+    /** Which sentence, not the sentence: the words are chosen where a Context exists. */
+    val message: app.reelstack.localization.LocalizedText,
     val detectedKind: ServiceKind? = null,
 )

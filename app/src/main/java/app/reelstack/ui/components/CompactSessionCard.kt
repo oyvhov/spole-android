@@ -117,7 +117,7 @@ internal fun CompactSessionCard(session: PlaybackSession, pending: Boolean, cont
                 }
             }
             Text(
-                session.timeLeft, color = Muted, style = MaterialTheme.typography.bodySmall,
+                sessionTimeLeft(session), color = Muted, style = MaterialTheme.typography.bodySmall,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp),
             )
         }

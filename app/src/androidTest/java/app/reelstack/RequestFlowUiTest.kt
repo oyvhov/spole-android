@@ -1,5 +1,6 @@
 package app.reelstack
 
+import app.reelstack.localization.LocalizedText
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -16,8 +17,8 @@ class RequestFlowUiTest {
     @get:Rule val rule = createComposeRule()
     private val media = DiscoverMedia("series", "Ein serie med ein lang tittel", "Serie", R.drawable.media_placeholder, true, mediaType = "tv")
     @Test fun availableAndRequestedSeasonsAreLockedWhileMissingSeasonCanBeSelected() {
-        var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(1, "Sesong 1", 8, 5),
-            RequestSeason(2, "Sesong 2", 8, 3), RequestSeason(3, "Sesong 3", 8, 1)), selected = setOf(3), loading = false))
+        var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(1, LocalizedText.raw("Sesong 1"), 8, 5),
+            RequestSeason(2, LocalizedText.raw("Sesong 2"), 8, 3), RequestSeason(3, LocalizedText.raw("Sesong 3"), 8, 1)), selected = setOf(3), loading = false))
         rule.setContent { ReelstackTheme { RequestComposer(ReelstackUiState(requestDraft = draft), { n, checked ->
             draft = draft.copy(selected = if (checked) draft.selected + n else draft.selected - n)
         }, { draft = draft.copy(notify = it) }, {}, {}, {}, {}) } }
@@ -57,7 +58,7 @@ class RequestFlowUiTest {
     }
 
     @Test fun partialSeasonCanEnableAlertWithoutSelectingOrSendingRequest() {
-        var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(2, "Sesong 2", 8, 4)), loading = false))
+        var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(2, LocalizedText.raw("Sesong 2"), 8, 4)), loading = false))
         var sent = 0
         val actor = ServiceAccount(ServiceKind.SEERR, "7", "Maya", permissions = 32)
         rule.setContent { ReelstackTheme { RequestComposer(
@@ -74,7 +75,7 @@ class RequestFlowUiTest {
 
     @Test fun futureSeasonRequiresExplicitSelectionAndKeepsNotificationChoice() {
         var draft by mutableStateOf(RequestDraft(media,
-            listOf(RequestSeason(3, "Sesong 3", 8, 1, java.time.LocalDate.now().plusYears(1))), loading = false))
+            listOf(RequestSeason(3, LocalizedText.raw("Sesong 3"), 8, 1, java.time.LocalDate.now().plusYears(1))), loading = false))
         rule.setContent { ReelstackTheme { RequestComposer(ReelstackUiState(requestDraft = draft),
             { n, checked -> draft = draft.copy(selected = if (checked) setOf(n) else emptySet()) }, {}, {}, {}, {}, {}) } }
         rule.onNodeWithTag("request-season-3").performScrollTo().assertIsOff()
@@ -97,7 +98,7 @@ class RequestFlowUiTest {
     }
 
     @Test fun seasonWatchControlsWorkAtDoubleTextSize() {
-        var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(2, "Sesong 2", 12, 4)), loading = false))
+        var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(2, LocalizedText.raw("Sesong 2"), 12, 4)), loading = false))
         rule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
                 ReelstackTheme { RequestComposer(
@@ -112,7 +113,7 @@ class RequestFlowUiTest {
 
     @Test fun fastSeasonResponseWaitsForSheetEntranceBeforeRevealingControls() {
         var entered by mutableStateOf(false)
-        val draft = RequestDraft(media, listOf(RequestSeason(3, "Sesong 3", 8, 1)), loading = false)
+        val draft = RequestDraft(media, listOf(RequestSeason(3, LocalizedText.raw("Sesong 3"), 8, 1)), loading = false)
         rule.setContent { ReelstackTheme { RequestComposer(ReelstackUiState(requestDraft = draft),
             { _, _ -> }, {}, {}, {}, {}, {}, entered = entered) } }
         rule.onNodeWithTag("seasons-loading").assertExists()

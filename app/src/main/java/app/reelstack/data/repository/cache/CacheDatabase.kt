@@ -94,7 +94,10 @@ interface CacheDao {
     }
 }
 
-@Database(entities = [CachedMediaRow::class, CacheMetaRow::class], version = 3, exportSchema = false)
+// Version 4: the cached text changed meaning. Rows written by an older build hold a media line
+// with the type word baked in ("Film · 2024"); this build composes that line from the type and
+// would write it twice. The cache is a cache, so it is dropped rather than migrated.
+@Database(entities = [CachedMediaRow::class, CacheMetaRow::class], version = 4, exportSchema = false)
 abstract class CacheDatabase : RoomDatabase() {
     abstract fun cacheDao(): CacheDao
 

@@ -535,8 +535,15 @@ fun PlayerScreen(
                                 stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill), "player-frame-mode", labelVisible = true) { fillVideo = !fillVideo; interaction++ }
                             if (!isTelevision) IconButton(onClick = onRotate) { Icon(app.reelstack.ui.components.SpoleIcons.Rotate, stringResource(R.string.player_rotate)) }
                         }
-                        Text(stringResource(if (state.direct) R.string.player_direct else R.string.player_transcoded, state.source.displayName), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            listOfNotNull(
+                                stringResource(playbackModeLabel(state.mode), state.source.displayName),
+                                playbackReasonFor(state)?.let { stringResource(R.string.player_reason_because, stringResource(it)) },
+                            ).joinToString(". "),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.testTag("player-mode-line"),
+                        )
                         state.warning?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
                     }
                 }
@@ -551,12 +558,27 @@ fun PlayerScreen(
                 modifier = Modifier.align(Alignment.TopStart).padding(24.dp).testTag("player-stats-overlay"),
                 color = Color.Black.copy(alpha = .78f), shape = RoundedCornerShape(8.dp),
             ) {
+                // The panel keeps its name — it is the name people search for — but everything
+                // around it is now translated, and it says which of the four things the server is
+                // doing rather than "Transcode" for three of them.
+                val unknown = stringResource(R.string.player_stats_unknown)
+                val audioTrack = state.audio.firstOrNull { it.index == state.audioIndex }
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Stats for Nerds", color = Color.White, fontWeight = FontWeight.Bold)
-                    Text("${state.source.displayName} · ${if (state.direct) "Direct Play" else "Transcode"}", color = Color.White)
-                    Text("${state.videoCodec ?: "ukjent"} · ${state.videoWidth}×${state.videoHeight} · ${state.videoBitrate.takeIf { it > 0 }?.let { "${it / 1_000_000} Mbps" } ?: "bitrate ?"}", color = Color.White)
-                    Text("${state.videoHdr} · ${state.videoFrameRate.takeIf { it > 0 }?.let { "%.2f fps".format(it) } ?: "fps ?"}", color = Color.White)
-                    Text("Buffer ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${if (player.isPlaying) "Playing" else "Paused"}", color = Color.White)
+                    Text(stringResource(R.string.player_stats_title), color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(stringResource(playbackModeLabel(state.mode), state.source.displayName), color = Color.White)
+                    playbackReasonFor(state)?.let {
+                        Text(stringResource(R.string.player_reason_because, stringResource(it)), color = Color.White)
+                    }
+                    Text("${stringResource(R.string.player_stats_video)} · ${state.videoCodec ?: unknown} · ${state.videoWidth}×${state.videoHeight} · ${state.videoBitrate.takeIf { it > 0 }?.let { "${it / 1_000_000} Mbps" } ?: unknown}", color = Color.White)
+                    Text("${state.videoHdr} · ${state.videoFrameRate.takeIf { it > 0 }?.let { "%.2f fps".format(it) } ?: unknown}", color = Color.White)
+                    Text("${stringResource(R.string.player_stats_audio)} · ${audioTrack?.label ?: unknown}", color = Color.White)
+                    Text("${stringResource(R.string.player_stats_buffer)} ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${stringResource(if (player.isPlaying) R.string.player_stats_playing else R.string.player_stats_paused)}", color = Color.White)
+                    // Dropped frames are the one number that tells you the device cannot keep up,
+                    // as opposed to the network not keeping up. Worth its own line.
+                    (player as? androidx.media3.exoplayer.ExoPlayer)?.videoDecoderCounters
+                        ?.droppedBufferCount?.takeIf { it > 0 }?.let {
+                        Text(stringResource(R.string.player_stats_dropped, it), color = Color.White)
+                    }
                 }
             }
         }

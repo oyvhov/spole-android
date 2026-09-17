@@ -263,6 +263,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             if (contentHasFocus || runCatching { contentFocus.requestFocus() }.getOrDefault(false)) moveIntoContent = false
         }
     }
+    // One safe edge for every television screen, rather than each one choosing its own bottom
+    // padding — which is how Activity ended up cutting its second row in half.
+    val screenInsets = if (tvRail) PaddingValues(bottom = ReelLayout.TvSafeEdge) else PaddingValues(0.dp)
     val expandedRail = showRail && if (tvRail) tvRailFocused else
         (personalization.sidebarExpanded ?: windowLayout.expandSidebarByDefault)
     Box(modifier = Modifier.fillMaxSize()) {
@@ -356,7 +359,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 when (tab) {
                     AppTab.HOME -> HomeScreen(
                         state = state,
-                        contentPadding = PaddingValues(0.dp),
+                        contentPadding = screenInsets,
                         onSessionClick = { viewModel.openSheet(AppSheet.SessionDetails(it)) },
                         onPlaybackToggle = viewModel::togglePlayback,
                         onMediaClick = viewModel::openIncomingDetails,
@@ -379,7 +382,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
                         state = state,
-                        contentPadding = PaddingValues(0.dp),
+                        contentPadding = screenInsets,
                         onSearch = viewModel::setSearchQuery,
                         onRequest = viewModel::requestMedia,
                         onDetails = viewModel::openDiscoverDetails,
@@ -395,13 +398,13 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary,
                         onShelfOpen = viewModel::openLibraryDetails, cardActions = cardActions,
                         onSource = viewModel::selectLibrarySource)
-                    AppTab.ACTIVITY -> ActivityScreen(state, PaddingValues(0.dp), viewModel::openActivityDetails,
+                    AppTab.ACTIVITY -> ActivityScreen(state, screenInsets, viewModel::openActivityDetails,
                         viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
                         viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
                         viewModel::closeRequestHistory, viewModel::loadRequestHistory)
                     AppTab.SETTINGS -> SettingsScreen(
                         state = state,
-                        contentPadding = PaddingValues(0.dp),
+                        contentPadding = screenInsets,
                         onConnectionClick = { viewModel.openSheet(AppSheet.ConnectionEditor(it)) },
                         onNotificationsChange = viewModel::setNotifications,
                         onWifiOnlyChange = viewModel::setWifiOnly,

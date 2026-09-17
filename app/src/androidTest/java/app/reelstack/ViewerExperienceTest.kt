@@ -17,7 +17,7 @@ class ViewerExperienceTest {
     private val connection = ServiceConnection(ServiceKind.SEERR, "Seerr", "https://test.example", "session", sessionCookie = true)
     @Test fun ordinaryActivityShowsOnlyPersonalItemsWithoutAdminFilters() {
         rule.setContent { ReelstackTheme { ActivityScreen(ReelstackUiState(connections = listOf(connection), adminView = false,
-            activity = listOf(ActivityEvent("other", "Other user's title", "", "", source = ServiceKind.RADARR)),
+            activity = listOf(ActivityEvent("other", "Other user's title", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_unknown), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_recently), source = ServiceKind.RADARR)),
             trackedRequests = listOf(TrackedRequest("mine", 1, "movie", "My title", null, emptySet()))), PaddingValues(0.dp), {}) } }
         rule.onNodeWithText("My title").assertIsDisplayed()
         rule.onNodeWithText("Other user's title").assertDoesNotExist()

@@ -1,5 +1,7 @@
 package app.reelstack.player
 
+import app.reelstack.R
+import app.reelstack.data.network.serviceError
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.SubtitleLanguage
@@ -57,13 +59,89 @@ data class PlaybackSegment(val kind: Kind, val startMs: Long, val endMs: Long) {
     enum class Kind { INTRO, OUTRO }
 }
 
+/**
+ * What the server is actually doing with the file.
+ *
+ * "Direct or not" was all the plan carried, and it is not enough to answer the one question every
+ * self-hosting household asks: *why is my server transcoding?* Copying the picture and converting
+ * only the sound costs a server almost nothing; re-encoding the picture is what makes a fan spin up
+ * and a stream stutter. Those two were the same word.
+ */
+enum class PlaybackMode {
+    /** The file is sent untouched. */
+    DIRECT_PLAY,
+
+    /** Both streams are copied; only the container changes, usually to HLS. */
+    DIRECT_STREAM,
+
+    /** The picture is copied and the sound is converted — the common case on a TV without EAC3. */
+    AUDIO_TRANSCODE,
+
+    /** The server re-encodes the picture. The expensive one. */
+    FULL_TRANSCODE,
+    ;
+
+    val copiesVideo: Boolean get() = this != FULL_TRANSCODE
+}
+
 /** No secrets or server paths belong in intents, saved state or diagnostic text. */
 data class PlaybackPlan(
     val item: PlayableItem, val sourceId: String, val sessionId: String,
-    val url: String, val direct: Boolean, val audio: List<PlaybackTrack>, val subtitles: List<PlaybackTrack>,
+    val url: String, val mode: PlaybackMode, val audio: List<PlaybackTrack>, val subtitles: List<PlaybackTrack>,
     val audioIndex: Int?, val subtitleIndex: Int, val subtitleUrl: String?,
+    /**
+     * The server's own words for why it could not send the file as it is, such as
+     * `AudioCodecNotSupported`. Free text from the server, so it is mapped to a sentence for
+     * display and never shown raw.
+     */
+    val transcodeReasons: List<String> = emptyList(),
 ) {
-    override fun toString() = "PlaybackPlan(direct=$direct)"
+    /** Kept for every caller that only needs "is the file being sent untouched". */
+    val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
+
+    override fun toString() = "PlaybackPlan(mode=$mode)"
+}
+
+/** Reads one query value out of a server-built URL, whatever case the server spelled it in. */
+internal fun playbackUrlValue(url: String, key: String): String {
+    val query = url.substringAfter('?', "")
+    if (query.isBlank()) return ""
+    return query.split('&').firstNotNullOfOrNull { pair ->
+        val name = pair.substringBefore('=')
+        if (!name.equals(key, ignoreCase = true)) null
+        else runCatching { URLDecoder.decode(pair.substringAfter('=', ""), "UTF-8") }.getOrDefault("")
+    }.orEmpty()
+}
+
+/**
+ * Which of the four things the server settled on.
+ *
+ * Both servers build the transcoding URL themselves and spell out `VideoCodec=copy` /
+ * `AudioCodec=copy` in it when a stream is only being remuxed. That is the one signal both Jellyfin
+ * and Emby agree on, across versions, so it is what this reads — rather than a field that only one
+ * of them sets.
+ */
+internal fun playbackModeFor(source: JsonObject, direct: Boolean): PlaybackMode {
+    if (direct) return PlaybackMode.DIRECT_PLAY
+    val url = source.str("TranscodingUrl")
+    val videoCopy = playbackUrlValue(url, "VideoCodec").equals("copy", ignoreCase = true)
+    val audioCopy = playbackUrlValue(url, "AudioCodec").equals("copy", ignoreCase = true)
+    return when {
+        videoCopy && audioCopy -> PlaybackMode.DIRECT_STREAM
+        videoCopy -> PlaybackMode.AUDIO_TRANSCODE
+        else -> PlaybackMode.FULL_TRANSCODE
+    }
+}
+
+/** The reasons the server gave, from whichever of the three places that server puts them. */
+internal fun playbackTranscodeReasons(source: JsonObject): List<String> {
+    fun split(value: String) = value.split(',').map(String::trim).filter(String::isNotEmpty)
+    (source["TranscodeReasons"] as? JsonArray)
+        ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf(String::isNotEmpty) }
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { return it }
+    split(source.str("TranscodeReasons")).takeIf { it.isNotEmpty() }?.let { return it }
+    return split(playbackUrlValue(source.str("TranscodingUrl"), "TranscodeReasons"))
 }
 
 internal fun enc(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
@@ -75,9 +153,9 @@ internal fun JsonObject.objects(key: String) = (get(key) as? JsonArray)?.mapNotN
 
 fun parsePlayable(item: JsonObject, baseUrl: String? = null): PlayableItem {
     val type = item.str("Type")
-    require(type in setOf("Movie", "Episode", "Video", "Series", "Season")) { "Denne medietypen kan ikkje spelast her." }
-    require(type in setOf("Series", "Season") || !item.flag("IsMissing") && item.str("LocationType") != "Virtual") { "Denne episoden ligg ikkje i biblioteket enno." }
-    val id = item.str("Id").also { require(it.isNotBlank()) { "Tittelen manglar ein gyldig ID." } }
+    if (type !in setOf("Movie", "Episode", "Video", "Series", "Season")) serviceError(R.string.player_err_media_type)
+    if (type !in setOf("Series", "Season") && (item.flag("IsMissing") || item.str("LocationType") == "Virtual")) serviceError(R.string.player_err_episode_missing)
+    val id = item.str("Id").also { if (it.isBlank()) serviceError(R.string.player_err_server_incomplete) }
     val duration = ((item.num("RunTimeTicks") ?: 0) / 10_000).coerceAtLeast(0)
     val user = item.obj("UserData")
     val resume = ((user.num("PlaybackPositionTicks") ?: 0) / 10_000).coerceAtLeast(0)
@@ -132,7 +210,7 @@ internal fun playableLogoUrl(item: JsonObject, baseUrl: String?): String? {
 /** Same-origin, same-base-path only; remove server-generated credentials before Media3 sees a URI. */
 fun safePlaybackUrl(baseUrl: String, value: String): String {
     val base = URI(EndpointValidator.normalizeBaseUrl(baseUrl).trimEnd('/') + "/")
-    require(value.none { it.isISOControl() || it == '\\' }) { "Utrygg medieadresse." }
+    require(value.none { it.isISOControl() || it == '\\' }) { "unsafe media URL" }
     val input = URI(value)
     val resolved = when {
         input.isAbsolute || input.rawAuthority != null -> base.resolve(input)
@@ -141,10 +219,10 @@ fun safePlaybackUrl(baseUrl: String, value: String): String {
     }
     fun port(uri: URI) = if (uri.port >= 0) uri.port else if (uri.scheme == "https") 443 else 80
     require(resolved.scheme.equals(base.scheme, true) && resolved.host.equals(base.host, true) && port(resolved) == port(base) &&
-        resolved.rawUserInfo == null && resolved.rawFragment == null) { "Mediestraumen peikar utanfor medietenaren." }
+        resolved.rawUserInfo == null && resolved.rawFragment == null) { "media stream points outside the server" }
     val path = resolved.path.orEmpty()
     require(path.startsWith(base.path) && path.split('/').none { it == "." || it == ".." } &&
-        path.none { it == '\\' || it.isISOControl() } && !path.contains('%')) { "Utrygg mediestig." }
+        path.none { it == '\\' || it.isISOControl() } && !path.contains('%')) { "unsafe media path" }
     val query = resolved.rawQuery?.split('&')?.filterNot {
         URLDecoder.decode(it.substringBefore('='), "UTF-8").lowercase() in setOf("api_key", "apikey", "token", "access_token", "x-emby-token")
     }?.joinToString("&")?.takeIf(String::isNotBlank)
@@ -177,12 +255,12 @@ class MediaPlaybackClient(
     }
 
     fun verify(connection: ServiceConnection): String {
-        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && connection.token.isNotBlank()) { "Logg inn på medietenaren for å spele av." }
+        if (connection.kind !in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) || connection.token.isBlank()) serviceError(R.string.player_err_sign_in_media)
         val user = read(connection, playbackProfilePath(connection))
         val id = user.str("Id")
-        require(id.isNotBlank() && (connection.userId.isBlank() || connection.userId.equals(id, true))) { "Mediekontoen er endra. Logg inn på nytt." }
-        require(!user.obj("Policy").flag("IsDisabled") && user.obj("Policy")["EnableMediaPlayback"] != JsonPrimitive(false)) {
-            "Denne mediekontoen har ikkje løyve til å spele av."
+        if (id.isBlank() || connection.userId.isNotBlank() && !connection.userId.equals(id, true)) serviceError(R.string.player_err_account_switched)
+        if (user.obj("Policy").flag("IsDisabled") || user.obj("Policy")["EnableMediaPlayback"] == JsonPrimitive(false)) {
+            serviceError(R.string.player_err_no_permission)
         }
         // Best effort: an older server that does not know the endpoint must not block playback.
         runCatching { announceCapabilities(connection) }
@@ -265,7 +343,7 @@ class MediaPlaybackClient(
     private fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,
         audio: Int?, subtitle: Int?, compatibility: PlaybackCompatibility, sourceId: String?,
         preferredLanguage: SubtitleLanguage, fallbackLanguage: SubtitleLanguage): PlaybackPlan {
-        require(item.type in setOf("Movie", "Episode", "Video")) { "Vel ein episode først." }
+        if (item.type !in setOf("Movie", "Episode", "Video")) serviceError(R.string.player_err_pick_episode)
         val detected = if (compatibility == PlaybackCompatibility.FULL) DevicePlaybackCapabilities.CONSERVATIVE else
             runCatching { capabilities() }.getOrDefault(DevicePlaybackCapabilities.CONSERVATIVE)
         val payload = buildJsonObject {
@@ -283,12 +361,12 @@ class MediaPlaybackClient(
         val response = decode(playbackRequest {
             transport.post(EndpointValidator.resolve(c.baseUrl, "Items/${enc(item.id)}/PlaybackInfo"), headers(c), payload.toString())
         })
-        require(response.str("ErrorCode").isBlank()) { "Medietenaren fann ikkje eit format denne eininga kan spele. Prøv tenarappen." }
+        if (response.str("ErrorCode").isNotBlank()) serviceError(R.string.player_err_no_format)
         val source = response.objects("MediaSources").firstOrNull { !it.flag("RequiresOpening") && (sourceId == null || it.str("Id") == sourceId) &&
             (it.flag("SupportsDirectPlay") || it.str("TranscodingUrl").isNotBlank()) }
-            ?: error("Ingen spelbar versjon. Kontroller avspelings- og omkodingsløyva i medietenaren.")
-        val mediaSourceId = source.str("Id").also { require(it.isNotBlank()) { "Medietenaren manglar mediekjelde." } }
-        val session = response.str("PlaySessionId").also { require(it.isNotBlank()) { "Medietenaren manglar avspelingsøkt." } }
+            ?: serviceError(R.string.player_err_no_version)
+        val mediaSourceId = source.str("Id").also { if (it.isBlank()) serviceError(R.string.player_err_server_incomplete) }
+        val session = response.str("PlaySessionId").also { if (it.isBlank()) serviceError(R.string.player_err_server_incomplete) }
         val streams = source.objects("MediaStreams")
         fun tracks(type: String) = streams.filter { it.str("Type") == type }.mapNotNull {
             val index = it.num("Index")?.toInt() ?: return@mapNotNull null
@@ -329,12 +407,13 @@ class MediaPlaybackClient(
                 mediaSourceId, preferredLanguage, fallbackLanguage)
         }
         val url = if (direct) "Videos/${enc(item.id)}/stream?static=true&MediaSourceId=${enc(mediaSourceId)}&PlaySessionId=${enc(session)}" else
-            source.str("TranscodingUrl").also { require(it.isNotBlank()) { "Medietenaren kan ikkje tilpasse denne fila. Prøv tenarappen." } }
+            source.str("TranscodingUrl").also { if (it.isBlank()) serviceError(R.string.player_err_cannot_adapt) }
         val subtitleUrl = subtitleTrack?.takeIf { it.isText }?.let {
             safePlaybackUrl(c.baseUrl, "Videos/${enc(item.id)}/${enc(mediaSourceId)}/Subtitles/${it.index}/Stream.vtt")
         }
-        return PlaybackPlan(item, mediaSourceId, session, safePlaybackUrl(c.baseUrl, url), direct, tracks("Audio"), subtitles,
-            selectedAudio, selectedSubtitle, subtitleUrl)
+        return PlaybackPlan(item, mediaSourceId, session, safePlaybackUrl(c.baseUrl, url),
+            playbackModeFor(source, direct), tracks("Audio"), subtitles,
+            selectedAudio, selectedSubtitle, subtitleUrl, playbackTranscodeReasons(source))
     }
 
     /** Playback support is separate from receiving remote commands. Until a remote-command
@@ -353,7 +432,14 @@ class MediaPlaybackClient(
         post(c, "Sessions/Playing$event", buildJsonObject {
             put("ItemId", plan.item.id); put("MediaSourceId", plan.sourceId); put("PlaySessionId", plan.sessionId)
             put("PositionTicks", positionMs.coerceAtLeast(0).coerceAtMost(Long.MAX_VALUE / 10_000) * 10_000)
-            put("IsPaused", paused); put("CanSeek", true); put("PlayMethod", if (plan.direct) "DirectPlay" else "Transcode")
+            put("IsPaused", paused); put("CanSeek", true)
+            // The server's own dashboard shows this. Reporting a remux as a full transcode made
+            // Spole look like the heaviest client on the server when it was the lightest.
+            put("PlayMethod", when (plan.mode) {
+                PlaybackMode.DIRECT_PLAY -> "DirectPlay"
+                PlaybackMode.DIRECT_STREAM -> "DirectStream"
+                else -> "Transcode"
+            })
             if (c.kind == ServiceKind.EMBY && event == "/Progress") put("EventName", "TimeUpdate")
             plan.audioIndex?.let { put("AudioStreamIndex", it) }; put("SubtitleStreamIndex", plan.subtitleIndex)
         })
@@ -364,10 +450,10 @@ class MediaPlaybackClient(
     private fun decode(response: HttpResponse): JsonObject {
         when (response.statusCode) {
             in 200..299 -> Unit
-            401, 403 -> error("Medietenaren avviste avspelinga. Kontroller innlogging og avspelingsløyve.")
-            404 -> error("Denne tittelen er ikkje tilgjengeleg i medietenaren no.")
-            in 300..399 -> error("Medieadressa er flytta. Kontroller tenaradressa i innstillingane.")
-            else -> error("Fekk ikkje starta avspelinga frå medietenaren. Prøv igjen.")
+            401, 403 -> serviceError(R.string.player_err_refused)
+            404 -> serviceError(R.string.player_err_not_available)
+            in 300..399 -> serviceError(R.string.player_err_moved)
+            else -> serviceError(R.string.player_err_server_failed)
         }
         return if (response.body.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(response.body).jsonObject
     }
@@ -379,10 +465,10 @@ typealias JellyfinPlaybackClient = MediaPlaybackClient
 internal fun playbackProfilePath(connection: ServiceConnection): String = when (connection.kind) {
     ServiceKind.JELLYFIN -> "Users/Me"
     ServiceKind.EMBY -> {
-        require(connection.userId.isNotBlank()) { "Logg inn på Emby på nytt for å stadfeste kontoen." }
+        if (connection.userId.isBlank()) serviceError(R.string.player_err_emby_sign_in)
         "Users/${enc(connection.userId)}"
     }
-    else -> error("Denne tenesta støttar ikkje avspeling.")
+    else -> serviceError(R.string.player_err_service_no_playback)
 }
 
 internal fun embyPlaybackSegments(item: JsonObject): List<PlaybackSegment> {

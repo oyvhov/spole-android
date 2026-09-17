@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_in_library">I biblioteket</string>
+    <string name="season_partly_in_library">Delvis i biblioteket</string>
+    <string name="season_awaiting_approval">Ventar på godkjenning</string>
+    <string name="season_requested">Førespurd</string>
+    <string name="season_blocked">Blokkert</string>
+    <string name="season_missing">Manglar i biblioteket</string>
+    <string name="season_unknown">Status ukjend</string>
+    <string name="season_premiere_unknown">Premiere ikkje avklart</string>
+    <string name="season_airs_on">Kjem %1$s</string>
+    <string name="season_next_episode">Neste episode · %1$s · %2$s</string>
+    <string name="stage_requested">Førespurd</string>
+    <string name="stage_requested_why">Ventar på godkjenning eller at ei utgåve blir funnen.</string>
+    <string name="stage_downloading">Lastar ned</string>
+    <string name="stage_downloading_why">Ei nedlasting er funnen. Innhaldet er ikkje i biblioteket enno.</string>
+    <string name="stage_importing">Blir lagt i biblioteket</string>
+    <string name="stage_importing_why">Nedlastinga er ferdig. Ventar på at Seerr registrerer innhaldet.</string>
+    <string name="stage_available">I biblioteket</string>
+    <string name="stage_available_why">Ferdig · klart til å sjå i mediebiblioteket ditt.</string>
+    <string name="stage_declined">Avvist</string>
+    <string name="stage_declined_why">Førespurnaden vart avvist i Seerr.</string>
+    <string name="stage_failed">Treng tilsyn</string>
+    <string name="stage_failed_why">Seerr eller nedlastingsklienten melder om ein feil.</string>
+    <string name="stage_unknown">Status ukjend</string>
+    <string name="stage_unknown_why">Fekk ikkje oppdatert status. Prøver igjen seinare.</string>
+    <string name="stage_watching">Følgjer med</string>
+    <string name="stage_watching_why">Berre varsel. Ingen ny førespurnad er sendt.</string>
+    <string name="time_just_now">Akkurat no</string>
+    <string name="time_recently">Nyleg</string>
+    <string name="time_yesterday">I går</string>
+    <string name="cal_today">I dag</string>
+    <string name="cal_tomorrow">I morgon</string>
+    <string name="activity_detail">%1$s · %2$s</string>
+    <plurals name="time_minutes_ago">
+        <item quantity="one">For %d minutt sidan</item>
+        <item quantity="other">For %d minutt sidan</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="one">For %d time sidan</item>
+        <item quantity="other">For %d timar sidan</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="one">For %d dag sidan</item>
+        <item quantity="other">For %d dagar sidan</item>
+    </plurals>
+    <string name="activity_detail_stage">%1$s · %2$s</string>
+    <string name="activity_detail_stage_raw">%1$s · %2$s</string>
+    <string name="time_now">No</string>
+    <string name="activity_registered">Denne hendinga vart registrert %1$s.</string>
+    <string name="flow_badge_following">FØLGJER</string>
+</resources>

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.0-beta11 - Grunnfeste for TV og språk
+
+- Hindrar at popupark kan bli ståande usynleg med fokus etter avbrotne animasjonar eller raske Tilbake-trykk.
+- Gjer radene jamne med éi kunstform per rad og betre vising når tenaren leverer feil biletorientering.
+- Viser avspelingsnivå, omkodingsgrunn og framdriftsmelding medan Emby/Jellyfin forhandlar om straumen.
+- Gjer fokus, knappenamn, hero-avspeling, TV-tryggsone og korttekst tydelegare.
+- Flyttar apptekstar til språkressursar på nynorsk, bokmål og engelsk, med oppdatert kalender- og tidsformat.
+- Styrkjer einingstestane med Robolectric-testar for popuark og held demo-innhald samla i éin regel.
+
 ## 0.17.0-beta10 - Emby playback reliability
 
 - Use Emby's native authorization headers for playback, subtitle and progress requests.
