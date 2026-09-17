@@ -9,7 +9,7 @@ publisering.
 - Versjonskode: `90`
 - Pakke: `app.reelstack`
 - Tag: `v0.17.0-beta11`
-- Commit: skal setjast etter commit
+- Commit: `80024d8` (`Release Spole 0.17.0-beta11`)
 
 ## Bygg og testar
 
@@ -24,10 +24,14 @@ publisering.
 
 ## Publisering
 
-- GitHub Release: skal setjast etter publisering
-- Direkte APK-lenkje: skal setjast etter publisering
-- GitHub asset-digest: skal setjast etter opplasting
-- Ende-til-ende oppdatering frå førre versjon: skal setjast etter manuell kontroll
+- GitHub Release: https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta11
+- Direkte APK-lenkje: https://github.com/oyvhov/spole-android/releases/download/v0.17.0-beta11/Spole-v0.17.0-beta11.apk
+- GitHub APK asset-digest: `sha256:4ead9784ee6252eb1f48a49a7ed49839142e470513ebe0e943c458d524880682`
+- Ende-til-ende oppdatering frå førre versjon: ikkje køyrd; berre review-eininga `emulator-5564` var
+  tilgjengeleg, og ho skal ikkje brukast til instrumentering eller destruktiv oppdateringskontroll
+
+Den offentlege APK-en vart lasta ned utan innlogging. Lokal og offentleg SHA-256 var identisk, og
+GitHub-releasen var publisert med nøyaktig éin APK-asset.
 
 ## Avgrensingar
 
