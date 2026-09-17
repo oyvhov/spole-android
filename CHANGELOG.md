@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0-beta17 - Panelet seier kvifor straumen fall ned
+
+- Stats for Nerds har fått ei «Fall ned»-linje: Media3 sin feilkode, formatet renderaren gav opp på, og kva trinn avspelinga hamna på. Dette fanst berre i logcat, altså berre for den som har telefonen i ein USB-kabel — og ein TV har ingen logcat. Spørsmålet panelet er laga for å svare på, «kvifor omkodar denne?», kunne ikkje svarast på den eininga der det oftast blir stilt.
+- Linja står tom for ein straum som starta og vart verande der han starta, og blir nullstilt når du vel ein ny tittel.
+- Ingen endring i sjølve avspelinga. Dette er måleutstyr for å finne ut kvifor direkteavspelinga feilar på ein telefon der Emby sin eigen app klarer same fil.
+
 ## 0.17.0-beta16 - Ein feil skal ikkje koste både biletet og surroundlyden
 
 - Ein avspelingsfeil fall før rett ned på den forsiktige profilen: H.264, høgst 1080p, AAC i stereo, og straumkopiering slått av på både bilete og lyd. Éin feil tok altså frå deg både biletet og surroundlyden — for resten av filma — for å løyse noko som nesten alltid er lyden. Det er no ein stige: først blir berre lyden omkoda med biletet urørt, og først eit bilete som faktisk feila i dekodinga, eller ein feil nummer to, kostar videoen.

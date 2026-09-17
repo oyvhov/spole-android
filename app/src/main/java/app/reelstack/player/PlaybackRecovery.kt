@@ -38,6 +38,22 @@ internal fun playbackFailureIsVideo(error: PlaybackException): Boolean {
     return MimeTypes.isVideo(renderer.rendererFormat?.sampleMimeType ?: return false)
 }
 
+/**
+ * One line for the diagnostics panel: what gave up, on what, and where playback went next.
+ *
+ * Why a stream stepped down was only ever visible in logcat, which means it was visible to nobody
+ * — a household with a television and no USB cable cannot answer "why did this transcode?" at all,
+ * and that is the exact question this panel exists for. The code names are Media3's own, unmapped,
+ * for the same reason the server's reason codes are printed unmapped two lines above.
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+internal fun playbackFallbackLabel(error: PlaybackException, step: PlaybackCompatibility): String {
+    val format = (error as? ExoPlaybackException)
+        ?.takeIf { it.type == ExoPlaybackException.TYPE_RENDERER }
+        ?.rendererFormat?.sampleMimeType
+    return error.errorCodeName + (format?.let { " · $it" } ?: "") + " → " + step.name
+}
+
 /** Only transient failures are retried; credentials and missing direct files need user action. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal fun recoverablePlaybackFailure(error: PlaybackException, transcoding: Boolean): Boolean {

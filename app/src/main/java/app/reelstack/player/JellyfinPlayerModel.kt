@@ -85,6 +85,14 @@ data class PlayerScreenState(
     val advertisedAudio: String = "",
     /** The video codecs claimed, with the largest frame each was accepted at. */
     val advertisedVideo: String = "",
+    /**
+     * Why this stream stepped down, when it did.
+     *
+     * Empty for a stream that started and stayed where it started. Otherwise the Media3 error code,
+     * the format the failing renderer choked on, and the rung playback dropped to — which used to
+     * exist only in logcat, where a television cannot be read.
+     */
+    val fallback: String = "",
 ) {
     /** Kept so every reader that only cares whether the file is untouched still compiles. */
     val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
@@ -247,7 +255,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                         PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED, PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED)
                     || plan?.direct == true)) {
                     compatibility = nextPlaybackCompatibility(compatibility, playbackFailureIsVideo(error))
-                    android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream action=step-down to=$compatibility")
+                    val label = playbackFallbackLabel(error, compatibility)
+                    android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream action=step-down $label")
+                    mutable.update { it.copy(fallback = label) }
                     prepare(position, mode = compatibility, autoplay = playWhenReady)
                 } else {
                     mutable.update { it.copy(busy = false, playing = false,
@@ -363,7 +373,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     val position = player.currentPosition.coerceAtLeast(0)
                     android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=buffer action=force-compatible")
                     bufferingSince = 0L
-                    mutable.update { it.copy(warning = container.appString(R.string.player_stall_fallback)) }
+                    mutable.update { it.copy(warning = container.appString(R.string.player_stall_fallback),
+                        fallback = "STALL ${STALL_FALLBACK_MS / 1000}s → ${PlaybackCompatibility.FULL.name}") }
                     prepare(position, mode = PlaybackCompatibility.FULL, autoplay = player.playWhenReady)
                     continue
                 }
@@ -464,6 +475,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             loadChildren()
         } else {
             selected = item; compatibility = PlaybackCompatibility.DIRECT
+            mutable.update { it.copy(fallback = "") }
             mutable.update { it.copy(title = item.title, subtitle = item.subtitle, season = item.season,
                 episode = item.episode, logoUrl = item.logoUrl, browsing = false, choices = emptyList(),
                 positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id) }

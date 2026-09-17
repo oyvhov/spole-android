@@ -37,4 +37,5 @@
     <string name="player_stats_advertised">Meldt · %1$s</string>
     <string name="player_stats_advertised_video">Meldt video · %1$s</string>
     <string name="player_stats_server_codes">Serveren sa · %1$s</string>
+    <string name="player_stats_fallback">Falt ned · %1$s</string>
 </resources>

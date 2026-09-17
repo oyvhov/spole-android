@@ -41,4 +41,5 @@
     <string name="player_stats_advertised">Claimed · %1$s</string>
     <string name="player_stats_advertised_video">Claimed video · %1$s</string>
     <string name="player_stats_server_codes">Server said · %1$s</string>
+    <string name="player_stats_fallback">Stepped down · %1$s</string>
 </resources>

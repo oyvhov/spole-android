@@ -592,6 +592,12 @@ fun PlayerScreen(
                     state.transcodeReasons.takeIf { it.isNotEmpty() }?.let {
                         Text(stringResource(R.string.player_stats_server_codes, it.joinToString(", ")), color = Color.White)
                     }
+                    // Why this stream stepped down, when it did. The server's codes say what the
+                    // server decided; this says what happened on the device to make it decide that,
+                    // which until now only logcat knew — and a television has no logcat.
+                    state.fallback.takeIf { it.isNotBlank() }?.let {
+                        Text(stringResource(R.string.player_stats_fallback, it), color = Color.White)
+                    }
                     Text("${stringResource(R.string.player_stats_buffer)} ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${stringResource(if (player.isPlaying) R.string.player_stats_playing else R.string.player_stats_paused)}", color = Color.White)
                     // Dropped frames are the one number that tells you the device cannot keep up,
                     // as opposed to the network not keeping up. Worth its own line.
