@@ -232,7 +232,7 @@ fun safePlaybackUrl(baseUrl: String, value: String): String {
 /** Safe fallback when detection fails or a decoder rejects an advertised format. */
 fun phonePlaybackProfile(bitrate: Int): JsonObject = devicePlaybackProfile(bitrate, DevicePlaybackCapabilities.CONSERVATIVE)
 
-private enum class PlaybackCompatibility {
+internal enum class PlaybackCompatibility {
     DIRECT,
     AUDIO_ONLY,
     FULL,
@@ -340,7 +340,7 @@ class MediaPlaybackClient(
             if (compatible) PlaybackCompatibility.FULL else PlaybackCompatibility.DIRECT,
             sourceId, preferredLanguage, fallbackLanguage)
 
-    private fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,
+    internal fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,
         audio: Int?, subtitle: Int?, compatibility: PlaybackCompatibility, sourceId: String?,
         preferredLanguage: SubtitleLanguage, fallbackLanguage: SubtitleLanguage): PlaybackPlan {
         if (item.type !in setOf("Movie", "Episode", "Video")) serviceError(R.string.player_err_pick_episode)

@@ -160,7 +160,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var plan: PlaybackPlan? = null
     private var started = false
     private var stopped = false
-    private var compatible = false
+    /** How far down the fallback ladder this item has been pushed. Reset when another is chosen. */
+    private var compatibility = PlaybackCompatibility.DIRECT
     private var networkRecoveries = 0
     private var foreground = true
     private var request: Job? = null
@@ -236,15 +237,18 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     prepare(position, autoplay = playWhenReady, retryDelayMillis = networkRecoveries * 1000L)
                     return
                 }
-                // A single compatible-stream fallback, never an endless retry loop or a bitrate increase.
-                // Direct HLS failures are not always reported as decoder failures, especially on TV.
-                if (!compatible && (error.errorCode in setOf(PlaybackException.ERROR_CODE_DECODING_FAILED,
+                // One rung at a time, never an endless retry loop or a bitrate increase. Direct HLS
+                // failures are not always reported as decoder failures, especially on TV, so any
+                // failure of an untouched file still counts — it just no longer costs the picture.
+                if (compatibility != PlaybackCompatibility.FULL &&
+                    (error.errorCode in setOf(PlaybackException.ERROR_CODE_DECODING_FAILED,
                         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED, PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
                         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
                         PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED, PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED)
                     || plan?.direct == true)) {
-                    compatible = true
-                    prepare(position, forceCompatible = true, autoplay = playWhenReady)
+                    compatibility = nextPlaybackCompatibility(compatibility, playbackFailureIsVideo(error))
+                    android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream action=step-down to=$compatibility")
+                    prepare(position, mode = compatibility, autoplay = playWhenReady)
                 } else {
                     mutable.update { it.copy(busy = false, playing = false,
                         error = container.appString(R.string.player_err_stopped)) }
@@ -350,14 +354,17 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     stalledNotice = 1
                     mutable.update { it.copy(warning = container.appString(R.string.player_stall_waiting, serviceKind.displayName)) }
                 }
-                if (stalledMs > STALL_FALLBACK_MS && !compatible) {
-                    compatible = true
+                // A stall is bandwidth or segment delivery, not a codec the device cannot handle, so
+                // this one still goes straight to the conservative profile — and the total wait
+                // before giving up stays what it was.
+                if (stalledMs > STALL_FALLBACK_MS && compatibility != PlaybackCompatibility.FULL) {
+                    compatibility = PlaybackCompatibility.FULL
                     stalledNotice = 2
                     val position = player.currentPosition.coerceAtLeast(0)
                     android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=buffer action=force-compatible")
                     bufferingSince = 0L
                     mutable.update { it.copy(warning = container.appString(R.string.player_stall_fallback)) }
-                    prepare(position, forceCompatible = true, autoplay = player.playWhenReady)
+                    prepare(position, mode = PlaybackCompatibility.FULL, autoplay = player.playWhenReady)
                     continue
                 }
                 if (stalledMs > STALL_GIVE_UP_MS) {
@@ -456,7 +463,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 choices = emptyList(), browsing = true, hasMore = false, error = null) }
             loadChildren()
         } else {
-            selected = item; compatible = false
+            selected = item; compatibility = PlaybackCompatibility.DIRECT
             mutable.update { it.copy(title = item.title, subtitle = item.subtitle, season = item.season,
                 episode = item.episode, logoUrl = item.logoUrl, browsing = false, choices = emptyList(),
                 positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id) }
@@ -508,7 +515,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         return automaticPlaybackBitrate(network?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true)
     }
 
-    private fun prepare(position: Long, audio: Int? = null, subtitle: Int? = null, forceCompatible: Boolean = compatible, autoplay: Boolean = true,
+    private fun prepare(position: Long, audio: Int? = null, subtitle: Int? = null, mode: PlaybackCompatibility = compatibility, autoplay: Boolean = true,
         retryDelayMillis: Long = 0) {
         val c = connection ?: return
         val item = selected ?: return
@@ -530,7 +537,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     check(sameAccount())
                     client.prepare(c, userId, item, state.value.quality.takeIf { it > 0 } ?: autoBitrate(),
                         // The version the title page picked, until a plan exists and the player owns it.
-                        audioChoice, subtitleChoice, forceCompatible, previous?.sourceId ?: preferredSource.takeIf { item.id == rootId },
+                        audioChoice, subtitleChoice, mode, previous?.sourceId ?: preferredSource.takeIf { item.id == rootId },
                         container.preferencesRepository.personalization.preferredSubtitleLanguage,
                         container.preferencesRepository.personalization.fallbackSubtitleLanguage)
                 }

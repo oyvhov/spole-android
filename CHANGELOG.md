@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0-beta16 - Ein feil skal ikkje koste både biletet og surroundlyden
+
+- Ein avspelingsfeil fall før rett ned på den forsiktige profilen: H.264, høgst 1080p, AAC i stereo, og straumkopiering slått av på både bilete og lyd. Éin feil tok altså frå deg både biletet og surroundlyden — for resten av filma — for å løyse noko som nesten alltid er lyden. Det er no ein stige: først blir berre lyden omkoda med biletet urørt, og først eit bilete som faktisk feila i dekodinga, eller ein feil nummer to, kostar videoen.
+- Målt på ein Pixel 9 Pro XL: same fil, same tenar. Emby sin eigen app speler EAC3 5.1 direkte; Spole enda opp med å omkode 1080p H264 til H264 og 5.1-lyden til AAC 192 kbit/s i stereo, fordi éin feil hadde slått av alt på ein gong.
+- Stigen har framleis botn. To steg og så stopp, akkurat som den eine sperra før skulle hindre ei evig omstartsløyfe.
+- Ventetida ved ei hengande avspeling er uendra. Ein stopp i bufferen er bandbreidd, ikkje ein kodek eininga ikkje taklar, så den vegen går framleis rett til den forsiktige profilen.
+
 ## 0.17.0-beta15 - Emby blir spurd i staden for gjetta på
 
 - «Full omkoding på Emby» var i mange tilfelle appen sin eigen feil. Modusen vart lesen ut av omkodings-URL-en, der Jellyfin skriv `VideoCodec=copy` når han berre kopierer biletet — Emby skriv den ekte kodeken same kva han gjer, så kvar einaste Emby-økt vart stempla som full omkoding. Spole spør no økta om `IsVideoDirect`/`IsAudioDirect` og viser det tenaren faktisk gjer.
