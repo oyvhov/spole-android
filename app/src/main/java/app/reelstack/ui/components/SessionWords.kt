@@ -35,3 +35,17 @@ fun sessionWho(session: PlaybackSession): String =
 @Composable
 fun sessionDevice(session: PlaybackSession): String =
     session.deviceName.ifBlank { stringResource(R.string.session_unknown_device) }
+
+/**
+ * The word for a kind of title.
+ *
+ * Derived from `mediaType` rather than stored with the row, so the same title reads "Film" or
+ * "Movie" without anything being re-fetched. Every screen that needs it asks here.
+ */
+@androidx.annotation.StringRes
+fun mediaKindRes(mediaType: String?): Int = when (mediaType?.lowercase()) {
+    "movie" -> R.string.media_kind_movie
+    "series", "tv" -> R.string.media_kind_series
+    "episode" -> R.string.media_kind_episode
+    else -> R.string.media_kind_video
+}

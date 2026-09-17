@@ -33,4 +33,6 @@
     <string name="queue_last_reported_state">Siste rapporterte tilstand frå %1$s.</string>
     <string name="notice_signed_out_of">Logga ut av %1$s på denne eininga</string>
     <string name="session_watching">%1$s ser på %2$s</string>
+    <string name="details_in_library_badge">I biblioteket ditt</string>
+    <string name="details_in_library_source">Registrert i %1$s.</string>
 </resources>

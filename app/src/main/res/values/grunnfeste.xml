@@ -40,4 +40,6 @@
     <string name="queue_last_reported_state">Last state reported by %1$s.</string>
     <string name="notice_signed_out_of">Signed out of %1$s on this device</string>
     <string name="session_watching">%1$s is watching %2$s</string>
+    <string name="details_in_library_badge">In your library</string>
+    <string name="details_in_library_source">Registered in %1$s.</string>
 </resources>

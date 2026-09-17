@@ -733,14 +733,14 @@ class ReelstackViewModel(
                     source = media.source,
                     mediaType = media.mediaType,
                     loading = connection != null && media.remoteId != null,
-                    statusTitle = "I biblioteket",
+                    statusTitle = appString(R.string.details_in_library_badge),
                     libraryAvailable = true,
                     progress = media.progress,
                     season = media.season,
                     episode = media.episode,
                     favourite = media.favourite,
                     played = media.played,
-                    statusDescription = "Registrert i ${media.source.displayName}.",
+                    statusDescription = appString(R.string.details_in_library_source, media.source.displayName),
                 ),
             )
         }

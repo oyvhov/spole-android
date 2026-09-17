@@ -841,6 +841,20 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
  * It is also the shape the shelf is *for* — a frame from where you stopped, with a progress bar
  * along the bottom — and the shape every television interface uses for it.
  */
+/**
+ * The picture to ask for, given the shape of the frame it has to fill.
+ *
+ * A wide frame wants the backdrop or the still; a tall frame wants the poster. `artworkUrl` is
+ * whatever the feed picked as the item's main image, and for a film that is the poster — which is
+ * why the resume shelf, the one shelf that is always wide, was showing every film as a 2:3 poster
+ * with a blurred copy filling the sides. It asked for the wide frame and then fetched the poster.
+ *
+ * The fallback still matters: a title with no backdrop on the server has nothing else to show, and
+ * a fitted poster is better than an empty frame.
+ */
+internal fun railArtworkUrl(wide: Boolean, heroUrl: String?, posterUrl: String?, artworkUrl: String?): String? =
+    (if (wide) heroUrl else posterUrl) ?: artworkUrl
+
 internal fun resumeRailIsWide(format: String?): Boolean = format != "POSTER"
 
 /**
@@ -955,7 +969,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
         Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))
             .focusOutline(interactionSource, RoundedCornerShape(ReelLayout.ArtworkCorner))) {
             app.reelstack.ui.components.RailArtwork(
-                url = (if (!wide) media.posterUrl else null) ?: media.artworkUrl,
+                url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl),
                 contentDescription = null,
                 frameRatio = frameRatio,
                 fallbackRes = media.artworkRes,
@@ -1083,7 +1097,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .clip(artworkShape).focusOutline(interactionSource, artworkShape),
         ) {
             app.reelstack.ui.components.RailArtwork(
-                url = (if (wide) media.heroUrl else media.posterUrl) ?: media.artworkUrl,
+                url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl),
                 contentDescription = null,
                 frameRatio = if (wide) 16f / 9f else 2f / 3f,
                 fallbackRes = media.artworkRes,

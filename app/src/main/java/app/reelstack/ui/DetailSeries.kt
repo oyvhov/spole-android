@@ -28,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import app.reelstack.ui.theme.Success
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,15 +63,24 @@ internal fun DetailAside(
     synopsis: (@Composable () -> Unit)? = null,
     cast: (@Composable () -> Unit)? = null,
 ) {
+    // The kind word leads a fact list and the heading above already says it. It used to be
+    // removed by matching a set of Norwegian and English words, which left it in place in any
+    // other language; comparing against the word this reader actually sees works everywhere.
+    val kindWord = stringResource(app.reelstack.ui.components.mediaKindRes(details.mediaType ?: opening.mediaType))
     val remaining = facts
         .filterNot { it.matches(Regex("^S\\d\\d+ E\\d\\d+$")) }
-        .filterNot { it in setOf("Film", "Serie", "Episode", "Movie", "Series") }
+        .filterNot { it == kindWord }
     val tagline = details.tagline?.takeIf(String::isNotBlank) ?: opening.tagline?.takeIf(String::isNotBlank)
-    if (remaining.isEmpty() && details.criticRating == null && details.tmdbRating == null && details.mdblistRating == null && details.quality.isEmpty() && details.genres.isEmpty() && tagline == null && synopsis == null && cast == null) return
+    val inLibrary = details.libraryAvailable
+    if (!inLibrary && remaining.isEmpty() && details.criticRating == null && details.tmdbRating == null && details.mdblistRating == null && details.quality.isEmpty() && details.genres.isEmpty() && tagline == null && synopsis == null && cast == null) return
     Column(
         Modifier.fillMaxWidth().padding(top = if (tv) 16.dp else 18.dp).testTag("detail-aside"),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        // Whether you already have it is the first thing worth knowing about a title you
+        // reached from Seerr, and it used to be a muted line at the very bottom of the page —
+        // suppressed, in fact, exactly when it was true. It is a mark beside the facts now.
+        if (inLibrary) InLibraryBadge()
         app.reelstack.ui.components.PlaybackMetadata(details, remaining)
         if (details.genres.isNotEmpty()) Text(
             details.genres.take(4).joinToString(" · "),
@@ -96,6 +106,31 @@ internal fun DetailAside(
         // and fourteen episode rows — while the column beside the picture, which is exactly where a
         // reader looks for faces, stayed black.
         cast?.invoke()
+    }
+}
+
+/**
+ * "In your library", as a mark rather than as a sentence at the bottom of the page.
+ *
+ * A title reached from Seerr looked identical whether you owned it or not: the one line that said
+ * otherwise sat below the cast, and was hidden when `libraryAvailable` was true — the very
+ * condition it existed to announce.
+ */
+@Composable
+private fun InLibraryBadge() {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("detail-in-library")) {
+        Icon(
+            app.reelstack.ui.components.SpoleIcons.DoneCircle,
+            contentDescription = null,
+            tint = Success,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            stringResource(R.string.details_in_library_badge),
+            color = Success,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(start = 7.dp),
+        )
     }
 }
 

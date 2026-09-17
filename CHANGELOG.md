@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0-beta12 - Breiare bilete, biblioteksmerke og eit ryddigare sesongark
+
+- «Sjå vidare» hentar no det breie biletet for filmar. Rada bad om den breie ramma og henta plakaten, så kvar film vart ei ståande plakat med ein uskarp kopi langs sidene.
+- Detaljsida merkjer titlar du alt har: «I biblioteket ditt» står øvst, ikkje som ei dempa linje under rollelista — der ho dessutan vart skjult nettopp når ho var sann.
+- Sesongarket får plass til sesongane. Overskrifta står fast og er komprimert, og kvote- og godkjenningsteksten er flytta ned til knappen han gjeld, så ein serie med to sesongar ikkje lenger må rullast.
+- Filteret som skulle fjerne typeordet frå detaljlinja samanlikna mot norske og engelske ord; det samanliknar no mot ordet lesaren faktisk ser.
+
 ## 0.17.0-beta11 - Grunnfeste for TV og språk
 
 - Hindrar at popupark kan bli ståande usynleg med fokus etter avbrotne animasjonar eller raske Tilbake-trykk.

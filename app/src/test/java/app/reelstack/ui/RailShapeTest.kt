@@ -1,8 +1,10 @@
 package app.reelstack.ui
 
 import app.reelstack.ui.components.orientationDiffers
+import app.reelstack.ui.screens.railArtworkUrl
 import app.reelstack.ui.screens.resumeRailIsWide
 import org.junit.Assert.*
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -42,5 +44,25 @@ class RailShapeTest {
     @Test fun nearlySquareArtworkIsNotWorthABlurredBackplate() {
         assertFalse("a 4:3 still is close enough to a wide frame", orientationDiffers(4f / 3f, 16f / 9f))
         assertFalse("nothing to decide without a measurement", orientationDiffers(0f, 16f / 9f))
+    }
+
+    // --- and which picture fills it ---
+
+    @Test fun aWideFrameAsksForTheWidePicture() {
+        // The resume shelf is always wide. It used to ask for the wide frame and then fetch
+        // `artworkUrl`, which for a film is the poster — so every film on the shelf you look at
+        // most was a 2:3 poster with a blurred copy of itself filling the sides.
+        assertEquals("hero", railArtworkUrl(wide = true, heroUrl = "hero", posterUrl = "poster", artworkUrl = "main"))
+    }
+
+    @Test fun aTallFrameAsksForThePoster() {
+        assertEquals("poster", railArtworkUrl(wide = false, heroUrl = "hero", posterUrl = "poster", artworkUrl = "main"))
+    }
+
+    @Test fun aTitleWithNoBackdropStillShowsSomething() {
+        // Not every title has a wide image on the server. A fitted poster beats an empty frame.
+        assertEquals("main", railArtworkUrl(wide = true, heroUrl = null, posterUrl = "poster", artworkUrl = "main"))
+        assertEquals("main", railArtworkUrl(wide = false, heroUrl = "hero", posterUrl = null, artworkUrl = "main"))
+        assertNull(railArtworkUrl(wide = true, heroUrl = null, posterUrl = null, artworkUrl = null))
     }
 }
