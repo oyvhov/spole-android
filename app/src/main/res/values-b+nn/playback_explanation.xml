@@ -34,4 +34,5 @@
     <string name="player_err_open">Fekk ikkje opna tittelen. Kontroller den personlege medieinnlogginga og prøv igjen.</string>
     <string name="player_err_episodes">Fekk ikkje henta episodane. Prøv igjen.</string>
     <string name="player_err_start">Fekk ikkje starta videoen. Kontroller nettet og avspelingsløyva i medietenaren, eller prøv igjen.</string>
+    <string name="player_stats_advertised">Meldt · %1$s</string>
 </resources>

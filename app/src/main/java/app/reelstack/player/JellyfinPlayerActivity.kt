@@ -571,7 +571,17 @@ fun PlayerScreen(
                     }
                     Text("${stringResource(R.string.player_stats_video)} · ${state.videoCodec ?: unknown} · ${state.videoWidth}×${state.videoHeight} · ${state.videoBitrate.takeIf { it > 0 }?.let { "${it / 1_000_000} Mbps" } ?: unknown}", color = Color.White)
                     Text("${state.videoHdr} · ${state.videoFrameRate.takeIf { it > 0 }?.let { "%.2f fps".format(it) } ?: unknown}", color = Color.White)
+                    // Source first, then what is arriving. When the server converts the audio
+                    // those are two different things, and printing only the source made the panel
+                    // contradict the reason printed three lines above it.
                     Text("${stringResource(R.string.player_stats_audio)} · ${audioTrack?.label ?: unknown}", color = Color.White)
+                    state.audioCodec?.let { codec ->
+                        val channels = state.audioChannels.takeIf { it > 0 }?.let { " · $it ch" }.orEmpty()
+                        Text("→ $codec$channels", color = Color.White)
+                    }
+                    state.advertisedAudio.takeIf { it.isNotBlank() }?.let {
+                        Text(stringResource(R.string.player_stats_advertised, it), color = Color.White)
+                    }
                     Text("${stringResource(R.string.player_stats_buffer)} ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${stringResource(if (player.isPlaying) R.string.player_stats_playing else R.string.player_stats_paused)}", color = Color.White)
                     // Dropped frames are the one number that tells you the device cannot keep up,
                     // as opposed to the network not keeping up. Worth its own line.

@@ -65,6 +65,24 @@ data class PlayerScreenState(
     val videoBitrate: Int = 0,
     val videoFrameRate: Float = 0f,
     val videoHdr: String = "SDR",
+    /**
+     * The audio as it arrives, which is not the audio the file holds.
+     *
+     * The panel used to print the source track here -- "English EAC3 5.1" -- directly under a line
+     * saying the server was converting the audio because this device cannot play that format. The
+     * two contradicted each other, and the one in a diagnostics panel that must be true is the one
+     * describing what is actually being decoded.
+     */
+    val audioCodec: String? = null,
+    val audioChannels: Int = 0,
+    /**
+     * The audio codecs this device told the server it can play, and up to how many channels.
+     *
+     * When a server answers "this device cannot play the audio format", the only way to tell a
+     * correct refusal from a detection bug is to see what was actually claimed -- and until now
+     * that was only visible by reading the source. It is one line in Stats for Nerds instead.
+     */
+    val advertisedAudio: String = "",
 ) {
     /** Kept so every reader that only cares whether the file is untouched still compiles. */
     val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
@@ -111,6 +129,15 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private val client = MediaPlaybackClient(deviceId = deviceId,
         capabilities = deviceCapabilities::snapshot, sourceSupported = deviceCapabilities::canDirectPlay,
         videoSupported = deviceCapabilities::canDecodeVideo)
+    /** Read once per stream, not per frame: enumerating codecs is not free. */
+    private val advertisedAudio: () -> String = {
+        runCatching {
+            deviceCapabilities.snapshot().audio.joinToString(" · ") { audio ->
+                audio.codec + " " + audio.channels + (if (audio.passthrough) " pass" else "")
+            }
+        }.getOrDefault("")
+    }
+
     private var connection: ServiceConnection? = null
     private var serviceKind = ServiceKind.JELLYFIN
     private var seerrConnection: ServiceConnection? = null
@@ -228,6 +255,15 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 mutable.update { it.copy(videoCodec = format.sampleMimeType, videoWidth = format.width,
                     videoHeight = format.height, videoBitrate = format.bitrate, videoFrameRate = format.frameRate,
                     videoHdr = hdr) }
+            }
+
+            override fun onAudioInputFormatChanged(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                format: Format,
+                decoderReuseEvaluation: DecoderReuseEvaluation?,
+            ) {
+                mutable.update { it.copy(audioCodec = format.sampleMimeType, audioChannels = format.channelCount,
+                    advertisedAudio = advertisedAudio()) }
             }
         })
     }

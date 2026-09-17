@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0-beta13 - Lyden blir ikkje avvist på eit inngangstal
+
+- Ein 5.1-lydstraum blir ikkje lenger meld som uspelbar fordi dekodaren oppgir ei låg inngangsgrense. Android sin EAC3-dekodar dekodar 5.1 fint og Media3 brettar ned til høgtalarane; vi las grensa som ein dom, og bad serveren omkode ei fil telefonen spelar direkte.
+- Kapabiliteten blir no målt ved å spørje dekodaren på 8, 6 og 2 kanalar i staden for å stole på `maxInputChannelCount`.
+- Ei lydavvising dreg ikkje lenger biletet med seg like lett: H.264-profilnamnet «Progressive High», som x264 skriv på heilt vanlege 8-bits filer, mangla i både einingssjekken og profilen vi sender serveren. Begge nekta difor å kopiere eit bilete eininga handterer.
+- Stats for Nerds viser kva lyd som faktisk kjem inn, ikkje berre kva kjelda inneheld, og ei ny «Meldt»-linje viser kva appen sa til serveren at han kan spele.
+
 ## 0.17.0-beta12 - Breiare bilete, biblioteksmerke og eit ryddigare sesongark
 
 - «Sjå vidare» hentar no det breie biletet for filmar. Rada bad om den breie ramma og henta plakaten, så kvar film vart ei ståande plakat med ein uskarp kopi langs sidene.

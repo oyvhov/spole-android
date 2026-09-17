@@ -48,7 +48,12 @@ class AndroidPlaybackCapabilities(private val context: Context) {
                 "h264" -> buildList {
                     add("baseline"); add("constrained baseline")
                     if (profiles.any { it in setOf(P.AVCProfileMain, P.AVCProfileHigh, P.AVCProfileConstrainedHigh) }) add("main")
-                    if (profiles.any { it in setOf(P.AVCProfileHigh, P.AVCProfileConstrainedHigh) }) { add("high"); add("constrained high") }
+                    // Every name the server may report for an 8-bit 4:2:0 High stream. Leaving
+                    // "progressive high" out made the server refuse to copy an ordinary x264
+                    // encode, so an unplayable audio track cost the picture a re-encode too.
+                    if (profiles.any { it in setOf(P.AVCProfileHigh, P.AVCProfileConstrainedHigh) }) {
+                        add("high"); add("constrained high"); add("progressive high")
+                    }
                 }
                 "hevc" -> listOfNotNull("main", "main 10".takeIf { tenBit })
                 "vp9" -> listOfNotNull("Profile 0", "Profile 2".takeIf { tenBit })
@@ -66,7 +71,17 @@ class AndroidPlaybackCapabilities(private val context: Context) {
         }
         val route = runCatching { audioRoute() }.getOrNull()
         val audio = AUDIO_MIMES.mapNotNull { (codec, mime) ->
-            val decoded = decoders(mime).maxOfOrNull { it.second.audioCapabilities?.maxInputChannelCount ?: 0 }?.coerceAtMost(8) ?: 0
+            // Ask the decoder, rather than trusting `maxInputChannelCount`. Several AOSP audio
+            // decoders report a low input limit while happily decoding more and letting the audio
+            // sink fold the result down -- and reading that number literally is what made a 5.1
+            // EAC3 track look unplayable on a phone whose own Jellyfin and Emby apps direct-play it.
+            val probed = listOf(8, 6, 2).firstOrNull { count ->
+                decoders(mime).any { (_, caps) -> runCatching {
+                    caps.isFormatSupported(MediaFormat.createAudioFormat(mime, 48_000, count))
+                }.getOrDefault(false) }
+            } ?: 0
+            val reported = decoders(mime).maxOfOrNull { it.second.audioCapabilities?.maxInputChannelCount ?: 0 }?.coerceAtMost(8) ?: 0
+            val decoded = maxOf(probed, reported)
             val passthroughMimes = if(codec in setOf("dts", "dca")) listOf(mime, "audio/vnd.dts.hd") else listOf(mime)
             val passed = if (route == null) 0 else (8 downTo 2).firstOrNull { count -> runCatching {
                 passthroughMimes.any { route.isPassthroughPlaybackSupported(Format.Builder().setSampleMimeType(it).setChannelCount(count).setSampleRate(48_000).build(), attributes) }
@@ -117,7 +132,16 @@ class AndroidPlaybackCapabilities(private val context: Context) {
         val media3 = Format.Builder().setSampleMimeType(audioMime).setChannelCount(channels).setSampleRate(sampleRate).build()
         if (audioRoute().isPassthroughPlaybackSupported(media3, attributes)) return true
         val audioFormat = MediaFormat.createAudioFormat(audioMime, sampleRate, channels)
-        decoders(audioMime).any { (_, caps) -> runCatching { caps.isFormatSupported(audioFormat) }.getOrDefault(false) }
+        if (decoders(audioMime).any { (_, caps) -> runCatching { caps.isFormatSupported(audioFormat) }.getOrDefault(false) }) {
+            return true
+        }
+        // A decoder that will not take 5.1 on its input can still play the file: Media3 folds the
+        // decoded audio down to whatever the device actually outputs, which on a phone is two
+        // speakers. Treating the input limit as a verdict asked the server to re-encode a track
+        // the device plays perfectly well -- and, because an audio rejection drops the whole
+        // source, it re-encoded the picture along with it.
+        val downmixed = MediaFormat.createAudioFormat(audioMime, sampleRate, 2)
+        decoders(audioMime).any { (_, caps) -> runCatching { caps.isFormatSupported(downmixed) }.getOrDefault(false) }
     }.getOrDefault(false)
 
     companion object {
@@ -126,8 +150,17 @@ class AndroidPlaybackCapabilities(private val context: Context) {
             "eac3" to "audio/eac3", "dts" to "audio/vnd.dts", "dca" to "audio/vnd.dts", "truehd" to "audio/true-hd",
             "flac" to "audio/flac", "opus" to "audio/opus", "vorbis" to "audio/vorbis")
         internal fun platformProfile(codec: String, name: String, depth: Int): Int? = when(codec) {
+            // ffprobe -- which both Jellyfin and Emby report from -- writes more names than the
+            // four that were listed here. "Progressive High" is what x264 puts on an ordinary
+            // 8-bit 4:2:0 encode with no interlacing, and it is common; it was answered with
+            // `null`, which this file reads as "cannot decode" and which then re-encoded a
+            // perfectly playable picture. The 10-bit and 4:2:2/4:4:4 names stay unmapped on
+            // purpose: those really are outside the portable hardware path.
             "h264" -> when(name.lowercase()) { "", "baseline", "constrained baseline" -> P.AVCProfileBaseline
-                "main" -> P.AVCProfileMain; "high", "constrained high" -> P.AVCProfileHigh; else -> null }
+                "main" -> P.AVCProfileMain
+                "extended" -> P.AVCProfileExtended
+                "high", "constrained high", "progressive high" -> P.AVCProfileHigh
+                else -> null }
             "hevc" -> when(name.lowercase()) { "", "main" -> if(depth > 8) P.HEVCProfileMain10 else P.HEVCProfileMain
                 "main 10" -> P.HEVCProfileMain10; else -> null }
             "av1" -> if (name.lowercase() in setOf("", "main", "main 8", "main 10")) { if(depth > 8) P.AV1ProfileMain10 else P.AV1ProfileMain8 } else null
