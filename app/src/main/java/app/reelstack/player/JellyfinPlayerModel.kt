@@ -83,6 +83,8 @@ data class PlayerScreenState(
      * that was only visible by reading the source. It is one line in Stats for Nerds instead.
      */
     val advertisedAudio: String = "",
+    /** The video codecs claimed, with the largest frame each was accepted at. */
+    val advertisedVideo: String = "",
 ) {
     /** Kept so every reader that only cares whether the file is untouched still compiles. */
     val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
@@ -134,6 +136,14 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         runCatching {
             deviceCapabilities.snapshot().audio.joinToString(" · ") { audio ->
                 audio.codec + " " + audio.channels + (if (audio.passthrough) " pass" else "")
+            }
+        }.getOrDefault("")
+    }
+
+    private val advertisedVideo: () -> String = {
+        runCatching {
+            deviceCapabilities.snapshot().video.joinToString(" · ") { video ->
+                video.codec + " " + video.width + "×" + video.height
             }
         }.getOrDefault("")
     }
@@ -263,7 +273,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 decoderReuseEvaluation: DecoderReuseEvaluation?,
             ) {
                 mutable.update { it.copy(audioCodec = format.sampleMimeType, audioChannels = format.channelCount,
-                    advertisedAudio = advertisedAudio()) }
+                    advertisedAudio = advertisedAudio(), advertisedVideo = advertisedVideo()) }
             }
         })
     }

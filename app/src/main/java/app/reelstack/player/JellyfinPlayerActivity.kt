@@ -582,6 +582,16 @@ fun PlayerScreen(
                     state.advertisedAudio.takeIf { it.isNotBlank() }?.let {
                         Text(stringResource(R.string.player_stats_advertised, it), color = Color.White)
                     }
+                    state.advertisedVideo.takeIf { it.isNotBlank() }?.let {
+                        Text(stringResource(R.string.player_stats_advertised_video, it), color = Color.White)
+                    }
+                    // The server's own codes, unmapped. Everywhere else these become a sentence,
+                    // because CamelCase English in a nynorsk interface helps nobody — but this panel
+                    // exists to say what the server said, and one mapped sentence hides the other
+                    // reasons it listed alongside it.
+                    state.transcodeReasons.takeIf { it.isNotEmpty() }?.let {
+                        Text(stringResource(R.string.player_stats_server_codes, it.joinToString(", ")), color = Color.White)
+                    }
                     Text("${stringResource(R.string.player_stats_buffer)} ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${stringResource(if (player.isPlaying) R.string.player_stats_playing else R.string.player_stats_paused)}", color = Color.White)
                     // Dropped frames are the one number that tells you the device cannot keep up,
                     // as opposed to the network not keeping up. Worth its own line.

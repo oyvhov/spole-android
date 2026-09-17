@@ -39,4 +39,6 @@
     <string name="player_err_episodes">Could not load the episodes. Try again.</string>
     <string name="player_err_start">Could not start the video. Check your network and the playback permissions on the media server, or try again.</string>
     <string name="player_stats_advertised">Claimed · %1$s</string>
+    <string name="player_stats_advertised_video">Claimed video · %1$s</string>
+    <string name="player_stats_server_codes">Server said · %1$s</string>
 </resources>

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0-beta14 - Stats for Nerds seier kva tenaren sa
+
+- Panelet viser no tenaren sine eigne grunnkodar uomsette. Elles i appen blir dei gjorde om til éi setning, fordi engelsk CamelCase i eit nynorsk grensesnitt ikkje hjelper nokon — men det er nettopp denne ruta som finst for å seie kva tenaren sa, og éi omsett setning skjuler dei andre grunnane han lista opp ved sida av.
+- Ny «Meldt video»-linje ved sida av «Meldt», så det går å sjå kva appen sa om biletet og ikkje berre om lyden.
+- Ingen åtferdsendring i avspelinga. Dette er måleutstyr for eit Emby-tilfelle som framleis omkodar etter at lydfiksen i beta13 hjelpte Jellyfin.
+
 ## 0.17.0-beta13 - Lyden blir ikkje avvist på eit inngangstal
 
 - Ein 5.1-lydstraum blir ikkje lenger meld som uspelbar fordi dekodaren oppgir ei låg inngangsgrense. Android sin EAC3-dekodar dekodar 5.1 fint og Media3 brettar ned til høgtalarane; vi las grensa som ein dom, og bad serveren omkode ei fil telefonen spelar direkte.
