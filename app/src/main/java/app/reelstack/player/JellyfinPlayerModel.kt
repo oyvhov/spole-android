@@ -315,9 +315,22 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         reporter.launch {
             for (event in reports) {
                 val failed = runCatching { client.report(event.connection, event.plan, event.event, event.position, event.paused) }.isFailure
+                // The session exists on the server from the first report onwards, and it is the
+                // only place that says whether the picture is being copied or re-encoded. Until
+                // it answers, the plan's reading of the transcoding URL stands.
+                val serverMode = if (failed || event.event == "/Stopped" || event.plan.mode == PlaybackMode.DIRECT_PLAY) null
+                    else runCatching { client.serverPlaybackMode(event.connection, event.plan.sourceId) }.getOrNull()
                 withContext(Dispatchers.Main) {
-                    if (plan?.sessionId == event.plan.sessionId) mutable.update { it.copy(warning =
-                        if (failed) container.appString(R.string.player_err_progress_not_saved) else null) }
+                    val current = plan
+                    if (current != null && current.sessionId == event.plan.sessionId) {
+                        val corrected = serverMode?.takeIf { it != current.mode && current.mode != PlaybackMode.DIRECT_PLAY }
+                        // The next progress report must carry the corrected PlayMethod too,
+                        // otherwise the server's dashboard keeps calling a remux a transcode.
+                        if (corrected != null) plan = current.copy(mode = corrected)
+                        mutable.update { state -> state.copy(
+                            warning = if (failed) container.appString(R.string.player_err_progress_not_saved) else null,
+                            mode = corrected ?: state.mode) }
+                    }
                 }
             }
             reporter.cancel()

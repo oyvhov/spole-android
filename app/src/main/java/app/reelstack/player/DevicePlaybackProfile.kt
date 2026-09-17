@@ -23,6 +23,30 @@ data class DevicePlaybackCapabilities(
 
 fun automaticPlaybackBitrate(unmetered: Boolean): Int = if (unmetered) 120_000_000 else 4_000_000
 
+/**
+ * What unplayable sound should be converted into, in the order the server should try.
+ *
+ * AAC was the only answer here, and on a television it is the wrong one. A set that is handed AAC
+ * 5.1 decodes it itself and sends the receiver whatever its own output does with it, which over
+ * ARC is two channels — so a DTS film lost its surround on the way to a receiver that would have
+ * played Dolby 5.1 without blinking. A codec the device reports it can pass through leaves the set
+ * out of it entirely and arrives intact.
+ *
+ * Listing them also lets an AC3 or EAC3 track be *copied* when it is the picture that needs
+ * re-encoding, instead of being converted for no reason. AAC stays last, and stays the only entry
+ * on a device with no passthrough, such as a phone.
+ */
+internal fun transcodeAudioCodecs(capabilities: DevicePlaybackCapabilities): List<String> =
+    listOf("ac3", "eac3").filter { codec ->
+        capabilities.audio.any { it.codec == codec && it.passthrough && it.channels >= 6 }
+    } + "aac"
+
+/** FFmpeg's AC-3 and E-AC-3 encoders stop at 5.1, so a 7.1 source has to be asked for as 5.1. */
+internal fun transcodeAudioChannels(capabilities: DevicePlaybackCapabilities): Int {
+    val decoded = capabilities.audio.firstOrNull { it.codec == "aac" }?.channels ?: 2
+    return if (transcodeAudioCodecs(capabilities).first() == "aac") decoded else decoded.coerceIn(2, 6)
+}
+
 fun devicePlaybackProfile(bitrate: Int, capabilities: DevicePlaybackCapabilities): JsonObject = buildJsonObject {
     put("Name", "Spole Android · detected capabilities")
     put("MaxStreamingBitrate", bitrate); put("MaxStaticBitrate", bitrate)
@@ -42,8 +66,8 @@ fun devicePlaybackProfile(bitrate: Int, capabilities: DevicePlaybackCapabilities
     putJsonArray("TranscodingProfiles") { add(buildJsonObject {
         put("Type", "Video"); put("Container", "ts"); put("Protocol", "hls"); put("Context", "Streaming")
         put("VideoCodec", listOf("h264", "hevc").filter { codec -> capabilities.video.any { it.codec == codec } }.joinToString(",").ifBlank { "h264" })
-        put("AudioCodec", "aac")
-        put("MaxAudioChannels", (capabilities.audio.firstOrNull { it.codec == "aac" }?.channels ?: 2).toString())
+        put("AudioCodec", transcodeAudioCodecs(capabilities).joinToString(","))
+        put("MaxAudioChannels", transcodeAudioChannels(capabilities).toString())
         put("MinSegments", 2); put("SegmentLength", 3); put("CopyTimestamps", false)
         put("EnableSubtitlesInManifest", false)
     }) }

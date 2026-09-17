@@ -20,8 +20,32 @@ class DevicePlaybackProfileTest {
         assertEquals("3840", conditions(profile, "hevc").first { it.str("Property") == "Width" }.str("Value"))
         assertEquals("8", conditions(profile, "truehd").single().str("Value"))
         assertEquals("6", conditions(profile, "ac3").single().str("Value"))
-        assertEquals("8", profile.objects("TranscodingProfiles").single().str("MaxAudioChannels"))
+        assertEquals("6", profile.objects("TranscodingProfiles").single().str("MaxAudioChannels"))
         assertEquals("Streaming", profile.objects("TranscodingProfiles").single().str("Context"))
+    }
+    @Test fun soundTheSetCanPassThroughIsAskedForBeforeAacSoSurroundSurvivesTheTv() {
+        val profile = devicePlaybackProfile(120_000_000, capable)
+        // AAC 5.1 is decoded by the television and leaves it as whatever its own output carries,
+        // which over ARC is two channels; AC3 passes through the set untouched.
+        assertEquals("ac3,aac", profile.objects("TranscodingProfiles").single().str("AudioCodec"))
+        // FFmpeg's AC-3 encoder stops at 5.1 even though the set will pass 8 channels through.
+        assertEquals("6", profile.objects("TranscodingProfiles").single().str("MaxAudioChannels"))
+    }
+    @Test fun aDeviceThatDecodesAc3WithoutPassingItThroughStillGetsAac() {
+        val decodeOnly = capable.copy(audio = listOf(AudioPlaybackCapability("aac", 8), AudioPlaybackCapability("ac3", 6, passthrough = false)))
+        val profile = devicePlaybackProfile(120_000_000, decodeOnly)
+        assertEquals("aac", profile.objects("TranscodingProfiles").single().str("AudioCodec"))
+        assertEquals("8", profile.objects("TranscodingProfiles").single().str("MaxAudioChannels"))
+    }
+    @Test fun aPhoneWithNoSurroundOutputIsUnchanged() {
+        val profile = devicePlaybackProfile(4_000_000, DevicePlaybackCapabilities.CONSERVATIVE)
+        assertEquals("aac", profile.objects("TranscodingProfiles").single().str("AudioCodec"))
+        assertEquals("2", profile.objects("TranscodingProfiles").single().str("MaxAudioChannels"))
+    }
+    @Test fun eac3IsOfferedWhenTheSetPassesItAndAc3IsNotAdvertisedAtAll() {
+        val eac3Only = capable.copy(audio = listOf(AudioPlaybackCapability("aac", 8), AudioPlaybackCapability("eac3", 8, passthrough = true)))
+        assertEquals(listOf("eac3", "aac"), transcodeAudioCodecs(eac3Only))
+        assertEquals(6, transcodeAudioChannels(eac3Only))
     }
     @Test fun sdrDisplayDoesNotAdvertiseHdrOrDolbyVisionFromTenBitDecoderAlone() {
         val profile = devicePlaybackProfile(40_000_000, capable.copy(video = listOf(VideoPlaybackCapability("hevc", 3840, 2160, 10))))

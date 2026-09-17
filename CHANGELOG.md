@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.0-beta15 - Emby blir spurd i staden for gjetta på
+
+- «Full omkoding på Emby» var i mange tilfelle appen sin eigen feil. Modusen vart lesen ut av omkodings-URL-en, der Jellyfin skriv `VideoCodec=copy` når han berre kopierer biletet — Emby skriv den ekte kodeken same kva han gjer, så kvar einaste Emby-økt vart stempla som full omkoding. Spole spør no økta om `IsVideoDirect`/`IsAudioDirect` og viser det tenaren faktisk gjer.
+- Same retting går tilbake til Emby sitt eige dashbord: `PlayMethod` blir korrigert frå «Transcode» til «DirectStream» når biletet blir kopiert, så Spole ikkje lenger ser ut som den tyngste klienten på tenaren medan han er den lettaste.
+- Lyd som må omkodast blir no beden om som Dolby Digital, ikkje AAC, på einingar som melder passthrough. Ein TV som får AAC 5.1 dekodar han sjølv og sender vidare det høgtalarane hans brukar — to kanalar. AC3 går urørt gjennom settet og kjem fram som 5.1. Telefonar utan passthrough får AAC som før.
+- Ein AC3- eller EAC3-lydstraum kan no bli kopiert når det er biletet som må omkodast, i staden for å bli konvertert utan grunn.
+- Ei DTS-fil blir framleis omkoda. TV-en melder korkje dekodar eller passthrough for DTS, og Spole har ingen eigen lyddekodar; det som er nytt er at surroundlyden overlever omkodinga og at panelet sluttar å skulde på biletet.
+
 ## 0.17.0-beta14 - Stats for Nerds seier kva tenaren sa
 
 - Panelet viser no tenaren sine eigne grunnkodar uomsette. Elles i appen blir dei gjorde om til éi setning, fordi engelsk CamelCase i eit nynorsk grensesnitt ikkje hjelper nokon — men det er nettopp denne ruta som finst for å seie kva tenaren sa, og éi omsett setning skjuler dei andre grunnane han lista opp ved sida av.

@@ -445,9 +445,51 @@ class MediaPlaybackClient(
         })
     }
 
+    /**
+     * What the server says it is doing, rather than what its URL implies.
+     *
+     * [playbackModeFor] reads `VideoCodec=copy` out of the transcoding URL, which is how Jellyfin
+     * spells a picture it is copying. Emby does not spell it that way: it writes the target codec
+     * into the URL whether it re-encodes the picture or passes it through untouched, so every Emby
+     * session was labelled a full transcode — on the overlay and in the `PlayMethod` this client
+     * reports back to the server's own dashboard.
+     *
+     * The session carries `TranscodingInfo` with `IsVideoDirect` and `IsAudioDirect`, which both
+     * servers set from the decision they actually made. Null means the server has not answered, is
+     * not willing to (a user without session access), or has not opened the session yet — in every
+     * one of those cases the caller keeps what it had rather than showing a guess as a correction.
+     */
+    fun serverPlaybackMode(c: ServiceConnection, sourceId: String): PlaybackMode? {
+        val sessions = runCatching {
+            readArray(c, "Sessions?DeviceId=${enc(deviceId)}")
+        }.getOrNull() ?: return null
+        val ours = sessions.firstOrNull { it.str("DeviceId") == deviceId && it.obj("PlayState").str("MediaSourceId") == sourceId }
+            ?: sessions.singleOrNull { it.str("DeviceId") == deviceId && it["NowPlayingItem"] != null }
+            ?: return null
+        val info = ours["TranscodingInfo"] as? JsonObject ?: return null
+        // An older server that leaves both flags out cannot answer the question; do not read their
+        // absence as "nothing is being copied".
+        if (info["IsVideoDirect"] == null && info["IsAudioDirect"] == null) return null
+        return when {
+            info.flag("IsVideoDirect") && info.flag("IsAudioDirect") -> PlaybackMode.DIRECT_STREAM
+            info.flag("IsVideoDirect") -> PlaybackMode.AUDIO_TRANSCODE
+            else -> PlaybackMode.FULL_TRANSCODE
+        }
+    }
+
     private fun read(c: ServiceConnection, path: String) = decode(playbackRequest { transport.get(EndpointValidator.resolve(c.baseUrl, path), headers(c)) })
+    private fun readArray(c: ServiceConnection, path: String): List<JsonObject> {
+        val response = playbackRequest { transport.get(EndpointValidator.resolve(c.baseUrl, path), headers(c)) }
+        decodeStatus(response)
+        if (response.body.isBlank()) return emptyList()
+        return (Json.parseToJsonElement(response.body) as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
+    }
     private fun post(c: ServiceConnection, path: String, body: JsonObject) = decode(transport.post(EndpointValidator.resolve(c.baseUrl, path), headers(c), body.toString()))
     private fun decode(response: HttpResponse): JsonObject {
+        decodeStatus(response)
+        return if (response.body.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(response.body).jsonObject
+    }
+    private fun decodeStatus(response: HttpResponse) {
         when (response.statusCode) {
             in 200..299 -> Unit
             401, 403 -> serviceError(R.string.player_err_refused)
@@ -455,7 +497,6 @@ class MediaPlaybackClient(
             in 300..399 -> serviceError(R.string.player_err_moved)
             else -> serviceError(R.string.player_err_server_failed)
         }
-        return if (response.body.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(response.body).jsonObject
     }
 }
 
