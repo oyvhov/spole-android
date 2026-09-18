@@ -1,8 +1,9 @@
 # Barnemodus · arbeidsplan
 
-Status: **delvis bygd og verifisert på eining.** BM-1 til BM-4 er ferdige. BM-5, BM-6 og BM-9 er
-bygde i grunnform og verifiserte på Google TV (emulator-5564) 18. september 2026 med Eilev sin
-Emby-konto. BM-7, BM-8 og BM-10 til BM-13 står att; BM-13 er delvis dekt av fokusreglane i skalet.
+Status: **delvis bygd og verifisert på eining.** BM-1 til BM-4 er ferdige. BM-5 til BM-9 er bygde i
+grunnform og verifiserte på Google TV (emulator-5564) 18. september 2026 med Eilev sin Emby-konto,
+publisert som 0.17.0-beta24. BM-10 til BM-12 står att; BM-13 er delvis dekt av fokusreglane i
+skalet.
 
 BM-1 til BM-4 vart prototypa 11. september 2026 og **fjerna att same dag** på brukaren si melding.
 Koden kompilerte og 356 einingstestar var grøne, men ingenting vart sett på ei eining. Det som vart
@@ -63,8 +64,8 @@ Dette er den viktigaste forenklinga i planen. Ikkje legg admin-kall inn att.
 | BM-4 | PIN og utgang | ☑ Ferdig og verifisert | BM-2 |
 | BM-5 | Barneskalet | ◐ Grunnform verifisert | BM-1 |
 | BM-6 | Framsida for barn | ◐ Grunnform verifisert | BM-5 |
-| BM-7 | Episoderutenett | ☐ Ikkje starta | BM-5 |
-| BM-8 | Barnespelaren | ☐ Ikkje starta | BM-5 |
+| BM-7 | Episoderutenett | ◐ Grunnform verifisert | BM-5 |
+| BM-8 | Barnespelaren | ◐ Grunnform verifisert | BM-5 |
 | BM-9 | Verdsromlaget | ◐ Stjernehimmel og tom tilstand | BM-6 |
 | BM-10 | Nettverksinnstramming | ☐ Ikkje starta | BM-5 |
 | BM-11 | Skjermfesting | ☐ Ikkje starta | BM-4 |
@@ -422,6 +423,14 @@ Køyrt på `emulator-5564` (Google TV) med Eilev sin Emby-konto, signert release
 - Utgangen går gjennom PIN og tilbake til forelderen sitt eige innhald.
 - Fokus er 6 dp med 1,05× løft. **Løftet må ligge på kunstflata åleine:** skalerer ein heile kortet,
   veks plakaten ned over sin eigen tittel og det ser ut som klipt tekst.
+- Episoderutenettet opnar frå ein serie, viser store nummer og dempar sette episodar. **D-pad finn
+  ikkje korta på eigen hand** når sesongrada ligg over dei; skjermen ber difor eksplisitt om fokus
+  på første episode.
+- Barnespelaren har berre spol attende, spel/pause og spol fram. **Merk at TV har si eiga
+  overleggsfil:** `TvPlaybackOverlay.kt` må få `kids`-flagget òg, elles står verktøyrada att på TV
+  sjølv om telefonen er rein.
+- Framdrift blir rapportert til barnet sin eigen konto — ein spelt episode dukka opp att i «Hald
+  fram» for Eilev.
 
 **Emby viser ikkje offentlege kontoar utanfrå.** `https://emby.midttunet.no/Users/Public` svarar `[]`
 både med og utan `/emby`-prefiks, medan `System/Info/Public` og `AuthenticateByName` svarar normalt.
