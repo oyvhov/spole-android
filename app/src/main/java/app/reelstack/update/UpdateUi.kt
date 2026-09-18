@@ -102,18 +102,28 @@ internal fun AppUpdateHost(showBanner: Boolean) {
     if (state.open) Dialog(onDismissRequest = model::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val focus = remember { FocusRequester() }
         val interaction = remember { MutableInteractionSource() }
-        val tv = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val tv = configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+        // A phone is not a small television. Two labelled buttons side by side, a 28 dp gutter and
+        // a close button sharing the title's line all fit at 720 dp and none of them fit at 360.
+        val compact = configuration.screenWidthDp < 600
         LaunchedEffect(tv, state.release, state.ready, state.downloading, state.checking) {
             if (tv && !state.checking) { withFrameNanos { }; focus.requestFocus() }
         }
         val actionModifier = Modifier.focusRequester(focus).focusOutline(interaction, CircleShape)
         Surface(
-            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f).fillMaxHeight(.88f),
+            modifier = Modifier
+                .widthIn(max = 720.dp)
+                .fillMaxWidth(if (compact) .96f else .94f)
+                .fillMaxHeight(if (compact) .92f else .88f),
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
         ) {
-            Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                Modifier.padding(if (compact) 20.dp else 28.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 14.dp else 16.dp),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(
                         modifier = Modifier
@@ -137,8 +147,18 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = model::close) {
-                        Text(stringResource(R.string.update_close))
+                    if (compact) {
+                        IconButton(onClick = model::close, modifier = Modifier.size(44.dp)) {
+                            Icon(
+                                app.reelstack.ui.components.SpoleIcons.Close,
+                                contentDescription = stringResource(R.string.update_close),
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    } else {
+                        app.reelstack.ui.components.SpoleSecondaryButton(onClick = model::close) {
+                            Text(stringResource(R.string.update_close))
+                        }
                     }
                 }
                 Column(
@@ -228,23 +248,22 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                         )
                     }
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                // Side by side where there is room; stacked and full width on a phone, where two
+                // labelled buttons on one line squeeze both labels to nothing.
+                val actions: @Composable () -> Unit = {
+                    val buttonWidth = if (compact) Modifier.fillMaxWidth() else Modifier
                     when {
                         state.downloading -> OutlinedButton(
                             onClick = model::cancel,
                             interactionSource = interaction,
-                            modifier = actionModifier,
+                            modifier = actionModifier.then(buttonWidth),
                         ) {
                             Text(stringResource(R.string.update_cancel))
                         }
                         state.ready -> Button(
                             onClick = model::install,
                             interactionSource = interaction,
-                            modifier = actionModifier.testTag("update-install"),
+                            modifier = actionModifier.then(buttonWidth).testTag("update-install"),
                         ) {
                             Icon(
                                 app.reelstack.ui.components.SpoleIcons.Update,
@@ -257,7 +276,7 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                             onClick = model::download,
                             interactionSource = interaction,
                             enabled = !state.checking,
-                            modifier = actionModifier.testTag("update-download"),
+                            modifier = actionModifier.then(buttonWidth).testTag("update-download"),
                         ) {
                             Icon(
                                 app.reelstack.ui.components.SpoleIcons.Download,
@@ -270,7 +289,7 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                     OutlinedButton(
                         onClick = { model.check(true) },
                         interactionSource = if (state.release == null) interaction else null,
-                        modifier = if (state.release == null) actionModifier else Modifier,
+                        modifier = (if (state.release == null) actionModifier else Modifier).then(buttonWidth),
                         enabled = !state.checking && !state.downloading,
                     ) {
                         Icon(
@@ -280,6 +299,19 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                         )
                         Text(stringResource(R.string.update_check))
                     }
+                }
+
+                if (compact) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) { actions() }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) { actions() }
                 }
                 Text(
                     stringResource(R.string.update_install_hint),

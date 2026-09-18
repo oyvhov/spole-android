@@ -302,12 +302,25 @@ class MediaSyncRepository(
      * Paged, with a ceiling, because a shelf of a thousand posters is a scroll no child finishes
      * and a request no home server should have to answer at once.
      */
-    fun accountLibrary(connection: ServiceConnection, perLibraryLimit: Int = 300): List<LibraryMedia> {
-        val views = runCatching { mediaServerClient.browseLibraries(connection) }.getOrDefault(emptyList())
+    fun accountLibrary(connection: ServiceConnection, perLibraryLimit: Int = 400): List<LibraryMedia> {
+        val views = runCatching { mediaServerClient.browseLibraries(connection) }
+            .getOrDefault(emptyList())
+            // Film and series libraries only.
+            //
+            // A collections view ("boxsets") is not a library of its own: listing its children flat
+            // returns the collections' members from across the server, including titles this
+            // account has no library for. That is how adult shows appeared under a child profile —
+            // not a server permission, a wrong question. Live TV, music, books and playlists are
+            // likewise not grids of playable titles.
+            .filter { view ->
+                view.collectionType?.lowercase(java.util.Locale.ROOT) in setOf("movies", "tvshows")
+            }
         val out = mutableListOf<LibraryMedia>()
         for (view in views) {
             var offset = 0
             while (offset < perLibraryLimit) {
+                // Passing the collection type is what makes this recursive and typed — Movie for a
+                // film library, Series for a show library — instead of a flat list of folders.
                 val page = runCatching {
                     mediaServerClient.browseLibrary(connection, view.id, offset, view.collectionType)
                 }.getOrDefault(emptyList())

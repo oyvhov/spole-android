@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.17.0-beta26 - Rett bibliotek i barnemodus
+
+- Barneframsida listar berre film- og seriebiblioteka kontoen har. Ei samlingsvising blei før lista flatt, og drog med seg titlar frå heile tenaren som kontoen ikkje har bibliotek for.
+- Oppdateringsdialogen er tilpassa telefon: knappane står under kvarandre i full breidd, lukkeknappen er eit ikon, og margane er smalare.
+
 ## 0.17.0-beta25 - Barnemodus viser heile biblioteket
 
 - Barneframsida listar no alt kontoen faktisk har tilgang til, henta frå tenaren sine eigne biblioteksvisingar, i staden for eit utval av favorittar og sist lagt til.
