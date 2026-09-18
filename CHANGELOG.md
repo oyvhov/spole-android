@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.17.0-beta21 - Bibliotekdetaljar og aldersmerking
+
+- Skjuler «I biblioteket ditt» i detaljvisinga for både Jellyfin og Emby; oppdagingsvisinga bevarer bibliotekstatus.
+- Reine numeriske aldersgrenser blir viste med eining, til dømes «15 år». Klassifikasjonar som PG-13 og TV-MA blir bevarte.
+
 ## 0.17.0-beta20 - Oppstart, bufring og raskare retur frå spelaren
 
 - Eit kort fokusavbrot set ikkje lenger synleg video permanent på pause. Reell bakgrunnsvising pausar framleis.

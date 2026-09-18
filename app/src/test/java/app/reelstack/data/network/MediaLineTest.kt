@@ -23,6 +23,25 @@ import org.junit.Test
  */
 class MediaLineTest {
 
+    @Test fun numericAgeRatingsHaveUnitsInLibraryAndDetails() {
+        // Jellyfin and Emby use this same library payload parser.
+        val payload = """{"Id":"m","Name":"Film","Type":"Movie","OfficialRating":"15"}"""
+        val library = ServicePayloadParser.libraryItems("""{"Items":[$payload]}""").single()
+        assertTrue(library.facts.contains(LocalizedText(R.string.media_age_years, 15)))
+        assertTrue(ServicePayloadParser.libraryDetails(payload).facts.contains(LocalizedText(R.string.media_age_years, 15)))
+    }
+
+    @Test fun agePresentationDoesNotTranslateForeignClassificationCodesOrInventMissingAges() {
+        for (rating in listOf("PG-13", "TV-MA", "NO-15", "15+", "Unrated")) {
+            val facts = ServicePayloadParser.libraryItems(
+                """{"Items":[{"Id":"m","Name":"Film","Type":"Movie","OfficialRating":"$rating"}]}""").single().facts
+            assertEquals(listOf(LocalizedText.raw(rating)), facts)
+        }
+        val facts = ServicePayloadParser.libraryItems(
+            """{"Items":[{"Id":"m","Name":"Film","Type":"Movie","ProductionYear":2026}]}""").single().facts
+        assertEquals(listOf(LocalizedText.raw("2026")), facts)
+    }
+
     @Test fun theTypeWordIsNotAFact() {
         // It is derivable from mediaType, which every one of these rows already carries. Storing it
         // as well is what forced the grid to filter it back out by name.
@@ -104,7 +123,7 @@ class MediaLineTest {
                 LocalizedText.raw("S07 E01"),
                 LocalizedText.raw("2026"),
                 LocalizedText(R.string.media_minutes, 43),
-                LocalizedText.raw("12"),
+                LocalizedText(R.string.media_age_years, 12),
                 LocalizedText.raw("★ 8.3"),
             ),
             facts,

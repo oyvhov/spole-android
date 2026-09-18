@@ -93,12 +93,37 @@ class LibraryServiceDisplayTest {
         rule.setContent { ReelstackTheme {
             ReelstackSheets(ReelstackUiState(connections = listOf(connection.copy(kind = source)),
                 activeSheet = AppSheet.TitleDetails(key), contentDetails = ContentDetails(key, "Ein film", source.displayName, "2026",
-                    artworkRes = R.drawable.media_placeholder, source = source, mediaType = "Movie", libraryAvailable = true)),
+                    artworkRes = R.drawable.media_placeholder, source = source, mediaType = "Movie", libraryAvailable = true,
+                    statusTitle = "I biblioteket ditt", statusDescription = "Bibliotekstatus som ikkje skal visast")),
                 null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         } }
         rule.onNodeWithText("Ein film").assertIsDisplayed()
         if (source == ServiceKind.JELLYFIN) rule.onNodeWithTag("play-in-spole").assertIsDisplayed()
         rule.onNodeWithTag("open-in-server").assertDoesNotExist()
+        rule.onNodeWithTag("detail-in-library").assertDoesNotExist()
+        rule.onNodeWithText("I biblioteket ditt").assertDoesNotExist()
+        rule.onNodeWithText("Bibliotekstatus som ikkje skal visast").assertDoesNotExist()
+    }
+
+    @Test fun ageIsReadableAtDoubleTextSizeAndDiscoveryKeepsAvailability() {
+        var source by mutableStateOf(ServiceKind.JELLYFIN)
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val facts = app.reelstack.data.network.ServicePayloadParser.libraryDetails(
+            """{"Id":"age","Name":"Film","Type":"Movie","OfficialRating":"15","ProductionYear":2026}"""
+        ).facts.map { it.text(context) }
+        rule.setContent { DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(2f)) { ReelstackTheme {
+            val details = ContentDetails("age", "Film", "", "", artworkRes = R.drawable.media_placeholder,
+                source = source, mediaType = "Movie", libraryAvailable = true, facts = facts)
+            DetailAside(details, details, facts, tv = false)
+        } } }
+        rule.onNodeWithText("2026  ·  15 år").assertIsDisplayed()
+        rule.onNodeWithTag("detail-in-library").assertDoesNotExist()
+        rule.runOnIdle { source = ServiceKind.EMBY }
+        rule.onNodeWithText("2026  ·  15 år").assertIsDisplayed()
+        rule.onNodeWithTag("detail-in-library").assertDoesNotExist()
+        rule.runOnIdle { source = ServiceKind.SEERR }
+        rule.onNodeWithTag("detail-in-library").assertIsDisplayed()
+        rule.onNodeWithText("I biblioteket ditt").assertIsDisplayed()
     }
 
     private fun capture(name: String) {

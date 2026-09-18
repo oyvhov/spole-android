@@ -452,7 +452,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
         // TV has already shown these alongside its smaller poster.
         if (!tv) { aside(); if (mediaType != "Episode") synopsis() }
-        details.statusTitle?.takeUnless { details.libraryAvailable && details.source == ServiceKind.JELLYFIN }?.let { title ->
+        details.statusTitle?.takeUnless { details.libraryAvailable && details.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
                 .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
                 if (details.libraryAvailable) Icon(app.reelstack.ui.components.SpoleIcons.Movie, null, tint = Primary, modifier = Modifier.padding(top = 3.dp).size(20.dp))

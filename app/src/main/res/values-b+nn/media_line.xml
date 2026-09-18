@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Medielinja: kva ein tittel er, kor lang han er, kor mange sesongar. -->
 <resources>
+    <string name="media_age_years">%1$d år</string>
     <string name="media_kind_movie">Film</string>
     <string name="media_kind_series">Serie</string>
     <string name="media_kind_episode">Episode</string>

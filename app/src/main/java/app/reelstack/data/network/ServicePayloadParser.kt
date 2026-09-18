@@ -864,7 +864,12 @@ object ServicePayloadParser {
         }
         (item.int("ProductionYear") ?: item.int("productionYear"))?.let { add(LocalizedText.raw(it.toString())) }
         runtimeTicks?.takeIf { it > 0 }?.let { add(LocalizedText(R.string.media_minutes, (it / TICKS_PER_MINUTE).toInt())) }
-        (item.string("OfficialRating") ?: item.string("officialRating"))?.let { add(LocalizedText.raw(it)) }
+        (item.string("OfficialRating") ?: item.string("officialRating"))?.trim()?.takeIf(String::isNotEmpty)?.let { rating ->
+            // A bare age needs a unit. Keep classification codes (PG-13, TV-MA, etc.) intact;
+            // they are not equivalent to a Norwegian age rating.
+            val age = rating.takeIf { it.matches(Regex("[0-9]{1,2}")) }?.toIntOrNull()?.takeIf { it in 0..21 }
+            add(if (age != null) LocalizedText(R.string.media_age_years, age) else LocalizedText.raw(rating))
+        }
         (item.double("CommunityRating") ?: item.double("communityRating"))?.let {
             add(LocalizedText.raw("★ ${"%.1f".format(it)}"))
         }

@@ -71,7 +71,8 @@ internal fun DetailAside(
         .filterNot { it.matches(Regex("^S\\d\\d+ E\\d\\d+$")) }
         .filterNot { it == kindWord }
     val tagline = details.tagline?.takeIf(String::isNotBlank) ?: opening.tagline?.takeIf(String::isNotBlank)
-    val inLibrary = details.libraryAvailable
+    // Availability is useful in discovery, but redundant inside Jellyfin/Emby library details.
+    val inLibrary = details.libraryAvailable && details.source !in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
     if (!inLibrary && remaining.isEmpty() && details.criticRating == null && details.tmdbRating == null && details.mdblistRating == null && details.quality.isEmpty() && details.genres.isEmpty() && tagline == null && synopsis == null && cast == null) return
     Column(
         Modifier.fillMaxWidth().padding(top = if (tv) 16.dp else 18.dp).testTag("detail-aside"),
