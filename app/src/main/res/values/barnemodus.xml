@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_main">Main account</string>
+    <string name="profile_kids_section">Kids profiles</string>
+    <string name="profile_switch_title">Switch profile</string>
+    <string name="profile_add_action">Add kid profile</string>
+    <string name="profile_enter_pin_title">Adult access</string>
+    <string name="profile_enter_pin_subtitle">Enter 4-digit PIN to exit kids mode</string>
+    <string name="profile_set_pin_title">Create PIN</string>
+    <string name="profile_set_pin_subtitle">Choose a 4-digit PIN for parental control</string>
+    <string name="profile_set_pin_confirm">Confirm 4-digit PIN</string>
+    <string name="profile_wrong_pin">Incorrect PIN</string>
+    <string name="profile_pin_mismatch">PINs did not match</string>
+    <string name="profile_pin_locked">Too many attempts. Wait %1$d seconds.</string>
+    <string name="profile_pin_digits_entered">%1$d of %2$d digits entered</string>
+    <string name="profile_pin_forgot">Forgot PIN?</string>
+    <string name="profile_pin_forgot_hint">Enter Jellyfin password for main account</string>
+    <string name="profile_pin_reset_action">Reset PIN</string>
+    <string name="profile_add_title">Add kid profile</string>
+    <string name="profile_add_subtitle">Choose a kid account from your server</string>
+    <string name="profile_add_no_users">No public accounts found on server</string>
+    <string name="profile_add_password_required">Enter password for %1$s</string>
+    <string name="profile_delete_action">Delete profile</string>
+    <string name="profile_delete_confirm">Are you sure you want to remove %1$s from this device?</string>
+    <string name="profile_add_manual_title">Or sign in with username</string>
+    <string name="profile_add_username_label">Username</string>
+    <string name="profile_add_password_label">Password</string>
+    <string name="profile_add_submit_button">Add profile</string>
+</resources>

@@ -11,10 +11,10 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class EncryptedTokenStore(context: Context) {
+class EncryptedTokenStore(context: Context) : TokenStore {
     private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
-    fun put(key: String, value: String) {
+    override fun put(key: String, value: String) {
         if (value.isBlank()) {
             remove(key)
             return
@@ -28,7 +28,7 @@ class EncryptedTokenStore(context: Context) {
         preferences.edit { putString(key, encoded) }
     }
 
-    fun get(key: String): String? {
+    override fun get(key: String): String? {
         val stored = preferences.getString(key, null) ?: return null
         val parts = stored.split(SEPARATOR, limit = 2)
         if (parts.size != 2) return null
@@ -41,7 +41,7 @@ class EncryptedTokenStore(context: Context) {
         }.getOrNull()
     }
 
-    fun remove(key: String) {
+    override fun remove(key: String) {
         preferences.edit { remove(key) }
     }
 
@@ -53,7 +53,7 @@ class EncryptedTokenStore(context: Context) {
      * apart from "never signed in", that is a sentence the user can act on instead of a home
      * screen that quietly falls back to demo content.
      */
-    fun hasStoredValue(key: String): Boolean = preferences.contains(key)
+    override fun hasStoredValue(key: String): Boolean = preferences.contains(key)
 
     private fun secretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }

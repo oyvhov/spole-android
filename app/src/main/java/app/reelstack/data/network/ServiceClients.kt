@@ -110,6 +110,21 @@ class JellyfinAuthenticationClient(
         return parseAuthentication(response.body)
     }
 
+    fun publicUsers(baseUrl: String): List<PublicUser> {
+        val authorization = jellyfinAuthorization(deviceId)
+        val response = runCatching {
+            contacting(JELLYFIN) {
+                transport.get(
+                    EndpointValidator.resolve(baseUrl, "Users/Public"),
+                    mapOf("Authorization" to authorization),
+                )
+            }
+        }.getOrNull() ?: return emptyList()
+
+        if (response.statusCode !in 200..299) return emptyList()
+        return ServicePayloadParser.publicUsers(baseUrl, response.body)
+    }
+
     fun initiateQuickConnect(baseUrl: String): QuickConnectChallenge {
         val response = contacting(JELLYFIN) {
             transport.post(

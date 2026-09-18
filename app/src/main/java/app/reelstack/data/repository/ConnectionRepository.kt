@@ -1,41 +1,67 @@
 package app.reelstack.data.repository
 
 import android.content.Context
-import app.reelstack.R
-import kotlinx.coroutines.flow.asStateFlow
+import android.content.SharedPreferences
 import androidx.core.content.edit
+import app.reelstack.R
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.UserProfile
 import app.reelstack.data.security.EncryptedTokenStore
+import app.reelstack.data.security.TokenStore
+import kotlinx.coroutines.flow.asStateFlow
 
-class ConnectionRepository(context: Context) {
+class ConnectionRepository(
+    context: Context,
+    private val preferences: SharedPreferences = context.getSharedPreferences("reelstack_connections", Context.MODE_PRIVATE),
+    private val tokenStore: TokenStore = EncryptedTokenStore(context),
+) {
     // The application context: a row label has to be read in the language the app is set to, and
     // this repository outlives whatever happened to construct it.
     private val appContext = context.applicationContext
-    private val preferences = context.getSharedPreferences("reelstack_connections", Context.MODE_PRIVATE)
-    private val tokenStore = EncryptedTokenStore(context)
-    private val tokenCache = mutableMapOf<ServiceKind, String>()
+    private val tokenCache = mutableMapOf<Pair<String, ServiceKind>, String>()
     private val revision = kotlinx.coroutines.flow.MutableStateFlow(0L)
     val changes = revision.asStateFlow()
 
-    fun list(): List<ServiceConnection> = ServiceKind.entries.map(::get)
+    var activeProfileId: String
+        get() = preferences.getString("active_profile_id", "").orEmpty()
+        set(value) {
+            val sanitized = value.trim()
+            if (activeProfileId == sanitized) return
+            preferences.edit { putString("active_profile_id", sanitized) }
+            revision.value++
+        }
 
-    fun rememberedUrl(kind: ServiceKind): String = preferences.getString("${kind.name.lowercase()}.last_url", "").orEmpty()
+    val isKidMode: Boolean get() = activeProfileId.isNotBlank()
 
-    fun signOut(kind: ServiceKind) {
-        val url = get(kind).baseUrl
+    fun prefixFor(kind: ServiceKind, profileId: String = activeProfileId): String {
+        val base = kind.name.lowercase()
+        val p = profileId.trim()
+        return if (p.isBlank()) base else if (p.startsWith("kid.")) "$p.$base" else "kid.$p.$base"
+    }
+
+    fun list(profileId: String = activeProfileId): List<ServiceConnection> =
+        ServiceKind.entries.map { get(it, profileId) }
+
+    fun rememberedUrl(kind: ServiceKind): String =
+        preferences.getString("${kind.name.lowercase()}.last_url", "").orEmpty()
+
+    fun signOut(kind: ServiceKind, profileId: String = activeProfileId) {
+        val url = get(kind, profileId).baseUrl
         if (url.isNotBlank()) preferences.edit { putString("${kind.name.lowercase()}.last_url", url) }
-        delete(kind)
+        delete(kind, profileId)
     }
 
     /** Local sign-out, including services hidden by the current account's permissions. */
-    fun signOutAll() = ServiceKind.entries.forEach(::signOut)
+    fun signOutAll(profileId: String = activeProfileId) =
+        ServiceKind.entries.forEach { signOut(it, profileId) }
 
-    fun get(kind: ServiceKind): ServiceConnection {
-        val prefix = kind.name.lowercase()
+    fun get(kind: ServiceKind, profileId: String = activeProfileId): ServiceConnection {
+        val prefix = prefixFor(kind, profileId)
         val savedUrl = preferences.getString("$prefix.url", null)
-        val token = tokenFor(kind)
+            ?: if (profileId.isNotBlank()) preferences.getString("${kind.name.lowercase()}.url", null) else null
+        val token = tokenFor(kind, profileId)
         // An address with no readable token, where a token was nevertheless written, means the
         // Keystore entry is gone. Reporting that as "Konfigurert" sent the user to a home screen
         // full of demo content with nothing anywhere saying why.
@@ -57,15 +83,15 @@ class ConnectionRepository(context: Context) {
                 else -> ConnectionState.CONNECTED
             },
             detail = when {
-                savedUrl.isNullOrBlank() -> appContext.getString(R.string.connection_detail_demo)
-                unreadable -> appContext.getString(R.string.connection_detail_unreadable)
-                else -> appContext.getString(R.string.connection_detail_configured)
+                savedUrl.isNullOrBlank() -> runCatching { appContext.getString(R.string.connection_detail_demo) }.getOrDefault("Demodata")
+                unreadable -> runCatching { appContext.getString(R.string.connection_detail_unreadable) }.getOrDefault("Uleseleg innlogging")
+                else -> runCatching { appContext.getString(R.string.connection_detail_configured) }.getOrDefault("Konfigurert")
             },
         )
     }
 
-    fun save(connection: ServiceConnection) {
-        val prefix = connection.kind.name.lowercase()
+    fun save(connection: ServiceConnection, profileId: String = activeProfileId) {
+        val prefix = prefixFor(connection.kind, profileId)
         val normalized = EndpointValidatorFacade.normalize(connection.baseUrl)
         val alternate = connection.alternateUrl.takeIf(String::isNotBlank)
             ?.let(EndpointValidatorFacade::normalize)
@@ -83,13 +109,13 @@ class ConnectionRepository(context: Context) {
         }
         tokenStore.put("$prefix.token", connection.token)
         synchronized(tokenCache) {
-            tokenCache[connection.kind] = connection.token
+            tokenCache[profileId to connection.kind] = connection.token
         }
         revision.value++
     }
 
-    fun delete(kind: ServiceKind) {
-        val prefix = kind.name.lowercase()
+    fun delete(kind: ServiceKind, profileId: String = activeProfileId) {
+        val prefix = prefixFor(kind, profileId)
         preferences.edit {
             remove("$prefix.name")
             remove("$prefix.url")
@@ -100,7 +126,7 @@ class ConnectionRepository(context: Context) {
         }
         tokenStore.remove("$prefix.token")
         synchronized(tokenCache) {
-            tokenCache.remove(kind)
+            tokenCache.remove(profileId to kind)
         }
         revision.value++
     }
@@ -109,25 +135,87 @@ class ConnectionRepository(context: Context) {
      * Makes the alternate address the active one after a successful failover. Only the two
      * addresses swap: token, profile and identity are untouched.
      */
-    fun promoteAlternate(kind: ServiceKind) {
-        val current = get(kind)
+    fun promoteAlternate(kind: ServiceKind, profileId: String = activeProfileId) {
+        val current = get(kind, profileId)
         if (!current.hasAlternate) return
-        val prefix = kind.name.lowercase()
+        val prefix = prefixFor(kind, profileId)
         preferences.edit {
             putString("$prefix.url", current.alternateUrl)
             putString("$prefix.alt_url", current.baseUrl)
         }
     }
 
-    private fun tokenFor(kind: ServiceKind): String = synchronized(tokenCache) {
-        tokenCache.getOrPut(kind) {
-            tokenStore.get("${kind.name.lowercase()}.token").orEmpty()
+    fun getKidProfileIds(): Set<String> =
+        preferences.getStringSet("kid_profile_ids", emptySet()).orEmpty()
+
+    fun registerKidProfile(id: String, name: String, avatarUrl: String?) {
+        val sanitized = id.trim().removePrefix("kid.")
+        val current = getKidProfileIds().toMutableSet()
+        current.add(sanitized)
+        preferences.edit {
+            putStringSet("kid_profile_ids", current)
+            putString("kid.$sanitized.name", name.trim())
+            if (avatarUrl != null) putString("kid.$sanitized.avatar_url", avatarUrl)
+            else remove("kid.$sanitized.avatar_url")
+        }
+        revision.value++
+    }
+
+    fun setMainProfileInfo(name: String, avatarUrl: String?) {
+        preferences.edit {
+            putString("main_profile_name", name.trim())
+            if (avatarUrl != null) putString("main_profile_avatar", avatarUrl)
+        }
+        revision.value++
+    }
+
+    fun deleteProfile(profileId: String) {
+        val sanitized = profileId.trim().removePrefix("kid.")
+        if (sanitized.isBlank()) return
+        ServiceKind.entries.forEach { kind ->
+            delete(kind, sanitized)
+        }
+        val current = getKidProfileIds().toMutableSet()
+        current.remove(sanitized)
+        preferences.edit {
+            putStringSet("kid_profile_ids", current)
+            remove("kid.$sanitized.name")
+            remove("kid.$sanitized.avatar_url")
+        }
+        if (activeProfileId == sanitized || activeProfileId == "kid.$sanitized") {
+            activeProfileId = ""
+        }
+        revision.value++
+    }
+
+    fun listProfiles(): List<UserProfile> {
+        val list = mutableListOf<UserProfile>()
+        val mainName = preferences.getString("main_profile_name", null)
+            ?: preferences.getString("jellyfin.name", null)
+            ?: runCatching { appContext.getString(R.string.profile_main) }.getOrNull()
+            ?: "Hovudkonto"
+        val mainAvatar = preferences.getString("main_profile_avatar", null)
+        list.add(UserProfile(id = "", name = mainName, isKid = false, avatarUrl = mainAvatar))
+
+        val kidIds = getKidProfileIds()
+        for (kidId in kidIds) {
+            val name = preferences.getString("kid.$kidId.name", null) ?: "Barn"
+            val avatar = preferences.getString("kid.$kidId.avatar_url", null)
+            list.add(UserProfile(id = kidId, name = name, isKid = true, avatarUrl = avatar))
+        }
+        return list
+    }
+
+    private fun tokenFor(kind: ServiceKind, profileId: String = activeProfileId): String = synchronized(tokenCache) {
+        tokenCache.getOrPut(profileId to kind) {
+            val prefix = prefixFor(kind, profileId)
+            tokenStore.get("$prefix.token").orEmpty()
         }
     }
 
     private fun defaultName(kind: ServiceKind): String = when (kind) {
-        ServiceKind.JELLYFIN -> appContext.getString(R.string.server_default_name_jellyfin)
-        ServiceKind.EMBY -> appContext.getString(R.string.server_default_name_emby)
+        ServiceKind.JELLYFIN -> runCatching { appContext.getString(R.string.server_default_name_jellyfin) }.getOrDefault("Jellyfin")
+        ServiceKind.EMBY -> runCatching { appContext.getString(R.string.server_default_name_emby) }.getOrDefault("Emby")
         else -> kind.displayName
     }
 }

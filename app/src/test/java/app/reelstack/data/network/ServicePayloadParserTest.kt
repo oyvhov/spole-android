@@ -388,4 +388,34 @@ class ServicePayloadParserTest {
         )
         assertEquals(listOf("Eventyr"), details.genres)
     }
+
+    @Test
+    fun libraryHeroArtworkPrefersThumbOverBackdropForMovieAndEpisode() {
+        val moviePayload = """
+            [{"Id":"movie-1","Name":"Toy Story 5","Type":"Movie",
+              "ImageTags":{"Primary":"prim1","Thumb":"thumb1"},
+              "BackdropImageTags":["backdrop1"]}]
+        """.trimIndent()
+        val movie = ServicePayloadParser.libraryItems(moviePayload).single()
+        assertTrue(movie.heroImagePath!!.contains("/Images/Thumb?"))
+        assertTrue(movie.heroImagePath.contains("tag=thumb1"))
+
+        val episodePayload = """
+            [{"Id":"ep-1","Name":"Villmark","Type":"Episode","SeriesId":"series-1",
+              "ParentThumbItemId":"series-1","SeriesThumbImageTag":"seriestag1",
+              "ImageTags":{"Primary":"epprim1"},
+              "ParentBackdropItemId":"series-1","ParentBackdropImageTags":["seriesbackdrop1"]}]
+        """.trimIndent()
+        val episode = ServicePayloadParser.libraryItems(episodePayload).single()
+        assertTrue(episode.heroImagePath!!.contains("Items/series-1/Images/Thumb?"))
+        assertTrue(episode.heroImagePath.contains("tag=seriestag1"))
+
+        val fallbackPayload = """
+            [{"Id":"movie-2","Name":"No Thumb","Type":"Movie",
+              "ImageTags":{"Primary":"prim2"},
+              "BackdropImageTags":["backdrop2"]}]
+        """.trimIndent()
+        val fallback = ServicePayloadParser.libraryItems(fallbackPayload).single()
+        assertTrue(fallback.heroImagePath!!.contains("/Images/Backdrop/0?"))
+    }
 }

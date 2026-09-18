@@ -410,18 +410,28 @@ fun PlayerScreen(
                     1f to Color.Black.copy(alpha = .92f),
                 ) else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent)))
                 .safeDrawingPadding()
-                // A television reports no insets for the frame around its own picture, and plenty
-                // of sets still crop a few percent of every edge. `safeDrawingPadding` covers the
-                // system bars a phone has and nothing at all here, which is why the controls sat
-                // against the very bottom of the panel. Five per cent of 960x540 dp is the margin
-                // Android TV asks every app to keep.
                 .then(if (isTelevision) Modifier.padding(horizontal = 48.dp, vertical = 27.dp) else Modifier)) {
-                if (showControls) PlayerHeader(state.title, state.subtitleLine(), onClose, showBack = !isTelevision)
-                if (showControls && onMiniPlayer != null && !state.busy && state.error == null && !state.awaitingResume && state.durationMs > 0) TextButton(
-                    onClick = onMiniPlayer, modifier = Modifier.align(Alignment.End).testTag("player-mini")) {
-                    Icon(app.reelstack.ui.components.SpoleIcons.MiniPlayer, null)
-                    Text(stringResource(R.string.phase_mini), Modifier.padding(start = 8.dp))
-                }
+                if (showControls) PlayerHeader(
+                    title = state.title,
+                    subtitle = state.subtitleLine(),
+                    onClose = onClose,
+                    showBack = !isTelevision,
+                    actions = {
+                        if (onMiniPlayer != null && !state.busy && state.error == null && !state.awaitingResume && state.durationMs > 0) {
+                            IconButton(onClick = onMiniPlayer, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-mini")) {
+                                Icon(app.reelstack.ui.components.SpoleIcons.MiniPlayer, stringResource(R.string.phase_mini), modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        if (!isTelevision) {
+                            IconButton(onClick = onRotate, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape)) {
+                                Icon(app.reelstack.ui.components.SpoleIcons.Rotate, stringResource(R.string.player_rotate), modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        IconButton(onClick = { statsVisible = !statsVisible }, modifier = Modifier.size(40.dp).background(if (statsVisible) MaterialTheme.colorScheme.primaryContainer else Color.Black.copy(alpha = .45f), CircleShape).testTag("player-stats")) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", tint = if (statsVisible) MaterialTheme.colorScheme.primary else Color.White, modifier = Modifier.size(20.dp))
+                        }
+                    },
+                )
                 if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                     Modifier.align(Alignment.End))
                 if (!showNextOffer) SkipSegmentButton(state, onSkipSegment)
@@ -505,18 +515,57 @@ fun PlayerScreen(
                             onValueChangeFinished = { dragging?.let { onSeek(it.toLong()) }; dragging = null; scrubbing = false; interaction++ },
                             valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(), enabled = !state.busy && state.error == null && state.durationMs > 0,
                             modifier = Modifier.testTag("player-timeline"))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs)); Text(playbackTime(state.durationMs))
-                        }
-                        FlowRow(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", "player-stats", labelVisible = true) { statsVisible = !statsVisible }
-                            if (state.chapters.isNotEmpty()) TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters", labelVisible = true) { menu = PlayerMenu.CHAPTERS }
-                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Sound, stringResource(R.string.player_audio), "player-audio", enabled = state.audio.isNotEmpty() && !state.busy, labelVisible = true) { menu = PlayerMenu.AUDIO }
-                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Subtitles, stringResource(R.string.player_subtitles_button), "player-subtitles", enabled = state.subtitles.isNotEmpty() && !state.busy, labelVisible = true) { menu = PlayerMenu.SUBTITLES }
-                            TvPlayerAction(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_quality), "player-quality", enabled = !state.busy, labelVisible = true) { menu = PlayerMenu.QUALITY }
-                            TvPlayerAction(if (fillVideo) app.reelstack.ui.components.SpoleIcons.Contract else app.reelstack.ui.components.SpoleIcons.Expand,
-                                stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill), "player-frame-mode", labelVisible = true) { fillVideo = !fillVideo; interaction++ }
-                            if (!isTelevision) IconButton(onClick = onRotate) { Icon(app.reelstack.ui.components.SpoleIcons.Rotate, stringResource(R.string.player_rotate)) }
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White,
+                                )
+                                Text(
+                                    "/",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    playbackTime(state.durationMs),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (state.chapters.isNotEmpty()) {
+                                    IconButton(onClick = { menu = PlayerMenu.CHAPTERS }, modifier = Modifier.size(40.dp).testTag("player-chapters")) {
+                                        Icon(app.reelstack.ui.components.SpoleIcons.Library, stringResource(R.string.phase_chapters), Modifier.size(20.dp))
+                                    }
+                                }
+                                IconButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy, modifier = Modifier.size(40.dp).testTag("player-audio")) {
+                                    Icon(app.reelstack.ui.components.SpoleIcons.Sound, stringResource(R.string.player_audio), Modifier.size(20.dp))
+                                }
+                                val subActive = state.subtitleIndex != -1
+                                IconButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy, modifier = Modifier.size(40.dp).testTag("player-subtitles")) {
+                                    Icon(
+                                        app.reelstack.ui.components.SpoleIcons.Subtitles,
+                                        stringResource(R.string.player_subtitles_button),
+                                        tint = if (subActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                                IconButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy, modifier = Modifier.size(40.dp).testTag("player-quality")) {
+                                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_quality), Modifier.size(20.dp))
+                                }
+                                IconButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.size(40.dp).testTag("player-frame-mode")) {
+                                    Icon(
+                                        if (fillVideo) app.reelstack.ui.components.SpoleIcons.Contract else app.reelstack.ui.components.SpoleIcons.Expand,
+                                        stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill),
+                                        Modifier.size(20.dp),
+                                    )
+                                }
+                            }
                         }
                         Text(
                             listOfNotNull(
@@ -684,17 +733,26 @@ private fun Modifier.remoteFocus(enabled: Boolean): Modifier {
 }
 
 @Composable
-private fun PlayerHeader(title: String, subtitle: String, onClose: () -> Unit, showTitle: Boolean = true,
-    showBack: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) != android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) {
-    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
-        if (showBack) IconButton(onClick = onClose, modifier = Modifier.size(48.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-close")) {
+private fun PlayerHeader(
+    title: String,
+    subtitle: String,
+    onClose: () -> Unit,
+    showTitle: Boolean = true,
+    showBack: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) != android.content.res.Configuration.UI_MODE_TYPE_TELEVISION,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (showBack) IconButton(onClick = onClose, modifier = Modifier.size(44.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-close")) {
             Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, stringResource(R.string.action_back))
         }
-        Column(Modifier.weight(1f).padding(start = 12.dp, top = 10.dp)
+        Column(Modifier.weight(1f).padding(start = 12.dp)
             .graphicsLayer { alpha = if (showTitle) 1f else 0f }
             .then(if (showTitle) Modifier else Modifier.clearAndSetSemantics {})) {
-            Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            actions()
         }
     }
 }

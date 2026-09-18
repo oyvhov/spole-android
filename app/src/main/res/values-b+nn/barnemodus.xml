@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_main">Hovudkonto</string>
+    <string name="profile_kids_section">Barneproflar</string>
+    <string name="profile_switch_title">Byt profil</string>
+    <string name="profile_add_action">Legg til barneprofil</string>
+    <string name="profile_enter_pin_title">Vaksentilgang</string>
+    <string name="profile_enter_pin_subtitle">Tast inn 4-sifra PIN for å gå ut av barnemodus</string>
+    <string name="profile_set_pin_title">Opprett PIN</string>
+    <string name="profile_set_pin_subtitle">Vel ein 4-sifra PIN for foreldrekontroll</string>
+    <string name="profile_set_pin_confirm">Stadfest 4-sifra PIN</string>
+    <string name="profile_wrong_pin">Feil PIN</string>
+    <string name="profile_pin_mismatch">PIN-kodane stemte ikkje overeins</string>
+    <string name="profile_pin_locked">For mange forsøk. Vent %1$d sekund.</string>
+    <string name="profile_pin_digits_entered">%1$d av %2$d siffer tasta</string>
+    <string name="profile_pin_forgot">Gløymt PIN?</string>
+    <string name="profile_pin_forgot_hint">Tast inn Jellyfin-passordet for hovudkontoen</string>
+    <string name="profile_pin_reset_action">Tilbakestill PIN</string>
+    <string name="profile_add_title">Legg til barneprofil</string>
+    <string name="profile_add_subtitle">Vel ein barnekonto frå tenaren din</string>
+    <string name="profile_add_no_users">Fann inge offentlege kontoar på tenaren</string>
+    <string name="profile_add_password_required">Oppgi passord for %1$s</string>
+    <string name="profile_delete_action">Slett profil</string>
+    <string name="profile_delete_confirm">Er du viss på at du vil fjerne %1$s frå denne eininga?</string>
+    <string name="profile_add_manual_title">Eller logg inn med brukarnamn</string>
+    <string name="profile_add_username_label">Brukarnamn</string>
+    <string name="profile_add_password_label">Passord</string>
+    <string name="profile_add_submit_button">Legg til profil</string>
+</resources>

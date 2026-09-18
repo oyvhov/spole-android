@@ -162,6 +162,14 @@ fun ReelstackSheets(
     onCancelConnection: () -> Unit = {},
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
+    onSelectProfile: (app.reelstack.data.model.UserProfile) -> Unit = {},
+    onOpenAddProfile: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onDeleteProfile: (app.reelstack.data.model.UserProfile) -> Unit = {},
+    onSubmitPin: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    onRecoverPinWithPassword: (String, String) -> Unit = { _, _ -> },
+    onAddKidUser: (app.reelstack.data.network.PublicUser, String) -> Unit = { _, _ -> },
+    onAddKidManual: (String, String) -> Unit = { _, _ -> },
 ) {
     val sheet = state.activeSheet ?: return
     val sheetContentStates = rememberSaveableStateHolder()
@@ -228,6 +236,33 @@ fun ReelstackSheets(
                         }.getOrNull() else null,
                     )
                 }
+                AppSheet.ProfileSwitcher -> app.reelstack.ui.components.ProfileSwitcher(
+                    profiles = state.profiles,
+                    activeProfileId = state.activeProfileId,
+                    isKidMode = state.isKidMode,
+                    onSelectProfile = onSelectProfile,
+                    onAddProfile = onOpenAddProfile,
+                    onOpenSettings = onOpenSettings,
+                    onDeleteProfile = onDeleteProfile,
+                )
+                is AppSheet.PinPrompt -> app.reelstack.ui.components.PinEntrySheet(
+                    title = if (sheet.isSetup) stringResource(R.string.profile_set_pin_title) else stringResource(R.string.profile_enter_pin_title),
+                    subtitle = if (sheet.isSetup) stringResource(R.string.profile_set_pin_subtitle) else stringResource(R.string.profile_enter_pin_subtitle),
+                    error = state.pinError,
+                    lockoutSeconds = state.pinLockoutSeconds,
+                    isSetup = sheet.isSetup,
+                    onPinComplete = { pin -> onSubmitPin(pin, sheet.targetProfileId, sheet.isSetup) },
+                    onForgotPin = if (!sheet.isSetup) { pass -> onRecoverPinWithPassword(pass, sheet.targetProfileId) } else null,
+                    onCancel = close,
+                )
+                AppSheet.AddProfile -> app.reelstack.ui.sheets.AddProfileSheet(
+                    publicUsers = state.publicUsers,
+                    loading = state.loadingPublicUsers,
+                    error = state.addProfileError,
+                    onAddUser = onAddKidUser,
+                    onAddManual = onAddKidManual,
+                    onDismiss = close,
+                )
             }
             }
         }

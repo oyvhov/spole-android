@@ -852,8 +852,16 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
  * The fallback still matters: a title with no backdrop on the server has nothing else to show, and
  * a fitted poster is better than an empty frame.
  */
-internal fun railArtworkUrl(wide: Boolean, heroUrl: String?, posterUrl: String?, artworkUrl: String?): String? =
-    (if (wide) heroUrl else posterUrl) ?: artworkUrl
+internal fun railArtworkUrl(wide: Boolean, heroUrl: String?, posterUrl: String?, artworkUrl: String?): String? {
+    if (!wide) return posterUrl ?: artworkUrl
+    val isArtworkThumb = artworkUrl?.contains("/Images/Thumb", ignoreCase = true) == true
+    val isHeroThumb = heroUrl?.contains("/Images/Thumb", ignoreCase = true) == true
+    return when {
+        isArtworkThumb -> artworkUrl
+        isHeroThumb -> heroUrl
+        else -> heroUrl ?: artworkUrl
+    }
+}
 
 internal fun resumeRailIsWide(format: String?): Boolean = format != "POSTER"
 

@@ -323,11 +323,13 @@ object SpoleIcons {
         moveTo(8.8f, 11.8f); lineTo(11.2f, 14.2f); lineTo(15.4f, 9.4f)
     }
 
-    /** An update waiting: a device with an arrow coming down into it. */
+    /** An update waiting: open film frame with an arrow coming into it. */
     val Update = glyph("Update") {
-        moveTo(6.5f, 3.5f); lineTo(17.5f, 3.5f); lineTo(17.5f, 20.5f); lineTo(6.5f, 20.5f); close()
-        moveTo(12f, 7.4f); lineTo(12f, 14.6f)
-        moveTo(9f, 11.8f); lineTo(12f, 14.8f); lineTo(15f, 11.8f)
+        moveTo(4.5f, 14.5f); lineTo(4.5f, 18f); quadTo(4.5f, 20f, 6.5f, 20f); lineTo(17.5f, 20f); quadTo(19.5f, 20f, 19.5f, 18f); lineTo(19.5f, 14.5f)
+        moveTo(4.5f, 9.5f); lineTo(4.5f, 6f); quadTo(4.5f, 4f, 6.5f, 4f); lineTo(9.5f, 4f)
+        moveTo(14.5f, 4f); lineTo(17.5f, 4f); quadTo(19.5f, 4f, 19.5f, 6f); lineTo(19.5f, 9.5f)
+        moveTo(12f, 4f); lineTo(12f, 14.5f)
+        moveTo(8f, 10.5f); lineTo(12f, 14.5f); lineTo(16f, 10.5f)
     }
 
     val Edit = glyph("Edit") {
@@ -448,11 +450,11 @@ object SpoleIcons {
         moveTo(12f, 7.5f); lineTo(12f, 12f); lineTo(15.5f, 14f)
     }
 
-    /** An arrow into a tray: arriving, not stored. */
+    /** A sleek download icon: open tray with arrow arriving cleanly. */
     val Download = glyph("Download") {
-        moveTo(12f, 4f); lineTo(12f, 14.5f)
-        moveTo(7.5f, 10.5f); lineTo(12f, 15f); lineTo(16.5f, 10.5f)
-        moveTo(4.5f, 18f); quadTo(4.5f, 20f, 6.5f, 20f); lineTo(17.5f, 20f); quadTo(19.5f, 20f, 19.5f, 18f)
+        moveTo(4.5f, 14.5f); lineTo(4.5f, 18f); quadTo(4.5f, 20f, 6.5f, 20f); lineTo(17.5f, 20f); quadTo(19.5f, 20f, 19.5f, 18f); lineTo(19.5f, 14.5f)
+        moveTo(12f, 3.5f); lineTo(12f, 14.5f)
+        moveTo(8f, 10.5f); lineTo(12f, 14.5f); lineTo(16f, 10.5f)
     }
 
     val Bell = glyph("Bell") {
@@ -491,5 +493,19 @@ object SpoleIcons {
         moveTo(9f, 12f); lineTo(20f, 12f)
         moveTo(4f, 18f); lineTo(5f, 18f)
         moveTo(9f, 18f); lineTo(20f, 18f)
+    }
+
+    val Lock = glyph("Lock") {
+        moveTo(7f, 10f); lineTo(7f, 7f); arcTo(5f, 5f, 0f, true, true, 17f, 7f); lineTo(17f, 10f)
+        moveTo(5f, 10f); lineTo(19f, 10f); lineTo(19f, 20f); lineTo(5f, 20f); close()
+        moveTo(12f, 14f); lineTo(12f, 16.5f)
+    }
+
+    val Delete = glyph("Delete") {
+        moveTo(4f, 6f); lineTo(20f, 6f)
+        moveTo(9f, 6f); lineTo(9f, 4f); lineTo(15f, 4f); lineTo(15f, 6f)
+        moveTo(6f, 6f); lineTo(7f, 19f); quadTo(7f, 20.5f, 8.5f, 20.5f); lineTo(15.5f, 20.5f); quadTo(17f, 20.5f, 17f, 19f); lineTo(18f, 6f)
+        moveTo(10f, 10f); lineTo(10f, 16.5f)
+        moveTo(14f, 10f); lineTo(14f, 16.5f)
     }
 }

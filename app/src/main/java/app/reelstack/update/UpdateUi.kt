@@ -19,7 +19,10 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import app.reelstack.ui.components.focusOutline
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.reelstack.BuildConfig
@@ -104,41 +107,185 @@ internal fun AppUpdateHost(showBanner: Boolean) {
             if (tv && !state.checking) { withFrameNanos { }; focus.requestFocus() }
         }
         val actionModifier = Modifier.focusRequester(focus).focusOutline(interaction, CircleShape)
-        Surface(Modifier.widthIn(max = 740.dp).fillMaxWidth(.94f).fillMaxHeight(.88f), shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Icon(app.reelstack.ui.components.SpoleIcons.Update, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+        Surface(
+            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f).fillMaxHeight(.88f),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+        ) {
+            Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = app.reelstack.ui.components.SpoleIcons.Update,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.update_title), style = MaterialTheme.typography.headlineSmall)
-                        Text("Spole ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.update_title), style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "Spole ${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = model::close) { Text(stringResource(R.string.update_close)) }
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = model::close) {
+                        Text(stringResource(R.string.update_close))
+                    }
                 }
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
                     state.release?.let { release ->
-                        Text(stringResource(R.string.update_available, release.tag), style = MaterialTheme.typography.titleLarge)
-                        Text(stringResource(R.string.update_size, release.size / (1024f * 1024f)))
-                        ReleaseNotes(release.notes.ifBlank { stringResource(R.string.update_no_notes) })
-                    } ?: Text(stringResource(R.string.update_intro))
-                    state.message?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("update-message")) }
-                }
-                if (state.checking) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (state.downloading) {
-                    LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
-                    Text(stringResource(R.string.update_progress, (state.progress * 100).toInt()))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    when {
-                        state.downloading -> OutlinedButton(onClick = model::cancel, interactionSource = interaction, modifier = actionModifier) { Text(stringResource(R.string.update_cancel)) }
-                        state.ready -> Button(onClick = model::install, interactionSource = interaction, modifier = actionModifier.testTag("update-install")) { Text(stringResource(R.string.update_install)) }
-                        state.release != null -> Button(onClick = model::download, interactionSource = interaction, enabled = !state.checking, modifier = actionModifier.testTag("update-download")) { Text(stringResource(R.string.update_download)) }
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    ) {
+                                        Text(
+                                            text = release.tag,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        )
+                                    }
+                                    val sizeMb = release.size / (1024f * 1024f)
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.update_size, sizeMb),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        )
+                                    }
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                ReleaseNotes(release.notes.ifBlank { stringResource(R.string.update_no_notes) })
+                            }
+                        }
+                    } ?: Text(
+                        stringResource(R.string.update_intro),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    state.message?.let {
+                        Text(
+                            stringResource(it),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.testTag("update-message"),
+                        )
                     }
-                    OutlinedButton(onClick = { model.check(true) }, interactionSource = if (state.release == null) interaction else null,
-                        modifier = if (state.release == null) actionModifier else Modifier,
-                        enabled = !state.checking && !state.downloading) { Text(stringResource(R.string.update_check)) }
                 }
-                Text(stringResource(R.string.update_install_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.checking) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    )
+                }
+                if (state.downloading) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LinearProgressIndicator(
+                            progress = { state.progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        )
+                        Text(
+                            stringResource(R.string.update_progress, (state.progress * 100).toInt()),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    when {
+                        state.downloading -> OutlinedButton(
+                            onClick = model::cancel,
+                            interactionSource = interaction,
+                            modifier = actionModifier,
+                        ) {
+                            Text(stringResource(R.string.update_cancel))
+                        }
+                        state.ready -> Button(
+                            onClick = model::install,
+                            interactionSource = interaction,
+                            modifier = actionModifier.testTag("update-install"),
+                        ) {
+                            Icon(
+                                app.reelstack.ui.components.SpoleIcons.Update,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp).size(20.dp),
+                            )
+                            Text(stringResource(R.string.update_install))
+                        }
+                        state.release != null -> Button(
+                            onClick = model::download,
+                            interactionSource = interaction,
+                            enabled = !state.checking,
+                            modifier = actionModifier.testTag("update-download"),
+                        ) {
+                            Icon(
+                                app.reelstack.ui.components.SpoleIcons.Download,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp).size(20.dp),
+                            )
+                            Text(stringResource(R.string.update_download))
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = { model.check(true) },
+                        interactionSource = if (state.release == null) interaction else null,
+                        modifier = if (state.release == null) actionModifier else Modifier,
+                        enabled = !state.checking && !state.downloading,
+                    ) {
+                        Icon(
+                            app.reelstack.ui.components.SpoleIcons.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 8.dp).size(18.dp),
+                        )
+                        Text(stringResource(R.string.update_check))
+                    }
+                }
+                Text(
+                    stringResource(R.string.update_install_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

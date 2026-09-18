@@ -11,3 +11,4 @@ captures/
 *.apk
 signing.properties
 .spole-signing/
+.artifacts/

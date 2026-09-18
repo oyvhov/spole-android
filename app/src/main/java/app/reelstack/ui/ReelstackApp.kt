@@ -279,6 +279,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 if (!state.showOnboarding && !wideWindow) ReelstackBottomBar(
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
+                    isKidMode = state.isKidMode,
                 )
             },
         ) { paddingValues ->
@@ -289,6 +290,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
                     expanded = expandedRail,
+                    isKidMode = state.isKidMode,
                     modifier = Modifier.focusRequester(railFocus).graphicsLayer {
                         translationX = if (tvRail && personalization.hideTvSidebar && !expandedRail) -200.dp.toPx() else 0f
                         alpha = if (tvRail && personalization.hideTvSidebar && !expandedRail) 0f else 1f
@@ -367,7 +369,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onUpcomingClick = viewModel::openUpcomingDetails,
                         onCalendarClick = { viewModel.openSheet(AppSheet.UpcomingCalendar) },
                         onRefresh = { viewModel.refreshLiveData(userInitiated = true) },
-                        onAccountClick = { viewModel.selectTab(AppTab.SETTINGS) },
+                        onAccountClick = viewModel::openProfileSwitcher,
                         onDiscoverClick = viewModel::openRecommendationDetails,
                         onSearchClick = {
                             if (state.selectedTab == AppTab.HOME && !pendingSearchFocus) {
@@ -460,6 +462,17 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onEpisodeSeries = viewModel::openEpisodeSeries,
         onPersonTitles = viewModel::personTitles,
         onPersonTitle = viewModel::openPersonTitle,
+        onSelectProfile = viewModel::selectProfile,
+        onOpenAddProfile = viewModel::openAddProfile,
+        onOpenSettings = {
+            viewModel.closeSheet()
+            viewModel.selectTab(AppTab.SETTINGS)
+        },
+        onDeleteProfile = viewModel::deleteKidProfile,
+        onSubmitPin = viewModel::submitPin,
+        onRecoverPinWithPassword = viewModel::recoverPinWithPassword,
+        onAddKidUser = viewModel::addKidProfile,
+        onAddKidManual = viewModel::addKidProfileManual,
     )
     if (state.libraryChoicesOpen) app.reelstack.ui.screens.LibraryChoicesDialog(state,
         viewModel::closeLibraryChoices, viewModel::openLibraryChoices, viewModel::saveLibraryChoices)
@@ -484,8 +497,10 @@ private val tabs = listOf(
 internal fun ReelstackBottomBar(
     selectedTab: AppTab,
     onSelect: (AppTab) -> Unit,
+    isKidMode: Boolean = false,
 ) {
     val visibleTabs = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
+        .filterNot { isKidMode && it == AppTab.SETTINGS.name }
         .mapNotNull { name -> tabs.find { it.tab.name == name } }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
     val labelWidth = (maxWidth / visibleTabs.size.coerceAtLeast(1) - 8.dp).coerceAtLeast(1.dp)
@@ -591,6 +606,7 @@ internal fun ReelstackNavigationRail(
     libraryIcons: Map<String, app.reelstack.data.model.LibraryIcon> = emptyMap(),
     selectedLibraryId: String? = null,
     onLibrarySelect: (String) -> Unit = {},
+    isKidMode: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val selectedFocus = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -622,7 +638,9 @@ internal fun ReelstackNavigationRail(
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp)
                     .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
         }
-        app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
+        app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
+            .filterNot { isKidMode && it == AppTab.SETTINGS.name }
+            .mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
             if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
                 SidebarControl(name, (libraryIcons[id] ?: app.reelstack.data.model.LibraryIcon.LIBRARY).vector(), selectedLibraryId == id,
                     { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)

@@ -14,6 +14,7 @@ class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
     private val deviceId = DeviceIdentity.get(appContext)
     val connectionRepository = ConnectionRepository(appContext)
+    val pinSecurity = app.reelstack.data.security.PinSecurity(appContext)
     val accountProfileClient = app.reelstack.data.network.AccountProfileClient(deviceId = deviceId)
     val connectionTester = ServiceConnectionTester(deviceId = deviceId)
     val seerrAuthenticationClient = app.reelstack.data.network.SeerrAuthenticationClient()
@@ -49,6 +50,7 @@ class AppContainer(context: Context) {
     fun mediaFingerprint(connections: List<app.reelstack.data.model.ServiceConnection>): String =
         MediaSnapshotStore.fingerprint(connections) +
             preferencesRepository.librarySelectionFingerprint(connections) +
+            "|profile=" + connectionRepository.activeProfileId +
             "|lang=" + app.reelstack.localization.AppLanguages.selected(appContext).tag
 
     val requestTrackingRepository = app.reelstack.data.repository.RequestTrackingRepository(appContext)

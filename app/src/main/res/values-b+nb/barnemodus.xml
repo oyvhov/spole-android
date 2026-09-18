@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_main">Hovedkonto</string>
+    <string name="profile_kids_section">Barneprofiler</string>
+    <string name="profile_switch_title">Bytt profil</string>
+    <string name="profile_add_action">Legg til barneprofil</string>
+    <string name="profile_enter_pin_title">Voksentilgang</string>
+    <string name="profile_enter_pin_subtitle">Tast inn 4-sifret PIN for å gå ut av barnemodus</string>
+    <string name="profile_set_pin_title">Opprett PIN</string>
+    <string name="profile_set_pin_subtitle">Velg en 4-sifret PIN for foreldrekontroll</string>
+    <string name="profile_set_pin_confirm">Bekreft 4-sifret PIN</string>
+    <string name="profile_wrong_pin">Feil PIN</string>
+    <string name="profile_pin_mismatch">PIN-kodene stemte ikke overens</string>
+    <string name="profile_pin_locked">For mange forsøk. Vent %1$d sekunder.</string>
+    <string name="profile_pin_digits_entered">%1$d av %2$d sifre tastet</string>
+    <string name="profile_pin_forgot">Glemt PIN?</string>
+    <string name="profile_pin_forgot_hint">Tast inn Jellyfin-passordet for hovedkontoen</string>
+    <string name="profile_pin_reset_action">Tilbakestill PIN</string>
+    <string name="profile_add_title">Legg til barneprofil</string>
+    <string name="profile_add_subtitle">Velg en barnekonto fra tjeneren din</string>
+    <string name="profile_add_no_users">Ingen offentlige kontoer funnet på tjeneren</string>
+    <string name="profile_add_password_required">Oppgi passord for %1$s</string>
+    <string name="profile_delete_action">Slett profil</string>
+    <string name="profile_delete_confirm">Er du sikker på at du vil fjerne %1$s fra denne enheten?</string>
+    <string name="profile_add_manual_title">Eller logg inn med brukernavn</string>
+    <string name="profile_add_username_label">Brukernavn</string>
+    <string name="profile_add_password_label">Passord</string>
+    <string name="profile_add_submit_button">Legg til profil</string>
+</resources>

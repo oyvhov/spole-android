@@ -55,6 +55,9 @@ sealed interface AppSheet {
     data object RequestComposer : AppSheet
     data object UpcomingCalendar : AppSheet
     data class ConnectionEditor(val kind: ServiceKind) : AppSheet
+    data object ProfileSwitcher : AppSheet
+    data object AddProfile : AppSheet
+    data class PinPrompt(val targetProfileId: String, val isSetup: Boolean = false) : AppSheet
 }
 
 data class ConnectionDraft(
@@ -84,6 +87,14 @@ data class ReelstackUiState(
     val selectedTab: AppTab = AppTab.HOME,
     val activeSheet: AppSheet? = null,
     val connections: List<ServiceConnection> = emptyList(),
+    val activeProfileId: String = "",
+    val profiles: List<app.reelstack.data.model.UserProfile> = emptyList(),
+    val isKidMode: Boolean = false,
+    val publicUsers: List<app.reelstack.data.network.PublicUser> = emptyList(),
+    val loadingPublicUsers: Boolean = false,
+    val pinError: String? = null,
+    val pinLockoutSeconds: Int = 0,
+    val addProfileError: String? = null,
     val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
     val loadingAccounts: Set<ServiceKind> = emptySet(),
@@ -677,6 +688,224 @@ class ReelstackViewModel(
 
     fun backToCalendar() {
         _uiState.update { it.copy(activeSheet = AppSheet.UpcomingCalendar, contentDetails = null, returnToCalendar = false) }
+    }
+
+    fun openProfileSwitcher() {
+        _uiState.update {
+            it.copy(
+                activeSheet = AppSheet.ProfileSwitcher,
+                profiles = container.connectionRepository.listProfiles(),
+                activeProfileId = container.connectionRepository.activeProfileId,
+                isKidMode = container.connectionRepository.isKidMode,
+                pinError = null,
+                pinLockoutSeconds = container.pinSecurity.remainingLockoutSeconds(),
+            )
+        }
+    }
+
+    fun selectProfile(profile: app.reelstack.data.model.UserProfile) {
+        val currentActive = container.connectionRepository.activeProfileId
+        if (profile.id == currentActive) {
+            closeSheet()
+            return
+        }
+
+        // Switching from kid mode to adult mode requires PIN if configured
+        if (container.connectionRepository.isKidMode && profile.isMain) {
+            if (container.pinSecurity.isPinConfigured()) {
+                _uiState.update {
+                    it.copy(
+                        activeSheet = AppSheet.PinPrompt(targetProfileId = profile.id, isSetup = false),
+                        pinError = null,
+                        pinLockoutSeconds = container.pinSecurity.remainingLockoutSeconds(),
+                    )
+                }
+                return
+            }
+        }
+
+        // Switching to a kid profile: if no PIN is configured, prompt parent to create one first
+        if (!profile.isMain && !container.pinSecurity.isPinConfigured()) {
+            _uiState.update {
+                it.copy(
+                    activeSheet = AppSheet.PinPrompt(targetProfileId = profile.id, isSetup = true),
+                    pinError = null,
+                    pinLockoutSeconds = 0,
+                )
+            }
+            return
+        }
+
+        switchProfileNow(profile.id)
+    }
+
+    fun switchProfileNow(profileId: String) {
+        container.connectionRepository.activeProfileId = profileId
+        val connections = container.connectionRepository.list(profileId)
+        _uiState.update { current ->
+            current.copy(
+                activeProfileId = profileId,
+                isKidMode = profileId.isNotBlank(),
+                connections = connections,
+                activeSheet = null,
+                pinError = null,
+                pinLockoutSeconds = 0,
+                // Clear media from memory so previous profile data is never visible
+                resume = emptyList(),
+                nextUp = emptyList(),
+                recentMovies = emptyList(),
+                recentSeries = emptyList(),
+                favourites = emptyList(),
+                sessions = emptyList(),
+                incoming = emptyList(),
+                discover = emptyList(),
+                recommendations = emptyList(),
+            )
+        }
+        hydrateCachedFeed()
+        refreshLiveData(userInitiated = true)
+    }
+
+    fun submitPin(pin: String, targetProfileId: String, isSetup: Boolean) {
+        if (isSetup) {
+            container.pinSecurity.setPin(pin)
+            switchProfileNow(targetProfileId)
+            return
+        }
+
+        when (val result = container.pinSecurity.verifyPin(pin)) {
+            is app.reelstack.data.security.PinResult.Success -> {
+                switchProfileNow(targetProfileId)
+            }
+            is app.reelstack.data.security.PinResult.Incorrect -> {
+                _uiState.update { it.copy(pinError = appString(R.string.profile_wrong_pin)) }
+            }
+            is app.reelstack.data.security.PinResult.LockedOut -> {
+                _uiState.update {
+                    it.copy(
+                        pinLockoutSeconds = result.secondsRemaining,
+                        pinError = appString(R.string.profile_pin_locked, result.secondsRemaining),
+                    )
+                }
+            }
+        }
+    }
+
+    fun recoverPinWithPassword(password: String, targetProfileId: String) {
+        val mainJellyfin = container.connectionRepository.get(ServiceKind.JELLYFIN, "")
+        if (mainJellyfin.baseUrl.isBlank()) {
+            container.pinSecurity.clearPin()
+            switchProfileNow(targetProfileId)
+            return
+        }
+        viewModelScope.launch {
+            val success = withContext(Dispatchers.IO) {
+                runCatching {
+                    val user = mainJellyfin.userId
+                    container.jellyfinAuthenticationClient.authenticate(mainJellyfin.baseUrl, user, password)
+                }.isSuccess
+            }
+            if (success) {
+                container.pinSecurity.clearPin()
+                switchProfileNow(targetProfileId)
+            } else {
+                _uiState.update { it.copy(pinError = appString(R.string.err_feil_brukarnamn_eller_passord)) }
+            }
+        }
+    }
+
+    fun openAddProfile() {
+        val serverUrl = _uiState.value.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN }?.baseUrl.orEmpty()
+        _uiState.update {
+            it.copy(
+                activeSheet = AppSheet.AddProfile,
+                loadingPublicUsers = true,
+                publicUsers = emptyList(),
+                addProfileError = null,
+            )
+        }
+        if (serverUrl.isBlank()) {
+            _uiState.update { it.copy(loadingPublicUsers = false, addProfileError = appString(R.string.profile_add_no_users)) }
+            return
+        }
+        viewModelScope.launch {
+            val users = withContext(Dispatchers.IO) {
+                container.jellyfinAuthenticationClient.publicUsers(serverUrl)
+            }
+            _uiState.update {
+                it.copy(
+                    loadingPublicUsers = false,
+                    publicUsers = users,
+                )
+            }
+        }
+    }
+
+    fun addKidProfile(user: app.reelstack.data.network.PublicUser, password: String) {
+        addKidProfileInternal(
+            username = user.name,
+            password = password,
+            userId = user.id,
+            avatarUrl = user.avatarUrl,
+        )
+    }
+
+    fun addKidProfileManual(username: String, password: String) {
+        addKidProfileInternal(
+            username = username.trim(),
+            password = password,
+            userId = null,
+            avatarUrl = null,
+        )
+    }
+
+    private fun addKidProfileInternal(username: String, password: String, userId: String?, avatarUrl: String?) {
+        val mainJellyfin = _uiState.value.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN } ?: return
+        if (username.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(loadingPublicUsers = true, addProfileError = null) }
+            val auth = withContext(Dispatchers.IO) {
+                runCatching {
+                    container.jellyfinAuthenticationClient.authenticate(mainJellyfin.baseUrl, username, password)
+                }.getOrNull()
+            }
+            if (auth == null) {
+                _uiState.update {
+                    it.copy(
+                        loadingPublicUsers = false,
+                        addProfileError = appString(R.string.err_feil_brukarnamn_eller_passord),
+                    )
+                }
+                return@launch
+            }
+
+            val finalUserId = userId ?: auth.userId
+            val finalAvatarUrl = avatarUrl ?: "${mainJellyfin.baseUrl.trimEnd('/')}/Users/$finalUserId/Images/Primary"
+            val kidConnection = mainJellyfin.copy(
+                token = auth.accessToken,
+                userId = auth.userId,
+                name = username,
+            )
+            container.connectionRepository.save(kidConnection, finalUserId)
+            container.connectionRepository.registerKidProfile(finalUserId, username, finalAvatarUrl)
+
+            _uiState.update {
+                it.copy(
+                    loadingPublicUsers = false,
+                    profiles = container.connectionRepository.listProfiles(),
+                )
+            }
+            switchProfileNow(finalUserId)
+        }
+    }
+
+    fun deleteKidProfile(profile: app.reelstack.data.model.UserProfile) {
+        container.connectionRepository.deleteProfile(profile.id)
+        _uiState.update {
+            it.copy(
+                profiles = container.connectionRepository.listProfiles(),
+            )
+        }
     }
 
     suspend fun personTitles(person: app.reelstack.data.model.CastMember, source: ServiceKind): List<LibraryMedia> {
@@ -2448,6 +2677,9 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         selectedTab = if (container.preferencesRepository.personalization.startInLibrary) AppTab.LIBRARY else AppTab.HOME,
         showOnboarding = configuredKinds.isEmpty() && !container.preferencesRepository.onboardingCompleted,
         connections = connections,
+        activeProfileId = container.connectionRepository.activeProfileId,
+        profiles = container.connectionRepository.listProfiles(),
+        isKidMode = container.connectionRepository.isKidMode,
         selectedLibrarySource = container.preferencesRepository.preferredLibrarySource,
         libraryShortcuts = connections.sortedBy { it.kind != container.preferencesRepository.preferredLibrarySource }
             .firstOrNull { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank() }

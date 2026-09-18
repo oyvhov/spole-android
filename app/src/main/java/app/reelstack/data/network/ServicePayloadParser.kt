@@ -216,11 +216,45 @@ data class RemoteRequest(
     val is4k: Boolean = false,
 )
 
+data class PublicUser(
+    val id: String,
+    val name: String,
+    val hasPassword: Boolean,
+    val avatarUrl: String? = null,
+)
+
 object ServicePayloadParser {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = false
         explicitNulls = false
+    }
+
+    fun publicUsers(baseUrl: String, payload: String): List<PublicUser> {
+        if (payload.isBlank()) return emptyList()
+        val root = runCatching { json.parseToJsonElement(payload) }.getOrNull() ?: return emptyList()
+        val users = when (root) {
+            is JsonArray -> root
+            is JsonObject -> root.array("Items").takeIf { it.isNotEmpty() } ?: root.array("items")
+            else -> return emptyList()
+        }
+        val cleanBase = baseUrl.trimEnd('/')
+        return users.mapNotNull { element ->
+            val user = element as? JsonObject ?: return@mapNotNull null
+            val policy = user.obj("Policy") ?: user.obj("policy")
+            if (policy?.bool("IsDisabled") == true || policy?.bool("isDisabled") == true) return@mapNotNull null
+            if (user.bool("IsDisabled") == true || user.bool("isDisabled") == true) return@mapNotNull null
+            val id = user.string("Id") ?: user.string("id") ?: return@mapNotNull null
+            val name = user.string("Name") ?: user.string("name") ?: return@mapNotNull null
+            val hasPassword = user.bool("HasPassword") ?: user.bool("hasPassword")
+                ?: user.bool("HasConfiguredPassword") ?: user.bool("hasConfiguredPassword")
+                ?: false
+            val primaryTag = user.string("PrimaryImageTag") ?: user.string("primaryImageTag")
+            val avatarUrl = if (!primaryTag.isNullOrBlank()) {
+                "$cleanBase/Users/$id/Images/Primary?tag=$primaryTag"
+            } else null
+            PublicUser(id = id, name = name, hasPassword = hasPassword, avatarUrl = avatarUrl)
+        }
     }
 
     fun playbackSessions(payload: String): List<RemotePlayback> =
@@ -988,13 +1022,25 @@ object ServicePayloadParser {
         val episode = type.equals("Episode", true)
         val tags = item.obj("ImageTags") ?: item.obj("imageTags")
         if (!episode) {
-            imagePath(id, "Backdrop/0", item.array("BackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull)?.let { return it }
+            val isMovie = type.equals("Movie", true)
+            if (isMovie) {
+                imagePath(id, "Thumb", tags.tag("Thumb"))?.let { return it }
+            }
+            imagePath(id, "Backdrop/0", item.array("BackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+                ?: item.array("backdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull)?.let { return it }
             imagePath(id, "Thumb", tags.tag("Thumb"))?.let { return it }
+            return null
         }
-        imagePath(item.string("ParentBackdropItemId"), "Backdrop/0",
-            item.array("ParentBackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull)?.let { return it }
-        return imagePath(item.string("ParentThumbItemId") ?: item.string("SeriesId"), "Thumb",
-            item.string("ParentThumbImageTag") ?: item.string("SeriesThumbImageTag"))
+        val seriesThumbId = item.string("ParentThumbItemId") ?: item.string("parentThumbItemId")
+        val seriesThumbTag = item.string("ParentThumbImageTag") ?: item.string("parentThumbImageTag")
+            ?: item.string("SeriesThumbImageTag") ?: item.string("seriesThumbImageTag")
+        imagePath(seriesThumbId, "Thumb", seriesThumbTag)?.let { return it }
+        val parentBackdropId = item.string("ParentBackdropItemId") ?: item.string("parentBackdropItemId")
+            ?: item.string("SeriesId") ?: item.string("seriesId")
+        val parentBackdropTag = item.array("ParentBackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+            ?: item.array("parentBackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+        imagePath(parentBackdropId, "Backdrop/0", parentBackdropTag)?.let { return it }
+        return null
     }
 
     private fun libraryPosterPath(item: JsonObject, id: String, type: String): String? =
