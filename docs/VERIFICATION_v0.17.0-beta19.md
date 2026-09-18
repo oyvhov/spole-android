@@ -37,4 +37,20 @@ versjonskode 98. Sjå [teknisk gjennomgang](PIXEL_AUDIO_AND_TV_CADENCE_2026-09-1
   `5378dbc96bfe0efa782e6315ca629da82dc846b2bbf6a0d9ac94a2686d92f132`.
 - APK og tilhøyrande R8-mapping er arkiverte under `app/build/release-v0.17.0-beta19/`.
 
-Publiseringsresultat og oppdateringskontroll blir dokumenterte etter publisering.
+## Publisering
+
+- Kjeldecommit: `8a3b51039bbd3cad4625a01d1cd72e834a1c41c5`.
+  Annotert tag `v0.17.0-beta19`, pusha atomisk med `main`.
+- GitHub Release er publisert: `draft=false`, `prerelease=true`, ikkje stabil latest.
+- Kladd kontrollert før publisering: éin universal-APK, rett storleik/digest og
+  fire støttefiler, alle ferdig opplasta. FFmpeg-arkivets digest samsvarar òg.
+- Den offentlege release-lista utan Authorization inneheld beta19. APK lasta ned
+  utan innlogging til eiga kontrollfil har identisk SHA-256 med bygget.
+- Beta18 på isolert 5562 finn beta19 gjennom «Sjekk no» i den ekte oppdateringsflyten.
+- **Ende-til-ende-oppdatering fullført:** beta18 → Sjekk no → Last ned → appens
+  fil-/identitetskontroll → Installer → Android-løyve og installasjonsdialog → beta19.
+  Play Protect bad om skanning; skanninga fullførte og installasjonen vart godkjend.
+  Ingen ADB-installasjon vart brukt for denne produksjonsoppdateringa.
+- Android stadfestar installert `versionCode=98`, `versionName=0.17.0-beta19`.
+  Appen opna att med nynorsk og dei eksisterande demodataa bevarte.
+  Dette verifiserer ikkje ekte kontoar eller fysisk Pixel-/Shield-avspeling.
