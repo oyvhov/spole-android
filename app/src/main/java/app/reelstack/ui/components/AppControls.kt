@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ fun ServiceSymbol(kind: ServiceKind, modifier: Modifier = Modifier) {
 fun AppNavigationChip(text: String, tag: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val shape = RoundedCornerShape(ReelLayout.ControlCorner)
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
     AssistChip(
         onClick = onClick,
         interactionSource = interaction,
@@ -43,8 +45,9 @@ fun AppNavigationChip(text: String, tag: String, modifier: Modifier = Modifier, 
         shape = shape,
         border = null,
         colors = AssistChipDefaults.assistChipColors(containerColor = SurfaceRaised, labelColor = Primary),
-        modifier = modifier.heightIn(min = ReelLayout.ControlMinHeight).testTag(tag).focusOutline(interaction, shape, glow = false),
+        modifier = modifier.heightIn(min = 48.dp).testTag(tag).focusOutline(interaction, shape, glow = false),
     )
+    }
 }
 
 @Composable
@@ -56,6 +59,7 @@ fun <T> AppFilterRow(
     modifier: Modifier = Modifier,
     optionTag: ((T) -> String)? = null,
 ) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
     LazyRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(options, key = { it.toString() }) { option ->
             val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -65,11 +69,12 @@ fun <T> AppFilterRow(
                 label = { Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis) }, shape = RoundedCornerShape(ReelLayout.ControlCorner), border = null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceRaised, labelColor = Muted,
                     selectedContainerColor = Primary, selectedLabelColor = Ink),
-                modifier = Modifier.heightIn(min = ReelLayout.ControlMinHeight)
+                modifier = Modifier.heightIn(min = 48.dp)
                     .then(optionTag?.let { Modifier.testTag(it(option)) } ?: Modifier)
                     .focusOutline(interaction, RoundedCornerShape(ReelLayout.ControlCorner), glow = false),
             )
         }
+    }
     }
 }
 

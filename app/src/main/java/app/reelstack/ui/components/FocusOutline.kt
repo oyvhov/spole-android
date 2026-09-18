@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.inset
 
 /** TV artwork owns focus feedback; a Material state layer must never tint its caption. */
 @Composable
@@ -68,11 +69,15 @@ internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow
         val borderStroke = Stroke(width = strokeWidthPx)
         val glowStroke = Stroke(width = glowStrokeWidthPx)
         val shadowStroke = Stroke(width = shadowStrokeWidthPx)
-        val outline = shape.createOutline(size, layoutDirection, this)
+        val edge = strokeWidthPx / 2
+        val outline = shape.createOutline(androidx.compose.ui.geometry.Size(
+            (size.width - strokeWidthPx).coerceAtLeast(0f),
+            (size.height - strokeWidthPx).coerceAtLeast(0f)), layoutDirection, this)
 
         onDrawWithContent {
             val alpha = alphaState.value
             if (glow && motion && alpha > 0.001f) {
+                inset(edge) {
                 drawOutline(
                     outline = outline,
                     brush = SolidColor(Color.Black.copy(alpha = 0.65f * alpha)),
@@ -83,14 +88,17 @@ internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow
                     brush = SolidColor(color.copy(alpha = 0.40f * alpha)),
                     style = glowStroke,
                 )
+                }
             }
             drawContent()
             if (alpha > 0.001f) {
+                inset(edge) {
                 drawOutline(
                     outline = outline,
                     brush = SolidColor(color.copy(alpha = alpha)),
                     style = borderStroke,
                 )
+                }
             }
         }
     }

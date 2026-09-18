@@ -91,7 +91,9 @@ class RequestFlowUiTest {
         val watch = TrackedRequest("watch", 42, "tv", "Testserie", null, setOf(2), stage = RequestStage.WATCHING, availabilityOnly = true)
         rule.setContent { ReelstackTheme { TrackedRequestCard(watch, {}, {}, onCancel = { removed = true }) } }
         rule.onNodeWithText("Følgjer med").assertIsDisplayed()
-        rule.onNodeWithText("Sesong 2 · Berre varsel").assertIsDisplayed()
+        rule.onNodeWithText("Sesong 2").assertIsDisplayed()
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        rule.onNodeWithText(context.getString(R.string.flow_badge_following)).assertIsDisplayed()
         rule.onNodeWithTag("cancel-request-watch").assertDoesNotExist()
         rule.onNodeWithTag("remove-watch-watch").performClick()
         assertTrue(removed)

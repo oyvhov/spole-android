@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.0-beta22 - Ompakking og betre TV-kontrollar
+
+- Prøver ompakking éin gong ved feil i direkte mediebehaldar, med kopiering av støtta video/lyd og bevarte spor og posisjon.
+- Fjernkontrollen kan bla gjennom låste sesongar; kompakt kontotekst ved tittelen gir meir plass.
+- Bibliotekfilter viser éin verdi per kategori med nedtrekksmenyar.
+- Endringsloggen viser lesbare overskrifter og punkt utan rå Markdown-teikn.
+- Felles fokusrammer følgjer den synlege knappflata.
+
 ## 0.17.0-beta21 - Bibliotekdetaljar og aldersmerking
 
 - Skjuler «I biblioteket ditt» i detaljvisinga for både Jellyfin og Emby; oppdagingsvisinga bevarer bibliotekstatus.

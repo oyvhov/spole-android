@@ -177,7 +177,7 @@ private fun AccountAction(onClick: () -> Unit, label: String, source: ServiceKin
 }
 
 @Composable
-fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit) {
+fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit, compact: Boolean = false) {
     val source = ServiceKind.SEERR
     val connection = state.connections.firstOrNull { it.kind == source && it.baseUrl.isNotBlank() } ?: return
     val loading = source in state.loadingAccounts
@@ -185,6 +185,15 @@ fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit) {
     val account = state.verifiedPanelAccount(source)
     val overviewOnly = account?.isPersonal == false || connection.isSeerrApiKey()
     val personalAccount = account?.takeIf { it.isPersonal && !overviewOnly }
+
+    if (compact && personalAccount != null) {
+        SpoleSecondaryButton(onClick = onSignIn, modifier = Modifier.testTag("request-identity")) {
+            Text(stringResource(R.string.flow_as_person, personalAccount.displayName), color = Muted,
+                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        return
+    }
 
     Surface(
         color = SurfaceRaised,

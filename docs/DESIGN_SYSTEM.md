@@ -1,5 +1,14 @@
 # Spole design system
 
+## TV-kontrollar · 18. september 2026
+
+Sjå [sesongar, bibliotekval og fokus](TV_CONTROLS_2026-09-18.md). Felles Material-
+filter-/navigasjonsknappar og TV-sekundærknappar har no ei synleg minsteflate på
+48 dp, utan eit ekstra usynleg Material-område innanfor fokusramma. Den skarpe
+fokusstreken ligg innanfor forma. Låste sesongrader kan fokuserast for lesing og
+rulling, men aldri veljast. Bibliotekfilter viser éin verdi per kategori og
+opnar alternativa etter ei eksplisitt handling, ikkje som ein vegg av knappar.
+
 Sjå også [finpussen etter siste emulatorgjennomgang](DESIGN_REFINEMENT_2026-09-15.md). Denne fjernar innstillingssøk og presiserer bibliotekkunst, mindre kontrollar og enklare redigering.
 
 ## Felles kontrollar og stabil kunst · 15. september 2026

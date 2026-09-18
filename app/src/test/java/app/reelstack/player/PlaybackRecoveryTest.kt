@@ -5,6 +5,29 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PlaybackRecoveryTest {
+    @Test fun containerErrorsTryRemuxOnceOnlyForAnUntouchedFile() {
+        for (code in listOf(PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED)) {
+            assertEquals(PlaybackCompatibility.REMUX,
+                playbackRecoveryCompatibility(PlaybackCompatibility.DIRECT, code, false, true))
+            // A server-negotiated HLS stream may still have DIRECT compatibility. Never loop.
+            assertNull(playbackRecoveryCompatibility(PlaybackCompatibility.DIRECT, code, false, false))
+            for (mode in PlaybackCompatibility.entries.filter { it != PlaybackCompatibility.DIRECT }) {
+                assertNull(playbackRecoveryCompatibility(mode, code, false, false))
+            }
+            assertFalse(recoverablePlaybackFailure(code, null, false))
+        }
+    }
+
+    @Test fun remuxStillAllowsGenuineDecoderRecoveryButNotNetworkConversion() {
+        assertEquals(PlaybackCompatibility.AUDIO_ONLY, playbackRecoveryCompatibility(
+            PlaybackCompatibility.REMUX, PlaybackException.ERROR_CODE_DECODING_FAILED, false, false))
+        assertEquals(PlaybackCompatibility.FULL, playbackRecoveryCompatibility(
+            PlaybackCompatibility.REMUX, PlaybackException.ERROR_CODE_DECODING_FAILED, true, false))
+        assertNull(playbackRecoveryCompatibility(PlaybackCompatibility.REMUX,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, false, false))
+    }
+
     @Test fun onlyNetworkErrorsEnterNetworkRecovery() {
         for (code in listOf(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)) {

@@ -119,7 +119,7 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                     state.release?.let { release ->
                         Text(stringResource(R.string.update_available, release.tag), style = MaterialTheme.typography.titleLarge)
                         Text(stringResource(R.string.update_size, release.size / (1024f * 1024f)))
-                        Text(release.notes.ifBlank { stringResource(R.string.update_no_notes) }, style = MaterialTheme.typography.bodyMedium)
+                        ReleaseNotes(release.notes.ifBlank { stringResource(R.string.update_no_notes) })
                     } ?: Text(stringResource(R.string.update_intro))
                     state.message?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("update-message")) }
                 }

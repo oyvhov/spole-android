@@ -236,6 +236,8 @@ fun phonePlaybackProfile(bitrate: Int): JsonObject = devicePlaybackProfile(bitra
 
 enum class PlaybackCompatibility {
     DIRECT,
+    /** Repackage an unreadable container, allowing both supported streams to be copied. */
+    REMUX,
     AUDIO_ONLY,
     FULL,
 }
@@ -349,13 +351,14 @@ class MediaPlaybackClient(
         val detected = if (compatibility == PlaybackCompatibility.FULL) DevicePlaybackCapabilities.CONSERVATIVE else
             runCatching { capabilities() }.getOrDefault(DevicePlaybackCapabilities.CONSERVATIVE)
         val payload = buildJsonObject {
-            put("UserId", user); put("DeviceProfile", devicePlaybackProfile(bitrate, detected)); put("MaxStreamingBitrate", bitrate)
+            put("UserId", user); put("DeviceProfile", devicePlaybackProfile(bitrate, detected,
+                preferAudioCopy = compatibility == PlaybackCompatibility.REMUX)); put("MaxStreamingBitrate", bitrate)
             // A VOD timeline starting at zero makes Media3 seek positions and server progress identical.
             put("StartTimeTicks", 0); put("IsPlayback", true); put("AutoOpenLiveStream", false)
             put("EnableDirectPlay", compatibility == PlaybackCompatibility.DIRECT)
             put("EnableDirectStream", compatibility != PlaybackCompatibility.FULL); put("EnableTranscoding", true)
             put("AllowVideoStreamCopy", compatibility != PlaybackCompatibility.FULL)
-            put("AllowAudioStreamCopy", compatibility == PlaybackCompatibility.DIRECT)
+            put("AllowAudioStreamCopy", compatibility == PlaybackCompatibility.DIRECT || compatibility == PlaybackCompatibility.REMUX)
             put("MaxAudioChannels", detected.maxAudioChannels)
             audio?.let { put("AudioStreamIndex", it) }; subtitle?.let { put("SubtitleStreamIndex", it) }
             sourceId?.let { put("MediaSourceId", it) }

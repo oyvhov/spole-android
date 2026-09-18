@@ -92,6 +92,50 @@ class EmbyPlaybackTest {
         }
     }
 
+    @Test fun containerRecoveryRequestsHlsAndKeepsSupportedAc3OnBothServers() {
+        for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {
+            val fixture = Fixture(kind).apply {
+                body = body.replace("Quality=1", "VideoCodec=copy&AudioCodec=copy")
+            }
+            val capabilities = DevicePlaybackCapabilities.CONSERVATIVE.copy(audio = listOf(
+                AudioPlaybackCapability("aac", 8), AudioPlaybackCapability("ac3", 8),
+                AudioPlaybackCapability("eac3", 8), AudioPlaybackCapability("dts", 8)))
+            val plan = MediaPlaybackClient(fixture, "device", { capabilities }).prepare(
+                account.copy(kind = kind), "viewer", movie, 80_000_000, 1, 2,
+                PlaybackCompatibility.REMUX, "source", SubtitleLanguage.SERVER, SubtitleLanguage.NONE)
+            val request = fixture.writes.single().second
+            assertEquals(JsonPrimitive(false), request["EnableDirectPlay"])
+            for (flag in listOf("EnableDirectStream", "AllowVideoStreamCopy", "AllowAudioStreamCopy")) {
+                assertEquals(flag, JsonPrimitive(true), request[flag])
+            }
+            assertEquals("aac,ac3,eac3", request.obj("DeviceProfile").objects("TranscodingProfiles").single().str("AudioCodec"))
+            assertEquals(80_000_000L, request.num("MaxStreamingBitrate"))
+            assertEquals("source", request.str("MediaSourceId"))
+            assertEquals(1, plan.audioIndex)
+            assertEquals(2, plan.subtitleIndex)
+            assertEquals(PlaybackMode.DIRECT_STREAM, plan.mode)
+            assertEquals(PlaybackCompatibility.REMUX, plan.compatibility)
+            // Even a stale SupportsDirectPlay=true response must not reopen the broken file.
+            assertTrue(plan.url.contains("master.m3u8"))
+            assertFalse(plan.url.contains("static=true"))
+            assertFalse(plan.url.contains("api_key"))
+        }
+    }
+
+    @Test fun unavailableRemuxStopsRatherThanReopeningTheBrokenDirectFile() {
+        for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {
+            val fixture = Fixture(kind).apply {
+                body = body.replace("/emby/Videos/movie/master.m3u8?api_key=fixture&Quality=1", "")
+            }
+            assertTrue(runCatching {
+                MediaPlaybackClient(fixture, "device").prepare(account.copy(kind = kind), "viewer", movie,
+                    80_000_000, 1, -1, PlaybackCompatibility.REMUX, "source",
+                    SubtitleLanguage.SERVER, SubtitleLanguage.NONE)
+            }.isFailure)
+            assertEquals(1, fixture.postCalls)
+        }
+    }
+
     @Test fun fallbackAndExplicitOffOverrideServerChoice() {
         val fixture = Fixture().apply { body = body.replace("\"nor\"", "\"eng\"") }
         val client = MediaPlaybackClient(fixture, "device")

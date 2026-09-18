@@ -22,8 +22,8 @@ private enum class Panel { NONE, FILTER, VIEW, SEARCH, ALPHABET }
  *
  * The old dialog led with a search field, and a dialog gives focus to its first focusable child —
  * so opening the filters on a television immediately threw the on-screen keyboard over half of
- * them. Inline, nothing steals focus, the whole set is visible at once, and a D-pad reaches any of
- * it without opening anything first.
+ * them. The inline panel shows one current value per category. Alternatives open only when the
+ * user activates that category, without a search field or automatic on-screen keyboard.
  *
  * Each choice applies immediately. A draft with Apply and Cancel made sense when the options were
  * hidden behind a modal; with the grid right there, the result is the confirmation.
@@ -117,7 +117,7 @@ internal fun LibraryFilterBar(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Segments(
+            FilterChoice(
                 label = stringResource(R.string.library_sort),
                 options = LibrarySort.entries,
                 selected = filters.sort,
@@ -134,7 +134,7 @@ internal fun LibraryFilterBar(
                 ) { onApply(filters.copy(descending = !filters.descending)) }
             }
 
-            Segments(
+            FilterChoice(
                 label = stringResource(R.string.library_watch_status),
                 options = LibraryWatched.entries,
                 selected = filters.watched,
@@ -151,7 +151,7 @@ internal fun LibraryFilterBar(
                 ) { onApply(filters.copy(favourites = !filters.favourites)) }
             }
 
-            Segments(
+            FilterChoice(
                 label = stringResource(R.string.library_resolution),
                 options = LibraryResolution.entries,
                 selected = filters.resolution,
@@ -169,6 +169,28 @@ internal fun LibraryFilterBar(
             if (facets.years.isNotEmpty()) {
                 FacetChip(stringResource(R.string.library_year), filters.year, facets.years) {
                     onApply(filters.copy(year = it))
+                }
+            }
+        }
+    }
+}
+
+/** One current value per filter; the alternatives never push the artwork down the page. */
+@Composable
+private fun <T : Enum<T>> FilterChoice(label: String, options: List<T>, selected: T, tag: String,
+    name: @Composable (T) -> String, onSelect: (T) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Muted)
+        Box {
+            Chip(name(selected) + " ▾", false, "library-$tag-choice") { expanded = true }
+            DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(text = { Text(name(option)) },
+                        leadingIcon = { if (option == selected) Icon(app.reelstack.ui.components.SpoleIcons.Done, null) },
+                        modifier = Modifier.testTag("library-$tag-${option.name}"),
+                        onClick = { onSelect(option); expanded = false })
                 }
             }
         }

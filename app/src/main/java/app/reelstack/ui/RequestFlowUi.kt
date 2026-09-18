@@ -12,6 +12,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.rememberScrollState
@@ -87,19 +89,26 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             // single-title request has nothing below it, so it keeps the full introduction.
             val wideMedia = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useSideBySideMedia
             val posterWidth = if (isSeries) 48.dp else if (wideMedia) 132.dp else 82.dp
+            Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MediaArtwork(draft.media.artworkUrl, null, Modifier.width(posterWidth).height(posterWidth * 1.5f).clip(RoundedCornerShape(10.dp)), fallbackRes = draft.media.artworkRes, ContentScale.Fit, ServiceKind.SEERR)
                 Column(Modifier.weight(1f).padding(start = 16.dp)) {
                     Text(draft.media.title,
+                        modifier = Modifier.testTag("request-title"),
                         fontSize = if (isSeries) 17.sp else 22.sp, lineHeight = if (isSeries) 22.sp else 26.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     if (!isSeries) Text(stringResource(R.string.flow_movie_intro), color = Muted,
                         fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 8.dp))
                 }
+                if (isSeries && wideMedia) Box(Modifier.widthIn(max = 180.dp).padding(start = 12.dp)) {
+                    RequestIdentity(state, onAccount, compact = true)
+                }
+            }
+            if (isSeries && !wideMedia) RequestIdentity(state, onAccount, compact = true)
             }
             }
-            RequestIdentity(state, onAccount)
+            if (!isSeries) RequestIdentity(state, onAccount)
         }
         if (isSeries) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("request-header")) { header() }
         Column(Modifier.weight(1f).testTag("request-scroll").verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
@@ -127,11 +136,16 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                     modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                 draft.seasons.forEach { season ->
                     val enabled = season.canRequest && canAdd && !busy && draft.error == null && draft.mediaStatus != 6
+                    val interaction = remember(season.number) { MutableInteractionSource() }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.weight(1f).defaultMinSize(minHeight = 56.dp)
-                            .toggleable(season.number in draft.selected, enabled = enabled, role = Role.Checkbox,
+                            .clip(RoundedCornerShape(ReelLayout.ControlCorner))
+                            .focusOutline(interaction, RoundedCornerShape(ReelLayout.ControlCorner), glow = false)
+                            .focusable(enabled = television && !enabled, interactionSource = interaction)
+                            .toggleable(season.number in draft.selected, interactionSource = interaction,
+                                indication = androidx.compose.foundation.LocalIndication.current, enabled = enabled, role = Role.Checkbox,
                                 onValueChange = { onSeason(season.number, it) }).testTag("request-season-${season.number}")
-                            .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                                 Text(app.reelstack.localization.seasonDisplayName(season), fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
                                 Text(listOfNotNull(app.reelstack.localization.seasonDescription(season), season.episodes.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.flow_episode_count, it, it) }).joinToString(" · "),

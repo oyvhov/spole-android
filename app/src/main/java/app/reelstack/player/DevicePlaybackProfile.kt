@@ -47,7 +47,9 @@ internal fun transcodeAudioChannels(capabilities: DevicePlaybackCapabilities): I
     return if (transcodeAudioCodecs(capabilities).first() == "aac") decoded else decoded.coerceIn(2, 6)
 }
 
-fun devicePlaybackProfile(bitrate: Int, capabilities: DevicePlaybackCapabilities): JsonObject = buildJsonObject {
+fun devicePlaybackProfile(bitrate: Int, capabilities: DevicePlaybackCapabilities,
+    preferAudioCopy: Boolean = false,
+): JsonObject = buildJsonObject {
     put("Name", "Spole Android · detected capabilities")
     put("MaxStreamingBitrate", bitrate); put("MaxStaticBitrate", bitrate)
     putJsonArray("DirectPlayProfiles") {
@@ -66,7 +68,11 @@ fun devicePlaybackProfile(bitrate: Int, capabilities: DevicePlaybackCapabilities
     putJsonArray("TranscodingProfiles") { add(buildJsonObject {
         put("Type", "Video"); put("Container", "ts"); put("Protocol", "hls"); put("Context", "Streaming")
         put("VideoCodec", listOf("h264", "hevc").filter { codec -> capabilities.video.any { it.codec == codec } }.joinToString(",").ifBlank { "h264" })
-        put("AudioCodec", transcodeAudioCodecs(capabilities).joinToString(","))
+        // A parser failure says nothing about the audio decoder. Keep the normal encoder first,
+        // but allow supported TS audio to pass through, including locally decoded AC3 on phones.
+        val copyCodecs = if (preferAudioCopy) capabilities.audio.map { it.codec }
+            .filter { it in setOf("aac", "mp3", "ac3", "eac3") } else emptyList()
+        put("AudioCodec", (transcodeAudioCodecs(capabilities) + copyCodecs).distinct().joinToString(","))
         put("MaxAudioChannels", transcodeAudioChannels(capabilities).toString())
         put("MinSegments", 2); put("SegmentLength", 3); put("CopyTimestamps", false)
         put("EnableSubtitlesInManifest", false)

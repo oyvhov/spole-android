@@ -194,6 +194,54 @@ class JellyfinPlayerTest {
         }
     }
 
+    @Test fun malformedContainerRecoversThroughHlsOnceOnBothServers() = containerRecovery(paused = false)
+    @Test fun containerRecoveryPreservesPauseAndTracks() = containerRecovery(paused = true)
+
+    private fun containerRecovery(paused: Boolean) {
+        for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {
+            exercise(kind = kind) { scenario, server, _ ->
+                playing(scenario)
+                scenario.onActivity { it.model.seek(8_000) }
+                waitFor { snapshot(scenario).let { it.playing && it.positionMs >= 8_000 } }
+                val negotiations = server.events.count { it.first.endsWith("PlaybackInfo") }
+                val audio = snapshot(scenario).audioIndex
+                val subtitle = snapshot(scenario).subtitleIndex
+                var position = 0L
+                val error = androidx.media3.common.PlaybackException("synthetic container failure", null,
+                    androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED)
+                scenario.onActivity {
+                    if (paused) it.model.player.pause()
+                    position = it.model.player.currentPosition
+                    it.model.player.stop()
+                    it.model.handlePlaybackError(error)
+                }
+                waitFor { snapshot(scenario).let { !it.direct && !it.busy && it.error == null } }
+                val request = server.events.last { it.first.endsWith("PlaybackInfo") }.second
+                assertEquals(negotiations + 1, server.events.count { it.first.endsWith("PlaybackInfo") })
+                assertEquals(JsonPrimitive(false), request["EnableDirectPlay"])
+                assertEquals(JsonPrimitive(true), request["AllowVideoStreamCopy"])
+                assertEquals(JsonPrimitive(true), request["AllowAudioStreamCopy"])
+                assertEquals(JsonPrimitive("source"), request["MediaSourceId"])
+                assertEquals(audio, snapshot(scenario).audioIndex)
+                assertEquals(subtitle, snapshot(scenario).subtitleIndex)
+                assertTrue(snapshot(scenario).fallback.endsWith("REMUX"))
+                scenario.onActivity {
+                    assertEquals(!paused, it.model.player.playWhenReady)
+                    assertTrue(it.model.player.currentPosition >= position - 500)
+                    if (paused) it.model.player.play()
+                }
+                playing(scenario)
+                assertTrue(server.requests.any { it.startsWith("/hls/") })
+                // A second parser error on the replacement stream must stop, not renegotiate.
+                scenario.onActivity { it.model.player.stop(); it.model.handlePlaybackError(error) }
+                assertTrue(snapshot(scenario).fallback.endsWith("STOPPED"))
+                assertNotNull(snapshot(scenario).error)
+                SystemClock.sleep(500)
+                assertEquals(negotiations + 1, server.events.count { it.first.endsWith("PlaybackInfo") })
+            }
+        }
+    }
+
     @Test fun videoStartDoesNotForceADisplayModeChange() = exercise { scenario, _, _ ->
         var mode = 0
         scenario.onActivity { mode = it.window.attributes.preferredDisplayModeId }

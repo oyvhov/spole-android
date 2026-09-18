@@ -305,8 +305,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             return
         }
         // Conversion requires a decoder/output/container failure, never just a slow network.
-        val nextMode = nextPlaybackCompatibility(compatibility, playbackFailureIsVideo(error))
-        if (nextMode != compatibility && playbackFailureNeedsConversion(error.errorCode)) {
+        val nextMode = playbackRecoveryCompatibility(compatibility, error.errorCode,
+            playbackFailureIsVideo(error), directPlay = plan?.direct == true)
+        if (nextMode != null) {
             compatibility = nextMode
             val label = playbackFallbackLabel(error, compatibility)
             android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream action=step-down $label")

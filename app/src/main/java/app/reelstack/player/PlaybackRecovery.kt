@@ -25,6 +25,18 @@ internal fun nextPlaybackCompatibility(current: PlaybackCompatibility, videoFail
     else -> PlaybackCompatibility.AUDIO_ONLY
 }
 
+/** Container errors are not decoder failures. Repackage a direct file once; never retry broken HLS. */
+internal fun playbackRecoveryCompatibility(
+    current: PlaybackCompatibility, errorCode: Int, videoFailed: Boolean, directPlay: Boolean,
+): PlaybackCompatibility? {
+    if (errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
+        errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) {
+        return PlaybackCompatibility.REMUX.takeIf { current == PlaybackCompatibility.DIRECT && directPlay }
+    }
+    if (!playbackFailureNeedsConversion(errorCode)) return null
+    return nextPlaybackCompatibility(current, videoFailed).takeIf { it != current }
+}
+
 /** Transport/authentication errors are not evidence of an unsupported video or audio format. */
 internal fun playbackFailureNeedsConversion(errorCode: Int): Boolean = errorCode in setOf(
     PlaybackException.ERROR_CODE_DECODING_FAILED,
@@ -33,7 +45,6 @@ internal fun playbackFailureNeedsConversion(errorCode: Int): Boolean = errorCode
     PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
     PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
     PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
-    PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
 )
 
 /**

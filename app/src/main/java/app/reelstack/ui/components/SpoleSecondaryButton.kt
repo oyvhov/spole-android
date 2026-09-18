@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
@@ -36,10 +37,12 @@ internal fun SpoleSecondaryButton(
 ) {
     if (isTelevision() || LocalSettingsButtonStyle.current) {
         val interaction = interactionSource ?: remember { MutableInteractionSource() }
-        OutlinedButton(onClick, modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight).focusOutline(interaction, shape, glow = false),
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        OutlinedButton(onClick, modifier.heightIn(min = 48.dp).focusOutline(interaction, shape, glow = false),
             enabled = enabled, shape = shape, interactionSource = interaction,
             border = BorderStroke(1.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant),
             colors = colors, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp), content = content)
+        }
     } else {
         TextButton(onClick, modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight), enabled = enabled, shape = shape, colors = colors,
             contentPadding = contentPadding, interactionSource = interactionSource, content = content)
