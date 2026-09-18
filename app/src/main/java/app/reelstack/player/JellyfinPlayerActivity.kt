@@ -79,7 +79,6 @@ private enum class PlayerMenu(val label: Int) {
 }
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
-    private var originalDisplayModeId: Int? = null
     private var miniPlayer by mutableStateOf(false)
     private var enteringMini = false
     internal fun openMiniPlayer() {
@@ -100,7 +99,6 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        originalDisplayModeId = window.attributes.preferredDisplayModeId
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         enterFullscreen()
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
@@ -124,7 +122,6 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
             ReelstackTheme {
                 LaunchedEffect(id, service) { model.open(id, preferredAudio, preferredSubtitle, preferredSource, service) }
                 val state by model.state.collectAsStateWithLifecycle()
-                LaunchedEffect(state.videoFrameRate) { matchDisplayRate(state.videoFrameRate) }
                 DisposableEffect(state.playing, state.busy) {
                     if (state.playing || state.busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -144,22 +141,8 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
             }
         }
     }
-    private fun matchDisplayRate(frameRate: Float) {
-        if (frameRate <= 0f || !isTelevisionDevice()) return
-        val display = windowManager.defaultDisplay
-        fun android.view.Display.Mode.playbackMode() = PlaybackDisplayMode(modeId, physicalWidth, physicalHeight, refreshRate)
-        val mode = matchingDisplayMode(frameRate, display.mode.playbackMode(),
-            display.supportedModes.map { it.playbackMode() }) ?: return
-        if (display.mode.modeId != mode.id && window.attributes.preferredDisplayModeId != mode.id) {
-            window.attributes = window.attributes.apply { preferredDisplayModeId = mode.id }
-        }
-    }
-    private fun isTelevisionDevice() = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
-        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    override fun onDestroy() {
-        originalDisplayModeId?.let { id -> window.attributes = window.attributes.apply { preferredDisplayModeId = id } }
-        super.onDestroy()
-    }
+    // Media3 owns seamless Surface frame-rate hints. Forcing preferredDisplayModeId here
+    // also permits HDMI blanking/audio rerouting at start AND on return to the app.
     private fun enterFullscreen() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -171,7 +154,8 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         if (hasFocus) enterFullscreen()
     }
     override fun onResume() { super.onResume(); if (::model.isInitialized) model.foreground() }
-    override fun onPause() { if (::model.isInitialized && !isChangingConfigurations && !isInPictureInPictureMode && !enteringMini) model.background(); super.onPause() }
+    // onPause also means a still-visible activity briefly lost focus (system overlays,
+    // HDMI transitions, multi-window). Only onStop means playback went out of sight.
     override fun onStop() { if (::model.isInitialized && !isChangingConfigurations) model.background(); super.onStop() }
     companion object {
         private const val ITEM_ID = "jellyfin_item_id"
@@ -300,7 +284,7 @@ fun PlayerScreen(
             interaction++
             if (native.repeatCount > 0 && consumedRemoteKey == native.keyCode && key !in setOf(
                     RemotePlaybackKey.LEFT, RemotePlaybackKey.RIGHT, RemotePlaybackKey.REWIND, RemotePlaybackKey.FORWARD)) return@onPreviewKeyEvent true
-            val action = remotePlaybackAction(key, showControls || nextHasFocus, state.playing,
+            val action = remotePlaybackAction(key, showControls || nextHasFocus, (state.playWhenReady || state.playing) && !state.ended,
                 (state.busy && state.durationMs <= 0) || state.browsing || state.awaitingResume || state.error != null || menu != null)
             if (action == RemotePlaybackAction.DEFAULT) return@onPreviewKeyEvent false
             consumedRemoteKey = native.keyCode
@@ -544,6 +528,8 @@ fun PlayerScreen(
                             modifier = Modifier.testTag("player-mode-line"),
                         )
                         state.warning?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
+                        if (state.subtitleUnavailable) Text(stringResource(R.string.player_subtitle_unavailable),
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
@@ -605,7 +591,12 @@ fun PlayerScreen(
                     state.fallback.takeIf { it.isNotBlank() }?.let {
                         Text(stringResource(R.string.player_stats_fallback, it), color = Color.White)
                     }
-                    Text("${stringResource(R.string.player_stats_buffer)} ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${stringResource(if (player.isPlaying) R.string.player_stats_playing else R.string.player_stats_paused)}", color = Color.White)
+                    val status = when {
+                        player.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> R.string.player_stats_buffering
+                        player.isPlaying -> R.string.player_stats_playing
+                        else -> R.string.player_stats_paused
+                    }
+                    Text("${stringResource(R.string.player_stats_buffer)} ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${stringResource(status)}", color = Color.White)
                     // Dropped frames are the one number that tells you the device cannot keep up,
                     // as opposed to the network not keeping up. Worth its own line.
                     (player as? androidx.media3.exoplayer.ExoPlayer)?.videoDecoderCounters

@@ -21,7 +21,8 @@ class JellyfinPlayerTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
     private class Server(val assets: android.content.res.AssetManager, val hls: Boolean = false, val resumeMs: Long = 0,
-        val episode: Boolean = false, val defaultSubtitle: Int = 2, val audioCodec: String = "aac") : AutoCloseable {
+        val episode: Boolean = false, val defaultSubtitle: Int = 2, val audioCodec: String = "aac",
+        val rejectSubtitles: Boolean = false, val subtitleDelayMs: Long = 0) : AutoCloseable {
         val socket = ServerSocket(0)
         val base = "http://127.0.0.1:${socket.localPort}"
         val pool = Executors.newCachedThreadPool()
@@ -76,7 +77,12 @@ class JellyfinPlayerTest {
                         """{"PlaySessionId":"session${events.size}","MediaSources":[{"Id":"$source","SupportsDirectPlay":$direct,"TranscodingUrl":"/hls/master.m3u8?api_key=fixture","DefaultAudioStreamIndex":1,"DefaultSubtitleStreamIndex":$sub,"MediaStreams":[{"Index":0,"Type":"Video","Codec":"h264","Profile":"baseline","Width":640,"Height":360,"BitDepth":8,"VideoRangeType":"SDR","AverageFrameRate":24},{"Index":1,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"English","Language":"eng"},{"Index":3,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"Norsk","Language":"nor"},{"Index":2,"Type":"Subtitle","DisplayTitle":"Norsk tekst","Language":"nor","Codec":"srt","IsTextSubtitleStream":true}]}]}""".toByteArray()
                     }
                     path.startsWith("/Sessions/Playing") -> { events += path to body; status = if (rejectReports) 503 else 204; byteArrayOf() }
-                    path.contains("/Subtitles/") -> { contentType="text/vtt"; assets.open("player/subtitle.vtt").use { it.readBytes() } }
+                    path.contains("/Subtitles/") -> {
+                        if (subtitleDelayMs > 0) Thread.sleep(subtitleDelayMs)
+                        contentType="text/vtt"
+                        if (rejectSubtitles) { status = 503; byteArrayOf() }
+                        else assets.open("player/subtitle.vtt").use { it.readBytes() }
+                    }
                     else -> {
                         if (rejectVideo) { status=503; byteArrayOf() } else {
                             val name = if (path.startsWith("/hls/")) path.substringAfterLast('/').substringBefore('?')
@@ -111,8 +117,9 @@ class JellyfinPlayerTest {
 
     private fun exercise(hls: Boolean = false, resumeMs: Long = 0, root: String = "film", autoResume: Boolean = true,
         episode: Boolean = false, defaultSubtitle: Int = 2, audioCodec: String = "aac", kind: ServiceKind = ServiceKind.JELLYFIN,
+        rejectSubtitles: Boolean = false, subtitleDelayMs: Long = 0,
         block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
-        Server(instrumentation.context.assets, hls, resumeMs, episode, defaultSubtitle, audioCodec).use { server ->
+        Server(instrumentation.context.assets, hls, resumeMs, episode, defaultSubtitle, audioCodec, rejectSubtitles, subtitleDelayMs).use { server ->
             val connections = (context.applicationContext as ReelstackApplication).container.connectionRepository
             ServiceKind.entries.forEach(connections::delete)
             connections.save(ServiceConnection(kind,"Test",server.base,"fixture","u1"))
@@ -155,6 +162,65 @@ class JellyfinPlayerTest {
     @Test fun platformAacFailureSwitchesToFfmpegWithoutServerRenegotiation() = localRecovery("aac")
     @Test fun platformEac3FailureSwitchesToFfmpegWithoutServerRenegotiation() = localRecovery("eac3")
     @Test fun localAudioRecoveryPreservesPauseAndSelectedSubtitle() = localRecovery("eac3", paused = true)
+
+    @Test fun temporaryFocusLossDoesNotPauseVisiblePlayback() = exercise { scenario, _, _ ->
+        playing(scenario)
+        scenario.moveToState(Lifecycle.State.STARTED)
+        SystemClock.sleep(400)
+        scenario.moveToState(Lifecycle.State.RESUMED)
+        assertTrue(snapshot(scenario).playWhenReady)
+        playing(scenario)
+    }
+
+    @Test fun networkRecoveryKeepsTheServerSessionAndPosition() {
+        for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {
+            exercise(kind = kind) { scenario, server, _ ->
+                playing(scenario)
+                scenario.onActivity { it.model.seek(8_000) }
+                waitFor { snapshot(scenario).let { it.playing && it.positionMs >= 8_000 } }
+                val negotiations = server.events.count { it.first.endsWith("PlaybackInfo") }
+                val stops = server.events.count { it.first.endsWith("/Stopped") }
+                scenario.onActivity {
+                    // Model sees the same idle state as after Media3 exhausts source retries.
+                    it.model.player.stop()
+                    it.model.handlePlaybackError(androidx.media3.common.PlaybackException("synthetic timeout", null,
+                        androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT))
+                }
+                waitFor { snapshot(scenario).let { it.playing && it.positionMs >= 8_000 } }
+                assertEquals(negotiations, server.events.count { it.first.endsWith("PlaybackInfo") })
+                assertEquals(stops, server.events.count { it.first.endsWith("/Stopped") })
+                assertTrue(snapshot(scenario).direct)
+            }
+        }
+    }
+
+    @Test fun videoStartDoesNotForceADisplayModeChange() = exercise { scenario, _, _ ->
+        var mode = 0
+        scenario.onActivity { mode = it.window.attributes.preferredDisplayModeId }
+        playing(scenario)
+        scenario.onActivity { assertEquals(mode, it.window.attributes.preferredDisplayModeId) }
+    }
+
+    @Test fun failedSubtitleExtractionDoesNotStopTheFilm() {
+        for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {
+            exercise(kind = kind, rejectSubtitles = true) { scenario, server, _ ->
+                playing(scenario)
+                waitFor { snapshot(scenario).subtitleUnavailable }
+                assertNull(snapshot(scenario).error)
+                assertTrue(snapshot(scenario).direct)
+                assertEquals(1, server.events.count { it.first.endsWith("PlaybackInfo") })
+                assertTrue(server.requests.count { it.contains("/Subtitles/") } <= 2)
+            }
+        }
+    }
+
+    @Test fun backCancelsHangingSubtitleExtractionPromptly() = exercise(subtitleDelayMs = 30_000) { scenario, server, _ ->
+        waitFor { server.requests.any { it.contains("/Subtitles/") } }
+        val start = SystemClock.elapsedRealtime()
+        scenario.onActivity { assertFalse(it.model.back()); it.finish() }
+        waitFor(3_000) { scenario.state == Lifecycle.State.DESTROYED }
+        assertTrue("Back must not wait for subtitle HTTP timeout", SystemClock.elapsedRealtime() - start < 3_000)
+    }
 
     private fun localRecovery(codec: String, paused: Boolean = false) {
         for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {

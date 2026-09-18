@@ -4,17 +4,30 @@ import android.net.Uri
 import androidx.media3.datasource.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Call
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /** Only this playback plan's text files, never video or credentials on disk. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-internal class SubtitleMemoryCache(private val http: OkHttpClient, private val headers: Map<String, String>) {
+internal class SubtitleMemoryCache(private val http: OkHttpClient, private val headers: Map<String, String>,
+    private val onUnavailable: () -> Unit = {}) : AutoCloseable {
     private val files = linkedMapOf<String, ByteArray>()
+    private val calls = ConcurrentHashMap.newKeySet<Call>()
+    @Volatile private var closed = false
+
+    // Never wait on load's monitor here: closing the player must interrupt the socket,
+    // not wait eight seconds for subtitle extraction to time out while releasing video.
+    override fun close() { closed = true; calls.forEach { it.cancel() } }
 
     @Synchronized fun load(url: String): ByteArray {
+        if (closed) throw IOException("Subtitle cache closed")
         files[url]?.let { return it }
         val request = Request.Builder().url(url).apply { headers.forEach { (key, value) -> header(key, value) } }.build()
-        val bytes = http.newCall(request).execute().use { response ->
+        val call = http.newCall(request)
+        calls.add(call)
+        if (closed) call.cancel()
+        val bytes = try { call.execute().use { response ->
             if (!response.isSuccessful) throw IOException("subtitle fetch failed")
             val body = response.body ?: throw IOException("Tom undertekst")
             body.byteStream().use { input ->
@@ -28,7 +41,7 @@ internal class SubtitleMemoryCache(private val http: OkHttpClient, private val h
                 }
                 out.toByteArray()
             }
-        }
+        } } finally { calls.remove(call) }
         if (files.size >= 4) files.remove(files.keys.first())
         files[url] = bytes
         return bytes
@@ -41,9 +54,16 @@ internal class SubtitleMemoryCache(private val http: OkHttpClient, private val h
             override fun addTransferListener(listener: TransferListener) { listeners += listener; delegate?.addTransferListener(listener) }
             override fun open(dataSpec: DataSpec): Long {
                 val path = dataSpec.uri.path.orEmpty()
-                val source = if (path.contains("/Subtitles/") && path.endsWith("/Stream.vtt") && dataSpec.httpMethod == DataSpec.HTTP_METHOD_GET)
-                    runCatching { ByteArrayDataSource(load(dataSpec.uri.toString())) }.getOrNull() ?: upstream.createDataSource()
-                else upstream.createDataSource()
+                val source = if (path.contains("/Subtitles/") && path.endsWith("/Stream.vtt") && dataSpec.httpMethod == DataSpec.HTTP_METHOD_GET) {
+                    val bytes = try { load(dataSpec.uri.toString()) } catch (error: IOException) {
+                        if (closed) throw error
+                        // Text extraction is optional. Never retry the same failed text through
+                        // the 20/45-second video client and turn it into a whole-film failure.
+                        onUnavailable()
+                        "WEBVTT\n\n".toByteArray(Charsets.UTF_8)
+                    }
+                    ByteArrayDataSource(bytes)
+                } else upstream.createDataSource()
                 delegate = source
                 listeners.forEach(source::addTransferListener)
                 return source.open(dataSpec)

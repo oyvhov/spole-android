@@ -78,6 +78,7 @@ data class PlayerScreenState(
     val audioDecoder: String = "",
     val videoDecoder: String = "",
     val audioUnderruns: Int = 0,
+    val subtitleUnavailable: Boolean = false,
     /**
      * The audio codecs this device told the server it can play, and up to how many channels.
      *
@@ -141,23 +142,6 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private val client = MediaPlaybackClient(deviceId = deviceId,
         capabilities = deviceCapabilities::snapshot, sourceSupported = deviceCapabilities::canDirectPlay,
         videoSupported = deviceCapabilities::canDecodeVideo)
-    /** Read once per stream, not per frame: enumerating codecs is not free. */
-    private val advertisedAudio: () -> String = {
-        runCatching {
-            deviceCapabilities.snapshot().audio.joinToString(" · ") { audio ->
-                audio.codec + " " + audio.channels + (if (audio.passthrough) " pass" else "")
-            }
-        }.getOrDefault("")
-    }
-
-    private val advertisedVideo: () -> String = {
-        runCatching {
-            deviceCapabilities.snapshot().video.joinToString(" · ") { video ->
-                video.codec + " " + video.width + "×" + video.height
-            }
-        }.getOrDefault("")
-    }
-
     private var connection: ServiceConnection? = null
     private var serviceKind = ServiceKind.JELLYFIN
     private var seerrConnection: ServiceConnection? = null
@@ -177,6 +161,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var networkRecoveries = 0
     private var foreground = true
     private var request: Job? = null
+    private var recoveryJob: Job? = null
     private var generation = 0
     private var bufferingSince = 0L
     private var nextEpisodeJob: Job? = null
@@ -195,7 +180,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
 
     val player: ExoPlayer = ExoPlayer.Builder(container.appContext,
-        PlaybackRenderersFactory(container.appContext, localAudioFallback)).build().apply {
+        PlaybackRenderersFactory(container.appContext, localAudioFallback))
+        .setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS).build().apply {
         setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         setHandleAudioBecomingNoisy(true)
         setSeekBackIncrementMs(10_000)
@@ -277,8 +263,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 format: Format,
                 decoderReuseEvaluation: DecoderReuseEvaluation?,
             ) {
-                mutable.update { it.copy(audioCodec = format.sampleMimeType, audioChannels = format.channelCount,
-                    advertisedAudio = advertisedAudio(), advertisedVideo = advertisedVideo()) }
+                mutable.update { it.copy(audioCodec = format.sampleMimeType, audioChannels = format.channelCount) }
             }
         })
     }
@@ -302,9 +287,21 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             return
         }
         // Retry transient transport failures without changing codecs or picture quality.
-        if (networkRecoveries < 2 && recoverablePlaybackFailure(error, plan?.direct == false)) {
+        if (source != null && plan != null && sameAccount() && networkRecoveries < 2 &&
+            recoverablePlaybackFailure(error, plan?.direct == false)) {
             networkRecoveries++
-            prepare(position, autoplay = playWhenReady, retryDelayMillis = networkRecoveries * 1000L)
+            val ticket = generation
+            mutable.update { it.copy(busy = true, error = null,
+                fallback = playbackFallbackLabel(error, "RETRY_STREAM")) }
+            recoveryJob?.cancel()
+            recoveryJob = viewModelScope.launch {
+                delay(networkRecoveries * 1000L)
+                if (ticket == generation && activeMediaSource === source && sameAccount()) {
+                    // Retry Media3's existing timeline. Do not send Stopped, create another
+                    // server transcode, re-extract subtitles or start the movie from zero.
+                    player.prepare()
+                }
+            }
             return
         }
         // Conversion requires a decoder/output/container failure, never just a slow network.
@@ -316,7 +313,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             mutable.update { it.copy(fallback = label) }
             prepare(position, mode = compatibility, autoplay = playWhenReady)
         } else {
-            mutable.update { it.copy(busy = false, playing = false,
+            mutable.update { it.copy(busy = false, playing = false, fallback = playbackFallbackLabel(error, "STOPPED"),
                 error = container.appString(R.string.player_err_stopped)) }
         }
     }
@@ -513,8 +510,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun back(): Boolean {
-        if (folders.isEmpty()) return false
         request?.cancel(); generation++; stopCurrent()
+        if (folders.isEmpty()) return false
         if (state.value.browsing) {
             if (folders.size <= 1) return false
             folders.removeAt(folders.lastIndex)
@@ -546,7 +543,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     }
 
     private fun prepare(position: Long, audio: Int? = null, subtitle: Int? = null, mode: PlaybackCompatibility = compatibility, autoplay: Boolean = true,
-        retryDelayMillis: Long = 0) {
+    ) {
         val c = connection ?: return
         val item = selected ?: return
         val previous = plan?.takeIf { it.item.id == item.id }
@@ -559,27 +556,34 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         request?.cancel()
         val ticket = ++generation
         stopCurrent()
-        mutable.update { it.copy(busy = true, error = null, ended = false, positionMs = position) }
+        mutable.update { it.copy(busy = true, error = null, ended = false, positionMs = position, subtitleUnavailable = false) }
         request = viewModelScope.launch {
             try {
-                if (retryDelayMillis > 0) delay(retryDelayMillis)
-                val prepared = withContext(Dispatchers.IO) {
+                val (prepared, detected) = withContext(Dispatchers.IO) {
                     check(sameAccount())
                     client.prepare(c, userId, item, state.value.quality.takeIf { it > 0 } ?: autoBitrate(),
                         // The version the title page picked, until a plan exists and the player owns it.
                         audioChoice, subtitleChoice, mode, previous?.sourceId ?: preferredSource.takeIf { item.id == rootId },
                         container.preferencesRepository.personalization.preferredSubtitleLanguage,
-                        container.preferencesRepository.personalization.fallbackSubtitleLanguage)
+                        container.preferencesRepository.personalization.fallbackSubtitleLanguage) to deviceCapabilities.snapshot()
                 }
                 if (ticket != generation || !sameAccount()) return@launch
                 plan = prepared
                 compatibility = prepared.compatibility
-                mutable.update { it.copy(videoFrameRate = prepared.sourceFrameRate, audioDecoder = "", videoDecoder = "") }
+                mutable.update { it.copy(videoFrameRate = prepared.sourceFrameRate, audioDecoder = "", videoDecoder = "",
+                    advertisedAudio = detected.audio.joinToString(" · ") { audio ->
+                        audio.codec + " " + audio.channels + (if (audio.passthrough) " pass" else "") },
+                    advertisedVideo = detected.video.joinToString(" · ") { video ->
+                        video.codec + " " + video.width + "×" + video.height }) }
                 stopped = false
                 val http = app.reelstack.data.network.HttpTransport.sharedClient.newBuilder()
                     .connectTimeout(8, TimeUnit.SECONDS)
                     .readTimeout(if (serviceKind == ServiceKind.EMBY) 45 else 20, TimeUnit.SECONDS).build()
-                val cache = SubtitleMemoryCache(http.newBuilder().callTimeout(8, TimeUnit.SECONDS).build(), client.headers(c))
+                val cache = SubtitleMemoryCache(http.newBuilder().callTimeout(8, TimeUnit.SECONDS).build(), client.headers(c)) {
+                    viewModelScope.launch {
+                        if (ticket == generation) mutable.update { it.copy(subtitleUnavailable = true) }
+                    }
+                }
                 subtitleCache = cache
                 val upstream = cache.factory(OkHttpDataSource.Factory(http).setDefaultRequestProperties(client.headers(c)))
                 val dataSource = ResolvingDataSource.Factory(upstream) { spec ->
@@ -716,7 +720,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         } else {
             // Text selection must not tear down the HLS session or reset its timeline.
             plan = current.copy(subtitleIndex = index, subtitleUrl = if (index == -1) null else textUrl(c, current, index))
-            mutable.update { it.copy(subtitleIndex = index) }
+            mutable.update { it.copy(subtitleIndex = index,
+                subtitleUnavailable = it.subtitleUnavailable && index == current.subtitleIndex) }
             selectTextTrack()
             report("/Progress")
         }
@@ -757,7 +762,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         reports.trySend(Report(c, current, event, player.currentPosition.coerceAtLeast(0), !player.isPlaying))
     }
     private fun stopCurrent() {
-        subtitleWarmJob?.cancel(); subtitleWarmJob = null; subtitleCache = null; subtitleWarmedSession = null
+        recoveryJob?.cancel(); recoveryJob = null
+        subtitleWarmJob?.cancel(); subtitleWarmJob = null; subtitleCache?.close(); subtitleCache = null; subtitleWarmedSession = null
         countdownJob?.cancel()
         mutable.update { it.copy(nextEpisodeCountdown = null) }
         report("/Stopped"); started = false; plan = null; activeMediaSource = null

@@ -30,6 +30,8 @@
     <string name="player_stats_buffer">Buffer</string>
     <string name="player_stats_playing">spelar</string>
     <string name="player_stats_paused">pausa</string>
+    <string name="player_stats_buffering">bufrar</string>
+    <string name="player_subtitle_unavailable">Underteksten kunne ikkje lastast. Videoen held fram utan denne teksten. Vel eit anna tekstspor.</string>
     <string name="player_stats_dropped">%1$d dropna bilete</string>
     <string name="player_err_stopped">Avspelinga stoppa. Prøv igjen, vel lågare kvalitet eller opne i medietenaren.</string>
     <string name="player_err_account_changed">Kontoen er endra. Lukk spelaren og opne tittelen på nytt.</string>

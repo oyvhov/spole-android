@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.0-beta20 - Oppstart, bufring og raskare retur frå spelaren
+
+- Eit kort fokusavbrot set ikkje lenger synleg video permanent på pause. Reell bakgrunnsvising pausar framleis.
+- TV-Play under bufring slår ikkje av avspelinga. Transportknappen viser avspelingsintensjonen.
+- Fjerna tvungne HDMI-skjermmodusbyte frå beta19; Media3 handterer berre sømlause biletfrekvenshint.
+- Nettverksreserve prøver eksisterande straum/økt på nytt utan ny PlaybackInfo eller Stopped-melding til serveren.
+- Feil ved tekstuthenting stoppar ikkje heile filmen; spelaren viser ei eiga undertekstmelding. Tilbake avbryt hengande tekstkall.
+- Dekodarsøk for diagnosar køyrer utanfor UI-tråden; buffering og endelege feil blir viste meir presist.
+
 ## 0.17.0-beta19 - Lokal lydreserve og betre TV-biletkadens
 
 - Ved plattformfeil i lyddekoding prøver spelaren lokal FFmpeg før serveromkoding, med same mediekjelde, posisjon og sporval.

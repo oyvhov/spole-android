@@ -14,10 +14,25 @@ import org.junit.Test
 class TvPlaybackControlsTest {
     @get:Rule val rule = createComposeRule()
     private lateinit var inputMode: androidx.compose.ui.input.InputModeManager
+    @Test fun playKeyDuringBufferingDoesNotPauseAndPauseKeyStillWorks() {
+        var toggles = 0
+        rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current; ReelstackTheme {
+            PlayerScreen(PlayerScreenState(busy = true, playing = false, playWhenReady = true, durationMs = 60_000),
+                null, {}, { toggles++ }, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        rule.onNodeWithTag("player-toggle").assertContentDescriptionEquals("Set på pause")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.MediaPlay) }
+        rule.runOnIdle { assertEquals(0, toggles) }
+        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.MediaPause) }
+        rule.runOnIdle { assertEquals(1, toggles) }
+    }
     private fun capture(name: String) {
         val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
-            rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            // A focused control may own a second tooltip root; capture the player itself.
+            rule.onNodeWithTag("jellyfin-player").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
     }
 

@@ -35,6 +35,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     onChapters: () -> Unit = {}, onStats: () -> Unit = {}) {
     val timeline = remember { FocusRequester() }
     val tools = remember { FocusRequester() }
+    val wantsPlayback = state.playing || state.playWhenReady && !state.ended
     var timelineFocused by remember { mutableStateOf(false) }
     var target by remember(state.itemId) { mutableStateOf<Long?>(null) }
     LaunchedEffect(target) { if (target != null) { kotlinx.coroutines.delay(1600); target = null } }
@@ -84,8 +85,8 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             verticalAlignment = Alignment.CenterVertically) {
             TvPlayerAction(SpoleIcons.Replay10, stringResource(R.string.player_rewind), "player-rewind",
                 Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0) { seek(-10_000) }
-            TvPlayerAction(if (state.playing) SpoleIcons.Pause else SpoleIcons.PlaySimple,
-                stringResource(if (state.playing) R.string.player_pause else R.string.player_play), "player-toggle",
+            TvPlayerAction(if (wantsPlayback) SpoleIcons.Pause else SpoleIcons.PlaySimple,
+                stringResource(if (wantsPlayback) R.string.player_pause else R.string.player_play), "player-toggle",
                 Modifier.focusRequester(playFocus).focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, !state.busy || state.durationMs > 0) { onInteraction(); onToggle() }
             TvPlayerAction(SpoleIcons.Forward10, stringResource(R.string.player_forward), "player-forward",
                 Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0) { seek(10_000) }
@@ -154,6 +155,8 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         )
         if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Color.White, trackColor = Color.White.copy(alpha = .15f))
         state.warning?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .72f)) }
+        if (state.subtitleUnavailable) Text(stringResource(R.string.player_subtitle_unavailable),
+            style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .72f))
     }
 }
 

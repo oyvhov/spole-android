@@ -4,6 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class RemotePlaybackPolicyTest {
+    @Test fun playDuringBufferingDoesNotTurnAutoplayOff() {
+        val buffering = PlayerScreenState(busy = true, playing = false, playWhenReady = true)
+        assertEquals(RemotePlaybackAction.IGNORE,
+            remotePlaybackAction(RemotePlaybackKey.PLAY, true, buffering.playWhenReady, false))
+        assertEquals(RemotePlaybackAction.TOGGLE,
+            remotePlaybackAction(RemotePlaybackKey.PAUSE, true, buffering.playWhenReady, false))
+    }
     @Test fun hiddenDirectionsRevealOrSeekAndSelectToggles() {
         assertEquals(RemotePlaybackAction.TOGGLE, remotePlaybackAction(RemotePlaybackKey.SELECT, false, true, false))
         assertEquals(RemotePlaybackAction.REVEAL, remotePlaybackAction(RemotePlaybackKey.DOWN, false, true, false))

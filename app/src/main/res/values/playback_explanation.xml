@@ -34,6 +34,8 @@
     <string name="player_stats_buffer">Buffer</string>
     <string name="player_stats_playing">playing</string>
     <string name="player_stats_paused">paused</string>
+    <string name="player_stats_buffering">buffering</string>
+    <string name="player_subtitle_unavailable">The subtitle could not be loaded. Video continues without this subtitle. Choose another subtitle track.</string>
     <string name="player_stats_dropped">%1$d dropped frames</string>
     <string name="player_err_stopped">Playback stopped. Try again, pick a lower quality, or open it in the media server.</string>
     <string name="player_err_account_changed">The account changed. Close the player and open the title again.</string>

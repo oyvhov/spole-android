@@ -38,6 +38,10 @@ class JellyfinPlayerUiTest {
             rule.onNodeWithText("ffmpeg6.1.4-eac3", substring = true).performScrollTo().assertIsDisplayed()
         } finally { rule.runOnIdle { player.release() } }
     }
+    @Test fun missingSubtitleWarningIsReadableAtDoubleFontSize() {
+        screen(PlayerScreenState(busy = false, durationMs = 20_000, subtitleUnavailable = true), scale = 2f)
+        rule.onNodeWithText("Underteksten kunne ikkje lastast.", substring = true).performScrollTo().assertIsDisplayed()
+    }
     @Test fun pictureCanFillTheScreenAndReturnToUncroppedFit() {
         screen(PlayerScreenState(busy=false,durationMs=20000))
         rule.onNodeWithContentDescription("Fyll skjermen").performScrollTo().performClick()

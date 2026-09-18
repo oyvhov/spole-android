@@ -19,7 +19,8 @@ import kotlinx.serialization.json.*
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class AndroidPlaybackCapabilities(private val context: Context) {
     private val attributes = AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build()
-    private val codecs get() = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.filterNot { it.isEncoder }
+    // Codec inventory is fixed for this player; the audio output route is still probed afresh.
+    private val codecs by lazy { MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.filterNot { it.isEncoder } }
     private fun decoders(mime: String) = runCatching { codecs.filter { info -> info.supportedTypes.any { it.equals(mime, true) } }
         .map { it to it.getCapabilitiesForType(mime) } }.getOrDefault(emptyList())
     private fun hdrTypes() = runCatching { context.getSystemService(DisplayManager::class.java)
