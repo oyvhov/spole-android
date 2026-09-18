@@ -56,3 +56,20 @@ Ingen kjelde vart endra for å skjule feilen eller omgå testen.
 TV-kontrollar og fokus: 9/9 bestått (21,543 s) ved 960 × 540 dp på 5562.
 Opphavleg oppløysing/tettleik vart gjenoppretta etter køyringa. Totalt 69/70
 ulike Android-testar bestod; den separate omkøyringa av minispelar feila òg.
+
+## Publisering og oppdatering
+
+- Kjeldecommit `5d6c4acbd997f8c560fa581f8dd1b9200d7ea7f0`; annotert tag
+  `v0.17.0-beta22`, pusha atomisk saman med `main`.
+- GitHub-kladden kontrollert: nøyaktig éin universal-APK og fire støttefiler, alle
+  `uploaded`. APK-storleik/-digest (`sha256:b132a34a414f9cba269ce20cd15a899575d2bb7a2ddb9a46b92754c9de34c7fd`)
+  og FFmpeg-arkivets digest samsvarar med lokale filer.
+- Publisert som prerelease, `draft=false`, ikkje stabil latest.
+- Offentleg release-liste utan Authorization inneheld beta22. APK lasta ned anonymt
+  til ei separat kontrollfil har identisk SHA-256 med produksjonsbygget.
+- Beta21 på isolert 5562 fann beta22 gjennom «Sjekk no», lasta ned APK-en og fullførte fil-/identitetskontrollen.
+- Første trykk på Installer henta opp att den eksisterande Android-installatøroppgåva frå førre installasjon. Installatørprosessen vart stoppa på 5562 utan datatap; nytt trykk opna rett oppdateringsdialog («Do you want to update this app?»).
+- Google Play Protect bad om skanning, som fullførte med «This app looks safe». Installasjonen vart deretter godkjend i systemdialogen.
+- **Oppdatering gjennom appen fullført frå beta21 til beta22**, utan `adb install` av produksjonspakken. Android stadfestar `versionCode=101`, `versionName=0.17.0-beta22`.
+- Appen opna att med nynorsk og dei same demodataa (Maya/Severance) bevarte. Ekte kontoar, fysisk Pixel/Shield og sovande mediediskar er ikkje testa.
+
