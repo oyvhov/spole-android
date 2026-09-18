@@ -9,8 +9,8 @@ import androidx.media3.common.*
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import app.reelstack.AppContainer
 import app.reelstack.R
@@ -75,6 +75,9 @@ data class PlayerScreenState(
      */
     val audioCodec: String? = null,
     val audioChannels: Int = 0,
+    val audioDecoder: String = "",
+    val videoDecoder: String = "",
+    val audioUnderruns: Int = 0,
     /**
      * The audio codecs this device told the server it can play, and up to how many channels.
      *
@@ -165,6 +168,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private val folders = mutableListOf<PlayableItem>()
     private var offset = 0
     private var plan: PlaybackPlan? = null
+    private var activeMediaSource: MediaSource? = null
+    private val localAudioFallback = LocalAudioFallback()
     private var started = false
     private var stopped = false
     /** How far down the fallback ladder this item has been pushed. Reset when another is chosen. */
@@ -190,9 +195,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
 
     val player: ExoPlayer = ExoPlayer.Builder(container.appContext,
-        DefaultRenderersFactory(container.appContext)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-            .setEnableDecoderFallback(true)).build().apply {
+        PlaybackRenderersFactory(container.appContext, localAudioFallback)).build().apply {
         setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         setHandleAudioBecomingNoisy(true)
         setSeekBackIncrementMs(10_000)
@@ -236,29 +239,22 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 if (next != trackSelectionParameters) trackSelectionParameters = next
             }
             override fun onPlayerError(error: PlaybackException) {
-                android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream code=${error.errorCode}")
-                val position = currentPosition.coerceAtLeast(0)
-                // Retry transient transport failures without changing codecs or picture quality.
-                if (networkRecoveries < 2 && recoverablePlaybackFailure(error, plan?.direct == false)) {
-                    networkRecoveries++
-                    prepare(position, autoplay = playWhenReady, retryDelayMillis = networkRecoveries * 1000L)
-                    return
-                }
-                // Conversion requires a decoder/output/container failure, never just a slow network.
-                val nextMode = nextPlaybackCompatibility(compatibility, playbackFailureIsVideo(error))
-                if (nextMode != compatibility && playbackFailureNeedsConversion(error.errorCode)) {
-                    compatibility = nextMode
-                    val label = playbackFallbackLabel(error, compatibility)
-                    android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream action=step-down $label")
-                    mutable.update { it.copy(fallback = label) }
-                    prepare(position, mode = compatibility, autoplay = playWhenReady)
-                } else {
-                    mutable.update { it.copy(busy = false, playing = false,
-                        error = container.appString(R.string.player_err_stopped)) }
-                }
+                handlePlaybackError(error)
             }
         })
         addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onAudioDecoderInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
+                mutable.update { it.copy(audioDecoder = decoderName) }
+            }
+            override fun onVideoDecoderInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
+                mutable.update { it.copy(videoDecoder = decoderName) }
+            }
+            override fun onAudioUnderrun(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                bufferSize: Int, bufferSizeMs: Long, elapsedSinceLastFeedMs: Long) {
+                mutable.update { it.copy(audioUnderruns = it.audioUnderruns + 1) }
+            }
             override fun onVideoInputFormatChanged(
                 eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
                 format: Format,
@@ -270,7 +266,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     else -> "SDR"
                 }
                 mutable.update { it.copy(videoCodec = format.sampleMimeType, videoWidth = format.width,
-                    videoHeight = format.height, videoBitrate = format.bitrate, videoFrameRate = format.frameRate,
+                    videoHeight = format.height, videoBitrate = format.bitrate,
+                    videoFrameRate = format.frameRate.takeIf { rate -> rate.isFinite() && rate in 1f..240f }
+                        ?: plan?.sourceFrameRate ?: 0f,
                     videoHdr = hdr) }
             }
 
@@ -283,6 +281,44 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     advertisedAudio = advertisedAudio(), advertisedVideo = advertisedVideo()) }
             }
         })
+    }
+
+    /** Also used by integration tests to inject a renderer failure at the real recovery boundary. */
+    internal fun handlePlaybackError(error: PlaybackException) {
+        val playWhenReady = player.playWhenReady
+        android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream code=${error.errorCode}")
+        val position = player.currentPosition.coerceAtLeast(0)
+        val source = activeMediaSource
+        if (source != null && plan != null && sameAccount() && localAudioFallback.tryEnable(error)) {
+            // Do not renegotiate PlaybackInfo, stop the server session or lose the chosen
+            // source/tracks. Recreating periods forces track mapping onto the local decoder.
+            player.stop()
+            player.clearMediaItems()
+            player.setMediaSource(source, position)
+            mutable.update { it.copy(error = null, busy = true, audioDecoder = "",
+                fallback = playbackFallbackLabel(error, "LOCAL_FFMPEG")) }
+            player.prepare()
+            player.playWhenReady = foreground && playWhenReady
+            return
+        }
+        // Retry transient transport failures without changing codecs or picture quality.
+        if (networkRecoveries < 2 && recoverablePlaybackFailure(error, plan?.direct == false)) {
+            networkRecoveries++
+            prepare(position, autoplay = playWhenReady, retryDelayMillis = networkRecoveries * 1000L)
+            return
+        }
+        // Conversion requires a decoder/output/container failure, never just a slow network.
+        val nextMode = nextPlaybackCompatibility(compatibility, playbackFailureIsVideo(error))
+        if (nextMode != compatibility && playbackFailureNeedsConversion(error.errorCode)) {
+            compatibility = nextMode
+            val label = playbackFallbackLabel(error, compatibility)
+            android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream action=step-down $label")
+            mutable.update { it.copy(fallback = label) }
+            prepare(position, mode = compatibility, autoplay = playWhenReady)
+        } else {
+            mutable.update { it.copy(busy = false, playing = false,
+                error = container.appString(R.string.player_err_stopped)) }
+        }
     }
 
     private fun selectTextTrack() {
@@ -456,7 +492,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             loadChildren()
         } else {
             selected = item; compatibility = PlaybackCompatibility.DIRECT
-            mutable.update { it.copy(fallback = "") }
+            localAudioFallback.reset()
+            mutable.update { it.copy(fallback = "", audioDecoder = "", videoDecoder = "", audioUnderruns = 0) }
             mutable.update { it.copy(title = item.title, subtitle = item.subtitle, season = item.season,
                 episode = item.episode, logoUrl = item.logoUrl, browsing = false, choices = emptyList(),
                 positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id) }
@@ -537,6 +574,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 if (ticket != generation || !sameAccount()) return@launch
                 plan = prepared
                 compatibility = prepared.compatibility
+                mutable.update { it.copy(videoFrameRate = prepared.sourceFrameRate, audioDecoder = "", videoDecoder = "") }
                 stopped = false
                 val http = app.reelstack.data.network.HttpTransport.sharedClient.newBuilder()
                     .connectTimeout(8, TimeUnit.SECONDS)
@@ -557,8 +595,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 })
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().clearOverrides()
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, prepared.subtitleUrl == null).build()
-                player.setMediaSource(DefaultMediaSourceFactory(dataSource).setLoadOnlySelectedTracks(true)
-                    .createMediaSource(media.build()), position.coerceAtLeast(0))
+                val source = DefaultMediaSourceFactory(dataSource).setLoadOnlySelectedTracks(true)
+                    .createMediaSource(media.build())
+                activeMediaSource = source
+                player.setMediaSource(source, position.coerceAtLeast(0))
                 mutable.update { it.copy(audio = prepared.audio, subtitles = prepared.subtitles, audioIndex = prepared.audioIndex,
                     subtitleIndex = prepared.subtitleIndex, mode = prepared.mode, transcodeReasons = prepared.transcodeReasons) }
                 prepared.audio.firstOrNull { it.index == prepared.audioIndex }?.let { preferredAudioKey = it.key }
@@ -720,7 +760,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         subtitleWarmJob?.cancel(); subtitleWarmJob = null; subtitleCache = null; subtitleWarmedSession = null
         countdownJob?.cancel()
         mutable.update { it.copy(nextEpisodeCountdown = null) }
-        report("/Stopped"); started = false; plan = null
+        report("/Stopped"); started = false; plan = null; activeMediaSource = null
         player.stop(); player.clearMediaItems()
     }
     override fun onCleared() {

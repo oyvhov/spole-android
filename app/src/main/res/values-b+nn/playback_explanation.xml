@@ -25,6 +25,8 @@
     <string name="player_stats_unknown">ukjend</string>
     <string name="player_stats_video">Video</string>
     <string name="player_stats_audio">Lyd</string>
+    <string name="player_stats_decoders">Dekodarar · video: %1$s · lyd: %2$s</string>
+    <string name="player_stats_audio_underruns">Lydavbrot · %1$d</string>
     <string name="player_stats_buffer">Buffer</string>
     <string name="player_stats_playing">spelar</string>
     <string name="player_stats_paused">pausa</string>

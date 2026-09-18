@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0-beta19 - Lokal lydreserve og betre TV-biletkadens
+
+- Ved plattformfeil i lyddekoding prøver spelaren lokal FFmpeg før serveromkoding, med same mediekjelde, posisjon og sporval.
+- TV-tilpassing bruker også kjeldefrekvensen når dekodaren manglar denne, støttar heiltalsmultiplar og bevarer oppløysinga.
+- Stats for Nerds viser faktiske dekodarar og lydavbrot, og kan rullast ved stor skrift.
+- Rettingane er testa med syntetiske Emby-/Jellyfin-kjelder. Fysisk Pixel/Shield og årsaka til den rapporterte Jellyfin-hakkinga er ikkje stadfesta.
+
 ## 0.17.0-beta18 - Lokal lyddekoding og mindre unødvendig omkoding
 
 - Lokal FFmpeg-lyddekoding for mellom anna DTS, AC3, EAC3 og TrueHD. Støtta maskinvaredekoding og passthrough blir framleis prioriterte.

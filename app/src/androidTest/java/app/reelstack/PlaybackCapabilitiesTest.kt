@@ -9,6 +9,24 @@ import org.junit.Test
 class PlaybackCapabilitiesTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @Test fun localFallbackIsBoundedAndResetsForANewTitle() {
+        val fallback = LocalAudioFallback()
+        val format = androidx.media3.common.Format.Builder().setSampleMimeType("audio/eac3")
+            .setChannelCount(6).setSampleRate(48000).build()
+        val error = androidx.media3.exoplayer.ExoPlaybackException.createForRenderer(
+            IllegalStateException("synthetic"), "MediaCodecAudioRenderer", 1, format,
+            androidx.media3.common.C.FORMAT_HANDLED, null, false,
+            androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FAILED)
+        assertFalse(fallback.usesSoftware(format))
+        assertTrue(fallback.tryEnable(error))
+        assertTrue(fallback.usesSoftware(format))
+        assertFalse(fallback.tryEnable(error))
+        assertFalse(fallback.usesSoftware(format.buildUpon().setSampleMimeType("audio/ac3").build()))
+        fallback.reset()
+        assertFalse(fallback.usesSoftware(format))
+        assertTrue(fallback.tryEnable(error))
+    }
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     @Test fun bundledAudioDecoderReallyLoadsAndAdvertisesMultichannelSupport() {
         assertTrue(androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable())
         val audio = AndroidPlaybackCapabilities(context).snapshot().audio

@@ -29,6 +29,8 @@
     <string name="player_stats_unknown">unknown</string>
     <string name="player_stats_video">Video</string>
     <string name="player_stats_audio">Audio</string>
+    <string name="player_stats_decoders">Decoders · video: %1$s · audio: %2$s</string>
+    <string name="player_stats_audio_underruns">Audio underruns · %1$d</string>
     <string name="player_stats_buffer">Buffer</string>
     <string name="player_stats_playing">playing</string>
     <string name="player_stats_paused">paused</string>

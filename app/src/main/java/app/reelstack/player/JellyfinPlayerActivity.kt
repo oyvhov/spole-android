@@ -100,7 +100,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        originalDisplayModeId = window.attributes.preferredDisplayModeId.takeIf { it > 0 }
+        originalDisplayModeId = window.attributes.preferredDisplayModeId
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         enterFullscreen()
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
@@ -147,12 +147,11 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
     private fun matchDisplayRate(frameRate: Float) {
         if (frameRate <= 0f || !isTelevisionDevice()) return
         val display = windowManager.defaultDisplay
-        val mode = display.supportedModes.minByOrNull { candidate ->
-            val refreshDifference = kotlin.math.abs(candidate.refreshRate - frameRate)
-            if (refreshDifference <= 0.6f) refreshDifference else 100f + refreshDifference
-        } ?: return
-        if (kotlin.math.abs(mode.refreshRate - frameRate) <= 0.6f) {
-            window.attributes = window.attributes.apply { preferredDisplayModeId = mode.modeId }
+        fun android.view.Display.Mode.playbackMode() = PlaybackDisplayMode(modeId, physicalWidth, physicalHeight, refreshRate)
+        val mode = matchingDisplayMode(frameRate, display.mode.playbackMode(),
+            display.supportedModes.map { it.playbackMode() }) ?: return
+        if (display.mode.modeId != mode.id && window.attributes.preferredDisplayModeId != mode.id) {
+            window.attributes = window.attributes.apply { preferredDisplayModeId = mode.id }
         }
     }
     private fun isTelevisionDevice() = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
@@ -563,7 +562,10 @@ fun PlayerScreen(
                 // doing rather than "Transcode" for three of them.
                 val unknown = stringResource(R.string.player_stats_unknown)
                 val audioTrack = state.audio.firstOrNull { it.index == state.audioIndex }
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                val windowHeight = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height
+                val statsHeight = with(androidx.compose.ui.platform.LocalDensity.current) { (windowHeight * .65f).toDp() }
+                Column(Modifier.heightIn(max = statsHeight).verticalScroll(rememberScrollState()).padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(stringResource(R.string.player_stats_title), color = Color.White, fontWeight = FontWeight.Bold)
                     Text(stringResource(playbackModeLabel(state.mode), state.source.displayName), color = Color.White)
                     playbackReasonFor(state)?.let {
@@ -579,6 +581,11 @@ fun PlayerScreen(
                         val channels = state.audioChannels.takeIf { it > 0 }?.let { " · $it ch" }.orEmpty()
                         Text("→ $codec$channels", color = Color.White)
                     }
+                    if (state.audioDecoder.isNotBlank() || state.videoDecoder.isNotBlank()) {
+                        Text(stringResource(R.string.player_stats_decoders,
+                            state.videoDecoder.ifBlank { unknown }, state.audioDecoder.ifBlank { unknown }), color = Color.White)
+                    }
+                    Text(stringResource(R.string.player_stats_audio_underruns, state.audioUnderruns), color = Color.White)
                     state.advertisedAudio.takeIf { it.isNotBlank() }?.let {
                         Text(stringResource(R.string.player_stats_advertised, it), color = Color.White)
                     }
@@ -602,7 +609,7 @@ fun PlayerScreen(
                     // Dropped frames are the one number that tells you the device cannot keep up,
                     // as opposed to the network not keeping up. Worth its own line.
                     (player as? androidx.media3.exoplayer.ExoPlayer)?.videoDecoderCounters
-                        ?.droppedBufferCount?.takeIf { it > 0 }?.let {
+                        ?.droppedBufferCount?.let {
                         Text(stringResource(R.string.player_stats_dropped, it), color = Color.White)
                     }
                 }

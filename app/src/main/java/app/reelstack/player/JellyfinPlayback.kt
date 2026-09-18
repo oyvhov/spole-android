@@ -96,6 +96,7 @@ data class PlaybackPlan(
      */
     val transcodeReasons: List<String> = emptyList(),
     val compatibility: PlaybackCompatibility = PlaybackCompatibility.DIRECT,
+    val sourceFrameRate: Float = 0f,
 ) {
     /** Kept for every caller that only needs "is the file being sent untouched". */
     val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
@@ -415,7 +416,8 @@ class MediaPlaybackClient(
         }
         return PlaybackPlan(item, mediaSourceId, session, safePlaybackUrl(c.baseUrl, url),
             playbackModeFor(source, direct), tracks("Audio"), subtitles,
-            selectedAudio, selectedSubtitle, subtitleUrl, playbackTranscodeReasons(source), compatibility)
+            selectedAudio, selectedSubtitle, subtitleUrl, playbackTranscodeReasons(source), compatibility,
+            if (direct) sourceVideoFrameRate(source) else 0f)
     }
 
     /** Playback support is separate from receiving remote commands. Until a remote-command

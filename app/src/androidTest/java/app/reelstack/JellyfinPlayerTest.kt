@@ -152,6 +152,56 @@ class JellyfinPlayerTest {
     @Test fun trueHdSurroundPlaysDirectlyFromBothServersAndSurvivesSeeking() = localAudio("truehd")
     @Test fun ac3SurroundPlaysDirectlyFromBothServersAndSurvivesSeeking() = localAudio("ac3")
 
+    @Test fun platformAacFailureSwitchesToFfmpegWithoutServerRenegotiation() = localRecovery("aac")
+    @Test fun platformEac3FailureSwitchesToFfmpegWithoutServerRenegotiation() = localRecovery("eac3")
+    @Test fun localAudioRecoveryPreservesPauseAndSelectedSubtitle() = localRecovery("eac3", paused = true)
+
+    private fun localRecovery(codec: String, paused: Boolean = false) {
+        for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {
+            exercise(audioCodec = codec, kind = kind, defaultSubtitle = if (paused) 2 else -1) { scenario, server, _ ->
+                playing(scenario)
+                scenario.onActivity { it.model.seek(8_000) }
+                waitFor { snapshot(scenario).let { it.playing && it.positionMs >= 8_000 } }
+                val negotiations = server.events.count { it.first.endsWith("PlaybackInfo") }
+                val stops = server.events.count { it.first.endsWith("/Stopped") }
+                val audio = snapshot(scenario).audioIndex
+                val subtitle = snapshot(scenario).subtitleIndex
+                var position = 0L
+                scenario.onActivity {
+                    val model = it.model
+                    if (paused) model.player.pause()
+                    position = model.player.currentPosition
+                    val format = model.player.audioFormat!!
+                    // Inject the Pixel-shaped runtime failure, then use the real new renderer,
+                    // real media source, decoding and output. No server transcode is available.
+                    model.handlePlaybackError(androidx.media3.exoplayer.ExoPlaybackException.createForRenderer(
+                        IllegalStateException("synthetic platform audio failure"), "MediaCodecAudioRenderer", 1,
+                        format, androidx.media3.common.C.FORMAT_HANDLED, null, false,
+                        androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FAILED))
+                }
+                waitFor { snapshot(scenario).let { it.audioDecoder.startsWith("ffmpeg", true) && !it.busy } }
+                if (!paused) waitFor { snapshot(scenario).let { it.playing && it.positionMs >= position + 500 } }
+                else scenario.onActivity {
+                    assertFalse(it.model.player.playWhenReady)
+                    assertEquals(position, it.model.player.currentPosition)
+                    it.model.player.play()
+                }
+                playing(scenario)
+                scenario.onActivity { assertTrue(it.model.player.audioDecoderCounters!!.renderedOutputBufferCount > 0) }
+                assertTrue(snapshot(scenario).direct)
+                assertNull(snapshot(scenario).error)
+                assertTrue(snapshot(scenario).fallback.endsWith("LOCAL_FFMPEG"))
+                assertEquals(audio, snapshot(scenario).audioIndex)
+                assertEquals(subtitle, snapshot(scenario).subtitleIndex)
+                assertEquals(negotiations, server.events.count { it.first.endsWith("PlaybackInfo") })
+                assertEquals(stops, server.events.count { it.first.endsWith("/Stopped") })
+                assertTrue(server.requests.none { it.contains("master.m3u8") })
+                scenario.onActivity { it.model.seek(12_000) }
+                waitFor { snapshot(scenario).let { it.playing && it.positionMs >= 12_000 } }
+            }
+        }
+    }
+
     private fun localAudio(codec: String) {
         assertTrue(androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable())
         for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {

@@ -59,10 +59,17 @@ internal fun playbackFailureIsVideo(error: PlaybackException): Boolean {
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal fun playbackFallbackLabel(error: PlaybackException, step: PlaybackCompatibility): String {
+    return playbackFallbackLabel(error, step.name)
+}
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+internal fun playbackFallbackLabel(error: PlaybackException, destination: String): String {
     val format = (error as? ExoPlaybackException)
         ?.takeIf { it.type == ExoPlaybackException.TYPE_RENDERER }
         ?.rendererFormat?.sampleMimeType
-    return error.errorCodeName + (format?.let { " · $it" } ?: "") + " → " + step.name
+    val renderer = (error as? ExoPlaybackException)?.rendererName
+    return error.errorCodeName + (format?.let { " · $it" } ?: "") +
+        (renderer?.let { " · $it" } ?: "") + " → " + destination
 }
 
 /** Only transient failures are retried; credentials and missing direct files need user action. */

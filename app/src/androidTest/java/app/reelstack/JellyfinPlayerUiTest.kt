@@ -14,12 +14,29 @@ import org.junit.Test
 
 class JellyfinPlayerUiTest {
     @get:Rule val rule = createComposeRule()
-    private fun screen(state: PlayerScreenState, scale: Float = 1f, close: () -> Unit = {}, subtitle: (Int) -> Unit = {}, choose: (PlayableItem) -> Unit = {}) {
+    private fun screen(state: PlayerScreenState, scale: Float = 1f, close: () -> Unit = {}, subtitle: (Int) -> Unit = {},
+        choose: (PlayableItem) -> Unit = {}, player: androidx.media3.common.Player? = null) {
         rule.setContent { val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
-                ReelstackTheme { PlayerScreen(state, null, close, {}, {}, {}, choose, {}, {}, subtitle, {}, {}, isTelevision = false) }
+                ReelstackTheme { PlayerScreen(state, player, close, {}, {}, {}, choose, {}, {}, subtitle, {}, {}, isTelevision = false) }
             }
         }
+    }
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @Test fun decoderDiagnosticsScrollAtDoubleFontSize() {
+        lateinit var player: androidx.media3.exoplayer.ExoPlayer
+        rule.runOnIdle { player = androidx.media3.exoplayer.ExoPlayer.Builder(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext).build() }
+        try {
+            screen(PlayerScreenState(busy = false, durationMs = 20_000,
+                audioDecoder = "ffmpeg6.1.4-eac3", videoDecoder = "c2.test.avc.decoder", audioUnderruns = 3,
+                advertisedAudio = "aac 8 · ac3 8 · eac3 8 · dts 8 · truehd 8 · flac 8"),
+                scale = 2f, player = player)
+            rule.onNodeWithTag("player-stats").performScrollTo().performClick()
+            rule.onNodeWithTag("player-stats-overlay").assertIsDisplayed()
+            rule.onNodeWithText("Lydavbrot · 3").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithText("ffmpeg6.1.4-eac3", substring = true).performScrollTo().assertIsDisplayed()
+        } finally { rule.runOnIdle { player.release() } }
     }
     @Test fun pictureCanFillTheScreenAndReturnToUncroppedFit() {
         screen(PlayerScreenState(busy=false,durationMs=20000))

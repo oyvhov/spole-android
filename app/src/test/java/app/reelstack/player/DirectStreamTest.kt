@@ -16,7 +16,8 @@ class DirectStreamTest {
             return HttpResponse(200, """{"PlaySessionId":"session","MediaSources":[{
                 "Id":"source","SupportsDirectPlay":false,"SupportsDirectStream":$supported,
                 "DirectStreamUrl":"$directUrl","TranscodingUrl":"/Videos/movie/master.m3u8?VideoCodec=copy&AudioCodec=aac",
-                "DefaultAudioStreamIndex":1,"MediaStreams":[{"Type":"Audio","Index":1}]}]}""")
+                "DefaultAudioStreamIndex":1,"MediaStreams":[{"Type":"Audio","Index":1},
+                {"Type":"Video","AverageFrameRate":23.976}]}]}""")
         }
     }
     @Test fun bothServersCanOfferAnUntouchedHttpFileWithoutFilesystemDirectPlay() {
@@ -25,6 +26,7 @@ class DirectStreamTest {
             val account = ServiceConnection(kind, "Fixture", "https://media.example", "fixture", "viewer")
             val plan = MediaPlaybackClient(server, "device").prepare(account, "viewer", item, 120_000_000)
             assertTrue(plan.direct)
+            assertEquals(23.976f, plan.sourceFrameRate)
             assertEquals("https://media.example/Videos/movie/stream.mkv?Static=true", plan.url)
             assertEquals(1, server.calls.size)
         }
@@ -43,6 +45,7 @@ class DirectStreamTest {
             .prepare(account, "viewer", item, 120_000_000)
         assertEquals(PlaybackCompatibility.AUDIO_ONLY, plan.compatibility)
         assertEquals(PlaybackMode.AUDIO_TRANSCODE, plan.mode)
+        assertEquals(0f, plan.sourceFrameRate)
         assertEquals(2, server.calls.size)
         assertTrue(server.calls.last().flag("AllowVideoStreamCopy"))
     }
