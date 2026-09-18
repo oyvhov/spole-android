@@ -78,7 +78,27 @@ Testar bruker isolert 5562, ikkje 5560/5564 med ekte kontoar.
 Ingen signert føroppdatering vart installert på review-profilane med ekte kontoar, grunna
 ADB-/oppstartsavgrensingane ovanfor. Produksjons-beta19 (98) er bevart på isolert 5562
 for den ekte GitHub-oppdateringsflyten etter publisering, med nynorsk og demodata.
-Resultatet blir dokumentert i ein etterfølgjande rapport-commit utan å flytte release-taggen.
+### Utført publisering og oppdatering
+
+- Kjeldecommit `1464cb575fc2657749eb9d86e79cbf5209c0f1df`, annotert tag
+  `v0.17.0-beta20`, pusha atomisk med `main`.
+- GitHub-kladden hadde nøyaktig éin APK og fire støttefiler, alle `uploaded`.
+  APK-storleik/-digest og native-arkivets digest var identiske med lokale filer.
+- Publisert som `draft=false`, `prerelease=true`, ikkje stabil latest.
+- Den offentlege release-lista utan Authorization inneheld beta20. Ei separat offentleg
+  nedlasting har SHA-256 `458a571e8afc10226a62b6391d74b7cc1687983c47a8d9bc6ef8d9abec907e1a`.
+- **Oppdatering beta19 → beta20 gjennom appen er fullført:** Sjekk no → beta20
+  funnen → Last ned → appens kontroll → Installer → Android-godkjenning → beta20.
+  Ingen `adb install` vart brukt til denne produksjonsoppdateringa.
+- Første installasjonsforsøk henta fram eit gammalt «App installed»-vindauge frå beta19.
+  Kontroll av versjonskoden viste framleis 98. Den gamle Android Package Installer-prosessen
+  vart stoppa på isolert 5562 (utan sletting av data); nytt trykk på Installer viste rett
+  oppdateringsdialog. Dette miljøinngrepet er ei avgrensing ved ende-til-ende-testen.
+- Play Protect bad om skanning. Ho fullførte med «This app looks safe», og installasjonen
+  vart godkjend i systemdialogen. Dette er ikkje ei full tryggleiksrevisjon.
+- Android stadfestar **versionCode=99, versionName=0.17.0-beta20**. Appen opna att
+  med nynorsk og dei same demodataa (Maya/Severance) bevarte.
+  Ekte kontoar og fysisk Pixel-/Shield-avspeling er framleis ikkje verifiserte.
 
 ## Primærkjelder
 
