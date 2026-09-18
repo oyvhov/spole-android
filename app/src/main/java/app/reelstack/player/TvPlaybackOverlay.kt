@@ -32,7 +32,9 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     playFocus: FocusRequester, nextFocus: FocusRequester?, onToggle: () -> Unit, onSeek: (Long) -> Unit,
     onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, fillVideo: Boolean,
     onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
-    onChapters: () -> Unit = {}, onStats: () -> Unit = {}) {
+    onChapters: () -> Unit = {}, onStats: () -> Unit = {},
+    /** Kids mode: rewind, play/pause, forward. The rest were set by the parent. */
+    kids: Boolean = false) {
     val timeline = remember { FocusRequester() }
     val tools = remember { FocusRequester() }
     val wantsPlayback = state.playing || state.playWhenReady && !state.ended
@@ -113,10 +115,14 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             // A 4 dp line with a 4 dp dot is a control you have to lean forward to read. The
             // unfocused state is what you look at while the film is playing, so it is the one that
             // had to grow.
-            Box(Modifier.fillMaxWidth().height(if (timelineFocused) 8.dp else 6.dp).background(Color.White.copy(alpha = .28f), RoundedCornerShape(4.dp)))
-            Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(if (timelineFocused) 8.dp else 6.dp).background(Color.White, RoundedCornerShape(4.dp)))
+            // BM-8 asks for at least 7 dp of track and a 19 dp handle in kids mode, in both states
+            // — not only while the timeline happens to hold focus.
+            val trackHeight = if (kids) (if (timelineFocused) 9.dp else 7.dp) else (if (timelineFocused) 8.dp else 6.dp)
+            Box(Modifier.fillMaxWidth().height(trackHeight).background(Color.White.copy(alpha = .28f), RoundedCornerShape(4.dp)))
+            Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(trackHeight).background(Color.White, RoundedCornerShape(4.dp)))
             Canvas(Modifier.matchParentSize()) {
-                val radius = if (timelineFocused) 11.dp.toPx() else 6.dp.toPx()
+                val radius = if (kids) (if (timelineFocused) 12.dp.toPx() else 10.dp.toPx())
+                    else (if (timelineFocused) 11.dp.toPx() else 6.dp.toPx())
                 drawCircle(Color.White, radius, androidx.compose.ui.geometry.Offset(
                     (size.width * progress).coerceIn(radius, size.width.coerceAtLeast(radius * 2) - radius), size.height / 2))
             }
@@ -125,7 +131,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             Text(playbackTime(position), style = MaterialTheme.typography.labelLarge, color = Color.White)
             Text(playbackTime(state.durationMs), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .72f))
         }
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (!kids) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             TvPlayerAction(SpoleIcons.Info, "Stats for Nerds", "player-stats", Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onStats() }
             if (state.chapters.isNotEmpty()) TvPlayerAction(SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters",
                 Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onChapters() }

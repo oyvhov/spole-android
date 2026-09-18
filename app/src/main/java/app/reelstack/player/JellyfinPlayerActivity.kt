@@ -116,6 +116,8 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         val preferredAudio = intent.getIntExtra(AUDIO_INDEX, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
         val preferredSubtitle = intent.getIntExtra(SUBTITLE_INDEX, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
         val preferredSource = intent.getStringExtra(SOURCE_ID)?.takeIf { it.isNotBlank() && it.length <= 128 }
+        val kids = intent.getBooleanExtra(KIDS_MODE, false)
+        model.kidsMode = kids
         // Covers Back during the first frame too; the screen's menu handler takes precedence later.
         onBackPressedDispatcher.addCallback(this) { if (!model.back()) finish() }
         setContent {
@@ -129,7 +131,10 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                 }
                 PlayerScreen(state, model.player, { if (!model.back()) finish() }, model::toggle, model::seek, model::retry, model::choose,
                     model::loadChildren, model::audio, model::subtitles, model::quality,
+                    kids = kids,
                     onExternal = {
+                        // Handing the stream to another app is the back door out of kids mode.
+                        if (kids) return@PlayerScreen
                         model.background()
                         model.fallbackUrl()?.let { url -> NativeClientLauncher.open(this, url, NativeClientLauncher.resolve(this, url).packageName) }
                     }, onResume = model::resume, onRotate = {
@@ -137,7 +142,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                             android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
                     }, onNextEpisode = model::playNext, onCancelNextEpisode = model::cancelNextEpisode,
                     onSkipSegment = model::skipSegment, miniPlayer = miniPlayer,
-                    onMiniPlayer = if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) ::openMiniPlayer else null)
+                    onMiniPlayer = if (!kids && packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) ::openMiniPlayer else null)
             }
         }
     }
@@ -163,11 +168,13 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         private const val SUBTITLE_INDEX = "jellyfin_subtitle_index"
         private const val SOURCE_ID = "jellyfin_source_id"
         private const val SERVICE_KIND = "media_service_kind"
+        private const val KIDS_MODE = "kids_mode"
         fun open(context: Context, itemId: String, audioIndex: Int? = null, subtitleIndex: Int? = null,
-            sourceId: String? = null, source: ServiceKind = ServiceKind.JELLYFIN) =
+            sourceId: String? = null, source: ServiceKind = ServiceKind.JELLYFIN, kidsMode: Boolean = false) =
             context.startActivity(
                 Intent(context, JellyfinPlayerActivity::class.java).putExtra(ITEM_ID, itemId).apply {
                     putExtra(SERVICE_KIND, source.name)
+                    if (kidsMode) putExtra(KIDS_MODE, true)
                     audioIndex?.let { putExtra(AUDIO_INDEX, it) }
                     subtitleIndex?.let { putExtra(SUBTITLE_INDEX, it) }
                     sourceId?.takeIf(String::isNotBlank)?.let { putExtra(SOURCE_ID, it) }
@@ -190,6 +197,13 @@ fun PlayerScreen(
     onSkipSegment: () -> Unit = {},
     miniPlayer: Boolean = false,
     onMiniPlayer: (() -> Unit)? = null,
+    /**
+     * Kids mode: three controls and nothing else.
+     *
+     * Audio, subtitles and picture quality were set by the parent and are not a child's decision;
+     * a menu of them is only a way to break the picture and then need an adult.
+     */
+    kids: Boolean = false,
     isTelevision: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION,
 ) {
@@ -390,7 +404,7 @@ fun PlayerScreen(
                 { menu = PlayerMenu.QUALITY }, fillVideo, { fillVideo = !fillVideo },
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
                 onChapters = { menu = PlayerMenu.CHAPTERS },
-                onStats = { statsVisible = !statsVisible })
+                onStats = { statsVisible = !statsVisible }, kids = kids)
             if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                 Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
                     .padding(horizontal = 48.dp, vertical = 27.dp).onFocusChanged { nextHasFocus = it.hasFocus })
@@ -509,8 +523,21 @@ fun PlayerScreen(
                             )
                         }
                         Slider(value = dragging ?: remoteSeekTargetMs?.toFloat() ?: state.positionMs.toFloat().coerceIn(0f, state.durationMs.coerceAtLeast(1).toFloat()),
-                            thumb = { Box(Modifier.size(12.dp).background(MaterialTheme.colorScheme.primary, CircleShape)) },
-                            track = { SliderDefaults.Track(it, modifier = Modifier.height(4.dp), thumbTrackGapSize = 0.dp) },
+                            // A child drags this with a whole finger, not a fingertip, so the kid
+                            // timeline is a 7 dp track with a 20 dp handle rather than 4 and 12.
+                            thumb = {
+                                Box(
+                                    Modifier.size(if (kids) 20.dp else 12.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                )
+                            },
+                            track = {
+                                SliderDefaults.Track(
+                                    it,
+                                    modifier = Modifier.height(if (kids) 7.dp else 4.dp),
+                                    thumbTrackGapSize = 0.dp,
+                                )
+                            },
                             onValueChange = { dragging = it; scrubbing = true; interaction++ },
                             onValueChangeFinished = { dragging?.let { onSeek(it.toLong()) }; dragging = null; scrubbing = false; interaction++ },
                             valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(), enabled = !state.busy && state.error == null && state.durationMs > 0,
@@ -538,6 +565,7 @@ fun PlayerScreen(
                                 )
                             }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (!kids) {
                                 if (state.chapters.isNotEmpty()) {
                                     IconButton(onClick = { menu = PlayerMenu.CHAPTERS }, modifier = Modifier.size(40.dp).testTag("player-chapters")) {
                                         Icon(app.reelstack.ui.components.SpoleIcons.Library, stringResource(R.string.phase_chapters), Modifier.size(20.dp))
@@ -557,6 +585,7 @@ fun PlayerScreen(
                                 }
                                 IconButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy, modifier = Modifier.size(40.dp).testTag("player-quality")) {
                                     Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_quality), Modifier.size(20.dp))
+                                }
                                 }
                                 IconButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.size(40.dp).testTag("player-frame-mode")) {
                                     Icon(

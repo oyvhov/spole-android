@@ -60,7 +60,9 @@ class ConnectionRepository(
     fun get(kind: ServiceKind, profileId: String = activeProfileId): ServiceConnection {
         val prefix = prefixFor(kind, profileId)
         val savedUrl = preferences.getString("$prefix.url", null)
-            ?: if (profileId.isNotBlank()) preferences.getString("${kind.name.lowercase()}.url", null) else null
+            ?: if (profileId.isNotBlank() && (kind == ServiceKind.JELLYFIN || kind == ServiceKind.EMBY)) {
+                preferences.getString("${kind.name.lowercase()}.url", null)
+            } else null
         val token = tokenFor(kind, profileId)
         // An address with no readable token, where a token was nevertheless written, means the
         // Keystore entry is gone. Reporting that as "Konfigurert" sent the user to a home screen
@@ -192,9 +194,23 @@ class ConnectionRepository(
         val list = mutableListOf<UserProfile>()
         val mainName = preferences.getString("main_profile_name", null)
             ?: preferences.getString("jellyfin.name", null)
+            ?: preferences.getString("emby.name", null)
             ?: runCatching { appContext.getString(R.string.profile_main) }.getOrNull()
             ?: "Hovudkonto"
         val mainAvatar = preferences.getString("main_profile_avatar", null)
+            ?: runCatching {
+                val embyUrl = preferences.getString("emby.url", null)
+                val embyUser = preferences.getString("emby.user_id", null)
+                if (!embyUrl.isNullOrBlank() && !embyUser.isNullOrBlank()) {
+                    "${embyUrl.trimEnd('/')}/Users/$embyUser/Images/Primary"
+                } else {
+                    val jfUrl = preferences.getString("jellyfin.url", null)
+                    val jfUser = preferences.getString("jellyfin.user_id", null)
+                    if (!jfUrl.isNullOrBlank() && !jfUser.isNullOrBlank()) {
+                        "${jfUrl.trimEnd('/')}/Users/$jfUser/Images/Primary"
+                    } else null
+                }
+            }.getOrNull()
         list.add(UserProfile(id = "", name = mainName, isKid = false, avatarUrl = mainAvatar))
 
         val kidIds = getKidProfileIds()

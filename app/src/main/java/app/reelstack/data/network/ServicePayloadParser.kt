@@ -221,6 +221,8 @@ data class PublicUser(
     val name: String,
     val hasPassword: Boolean,
     val avatarUrl: String? = null,
+    val serverKind: app.reelstack.data.model.ServiceKind? = null,
+    val serverUrl: String? = null,
 )
 
 object ServicePayloadParser {

@@ -39,4 +39,16 @@ class EmbyAuthenticationClient(
             ?: serviceError(R.string.err_emby_sende_ingen_profil)
         return ServiceAuthentication(token, userId)
     }
+
+    fun publicUsers(baseUrl: String): List<PublicUser> {
+        val resolved = EndpointValidator.resolve(baseUrl, "Users/Public")
+        val response = runCatching {
+            transport.get(
+                resolved,
+                mapOf("Accept" to "application/json"),
+            )
+        }.getOrNull() ?: return emptyList()
+        if (response.statusCode !in 200..299) return emptyList()
+        return ServicePayloadParser.publicUsers(baseUrl, response.body)
+    }
 }

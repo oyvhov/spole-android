@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -39,7 +40,15 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     factory = ReelstackViewModel.Factory(container),
                 )
                 app.reelstack.ui.StartupReveal(reelstackViewModel) {
-                    ReelstackApp(viewModel = reelstackViewModel)
+                    // Kids mode is a separate shell beside the adult app, not a condition inside
+                    // it: no rail, no tabs, no detail sheet. Branching here is what keeps that
+                    // promise structural instead of a growing list of `if (isKidMode)` checks.
+                    val kidMode by reelstackViewModel.uiState.collectAsStateWithLifecycle()
+                    if (kidMode.isKidMode) {
+                        app.reelstack.ui.kids.KidsApp(viewModel = reelstackViewModel)
+                    } else {
+                        ReelstackApp(viewModel = reelstackViewModel)
+                    }
                 }
                 androidx.compose.runtime.LaunchedEffect(pendingSetupLink) {
                     pendingSetupLink?.let(reelstackViewModel::importSetupLink)

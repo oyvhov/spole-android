@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.17.0-beta24 - Barneskalet
+
+- Eige barneskal ved sida av vaksenappen: ingen siderad, ingen faner og ingen detaljpanel. Eitt trykk på eit kort startar avspelinga.
+- Framside for barn med to rader: «Hald fram» med brei kunst og framdriftslinje, og «Seriane dine» som rutenett.
+- Episoderutenett med store nummer, stillbilete og sesongveljar berre når serien har fleire sesongar. Sette episodar er dempa.
+- Barnespelar med tre kontrollar: spol attende, spel/pause, spol fram. Ingen meny for lydspor, undertekst eller kvalitet, og opning i andre appar er av.
+- Autospel av neste episode stoppar etter tre på rad og ventar på eit trykk.
+- Roleg stjernehimmel bak barneframsida, med stille stjerner når systemanimasjon er av.
+- Profilbytet fell ned frå profilbiletet i hjørnet i staden for å opne eit popupark, og viser namnet på personen med rolla under.
+- Emby-kontoar kan leggjast til som barneprofil. Er både Jellyfin og Emby kopla til, spør skjemaet kva for ein tenar kontoen høyrer til; før gjekk brukarnamnet til feil tenar og feila som feil passord.
+- Fokus i barnemodus er 6 dp med 1,05x løft, og D-pad går rett i innhaldet.
+
 ## 0.17.0-beta23 - Barnemodus og brukarbyte
 
 - Fleirprofil-støtte med fullstendig isolasjon mellom hovudkonto og barnekontoar; eksisterande innlogging held fram uendra.

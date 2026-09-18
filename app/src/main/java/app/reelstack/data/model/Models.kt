@@ -146,7 +146,16 @@ data class LibraryMedia(
     val criticRating: Int? = null,
     val tmdbRating: Float? = null,
     val mdblistRating: Float? = null,
-)
+) {
+    /**
+     * A series, whatever the server called it.
+     *
+     * Jellyfin and Emby answer "Series", Seerr-sourced rows say "tv". Both mean the same thing to
+     * a screen deciding whether a tap opens episodes or starts playing.
+     */
+    val isSeries: Boolean
+        get() = mediaType.equals("Series", ignoreCase = true) || mediaType.equals("tv", ignoreCase = true)
+}
 
 data class UpcomingMedia(
     val id: String,

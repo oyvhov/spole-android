@@ -20,7 +20,7 @@ class CompactNavigationTest {
         var selected = AppTab.HOME
         rule.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(320.dp, 640.dp))) {
-                ReelstackTheme { ReelstackBottomBar(AppTab.HOME) { selected = it } }
+                ReelstackTheme { ReelstackBottomBar(AppTab.HOME, onSelect = { selected = it }) }
             }
         }
         val label = rule.onNodeWithText("Val").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
@@ -35,7 +35,7 @@ class CompactNavigationTest {
         rule.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(320.dp, 640.dp))) {
                 DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(2f)) {
-                    ReelstackTheme { ReelstackBottomBar(AppTab.SETTINGS) {} }
+                    ReelstackTheme { ReelstackBottomBar(AppTab.SETTINGS, onSelect = {}) }
                 }
             }
         }
@@ -59,7 +59,7 @@ class CompactNavigationTest {
                         androidx.compose.ui.platform.LocalContext provides context,
                         androidx.compose.ui.platform.LocalConfiguration provides context.resources.configuration,
                     ) {
-                        ReelstackTheme { ReelstackBottomBar(AppTab.HOME) {} }
+                        ReelstackTheme { ReelstackBottomBar(AppTab.HOME, onSelect = {}) }
                     }
                 }
             }

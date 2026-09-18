@@ -67,4 +67,20 @@ class EmbyAuthenticationTest {
         assertFalse(matchesJellyfinAccount(account.copy(source = ServiceKind.EMBY), "abcdef"))
         assertFalse(matchesJellyfinAccount(account, ""))
     }
+
+    @Test fun loadsPublicUsersWithoutDeviceAuthorizationHeaders() {
+        val fake = object : JsonHttpTransport {
+            var sentHeaders = emptyMap<String, String>()
+            override fun get(url: String, headers: Map<String, String>): HttpResponse {
+                sentHeaders = headers
+                return HttpResponse(200, """[{"Id":"kid-1","Name":"Eilev","HasPassword":true}]""")
+            }
+            override fun post(url: String, headers: Map<String, String>, jsonBody: String) = error("unused")
+        }
+        val users = EmbyAuthenticationClient(fake).publicUsers("https://emby.example")
+        assertEquals(1, users.size)
+        assertEquals("Eilev", users.first().name)
+        assertTrue(users.first().hasPassword)
+        assertFalse(fake.sentHeaders.containsKey("X-Emby-Authorization"))
+    }
 }

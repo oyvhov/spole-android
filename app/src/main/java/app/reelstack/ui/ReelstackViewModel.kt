@@ -60,6 +60,19 @@ sealed interface AppSheet {
     data class PinPrompt(val targetProfileId: String, val isSetup: Boolean = false) : AppSheet
 }
 
+/** Framside → Episodar → Spelar. Three levels, and this is the middle one. */
+data class KidsBrowse(
+    val seriesId: String = "",
+    val title: String = "",
+    val source: ServiceKind? = null,
+    val seasons: List<LibraryMedia> = emptyList(),
+    val selectedSeasonId: String = "",
+    val episodes: List<LibraryMedia> = emptyList(),
+    val loading: Boolean = false,
+) {
+    val open: Boolean get() = seriesId.isNotBlank()
+}
+
 data class ConnectionDraft(
     val kind: ServiceKind,
     val name: String,
@@ -95,6 +108,17 @@ data class ReelstackUiState(
     val pinError: String? = null,
     val pinLockoutSeconds: Int = 0,
     val addProfileError: String? = null,
+    /** False when no Jellyfin or Emby address is stored, so the add-profile sheet can say so instead of offering a form that cannot work. */
+    val addProfileHasServer: Boolean = true,
+    /** Media servers the add-profile sheet may sign in against, in the order it offers them. */
+    val addProfileServers: List<ServiceConnection> = emptyList(),
+    /**
+     * The one series a kid has opened, if any.
+     *
+     * Kept apart from [seriesBrowse] on purpose: that one hangs off the adult detail sheet, and
+     * the kid shell has no detail sheet to hang anything from.
+     */
+    val kidsBrowse: KidsBrowse = KidsBrowse(),
     val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
     val loadingAccounts: Set<ServiceKind> = emptySet(),
@@ -791,9 +815,20 @@ class ReelstackViewModel(
         }
     }
 
+    private fun primaryMediaServer(): ServiceConnection? =
+        _uiState.value.connections.firstOrNull {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
+        } ?: _uiState.value.connections.firstOrNull {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank()
+        } ?: container.connectionRepository.list("").firstOrNull {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
+        } ?: container.connectionRepository.list("").firstOrNull {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank()
+        }
+
     fun recoverPinWithPassword(password: String, targetProfileId: String) {
-        val mainJellyfin = container.connectionRepository.get(ServiceKind.JELLYFIN, "")
-        if (mainJellyfin.baseUrl.isBlank()) {
+        val primaryServer = primaryMediaServer()
+        if (primaryServer == null || primaryServer.baseUrl.isBlank()) {
             container.pinSecurity.clearPin()
             switchProfileNow(targetProfileId)
             return
@@ -801,8 +836,12 @@ class ReelstackViewModel(
         viewModelScope.launch {
             val success = withContext(Dispatchers.IO) {
                 runCatching {
-                    val user = mainJellyfin.userId
-                    container.jellyfinAuthenticationClient.authenticate(mainJellyfin.baseUrl, user, password)
+                    val user = primaryServer.name.takeIf { it.isNotBlank() } ?: primaryServer.userId
+                    when (primaryServer.kind) {
+                        ServiceKind.JELLYFIN -> container.jellyfinAuthenticationClient.authenticate(primaryServer.baseUrl, user, password)
+                        ServiceKind.EMBY -> container.embyAuthenticationClient.authenticate(primaryServer.baseUrl, user, password)
+                        else -> error("Ikkje-støtta teneste")
+                    }
                 }.isSuccess
             }
             if (success) {
@@ -814,28 +853,108 @@ class ReelstackViewModel(
         }
     }
 
+    private var kidsBrowseJob: Job? = null
+
+    /**
+     * Opens a series for a kid: seasons first, then the episodes of the season they are actually in.
+     *
+     * A movie never reaches this — it plays on the tap, which is the point of the kid shell.
+     */
+    fun openKidsSeries(media: LibraryMedia) {
+        val seriesId = media.remoteId?.takeIf { it.isNotBlank() } ?: return
+        val connection = _uiState.value.connections.firstOrNull {
+            it.kind == media.source && it.token.isNotBlank()
+        } ?: return
+
+        kidsBrowseJob?.cancel()
+        _uiState.update {
+            it.copy(kidsBrowse = KidsBrowse(
+                seriesId = seriesId, title = media.title, source = media.source, loading = true,
+            ))
+        }
+
+        kidsBrowseJob = viewModelScope.launch {
+            val seasons = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.seasons(connection, seriesId) }
+            }.getOrDefault(emptyList())
+                // Specials are season zero and almost never where a child wants to start.
+                .sortedWith(compareBy({ (it.episode ?: 0) == 0 }, { it.episode ?: Int.MAX_VALUE }))
+            if (!isActive || _uiState.value.kidsBrowse.seriesId != seriesId) return@launch
+
+            val nextUp = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.seriesNextUp(connection, seriesId) }
+            }.getOrNull()
+            val opening = nextUp?.let { next -> seasons.firstOrNull { it.episode == next.season } }
+                ?: seasons.firstOrNull()
+
+            _uiState.update {
+                if (it.kidsBrowse.seriesId != seriesId) it
+                else it.copy(kidsBrowse = it.kidsBrowse.copy(seasons = seasons, loading = opening != null))
+            }
+            opening?.remoteId?.let { selectKidsSeason(it) } ?: _uiState.update {
+                if (it.kidsBrowse.seriesId != seriesId) it else it.copy(kidsBrowse = it.kidsBrowse.copy(loading = false))
+            }
+        }
+    }
+
+    fun selectKidsSeason(seasonId: String) {
+        val browse = _uiState.value.kidsBrowse
+        if (!browse.open) return
+        val connection = _uiState.value.connections.firstOrNull {
+            it.kind == browse.source && it.token.isNotBlank()
+        } ?: return
+        val seriesId = browse.seriesId
+        _uiState.update { it.copy(kidsBrowse = it.kidsBrowse.copy(selectedSeasonId = seasonId, loading = true)) }
+        viewModelScope.launch {
+            val episodes = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.episodes(connection, seriesId, seasonId) }
+            }.getOrDefault(emptyList())
+            _uiState.update {
+                if (it.kidsBrowse.seriesId != seriesId || it.kidsBrowse.selectedSeasonId != seasonId) it
+                else it.copy(kidsBrowse = it.kidsBrowse.copy(episodes = episodes, loading = false))
+            }
+        }
+    }
+
+    fun closeKidsSeries() {
+        kidsBrowseJob?.cancel()
+        _uiState.update { it.copy(kidsBrowse = KidsBrowse()) }
+    }
+
     fun openAddProfile() {
-        val serverUrl = _uiState.value.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN }?.baseUrl.orEmpty()
+        val mediaServers = (_uiState.value.connections +
+                container.connectionRepository.list(""))
+            .filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank() }
+            .distinctBy { it.baseUrl.trimEnd('/') }
         _uiState.update {
             it.copy(
                 activeSheet = AppSheet.AddProfile,
-                loadingPublicUsers = true,
+                loadingPublicUsers = mediaServers.isNotEmpty(),
                 publicUsers = emptyList(),
                 addProfileError = null,
+                addProfileHasServer = mediaServers.isNotEmpty(),
+                addProfileServers = mediaServers,
             )
         }
-        if (serverUrl.isBlank()) {
-            _uiState.update { it.copy(loadingPublicUsers = false, addProfileError = appString(R.string.profile_add_no_users)) }
-            return
-        }
+        if (mediaServers.isEmpty()) return
         viewModelScope.launch {
-            val users = withContext(Dispatchers.IO) {
-                container.jellyfinAuthenticationClient.publicUsers(serverUrl)
+            val allUsers = mutableListOf<app.reelstack.data.network.PublicUser>()
+            for (server in mediaServers) {
+                val users = withContext(Dispatchers.IO) {
+                    runCatching {
+                        when (server.kind) {
+                            ServiceKind.JELLYFIN -> container.jellyfinAuthenticationClient.publicUsers(server.baseUrl)
+                            ServiceKind.EMBY -> container.embyAuthenticationClient.publicUsers(server.baseUrl)
+                            else -> emptyList()
+                        }.map { it.copy(serverKind = server.kind, serverUrl = server.baseUrl) }
+                    }.getOrElse { emptyList() }
+                }
+                allUsers.addAll(users)
             }
             _uiState.update {
                 it.copy(
                     loadingPublicUsers = false,
-                    publicUsers = users,
+                    publicUsers = allUsers,
                 )
             }
         }
@@ -847,41 +966,77 @@ class ReelstackViewModel(
             password = password,
             userId = user.id,
             avatarUrl = user.avatarUrl,
+            serverKind = user.serverKind,
+            serverUrl = user.serverUrl,
         )
     }
 
-    fun addKidProfileManual(username: String, password: String) {
+    fun addKidProfileManual(username: String, password: String, serverUrl: String? = null) {
+        val server = serverUrl?.let { url ->
+            _uiState.value.addProfileServers.firstOrNull { it.baseUrl.trimEnd('/') == url.trimEnd('/') }
+        }
         addKidProfileInternal(
             username = username.trim(),
             password = password,
             userId = null,
             avatarUrl = null,
+            serverKind = server?.kind,
+            serverUrl = server?.baseUrl,
         )
     }
 
-    private fun addKidProfileInternal(username: String, password: String, userId: String?, avatarUrl: String?) {
-        val mainJellyfin = _uiState.value.connections.firstOrNull { it.kind == ServiceKind.JELLYFIN } ?: return
+    private fun addKidProfileInternal(
+        username: String,
+        password: String,
+        userId: String?,
+        avatarUrl: String?,
+        serverKind: ServiceKind? = null,
+        serverUrl: String? = null,
+    ) {
+        val resolvedKind = serverKind ?: primaryMediaServer()?.kind
+        val resolvedUrl = serverUrl ?: primaryMediaServer()?.baseUrl.orEmpty()
+        val serverConnection = if (resolvedUrl.isNotBlank()) {
+            (_uiState.value.connections + container.connectionRepository.list(""))
+                .firstOrNull { it.baseUrl.trimEnd('/') == resolvedUrl.trimEnd('/') }
+        } else null
+
+        if (resolvedKind == null || resolvedUrl.isBlank() || serverConnection == null) {
+            _uiState.update {
+                it.copy(
+                    loadingPublicUsers = false,
+                    addProfileError = appString(R.string.err_fekk_ikkje_kontakt_med_2),
+                )
+            }
+            return
+        }
         if (username.isBlank()) return
         viewModelScope.launch {
             _uiState.update { it.copy(loadingPublicUsers = true, addProfileError = null) }
-            val auth = withContext(Dispatchers.IO) {
+            val authResult = withContext(Dispatchers.IO) {
                 runCatching {
-                    container.jellyfinAuthenticationClient.authenticate(mainJellyfin.baseUrl, username, password)
-                }.getOrNull()
+                    when (resolvedKind) {
+                        ServiceKind.JELLYFIN -> container.jellyfinAuthenticationClient.authenticate(resolvedUrl, username, password)
+                        ServiceKind.EMBY -> container.embyAuthenticationClient.authenticate(resolvedUrl, username, password)
+                        else -> error("Ikkje-støtta teneste")
+                    }
+                }
             }
+            val auth = authResult.getOrNull()
             if (auth == null) {
+                val ex = authResult.exceptionOrNull()
+                val readable = ex?.readableMessage(container.appContext)
                 _uiState.update {
                     it.copy(
                         loadingPublicUsers = false,
-                        addProfileError = appString(R.string.err_feil_brukarnamn_eller_passord),
+                        addProfileError = readable ?: appString(R.string.err_feil_brukarnamn_eller_passord),
                     )
                 }
                 return@launch
             }
 
             val finalUserId = userId ?: auth.userId
-            val finalAvatarUrl = avatarUrl ?: "${mainJellyfin.baseUrl.trimEnd('/')}/Users/$finalUserId/Images/Primary"
-            val kidConnection = mainJellyfin.copy(
+            val finalAvatarUrl = avatarUrl ?: "${resolvedUrl.trimEnd('/')}/Users/$finalUserId/Images/Primary"
+            val kidConnection = serverConnection.copy(
                 token = auth.accessToken,
                 userId = auth.userId,
                 name = username,
@@ -889,13 +1044,19 @@ class ReelstackViewModel(
             container.connectionRepository.save(kidConnection, finalUserId)
             container.connectionRepository.registerKidProfile(finalUserId, username, finalAvatarUrl)
 
+            val newProfiles = container.connectionRepository.listProfiles()
             _uiState.update {
                 it.copy(
                     loadingPublicUsers = false,
-                    profiles = container.connectionRepository.listProfiles(),
+                    profiles = newProfiles,
                 )
             }
-            switchProfileNow(finalUserId)
+            val targetProfile = newProfiles.firstOrNull { it.id == finalUserId }
+            if (targetProfile != null) {
+                selectProfile(targetProfile)
+            } else {
+                switchProfileNow(finalUserId)
+            }
         }
     }
 
@@ -2137,6 +2298,17 @@ class ReelstackViewModel(
                 launch profile@ {
                     val result = attempt { withContext(Dispatchers.IO) { container.accountProfileClient.load(connection) } }
                     if (!isActive) return@profile
+                    // Remember who the adult actually is. The stored profile name is the server's
+                    // nickname — "Heimetenar" — which names the machine, not the person watching,
+                    // and in kids mode the loaded account is the child's, so only the main profile
+                    // may write this.
+                    val account = result.getOrNull()
+                    if (account != null && !container.connectionRepository.isKidMode &&
+                        connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+                        account.displayName.isNotBlank()
+                    ) {
+                        container.connectionRepository.setMainProfileInfo(account.displayName, account.avatarUrl)
+                    }
                     _uiState.update { current ->
                         val configured = current.connections.firstOrNull { it.kind == connection.kind }
                         if (configured == null || configured.baseUrl != connection.baseUrl || configured.token != connection.token ||

@@ -1,6 +1,8 @@
 # Barnemodus · arbeidsplan
 
-Status: **ikkje starta.** Ingenting i denne planen er implementert.
+Status: **delvis bygd og verifisert på eining.** BM-1 til BM-4 er ferdige. BM-5, BM-6 og BM-9 er
+bygde i grunnform og verifiserte på Google TV (emulator-5564) 18. september 2026 med Eilev sin
+Emby-konto. BM-7, BM-8 og BM-10 til BM-13 står att; BM-13 er delvis dekt av fokusreglane i skalet.
 
 BM-1 til BM-4 vart prototypa 11. september 2026 og **fjerna att same dag** på brukaren si melding.
 Koden kompilerte og 356 einingstestar var grøne, men ingenting vart sett på ei eining. Det som vart
@@ -55,21 +57,21 @@ Dette er den viktigaste forenklinga i planen. Ikkje legg admin-kall inn att.
 
 | ID | Funksjon | Status | Avheng av |
 | --- | --- | --- | --- |
-| BM-1 | Profildimensjon i lagringa | ☐ Ikkje starta | — |
-| BM-2 | Profilbyte frå ikonet | ☐ Ikkje starta | BM-1 |
-| BM-3 | Legg til profil | ☐ Ikkje starta | BM-1 |
-| BM-4 | PIN og utgang | ☐ Ikkje starta | BM-2 |
-| BM-5 | Barneskalet | ☐ Ikkje starta | BM-1 |
-| BM-6 | Framsida for barn | ☐ Ikkje starta | BM-5 |
+| BM-1 | Profildimensjon i lagringa | ☑ Ferdig og verifisert | — |
+| BM-2 | Profilbyte frå ikonet | ☑ Ferdig og verifisert | BM-1 |
+| BM-3 | Legg til profil | ☑ Ferdig og verifisert | BM-1 |
+| BM-4 | PIN og utgang | ☑ Ferdig og verifisert | BM-2 |
+| BM-5 | Barneskalet | ◐ Grunnform verifisert | BM-1 |
+| BM-6 | Framsida for barn | ◐ Grunnform verifisert | BM-5 |
 | BM-7 | Episoderutenett | ☐ Ikkje starta | BM-5 |
 | BM-8 | Barnespelaren | ☐ Ikkje starta | BM-5 |
-| BM-9 | Verdsromlaget | ☐ Ikkje starta | BM-6 |
+| BM-9 | Verdsromlaget | ◐ Stjernehimmel og tom tilstand | BM-6 |
 | BM-10 | Nettverksinnstramming | ☐ Ikkje starta | BM-5 |
 | BM-11 | Skjermfesting | ☐ Ikkje starta | BM-4 |
 | BM-12 | Tid og leggjetid | ☐ Ikkje starta | BM-8 |
-| BM-13 | TV-tilpassing | ☐ Ikkje starta | BM-6 |
+| BM-13 | TV-tilpassing | ◐ Fokus og tilbake-regel | BM-6 |
 
-Statusverdiar: `☐ Ikkje starta` · `☐ Ikkje starta` · `☑ Ferdig og verifisert`
+Statusverdiar: `☐ Ikkje starta` · `◐ Delvis` · `☑ Ferdig og verifisert`
 
 ---
 
@@ -406,6 +408,27 @@ Desse er ikkje til forhandling. Bryt ein av dei, og funksjonen er ikkje barnemod
 - Ingen skjermbilete med ekte kontonamn eller bibliotekinnhald skal leggjast i repoet.
 
 ---
+
+## Verifisert på eining 18. september 2026
+
+Køyrt på `emulator-5564` (Google TV) med Eilev sin Emby-konto, signert release over `install -r`:
+
+- Profilveljaren opnar frå ikonet og **fell ned frå profilbiletet i hjørnet** som ein forankra meny
+  (`ui/components/ProfileMenu.kt`), ikkje som eit popupark nedanfrå. Han skjuler «Legg til profil»
+  og «Innstillingar» i barnemodus. Merk: sheet-verten må returnere tidleg for `ProfileSwitcher`,
+  elles opnar eit tomt ark bak menyen.
+- Barneskalet har ingen siderad, ingen faner og ingen detaljpanel. Eitt trykk på eit kort startar
+  `JellyfinPlayerActivity` direkte — stadfesta med `dumpsys activity`.
+- Utgangen går gjennom PIN og tilbake til forelderen sitt eige innhald.
+- Fokus er 6 dp med 1,05× løft. **Løftet må ligge på kunstflata åleine:** skalerer ein heile kortet,
+  veks plakaten ned over sin eigen tittel og det ser ut som klipt tekst.
+
+**Emby viser ikkje offentlege kontoar utanfrå.** `https://emby.midttunet.no/Users/Public` svarar `[]`
+både med og utan `/emby`-prefiks, medan `System/Info/Public` og `AuthenticateByName` svarar normalt.
+Kontoveljaren i BM-3 kan difor ikkje fyllast over WAN i dette oppsettet, og skjemaet med brukarnamn
+er hovudvegen — ikkje ei reserveløysing. Med både Jellyfin og Emby kopla til **må** skjemaet spørje
+kva for ein tenar kontoen høyrer til; utan det gjekk barnenamnet til Jellyfin og feila som feil
+passord.
 
 ## Kva som ikkje er avgjort
 

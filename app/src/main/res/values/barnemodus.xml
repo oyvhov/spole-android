@@ -26,4 +26,25 @@
     <string name="profile_add_username_label">Username</string>
     <string name="profile_add_password_label">Password</string>
     <string name="profile_add_submit_button">Add profile</string>
+    <string name="profile_add_heading">Who is watching?</string>
+    <string name="profile_add_manual_tile">Enter a username</string>
+    <string name="profile_add_needs_password">Needs a password</string>
+    <string name="profile_add_password_hint">Password</string>
+    <string name="profile_add_show_password">Show password</string>
+    <string name="profile_add_hide_password">Hide password</string>
+    <string name="profile_add_no_server">Connect Jellyfin or Emby before you add a kid profile.</string>
+    <string name="profile_add_signing_in">Signing in…</string>
+    <string name="profile_add_server_label">On %1$s</string>
+    <string name="profile_add_no_users_hint">This server does not list accounts on its login screen. Enter the username for the kid account.</string>
+    <string name="profile_add_server_choice">Which server owns the account?</string>
+    <string name="kids_keep_watching">Keep watching</string>
+    <string name="kids_your_shows">Your shows</string>
+    <string name="kids_greeting">Hi, %1$s</string>
+    <string name="kids_greeting_plain">Hi</string>
+    <string name="kids_switch_profile">Switch profile</string>
+    <string name="kids_empty_title">Nothing here yet</string>
+    <string name="kids_empty_body">New things show up here when they are ready.</string>
+    <string name="profile_role_kid">Kid profile</string>
+    <string name="profile_role_main">Main account</string>
+    <string name="kids_season_number">Season %1$d</string>
 </resources>

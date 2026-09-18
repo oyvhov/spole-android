@@ -132,6 +132,8 @@ private const val STALL_GIVE_UP_MS = 45_000L
 private fun AppContainer.appString(@androidx.annotation.StringRes resId: Int, vararg args: Any): String =
     app.reelstack.localization.AppLanguages.wrap(appContext).getString(resId, *args)
 
+private const val MAX_KIDS_AUTOPLAY_CHAIN = 3
+
 /** Owns one local player, not a remote session controller. Survives rotation; never plays in the background. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
@@ -167,6 +169,15 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var nextEpisodeJob: Job? = null
     private var countdownJob: Job? = null
     private var nextEpisodeCancelled = false
+
+    /**
+     * Kids mode caps how many episodes may start on their own.
+     *
+     * An app that keeps a child watching for as long as it can is working against the parent who
+     * installed it, so after three in a row the offer stays put and waits for a press.
+     */
+    var kidsMode: Boolean = false
+    private var autoplayChain = 0
     private var preferredAudio: Int? = null
     private var preferredSubtitle: Int? = null
     private var preferredAudioKey: String? = null
@@ -425,6 +436,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         source: ServiceKind = ServiceKind.JELLYFIN) {
         if (rootId.isNotEmpty()) return
         require(source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
+        autoplayChain = 0
         serviceKind = source
         mutable.update { it.copy(source = source, title = source.displayName) }
         rootId = id
@@ -655,6 +667,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         val options = container.preferencesRepository.personalization
         if (countdownJob?.isActive == true || nextEpisodeCancelled || !foreground ||
             !options.autoPlayNextEpisode || !state.value.canCountDownNextEpisode()) return
+        // Three on the trot, then the offer waits for a hand.
+        if (kidsMode && autoplayChain >= MAX_KIDS_AUTOPLAY_CHAIN) return
         val episodeId = state.value.itemId
         val seconds = state.value.nextEpisodeCountdown ?: options.nextEpisodeDelaySeconds
         if (state.value.nextEpisodeCountdown == null)
@@ -672,15 +686,17 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     state.value.nextEpisode == null || !sameAccount()) return@launch
             }
             while (isActive && foreground && !state.value.playing && !state.value.ended) delay(200)
-            if (state.value.canCountDownNextEpisode()) playNext()
+            if (state.value.canCountDownNextEpisode()) playNext(fromCountdown = true)
             else mutable.update { it.copy(nextEpisodeCountdown = null) }
         }
     }
 
     /** Starts the next episode now, whether the countdown ran out or someone pressed the button. */
-    fun playNext() {
+    fun playNext(fromCountdown: Boolean = false) {
         if (!foreground || state.value.busy || state.value.error != null || !sameAccount()) return
         val next = state.value.nextEpisode ?: return
+        // Only an episode that started by itself extends the chain. A press is a fresh decision.
+        autoplayChain = if (fromCountdown) autoplayChain + 1 else 0
         countdownJob?.cancel()
         mutable.update { it.copy(nextEpisode = null, nextEpisodeCountdown = null) }
         report("/Stopped"); started = false

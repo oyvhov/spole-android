@@ -169,9 +169,12 @@ fun ReelstackSheets(
     onSubmitPin: (String, String, Boolean) -> Unit = { _, _, _ -> },
     onRecoverPinWithPassword: (String, String) -> Unit = { _, _ -> },
     onAddKidUser: (app.reelstack.data.network.PublicUser, String) -> Unit = { _, _ -> },
-    onAddKidManual: (String, String) -> Unit = { _, _ -> },
+    onAddKidManual: (String, String, String?) -> Unit = { _, _, _ -> },
 ) {
     val sheet = state.activeSheet ?: return
+    // The profile menu is an anchored popup owned by the shell. Falling through to the dialog here
+    // would open an empty sheet behind it.
+    if (sheet is AppSheet.ProfileSwitcher) return
     val sheetContentStates = rememberSaveableStateHolder()
     val tvDetails = sheet is AppSheet.TitleDetails &&
         (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
@@ -236,15 +239,7 @@ fun ReelstackSheets(
                         }.getOrNull() else null,
                     )
                 }
-                AppSheet.ProfileSwitcher -> app.reelstack.ui.components.ProfileSwitcher(
-                    profiles = state.profiles,
-                    activeProfileId = state.activeProfileId,
-                    isKidMode = state.isKidMode,
-                    onSelectProfile = onSelectProfile,
-                    onAddProfile = onOpenAddProfile,
-                    onOpenSettings = onOpenSettings,
-                    onDeleteProfile = onDeleteProfile,
-                )
+                AppSheet.ProfileSwitcher -> Unit
                 is AppSheet.PinPrompt -> app.reelstack.ui.components.PinEntrySheet(
                     title = if (sheet.isSetup) stringResource(R.string.profile_set_pin_title) else stringResource(R.string.profile_enter_pin_title),
                     subtitle = if (sheet.isSetup) stringResource(R.string.profile_set_pin_subtitle) else stringResource(R.string.profile_enter_pin_subtitle),
@@ -259,6 +254,17 @@ fun ReelstackSheets(
                     publicUsers = state.publicUsers,
                     loading = state.loadingPublicUsers,
                     error = state.addProfileError,
+                    hasServer = state.addProfileHasServer,
+                    servers = state.addProfileServers.map { server ->
+                        app.reelstack.ui.sheets.KidServerOption(
+                            kind = server.kind,
+                            baseUrl = server.baseUrl,
+                            label = when (server.kind) {
+                                ServiceKind.EMBY -> "Emby"
+                                else -> "Jellyfin"
+                            },
+                        )
+                    },
                     onAddUser = onAddKidUser,
                     onAddManual = onAddKidManual,
                     onDismiss = close,

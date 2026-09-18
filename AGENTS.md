@@ -6,6 +6,7 @@ Når brukaren ber om ein ny APK-release som appen kan oppdatere frå, følg `doc
 
 Når brukaren ber om TV-/mobilemulatorar med ekte data, bruk `scripts/Start-SpoleEmulators.ps1` og les `docs/EMULATORS_WITH_REAL_DATA.md`. Bruk dei eksisterande innlogga AVD-profilane; ikkje lag tomme erstatningar, slå på demo, slett appdata eller køyr instrumentering på desse profilane.
 
-Barnemodus er planlagd, ikkje bygd. Arbeidslista med funksjons-ID-ar og akseptansekrav ligg i
+Barnemodus er delvis bygd: BM-1 til BM-4 er ferdige, BM-5, BM-6 og BM-9 finst i grunnform.
+Arbeidslista med funksjons-ID-ar og akseptansekrav ligg i
 `docs/BARNEMODUS_PLAN.md`. Les henne før du rører noko som gjeld profilar, kontobyte eller
 barneflater, og hak av først når akseptansekravet er verifisert.

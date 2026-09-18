@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="profile_main">Hovudkonto</string>
-    <string name="profile_kids_section">Barneproflar</string>
+    <string name="profile_kids_section">Barneprofilar</string>
     <string name="profile_switch_title">Byt profil</string>
     <string name="profile_add_action">Legg til barneprofil</string>
     <string name="profile_enter_pin_title">Vaksentilgang</string>
@@ -18,7 +18,7 @@
     <string name="profile_pin_reset_action">Tilbakestill PIN</string>
     <string name="profile_add_title">Legg til barneprofil</string>
     <string name="profile_add_subtitle">Vel ein barnekonto frå tenaren din</string>
-    <string name="profile_add_no_users">Fann inge offentlege kontoar på tenaren</string>
+    <string name="profile_add_no_users">Fann ingen offentlege kontoar på tenaren</string>
     <string name="profile_add_password_required">Oppgi passord for %1$s</string>
     <string name="profile_delete_action">Slett profil</string>
     <string name="profile_delete_confirm">Er du viss på at du vil fjerne %1$s frå denne eininga?</string>
@@ -26,4 +26,25 @@
     <string name="profile_add_username_label">Brukarnamn</string>
     <string name="profile_add_password_label">Passord</string>
     <string name="profile_add_submit_button">Legg til profil</string>
+    <string name="profile_add_heading">Kven skal sjå?</string>
+    <string name="profile_add_manual_tile">Skriv inn brukarnamn</string>
+    <string name="profile_add_needs_password">Krev passord</string>
+    <string name="profile_add_password_hint">Passord</string>
+    <string name="profile_add_show_password">Vis passordet</string>
+    <string name="profile_add_hide_password">Gøym passordet</string>
+    <string name="profile_add_no_server">Kopla til Jellyfin eller Emby før du legg til ein barneprofil.</string>
+    <string name="profile_add_signing_in">Loggar inn …</string>
+    <string name="profile_add_server_label">På %1$s</string>
+    <string name="profile_add_no_users_hint">Tenaren viser ingen kontoar i innloggingslista. Skriv inn brukarnamnet til barnet.</string>
+    <string name="profile_add_server_choice">Kva for ein tenar eig kontoen?</string>
+    <string name="kids_keep_watching">Hald fram</string>
+    <string name="kids_your_shows">Seriane dine</string>
+    <string name="kids_greeting">Hei, %1$s</string>
+    <string name="kids_greeting_plain">Hei</string>
+    <string name="kids_switch_profile">Byt profil</string>
+    <string name="kids_empty_title">Her er det tomt enno</string>
+    <string name="kids_empty_body">Nye ting dukkar opp her når dei er klare.</string>
+    <string name="profile_role_kid">Barneprofil</string>
+    <string name="profile_role_main">Hovudkonto</string>
+    <string name="kids_season_number">Sesong %1$d</string>
 </resources>

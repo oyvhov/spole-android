@@ -139,4 +139,44 @@ class PublicUsersParserTest {
         assertTrue(ServicePayloadParser.publicUsers(baseUrl, "").isEmpty())
         assertTrue(ServicePayloadParser.publicUsers(baseUrl, "   ").isEmpty())
     }
+
+    @Test
+    fun `parses real Emby public users response correctly`() {
+        val json = """
+            [
+                {
+                    "Name": "Eilev",
+                    "ServerId": "225a56b669dc45bb8a04f6c569ce0a39",
+                    "Prefix": "E",
+                    "Id": "6bcf0037dd0c49c8858b338bdef299e8",
+                    "PrimaryImageTag": "a21deed053c32b0248529941d1123c2a_638949189079662910",
+                    "HasPassword": true,
+                    "HasConfiguredPassword": true
+                },
+                {
+                    "Name": "Øyvind",
+                    "ServerId": "225a56b669dc45bb8a04f6c569ce0a39",
+                    "Prefix": "Ø",
+                    "Id": "f878e57cd7bc412f82c1bdf594e8f7c3",
+                    "PrimaryImageTag": "51026ad5596ea0d34bfc02469a9be9e4_638924342343355842",
+                    "HasPassword": true,
+                    "HasConfiguredPassword": true
+                }
+            ]
+        """.trimIndent()
+
+        val users = ServicePayloadParser.publicUsers("http://127.0.0.1:8096", json)
+        assertEquals(2, users.size)
+        assertEquals("Eilev", users[0].name)
+        assertEquals("6bcf0037dd0c49c8858b338bdef299e8", users[0].id)
+        assertTrue(users[0].hasPassword)
+        assertEquals(
+            "http://127.0.0.1:8096/Users/6bcf0037dd0c49c8858b338bdef299e8/Images/Primary?tag=a21deed053c32b0248529941d1123c2a_638949189079662910",
+            users[0].avatarUrl,
+        )
+
+        assertEquals("Øyvind", users[1].name)
+        assertEquals("f878e57cd7bc412f82c1bdf594e8f7c3", users[1].id)
+        assertTrue(users[1].hasPassword)
+    }
 }

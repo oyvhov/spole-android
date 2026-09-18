@@ -430,6 +430,27 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     }
     }
 
+    // The profile menu belongs to the corner the avatar sits in, so it is rendered here beside
+    // the sheet host rather than inside it.
+    if (state.activeSheet is AppSheet.ProfileSwitcher) {
+        app.reelstack.ui.components.ProfileMenu(
+            profiles = state.profiles,
+            activeProfileId = state.activeProfileId,
+            isKidMode = state.isKidMode,
+            mainAccountName = (state.accounts[app.reelstack.data.model.ServiceKind.EMBY]
+                ?: state.accounts[app.reelstack.data.model.ServiceKind.JELLYFIN])
+                ?.displayName,
+            mainAccountAvatarUrl = (state.accounts[app.reelstack.data.model.ServiceKind.EMBY]
+                ?: state.accounts[app.reelstack.data.model.ServiceKind.JELLYFIN])
+                ?.avatarUrl,
+            onSelectProfile = viewModel::selectProfile,
+            onAddProfile = viewModel::openAddProfile,
+            onOpenSettings = { viewModel.closeSheet(); viewModel.selectTab(AppTab.SETTINGS) },
+            onDeleteProfile = viewModel::deleteKidProfile,
+            onDismiss = viewModel::closeSheet,
+        )
+    }
+
     ReelstackSheets(
         state = state,
         connectionDraft = connectionDraft,
