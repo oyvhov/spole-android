@@ -8,6 +8,14 @@ import org.junit.Test
 
 class PlaybackCapabilitiesTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @Test fun bundledAudioDecoderReallyLoadsAndAdvertisesMultichannelSupport() {
+        assertTrue(androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable())
+        val audio = AndroidPlaybackCapabilities(context).snapshot().audio
+        for (codec in listOf("dts", "ac3", "eac3", "truehd", "flac", "alac")) {
+            assertTrue("Missing local $codec support", audio.any { it.codec == codec && it.channels >= 8 })
+        }
+    }
     @Test fun detectsRealPlatformCapabilitiesAndExportsOnlyNonSecretDiagnostics() {
         val snapshot = AndroidPlaybackCapabilities(context).snapshot()
         assertTrue(snapshot.video.any { it.codec == "h264" })

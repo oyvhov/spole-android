@@ -95,6 +95,7 @@ data class PlaybackPlan(
      * display and never shown raw.
      */
     val transcodeReasons: List<String> = emptyList(),
+    val compatibility: PlaybackCompatibility = PlaybackCompatibility.DIRECT,
 ) {
     /** Kept for every caller that only needs "is the file being sent untouched". */
     val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
@@ -232,7 +233,7 @@ fun safePlaybackUrl(baseUrl: String, value: String): String {
 /** Safe fallback when detection fails or a decoder rejects an advertised format. */
 fun phonePlaybackProfile(bitrate: Int): JsonObject = devicePlaybackProfile(bitrate, DevicePlaybackCapabilities.CONSERVATIVE)
 
-internal enum class PlaybackCompatibility {
+enum class PlaybackCompatibility {
     DIRECT,
     AUDIO_ONLY,
     FULL,
@@ -363,7 +364,7 @@ class MediaPlaybackClient(
         })
         if (response.str("ErrorCode").isNotBlank()) serviceError(R.string.player_err_no_format)
         val source = response.objects("MediaSources").firstOrNull { !it.flag("RequiresOpening") && (sourceId == null || it.str("Id") == sourceId) &&
-            (it.flag("SupportsDirectPlay") || it.str("TranscodingUrl").isNotBlank()) }
+            (it.flag("SupportsDirectPlay") || originalDirectStreamUrl(it) != null || it.str("TranscodingUrl").isNotBlank()) }
             ?: serviceError(R.string.player_err_no_version)
         val mediaSourceId = source.str("Id").also { if (it.isBlank()) serviceError(R.string.player_err_server_incomplete) }
         val session = response.str("PlaySessionId").also { if (it.isBlank()) serviceError(R.string.player_err_server_incomplete) }
@@ -391,7 +392,8 @@ class MediaPlaybackClient(
                 preferredLanguage, fallbackLanguage)
         }
         val subtitleTrack = subtitles.firstOrNull { it.index == selectedSubtitle }
-        val direct = source.flag("SupportsDirectPlay") && compatibility == PlaybackCompatibility.DIRECT
+        val directStream = originalDirectStreamUrl(source)
+        val direct = (source.flag("SupportsDirectPlay") || directStream != null) && compatibility == PlaybackCompatibility.DIRECT
         // A rejected audio route must not turn a supported H.264/HEVC picture into a full transcode.
         if (compatibility != PlaybackCompatibility.FULL && !videoSupported(source)) {
             return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, PlaybackCompatibility.FULL,
@@ -406,14 +408,14 @@ class MediaPlaybackClient(
             return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, PlaybackCompatibility.FULL,
                 mediaSourceId, preferredLanguage, fallbackLanguage)
         }
-        val url = if (direct) "Videos/${enc(item.id)}/stream?static=true&MediaSourceId=${enc(mediaSourceId)}&PlaySessionId=${enc(session)}" else
+        val url = if (direct) directStream ?: "Videos/${enc(item.id)}/stream?static=true&MediaSourceId=${enc(mediaSourceId)}&PlaySessionId=${enc(session)}" else
             source.str("TranscodingUrl").also { if (it.isBlank()) serviceError(R.string.player_err_cannot_adapt) }
         val subtitleUrl = subtitleTrack?.takeIf { it.isText }?.let {
             safePlaybackUrl(c.baseUrl, "Videos/${enc(item.id)}/${enc(mediaSourceId)}/Subtitles/${it.index}/Stream.vtt")
         }
         return PlaybackPlan(item, mediaSourceId, session, safePlaybackUrl(c.baseUrl, url),
             playbackModeFor(source, direct), tracks("Audio"), subtitles,
-            selectedAudio, selectedSubtitle, subtitleUrl, playbackTranscodeReasons(source))
+            selectedAudio, selectedSubtitle, subtitleUrl, playbackTranscodeReasons(source), compatibility)
     }
 
     /** Playback support is separate from receiving remote commands. Until a remote-command

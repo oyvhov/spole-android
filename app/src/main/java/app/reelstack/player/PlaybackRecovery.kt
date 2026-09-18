@@ -15,15 +15,26 @@ import androidx.media3.exoplayer.ExoPlaybackException
  * both its picture and its surround taken away by one error, and kept them off for the rest of the
  * film, because the ladder had a single rung and it was the bottom one.
  *
- * So: the sound first. Only a picture that actually failed to decode, or a second failure after the
- * sound was already being converted, costs the video. Two steps and then a stop — still no endless
- * retry loop, which is what the single latch was there to prevent.
+ * Convert audio first unless the video renderer failed. A repeated audio failure stops playback;
+ * it is not evidence that a working video stream needs re-encoding. Never loop indefinitely.
  */
 internal fun nextPlaybackCompatibility(current: PlaybackCompatibility, videoFailed: Boolean): PlaybackCompatibility = when {
     current == PlaybackCompatibility.FULL -> PlaybackCompatibility.FULL
-    videoFailed || current == PlaybackCompatibility.AUDIO_ONLY -> PlaybackCompatibility.FULL
+    videoFailed -> PlaybackCompatibility.FULL
+    current == PlaybackCompatibility.AUDIO_ONLY -> PlaybackCompatibility.AUDIO_ONLY
     else -> PlaybackCompatibility.AUDIO_ONLY
 }
+
+/** Transport/authentication errors are not evidence of an unsupported video or audio format. */
+internal fun playbackFailureNeedsConversion(errorCode: Int): Boolean = errorCode in setOf(
+    PlaybackException.ERROR_CODE_DECODING_FAILED,
+    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+    PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+    PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+    PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
+    PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
+    PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+)
 
 /**
  * Whether it was the picture that gave up.

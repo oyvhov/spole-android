@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.0-beta18 - Lokal lyddekoding og mindre unødvendig omkoding
+
+- Lokal FFmpeg-lyddekoding for mellom anna DTS, AC3, EAC3 og TrueHD. Støtta maskinvaredekoding og passthrough blir framleis prioriterte.
+- Buffering og nettverksfeil utløyser ikkje lenger full videoomkoding. Gjentekne lydfeil skal heller ikkje koste eit videobilete som fungerer.
+- Støtte for servergodkjende, statiske DirectStream-URL-ar frå Emby/Jellyfin og korrekt vidareføring av kompatibilitetsnivået.
+- Lydkapabilitetar blir baserte på faktisk plattform-, passthrough- og lokal dekodarstøtte, ikkje ei slutning frå stereo til surround.
+- Lisensar og kjelde-/relenkingsmateriale for FFmpeg følgjer distribusjonen. Optisk lyd kan framleis gi stereo ved lokal PCM-dekoding; fysisk Pixel 9 Pro/Shield TV/Sonos Playbar er ikkje verifisert.
+
 ## 0.17.0-beta17 - Panelet seier kvifor straumen fall ned
 
 - Stats for Nerds har fått ei «Fall ned»-linje: Media3 sin feilkode, formatet renderaren gav opp på, og kva trinn avspelinga hamna på. Dette fanst berre i logcat, altså berre for den som har telefonen i ein USB-kabel — og ein TV har ingen logcat. Spørsmålet panelet er laga for å svare på, «kvifor omkodar denne?», kunne ikkje svarast på den eininga der det oftast blir stilt.

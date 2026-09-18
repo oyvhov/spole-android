@@ -21,7 +21,7 @@ class JellyfinPlayerTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
     private class Server(val assets: android.content.res.AssetManager, val hls: Boolean = false, val resumeMs: Long = 0,
-        val episode: Boolean = false, val defaultSubtitle: Int = 2) : AutoCloseable {
+        val episode: Boolean = false, val defaultSubtitle: Int = 2, val audioCodec: String = "aac") : AutoCloseable {
         val socket = ServerSocket(0)
         val base = "http://127.0.0.1:${socket.localPort}"
         val pool = Executors.newCachedThreadPool()
@@ -58,7 +58,7 @@ class JellyfinPlayerTest {
                 var status = 200
                 var contentType = "application/json"
                 var bytes = when {
-                    path == "/Users/Me" -> """{"Id":"u1","Name":"Testperson","Policy":{"EnableMediaPlayback":true,"IsAdministrator":false}}""".toByteArray()
+                    path == "/Users/Me" || path == "/Users/u1" -> """{"Id":"u1","Name":"Testperson","Policy":{"EnableMediaPlayback":true,"IsAdministrator":false}}""".toByteArray()
                     episode && path.contains("adjacentTo=") -> """{"Items":[
                         {"Id":"film","Type":"Episode","SeriesId":"series","Name":"Første","RunTimeTicks":200000000},
                         {"Id":"next","Type":"Episode","SeriesId":"series","Name":"Neste","RunTimeTicks":200000000}]}""".toByteArray()
@@ -79,11 +79,23 @@ class JellyfinPlayerTest {
                     path.contains("/Subtitles/") -> { contentType="text/vtt"; assets.open("player/subtitle.vtt").use { it.readBytes() } }
                     else -> {
                         if (rejectVideo) { status=503; byteArrayOf() } else {
-                            val name = if (path.startsWith("/hls/")) path.substringAfterLast('/').substringBefore('?') else "video.mp4"
-                            contentType = if(name.endsWith("m3u8")) "application/vnd.apple.mpegurl" else if(name.endsWith("ts")) "video/mp2t" else "video/mp4"
+                            val name = if (path.startsWith("/hls/")) path.substringAfterLast('/').substringBefore('?')
+                                else if (audioCodec != "aac") "$audioCodec.mkv" else "video.mp4"
+                            contentType = when {
+                                name.endsWith("m3u8") -> "application/vnd.apple.mpegurl"
+                                name.endsWith("ts") -> "video/mp2t"
+                                name.endsWith("mkv") -> "video/x-matroska"
+                                else -> "video/mp4"
+                            }
                             assets.open("player/$name").use { it.readBytes() }
                         }
                     }
+                }
+                if (path.endsWith("PlaybackInfo") && audioCodec != "aac") {
+                    bytes = bytes.toString(Charsets.UTF_8)
+                        .replace("\"Codec\":\"aac\",\"Channels\":2", "\"Codec\":\"$audioCodec\",\"Channels\":6")
+                        .replace(",{\"Index\":3,\"Type\":\"Audio\",\"Codec\":\"$audioCodec\",\"Channels\":6,\"SampleRate\":48000,\"DisplayTitle\":\"Norsk\",\"Language\":\"nor\"}", "")
+                        .toByteArray()
                 }
                 val total = bytes.size
                 val range = headers["range"]?.substringAfter("bytes=")?.substringBefore('-')?.toIntOrNull()
@@ -98,19 +110,23 @@ class JellyfinPlayerTest {
     }
 
     private fun exercise(hls: Boolean = false, resumeMs: Long = 0, root: String = "film", autoResume: Boolean = true,
-        episode: Boolean = false, defaultSubtitle: Int = 2, block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
-        Server(instrumentation.context.assets, hls, resumeMs, episode, defaultSubtitle).use { server ->
+        episode: Boolean = false, defaultSubtitle: Int = 2, audioCodec: String = "aac", kind: ServiceKind = ServiceKind.JELLYFIN,
+        block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
+        Server(instrumentation.context.assets, hls, resumeMs, episode, defaultSubtitle, audioCodec).use { server ->
             val connections = (context.applicationContext as ReelstackApplication).container.connectionRepository
             ServiceKind.entries.forEach(connections::delete)
-            connections.save(ServiceConnection(ServiceKind.JELLYFIN,"Test",server.base,"fixture","u1"))
+            connections.save(ServiceConnection(kind,"Test",server.base,"fixture","u1"))
             val preferences = (context.applicationContext as ReelstackApplication).container.preferencesRepository
             val original = preferences.personalization
-            preferences.personalization = original.copy(autoResume = autoResume).let {
+            preferences.personalization = original.copy(autoResume = autoResume,
+                preferredSubtitleLanguage = SubtitleLanguage.SERVER,
+                fallbackSubtitleLanguage = SubtitleLanguage.NONE).let {
                 if (episode) it.copy(autoPlayNextEpisode = true, showNextEpisode = true,
                     nextEpisodeLeadSeconds = 10, nextEpisodeDelaySeconds = 5) else it
             }
             try {
-                ActivityScenario.launch<JellyfinPlayerActivity>(Intent(context,JellyfinPlayerActivity::class.java).putExtra("jellyfin_item_id",root)).use { scenario ->
+                ActivityScenario.launch<JellyfinPlayerActivity>(Intent(context,JellyfinPlayerActivity::class.java)
+                    .putExtra("jellyfin_item_id",root).putExtra("media_service_kind", kind.name)).use { scenario ->
                     block(scenario,server,connections)
                 }
                 waitFor { server.events.any { it.first.endsWith("/Stopped") } || server.rejectVideo }
@@ -130,6 +146,37 @@ class JellyfinPlayerTest {
         var value=PlayerScreenState(); s.onActivity { value=it.model.state.value }; return value
     }
     private fun playing(s: ActivityScenario<JellyfinPlayerActivity>) = waitFor { snapshot(s).let { it.playing && it.positionMs > 600 } }
+
+    @Test fun dtsSurroundPlaysDirectlyFromBothServersAndSurvivesSeeking() = localAudio("dts")
+    @Test fun eac3SurroundPlaysDirectlyFromBothServersAndSurvivesSeeking() = localAudio("eac3")
+    @Test fun trueHdSurroundPlaysDirectlyFromBothServersAndSurvivesSeeking() = localAudio("truehd")
+    @Test fun ac3SurroundPlaysDirectlyFromBothServersAndSurvivesSeeking() = localAudio("ac3")
+
+    private fun localAudio(codec: String) {
+        assertTrue(androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable())
+        for (kind in listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN)) {
+            exercise(audioCodec = codec, kind = kind, defaultSubtitle = -1) { scenario, server, _ ->
+                playing(scenario)
+                assertTrue(snapshot(scenario).direct)
+                // A language preference may legitimately negotiate a subtitle before starting.
+                val negotiations = server.events.count { it.first.endsWith("PlaybackInfo") }
+                assertTrue(server.events.filter { it.first.endsWith("PlaybackInfo") }
+                    .all { it.second["EnableDirectPlay"] == JsonPrimitive(true) })
+                scenario.onActivity { activity ->
+                    assertTrue(activity.model.player.audioDecoderCounters!!.renderedOutputBufferCount > 0)
+                    activity.model.seek(8_000)
+                }
+                waitFor { snapshot(scenario).let { it.playing && it.positionMs >= 8_500 } }
+                assertTrue(snapshot(scenario).direct)
+                assertNull(snapshot(scenario).error)
+                assertEquals("", snapshot(scenario).fallback)
+                assertEquals(negotiations, server.events.count { it.first.endsWith("PlaybackInfo") })
+                assertTrue(server.requests.none { it.contains("master.m3u8") })
+                assertTrue(server.events.filter { it.first.startsWith("/Sessions/Playing") }
+                    .all { it.second["PlayMethod"] == JsonPrimitive("DirectPlay") })
+            }
+        }
+    }
 
     @Test fun countdownAdvancesFromRealVideoBeforeTheCurrentEpisodeEnds() = exercise(episode = true) { scenario, server, _ ->
         playing(scenario)

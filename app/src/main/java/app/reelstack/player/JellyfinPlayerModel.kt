@@ -116,7 +116,6 @@ fun PlayerScreenState.activeSegment(): PlaybackSegment? = segments.firstOrNull {
  * on the spinner for another 45 before saying anything.
  */
 private const val STALL_NOTICE_MS = 8_000L
-private const val STALL_FALLBACK_MS = 18_000L
 private const val STALL_GIVE_UP_MS = 45_000L
 
 /**
@@ -191,7 +190,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
 
     val player: ExoPlayer = ExoPlayer.Builder(container.appContext,
-        DefaultRenderersFactory(container.appContext).setEnableDecoderFallback(true)).build().apply {
+        DefaultRenderersFactory(container.appContext)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setEnableDecoderFallback(true)).build().apply {
         setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         setHandleAudioBecomingNoisy(true)
         setSeekBackIncrementMs(10_000)
@@ -237,24 +238,16 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             override fun onPlayerError(error: PlaybackException) {
                 android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream code=${error.errorCode}")
                 val position = currentPosition.coerceAtLeast(0)
-                // Emby direct streams can legitimately take longer to deliver the next HLS
-                // segment on a TV. Give the connection retries before treating it as a codec
-                // failure, and allow the buffering watchdog below to request a server stream.
-                if (networkRecoveries < 2 && recoverablePlaybackFailure(error, plan?.direct == false || serviceKind == ServiceKind.EMBY)) {
+                // Retry transient transport failures without changing codecs or picture quality.
+                if (networkRecoveries < 2 && recoverablePlaybackFailure(error, plan?.direct == false)) {
                     networkRecoveries++
                     prepare(position, autoplay = playWhenReady, retryDelayMillis = networkRecoveries * 1000L)
                     return
                 }
-                // One rung at a time, never an endless retry loop or a bitrate increase. Direct HLS
-                // failures are not always reported as decoder failures, especially on TV, so any
-                // failure of an untouched file still counts — it just no longer costs the picture.
-                if (compatibility != PlaybackCompatibility.FULL &&
-                    (error.errorCode in setOf(PlaybackException.ERROR_CODE_DECODING_FAILED,
-                        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED, PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-                        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
-                        PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED, PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED)
-                    || plan?.direct == true)) {
-                    compatibility = nextPlaybackCompatibility(compatibility, playbackFailureIsVideo(error))
+                // Conversion requires a decoder/output/container failure, never just a slow network.
+                val nextMode = nextPlaybackCompatibility(compatibility, playbackFailureIsVideo(error))
+                if (nextMode != compatibility && playbackFailureNeedsConversion(error.errorCode)) {
+                    compatibility = nextMode
                     val label = playbackFallbackLabel(error, compatibility)
                     android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream action=step-down $label")
                     mutable.update { it.copy(fallback = label) }
@@ -364,20 +357,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     stalledNotice = 1
                     mutable.update { it.copy(warning = container.appString(R.string.player_stall_waiting, serviceKind.displayName)) }
                 }
-                // A stall is bandwidth or segment delivery, not a codec the device cannot handle, so
-                // this one still goes straight to the conservative profile — and the total wait
-                // before giving up stays what it was.
-                if (stalledMs > STALL_FALLBACK_MS && compatibility != PlaybackCompatibility.FULL) {
-                    compatibility = PlaybackCompatibility.FULL
-                    stalledNotice = 2
-                    val position = player.currentPosition.coerceAtLeast(0)
-                    android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=buffer action=force-compatible")
-                    bufferingSince = 0L
-                    mutable.update { it.copy(warning = container.appString(R.string.player_stall_fallback),
-                        fallback = "STALL ${STALL_FALLBACK_MS / 1000}s → ${PlaybackCompatibility.FULL.name}") }
-                    prepare(position, mode = PlaybackCompatibility.FULL, autoplay = player.playWhenReady)
-                    continue
-                }
+                // Waiting for bytes does not prove a codec failure. In particular, do not start
+                // an expensive video transcode while a slow server is still delivering a segment.
                 if (stalledMs > STALL_GIVE_UP_MS) {
                     report("/Stopped"); started = false
                     player.stop()
@@ -555,6 +536,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 }
                 if (ticket != generation || !sameAccount()) return@launch
                 plan = prepared
+                compatibility = prepared.compatibility
                 stopped = false
                 val http = app.reelstack.data.network.HttpTransport.sharedClient.newBuilder()
                     .connectTimeout(8, TimeUnit.SECONDS)

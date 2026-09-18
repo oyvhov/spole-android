@@ -41,8 +41,8 @@ class PlaybackRecoveryTest {
             nextPlaybackCompatibility(PlaybackCompatibility.DIRECT, videoFailed = true))
     }
 
-    @Test fun aSecondFailureWithTheSoundAlreadyConvertedCostsThePicture() {
-        assertEquals(PlaybackCompatibility.FULL,
+    @Test fun aSecondAudioFailureNeverCostsAWorkingPicture() {
+        assertEquals(PlaybackCompatibility.AUDIO_ONLY,
             nextPlaybackCompatibility(PlaybackCompatibility.AUDIO_ONLY, videoFailed = false))
     }
 
@@ -51,13 +51,23 @@ class PlaybackRecoveryTest {
             nextPlaybackCompatibility(PlaybackCompatibility.FULL, videoFailed = false))
         assertEquals(PlaybackCompatibility.FULL,
             nextPlaybackCompatibility(PlaybackCompatibility.FULL, videoFailed = true))
-        // Two steps from the top, and no more: the single latch existed to stop an endless retry
-        // loop, and replacing it must not reintroduce one.
+        // Repeated audio failures must not escalate to video conversion.
         var step = PlaybackCompatibility.DIRECT
         val visited = mutableListOf(step)
         repeat(5) { step = nextPlaybackCompatibility(step, videoFailed = false); visited += step }
         assertEquals(listOf(PlaybackCompatibility.DIRECT, PlaybackCompatibility.AUDIO_ONLY,
-            PlaybackCompatibility.FULL, PlaybackCompatibility.FULL, PlaybackCompatibility.FULL,
-            PlaybackCompatibility.FULL), visited)
+            PlaybackCompatibility.AUDIO_ONLY, PlaybackCompatibility.AUDIO_ONLY, PlaybackCompatibility.AUDIO_ONLY,
+            PlaybackCompatibility.AUDIO_ONLY), visited)
+    }
+
+    @Test fun networkAuthAndMissingFilesNeverAskForCodecConversion() {
+        for (code in listOf(PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND, PlaybackException.ERROR_CODE_IO_NO_PERMISSION)) {
+            assertFalse(playbackFailureNeedsConversion(code))
+        }
+        assertTrue(playbackFailureNeedsConversion(PlaybackException.ERROR_CODE_DECODING_FAILED))
+        assertTrue(playbackFailureNeedsConversion(PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED))
     }
 }

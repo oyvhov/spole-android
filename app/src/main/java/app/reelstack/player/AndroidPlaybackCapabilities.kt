@@ -12,6 +12,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.exoplayer.audio.AudioCapabilities
+import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import kotlinx.serialization.json.*
 
 /** Re-read output capabilities at negotiation time: a receiver/headset can change between plays. */
@@ -81,7 +82,8 @@ class AndroidPlaybackCapabilities(private val context: Context) {
                 }.getOrDefault(false) }
             } ?: 0
             val reported = decoders(mime).maxOfOrNull { it.second.audioCapabilities?.maxInputChannelCount ?: 0 }?.coerceAtMost(8) ?: 0
-            val decoded = maxOf(probed, reported)
+            val software = if (FfmpegLibrary.supportsFormat(mime)) 8 else 0
+            val decoded = maxOf(probed, reported, software)
             val passthroughMimes = if(codec in setOf("dts", "dca")) listOf(mime, "audio/vnd.dts.hd") else listOf(mime)
             val passed = if (route == null) 0 else (8 downTo 2).firstOrNull { count -> runCatching {
                 passthroughMimes.any { route.isPassthroughPlaybackSupported(Format.Builder().setSampleMimeType(it).setChannelCount(count).setSampleRate(48_000).build(), attributes) }
@@ -135,20 +137,16 @@ class AndroidPlaybackCapabilities(private val context: Context) {
         if (decoders(audioMime).any { (_, caps) -> runCatching { caps.isFormatSupported(audioFormat) }.getOrDefault(false) }) {
             return true
         }
-        // A decoder that will not take 5.1 on its input can still play the file: Media3 folds the
-        // decoded audio down to whatever the device actually outputs, which on a phone is two
-        // speakers. Treating the input limit as a verdict asked the server to re-encode a track
-        // the device plays perfectly well -- and, because an audio rejection drops the whole
-        // source, it re-encoded the picture along with it.
-        val downmixed = MediaFormat.createAudioFormat(audioMime, sampleRate, 2)
-        decoders(audioMime).any { (_, caps) -> runCatching { caps.isFormatSupported(downmixed) }.getOrDefault(false) }
+        // Stereo input support does not prove that a platform decoder accepts 5.1 input.
+        // The bundled decoder really accepts multichannel compressed audio and outputs PCM.
+        channels in 1..8 && sampleRate in 1..192_000 && FfmpegLibrary.supportsFormat(audioMime)
     }.getOrDefault(false)
 
     companion object {
         private val VIDEO_MIMES = linkedMapOf("h264" to "video/avc", "hevc" to "video/hevc", "av1" to "video/av01", "vp9" to "video/x-vnd.on2.vp9")
         private val AUDIO_MIMES = linkedMapOf("aac" to "audio/mp4a-latm", "mp3" to "audio/mpeg", "ac3" to "audio/ac3",
             "eac3" to "audio/eac3", "dts" to "audio/vnd.dts", "dca" to "audio/vnd.dts", "truehd" to "audio/true-hd",
-            "flac" to "audio/flac", "opus" to "audio/opus", "vorbis" to "audio/vorbis")
+            "flac" to "audio/flac", "alac" to "audio/alac", "opus" to "audio/opus", "vorbis" to "audio/vorbis")
         internal fun platformProfile(codec: String, name: String, depth: Int): Int? = when(codec) {
             // ffprobe -- which both Jellyfin and Emby report from -- writes more names than the
             // four that were listed here. "Progressive High" is what x264 puts on an ordinary

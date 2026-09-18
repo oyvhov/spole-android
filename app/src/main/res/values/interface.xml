@@ -141,7 +141,7 @@
     </plurals>
     <string name="attribution_services">Spole is not affiliated with or endorsed by Jellyfin, Emby, Overseerr/Jellyseerr, Radarr or Sonarr. Names and trademarks belong to their respective owners.</string>
     <string name="attribution_tmdb">Discovery posters and backdrops come from TMDB. This app uses the TMDB services but is not endorsed or certified by TMDB.</string>
-    <string name="attribution_libraries">Built with open-source components from AndroidX, Jetpack Compose, Kotlin, OkHttp and Coil under the Apache 2.0 license.</string>
+    <string name="attribution_libraries">Built with AndroidX, Jetpack Compose, Kotlin, OkHttp and Coil (Apache 2.0). Local audio decoding uses FFmpeg 6.1.4 (LGPL 2.1 or later); license texts are included in the app.</string>
     <string name="crash_title">Spole stopped unexpectedly</string>
     <string name="crash_note">A report is stored on this device with the version, model and error. Addresses and access tokens are removed. Nothing has been sent.</string>
     <string name="crash_share">Share error report</string>

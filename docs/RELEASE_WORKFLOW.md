@@ -69,6 +69,13 @@ Kontroller at sertifikatet er det faste sertifikatet over, at pakken er `app.ree
 
 ## 4. Commit, tag og kladd
 
+APK-ar som inneheld `playback-ffmpeg`, må også ha kjelde-/relenkingsarkivet frå
+`scripts/package-playback-ffmpeg-sources.sh` som release-asset. Bruk arbeidsmappa
+frå akkurat det native-bygget som leverte JNI-biblioteka. Ta SHA-256 med i
+`SHA256SUMS.txt`, og last opp `spole-ffmpeg-source-and-relink.tar.gz` til kladden
+før publisering. Sjå `playback-ffmpeg/README.md`. APK-en skal innehalde lisensane
+i `assets/licenses/ffmpeg/`. Ikkje publiser den nye native-modulen utan desse filene.
+
 Stage berre dei gjennomgåtte filene. APK, mapping og loggar skal ikkje inn i Git. Etter commit skal ingen kjeldeendringar stå att for byggartefaktet. Dersom kjelda blir endra etter bygget, må du byggje og verifisere på nytt.
 
 ```powershell

@@ -43,8 +43,8 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-        versionCode = 96
-        versionName = "0.17.0-beta17"
+        versionCode = 97
+        versionName = "0.17.0-beta18"
 
         testInstrumentationRunner = "app.reelstack.SpoleTestRunner"
         vectorDrawables.useSupportLibrary = true
@@ -155,6 +155,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.11.1")
     implementation("androidx.media3:media3-session:1.11.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.1")
+    implementation(project(":playback-ffmpeg"))
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 

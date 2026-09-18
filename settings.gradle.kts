@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Reelstack"
 include(":app")
-
+include(":playback-ffmpeg")

@@ -140,7 +140,7 @@
     </plurals>
     <string name="attribution_services">Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby, Overseerr/Jellyseerr, Radarr eller Sonarr. Namna og merka tilhøyrer prosjekta sine eigarar.</string>
     <string name="attribution_tmdb">Plakatar og bakgrunnsbilete for oppdaging kjem frå TMDB. Denne appen brukar TMDB-tenestene, men er ikkje godkjend eller sertifisert av TMDB.</string>
-    <string name="attribution_libraries">Bygd med opne komponentar frå AndroidX, Jetpack Compose, Kotlin, OkHttp og Coil, under Apache-lisens 2.0.</string>
+    <string name="attribution_libraries">Bygd med AndroidX, Jetpack Compose, Kotlin, OkHttp og Coil (Apache 2.0). Lokal lyddekoding brukar FFmpeg 6.1.4 (LGPL 2.1 eller seinare); lisenstekstane følgjer appen.</string>
     <string name="crash_title">Spole stoppa uventa sist</string>
     <string name="crash_note">Ein feilrapport er lagra på eininga. Han inneheld versjon, modell og kva som gjekk gale — adresser og tilgangsteikn er fjerna. Ingenting er sendt.</string>
     <string name="crash_share">Del feilrapport</string>
