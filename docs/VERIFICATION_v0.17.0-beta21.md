@@ -48,3 +48,25 @@ Review-profilar med ekte kontoar skal ikkje nullstillast eller brukast til instr
 - Åtte native `.so`-filer samanlikna med beta20: identisk innhald/hash for alle.
   APK-en inneheld Apache-2.0 og LGPL-2.1 under `assets/licenses/ffmpeg/`.
 - APK og akkurat denne R8-mappinga er arkiverte under `app/build/release-v0.17.0-beta21/`.
+
+## Publisering og oppdatering
+
+- Kjeldecommit `9a2c06551e987dc9630d8b321cec466463f61848`; annotert tag
+  `v0.17.0-beta21`, pusha atomisk saman med `main`.
+- GitHub-kladden kontrollert: nøyaktig éin universal-APK og fire støttefiler, alle
+  `uploaded`. APK-storleik/-digest og FFmpeg-arkivets digest samsvarar med lokale filer.
+- Publisert som prerelease, `draft=false`, ikkje stabil latest.
+- Offentleg release-liste utan Authorization inneheld beta21. APK lasta ned anonymt
+  til ei separat kontrollfil har identisk SHA-256 med produksjonsbygget.
+- Beta20 fann beta21 gjennom «Sjekk no», lasta ned APK-en og fullførte fil-/identitetskontrollen.
+- Første trykk på Installer henta opp att den eksisterande Android-installatøroppgåva
+  (`ActivityTaskManager` resultat 2) utan ny dialog. Installatørprosessen på isolert
+  5562 vart stoppa utan sletting av data; eit nytt trykk viste rett oppdateringsdialog.
+  Dette same problemet var observert i beta20-kontrollen. Testen kravde såleis dette
+  miljøinngrepet; ein heilt friksjonsfri oppdatering er ikkje stadfesta.
+- Android-godkjenning og Play Protect-skanning fullførte. Skanninga viste «This app looks safe».
+  Dette er ikkje ei full tryggleiksrevisjon.
+- **Oppdatering gjennom appen fullført frå beta20 til beta21**, utan `adb install` av
+  produksjonspakken. Android stadfestar `versionCode=100`, `versionName=0.17.0-beta21`.
+- Appen opna att med nynorsk og dei same demodataa (Maya/Severance). Ekte kontoar,
+  fysisk Pixel/Shield og sovande mediediskar er ikkje testa.
