@@ -119,6 +119,9 @@ data class ReelstackUiState(
      * the kid shell has no detail sheet to hang anything from.
      */
     val kidsBrowse: KidsBrowse = KidsBrowse(),
+    /** Everything the kid's own account may open, from the server's own library views. */
+    val kidsLibrary: List<LibraryMedia> = emptyList(),
+    val kidsLibraryLoading: Boolean = false,
     val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
     val loadingAccounts: Set<ServiceKind> = emptySet(),
@@ -854,6 +857,38 @@ class ReelstackViewModel(
     }
 
     private var kidsBrowseJob: Job? = null
+    private var kidsLibraryJob: Job? = null
+
+    /**
+     * Loads the whole of the kid's own library.
+     *
+     * Barnemodus does not filter: whatever the account can reach on the server, the shell shows.
+     * Which libraries that is was decided in Emby or Jellyfin, not here.
+     */
+    fun loadKidsLibrary() {
+        if (kidsLibraryJob?.isActive == true) return
+        val servers = _uiState.value.connections.filter {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
+        }
+        if (servers.isEmpty()) return
+        _uiState.update { it.copy(kidsLibraryLoading = true) }
+        kidsLibraryJob = viewModelScope.launch {
+            val all = withContext(Dispatchers.IO) {
+                servers.flatMap { server ->
+                    runCatching { container.mediaSyncRepository.accountLibrary(server) }.getOrDefault(emptyList())
+                }
+            }
+            _uiState.update {
+                it.copy(
+                    kidsLibraryLoading = false,
+                    kidsLibrary = all
+                        .filter { media -> !media.remoteId.isNullOrBlank() }
+                        .distinctBy { media -> media.remoteId }
+                        .sortedBy { media -> media.title.lowercase() },
+                )
+            }
+        }
+    }
 
     /**
      * Opens a series for a kid: seasons first, then the episodes of the season they are actually in.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0-beta25 - Barnemodus viser heile biblioteket
+
+- Barneframsida listar no alt kontoen faktisk har tilgang til, henta frå tenaren sine eigne biblioteksvisingar, i staden for eit utval av favorittar og sist lagt til.
+- Rada heiter «Alt du kan sjå», fordi ho held både seriar og filmar.
+- Kva barnet ser, blir avgjort av biblioteka du gir kontoen i Emby eller Jellyfin. Spole filtrerer ingenting på eininga.
+
 ## 0.17.0-beta24 - Barneskalet
 
 - Eige barneskal ved sida av vaksenappen: ingen siderad, ingen faner og ingen detaljpanel. Eitt trykk på eit kort startar avspelinga.

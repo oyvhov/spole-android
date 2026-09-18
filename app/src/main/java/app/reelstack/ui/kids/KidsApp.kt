@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -68,11 +69,17 @@ fun KidsApp(viewModel: ReelstackViewModel) {
             .filter { !it.remoteId.isNullOrBlank() }
             .distinctBy { it.remoteId }
     }
-    val yourShows = remember(state.favourites, state.recentSeries, state.recentMovies, keepWatching) {
+    // Everything the account may open. The libraries were chosen on the server; the shell shows
+    // what they contain and filters nothing of its own. Until that listing arrives, the rows the
+    // home sync already fetched stand in, so the screen is never empty on a cold start.
+    LaunchedEffect(state.activeProfileId, state.connections.size) { viewModel.loadKidsLibrary() }
+
+    val yourShows = remember(state.kidsLibrary, state.favourites, state.recentSeries, state.recentMovies, keepWatching) {
         val alreadyShown = keepWatching.mapNotNull { it.remoteId }.toSet()
+        val source = state.kidsLibrary.ifEmpty { state.recentSeries + state.favourites + state.recentMovies }
         // Only types the grid knows what to do with. A favourited *episode* carries its series'
         // poster, so it looks like a series and then plays straight into the middle of one.
-        (state.recentSeries + state.favourites + state.recentMovies)
+        source
             .filter { media ->
                 !media.remoteId.isNullOrBlank() &&
                     media.remoteId !in alreadyShown &&

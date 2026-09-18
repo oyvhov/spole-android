@@ -292,6 +292,33 @@ class MediaSyncRepository(
         )
     }
 
+    /**
+     * Everything one account may open, library by library, already mapped for the screen.
+     *
+     * The kid shell shows what the server grants and nothing else: the boundary is the account,
+     * not a list the client curates. `browseLibraries` returns exactly the views this token can
+     * see, so a library the parent did not grant never appears here in the first place.
+     *
+     * Paged, with a ceiling, because a shelf of a thousand posters is a scroll no child finishes
+     * and a request no home server should have to answer at once.
+     */
+    fun accountLibrary(connection: ServiceConnection, perLibraryLimit: Int = 300): List<LibraryMedia> {
+        val views = runCatching { mediaServerClient.browseLibraries(connection) }.getOrDefault(emptyList())
+        val out = mutableListOf<LibraryMedia>()
+        for (view in views) {
+            var offset = 0
+            while (offset < perLibraryLimit) {
+                val page = runCatching {
+                    mediaServerClient.browseLibrary(connection, view.id, offset, view.collectionType)
+                }.getOrDefault(emptyList())
+                out += page.map { libraryMedia(it, connection.kind) }
+                if (page.size < 60) break
+                offset += page.size
+            }
+        }
+        return out
+    }
+
     /** The newest titles in one library, already mapped for the screen. */
     fun libraryPeek(connection: ServiceConnection, view: app.reelstack.data.network.RemoteLibraryView):
         List<LibraryMedia> =
