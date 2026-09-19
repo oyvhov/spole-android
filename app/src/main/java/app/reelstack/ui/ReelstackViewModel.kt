@@ -98,6 +98,7 @@ data class ReelstackUiState(
     val signingOut: Boolean = false,
     val showOnboarding: Boolean = false,
     val selectedTab: AppTab = AppTab.HOME,
+    val accountsSettingsRequest: Int = 0,
     val activeSheet: AppSheet? = null,
     val connections: List<ServiceConnection> = emptyList(),
     val activeProfileId: String = "",
@@ -125,6 +126,7 @@ data class ReelstackUiState(
     val kidsLibraries: List<app.reelstack.data.network.RemoteLibraryView> = emptyList(),
     val kidsLibraryNames: List<Pair<String, String>> = emptyList(),
     val kidsLibraryLoading: Boolean = false,
+    val kidsLibraryError: Boolean = false,
     val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
     val loadingAccounts: Set<ServiceKind> = emptySet(),
@@ -720,6 +722,12 @@ class ReelstackViewModel(
         _uiState.update { it.copy(activeSheet = AppSheet.UpcomingCalendar, contentDetails = null, returnToCalendar = false) }
     }
 
+    fun openAccountsSettings() {
+        if (_uiState.value.isKidMode) return
+        _uiState.update { it.copy(activeSheet = null, selectedTab = AppTab.SETTINGS,
+            accountsSettingsRequest = it.accountsSettingsRequest + 1) }
+    }
+
     fun openProfileSwitcher() {
         _uiState.update {
             it.copy(
@@ -771,6 +779,15 @@ class ReelstackViewModel(
     }
 
     fun switchProfileNow(profileId: String) {
+        kidsLibraryJob?.cancel()
+        kidsBrowseJob?.cancel()
+        kidsEpisodesJob?.cancel()
+        refreshJob?.cancel()
+        refreshJob = null
+        cacheLoadJob?.cancel()
+        accountsJob?.cancel()
+        playbackJob?.cancel()
+        trackingJob?.cancel()
         container.connectionRepository.activeProfileId = profileId
         val connections = container.connectionRepository.list(profileId)
         _uiState.update { current ->
@@ -791,6 +808,17 @@ class ReelstackViewModel(
                 incoming = emptyList(),
                 discover = emptyList(),
                 recommendations = emptyList(),
+                kidsLibrary = emptyList(),
+                kidsLibraries = emptyList(),
+                kidsLibraryNames = emptyList(),
+                kidsLibraryLoading = false,
+                kidsLibraryError = false,
+                kidsBrowse = KidsBrowse(),
+                accounts = emptyMap(),
+                accountErrors = emptyMap(),
+                serviceWarnings = emptyMap(),
+                failedServices = emptySet(),
+                isRefreshing = false,
             )
         }
         hydrateCachedFeed()
@@ -834,23 +862,29 @@ class ReelstackViewModel(
         }
 
     fun recoverPinWithPassword(password: String, targetProfileId: String) {
-        val primaryServer = primaryMediaServer()
-        if (primaryServer == null || primaryServer.baseUrl.isBlank()) {
-            container.pinSecurity.clearPin()
-            switchProfileNow(targetProfileId)
+        val primaryServer = container.connectionRepository.list("").firstOrNull {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+                it.token.isNotBlank() && it.userId.isNotBlank()
+        }
+        if (primaryServer == null) {
+            _uiState.update { it.copy(pinError = "Vaksenkontoen må vere tilkopla for å nullstille koden.") }
             return
         }
+        val recoveringProfile = _uiState.value.activeProfileId
         viewModelScope.launch {
             val success = withContext(Dispatchers.IO) {
                 runCatching {
-                    val user = primaryServer.name.takeIf { it.isNotBlank() } ?: primaryServer.userId
-                    when (primaryServer.kind) {
+                    val account = container.accountProfileClient.load(primaryServer)
+                    val user = account.displayName
+                    val authentication = when (primaryServer.kind) {
                         ServiceKind.JELLYFIN -> container.jellyfinAuthenticationClient.authenticate(primaryServer.baseUrl, user, password)
                         ServiceKind.EMBY -> container.embyAuthenticationClient.authenticate(primaryServer.baseUrl, user, password)
                         else -> error("Ikkje-støtta teneste")
                     }
-                }.isSuccess
+                    authentication.userId == primaryServer.userId
+                }.getOrDefault(false)
             }
+            if (_uiState.value.activeProfileId != recoveringProfile || _uiState.value.activeSheet !is AppSheet.PinPrompt) return@launch
             if (success) {
                 container.pinSecurity.clearPin()
                 switchProfileNow(targetProfileId)
@@ -862,6 +896,7 @@ class ReelstackViewModel(
 
     private var kidsBrowseJob: Job? = null
     private var kidsLibraryJob: Job? = null
+    private var kidsEpisodesJob: Job? = null
 
     /**
      * Loads the whole of the kid's own library.
@@ -871,33 +906,42 @@ class ReelstackViewModel(
      */
     fun loadKidsLibrary() {
         if (kidsLibraryJob?.isActive == true) return
+        val profileId = _uiState.value.activeProfileId
+        if (!_uiState.value.isKidMode) return
         val servers = _uiState.value.connections.filter {
             it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
         }
-        if (servers.isEmpty()) return
-        _uiState.update { it.copy(kidsLibraryLoading = true) }
+        if (servers.isEmpty()) {
+            _uiState.update { it.copy(kidsLibraryLoading = false, kidsLibraryError = true) }
+            return
+        }
+        _uiState.update { it.copy(kidsLibraryLoading = true, kidsLibraryError = false) }
         kidsLibraryJob = viewModelScope.launch {
+            var failed = false
             val all = withContext(Dispatchers.IO) {
                 servers.flatMap { server ->
-                    runCatching { container.mediaSyncRepository.accountLibrary(server) }.getOrDefault(emptyList())
+                    runCatching { container.mediaSyncRepository.accountLibrary(server) }
+                        .onFailure { failed = true }.getOrDefault(emptyList())
                 }
             }
             val libraries = withContext(Dispatchers.IO) {
                 servers.flatMap { server ->
                     runCatching {
                         container.mediaServerClient.browseLibraries(server)
-                    }.getOrDefault(emptyList())
+                    }.onFailure { failed = true }.getOrDefault(emptyList())
                 }.filter { view ->
                     val type = view.collectionType?.lowercase(java.util.Locale.ROOT)
                     type in setOf("movies", "tvshows") || type.isNullOrBlank()
                 }.distinctBy { it.id }
             }
+            if (!isActive || _uiState.value.activeProfileId != profileId) return@launch
             _uiState.update {
                 it.copy(
                     kidsLibraryLoading = false,
+                    kidsLibraryError = failed,
                     kidsLibrary = all
                         .filter { media -> !media.remoteId.isNullOrBlank() }
-                        .distinctBy { media -> media.remoteId }
+                        .distinctBy { media -> media.source to media.remoteId }
                         .sortedBy { media -> media.title.lowercase() },
                     kidsLibraries = libraries,
                     kidsLibraryNames = libraries.map { it.id to it.name }
@@ -955,11 +999,14 @@ class ReelstackViewModel(
             it.kind == browse.source && it.token.isNotBlank()
         } ?: return
         val seriesId = browse.seriesId
-        _uiState.update { it.copy(kidsBrowse = it.kidsBrowse.copy(selectedSeasonId = seasonId, loading = true)) }
-        viewModelScope.launch {
+        val profileId = _uiState.value.activeProfileId
+        kidsEpisodesJob?.cancel()
+        _uiState.update { it.copy(kidsBrowse = it.kidsBrowse.copy(selectedSeasonId = seasonId, episodes = emptyList(), loading = true)) }
+        kidsEpisodesJob = viewModelScope.launch {
             val episodes = runCatching {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.episodes(connection, seriesId, seasonId) }
             }.getOrDefault(emptyList())
+            if (!isActive || _uiState.value.activeProfileId != profileId) return@launch
             _uiState.update {
                 if (it.kidsBrowse.seriesId != seriesId || it.kidsBrowse.selectedSeasonId != seasonId) it
                 else it.copy(kidsBrowse = it.kidsBrowse.copy(episodes = episodes, loading = false))
@@ -969,6 +1016,7 @@ class ReelstackViewModel(
 
     fun closeKidsSeries() {
         kidsBrowseJob?.cancel()
+        kidsEpisodesJob?.cancel()
         _uiState.update { it.copy(kidsBrowse = KidsBrowse()) }
     }
 
@@ -2148,6 +2196,10 @@ class ReelstackViewModel(
         val state = _uiState.value
         val configured = state.connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
         if (configured.isEmpty()) {
+            if (state.isKidMode) {
+                _uiState.update { it.copy(isRefreshing = false, kidsLibraryError = true) }
+                return
+            }
             // Falling back to demo content is right when nothing is set up. It is misleading when
             // a service *is* set up and its stored sign-in simply cannot be decrypted any more, so
             // that case gets its own sentence rather than the generic invitation to connect.

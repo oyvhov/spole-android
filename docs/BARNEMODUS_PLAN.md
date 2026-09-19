@@ -1,5 +1,24 @@
 # Barnemodus · arbeidsplan
 
+## Ny retning · 19. september 2026
+
+Brukaren har bede om ei full omarbeiding for **5–10 år**, særleg på TV. Denne retninga
+erstattar dei eldre visuelle avgrensingane om berre to rader og berre verdsromtema nedanfor.
+Kontogrensene står fast: barnet brukar sin eigen konto, og Spole endrar ikkje tenarpolicy.
+
+Ny implementasjon (verifikasjon blir ført i `BARNEMODUS_REDESIGN_2026-09-19.md`):
+
+- Framside med stort innhaldsbilete, direkte avspeling/episodeval, bibliotekval og plakatgrid.
+- Seks lokale verdstema: Verdsrom, Havdjup, Eventyrskog, Nordlys, Solnedgang og Kino.
+- «Mi verd» lèt barnet velje tema og dekorasjon. Ein vaksen kan slå av dette valet per barn.
+- Foreldreval under «Tenestene dine»: tema, dekorasjon, redusert rørsle, undertekstar,
+  autospel og pause etter 1–3 episodar. Autospel er av som standard for nye barneval.
+- «Pause etter» tel den første manuelt starta episoden; dette er ikkje dagleg skjermtid.
+- Bibliotektilknyting, nettverksfeil og tømming/kansellering ved profilbyte er retta.
+- «Opne kontoinnstillingar» frå profilmenyen går direkte til «Tenestene dine».
+
+Ingen nye ferdighakar er sette før visuell og funksjonell kontroll er utført.
+
 Status: **delvis bygd og verifisert på eining.** BM-1 til BM-4 er ferdige. BM-5 til BM-9 er bygde i
 grunnform og verifiserte på Google TV (emulator-5564) 18. september 2026 med Eilev sin Emby-konto,
 publisert som 0.17.0-beta24. BM-10 til BM-12 står att; BM-13 er delvis dekt av fokusreglane i

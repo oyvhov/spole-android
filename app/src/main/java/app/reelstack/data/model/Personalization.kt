@@ -135,8 +135,16 @@ enum class SubtitleStyle { CLEAN, CINEMA, HIGH_CONTRAST, LARGE }
 
 val DEFAULT_LIBRARY_HUB = listOf("FEATURE", "CONTINUE", "NEXT", "FAVOURITES", "LIBRARIES")
 val DEFAULT_MENU = listOf("HOME", "LIBRARY", "DISCOVER", "ACTIVITY", "SETTINGS")
+fun Personalization.requiredMenu(): Set<String> =
+    setOf("HOME", "SETTINGS") + if (startInLibrary) setOf("LIBRARY") else emptySet()
+
+fun Personalization.withMenuVisible(id: String, visible: Boolean): Personalization = copy(
+    hiddenMenuItems = (if (visible) hiddenMenuItems - id else hiddenMenuItems + id)
+        .intersect(DEFAULT_MENU.toSet()) - requiredMenu(),
+)
+
 fun Personalization.visibleMenu(): List<String> =
-    (menuOrder + DEFAULT_MENU).distinct().filter { it in DEFAULT_MENU && (it !in hiddenMenuItems || it in setOf("HOME", "SETTINGS") || (startInLibrary && it == "LIBRARY")) }
+    (menuOrder + DEFAULT_MENU).distinct().filter { it in DEFAULT_MENU && (it !in hiddenMenuItems || it in requiredMenu()) }
 
 /**
  * A season is a pairing of mood and accent, chosen as one thing.

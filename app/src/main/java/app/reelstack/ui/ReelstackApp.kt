@@ -9,6 +9,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onKeyEvent
 import app.reelstack.data.model.visibleMenu
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SharedTransitionLayout
@@ -266,7 +267,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     // One safe edge for every television screen, rather than each one choosing its own bottom
     // padding — which is how Activity ended up cutting its second row in half.
     val screenInsets = if (tvRail) PaddingValues(bottom = ReelLayout.TvSafeEdge) else PaddingValues(0.dp)
-    val expandedRail = showRail && if (tvRail) tvRailFocused else
+    val compactTouchRail = !tvRail && windowLayout.useCompactTouchRail
+    val expandedRail = showRail && !compactTouchRail && if (tvRail) tvRailFocused else
         (personalization.sidebarExpanded ?: windowLayout.expandSidebarByDefault)
     Box(modifier = Modifier.fillMaxSize()) {
         app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize())
@@ -290,6 +292,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     selectedTab = state.selectedTab,
                     onSelect = selectTab,
                     expanded = expandedRail,
+                    compactTouch = compactTouchRail,
                     isKidMode = state.isKidMode,
                     modifier = Modifier.focusRequester(railFocus).graphicsLayer {
                         translationX = if (tvRail && personalization.hideTvSidebar && !expandedRail) -200.dp.toPx() else 0f
@@ -413,6 +416,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onHomeSectionChange = viewModel::setHomeSectionVisible,
                         onHomeRowOrderChange = viewModel::setHomeRowOrder,
                         onSignOutAll = viewModel::signOutAll,
+                        onAddProfile = viewModel::openAddProfile,
                         onManageLibraries = viewModel::openLibraryChoices,
                         onAccountClick = { kind ->
                             if (kind == app.reelstack.data.model.ServiceKind.SEERR) viewModel.openSeerrAccount()
@@ -445,7 +449,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 ?.avatarUrl,
             onSelectProfile = viewModel::selectProfile,
             onAddProfile = viewModel::openAddProfile,
-            onOpenSettings = { viewModel.closeSheet(); viewModel.selectTab(AppTab.SETTINGS) },
+            onOpenSettings = viewModel::openAccountsSettings,
             onDeleteProfile = viewModel::deleteKidProfile,
             onDismiss = viewModel::closeSheet,
         )
@@ -629,7 +633,12 @@ internal fun ReelstackNavigationRail(
     onLibrarySelect: (String) -> Unit = {},
     isKidMode: Boolean = false,
     modifier: Modifier = Modifier,
+    compactTouch: Boolean = false,
 ) {
+    if (compactTouch) {
+        CompactTouchNavigation(selectedTab, onSelect, isKidMode, modifier)
+        return
+    }
     val selectedFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     val width by androidx.compose.animation.core.animateDpAsState(
         if (expanded) 200.dp else 80.dp, tween(220, easing = FastOutSlowInEasing), label = "sidebar-width")
@@ -679,6 +688,28 @@ internal fun ReelstackNavigationRail(
 }
 
 /** Keep the same focusable nodes and icon positions in both sizes. Only labels fade and clip. */
+@Composable
+internal fun CompactTouchNavigation(selectedTab: AppTab, onSelect: (AppTab) -> Unit,
+    isKidMode: Boolean = false, modifier: Modifier = Modifier) {
+    val menu = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
+    Column(modifier.width(80.dp).fillMaxHeight().background(app.reelstack.ui.theme.Surface)
+        .padding(horizontal = 8.dp, vertical = 4.dp).testTag("compact-touch-navigation")) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            menu.filter { it != "SETTINGS" }.forEach { name ->
+                val item = tabs.first { it.tab.name == name }
+                SidebarControl(stringResource(item.label), item.icon, selectedTab == item.tab,
+                    { onSelect(item.tab) }, 0f, Role.Tab, Modifier.testTag("compact-tab-$name"))
+            }
+        }
+        if (!isKidMode) {
+            val settings = tabs.first { it.tab == AppTab.SETTINGS }
+            SidebarControl(stringResource(settings.label), settings.icon, selectedTab == AppTab.SETTINGS,
+                { onSelect(AppTab.SETTINGS) }, 0f, Role.Tab, Modifier.testTag("compact-tab-SETTINGS"))
+        }
+    }
+}
+
 @Composable
 private fun SidebarControl(label: String, icon: ImageVector, selected: Boolean,
     onClick: () -> Unit, labelAlpha: Float, role: Role, modifier: Modifier) {

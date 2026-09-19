@@ -31,6 +31,8 @@ internal fun Modifier.kidsFocusLift(focused: Boolean, scale: Float, accent: Colo
 internal fun rememberKidsFocusScale(focused: Boolean): Float {
     val scale by animateFloatAsState(
         targetValue = if (focused) 1.05f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(
+            if (app.reelstack.ui.theme.LocalMotionEnabled.current) 180 else 0),
         label = "kids-focus-scale",
     )
     return scale

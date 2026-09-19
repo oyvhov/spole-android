@@ -16,6 +16,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.*
@@ -32,11 +34,12 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_hide_sidebar), stringResource(R.string.tv_hide_sidebar_help),
             value.hideTvSidebar, "tv-hide-sidebar") { onChange(value.copy(hideTvSidebar = it)) }
-        SettingsGroup(stringResource(R.string.refine_menu_order), stringResource(R.string.refine_order_hint))
-        TvMenuOrderEditor(order, names, value.hiddenMenuItems,
-            setOf("HOME", "SETTINGS") + if (value.startInLibrary) setOf("LIBRARY") else emptySet(),
+        SettingsGroup("Di meny", "Vel kva du vil sjå, og flytt vala opp eller ned. Endringane gjeld med ein gong i både ståande og liggjande vising.")
+        Text("Heim og Innstillingar er alltid tilgjengelege. På telefon i liggjande vising ligg Innstillingar fast nedst i sidemenyen.",
+            style = MaterialTheme.typography.bodyMedium, color = Muted)
+        TvMenuOrderEditor(order, names, value.hiddenMenuItems, value.requiredMenu(),
             { onChange(value.copy(menuOrder = it)) },
-            { id, visible -> onChange(value.copy(hiddenMenuItems = if (visible) value.hiddenMenuItems - id else value.hiddenMenuItems + id)) })
+            { id, visible -> onChange(value.withMenuVisible(id, visible)) })
         SpoleSecondaryButton(onClick = { onChange(value.copy(menuOrder = DEFAULT_MENU, hiddenMenuItems = emptySet())) }) {
             Text(stringResource(R.string.tv_reset_menu))
         }
@@ -50,30 +53,36 @@ private fun TvMenuOrderEditor(order: List<String>, names: Map<String, String>, h
     order.forEachIndexed { index, id -> key(id) {
         val interaction = remember { MutableInteractionSource() }
         val shape = RoundedCornerShape(14.dp)
-        val visible = id !in hidden
-        Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clip(shape)
+        val visible = id !in hidden || id in required
+        Column(Modifier.fillMaxWidth().heightIn(min = 72.dp).clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant, shape)
             .focusOutline(interaction, shape)
             .testTag("menu-order-card-$id")
             .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(30.dp).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
                 Text("${index + 1}", color = Muted, style = MaterialTheme.typography.labelMedium)
             }
-            Icon(menuIcon(id), null, Modifier.size(22.dp), tint = if (visible) Primary else Muted)
+            Icon(menuIcon(id), null, Modifier.size(22.dp), tint = Muted)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(names.getValue(id), style = MaterialTheme.typography.titleMedium,
                     color = if (visible) MaterialTheme.colorScheme.onSurface else Muted)
-                Text(if (visible) stringResource(R.string.library_titles_on) else stringResource(R.string.library_titles_off),
+                Text(when {
+                    id == "SETTINGS" -> "Alltid synleg · her kan du endre menyen"
+                    id == "HOME" -> "Alltid synleg · tilbake til startsida"
+                    id in required -> "Alltid synleg · vald som startside"
+                    visible -> "Synleg i menyen"
+                    else -> "Skjult frå menyen"
+                },
                     style = MaterialTheme.typography.bodySmall, color = Muted)
             }
-            IconButton(onClick = { if (id !in required) onVisible(id, visible) }, enabled = id !in required,
-                modifier = Modifier.testTag("menu-visible-$id")) {
-                Icon(if (visible) SpoleIcons.Eye else SpoleIcons.EyeOff,
-                    stringResource(if (visible) R.string.refine_hide_named else R.string.refine_show_named, names.getValue(id)),
-                    tint = if (visible) Primary else Muted)
             }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End) {
+            Switch(checked = visible, onCheckedChange = { onVisible(id, it) }, enabled = id !in required,
+                modifier = Modifier.testTag("menu-visible-$id").semantics { contentDescription = names.getValue(id) })
+            Spacer(Modifier.weight(1f))
             listOf(-1, 1).forEachIndexed { button, direction ->
                 val target = index + direction
                 IconButton(onClick = {
@@ -87,6 +96,7 @@ private fun TvMenuOrderEditor(order: List<String>, names: Map<String, String>, h
                     Icon(if (direction < 0) SpoleIcons.ChevronUp else SpoleIcons.ChevronDown,
                         stringResource(if (direction < 0) R.string.home_order_up else R.string.home_order_down, names.getValue(id)))
                 }
+            }
             }
         }
     } }

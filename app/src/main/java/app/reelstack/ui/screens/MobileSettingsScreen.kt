@@ -27,9 +27,12 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
-    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}) {
+    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {}) {
     var page by rememberSaveable { mutableStateOf<SettingsCategory?>(null) }
     val panes = rememberSaveableStateHolder()
+    LaunchedEffect(state.accountsSettingsRequest) {
+        if (state.accountsSettingsRequest > 0) page = SettingsCategory.ACCOUNTS
+    }
     val context = LocalContext.current.applicationContext
     val preferences = remember(context) { AppPreferencesRepository(context) }
     val options = LocalPersonalization.current
@@ -59,7 +62,7 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                         Text(stringResource(selected.hint), style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
                         SharedSettingsContent(selected, state, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
-                            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll)
+                            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll, onAddProfile)
                     }
                     Spacer(Modifier.height(24.dp))
                 }

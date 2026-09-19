@@ -127,7 +127,7 @@ class TvSettingsRedesignTest {
             repository.personalization = Personalization()
             rule.setContent { Television { SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, {_,_->}) } }
             rule.onNodeWithTag("settings-category-MENU").performClick()
-            rule.onNodeWithTag("menu-option-ACTIVITY").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithTag("menu-order-card-ACTIVITY").performScrollTo().assertIsDisplayed()
             rule.onNodeWithTag("menu-down-ACTIVITY").performScrollTo().performSemanticsAction(SemanticsActions.RequestFocus)
                 .performKeyInput { pressKey(Key.DirectionLeft) }
             rule.onNodeWithTag("menu-up-ACTIVITY").assertIsFocused().performClick()

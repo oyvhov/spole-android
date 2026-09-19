@@ -3,6 +3,7 @@ package app.reelstack.data.repository
 import android.content.Context
 import androidx.core.content.edit
 import app.reelstack.data.model.HomeSection
+import app.reelstack.data.model.requiredMenu
 import app.reelstack.data.model.decodeHomeSections
 import kotlinx.serialization.json.*
 
@@ -100,7 +101,7 @@ class AppPreferencesRepository(context: Context) {
             putBoolean("hide_tv_sidebar", value.hideTvSidebar)
             value.sidebarExpanded?.let { putBoolean("sidebar_expanded", it) } ?: remove("sidebar_expanded")
             putString("menu_order", value.menuOrder.joinToString(","))
-            putStringSet("menu_hidden", value.hiddenMenuItems - setOf("HOME", "SETTINGS"))
+            putStringSet("menu_hidden", value.hiddenMenuItems.intersect(app.reelstack.data.model.DEFAULT_MENU.toSet()) - value.requiredMenu())
             putBoolean("show_next_up", value.showNextUp)
             putBoolean("combine_continue", value.combineContinueWatching)
             putBoolean("show_hero", value.showHero)

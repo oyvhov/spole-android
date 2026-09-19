@@ -13,6 +13,8 @@ data class WindowLayoutPolicy(val widthDp: Float, val heightDp: Float) {
     val useSideBySideMedia: Boolean get() = widthDp >= 600f
 
     val useNavigationRail: Boolean get() = widthDp >= 640f
+    /** Short touch windows need a small rail, not an expanding television sidebar. */
+    val useCompactTouchRail: Boolean get() = useNavigationRail && heightDp < 600f
 
     /** Heading, search and account share one row; the TV welcome splits into two panes. */
     val useInlineHeader: Boolean get() = widthDp >= 680f

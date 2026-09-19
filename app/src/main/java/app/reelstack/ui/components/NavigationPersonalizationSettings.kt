@@ -44,10 +44,10 @@ internal fun NavigationOptions(value: Personalization, showHeader: Boolean = tru
                     else -> R.string.nav_settings
                 })
                 Row(Modifier.fillMaxWidth().testTag("menu-option-$name"), verticalAlignment = Alignment.CenterVertically) {
-                    val required = name in setOf("HOME", "SETTINGS")
-                    Row(Modifier.weight(1f).heightIn(min = 52.dp).toggleable(name !in value.hiddenMenuItems,
+                    val required = name in value.requiredMenu()
+                    Row(Modifier.weight(1f).heightIn(min = 52.dp).toggleable(required || name !in value.hiddenMenuItems,
                         enabled = !required, role = Role.Checkbox,
-                        onValueChange = { show -> onChange(value.copy(hiddenMenuItems = if (show) value.hiddenMenuItems - name else value.hiddenMenuItems + name)) }),
+                        onValueChange = { show -> onChange(value.withMenuVisible(name, show)) }),
                         verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(required || name !in value.hiddenMenuItems, null, enabled = !required)
                         Text(label, Modifier.weight(1f).padding(start = 6.dp))

@@ -65,6 +65,7 @@ fun KidsEpisodesScreen(
     modifier: Modifier = Modifier,
     columns: Int = 2,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    onRetry: () -> Unit = {},
 ) {
     // D-pad lands in the episodes, not on the season chips or the back button. Moving down out of
     // a LazyRow that sits inside a grid item does not find the cards on its own.
@@ -81,6 +82,14 @@ fun KidsEpisodesScreen(
                 CircularProgressIndicator(color = Primary, modifier = Modifier.size(44.dp))
             }
             return@Column
+        }
+        if (!browse.loading && browse.episodes.isEmpty()) {
+            Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Vi fann ingen episodar her", style = MaterialTheme.typography.titleLarge)
+                Text("Prøv igjen, eller vel ein annan sesong.", color = Muted)
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry,
+                    modifier = Modifier.heightIn(min = 64.dp)) { Text("Prøv igjen") }
+            }
         }
 
         LazyVerticalGrid(
@@ -234,7 +243,7 @@ private fun EpisodeCard(episode: LibraryMedia, onPlay: () -> Unit, modifier: Mod
                 .background(SurfaceRaised),
         ) {
             MediaArtwork(
-                url = episode.heroUrl ?: episode.artworkUrl ?: episode.posterUrl,
+                url = episode.artworkUrl ?: episode.heroUrl ?: episode.posterUrl,
                 contentDescription = episode.title,
                 source = episode.source,
                 fallbackRes = R.drawable.media_placeholder,
@@ -301,7 +310,7 @@ private fun EpisodeCard(episode: LibraryMedia, onPlay: () -> Unit, modifier: Mod
         Spacer(Modifier.height(10.dp))
 
         Text(
-            text = episode.title,
+            text = episode.subtitle.ifBlank { episode.title },
             color = if (watched) Muted else app.reelstack.ui.theme.Text,
             fontSize = 17.sp,
             lineHeight = 22.sp,

@@ -4,6 +4,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WindowLayoutPolicyTest {
+    @Test fun shortTouchWindowsUseCompactRail() {
+        assertTrue(WindowLayoutPolicy(892f, 412f).useCompactTouchRail)
+        assertTrue(WindowLayoutPolicy(1100f, 480f).useCompactTouchRail)
+        assertFalse(WindowLayoutPolicy(412f, 892f).useCompactTouchRail)
+        assertFalse(WindowLayoutPolicy(1280f, 800f).useCompactTouchRail)
+    }
     @Test fun homeSearchIsOnlyAShortcutForCompactWindows() {
         assertTrue(WindowLayoutPolicy(412f, 892f).showHomeSearch)
         assertTrue(WindowLayoutPolicy(600f, 800f).showHomeSearch)

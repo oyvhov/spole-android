@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.17.0-beta30 - Personleg barnemodus og tryggare mobilmeny
+
+- Ny barneframside, seks tema, mjuke overgangar og «Mi verd» med eigne val per barn.
+- Foreldreval for utsjånad, undertekstar og autospel med pause etter 1–3 episodar.
+- Ny «Tenestene dine» og kontosnarveg som opnar rett innstillingsside.
+- Retta bibliotekfilter, episodebilete og episodetitlar, lasting og profilbyte i barnemodus.
+- Menyval kan no skjulast og visast; Heim og Innstillingar er verna mot skjuling.
+- Telefon i liggjande vising får kompakt sidemeny med Innstillingar fast nedst.
+
+
 ## 0.17.0-beta26 - Rett bibliotek i barnemodus
 
 - Barneframsida listar berre film- og seriebiblioteka kontoen har. Ei samlingsvising blei før lista flatt, og drog med seg titlar frå heile tenaren som kontoen ikkje har bibliotek for.

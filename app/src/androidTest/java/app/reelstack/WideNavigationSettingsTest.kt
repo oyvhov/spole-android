@@ -65,13 +65,17 @@ class WideNavigationSettingsTest {
         var width by mutableStateOf(1280.dp)
         rule.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width, 900.dp))) {
+                val touch = android.content.res.Configuration(androidx.compose.ui.platform.LocalConfiguration.current).apply {
+                    uiMode = (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK.inv()) or android.content.res.Configuration.UI_MODE_TYPE_NORMAL
+                }
+                CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides touch) {
                 ReelstackTheme { SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, { _, _ -> }) }
+                }
             }
         }
         rule.onNodeWithTag("settings-categories").assertIsDisplayed()
         rule.onNodeWithTag("appearance-expand").assertDoesNotExist()
         rule.onNodeWithTag("settings-category-APPEARANCE").performClick().assertIsSelected()
-        rule.onNodeWithTag("appearance-expand").performScrollTo().performClick()
         rule.onNodeWithTag("theme-choice-accent").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("settings-category-ABOUT").performClick()
         rule.onNodeWithTag("appearance-expand").assertDoesNotExist()

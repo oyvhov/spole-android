@@ -73,6 +73,18 @@ artwork size scales both cards and skeletons without scaling text. Text may grow
 
 ## Motion and changing data
 
+### Meny på telefon · september 2026
+
+Ståande telefonvising bruker botnmenyen. Breie, korte berøringsvindauge (minst 640 dp
+breie og under 600 dp høge) bruker ei kompakt sidemeny på 80 dp. Ho utvidar seg ikkje
+til TV-/nettbrettmenyen og viser ikkje bibliotek-snarvegar. Innstillingar ligg fast
+nedst; resten kan rullast uavhengig ved liten høgd. TV held på fjernkontrollmenyen.
+
+Menytilpassinga har brytarar for synleg/skjult, separate flytteknappar og nullstilling.
+Heim og Innstillingar kan ikkje skjulast. Bibliotek er òg obligatorisk når det er
+startside. Reglane gjeld både rendering, endring og lagring, også med gamle lagra val.
+Skjuling gjeld både botnmeny og sidemeny med ein gong.
+
 - Preserve the fixed sheet viewport while metadata arrives; scroll the inner content. Never resize the modal anchor to fit each network response.
 - Brief card reveal and spring press feedback remain; avoid long entrance delays or repeating animation on every refresh.
 - Empty playback is a small status line, including while checking. A refresh must not temporarily insert a full-height playback skeleton above the library.

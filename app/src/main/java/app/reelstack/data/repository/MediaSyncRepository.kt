@@ -303,8 +303,7 @@ class MediaSyncRepository(
      * and a request no home server should have to answer at once.
      */
     fun accountLibrary(connection: ServiceConnection, perLibraryLimit: Int = 400): List<LibraryMedia> {
-        val views = runCatching { mediaServerClient.browseLibraries(connection) }
-            .getOrDefault(emptyList())
+        val views = mediaServerClient.browseLibraries(connection)
             // Film and series libraries only.
             //
             // A collections view ("boxsets") is not a library of its own: listing its children flat
@@ -321,10 +320,8 @@ class MediaSyncRepository(
             while (offset < perLibraryLimit) {
                 // Passing the collection type is what makes this recursive and typed — Movie for a
                 // film library, Series for a show library — instead of a flat list of folders.
-                val page = runCatching {
-                    mediaServerClient.browseLibrary(connection, view.id, offset, view.collectionType)
-                }.getOrDefault(emptyList())
-                out += page.map { libraryMedia(it, connection.kind) }
+                val page = mediaServerClient.browseLibrary(connection, view.id, offset, view.collectionType)
+                out += page.map { libraryMedia(it, connection.kind).copy(libraryId = view.id) }
                 if (page.size < 60) break
                 offset += page.size
             }

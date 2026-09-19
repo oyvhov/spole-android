@@ -30,7 +30,7 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
-    onHomeRowOrderChange: (List<HomeRow>) -> Unit, onSignOutAll: () -> Unit) {
+    onHomeRowOrderChange: (List<HomeRow>) -> Unit, onSignOutAll: () -> Unit, onAddProfile: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val preferences = remember(context) { AppPreferencesRepository(context) }
     val options = LocalPersonalization.current
@@ -77,48 +77,7 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
             SettingsToggleRow(stringResource(R.string.tv_slow_startup), stringResource(R.string.settings_tv_startup_hint),
                 options.slowStartup, "slow-startup") { change(options.copy(slowStartup = it)) }
         }
-        SettingsCategory.ACCOUNTS -> {
-            val mediaKinds = listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
-            mediaKinds.filter { state.canEditConnection(it) }.forEach { kind ->
-                val activeConnection = state.connections.firstOrNull { it.kind == kind } ?: return@forEach
-                val configuredProfiles = state.profiles.filter { profile ->
-                    state.allProfileConnections[profile.id]?.any { it.kind == kind && it.baseUrl.isNotBlank() } == true
-                }
-                
-                if (configuredProfiles.isNotEmpty()) {
-                    SettingsGroup(kind.displayName)
-                    configuredProfiles.forEach { profile ->
-                        val profileConnection = state.allProfileConnections[profile.id]?.firstOrNull { it.kind == kind } ?: return@forEach
-                        val isActive = profile.id == state.activeProfileId
-                        SettingsServiceRow(
-                            connection = profileConnection,
-                            account = profile.name + if (isActive) "" else " (" + stringResource(R.string.filter_status) + ": " + stringResource(if (profileConnection.token.isNotBlank()) R.string.service_connected else R.string.settings_tv_connection_action) + ")",
-                            warning = if (isActive) state.serviceWarnings[kind] else null,
-                            tag = "tv-service-$kind-${profile.id}"
-                        ) {
-                            if (isActive) onConnectionClick(kind)
-                        }
-                    }
-                } else if (activeConnection.baseUrl.isBlank()) {
-                    SettingsGroup(kind.displayName)
-                    SettingsServiceRow(activeConnection, account = null,
-                        warning = state.serviceWarnings[kind],
-                        tag = "tv-service-$kind") { onConnectionClick(kind) }
-                }
-            }
-            
-            val seerrConnection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
-            if (seerrConnection != null && state.canEditConnection(ServiceKind.SEERR)) {
-                SettingsGroup(ServiceKind.SEERR.displayName)
-                SettingsServiceRow(seerrConnection, state.verifiedPanelAccount(ServiceKind.SEERR)?.displayName,
-                    state.serviceWarnings[ServiceKind.SEERR], "tv-service-SEERR") { onConnectionClick(ServiceKind.SEERR) }
-                if (seerrConnection.token.isNotBlank())
-                    SettingsChoiceRow(stringResource(R.string.settings_tv_account_action), "Seerr", "tv-account-SEERR") { onAccountClick(ServiceKind.SEERR) }
-            }
-            
-            SignOutAllSetting(state, onSignOutAll)
-            PrivacyCard(state)
-        }
+        SettingsCategory.ACCOUNTS -> ServicesSettings(state, onConnectionClick, onAccountClick, onSignOutAll, onAddProfile)
         SettingsCategory.UPDATES -> {
             app.reelstack.update.AppUpdateSettings()
             val isTelevision = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION

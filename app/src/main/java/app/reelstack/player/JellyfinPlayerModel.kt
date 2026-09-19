@@ -177,6 +177,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      * installed it, so after three in a row the offer stays put and waits for a press.
      */
     var kidsMode: Boolean = false
+    private val kidsPreferences by lazy { app.reelstack.data.repository.KidsPreferencesRepository(container.appContext) }
+    private fun playbackOptions(): Personalization {
+        val adult = container.preferencesRepository.personalization
+        return if (kidsMode) kidsPreferences.read(container.connectionRepository.activeProfileId).playbackOptions(adult) else adult
+    }
     private var autoplayChain = 0
     private var preferredAudio: Int? = null
     private var preferredSubtitle: Int? = null
@@ -490,7 +495,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         countdownJob?.cancel()
         nextEpisodeJob?.cancel()
         nextEpisodeCancelled = false
-        val options = container.preferencesRepository.personalization
+        val options = playbackOptions()
         mutable.update { it.copy(nextEpisode = null, nextEpisodeCountdown = null, nextEpisodeDismissed = false,
             nextEpisodeOfferEnabled = options.showNextEpisode, nextEpisodeLeadSeconds = options.nextEpisodeLeadSeconds) }
         if (item.type in setOf("Series", "Season")) {
@@ -508,7 +513,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 episode = item.episode, logoUrl = item.logoUrl, browsing = false, choices = emptyList(),
                 positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id) }
             val start = playbackStartPosition(item.resumeMs, item.durationMs, item.played,
-                container.preferencesRepository.personalization.autoResume)
+                playbackOptions().autoResume)
             mutable.update { it.copy(awaitingResume = start == null) }
             if (start == null) mutable.update { it.copy(busy = false) }
             else prepare(start)
@@ -577,8 +582,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     client.prepare(c, userId, item, state.value.quality.takeIf { it > 0 } ?: autoBitrate(),
                         // The version the title page picked, until a plan exists and the player owns it.
                         audioChoice, subtitleChoice, mode, previous?.sourceId ?: preferredSource.takeIf { item.id == rootId },
-                        container.preferencesRepository.personalization.preferredSubtitleLanguage,
-                        container.preferencesRepository.personalization.fallbackSubtitleLanguage) to deviceCapabilities.snapshot()
+                        playbackOptions().preferredSubtitleLanguage,
+                        playbackOptions().fallbackSubtitleLanguage) to deviceCapabilities.snapshot()
                 }
                 if (ticket != generation || !sameAccount()) return@launch
                 plan = prepared
@@ -664,11 +669,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      * nothing to play next.
      */
     private fun startNextEpisodeCountdown() {
-        val options = container.preferencesRepository.personalization
+        val options = playbackOptions()
         if (countdownJob?.isActive == true || nextEpisodeCancelled || !foreground ||
             !options.autoPlayNextEpisode || !state.value.canCountDownNextEpisode()) return
         // Three on the trot, then the offer waits for a hand.
-        if (kidsMode && autoplayChain >= MAX_KIDS_AUTOPLAY_CHAIN) return
+        if (kidsMode && !kidsPreferences.read(container.connectionRepository.activeProfileId).canAutoplay(autoplayChain)) return
         val episodeId = state.value.itemId
         val seconds = state.value.nextEpisodeCountdown ?: options.nextEpisodeDelaySeconds
         if (state.value.nextEpisodeCountdown == null)

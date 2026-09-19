@@ -13,6 +13,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,13 +68,17 @@ fun KidsApp(viewModel: ReelstackViewModel) {
     }
 
     val activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
+    val options = rememberKidsPreferences(state.activeProfileId)
+    val preferences = remember(context) { app.reelstack.data.repository.KidsPreferencesRepository(context) }
+    var appearanceOpen by rememberSaveable(state.activeProfileId) { mutableStateOf(false) }
+    BackHandler(appearanceOpen) { appearanceOpen = false }
 
     // Everything on this screen must be one tap from playing. An entry with no playable id would
     // be a dead poster, and a dead poster is worse than a missing one.
     val keepWatching = remember(state.resume, state.nextUp) {
         (state.resume + state.nextUp)
             .filter { !it.remoteId.isNullOrBlank() }
-            .distinctBy { it.remoteId }
+            .distinctBy { it.source to it.remoteId }
     }
     // Everything the account may open. The libraries were chosen on the server; the shell shows
     // what they contain and filters nothing of its own. Until that listing arrives, the rows the
@@ -77,17 +86,15 @@ fun KidsApp(viewModel: ReelstackViewModel) {
     LaunchedEffect(state.activeProfileId, state.connections.size) { viewModel.loadKidsLibrary() }
 
     val yourShows = remember(state.kidsLibrary, state.favourites, state.recentSeries, state.recentMovies, keepWatching) {
-        val alreadyShown = keepWatching.mapNotNull { it.remoteId }.toSet()
         val source = state.kidsLibrary.ifEmpty { state.recentSeries + state.favourites + state.recentMovies }
         // Only types the grid knows what to do with. A favourited *episode* carries its series'
         // poster, so it looks like a series and then plays straight into the middle of one.
         source
             .filter { media ->
                 !media.remoteId.isNullOrBlank() &&
-                    media.remoteId !in alreadyShown &&
                     (media.isSeries || media.mediaType.equals("Movie", ignoreCase = true))
             }
-            .distinctBy { it.remoteId }
+            .distinctBy { it.source to it.remoteId }
     }
 
     val play: (LibraryMedia) -> Unit = { media ->
@@ -102,6 +109,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
         if (media.isSeries) viewModel.openKidsSeries(media) else play(media)
     }
 
+    KidsWorldTheme(options) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize()) {
             Box(
@@ -110,14 +118,14 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     .background(
                         androidx.compose.ui.graphics.Brush.verticalGradient(
                             listOf(
-                                Color(0xFF141A24),
-                                Color(0xFF0C1016),
+                                Color(options.world.sky),
+                                Color(options.world.sky),
                                 Color(0xFF070A0E),
                             )
                         )
                     )
             )
-            SpaceBackdrop(accent = Primary, modifier = Modifier.matchParentSize())
+            if (options.decorations) WorldLandscape(options.world, Modifier.matchParentSize())
 
             Column(
                 modifier = Modifier
@@ -126,30 +134,59 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     .testTag("kids-app"),
             ) {
                 val gridPadding = PaddingValues(
-                    start = 24.dp,
-                    end = 24.dp,
+                    start = if (television) 48.dp else 24.dp,
+                    end = if (television) 48.dp else 24.dp,
                     top = 8.dp,
                     bottom = if (television) 48.dp else 24.dp,
                 )
 
-                if (state.kidsBrowse.open) {
+                val page = when {
+                    appearanceOpen && options.allowAppearance -> "appearance"
+                    state.kidsBrowse.open -> "episodes"
+                    else -> "home"
+                }
+                androidx.compose.animation.Crossfade(targetState = page,
+                    animationSpec = androidx.compose.animation.core.tween(if (LocalMotionEnabled.current) 220 else 0),
+                    label = "kids-page", modifier = Modifier.weight(1f)) { visiblePage ->
+                if (visiblePage == "appearance") {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(gridPadding),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        app.reelstack.ui.components.SpoleSecondaryButton(onClick = { appearanceOpen = false },
+                            modifier = Modifier.heightIn(min = 64.dp)) { Text("Tilbake til historiene") }
+                        Text("Mi verd", style = MaterialTheme.typography.headlineLarge)
+                        Text("Vel ein stad du likar. Historiene dine blir med.", color = Muted)
+                        KidsWorldPicker(options, onChange = { preferences.saveAppearance(state.activeProfileId, it, options.decorations) })
+                        app.reelstack.ui.components.SettingsToggleRow("Pynt i verda mi", "Planetar, bølgjer og landskap",
+                            options.decorations, "kids-decoration") {
+                            preferences.saveAppearance(state.activeProfileId, options.world, it)
+                        }
+                    }
+                } else if (visiblePage == "episodes") {
                     KidsEpisodesScreen(
                         browse = state.kidsBrowse,
                         onPlay = play,
                         onSelectSeason = viewModel::selectKidsSeason,
                         onBack = viewModel::closeKidsSeries,
+                        onRetry = {
+                            if (state.kidsBrowse.selectedSeasonId.isNotBlank()) viewModel.selectKidsSeason(state.kidsBrowse.selectedSeasonId)
+                            else yourShows.firstOrNull { it.remoteId == state.kidsBrowse.seriesId }?.let(viewModel::openKidsSeries)
+                        },
                         columns = if (television) 4 else 2,
                         contentPadding = gridPadding,
                     )
                 } else {
+                    Column(Modifier.fillMaxSize()) {
                     KidsTopBar(
                         name = activeProfile?.name.orEmpty(),
                         avatarUrl = activeProfile?.avatarUrl,
                         onProfile = viewModel::openProfileSwitcher,
+                        onAppearance = if (options.allowAppearance) ({ appearanceOpen = true }) else null,
+                        world = options.world.title,
+                        television = television,
                     )
 
                     val serverKind = state.connections.firstOrNull {
-                        it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
+                        it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
                     }?.kind ?: ServiceKind.JELLYFIN
 
                     KidsHomeScreen(
@@ -160,23 +197,32 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                         onPlay = choose,
                         columns = if (television) 5 else 2,
                         contentPadding = gridPadding,
+                        loading = state.kidsLibraryLoading,
+                        error = state.kidsLibraryError,
+                        onRetry = viewModel::loadKidsLibrary,
                     )
+                    }
+                }
                 }
             }
         }
     }
 
     KidsSheets(state.activeSheet, viewModel)
+    }
 }
 
 @Composable
-private fun KidsTopBar(name: String, avatarUrl: String?, onProfile: () -> Unit) {
+private fun KidsTopBar(name: String, avatarUrl: String?, onProfile: () -> Unit,
+    onAppearance: (() -> Unit)?, world: String, television: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .padding(horizontal = if (television) 48.dp else 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Column(Modifier.weight(1f)) {
+        Text("SPOLE · $world", color = Muted, style = MaterialTheme.typography.labelMedium)
         Text(
             text = if (name.isBlank()) {
                 stringResource(R.string.kids_greeting_plain)
@@ -184,11 +230,19 @@ private fun KidsTopBar(name: String, avatarUrl: String?, onProfile: () -> Unit) 
                 stringResource(R.string.kids_greeting, name)
             },
             color = app.reelstack.ui.theme.Text,
-            fontSize = 28.sp,
+            fontSize = if (television) 28.sp else 23.sp,
             lineHeight = 34.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f),
         )
+        }
+        if (onAppearance != null) {
+            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onAppearance,
+                modifier = Modifier.heightIn(min = 64.dp).testTag("kids-appearance")) {
+                androidx.compose.material3.Icon(app.reelstack.ui.components.SpoleIcons.Palette, "Mi verd")
+                if (television) Text("Mi verd", Modifier.padding(start = 10.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+        }
 
         KidsAvatarButton(avatarUrl = avatarUrl, name = name, onClick = onProfile)
     }
