@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="history_open">Sjå førespurnadshistorikk</string>
+    <string name="history_open">Historikk</string>
     <string name="history_title">Førespurnadshistorikk</string>
     <string name="history_description">Dine førespurnader i Seerr, nyaste først. Opne ein tittel for detaljar. Å bla slår ikkje på varsel.</string>
     <string name="history_back">Tilbake til Aktivitet</string>

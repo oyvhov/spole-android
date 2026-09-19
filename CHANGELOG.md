@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0-beta31 - Ryddigare aktivitetsside
+
+- Aktivitet opnar på «På vei» når du har noko på veg, og på «Alle» når du ikkje har det.
+- Knappen til førespurnadshistorikken heiter no «Historikk» og overlappar ikkje lenger filtra på telefon.
+- Ny plan for globalt søk i `docs/GLOBALT_SOK_PLAN.md`.
+
 ## 0.17.0-beta30 - Personleg barnemodus og tryggare mobilmeny
 
 - Ny barneframside, seks tema, mjuke overgangar og «Mi verd» med eigne val per barn.

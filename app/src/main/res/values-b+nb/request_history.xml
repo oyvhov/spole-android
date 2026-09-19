@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="history_open">Se forespørselshistorikk</string>
+    <string name="history_open">Historikk</string>
     <string name="history_title">Forespørselshistorikk</string>
     <string name="history_description">Dine forespørsler i Seerr, nyeste først. Åpne en tittel for detaljer. Å bla slår ikke på varsler.</string>
     <string name="history_back">Tilbake til Aktivitet</string>

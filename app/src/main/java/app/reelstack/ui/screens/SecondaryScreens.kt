@@ -739,7 +739,13 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
         }
         stringResource(R.string.filter_count, choice.localizedLabel(), count)
     }
-    var personalFilter by rememberSaveable { mutableStateOf(PersonalActivityFilter.ALL) }
+    // What you are waiting for is the reason to open this page; what already arrived is not news.
+    // The page therefore opens on «På vei» — but only while there is something on the way, because
+    // an empty list on arrival reads as a broken page, not as an empty filter.
+    var chosenFilter by rememberSaveable { mutableStateOf<PersonalActivityFilter?>(null) }
+    val waiting = state.trackedRequests.any { it.stage != app.reelstack.data.model.RequestStage.AVAILABLE }
+    val personalFilter = chosenFilter
+        ?: if (waiting) PersonalActivityFilter.IN_PROGRESS else PersonalActivityFilter.ALL
     var showUnresolved by rememberSaveable { mutableStateOf(false) }
     val personalRequests = state.trackedRequests.filter {
         when (personalFilter) {
@@ -818,7 +824,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                 val filters: @Composable () -> Unit = {
                     if (state.trackedRequests.isNotEmpty()) {
                         AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) },
-                            { personalFilter = it }, optionTag = { "activity-personal-${it.name}" })
+                            { chosenFilter = it }, optionTag = { "activity-personal-${it.name}" })
                     }
                 }
                 // On the same line as the filters and built from the same chip, because a row of
@@ -854,7 +860,10 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     }
                 } else {
                     filters()
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Box(Modifier.weight(1f)) { history() }
                         refresh()
                     }

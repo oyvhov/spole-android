@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="history_open">View request history</string>
+    <string name="history_open">History</string>
     <string name="history_title">Request history</string>
     <string name="history_description">Your requests in Seerr, newest first. Open a title for details. Browsing does not turn on notifications.</string>
     <string name="history_back">Back to Activity</string>
