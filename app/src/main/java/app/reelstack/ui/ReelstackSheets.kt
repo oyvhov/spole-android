@@ -48,6 +48,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ScrollState
@@ -159,6 +160,7 @@ fun ReelstackSheets(
     onPlayed: (String, Boolean) -> Unit = { _, _ -> },
     onSeason: (String) -> Unit = {},
     onEpisodeSeries: () -> Unit = {},
+    onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
     onCancelConnection: () -> Unit = {},
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
@@ -205,7 +207,7 @@ fun ReelstackSheets(
                         RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
                             onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered,
                             onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason, onEpisodeSeries = onEpisodeSeries,
-                            onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle)
+                            onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle, onEpisodeClick = onEpisodeClick)
                     }
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
@@ -299,7 +301,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     scroll: ScrollState, entered: Boolean, onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {}, onEpisodeSeries: () -> Unit = {},
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
-    onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {}) {
+    onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
+    onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {}) {
     val details = state.contentDetails ?: return
     // Freeze the opening artwork and title. Late metadata must not replace or resize the hero.
     val opening = remember(details.key) { details }
@@ -379,7 +382,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }
         }) {
             if (ready) {
-                SeriesEpisodes(state.seriesBrowse, details.key, onSeason)
+                SeriesEpisodes(state.seriesBrowse, details.key, onSeason, onEpisodeClick)
                 castBlock()
                 if (!isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
                     { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
@@ -487,7 +490,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // An episode gets the same list, opened on the season it belongs to. The rest of the
         // season is the thing a reader on an episode page actually wants next, and it is what
         // used to leave the lower half of a television screen empty.
-        SeriesEpisodes(state.seriesBrowse, details.key, onSeason)
+        SeriesEpisodes(state.seriesBrowse, details.key, onSeason, onEpisodeClick)
         if (tv && wideDetail && mediaType != "Episode") synopsis()
         if (tv && !isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
             { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
@@ -721,13 +724,47 @@ private fun TitleActionRow(
                 app.reelstack.ui.components.TrailerPreview(trailer, details.title)
             }
             if (marks) {
-                IconAction(
-                    icon = app.reelstack.ui.components.SpoleIcons.DoneCircle,
-                    active = details.played,
-                    description = stringResource(
-                        if (details.played) R.string.library_played_unmark else R.string.library_played_mark),
-                    tag = "detail-played",
-                ) { onPlayed(details.key, !details.played) }
+                val playedInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                val playedShape = RoundedCornerShape(12.dp)
+                Box(
+                    Modifier.height(52.dp)
+                        .clip(playedShape)
+                        .background(if (details.played) Success.copy(alpha = 0.22f) else SurfaceRaised)
+                        .border(
+                            width = 1.dp,
+                            color = if (details.played) Success.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            shape = playedShape,
+                        )
+                        .focusOutline(playedInteraction, playedShape)
+                        .toggleable(
+                            value = details.played,
+                            interactionSource = playedInteraction,
+                            indication = androidx.compose.foundation.LocalIndication.current,
+                            role = Role.Checkbox,
+                            onValueChange = { onPlayed(details.key, !details.played) },
+                        )
+                        .padding(horizontal = 14.dp)
+                        .testTag("detail-played"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (details.played) app.reelstack.ui.components.SpoleIcons.Done else app.reelstack.ui.components.SpoleIcons.DoneCircle,
+                            contentDescription = stringResource(if (details.played) R.string.library_played_unmark else R.string.library_played_mark),
+                            tint = if (details.played) Success else Muted,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Text(
+                            text = stringResource(if (details.played) R.string.detail_action_watched else R.string.detail_action_mark_watched),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (details.played) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (details.played) Success else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 IconAction(
                     icon = if (details.favourite) app.reelstack.ui.components.SpoleIcons.HeartFilled
                     else app.reelstack.ui.components.SpoleIcons.Heart,
@@ -1217,9 +1254,9 @@ internal fun ConnectionEditorSheet(
     setupLink: String? = null,
 ) {
     val shareContext = LocalContext.current
+    var reauthenticating by rememberSaveable(draft.kind) { mutableStateOf(false) }
     var credentialsStep by rememberSaveable(draft.kind) { mutableStateOf(configured) }
     var advanced by rememberSaveable(draft.kind) { mutableStateOf(false) }
-    var detailsExpanded by rememberSaveable(draft.kind, configured) { mutableStateOf(!configured) }
     var showPassword by remember { mutableStateOf(false) }
     var addressError by remember { mutableStateOf<String?>(null) }
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -1242,51 +1279,96 @@ internal fun ConnectionEditorSheet(
         Modifier.weight(1f).testTag("connection-scroll").verticalScroll(rememberScrollState())
             .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
     ) {
-        if (configured) {
-            ConnectedServiceSummary(draft.kind, detailsExpanded) { detailsExpanded = !detailsExpanded }
-            if (setupLink != null) {
-                // Read here rather than inside the click handlers: a lambda that runs after the
-                // composition is not a place a resource can be looked up from.
-                val shareTitle = stringResource(R.string.setup_share_chooser)
-                val shareUnavailable = stringResource(R.string.setup_share_unavailable)
-                val clipLabel = stringResource(R.string.setup_clip_label)
-                val linkCopied = stringResource(R.string.setup_link_copied)
-                SpoleSecondaryButton(onClick = {
-                    runCatching {
-                        shareContext.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(android.content.Intent.EXTRA_TEXT, setupLink)
-                        }, shareTitle))
-                    }.onFailure {
-                        android.widget.Toast.makeText(shareContext, shareUnavailable, android.widget.Toast.LENGTH_LONG).show()
+        if (configured && !reauthenticating) {
+            val isAccount = draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY || draft.kind == ServiceKind.SEERR
+            val stateText = stringResource(if (isAccount) R.string.account_signed_in else R.string.account_connected, draft.kind.displayName)
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Surface(
+                    color = Success.copy(alpha = .12f),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Success.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            Modifier.size(38.dp).clip(CircleShape).background(Success.copy(alpha = .18f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null, tint = Success, modifier = Modifier.size(22.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(stateText, color = Success, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
+                            Text(draft.url, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 18.sp,
+                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
                     }
-                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.setup_share_with_user)) }
-                SpoleSecondaryButton(onClick = {
-                    shareContext.getSystemService(android.content.ClipboardManager::class.java)
-                        .setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, setupLink))
-                    android.widget.Toast.makeText(shareContext, linkCopied, android.widget.Toast.LENGTH_SHORT).show()
-                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.setup_copy_link)) }
-                Text(stringResource(R.string.setup_share_note), style = MaterialTheme.typography.bodySmall)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    SpoleSecondaryButton(
+                        onClick = { credentialsStep = false; reauthenticating = true },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.account_edit))
+                    }
+                    Button(
+                        onClick = { confirmSignOut = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.account_sign_out), fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                if (confirmSignOut) {
+                    SignOutConfirmation(draft.kind, { confirmSignOut = false }, { confirmSignOut = false; onRemove() })
+                }
             }
+            return@Column
         }
-        AnimatedVisibility(
-            visible = !configured || detailsExpanded,
-            enter = expandVertically(animationSpec = tween(220), expandFrom = Alignment.Top) + fadeIn(tween(180)),
-            exit = shrinkVertically(animationSpec = tween(180), shrinkTowards = Alignment.Top) + fadeOut(tween(120)),
-        ) {
+
+        if (setupLink != null && configured) {
+            val shareTitle = stringResource(R.string.setup_share_chooser)
+            val shareUnavailable = stringResource(R.string.setup_share_unavailable)
+            val clipLabel = stringResource(R.string.setup_clip_label)
+            val linkCopied = stringResource(R.string.setup_link_copied)
+            SpoleSecondaryButton(onClick = {
+                runCatching {
+                    shareContext.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_TEXT, setupLink)
+                    }, shareTitle))
+                }.onFailure {
+                    android.widget.Toast.makeText(shareContext, shareUnavailable, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.setup_share_with_user)) }
+            SpoleSecondaryButton(onClick = {
+                shareContext.getSystemService(android.content.ClipboardManager::class.java)
+                    .setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, setupLink))
+                android.widget.Toast.makeText(shareContext, linkCopied, android.widget.Toast.LENGTH_SHORT).show()
+            }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.setup_copy_link)) }
+            Text(stringResource(R.string.setup_share_note), style = MaterialTheme.typography.bodySmall)
+        }
+
         Column {
-        // A step marker only helps when it says how many steps there are.
-        Text(stringResource(if (configured) R.string.login_connection else if (credentialsStep) R.string.login_step_credentials else R.string.login_step_address),
+        Text(stringResource(if (credentialsStep) R.string.login_step_credentials else R.string.login_step_address),
             color = Muted, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.4.sp,
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-        Text(stringResource(if (credentialsStep) R.string.login_account_hint else R.string.login_address_hint), color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
-        if (configured) {
-            ConnectionTextAction(stringResource(R.string.account_sign_out), { confirmSignOut = true }, enabled = !draft.saving, warning = true)
-        }
-        if (confirmSignOut) {
-            SignOutConfirmation(draft.kind, { confirmSignOut = false }, { confirmSignOut = false; onRemove() })
-        }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(10.dp))
         if (!credentialsStep) {
             OutlinedTextField(
                 value = draft.url, onValueChange = { addressError = null; onUrlChange(it) },
@@ -1464,9 +1546,8 @@ internal fun ConnectionEditorSheet(
             ConnectionTextAction(stringResource(R.string.account_cancel), onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
         }
-        }
     }
-    if (television && credentialsStep && (!configured || detailsExpanded)) {
+    if (television && credentialsStep && !configured) {
         Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp, vertical = 12.dp)) {
             ConnectionSubmit(draft) { focus.clearFocus(); onTestAndSave() }
         }

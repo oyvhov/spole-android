@@ -1,4 +1,7 @@
 <resources>
     <string name="tv_hide_sidebar">Skjul sidemenyen</string>
-    <string name="tv_hide_sidebar_help">Trykk venstre fra kanten av innholdet for å åpne menyen. Høyre tar deg tilbake.</string>
+    <string name="settings_menu_heading">Meny</string>
+    <string name="menu_status_always_visible">Alltid synlig</string>
+    <string name="menu_status_visible">Synlig</string>
+    <string name="menu_status_hidden">Skjult</string>
 </resources>

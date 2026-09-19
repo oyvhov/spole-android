@@ -143,7 +143,12 @@ private fun InLibraryBadge() {
  * the series contains. Every episode here starts from the page, at its own resume point.
  */
 @Composable
-internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (String) -> Unit) {
+internal fun SeriesEpisodes(
+    browse: SeriesBrowse,
+    detailKey: String,
+    onSeason: (String) -> Unit,
+    onEpisodeClick: (LibraryMedia) -> Unit = {},
+) {
     val firstEpisode = remember { androidx.compose.ui.focus.FocusRequester() }
     val tv = app.reelstack.ui.components.isTelevision()
     val showUpcoming = app.reelstack.ui.theme.LocalPersonalization.current.showUpcomingEpisodes
@@ -192,7 +197,7 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
                         items(episodes, key = { it.id }) { episode ->
                             Box(Modifier.width(208.dp).then(if (episode.id == episodes.first().id)
                                 Modifier.focusRequester(firstEpisode) else Modifier)) {
-                                TvEpisodeCard(episode, episode.id == detailKey)
+                                TvEpisodeCard(episode, episode.id == detailKey, onEpisodeClick)
                             }
                         }
                     }
@@ -205,7 +210,7 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
                 val visible = if (showAll) episodes else episodes.take(EPISODE_PREVIEW)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     visible.forEachIndexed { index, episode ->
-                        Box(if (index == 0) Modifier.focusRequester(firstEpisode) else Modifier) { EpisodeRow(episode, episode.id == detailKey) }
+                        Box(if (index == 0) Modifier.focusRequester(firstEpisode) else Modifier) { EpisodeRow(episode, episode.id == detailKey, onEpisodeClick) }
                     }
                     if (visible.size < episodes.size) Chip(
                         text = pluralStringResource(
@@ -226,15 +231,14 @@ internal fun SeriesEpisodes(browse: SeriesBrowse, detailKey: String, onSeason: (
 private const val EPISODE_PREVIEW = 12
 
 @Composable
-private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean) {
-    val context = LocalContext.current
+private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, onEpisodeClick: (LibraryMedia) -> Unit = {}) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxWidth().clip(shape).focusOutline(interaction, shape)
         .then(if (!episode.available) Modifier.focusable(interactionSource = interaction) else Modifier)
         .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
             enabled = episode.available && !episode.remoteId.isNullOrBlank() && episode.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
-            role = Role.Button) { app.reelstack.player.JellyfinPlayerActivity.open(context, episode.remoteId!!, source = episode.source) }
+            role = Role.Button) { onEpisodeClick(episode) }
         .padding(6.dp).testTag("episode-${episode.remoteId ?: episode.id}"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
             MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), episode.artworkRes, source = episode.source)
@@ -272,8 +276,7 @@ private fun seasonLabel(season: LibraryMedia): String {
  * at a glance; everything else is one line so a season of twenty-four does not become a wall.
  */
 @Composable
-private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false) {
-    val context = LocalContext.current
+private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false, onEpisodeClick: (LibraryMedia) -> Unit = {}) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
     val itemId = episode.remoteId.orEmpty()
@@ -290,7 +293,7 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false) {
                 indication = app.reelstack.ui.components.mediaCardIndication(),
                 role = Role.Button,
                 enabled = episode.available && itemId.isNotBlank() && episode.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
-            ) { app.reelstack.player.JellyfinPlayerActivity.open(context, itemId, source = episode.source) }
+            ) { onEpisodeClick(episode) }
             .padding(6.dp)
             .testTag("episode-${itemId.ifBlank { episode.id }}"),
         verticalAlignment = Alignment.CenterVertically,

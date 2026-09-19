@@ -283,6 +283,7 @@ class ReelstackViewModel(
     private data class EpisodeReturn(val seriesKey: String, val connection: ServiceConnection,
         val details: ContentDetails, val browse: app.reelstack.data.model.SeriesBrowse)
     private var episodeReturn: EpisodeReturn? = null
+    private val detailHistory = ArrayDeque<EpisodeReturn>()
     private var playbackJob: Job? = null
     private var sessionChannel: app.reelstack.data.network.JellyfinSessionSocket.Connection? = null
     private val sessionChannelState = MutableStateFlow(false)
@@ -695,7 +696,7 @@ class ReelstackViewModel(
     }
 
     fun closeSheet() {
-        val previous = episodeReturn
+        val previous = detailHistory.removeLastOrNull() ?: episodeReturn
         episodeReturn = null
         if (previous != null && _uiState.value.contentDetails?.key == previous.seriesKey &&
             _uiState.value.connections.any { it.kind == previous.connection.kind && it.identity == previous.connection.identity &&
@@ -706,6 +707,7 @@ class ReelstackViewModel(
                 contentDetails = previous.details, seriesBrowse = previous.browse) }
             return
         }
+        detailHistory.clear()
         if (_uiState.value.requestDraft?.sending == true) return
         requestDraftJob?.cancel()
         _uiState.update { it.copy(requestDraft = null) }
@@ -1183,6 +1185,19 @@ class ReelstackViewModel(
         openLibraryDetails(media.id)
     }
 
+    fun openEpisodeDetail(media: LibraryMedia) {
+        val state = _uiState.value
+        val details = state.contentDetails
+        val connection = state.connections.firstOrNull { it.kind == media.source && it.token.isNotBlank() }
+        _uiState.update { it.copy(libraryDetailMedia = media) }
+        openLibraryDetails(media.id, clearHistory = false)
+        if (details != null && connection != null) {
+            val ret = EpisodeReturn(media.id, connection, details, state.seriesBrowse)
+            episodeReturn = ret
+            detailHistory.addLast(ret)
+        }
+    }
+
     fun openEpisodeSeries() {
         val state = _uiState.value
         val details = state.contentDetails?.takeIf { it.mediaType.equals("Episode", true) } ?: return
@@ -1195,12 +1210,17 @@ class ReelstackViewModel(
                 remoteId = browse.seriesId, mediaType = "Series")
         val selectedSeason = browse.seasons.firstOrNull { it.remoteId == browse.selectedSeasonId }?.episode ?: details.season
         _uiState.update { it.copy(libraryDetailMedia = series.copy(season = selectedSeason)) }
-        openLibraryDetails(series.id)
-        episodeReturn = EpisodeReturn(series.id, connection, details, browse)
+        openLibraryDetails(series.id, clearHistory = false)
+        val ret = EpisodeReturn(series.id, connection, details, browse)
+        episodeReturn = ret
+        detailHistory.addLast(ret)
     }
 
-    fun openLibraryDetails(id: String) {
-        episodeReturn = null
+    fun openLibraryDetails(id: String, clearHistory: Boolean = true) {
+        if (clearHistory) {
+            episodeReturn = null
+            detailHistory.clear()
+        }
         val state = _uiState.value
         val media = (listOfNotNull(state.libraryDetailMedia) + state.resume + state.nextUp + state.favourites + state.recentMovies + state.recentSeries + state.librarySearchResults + state.libraryPeeks.values.flatten() + state.libraryShelves.resume + state.libraryShelves.nextUp)
             .firstOrNull { it.id == id } ?: return

@@ -76,6 +76,8 @@ internal fun LibraryLanding(
     // A card here can be starred or marked watched, but not cleared from Continue watching: this
     // rail is not a resume shelf, it is a peek into a library.
     val shelfActions = cardActions.withoutResumeRemoval()
+    val hiddenLibraries = app.reelstack.ui.theme.LocalPersonalization.current.libraryHidden
+    val visibleLibraries = libraries.filter { it.id !in hiddenLibraries }
     LazyColumn(
         contentPadding = PaddingValues(start = gutter, end = 0.dp, top = gutter, bottom = gutter),
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("library-landing"),
@@ -96,7 +98,7 @@ internal fun LibraryLanding(
         // Not signed in, a failed listing, or a server that answered with no libraries at all. The
         // grid this page replaced said all three in its footer; a page with nothing but a heading
         // on it does not tell the reader which of the three happened.
-        val emptyServer = connected && error == null && libraries.isEmpty() && !loading
+        val emptyServer = connected && error == null && visibleLibraries.isEmpty() && !loading
         if (error != null || !connected || emptyServer) item(key = "state") {
             Text(
                 error ?: stringResource(if (connected) R.string.tv_library_empty else R.string.library_connect),
@@ -104,7 +106,7 @@ internal fun LibraryLanding(
                 modifier = Modifier.padding(top = ReelLayout.SectionTop),
             )
         }
-        items(libraries, key = { it.id }) { library ->
+        items(visibleLibraries, key = { it.id }) { library ->
             // What you are in the middle of here comes first. Home already knows it, so this costs
             // nothing, and "where I got to" is a better reason to open a library than "what is
             // new" — the progress bars on those cards are what tells the two apart.

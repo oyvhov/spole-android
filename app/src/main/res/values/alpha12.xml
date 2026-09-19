@@ -38,6 +38,15 @@
     <string name="library_resolution">Video resolution</string>
     <string name="library_genre">Genre (library name, e.g. Drama)</string>
     <string name="library_year">Production year</string>
+    <string name="library_sort_title_asc">Title (A–Z)</string>
+    <string name="library_sort_title_desc">Title (Z–A)</string>
+    <string name="library_sort_added_desc">Date added (newest)</string>
+    <string name="library_sort_year_desc">Release year (newest)</string>
+    <string name="library_sort_rating_desc">Rating (highest)</string>
+    <string name="library_sort_runtime_desc">Runtime (longest)</string>
+    <string name="library_sort_played_desc">Recently played</string>
+    <string name="detail_action_watched">Watched</string>
+    <string name="detail_action_mark_watched">Mark as watched</string>
     <string-array name="library_icons">
         <item>Library</item>
         <item>Movies</item>

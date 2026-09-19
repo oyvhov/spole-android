@@ -31,18 +31,16 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
         ChildProfileSettings(child)
         return
     }
-    Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(
-        MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surface)), RoundedCornerShape(22.dp))
-        .padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Ein heim for alle historiene", style = MaterialTheme.typography.headlineSmall)
-        Text("Tenestene gir deg innhaldet. Profilane gjer opplevinga personleg.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-    }
     SettingsGroup("Bibliotek og avspeling", "Kontoen din hos kvar teneste")
     listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY).filter { state.canEditConnection(it) }.forEach { kind ->
         val connection = state.connections.firstOrNull { it.kind == kind } ?: return@forEach
-        SettingsServiceRow(connection, state.accounts[kind]?.displayName,
-            state.serviceWarnings[kind], "tv-service-$kind") { onConnection(kind) }
+        SettingsServiceRow(
+            connection = connection,
+            account = state.accounts[kind]?.displayName,
+            avatarUrl = state.accounts[kind]?.avatarUrl,
+            warning = state.serviceWarnings[kind],
+            tag = "tv-service-$kind",
+        ) { onConnection(kind) }
     }
     val children = state.profiles.filter { it.isKid }
     SettingsGroup("Barneprofilar", "Trykk på eit barn for å velje utsjånad og avspeling.")
@@ -58,9 +56,13 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
     SettingsActionRow("Legg til barneprofil", "Kople til barnet sin eigen Jellyfin- eller Emby-konto", "settings-add-child", SpoleIcons.Kids, onAddProfile)
     SettingsGroup("Oppdaging og ønskeliste", "Finn og førespør nye filmar og seriar")
     state.connections.firstOrNull { it.kind == ServiceKind.SEERR }?.takeIf { state.canEditConnection(it.kind) }?.let {
-        SettingsServiceRow(it, state.verifiedPanelAccount(it.kind)?.displayName, state.serviceWarnings[it.kind],
-            "tv-service-SEERR") { onConnection(it.kind) }
-        if (it.token.isNotBlank()) SettingsActionRow("Konto og rettar", "Sjå Seerr-kontoen din", "tv-account-SEERR") { onAccount(it.kind) }
+        SettingsServiceRow(
+            connection = it,
+            account = state.verifiedPanelAccount(it.kind)?.displayName,
+            avatarUrl = state.verifiedPanelAccount(it.kind)?.avatarUrl,
+            warning = state.serviceWarnings[it.kind],
+            tag = "tv-service-SEERR",
+        ) { onConnection(it.kind) }
     }
     val advanced = state.connections.filter { it.kind in setOf(ServiceKind.RADARR, ServiceKind.SONARR) && state.canEditConnection(it.kind) }
     if (advanced.isNotEmpty()) {

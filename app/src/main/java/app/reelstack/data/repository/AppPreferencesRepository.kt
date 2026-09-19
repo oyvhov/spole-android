@@ -69,6 +69,7 @@ class AppPreferencesRepository(context: Context) {
             libraryHubOrder = preferences.getString("library_hub_order", null)?.split(',') ?: app.reelstack.data.model.DEFAULT_LIBRARY_HUB,
             libraryHubHidden = preferences.getStringSet("library_hub_hidden", emptySet()).orEmpty().toSet(),
             libraryOrder = preferences.getString("library_order", "")!!.split(',').filter(String::isNotBlank),
+            libraryHidden = preferences.getStringSet("library_hidden", emptySet()).orEmpty().toSet(),
             showUpcomingEpisodes = preferences.getBoolean("show_upcoming_episodes", true),
             reduceMotion = preferences.getBoolean("reduce_motion", false),
             homeRowFormats = preferences.getString("home_row_formats", "").orEmpty().split(',').mapNotNull {
@@ -115,6 +116,7 @@ class AppPreferencesRepository(context: Context) {
             putString("library_hub_order", value.libraryHubOrder.joinToString(","))
             putStringSet("library_hub_hidden", value.libraryHubHidden)
             putString("library_order", value.libraryOrder.joinToString(","))
+            putStringSet("library_hidden", value.libraryHidden)
             putBoolean("show_upcoming_episodes", value.showUpcomingEpisodes)
             putBoolean("reduce_motion", value.reduceMotion)
             putString("home_row_formats", value.homeRowFormats.entries.joinToString(",") { "${it.key}=${it.value}" })

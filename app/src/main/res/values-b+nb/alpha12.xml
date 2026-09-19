@@ -38,6 +38,15 @@
     <string name="library_resolution">Videooppløsning</string>
     <string name="library_genre">Sjanger (navnet i biblioteket, f.eks. Drama)</string>
     <string name="library_year">Produksjonsår</string>
+    <string name="library_sort_title_asc">Tittel (A–Å)</string>
+    <string name="library_sort_title_desc">Tittel (Å–A)</string>
+    <string name="library_sort_added_desc">Dato lagt til (nyeste)</string>
+    <string name="library_sort_year_desc">Årstall (nyeste)</string>
+    <string name="library_sort_rating_desc">Vurdering (høyeste)</string>
+    <string name="library_sort_runtime_desc">Spilletid (lengste)</string>
+    <string name="library_sort_played_desc">Sist spilt</string>
+    <string name="detail_action_watched">Sett</string>
+    <string name="detail_action_mark_watched">Marker som sett</string>
     <string-array name="library_icons">
         <item>Bibliotek</item>
         <item>Filmer</item>

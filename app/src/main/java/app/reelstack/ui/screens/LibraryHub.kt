@@ -38,7 +38,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     val preferences = remember(context) { app.reelstack.data.repository.AppPreferencesRepository(context) }
     var editing by remember { mutableStateOf(false) }
     if (editing) LibraryCustomizationDialog(state, options, { preferences.personalization = it }) { editing = false }
-    val libraries = state.libraryEntries.sortedBy { options.libraryOrder.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
+    val libraries = state.libraryEntries.filter { it.id !in options.libraryHidden }.sortedBy { options.libraryOrder.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
     val libraryIds = libraries.map { it.id }.toSet()
     val resume = state.resume.filter { state.configuredCount == 0 || it.source == state.librarySource }
     val next = state.nextUp.filter { state.configuredCount == 0 || it.source == state.librarySource }

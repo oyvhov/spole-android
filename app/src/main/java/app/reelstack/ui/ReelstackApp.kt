@@ -485,6 +485,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         onPlayed = viewModel::setMediaPlayed,
         onSeason = viewModel::selectSeason,
         onEpisodeSeries = viewModel::openEpisodeSeries,
+        onEpisodeClick = viewModel::openEpisodeDetail,
         onPersonTitles = viewModel::personTitles,
         onPersonTitle = viewModel::openPersonTitle,
         onSelectProfile = viewModel::selectProfile,

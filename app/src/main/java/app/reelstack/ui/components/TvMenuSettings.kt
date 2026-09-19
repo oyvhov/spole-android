@@ -32,11 +32,9 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
         "DISCOVER" to stringResource(R.string.nav_discover), "ACTIVITY" to stringResource(R.string.nav_activity),
         "SETTINGS" to stringResource(R.string.nav_settings))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_hide_sidebar), stringResource(R.string.tv_hide_sidebar_help),
+        if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_hide_sidebar), "",
             value.hideTvSidebar, "tv-hide-sidebar") { onChange(value.copy(hideTvSidebar = it)) }
-        SettingsGroup("Di meny", "Vel kva du vil sjå, og flytt vala opp eller ned. Endringane gjeld med ein gong i både ståande og liggjande vising.")
-        Text("Heim og Innstillingar er alltid tilgjengelege. På telefon i liggjande vising ligg Innstillingar fast nedst i sidemenyen.",
-            style = MaterialTheme.typography.bodyMedium, color = Muted)
+        SettingsGroup(stringResource(R.string.settings_menu_heading))
         TvMenuOrderEditor(order, names, value.hiddenMenuItems, value.requiredMenu(),
             { onChange(value.copy(menuOrder = it)) },
             { id, visible -> onChange(value.withMenuVisible(id, visible)) })
@@ -69,11 +67,9 @@ private fun TvMenuOrderEditor(order: List<String>, names: Map<String, String>, h
                 Text(names.getValue(id), style = MaterialTheme.typography.titleMedium,
                     color = if (visible) MaterialTheme.colorScheme.onSurface else Muted)
                 Text(when {
-                    id == "SETTINGS" -> "Alltid synleg · her kan du endre menyen"
-                    id == "HOME" -> "Alltid synleg · tilbake til startsida"
-                    id in required -> "Alltid synleg · vald som startside"
-                    visible -> "Synleg i menyen"
-                    else -> "Skjult frå menyen"
+                    id in required -> stringResource(R.string.menu_status_always_visible)
+                    visible -> stringResource(R.string.menu_status_visible)
+                    else -> stringResource(R.string.menu_status_hidden)
                 },
                     style = MaterialTheme.typography.bodySmall, color = Muted)
             }

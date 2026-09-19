@@ -107,6 +107,7 @@ data class Personalization(
     val libraryHubOrder: List<String> = DEFAULT_LIBRARY_HUB,
     val libraryHubHidden: Set<String> = emptySet(),
     val libraryOrder: List<String> = emptyList(),
+    val libraryHidden: Set<String> = emptySet(),
     val showUpcomingEpisodes: Boolean = true,
     val reduceMotion: Boolean = false,
     val homeRowFormats: Map<String, String> = emptyMap(),

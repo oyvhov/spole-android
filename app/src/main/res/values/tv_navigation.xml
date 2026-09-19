@@ -1,4 +1,7 @@
 <resources>
     <string name="tv_hide_sidebar">Hide sidebar</string>
-    <string name="tv_hide_sidebar_help">Press left from the edge of the content to open the menu. Press right to return.</string>
+    <string name="settings_menu_heading">Menu</string>
+    <string name="menu_status_always_visible">Always visible</string>
+    <string name="menu_status_visible">Visible</string>
+    <string name="menu_status_hidden">Hidden</string>
 </resources>

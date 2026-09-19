@@ -69,9 +69,6 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
             SettingsGroup(stringResource(R.string.settings_playback_media_group))
             SubtitleLanguageSettings(options, change)
             SettingsGroup(stringResource(R.string.settings_playback_next_group))
-            if ((androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
-                SettingsToggleRow(stringResource(R.string.phase_watch_next), stringResource(R.string.phase_watch_next_hint),
-                    options.watchNextEnabled, "watch-next") { change(options.copy(watchNextEnabled = it)) }
             NextEpisodeSettings(options, change)
             SettingsGroup(stringResource(R.string.settings_playback_quality_group))
             SettingsToggleRow(stringResource(R.string.tv_slow_startup), stringResource(R.string.settings_tv_startup_hint),

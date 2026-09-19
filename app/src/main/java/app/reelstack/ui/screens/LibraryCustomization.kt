@@ -49,10 +49,11 @@ internal fun LibraryCustomizationDialog(state: ReelstackUiState, value: Personal
                     OrderEditor(order, { labels.getValue(it) }, value.libraryHubHidden, prefix = "hub",
                         onOrder = { onChange(value.copy(libraryHubOrder = it)) },
                         onVisible = { id, show -> onChange(value.copy(libraryHubHidden = if (show) value.libraryHubHidden - id else value.libraryHubHidden + id)) })
-                    if (ordered.size > 1) {
+                    if (ordered.isNotEmpty()) {
                         SettingsGroup(stringResource(R.string.refine_library_tiles))
-                        OrderEditor(ordered, { id -> libraries.first { it.id == id }.title }, prefix = "library",
-                            onOrder = { onChange(value.copy(libraryOrder = it)) })
+                        OrderEditor(ordered, { id -> libraries.firstOrNull { it.id == id }?.title ?: id }, hidden = value.libraryHidden, prefix = "library",
+                            onOrder = { onChange(value.copy(libraryOrder = it)) },
+                            onVisible = { id, show -> onChange(value.copy(libraryHidden = if (show) value.libraryHidden - id else value.libraryHidden + id)) })
                     }
                     HomeRowFormats(value, onChange)
                 }
