@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.ui.KidsBrowse
+import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.theme.*
@@ -146,17 +147,17 @@ private fun KidsEpisodesHeader(title: String, onBack: () -> Unit) {
                 .testTag("kids-episodes-back"),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(SpoleIcons.ArrowBack, contentDescription = null, tint = Primary, modifier = Modifier.size(26.dp))
+            Icon(SpoleIcons.ArrowBack, contentDescription = null, tint = app.reelstack.ui.theme.Text, modifier = Modifier.size(26.dp))
         }
 
         Spacer(Modifier.width(18.dp))
 
         Text(
             text = title,
-            color = Primary,
+            color = app.reelstack.ui.theme.Text,
             fontSize = 26.sp,
             lineHeight = 33.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -192,7 +193,7 @@ private fun SeasonChip(season: LibraryMedia, selected: Boolean, onClick: () -> U
             } else {
                 season.title
             },
-            color = if (selected) Primary else Muted,
+            color = if (selected) Primary else app.reelstack.ui.theme.Text,
             fontSize = 17.sp,
             lineHeight = 22.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
@@ -232,10 +233,11 @@ private fun EpisodeCard(episode: LibraryMedia, onPlay: () -> Unit, modifier: Mod
                 .clip(shape)
                 .background(SurfaceRaised),
         ) {
-            AsyncImage(
-                model = episode.heroUrl ?: episode.artworkUrl ?: episode.posterUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            MediaArtwork(
+                url = episode.heroUrl ?: episode.artworkUrl ?: episode.posterUrl,
+                contentDescription = episode.title,
+                source = episode.source,
+                fallbackRes = R.drawable.media_placeholder,
                 modifier = Modifier.fillMaxSize().alpha(if (watched) 0.45f else 1f),
             )
 
@@ -280,13 +282,16 @@ private fun EpisodeCard(episode: LibraryMedia, onPlay: () -> Unit, modifier: Mod
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
-                        .height(7.dp)
-                        .background(Color.Black.copy(alpha = 0.45f)),
+                        .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color.Black.copy(alpha = 0.55f)),
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(progress.coerceIn(0f, 1f))
                             .fillMaxHeight()
+                            .clip(RoundedCornerShape(3.dp))
                             .background(Primary),
                     )
                 }
@@ -297,10 +302,10 @@ private fun EpisodeCard(episode: LibraryMedia, onPlay: () -> Unit, modifier: Mod
 
         Text(
             text = episode.title,
-            color = if (watched) Muted else Primary,
+            color = if (watched) Muted else app.reelstack.ui.theme.Text,
             fontSize = 17.sp,
             lineHeight = 22.sp,
-            fontWeight = if (isNext) FontWeight.Medium else FontWeight.Normal,
+            fontWeight = if (isNext) FontWeight.SemiBold else FontWeight.Normal,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp),

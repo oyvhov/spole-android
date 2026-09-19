@@ -122,6 +122,7 @@ data class ReelstackUiState(
     val kidsBrowse: KidsBrowse = KidsBrowse(),
     /** Everything the kid's own account may open, from the server's own library views. */
     val kidsLibrary: List<LibraryMedia> = emptyList(),
+    val kidsLibraries: List<app.reelstack.data.network.RemoteLibraryView> = emptyList(),
     val kidsLibraryNames: List<Pair<String, String>> = emptyList(),
     val kidsLibraryLoading: Boolean = false,
     val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
@@ -881,12 +882,15 @@ class ReelstackViewModel(
                     runCatching { container.mediaSyncRepository.accountLibrary(server) }.getOrDefault(emptyList())
                 }
             }
-            val names = withContext(Dispatchers.IO) {
+            val libraries = withContext(Dispatchers.IO) {
                 servers.flatMap { server ->
                     runCatching {
-                        container.mediaServerClient.browseLibraries(server).map { it.id to it.name }
+                        container.mediaServerClient.browseLibraries(server)
                     }.getOrDefault(emptyList())
-                }
+                }.filter { view ->
+                    val type = view.collectionType?.lowercase(java.util.Locale.ROOT)
+                    type in setOf("movies", "tvshows") || type.isNullOrBlank()
+                }.distinctBy { it.id }
             }
             _uiState.update {
                 it.copy(
@@ -895,7 +899,8 @@ class ReelstackViewModel(
                         .filter { media -> !media.remoteId.isNullOrBlank() }
                         .distinctBy { media -> media.remoteId }
                         .sortedBy { media -> media.title.lowercase() },
-                    kidsLibraryNames = names
+                    kidsLibraries = libraries,
+                    kidsLibraryNames = libraries.map { it.id to it.name }
                 )
             }
         }

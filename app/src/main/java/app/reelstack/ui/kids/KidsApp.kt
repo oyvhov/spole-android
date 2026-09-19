@@ -24,6 +24,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -102,6 +104,19 @@ fun KidsApp(viewModel: ReelstackViewModel) {
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF141A24),
+                                Color(0xFF0C1016),
+                                Color(0xFF070A0E),
+                            )
+                        )
+                    )
+            )
             SpaceBackdrop(accent = Primary, modifier = Modifier.matchParentSize())
 
             Column(
@@ -133,10 +148,15 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                         onProfile = viewModel::openProfileSwitcher,
                     )
 
+                    val serverKind = state.connections.firstOrNull {
+                        it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
+                    }?.kind ?: ServiceKind.JELLYFIN
+
                     KidsHomeScreen(
                         keepWatching = keepWatching,
                         yourShows = yourShows,
-                        libraries = state.kidsLibraryNames,
+                        libraries = state.kidsLibraries,
+                        source = serverKind,
                         onPlay = choose,
                         columns = if (television) 5 else 2,
                         contentPadding = gridPadding,
@@ -154,7 +174,7 @@ private fun KidsTopBar(name: String, avatarUrl: String?, onProfile: () -> Unit) 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -163,9 +183,10 @@ private fun KidsTopBar(name: String, avatarUrl: String?, onProfile: () -> Unit) 
             } else {
                 stringResource(R.string.kids_greeting, name)
             },
-            color = Primary,
-            fontSize = 26.sp,
-            lineHeight = 33.sp,
+            color = app.reelstack.ui.theme.Text,
+            fontSize = 28.sp,
+            lineHeight = 34.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),
         )
 
