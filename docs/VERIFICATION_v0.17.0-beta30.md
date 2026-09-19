@@ -42,6 +42,14 @@ berre køyrd på 5562/5566. Ingen ekte kontoar er sletta eller omgått.
 
 ## Publisering og oppdatering
 
-Offentleg digest, nedlasting og oppdatering gjennom appen blir dokumenterte etter
-publisering. Oppdateringsflyten blir prøvd på isolert TV 5566 med beta29 og demo;
-kontobevaring er separat verifisert på review-TV ovanfor.
+- Publisert som prerelease, `draft=false`, utan å flytte stabil latest.
+- Release-taggen peikar på `bb36fa65dccd05191378bcc411d0f5a4eae838d9`.
+- Offentleg GitHub-liste utan Authorization-header viser beta30. Nøyaktig éin APK;
+  GitHub-digest og offentleg nedlasta kontrollfil samsvarer med SHA-256 ovanfor.
+- Isolert TV 5566 med produksjons-beta29 og demo: «Check now» fann beta30;
+  «Download update» fullførte appen sin kontroll og viste «Install update».
+  Android sitt kjeldeløyve og oppdateringsdialog vart godkjende i grensesnittet.
+  Etter installasjon viser pakkekontrollen `versionCode=109`, `0.17.0-beta30`.
+- Dette er testa nedlasting/installasjon gjennom appen. Demo-eininga dokumenterer
+  ikkje ekte kontobevaring; den er separat kontrollert på review-TV ovanfor.
+- Release: https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta30
