@@ -122,6 +122,7 @@ data class ReelstackUiState(
     val kidsBrowse: KidsBrowse = KidsBrowse(),
     /** Everything the kid's own account may open, from the server's own library views. */
     val kidsLibrary: List<LibraryMedia> = emptyList(),
+    val kidsLibraryNames: List<Pair<String, String>> = emptyList(),
     val kidsLibraryLoading: Boolean = false,
     val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
@@ -880,6 +881,13 @@ class ReelstackViewModel(
                     runCatching { container.mediaSyncRepository.accountLibrary(server) }.getOrDefault(emptyList())
                 }
             }
+            val names = withContext(Dispatchers.IO) {
+                servers.flatMap { server ->
+                    runCatching {
+                        container.mediaServerClient.browseLibraries(server).map { it.id to it.name }
+                    }.getOrDefault(emptyList())
+                }
+            }
             _uiState.update {
                 it.copy(
                     kidsLibraryLoading = false,
@@ -887,6 +895,7 @@ class ReelstackViewModel(
                         .filter { media -> !media.remoteId.isNullOrBlank() }
                         .distinctBy { media -> media.remoteId }
                         .sortedBy { media -> media.title.lowercase() },
+                    kidsLibraryNames = names
                 )
             }
         }

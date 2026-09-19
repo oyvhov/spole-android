@@ -136,7 +136,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     KidsHomeScreen(
                         keepWatching = keepWatching,
                         yourShows = yourShows,
-                        libraries = state.libraryShortcuts,
+                        libraries = state.kidsLibraryNames,
                         onPlay = choose,
                         columns = if (television) 5 else 2,
                         contentPadding = gridPadding,
