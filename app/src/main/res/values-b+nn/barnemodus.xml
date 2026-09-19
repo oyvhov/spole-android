@@ -12,6 +12,7 @@
     <string name="profile_wrong_pin">Feil PIN</string>
     <string name="profile_pin_mismatch">PIN-kodane stemte ikkje overeins</string>
     <string name="profile_pin_locked">For mange forsøk. Vent %1$d sekund.</string>
+    <string name="profile_pin_corrupted">PIN-data er skada. Nullstill med passordet til vaksenkontoen.</string>
     <string name="profile_pin_digits_entered">%1$d av %2$d siffer tasta</string>
     <string name="profile_pin_forgot">Gløymt PIN?</string>
     <string name="profile_pin_forgot_hint">Tast inn Jellyfin-passordet for hovudkontoen</string>

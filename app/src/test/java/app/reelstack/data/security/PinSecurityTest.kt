@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.reelstack.data.repository.InMemoryTokenStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -37,8 +38,10 @@ class PinSecurityTest {
 
         // Plaintext PIN is NEVER stored in tokenStore
         assertFalse(tokenStore.hasStoredValue("1234"))
-        assertTrue(tokenStore.hasStoredValue("kid.pin.salt"))
-        assertTrue(tokenStore.hasStoredValue("kid.pin.hash"))
+        assertTrue(tokenStore.hasStoredValue(PinSecurity.KEY_SALT))
+        assertTrue(tokenStore.hasStoredValue(PinSecurity.KEY_HASH))
+        assertTrue(tokenStore.hasStoredValue(PinSecurity.KEY_VERSION))
+        assertEquals(PinSecurity.VERSION_PBKDF2.toString(), tokenStore.get(PinSecurity.KEY_VERSION))
     }
 
     @Test
@@ -61,12 +64,77 @@ class PinSecurityTest {
     }
 
     @Test
-    fun `verifyPin returns Success for correct PIN`() {
+    fun `verifyPin returns Success for correct PIN with PBKDF2`() {
         val pinSec = PinSecurity(context, tokenStore = tokenStore)
         pinSec.setPin("8492")
 
         val result = pinSec.verifyPin("8492")
         assertTrue(result is PinResult.Success)
+        assertEquals(PinSecurity.VERSION_PBKDF2, pinSec.pinVersion())
+    }
+
+    @Test
+    fun `transparently migrates legacy SHA-256 PIN to PBKDF2 v2 upon verification`() {
+        val pinSec = PinSecurity(context, tokenStore = tokenStore)
+        pinSec.setLegacyPinForTesting("7351")
+
+        assertEquals(PinSecurity.VERSION_LEGACY, pinSec.pinVersion())
+        val oldHash = tokenStore.get(PinSecurity.KEY_HASH)
+
+        // Verifying with correct PIN migrates to v2
+        val result = pinSec.verifyPin("7351")
+        assertTrue(result is PinResult.Success)
+
+        // Storage is now upgraded to PBKDF2 v2
+        assertEquals(PinSecurity.VERSION_PBKDF2, pinSec.pinVersion())
+        assertEquals(PinSecurity.VERSION_PBKDF2.toString(), tokenStore.get(PinSecurity.KEY_VERSION))
+        assertEquals(PinSecurity.DEFAULT_ITERATIONS.toString(), tokenStore.get(PinSecurity.KEY_ITERATIONS))
+
+        // Hash has changed to the PBKDF2 hash
+        val newHash = tokenStore.get(PinSecurity.KEY_HASH)
+        assertNotEquals(oldHash, newHash)
+
+        // Subsequent verifications succeed with upgraded PBKDF2
+        val result2 = pinSec.verifyPin("7351")
+        assertTrue(result2 is PinResult.Success)
+    }
+
+    @Test
+    fun `fails closed on corrupted salt`() {
+        val pinSec = PinSecurity(context, tokenStore = tokenStore)
+        pinSec.setPin("4321")
+
+        // Corrupt salt with invalid base64 / nonsense
+        tokenStore.put(PinSecurity.KEY_SALT, "!!!NOT_BASE64!!!")
+
+        assertTrue(pinSec.isPinConfigured())
+        val result = pinSec.verifyPin("4321")
+        // MUST NEVER return Success
+        assertTrue("Expected Corrupted result but got $result", result is PinResult.Corrupted)
+    }
+
+    @Test
+    fun `fails closed on corrupted hash`() {
+        val pinSec = PinSecurity(context, tokenStore = tokenStore)
+        pinSec.setPin("4321")
+
+        // Corrupt hash
+        tokenStore.put(PinSecurity.KEY_HASH, "")
+
+        assertTrue(pinSec.isPinConfigured())
+        val result = pinSec.verifyPin("4321")
+        // MUST NEVER return Success
+        assertTrue("Expected Corrupted result but got $result", result is PinResult.Corrupted)
+    }
+
+    @Test
+    fun `fails closed on unsupported or future version`() {
+        val pinSec = PinSecurity(context, tokenStore = tokenStore)
+        pinSec.setPin("4321")
+        tokenStore.put(PinSecurity.KEY_VERSION, "999")
+
+        val result = pinSec.verifyPin("4321")
+        assertTrue("Expected Corrupted on unsupported future version", result is PinResult.Corrupted)
     }
 
     @Test
@@ -110,5 +178,48 @@ class PinSecurityTest {
         assertTrue(pinSec.remainingLockoutSeconds() > 0)
         val result = pinSec.verifyPin("5555")
         assertTrue(result is PinResult.LockedOut)
+    }
+
+    @Test
+    fun `tampering system clock backwards maintains lockout`() {
+        val pinSec = PinSecurity(context, tokenStore = tokenStore)
+        pinSec.setPin("1234")
+
+        // Trigger lockout
+        pinSec.verifyPin("0000")
+        pinSec.verifyPin("0000")
+        pinSec.verifyPin("0000")
+        assertTrue(pinSec.remainingLockoutSeconds() > 0)
+
+        // Manipulate prefs to simulate clock jumping 1 hour backwards while lockout_until is in the future
+        val prefs = context.getSharedPreferences("reelstack_pin", Context.MODE_PRIVATE)
+        val lastAttempt = prefs.getLong("pin_last_attempt_ms", 0L)
+        prefs.edit()
+            .putLong("pin_last_attempt_ms", System.currentTimeMillis() + 3600_000L) // in the future
+            .putLong("pin_lockout_until", System.currentTimeMillis() + 3605_000L)
+            .commit()
+
+        // Clock moving backwards must not clear lockout
+        assertTrue(pinSec.remainingLockoutSeconds() > 0)
+        val res = pinSec.verifyPin("1234")
+        assertTrue(res is PinResult.LockedOut)
+    }
+
+    @Test
+    fun `resetLockout clears lockout state and allows retry`() {
+        val pinSec = PinSecurity(context, tokenStore = tokenStore)
+        pinSec.setPin("2468")
+
+        // Fail to trigger lockout
+        pinSec.verifyPin("0000")
+        pinSec.verifyPin("0000")
+        pinSec.verifyPin("0000")
+        assertTrue(pinSec.remainingLockoutSeconds() > 0)
+
+        pinSec.resetLockout()
+        assertEquals(0, pinSec.remainingLockoutSeconds())
+
+        val res = pinSec.verifyPin("2468")
+        assertTrue(res is PinResult.Success)
     }
 }

@@ -18,7 +18,7 @@ into one focused experience. Browse each media server as its own library, play f
 Jellyfin or Emby, and track your requests from Seerr.
 
 **Active beta development.** The latest public APK is
-[0.17.0-beta09](https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta09).
+[0.17.0-beta33](https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta33).
 It is signed for in-place updates over earlier Spole beta releases. The source for
 this build is available on [main](https://github.com/oyvhov/spole-android/tree/main).
 Pre-release builds are published under [Releases](https://github.com/oyvhov/spole-android/releases).
@@ -88,6 +88,13 @@ does not bundle the large demo backdrops used during earlier development builds.
 
 All services are optional. You need your own servers and accounts; Spole does not
 provide media. Your account permissions determine what you can view and do.
+
+## Known limitations
+
+- **Emby playback:** Library browsing, authentic artwork, and direct playback work seamlessly. Certain edge-case transcoded streams or exotic audio codecs on specific Emby server versions are currently undergoing continuous optimization compared to Jellyfin.
+- **Casting (Google Cast):** Google Cast / Chromecast receiver functionality is not currently built-in; Spole is designed and optimized as a native standalone client for Android TV, tablets, and phones.
+- **Physical device hardware matrix:** Continuous integration and regression testing are conducted on Google Android TV and mobile virtual devices (API 26–36). Proprietary TV OEM forks (such as modified Fire OS or operator-customized TV boxes) may display minor visual or input handling variations.
+- **Parental control & PIN security:** Child mode exit is protected with PBKDF2-HMAC-SHA256 (10,000 iterations) with progressive lockout. Recovering a lost PIN requires connecting to the primary adult media server.
 
 ## Getting started
 

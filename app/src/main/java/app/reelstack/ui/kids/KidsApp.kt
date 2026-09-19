@@ -2,10 +2,14 @@ package app.reelstack.ui.kids
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -35,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.reelstack.R
+import app.reelstack.data.model.KidsWorld
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.AppSheet
@@ -72,6 +77,8 @@ fun KidsApp(viewModel: ReelstackViewModel) {
     val preferences = remember(context) { app.reelstack.data.repository.KidsPreferencesRepository(context) }
     var appearanceOpen by rememberSaveable(state.activeProfileId) { mutableStateOf(false) }
     BackHandler(appearanceOpen) { appearanceOpen = false }
+
+    var profileMenuOpen by rememberSaveable(state.activeProfileId) { mutableStateOf(false) }
 
     // Everything on this screen must be one tap from playing. An entry with no playable id would
     // be a dead poster, and a dead poster is worse than a missing one.
@@ -125,18 +132,23 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                         )
                     )
             )
-            if (options.decorations) WorldLandscape(options.world, Modifier.matchParentSize())
+            if (options.decorations) {
+                if (options.world == KidsWorld.SPACE) {
+                    SpaceBackdrop(Modifier.matchParentSize(), accent = Color(options.world.glow))
+                }
+                WorldLandscape(options.world, Modifier.matchParentSize())
+            }
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                     .testTag("kids-app"),
             ) {
                 val gridPadding = PaddingValues(
                     start = if (television) 48.dp else 24.dp,
                     end = if (television) 48.dp else 24.dp,
-                    top = 8.dp,
+                    top = 0.dp,
                     bottom = if (television) 48.dp else 24.dp,
                 )
 
@@ -149,15 +161,28 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     animationSpec = androidx.compose.animation.core.tween(if (LocalMotionEnabled.current) 220 else 0),
                     label = "kids-page", modifier = Modifier.weight(1f)) { visiblePage ->
                 if (visiblePage == "appearance") {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(gridPadding),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        app.reelstack.ui.components.SpoleSecondaryButton(onClick = { appearanceOpen = false },
-                            modifier = Modifier.heightIn(min = 64.dp)) { Text("Tilbake til historiene") }
+                    Column(
+                        Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                            .verticalScroll(rememberScrollState())
+                            .padding(gridPadding)
+                            .padding(top = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        app.reelstack.ui.components.SpoleSecondaryButton(
+                            onClick = { appearanceOpen = false },
+                            modifier = Modifier.heightIn(min = 64.dp)
+                        ) {
+                            Text("Tilbake til historiene")
+                        }
                         Text("Mi verd", style = MaterialTheme.typography.headlineLarge)
                         Text("Vel ein stad du likar. Historiene dine blir med.", color = Muted)
                         KidsWorldPicker(options, onChange = { preferences.saveAppearance(state.activeProfileId, it, options.decorations) })
-                        app.reelstack.ui.components.SettingsToggleRow("Pynt i verda mi", "Planetar, bølgjer og landskap",
-                            options.decorations, "kids-decoration") {
+                        app.reelstack.ui.components.SettingsToggleRow(
+                            "Pynt i verda mi", "Planetar, bølgjer og landskap",
+                            options.decorations, "kids-decoration"
+                        ) {
                             preferences.saveAppearance(state.activeProfileId, options.world, it)
                         }
                     }
@@ -173,18 +198,9 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                         },
                         columns = if (television) 4 else 2,
                         contentPadding = gridPadding,
+                        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
                     )
                 } else {
-                    Column(Modifier.fillMaxSize()) {
-                    KidsTopBar(
-                        name = activeProfile?.name.orEmpty(),
-                        avatarUrl = activeProfile?.avatarUrl,
-                        onProfile = viewModel::openProfileSwitcher,
-                        onAppearance = if (options.allowAppearance) ({ appearanceOpen = true }) else null,
-                        world = options.world.title,
-                        television = television,
-                    )
-
                     val serverKind = state.connections.firstOrNull {
                         it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
                     }?.kind ?: ServiceKind.JELLYFIN
@@ -194,6 +210,15 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                         yourShows = yourShows,
                         libraries = state.kidsLibraries,
                         source = serverKind,
+                        world = options.world,
+                        profileButton = {
+                            KidsProfileButton(
+                                name = activeProfile?.name.orEmpty(),
+                                avatarUrl = activeProfile?.avatarUrl,
+                                world = options.world,
+                                onClick = { profileMenuOpen = true },
+                            )
+                        },
                         onPlay = choose,
                         columns = if (television) 5 else 2,
                         contentPadding = gridPadding,
@@ -201,81 +226,63 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                         error = state.kidsLibraryError,
                         onRetry = viewModel::loadKidsLibrary,
                     )
-                    }
                 }
                 }
             }
         }
+    }
+
+    if (profileMenuOpen) {
+        KidsProfileDialog(
+            name = activeProfile?.name.orEmpty(),
+            avatarUrl = activeProfile?.avatarUrl,
+            world = options.world,
+            onAppearance = { appearanceOpen = true },
+            onSwitchProfile = viewModel::openProfileSwitcher,
+            onDismiss = { profileMenuOpen = false },
+        )
     }
 
     KidsSheets(state.activeSheet, viewModel)
     }
 }
 
-@Composable
-private fun KidsTopBar(name: String, avatarUrl: String?, onProfile: () -> Unit,
-    onAppearance: (() -> Unit)?, world: String, television: Boolean) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = if (television) 48.dp else 24.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-        Text("SPOLE · $world", color = Muted, style = MaterialTheme.typography.labelMedium)
-        Text(
-            text = if (name.isBlank()) {
-                stringResource(R.string.kids_greeting_plain)
-            } else {
-                stringResource(R.string.kids_greeting, name)
-            },
-            color = app.reelstack.ui.theme.Text,
-            fontSize = if (television) 28.sp else 23.sp,
-            lineHeight = 34.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        }
-        if (onAppearance != null) {
-            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onAppearance,
-                modifier = Modifier.heightIn(min = 64.dp).testTag("kids-appearance")) {
-                androidx.compose.material3.Icon(app.reelstack.ui.components.SpoleIcons.Palette, "Mi verd")
-                if (television) Text("Mi verd", Modifier.padding(start = 10.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-        }
-
-        KidsAvatarButton(avatarUrl = avatarUrl, name = name, onClick = onProfile)
-    }
-}
-
 /**
- * A planet, not a photo frame: the kid's picture inside a ring in their own accent.
- *
- * 64 dp, because nothing in this shell is allowed to be smaller.
+ * Integrated child profile button with avatar, child name and current world badge.
  */
 @Composable
-private fun KidsAvatarButton(avatarUrl: String?, name: String, onClick: () -> Unit) {
+internal fun KidsProfileButton(
+    name: String,
+    avatarUrl: String?,
+    world: KidsWorld,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val interaction = remember { MutableInteractionSource() }
+    val glow = Color(world.glow)
     val description = stringResource(R.string.kids_switch_profile)
 
-    Box(
-        modifier = Modifier
-            .size(64.dp)
-            .clip(CircleShape)
-            .focusOutline(interaction, CircleShape)
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(32.dp))
+            .background(Color.Black.copy(alpha = 0.52f))
+            .border(1.5.dp, glow.copy(alpha = 0.75f), RoundedCornerShape(32.dp))
+            .focusOutline(interaction, RoundedCornerShape(32.dp))
             .clickable(
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
                 onClick = onClick,
             )
+            .padding(start = 6.dp, end = 16.dp, top = 6.dp, bottom = 6.dp)
             .semantics { contentDescription = description }
             .testTag("kids-profile-button"),
-        contentAlignment = Alignment.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(56.dp)
+                .size(46.dp)
                 .clip(CircleShape)
                 .background(SurfaceRaised),
             contentAlignment = Alignment.Center,
@@ -289,11 +296,206 @@ private fun KidsAvatarButton(avatarUrl: String?, name: String, onClick: () -> Un
                 )
             } else {
                 Text(
-                    text = name.trim().firstOrNull()?.uppercase().orEmpty(),
+                    text = name.trim().firstOrNull()?.uppercase().orEmpty().ifBlank { "B" },
                     color = Primary,
-                    fontSize = 24.sp,
-                    lineHeight = 28.sp,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
                 )
+            }
+        }
+        Column {
+            Text(
+                text = name.ifBlank { "Barn" },
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
+            Text(
+                text = world.title,
+                color = glow,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/**
+ * Child profile dialog offering instant access to "Mi verd" (theme/landscape picker)
+ * without requiring a PIN, while keeping profile switching protected by PIN.
+ */
+@Composable
+internal fun KidsProfileDialog(
+    name: String,
+    avatarUrl: String?,
+    world: KidsWorld,
+    onAppearance: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        val glow = Color(world.glow)
+        val sky = Color(world.sky)
+        val shape = RoundedCornerShape(28.dp)
+
+        Surface(
+            shape = shape,
+            color = sky,
+            tonalElevation = 8.dp,
+            border = androidx.compose.foundation.BorderStroke(2.dp, glow.copy(alpha = 0.6f)),
+            modifier = Modifier
+                .widthIn(min = 320.dp, max = 420.dp)
+                .padding(16.dp)
+                .testTag("kids-profile-dialog"),
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                // Avatar + Name + World
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(CircleShape)
+                        .border(3.dp, glow, CircleShape)
+                        .background(SurfaceRaised),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (!avatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Text(
+                            text = name.trim().firstOrNull()?.uppercase().orEmpty().ifBlank { "B" },
+                            color = Primary,
+                            fontSize = 30.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = if (name.isBlank()) "Barneprofil" else name,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "Verd: ${world.title}",
+                        color = glow,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    // Val 1: Mi verd (utan PIN)
+                    val appInteraction = remember { MutableInteractionSource() }
+                    val appFocused by appInteraction.collectIsFocusedAsState()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 60.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(if (appFocused) glow else SurfaceRaised)
+                            .focusOutline(appInteraction, RoundedCornerShape(18.dp))
+                            .clickable(
+                                interactionSource = appInteraction,
+                                indication = null,
+                                role = Role.Button,
+                                onClick = {
+                                    onDismiss()
+                                    onAppearance()
+                                }
+                            )
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Icon(
+                            app.reelstack.ui.components.SpoleIcons.Palette,
+                            contentDescription = null,
+                            tint = if (appFocused) Color(0xFF101211) else glow,
+                            modifier = Modifier.size(26.dp),
+                        )
+                        Column {
+                            Text(
+                                "Mi verd",
+                                color = if (appFocused) Color(0xFF101211) else Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "Vel fargar, stjerner og landskap",
+                                color = if (appFocused) Color(0xFF101211).copy(alpha = 0.85f) else Muted,
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
+
+                    // Val 2: Byt profil (krev PIN)
+                    val switchInteraction = remember { MutableInteractionSource() }
+                    val switchFocused by switchInteraction.collectIsFocusedAsState()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 60.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(if (switchFocused) Primary else SurfaceRaised)
+                            .focusOutline(switchInteraction, RoundedCornerShape(18.dp))
+                            .clickable(
+                                interactionSource = switchInteraction,
+                                indication = null,
+                                role = Role.Button,
+                                onClick = {
+                                    onDismiss()
+                                    onSwitchProfile()
+                                }
+                            )
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Icon(
+                            app.reelstack.ui.components.SpoleIcons.Lock,
+                            contentDescription = null,
+                            tint = if (switchFocused) Color(0xFF101211) else Primary,
+                            modifier = Modifier.size(26.dp),
+                        )
+                        Column {
+                            Text(
+                                "Byt profil",
+                                color = if (switchFocused) Color(0xFF101211) else Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "Gå ut av barnemodus (krev PIN)",
+                                color = if (switchFocused) Color(0xFF101211).copy(alpha = 0.85f) else Muted,
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
+                }
+
+                // Lukk
+                app.reelstack.ui.components.SpoleSecondaryButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                ) {
+                    Text("Lukk")
+                }
             }
         }
     }
@@ -339,20 +541,16 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface),
         ) {
-            when (sheet) {
-                is AppSheet.PinPrompt -> PinEntrySheet(
-                    title = stringResource(R.string.profile_enter_pin_title),
-                    subtitle = stringResource(R.string.profile_enter_pin_subtitle),
-                    error = state.pinError,
-                    lockoutSeconds = state.pinLockoutSeconds,
-                    isSetup = sheet.isSetup,
-                    onPinComplete = { pin -> viewModel.submitPin(pin, sheet.targetProfileId, sheet.isSetup) },
-                    onForgotPin = { password -> viewModel.recoverPinWithPassword(password, sheet.targetProfileId) },
-                    onCancel = close,
-                )
-
-                else -> Unit
-            }
+            PinEntrySheet(
+                title = stringResource(R.string.profile_enter_pin_title),
+                subtitle = stringResource(R.string.profile_enter_pin_subtitle),
+                error = state.pinError,
+                lockoutSeconds = state.pinLockoutSeconds,
+                isSetup = sheet.isSetup,
+                onPinComplete = { pin -> viewModel.submitPin(pin, sheet.targetProfileId, sheet.isSetup) },
+                onForgotPin = { password -> viewModel.recoverPinWithPassword(password, sheet.targetProfileId) },
+                onCancel = close,
+            )
         }
     }
 }

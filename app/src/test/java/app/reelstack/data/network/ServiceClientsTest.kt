@@ -227,7 +227,7 @@ class ServiceClientsTest {
         assertEquals("The Odyssey", feed.recentMovies.single().title)
         assertEquals("Foundation", feed.recentSeries.single().title)
         assertEquals(
-            "https://media.example.com/Items/movie-1/Images/Primary?maxWidth=380&quality=75",
+            "https://media.example.com/Items/movie-1/Images/Primary?maxWidth=380&quality=75&api_key=secret",
             feed.recentMovies.single().artworkUrl,
         )
         assertTrue(transport.urls[1].contains("Users/emby-user/Views?"))

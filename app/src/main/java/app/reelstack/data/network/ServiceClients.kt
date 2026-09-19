@@ -1065,7 +1065,8 @@ class MediaServerClient(
                 "Items/${encodePathSegment(itemId)}/Images/Thumb?maxWidth=$DEFAULT_THUMB_MAX_WIDTH&quality=$ARTWORK_QUALITY"
             } else {
                 "Items/${encodePathSegment(itemId)}/Images/Primary?maxWidth=$DEFAULT_PRIMARY_MAX_WIDTH&quality=$ARTWORK_QUALITY"
-            } + tagParameter(tag),
+            } + tagParameter(tag) +
+                (if (connection.kind == ServiceKind.EMBY && connection.token.isNotBlank()) "&api_key=${encodePathSegment(connection.token)}" else ""),
         )
 
     private fun verifyConnection(connection: ServiceConnection) {

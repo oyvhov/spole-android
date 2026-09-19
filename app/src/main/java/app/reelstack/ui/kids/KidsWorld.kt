@@ -50,14 +50,15 @@ internal fun rememberKidsPreferences(profileId: String): KidsPreferences {
 @Composable
 internal fun KidsWorldTheme(options: KidsPreferences, content: @Composable () -> Unit) {
     val motion = LocalMotionEnabled.current && !options.reduceMotion
-    val sky by animateColorAsState(Color(options.world.sky), tween(if (motion) 450 else 0), label = "kids-world")
+    val sky by animateColorAsState(Color(options.world.sky), tween(if (motion) 450 else 0), label = "kids-world-sky")
+    val glow by animateColorAsState(Color(options.world.glow), tween(if (motion) 450 else 0), label = "kids-world-glow")
     CompositionLocalProvider(LocalMotionEnabled provides motion) {
         MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
             background = sky,
-            surface = Color(options.world.sky),
-            surfaceVariant = Color(options.world.glow).copy(alpha = .17f),
+            surface = sky,
+            surfaceVariant = glow.copy(alpha = .18f),
             onSurfaceVariant = Color(0xFFCBD0DE),
-            primary = Color(0xFFD5F478),
+            primary = glow,
             onPrimary = Color(0xFF101211),
         ), content = content)
     }

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.17.0-beta33 - Redesign av barnemodus med filmatisk hero og biblioteksbilete
+
+- Filmatisk, heil-breidd hero-banner for barn utan lausriven toppbar.
+- Ekte biblioteksbilete (16:9) henta direkte frå Emby og Jellyfin.
+- Fjerna syntetisk «Alt»/«Alle»-kategori; opnar direkte på første ekte bibliotek.
+- «Mi verd» integrert i profilknappen saman med PIN-beskytta «Byt profil».
+- Levande, spissa fargetema som fargar bakgrunnsatmosfære, knappar og fokusrammer dynamisk etter valt verd.
+- Autentisert biletlasting for Emby-biblioteksforsider.
+
+## 0.17.0-beta32 - UI-opprydding og redesign
+
+- Nye dropdown-filter på biblioteksida for enklare og ryddigare filtrering.
+- Synlegheitstoggle for biblioteksrader i innstillingane.
+- Fjerna overflødig fylltekst, banner og dublettrader.
+- Horisontale tenesterader med brukaravatar.
+- Straumlinjeforma Seerr-dialog.
+- Direkte avspeling/opning av episodar på detaljsida og tydeleg «Har sett»-knapp.
+
 ## 0.17.0-beta31 - Ryddigare aktivitetsside
 
 - Aktivitet opnar på «På vei» når du har noko på veg, og på «Alle» når du ikkje har det.

@@ -304,10 +304,56 @@ class ReelstackViewModel(
     private var requestDraftJob: Job? = null
     private var cacheLoadJob: Job? = null
 
+    val profileViewModel = app.reelstack.ui.viewmodels.ProfileViewModel(
+        connectionRepository = container.connectionRepository,
+        pinSecurity = container.pinSecurity,
+        jellyfinAuthClient = container.jellyfinAuthenticationClient,
+        embyAuthClient = container.embyAuthenticationClient,
+        appContext = container.appContext,
+    )
+    val libraryViewModel = app.reelstack.ui.viewmodels.LibraryViewModel(
+        preferencesRepository = container.preferencesRepository,
+        mediaServerClient = container.mediaServerClient,
+        appContext = container.appContext,
+    )
+    val requestsViewModel = app.reelstack.ui.viewmodels.RequestsViewModel(
+        mediaServerClient = container.mediaServerClient,
+        appContext = container.appContext,
+    )
+
     init {
         viewModelScope.launch {
             container.localPlaybackStore.changes.collect {
                 _uiState.update { it.copy(resume = localResume(it.resume, it.connections), nextUp = localNextUp(it.nextUp, it.connections)) }
+            }
+        }
+        viewModelScope.launch {
+            profileViewModel.uiState.collect { pState ->
+                _uiState.update { current ->
+                    current.copy(
+                        activeProfileId = pState.activeProfileId,
+                        profiles = pState.profiles,
+                        allProfileConnections = pState.allProfileConnections,
+                        isKidMode = pState.isKidMode,
+                        publicUsers = pState.publicUsers,
+                        loadingPublicUsers = pState.loadingPublicUsers,
+                        pinError = pState.pinError,
+                        pinLockoutSeconds = pState.pinLockoutSeconds,
+                        addProfileError = pState.addProfileError,
+                        addProfileHasServer = pState.addProfileHasServer,
+                        addProfileServers = pState.addProfileServers,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            requestsViewModel.uiState.collect { rState ->
+                _uiState.update { current ->
+                    current.copy(
+                        requestDraft = rState.requestDraft,
+                        requestingMediaIds = rState.requestingMediaIds,
+                    )
+                }
             }
         }
         hydrateCachedFeed()
@@ -731,15 +777,10 @@ class ReelstackViewModel(
     }
 
     fun openProfileSwitcher() {
+        profileViewModel.loadProfiles()
         _uiState.update {
             it.copy(
                 activeSheet = AppSheet.ProfileSwitcher,
-                profiles = container.connectionRepository.listProfiles(),
-                allProfileConnections = container.connectionRepository.listProfiles().associate { it.id to container.connectionRepository.list(it.id) },
-                activeProfileId = container.connectionRepository.activeProfileId,
-                isKidMode = container.connectionRepository.isKidMode,
-                pinError = null,
-                pinLockoutSeconds = container.pinSecurity.remainingLockoutSeconds(),
             )
         }
     }
@@ -751,33 +792,17 @@ class ReelstackViewModel(
             return
         }
 
-        // Switching from kid mode to adult mode requires PIN if configured
-        if (container.connectionRepository.isKidMode && profile.isMain) {
-            if (container.pinSecurity.isPinConfigured()) {
+        profileViewModel.selectProfile(
+            profile = profile,
+            onSwitchSuccess = { switchProfileNow(it) },
+            onPromptPin = { targetProfileId, isSetup ->
                 _uiState.update {
                     it.copy(
-                        activeSheet = AppSheet.PinPrompt(targetProfileId = profile.id, isSetup = false),
-                        pinError = null,
-                        pinLockoutSeconds = container.pinSecurity.remainingLockoutSeconds(),
+                        activeSheet = AppSheet.PinPrompt(targetProfileId = targetProfileId, isSetup = isSetup),
                     )
                 }
-                return
-            }
-        }
-
-        // Switching to a kid profile: if no PIN is configured, prompt parent to create one first
-        if (!profile.isMain && !container.pinSecurity.isPinConfigured()) {
-            _uiState.update {
-                it.copy(
-                    activeSheet = AppSheet.PinPrompt(targetProfileId = profile.id, isSetup = true),
-                    pinError = null,
-                    pinLockoutSeconds = 0,
-                )
-            }
-            return
-        }
-
-        switchProfileNow(profile.id)
+            },
+        )
     }
 
     fun switchProfileNow(profileId: String) {
@@ -828,27 +853,8 @@ class ReelstackViewModel(
     }
 
     fun submitPin(pin: String, targetProfileId: String, isSetup: Boolean) {
-        if (isSetup) {
-            container.pinSecurity.setPin(pin)
-            switchProfileNow(targetProfileId)
-            return
-        }
-
-        when (val result = container.pinSecurity.verifyPin(pin)) {
-            is app.reelstack.data.security.PinResult.Success -> {
-                switchProfileNow(targetProfileId)
-            }
-            is app.reelstack.data.security.PinResult.Incorrect -> {
-                _uiState.update { it.copy(pinError = appString(R.string.profile_wrong_pin)) }
-            }
-            is app.reelstack.data.security.PinResult.LockedOut -> {
-                _uiState.update {
-                    it.copy(
-                        pinLockoutSeconds = result.secondsRemaining,
-                        pinError = appString(R.string.profile_pin_locked, result.secondsRemaining),
-                    )
-                }
-            }
+        profileViewModel.submitPin(pin, targetProfileId, isSetup) {
+            switchProfileNow(it)
         }
     }
 
@@ -1164,13 +1170,7 @@ class ReelstackViewModel(
     }
 
     fun deleteKidProfile(profile: app.reelstack.data.model.UserProfile) {
-        container.connectionRepository.deleteProfile(profile.id)
-        _uiState.update {
-            it.copy(
-                profiles = container.connectionRepository.listProfiles(),
-                allProfileConnections = container.connectionRepository.listProfiles().associate { p -> p.id to container.connectionRepository.list(p.id) },
-            )
-        }
+        profileViewModel.deleteKidProfile(profile)
     }
 
     suspend fun personTitles(person: app.reelstack.data.model.CastMember, source: ServiceKind): List<LibraryMedia> {

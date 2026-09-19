@@ -12,6 +12,7 @@
     <string name="profile_wrong_pin">Incorrect PIN</string>
     <string name="profile_pin_mismatch">PINs did not match</string>
     <string name="profile_pin_locked">Too many attempts. Wait %1$d seconds.</string>
+    <string name="profile_pin_corrupted">PIN data is corrupted. Reset using your adult server password.</string>
     <string name="profile_pin_digits_entered">%1$d of %2$d digits entered</string>
     <string name="profile_pin_forgot">Forgot PIN?</string>
     <string name="profile_pin_forgot_hint">Enter Jellyfin password for main account</string>
