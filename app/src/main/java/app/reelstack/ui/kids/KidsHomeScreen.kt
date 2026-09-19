@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,11 +46,14 @@ import coil3.compose.AsyncImage
 fun KidsHomeScreen(
     keepWatching: List<LibraryMedia>,
     yourShows: List<LibraryMedia>,
+    libraries: List<Pair<String, String>> = emptyList(),
     onPlay: (LibraryMedia) -> Unit,
     modifier: Modifier = Modifier,
     columns: Int = 2,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
+    var selectedLibrary by androidx.compose.runtime.remember(libraries.map { it.first }) { androidx.compose.runtime.mutableStateOf<String?>(libraries.firstOrNull()?.first) }
+    
     if (keepWatching.isEmpty() && yourShows.isEmpty()) {
         KidsEmptyState(modifier = modifier)
         return
@@ -81,11 +85,52 @@ fun KidsHomeScreen(
             }
         }
 
-        if (yourShows.isNotEmpty()) {
+        if (libraries.isNotEmpty()) {
             fullWidthItem(columns) {
-                KidsSectionTitle(stringResource(R.string.kids_your_shows))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 14.dp, horizontal = 6.dp),
+                    modifier = Modifier.testTag("kids-libraries"),
+                ) {
+                    items(libraries, key = { it.first }) { lib ->
+                        val selected = lib.first == selectedLibrary
+                        val interaction = remember { MutableInteractionSource() }
+                        val focused by interaction.collectIsFocusedAsState()
+                        val scale = rememberKidsFocusScale(focused)
+                        
+                        Box(
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 64.dp)
+                                .kidsFocusLift(focused, scale, Primary)
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(if (selected) Primary else SurfaceRaised)
+                                .clickable(
+                                    interactionSource = interaction,
+                                    indication = null,
+                                    role = Role.Button,
+                                    onClick = { selectedLibrary = lib.first }
+                                )
+                                .padding(horizontal = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = lib.second,
+                                color = if (selected) Color.White else Primary,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
-            items(yourShows, key = { it.id }) { media ->
+        }
+
+        val displayShows = if (selectedLibrary == null) yourShows else yourShows.filter { it.libraryId == selectedLibrary }
+        if (displayShows.isNotEmpty()) {
+            fullWidthItem(columns) {
+                KidsSectionTitle(if (selectedLibrary == null) stringResource(R.string.kids_your_shows) else libraries.firstOrNull { it.first == selectedLibrary }?.second ?: stringResource(R.string.kids_your_shows))
+            }
+            items(displayShows, key = { it.id }) { media ->
                 KidsPosterCard(media = media, onPlay = { onPlay(media) })
             }
         }

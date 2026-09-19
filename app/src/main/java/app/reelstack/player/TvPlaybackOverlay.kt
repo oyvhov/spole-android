@@ -86,12 +86,12 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically) {
             TvPlayerAction(SpoleIcons.Replay10, stringResource(R.string.player_rewind), "player-rewind",
-                Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0) { seek(-10_000) }
+                Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0, showTooltip = false) { seek(-10_000) }
             TvPlayerAction(if (wantsPlayback) SpoleIcons.Pause else SpoleIcons.PlaySimple,
                 stringResource(if (wantsPlayback) R.string.player_pause else R.string.player_play), "player-toggle",
-                Modifier.focusRequester(playFocus).focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, !state.busy || state.durationMs > 0) { onInteraction(); onToggle() }
+                Modifier.focusRequester(playFocus).focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, !state.busy || state.durationMs > 0, showTooltip = false) { onInteraction(); onToggle() }
             TvPlayerAction(SpoleIcons.Forward10, stringResource(R.string.player_forward), "player-forward",
-                Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0) { seek(10_000) }
+                Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0, showTooltip = false) { seek(10_000) }
         }
         val progress = if (state.durationMs > 0) position.toFloat() / state.durationMs else 0f
         val timelineLabel = stringResource(R.string.player_timeline)
@@ -169,29 +169,36 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TvPlayerAction(icon: ImageVector, label: String, tag: String, modifier: Modifier = Modifier,
-    enabled: Boolean = true, labelVisible: Boolean = false, onClick: () -> Unit) {
+    enabled: Boolean = true, labelVisible: Boolean = false, showTooltip: Boolean = true, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val tooltip = rememberTooltipState()
     val windowFocused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
-    LaunchedEffect(focused, windowFocused) { if (focused && windowFocused) tooltip.show() else tooltip.dismiss() }
+    LaunchedEffect(focused, windowFocused) { if (focused && windowFocused && showTooltip) tooltip.show() else tooltip.dismiss() }
     val shape = RoundedCornerShape(8.dp)
     // The transport row used to draw its own 1.5 dp edge while every card in the app used
     // `focusOutline` — two different answers to the same question, and the weaker one sat over
     // moving video where contrast is worst. One treatment now, plus the same lift the rails have.
     val scale = focusScale(focused, pressed = false)
-    TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = { PlainTooltip { Text(label) } }, state = tooltip, focusable = false) {
-    Surface(onClick,
-        modifier.size(48.dp).graphicsLayer { scaleX = scale; scaleY = scale }
-            .focusOutline(interaction, shape)
-            .testTag(tag).semantics(mergeDescendants = true) { contentDescription = label; role = Role.Button },
-        enabled = enabled, shape = shape, interactionSource = interaction,
-        color = if (focused) Color.White.copy(alpha = .20f) else Color.Transparent,
-        contentColor = Color.White.copy(alpha = if (enabled) 1f else .38f)) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(if (labelVisible) 22.dp else 28.dp))
+    val button = @Composable {
+        Surface(onClick,
+            modifier.size(48.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+                .focusOutline(interaction, shape)
+                .testTag(tag).semantics(mergeDescendants = true) { contentDescription = label; role = Role.Button },
+            enabled = enabled, shape = shape, interactionSource = interaction,
+            color = if (focused) Color.White.copy(alpha = .20f) else Color.Transparent,
+            contentColor = Color.White.copy(alpha = if (enabled) 1f else .38f)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, null, Modifier.size(if (labelVisible) 22.dp else 28.dp))
+            }
         }
     }
+    if (showTooltip) {
+        TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+            tooltip = { PlainTooltip { Text(label) } }, state = tooltip, focusable = false) {
+            button()
+        }
+    } else {
+        button()
     }
 }

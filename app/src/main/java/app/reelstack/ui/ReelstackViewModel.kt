@@ -102,6 +102,7 @@ data class ReelstackUiState(
     val connections: List<ServiceConnection> = emptyList(),
     val activeProfileId: String = "",
     val profiles: List<app.reelstack.data.model.UserProfile> = emptyList(),
+    val allProfileConnections: Map<String, List<ServiceConnection>> = emptyMap(),
     val isKidMode: Boolean = false,
     val publicUsers: List<app.reelstack.data.network.PublicUser> = emptyList(),
     val loadingPublicUsers: Boolean = false,
@@ -722,6 +723,7 @@ class ReelstackViewModel(
             it.copy(
                 activeSheet = AppSheet.ProfileSwitcher,
                 profiles = container.connectionRepository.listProfiles(),
+                allProfileConnections = container.connectionRepository.listProfiles().associate { it.id to container.connectionRepository.list(it.id) },
                 activeProfileId = container.connectionRepository.activeProfileId,
                 isKidMode = container.connectionRepository.isKidMode,
                 pinError = null,
@@ -1084,6 +1086,8 @@ class ReelstackViewModel(
                 it.copy(
                     loadingPublicUsers = false,
                     profiles = newProfiles,
+                    allProfileConnections = newProfiles.associate { p -> p.id to container.connectionRepository.list(p.id) },
+                    activeSheet = null,
                 )
             }
             val targetProfile = newProfiles.firstOrNull { it.id == finalUserId }
@@ -1100,6 +1104,7 @@ class ReelstackViewModel(
         _uiState.update {
             it.copy(
                 profiles = container.connectionRepository.listProfiles(),
+                allProfileConnections = container.connectionRepository.listProfiles().associate { p -> p.id to container.connectionRepository.list(p.id) },
             )
         }
     }
@@ -2886,6 +2891,7 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         connections = connections,
         activeProfileId = container.connectionRepository.activeProfileId,
         profiles = container.connectionRepository.listProfiles(),
+        allProfileConnections = container.connectionRepository.listProfiles().associate { it.id to container.connectionRepository.list(it.id) },
         isKidMode = container.connectionRepository.isKidMode,
         selectedLibrarySource = container.preferencesRepository.preferredLibrarySource,
         libraryShortcuts = connections.sortedBy { it.kind != container.preferencesRepository.preferredLibrarySource }

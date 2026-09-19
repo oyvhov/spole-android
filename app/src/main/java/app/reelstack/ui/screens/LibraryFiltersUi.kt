@@ -41,38 +41,113 @@ internal fun LibraryFilterBar(
     // panel open at a time. Two different button styles on two lines made the tools louder than
     // the library they sit above.
     var panel by remember { mutableStateOf(Panel.NONE) }
-    val open = panel == Panel.FILTER
     val sorts = stringArrayResource(R.array.library_sorts)
     val watched = stringArrayResource(R.array.library_watched)
     val resolutions = stringArrayResource(R.array.library_resolutions)
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Chip(
-                text = stringResource(R.string.library_filters) +
-                    (if (filters.activeCount > 0) " ${filters.activeCount}" else "") +
-                    " · " + sorts[filters.sort.ordinal],
-                chosen = panel == Panel.FILTER,
-                tag = "library-filters",
-            ) { panel = if (panel == Panel.FILTER) Panel.NONE else Panel.FILTER }
-            Chip(
-                text = stringResource(R.string.library_display),
-                chosen = panel == Panel.VIEW,
-                tag = "library-display-toggle",
-            ) { panel = if (panel == Panel.VIEW) Panel.NONE else Panel.VIEW }
-            Chip(
-                text = stringResource(R.string.library_search) +
-                    filters.search.takeIf(String::isNotBlank)?.let { " · $it" }.orEmpty(),
-                chosen = panel == Panel.SEARCH || filters.search.isNotBlank(),
-                tag = "library-search-toggle",
-            ) { panel = if (panel == Panel.SEARCH) Panel.NONE else Panel.SEARCH }
-            Chip(text = filters.initial.ifBlank { stringResource(R.string.design_alphabet) },
-                chosen = panel == Panel.ALPHABET || filters.initial.isNotBlank(), tag = "library-alphabet") {
-                panel = if (panel == Panel.ALPHABET) Panel.NONE else Panel.ALPHABET
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                FilterChoice(
+                    label = stringResource(R.string.library_sort),
+                    options = LibrarySort.entries,
+                    selected = filters.sort,
+                    tag = "sort",
+                    name = { sorts[it.ordinal] },
+                ) { onApply(filters.copy(sort = it, descending = it != LibrarySort.TITLE)) }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.library_order), style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Chip(
+                        text = stringResource(if (filters.descending) R.string.library_descending_on else R.string.library_descending_off),
+                        chosen = filters.descending,
+                        tag = "library-descending",
+                    ) { onApply(filters.copy(descending = !filters.descending)) }
+                }
+            }
+            item {
+                FilterChoice(
+                    label = stringResource(R.string.library_watch_status),
+                    options = LibraryWatched.entries,
+                    selected = filters.watched,
+                    tag = "watched",
+                    name = { watched[it.ordinal] },
+                ) { onApply(filters.copy(watched = it)) }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.library_favourites), style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Chip(
+                        text = stringResource(if (filters.favourites) R.string.library_favourites_on else R.string.library_favourites_off),
+                        chosen = filters.favourites,
+                        tag = "library-favourites",
+                    ) { onApply(filters.copy(favourites = !filters.favourites)) }
+                }
+            }
+            item {
+                FilterChoice(
+                    label = stringResource(R.string.library_resolution),
+                    options = LibraryResolution.entries,
+                    selected = filters.resolution,
+                    tag = "resolution",
+                    name = { resolutions[it.ordinal] },
+                ) { onApply(filters.copy(resolution = it)) }
+            }
+            if (facets.genres.isNotEmpty()) {
+                item {
+                    FacetChip(stringResource(R.string.library_genre), filters.genre, facets.genres) {
+                        onApply(filters.copy(genre = it))
+                    }
+                }
+            }
+            if (facets.years.isNotEmpty()) {
+                item {
+                    FacetChip(stringResource(R.string.library_year), filters.year, facets.years) {
+                        onApply(filters.copy(year = it))
+                    }
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.library_display), style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Chip(
+                        text = stringResource(R.string.library_display),
+                        chosen = panel == Panel.VIEW,
+                        tag = "library-display-toggle",
+                    ) { panel = if (panel == Panel.VIEW) Panel.NONE else Panel.VIEW }
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.library_search), style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Chip(
+                        text = stringResource(R.string.library_search) +
+                            filters.search.takeIf(String::isNotBlank)?.let { " · $it" }.orEmpty(),
+                        chosen = panel == Panel.SEARCH || filters.search.isNotBlank(),
+                        tag = "library-search-toggle",
+                    ) { panel = if (panel == Panel.SEARCH) Panel.NONE else Panel.SEARCH }
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.design_alphabet), style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Chip(text = filters.initial.ifBlank { stringResource(R.string.design_alphabet) },
+                        chosen = panel == Panel.ALPHABET || filters.initial.isNotBlank(), tag = "library-alphabet") {
+                        panel = if (panel == Panel.ALPHABET) Panel.NONE else Panel.ALPHABET
+                    }
+                }
             }
             if (filters != LibraryFilters()) {
-                Chip(text = stringResource(R.string.library_reset), chosen = false, tag = "library-filter-reset") {
-                    onApply(LibraryFilters())
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(stringResource(R.string.library_reset), style = MaterialTheme.typography.labelSmall, color = Muted)
+                        Chip(text = stringResource(R.string.library_reset), chosen = false, tag = "library-filter-reset") {
+                            onApply(LibraryFilters())
+                        }
+                    }
                 }
             }
         }
@@ -110,67 +185,6 @@ internal fun LibraryFilterBar(
                     .testTag("library-search"),
                 placeholder = { Text(stringResource(R.string.library_all)) },
             )
-        }
-
-        if (open) FlowRow(
-            Modifier.fillMaxWidth().testTag("library-filter-panel"),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChoice(
-                label = stringResource(R.string.library_sort),
-                options = LibrarySort.entries,
-                selected = filters.sort,
-                tag = "sort",
-                name = { sorts[it.ordinal] },
-            ) { onApply(filters.copy(sort = it, descending = it != LibrarySort.TITLE)) }
-
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.library_order), style = MaterialTheme.typography.labelSmall, color = Muted)
-                Chip(
-                    text = stringResource(if (filters.descending) R.string.library_descending_on else R.string.library_descending_off),
-                    chosen = filters.descending,
-                    tag = "library-descending",
-                ) { onApply(filters.copy(descending = !filters.descending)) }
-            }
-
-            FilterChoice(
-                label = stringResource(R.string.library_watch_status),
-                options = LibraryWatched.entries,
-                selected = filters.watched,
-                tag = "watched",
-                name = { watched[it.ordinal] },
-            ) { onApply(filters.copy(watched = it)) }
-
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.library_favourites), style = MaterialTheme.typography.labelSmall, color = Muted)
-                Chip(
-                    text = stringResource(if (filters.favourites) R.string.library_favourites_on else R.string.library_favourites_off),
-                    chosen = filters.favourites,
-                    tag = "library-favourites",
-                ) { onApply(filters.copy(favourites = !filters.favourites)) }
-            }
-
-            FilterChoice(
-                label = stringResource(R.string.library_resolution),
-                options = LibraryResolution.entries,
-                selected = filters.resolution,
-                tag = "resolution",
-                name = { resolutions[it.ordinal] },
-            ) { onApply(filters.copy(resolution = it)) }
-
-            // Genre and year can run to hundreds of values, so those stay a chosen-from list. The
-            // list opens only when asked for, which is the difference that matters.
-            if (facets.genres.isNotEmpty()) {
-                FacetChip(stringResource(R.string.library_genre), filters.genre, facets.genres) {
-                    onApply(filters.copy(genre = it))
-                }
-            }
-            if (facets.years.isNotEmpty()) {
-                FacetChip(stringResource(R.string.library_year), filters.year, facets.years) {
-                    onApply(filters.copy(year = it))
-                }
-            }
         }
     }
 }

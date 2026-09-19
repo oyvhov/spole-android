@@ -441,8 +441,10 @@ fun PlayerScreen(
                                 Icon(app.reelstack.ui.components.SpoleIcons.Rotate, stringResource(R.string.player_rotate), modifier = Modifier.size(20.dp))
                             }
                         }
-                        IconButton(onClick = { statsVisible = !statsVisible }, modifier = Modifier.size(40.dp).background(if (statsVisible) MaterialTheme.colorScheme.primaryContainer else Color.Black.copy(alpha = .45f), CircleShape).testTag("player-stats")) {
-                            Icon(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", tint = if (statsVisible) MaterialTheme.colorScheme.primary else Color.White, modifier = Modifier.size(20.dp))
+                        if (!kids) {
+                            IconButton(onClick = { statsVisible = !statsVisible }, modifier = Modifier.size(40.dp).background(if (statsVisible) MaterialTheme.colorScheme.primaryContainer else Color.Black.copy(alpha = .45f), CircleShape).testTag("player-stats")) {
+                                Icon(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", tint = if (statsVisible) MaterialTheme.colorScheme.primary else Color.White, modifier = Modifier.size(20.dp))
+                            }
                         }
                     },
                 )
