@@ -104,6 +104,27 @@ fun KidsApp(viewModel: ReelstackViewModel) {
             .distinctBy { it.source to it.remoteId }
     }
 
+    val favourites = remember(state.favourites, state.kidsLibrary) {
+        (state.favourites + state.kidsLibrary.filter { it.favourite })
+            .filter { media ->
+                !media.remoteId.isNullOrBlank() &&
+                    (media.isSeries || media.mediaType.equals("Movie", ignoreCase = true))
+            }
+            .distinctBy { it.source to it.remoteId }
+    }
+
+    val suggestions = remember(state.kidsLibrary, state.recentSeries, state.recentMovies, keepWatching, favourites) {
+        val excludedIds = (keepWatching.mapNotNull { it.remoteId } + favourites.mapNotNull { it.remoteId }).toSet()
+        (state.recentSeries + state.recentMovies + state.kidsLibrary)
+            .filter { media ->
+                !media.remoteId.isNullOrBlank() &&
+                    (media.isSeries || media.mediaType.equals("Movie", ignoreCase = true)) &&
+                    media.remoteId !in excludedIds
+            }
+            .distinctBy { it.source to it.remoteId }
+            .take(15)
+    }
+
     val play: (LibraryMedia) -> Unit = { media ->
         val itemId = media.remoteId
         if (!itemId.isNullOrBlank()) {
@@ -208,6 +229,8 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     KidsHomeScreen(
                         keepWatching = keepWatching,
                         yourShows = yourShows,
+                        favourites = favourites,
+                        suggestions = suggestions,
                         libraries = state.kidsLibraries,
                         source = serverKind,
                         world = options.world,
@@ -220,7 +243,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                             )
                         },
                         onPlay = choose,
-                        columns = if (television) 5 else 2,
+                        columns = if (television) 6 else 2,
                         contentPadding = gridPadding,
                         loading = state.kidsLibraryLoading,
                         error = state.kidsLibraryError,
@@ -248,7 +271,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
 }
 
 /**
- * Integrated child profile button with avatar, child name and current world badge.
+ * Integrated child profile button with compact circular avatar and zero external text labels.
  */
 @Composable
 internal fun KidsProfileButton(
@@ -262,29 +285,27 @@ internal fun KidsProfileButton(
     val glow = Color(world.glow)
     val description = stringResource(R.string.kids_switch_profile)
 
-    Row(
+    Box(
         modifier = modifier
-            .clip(RoundedCornerShape(32.dp))
-            .background(Color.Black.copy(alpha = 0.52f))
-            .border(1.5.dp, glow.copy(alpha = 0.75f), RoundedCornerShape(32.dp))
-            .focusOutline(interaction, RoundedCornerShape(32.dp))
+            .size(44.dp)
+            .clip(CircleShape)
+            .focusOutline(interaction, CircleShape)
             .clickable(
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
                 onClick = onClick,
             )
-            .padding(start = 6.dp, end = 16.dp, top = 6.dp, bottom = 6.dp)
             .semantics { contentDescription = description }
             .testTag("kids-profile-button"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
-                .size(46.dp)
+                .size(38.dp)
                 .clip(CircleShape)
-                .background(SurfaceRaised),
+                .background(SurfaceRaised)
+                .border(1.5.dp, glow.copy(alpha = 0.75f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (!avatarUrl.isNullOrBlank()) {
@@ -298,26 +319,10 @@ internal fun KidsProfileButton(
                 Text(
                     text = name.trim().firstOrNull()?.uppercase().orEmpty().ifBlank { "B" },
                     color = Primary,
-                    fontSize = 20.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
-        }
-        Column {
-            Text(
-                text = name.ifBlank { "Barn" },
-                color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-            )
-            Text(
-                text = world.title,
-                color = glow,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-            )
         }
     }
 }
@@ -532,25 +537,42 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
     }
     if (sheet !is AppSheet.PinPrompt) return
 
-    StableSheetDialog(
-        dismissEnabled = true,
-        onDismiss = viewModel::closeSheet,
-    ) { _, _, close ->
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = viewModel::closeSheet,
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface),
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.75f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = viewModel::closeSheet,
+                ),
+            contentAlignment = Alignment.Center,
         ) {
-            PinEntrySheet(
-                title = stringResource(R.string.profile_enter_pin_title),
-                subtitle = stringResource(R.string.profile_enter_pin_subtitle),
-                error = state.pinError,
-                lockoutSeconds = state.pinLockoutSeconds,
-                isSetup = sheet.isSetup,
-                onPinComplete = { pin -> viewModel.submitPin(pin, sheet.targetProfileId, sheet.isSetup) },
-                onForgotPin = { password -> viewModel.recoverPinWithPassword(password, sheet.targetProfileId) },
-                onCancel = close,
-            )
+            Box(
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                )
+            ) {
+                PinEntrySheet(
+                    title = stringResource(R.string.profile_enter_pin_title),
+                    subtitle = stringResource(R.string.profile_enter_pin_subtitle),
+                    error = state.pinError,
+                    lockoutSeconds = state.pinLockoutSeconds,
+                    isSetup = sheet.isSetup,
+                    onPinComplete = { pin -> viewModel.submitPin(pin, sheet.targetProfileId, sheet.isSetup) },
+                    onForgotPin = { password -> viewModel.recoverPinWithPassword(password, sheet.targetProfileId) },
+                    onCancel = viewModel::closeSheet,
+                )
+            }
         }
     }
 }

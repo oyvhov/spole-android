@@ -29,7 +29,7 @@ class KidsComposeTest {
     val composeTestRule = createComposeRule()
 
     @Test
-    fun kidsProfileButton_displaysChildNameAndTriggersClick() {
+    fun kidsProfileButton_displaysAvatarInitialAndTriggersClick() {
         var clicked = false
         composeTestRule.setContent {
             KidsProfileButton(
@@ -41,8 +41,7 @@ class KidsComposeTest {
         }
 
         composeTestRule.onNodeWithTag("kids-profile-button").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Eilev").assertIsDisplayed()
-        composeTestRule.onNodeWithText(KidsWorld.SPACE.title).assertIsDisplayed()
+        composeTestRule.onNodeWithText("E").assertIsDisplayed()
 
         composeTestRule.onNodeWithTag("kids-profile-button").performClick()
         assertTrue("Expected profile button click to trigger callback", clicked)
@@ -65,8 +64,7 @@ class KidsComposeTest {
         }
 
         composeTestRule.onNodeWithTag("kids-profile-button").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Astrid Lovise").assertIsDisplayed()
-        composeTestRule.onNodeWithText(KidsWorld.SUNSET.title).assertIsDisplayed()
+        composeTestRule.onNodeWithText("A").assertIsDisplayed()
     }
 
     @Test
@@ -115,5 +113,63 @@ class KidsComposeTest {
 
         composeTestRule.onNodeWithText("Mi verd").performClick()
         assertTrue("Expected Mi verd click to trigger callback", miVerdOpened)
+    }
+
+    @Test
+    @Config(qualifiers = "w960dp-h1200dp-television-xhdpi")
+    fun kidsHomeScreen_rendersFavouritesAndSuggestionsShelves_andOmitsFillerText() {
+        val favItem = TestFixtures.sampleMedia(id = "fav-1", title = "Pippi Langstrømpe")
+        val sugItem = TestFixtures.sampleMedia(id = "sug-1", title = "Postmann Pat")
+        val libView = TestFixtures.sampleLibraryView(id = "lib-1", name = "Barnefilmar")
+
+        composeTestRule.setContent {
+            KidsHomeScreen(
+                keepWatching = emptyList(),
+                yourShows = listOf(favItem, sugItem),
+                favourites = listOf(favItem),
+                suggestions = listOf(sugItem),
+                libraries = listOf(libView),
+                source = ServiceKind.JELLYFIN,
+                world = KidsWorld.SPACE,
+                onPlay = {},
+            )
+        }
+
+        // Favorittar and Forslag shelves should be displayed
+        composeTestRule.onNodeWithTag("kids-favourites").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Favorittar").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("kids-suggestions").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Forslag").assertIsDisplayed()
+
+        // Unnecessary filler header "Bibliotek" must NOT be rendered
+        composeTestRule.onNodeWithText("Bibliotek").assertDoesNotExist()
+    }
+
+    @Test
+    fun pinEntrySheet_rendersCleanCardAndKeypad_andEntersDigits() {
+        var completedPin: String? = null
+        var cancelled = false
+
+        composeTestRule.setContent {
+            app.reelstack.ui.components.PinEntrySheet(
+                title = "Lås opp vaksenprofil",
+                subtitle = "Tast inn 4-sifra PIN-kode",
+                onPinComplete = { completedPin = it },
+                onCancel = { cancelled = true },
+            )
+        }
+
+        composeTestRule.onNodeWithTag("pin-entry-sheet").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("pin-dots-row").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Lås opp vaksenprofil").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("pin-key-1").assertIsDisplayed()
+
+        // Enter PIN 1-2-3-4
+        composeTestRule.onNodeWithTag("pin-key-1").performClick()
+        composeTestRule.onNodeWithTag("pin-key-2").performClick()
+        composeTestRule.onNodeWithTag("pin-key-3").performClick()
+        composeTestRule.onNodeWithTag("pin-key-4").performClick()
+
+        assertEquals("1234", completedPin)
     }
 }

@@ -65,4 +65,69 @@ class RailShapeTest {
         assertEquals("main", railArtworkUrl(wide = false, heroUrl = "hero", posterUrl = null, artworkUrl = "main"))
         assertNull(railArtworkUrl(wide = true, heroUrl = null, posterUrl = null, artworkUrl = null))
     }
+
+    @Test fun episodeInWideFramePrefersEpisodeStillOverSeriesBackdrop() {
+        // An episode shelf (Next Up, New Episodes) should show the episode still if present.
+        assertEquals(
+            "still",
+            railArtworkUrl(
+                wide = true,
+                heroUrl = "series_backdrop",
+                posterUrl = "series_poster",
+                artworkUrl = "still",
+                isEpisode = true,
+            ),
+        )
+    }
+
+    @Test fun episodeInWideFrameFallsBackToSeriesBackdropWhenStillMatchesPosterOrMissing() {
+        // When the episode has no still and artworkUrl defaulted to series poster,
+        // prefer series backdrop over portrait poster in a wide frame.
+        assertEquals(
+            "series_backdrop",
+            railArtworkUrl(
+                wide = true,
+                heroUrl = "series_backdrop",
+                posterUrl = "series_poster",
+                artworkUrl = "series_poster",
+                isEpisode = true,
+            ),
+        )
+        assertEquals(
+            "series_backdrop",
+            railArtworkUrl(
+                wide = true,
+                heroUrl = "series_backdrop",
+                posterUrl = "series_poster",
+                artworkUrl = null,
+                isEpisode = true,
+            ),
+        )
+    }
+
+    @Test fun episodeInWideFrameFallsBackToPosterIfNoBackdropExists() {
+        assertEquals(
+            "series_poster",
+            railArtworkUrl(
+                wide = true,
+                heroUrl = null,
+                posterUrl = "series_poster",
+                artworkUrl = "series_poster",
+                isEpisode = true,
+            ),
+        )
+    }
+
+    @Test fun episodeInTallFrameUsesPoster() {
+        assertEquals(
+            "series_poster",
+            railArtworkUrl(
+                wide = false,
+                heroUrl = "series_backdrop",
+                posterUrl = "series_poster",
+                artworkUrl = "still",
+                isEpisode = true,
+            ),
+        )
+    }
 }

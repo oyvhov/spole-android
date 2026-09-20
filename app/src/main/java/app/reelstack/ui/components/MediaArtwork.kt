@@ -143,7 +143,7 @@ fun RailArtwork(
             fallbackRes = fallbackRes,
             contentScale = if (mismatched.value) ContentScale.Fit else ContentScale.Crop,
             source = source,
-            protectAspectRatio = false,
+            protectAspectRatio = true,
             onAspectRatio = { ratio -> mismatched.value = orientationDiffers(ratio, frameRatio) },
         )
     }

@@ -5,6 +5,7 @@ import app.reelstack.ui.components.SpoleSecondaryButton
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.aspectRatio
@@ -177,6 +178,47 @@ fun ReelstackSheets(
     // The profile menu is an anchored popup owned by the shell. Falling through to the dialog here
     // would open an empty sheet behind it.
     if (sheet is AppSheet.ProfileSwitcher) return
+    if (sheet is AppSheet.PinPrompt) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = onDismiss,
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+            ),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.75f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismiss,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                    )
+                ) {
+                    app.reelstack.ui.components.PinEntrySheet(
+                        title = if (sheet.isSetup) stringResource(R.string.profile_set_pin_title) else stringResource(R.string.profile_enter_pin_title),
+                        subtitle = if (sheet.isSetup) stringResource(R.string.profile_set_pin_subtitle) else stringResource(R.string.profile_enter_pin_subtitle),
+                        error = state.pinError,
+                        lockoutSeconds = state.pinLockoutSeconds,
+                        isSetup = sheet.isSetup,
+                        onPinComplete = { pin -> onSubmitPin(pin, sheet.targetProfileId, sheet.isSetup) },
+                        onForgotPin = if (!sheet.isSetup) { pass -> onRecoverPinWithPassword(pass, sheet.targetProfileId) } else null,
+                        onCancel = onDismiss,
+                    )
+                }
+            }
+        }
+        return
+    }
     val sheetContentStates = rememberSaveableStateHolder()
     val tvDetails = sheet is AppSheet.TitleDetails &&
         (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
@@ -241,17 +283,7 @@ fun ReelstackSheets(
                         }.getOrNull() else null,
                     )
                 }
-                AppSheet.ProfileSwitcher -> Unit
-                is AppSheet.PinPrompt -> app.reelstack.ui.components.PinEntrySheet(
-                    title = if (sheet.isSetup) stringResource(R.string.profile_set_pin_title) else stringResource(R.string.profile_enter_pin_title),
-                    subtitle = if (sheet.isSetup) stringResource(R.string.profile_set_pin_subtitle) else stringResource(R.string.profile_enter_pin_subtitle),
-                    error = state.pinError,
-                    lockoutSeconds = state.pinLockoutSeconds,
-                    isSetup = sheet.isSetup,
-                    onPinComplete = { pin -> onSubmitPin(pin, sheet.targetProfileId, sheet.isSetup) },
-                    onForgotPin = if (!sheet.isSetup) { pass -> onRecoverPinWithPassword(pass, sheet.targetProfileId) } else null,
-                    onCancel = close,
-                )
+                AppSheet.ProfileSwitcher, is AppSheet.PinPrompt -> Unit
                 AppSheet.AddProfile -> app.reelstack.ui.sheets.AddProfileSheet(
                     publicUsers = state.publicUsers,
                     loading = state.loadingPublicUsers,

@@ -458,7 +458,7 @@ class MediaServerClient(
                 ServiceKind.JELLYFIN -> listOf("UserItems/Resume?userId=$userId&$scoped", "Users/$userId/Items/Resume?$scoped")
                 else -> listOf("Users/$userId/Items/Resume?$scoped")
             }
-            runCatching { getItems(connection, paths).map { it.copy(libraryId = view.id) } }.getOrNull()
+            runCatching { getItems(connection, paths, preferEpisodeStill = true).map { it.copy(libraryId = view.id) } }.getOrNull()
         }
         if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_hald_fram)
         return interleave(groups).distinctBy(RemoteLibraryItem::id)
@@ -572,7 +572,7 @@ class MediaServerClient(
                 getItems(connection, listOf("Shows/NextUp?UserId=$userId&ParentId=${encodePathSegment(view.id)}" +
                     "&Limit=24&EnableUserData=true&EnableResumable=false" +
                     "&Fields=Overview,Genres,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=2" +
-                    "&EnableImageTypes=Primary,Thumb,Logo,Backdrop"))
+                    "&EnableImageTypes=Primary,Thumb,Logo,Backdrop"), preferEpisodeStill = true)
                     .map { it.copy(libraryId = view.id) }
             }.getOrNull()
         }
@@ -748,7 +748,7 @@ class MediaServerClient(
             "Shows/NextUp?userId=$user&seriesId=$series&Limit=1&EnableResumable=true$fields",
             "UserItems/Resume?userId=$user&ParentId=$series&Limit=1&MediaTypes=Video$fields",
         ).firstNotNullOfOrNull { path ->
-            runCatching { getItems(connection, listOf(path)) }.getOrDefault(emptyList()).firstOrNull()
+            runCatching { getItems(connection, listOf(path), preferEpisodeStill = true) }.getOrDefault(emptyList()).firstOrNull()
         }
     }
 
@@ -777,7 +777,7 @@ class MediaServerClient(
                 val paths = if (connection.kind == ServiceKind.JELLYFIN) {
                     listOf("Items?UserId=$userId&$query", "Users/$userId/Items?$query")
                 } else listOf("Users/$userId/Items?$query")
-                getItems(connection, paths)
+                getItems(connection, paths, preferEpisodeStill = type.equals("Episode", ignoreCase = true))
             }.getOrNull()
         }
         if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_nye_utgjevingar)
@@ -973,7 +973,11 @@ class MediaServerClient(
         if (relevantViews.isEmpty()) return emptyList()
         val successfulGroups = relevantViews.mapNotNull { view ->
             runCatching {
-                getItems(connection, latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id))
+                getItems(
+                    connection,
+                    latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id),
+                    preferEpisodeStill = itemType.equals("Episode", ignoreCase = true),
+                )
             }.getOrNull()
         }
         if (successfulGroups.isEmpty()) serviceError(R.string.err_fekk_ikkje_oppdatert_dei)

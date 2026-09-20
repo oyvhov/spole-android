@@ -1,5 +1,7 @@
 package app.reelstack.player
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -18,8 +20,10 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.focusOutline
@@ -33,21 +37,98 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, fillVideo: Boolean,
     onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
     onChapters: () -> Unit = {}, onStats: () -> Unit = {},
-    /** Kids mode: rewind, play/pause, forward. The rest were set by the parent. */
+    /** Kids mode: no tools row, parental defaults. */
     kids: Boolean = false) {
-    val timeline = remember { FocusRequester() }
     val tools = remember { FocusRequester() }
     val wantsPlayback = state.playing || state.playWhenReady && !state.ended
     var timelineFocused by remember { mutableStateOf(false) }
     var target by remember(state.itemId) { mutableStateOf<Long?>(null) }
     LaunchedEffect(target) { if (target != null) { kotlinx.coroutines.delay(1600); target = null } }
     val position = (target ?: seekPreview ?: state.positionMs).coerceIn(0, state.durationMs.coerceAtLeast(0))
+
+    var transientSeekDelta by remember { mutableIntStateOf(0) }
+    var transientSeekTime by remember { mutableLongStateOf(0L) }
+    var transientSeekIsForward by remember { mutableStateOf(true) }
+
     val seek: (Long) -> Unit = { delta ->
         if (state.durationMs > 0) {
+            val isFwd = delta > 0
+            val now = System.currentTimeMillis()
+            if (transientSeekTime > 0 && now - transientSeekTime < 1000L && transientSeekIsForward == isFwd) {
+                transientSeekDelta += if (isFwd) 10 else -10
+            } else {
+                transientSeekDelta = if (isFwd) 10 else -10
+                transientSeekIsForward = isFwd
+            }
+            transientSeekTime = now
+
             val value = (position + delta).coerceIn(0, state.durationMs)
             target = value; onInteraction(); onSeek(value)
         }
     }
+
+    var lastObservedPreview by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(seekPreview) {
+        if (seekPreview != null && seekPreview != lastObservedPreview) {
+            val prev = lastObservedPreview ?: state.positionMs
+            val delta = seekPreview - prev
+            if (delta != 0L) {
+                val isFwd = delta > 0
+                val now = System.currentTimeMillis()
+                if (transientSeekTime > 0 && now - transientSeekTime < 1000L && transientSeekIsForward == isFwd) {
+                    transientSeekDelta += if (isFwd) 10 else -10
+                } else {
+                    transientSeekDelta = if (isFwd) 10 else -10
+                    transientSeekIsForward = isFwd
+                }
+                transientSeekTime = now
+            }
+            lastObservedPreview = seekPreview
+        } else if (seekPreview == null) {
+            lastObservedPreview = null
+        }
+    }
+
+    LaunchedEffect(transientSeekTime) {
+        if (transientSeekTime > 0L) {
+            kotlinx.coroutines.delay(1200)
+            transientSeekDelta = 0
+            transientSeekTime = 0L
+        }
+    }
+
+    // Elegant transient "Spol 10" indicator in screen center (clean floating icon + text directly over video)
+    val transientIndicator = @Composable {
+        AnimatedVisibility(
+            visible = transientSeekTime > 0L && transientSeekDelta != 0,
+            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.82f),
+            exit = fadeOut(tween(350)) + scaleOut(tween(350), targetScale = 0.90f),
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .testTag("player-seek-transient-indicator")
+                    .padding(16.dp),
+            ) {
+                Icon(
+                    imageVector = if (transientSeekIsForward) SpoleIcons.Forward10 else SpoleIcons.Replay10,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(52.dp),
+                )
+                Text(
+                    text = if (transientSeekDelta > 0) "+$transientSeekDelta s" else "$transientSeekDelta s",
+                    color = Color.White,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                )
+            }
+        }
+    }
+
     if (!shown) {
         if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp),
             color = Color.White.copy(alpha = .7f), strokeWidth = 2.dp)
@@ -58,6 +139,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             Text(playbackTime(position) + " / " + playbackTime(state.durationMs),
                 Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = Color.White)
         }
+        transientIndicator()
         return
     }
     Box(Modifier.matchParentSize().background(Brush.verticalGradient(
@@ -83,40 +165,51 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().onFocusChanged { onFocusWithin(it.hasFocus) }.focusGroup()
         .padding(horizontal = 48.dp, vertical = 27.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            TvPlayerAction(SpoleIcons.Replay10, stringResource(R.string.player_rewind), "player-rewind",
-                Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0, showTooltip = false) { seek(-10_000) }
-            TvPlayerAction(if (wantsPlayback) SpoleIcons.Pause else SpoleIcons.PlaySimple,
-                stringResource(if (wantsPlayback) R.string.player_pause else R.string.player_play), "player-toggle",
-                Modifier.focusRequester(playFocus).focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, !state.busy || state.durationMs > 0, showTooltip = false) { onInteraction(); onToggle() }
-            TvPlayerAction(SpoleIcons.Forward10, stringResource(R.string.player_forward), "player-forward",
-                Modifier.focusProperties { down = timeline; up = nextFocus ?: FocusRequester.Default }, state.durationMs > 0, showTooltip = false) { seek(10_000) }
-        }
         val progress = if (state.durationMs > 0) position.toFloat() / state.durationMs else 0f
         val timelineLabel = stringResource(R.string.player_timeline)
-        Box(Modifier.fillMaxWidth().height(48.dp).focusRequester(timeline)
-            .focusProperties { up = playFocus; down = tools }
+        Box(Modifier.fillMaxWidth().height(48.dp).focusRequester(playFocus)
+            .focusProperties {
+                up = nextFocus ?: FocusRequester.Default
+                down = if (!kids) tools else FocusRequester.Default
+            }
             .onFocusChanged { timelineFocused = it.isFocused }
             .onPreviewKeyEvent { event ->
                 val native = event.nativeKeyEvent
-                if (native.keyCode !in listOf(android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT)) false
-                else {
-                    if (native.action == android.view.KeyEvent.ACTION_DOWN)
-                        seek(if (native.keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT) -10_000 else 10_000)
-                    true
-                }
-            }.semantics {
+                if (native.action == android.view.KeyEvent.ACTION_DOWN) {
+                    when (native.keyCode) {
+                        android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                            seek(-10_000)
+                            true
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            seek(10_000)
+                            true
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                        android.view.KeyEvent.KEYCODE_ENTER,
+                        android.view.KeyEvent.KEYCODE_NUMPAD_ENTER,
+                        android.view.KeyEvent.KEYCODE_BUTTON_A -> {
+                            onInteraction()
+                            onToggle()
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                onInteraction()
+                onToggle()
+            }
+            .semantics {
                 contentDescription = timelineLabel
                 progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
                 setProgress { fraction -> onSeek((fraction.coerceIn(0f, 1f) * state.durationMs).toLong()); true }
             }.focusable(state.durationMs > 0)
             .padding(horizontal = 12.dp).testTag("player-timeline"), contentAlignment = Alignment.CenterStart) {
-            // A 4 dp line with a 4 dp dot is a control you have to lean forward to read. The
-            // unfocused state is what you look at while the film is playing, so it is the one that
-            // had to grow.
-            // BM-8 asks for at least 7 dp of track and a 19 dp handle in kids mode, in both states
-            // — not only while the timeline happens to hold focus.
             val trackHeight = if (kids) (if (timelineFocused) 9.dp else 7.dp) else (if (timelineFocused) 8.dp else 6.dp)
             Box(Modifier.fillMaxWidth().height(trackHeight).background(Color.White.copy(alpha = .28f), RoundedCornerShape(4.dp)))
             Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(trackHeight).background(Color.White, RoundedCornerShape(4.dp)))
@@ -132,25 +225,22 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             Text(playbackTime(state.durationMs), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .72f))
         }
         if (!kids) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            TvPlayerAction(SpoleIcons.Info, "Stats for Nerds", "player-stats", Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onStats() }
+            TvPlayerAction(SpoleIcons.Info, "Stats for Nerds", "player-stats", Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onStats() }
             if (state.chapters.isNotEmpty()) TvPlayerAction(SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters",
-                Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onChapters() }
+                Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onChapters() }
             TvPlayerAction(SpoleIcons.Sound, stringResource(R.string.player_audio), "player-audio",
-                Modifier.then(if (state.audio.isNotEmpty()) Modifier.focusRequester(tools) else Modifier).focusProperties { up = timeline },
+                Modifier.then(if (state.audio.isNotEmpty()) Modifier.focusRequester(tools) else Modifier).focusProperties { up = playFocus },
                 enabled = !state.busy && state.audio.isNotEmpty(), labelVisible = true) { onInteraction(); onAudio() }
             TvPlayerAction(SpoleIcons.Subtitles, stringResource(R.string.player_subtitles_button), "player-subtitles",
                 Modifier.then(if (state.audio.isEmpty() && state.subtitles.isNotEmpty()) Modifier.focusRequester(tools) else Modifier)
-                    .focusProperties { up = timeline }, enabled = !state.busy && state.subtitles.isNotEmpty(), labelVisible = true) { onInteraction(); onSubtitles() }
+                    .focusProperties { up = playFocus }, enabled = !state.busy && state.subtitles.isNotEmpty(), labelVisible = true) { onInteraction(); onSubtitles() }
             TvPlayerAction(SpoleIcons.Tune, stringResource(R.string.player_quality), "player-quality",
                 Modifier.then(if (state.audio.isEmpty() && state.subtitles.isEmpty()) Modifier.focusRequester(tools) else Modifier)
-                    .focusProperties { up = timeline }, enabled = !state.busy, labelVisible = true) { onInteraction(); onQuality() }
+                    .focusProperties { up = playFocus }, enabled = !state.busy, labelVisible = true) { onInteraction(); onQuality() }
             TvPlayerAction(if (fillVideo) SpoleIcons.Contract else SpoleIcons.Expand,
                 stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill), "player-frame-mode",
-                Modifier.focusProperties { up = timeline }, labelVisible = true) { onInteraction(); onFrame() }
+                Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onFrame() }
         }
-        // Four modes, not two. Copying the picture and converting only the sound is a different
-        // thing from re-encoding the picture, and this is the line where the household finds out
-        // which one their server is doing.
         Text(
             listOfNotNull(
                 stringResource(playbackModeLabel(state.mode), state.source.displayName),
@@ -164,6 +254,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         if (state.subtitleUnavailable) Text(stringResource(R.string.player_subtitle_unavailable),
             style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .72f))
     }
+    transientIndicator()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

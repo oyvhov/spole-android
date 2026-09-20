@@ -21,11 +21,11 @@ class TvPlaybackControlsTest {
                 null, {}, { toggles++ }, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
-        rule.onNodeWithTag("player-toggle").assertContentDescriptionEquals("Set på pause")
+        rule.onNodeWithTag("player-timeline").assertIsDisplayed()
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
-        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.MediaPlay) }
+        rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.MediaPlay) }
         rule.runOnIdle { assertEquals(0, toggles) }
-        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.MediaPause) }
+        rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.MediaPause) }
         rule.runOnIdle { assertEquals(1, toggles) }
     }
     private fun capture(name: String) {
@@ -87,7 +87,7 @@ class TvPlaybackControlsTest {
         androidx.test.espresso.Espresso.pressBack()
         rule.waitForIdle()
         assertEquals(0, exits)
-        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("player-timeline").assertDoesNotExist()
         androidx.test.espresso.Espresso.pressBack()
         rule.runOnIdle { assertEquals(1, exits) }
     }
@@ -100,7 +100,7 @@ class TvPlaybackControlsTest {
         } }
         rule.onNodeWithTag("player-quality").performClick()
         androidx.test.espresso.Espresso.pressBack()
-        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("player-timeline").assertDoesNotExist()
         assertEquals(0, exits)
         androidx.test.espresso.Espresso.pressBack()
         rule.runOnIdle { assertEquals(1, exits) }
@@ -115,11 +115,11 @@ class TvPlaybackControlsTest {
         } }
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
         rule.mainClock.advanceTimeBy(4000)
-        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("player-timeline").assertDoesNotExist()
         rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionCenter) }
         rule.mainClock.advanceTimeBy(160)
         assertEquals(1, toggles)
-        rule.onNodeWithTag("player-toggle").assertIsDisplayed().assertIsFocused()
+        rule.onNodeWithTag("player-timeline").assertIsDisplayed().assertIsFocused()
         rule.onNodeWithContentDescription("Roter skjermen").assertDoesNotExist()
         rule.mainClock.autoAdvance = true
     }
@@ -136,17 +136,17 @@ class TvPlaybackControlsTest {
         rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionLeft) }
         rule.mainClock.advanceTimeBy(240)
         assertEquals(0L, position)
-        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("player-timeline").assertDoesNotExist()
         rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionRight); pressKey(Key.DirectionRight) }
         rule.mainClock.advanceTimeBy(240)
         assertEquals(20_000L, position)
-        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("player-timeline").assertDoesNotExist()
         rule.onNodeWithTag("player-seek-feedback").assertIsDisplayed()
         rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionDown) }
         rule.mainClock.advanceTimeBy(160)
-        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.DirectionRight) }
-        assertEquals(20_000L, position) // focus movement is not an extra seek
-        rule.onNodeWithTag("player-toggle").assertIsNotFocused()
+        rule.onNodeWithTag("player-timeline").assertIsDisplayed().assertIsFocused()
+        rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.DirectionRight) }
+        assertEquals(30_000L, position)
         rule.mainClock.autoAdvance = true
     }
 
@@ -158,15 +158,13 @@ class TvPlaybackControlsTest {
                 {}, {}, { position = it }, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
-        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("player-timeline").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         rule.runOnIdle { assertEquals(40_000L, position) }
         capture("tv-pass2-timeline")
         rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("player-audio").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         rule.onNodeWithTag("player-subtitles").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
-        rule.onNodeWithTag("player-timeline").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
-        rule.onNodeWithTag("player-toggle").assertIsFocused()
+        rule.onNodeWithTag("player-timeline").assertIsFocused()
     }
 
     @Test fun transportAndToolsStayVisibleAtDoubleTextSize() {
@@ -175,7 +173,7 @@ class TvPlaybackControlsTest {
                 positionMs = 30_000, durationMs = 120_000), null,
                 {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } } }
-        listOf("player-toggle", "player-timeline", "player-audio", "player-subtitles", "player-quality", "player-frame-mode")
+        listOf("player-timeline", "player-audio", "player-subtitles", "player-quality", "player-frame-mode")
             .forEach { rule.onNodeWithTag(it).assertIsDisplayed() }
         capture("tv-pass2-osd-large")
     }
@@ -191,16 +189,15 @@ class TvPlaybackControlsTest {
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
         rule.mainClock.advanceTimeBy(4000)
         rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionRight) }
-        rule.mainClock.advanceTimeBy(240)
-        rule.runOnIdle { state.value = state.value.copy(busy = true, playing = false, playWhenReady = true, positionMs = target) }
-        rule.mainClock.advanceTimeBy(3000)
-        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.mainClock.advanceTimeBy(60)
+        rule.runOnIdle { state.value = state.value.copy(busy = true, playing = false, playWhenReady = true) }
+        rule.onNodeWithTag("player-timeline").assertDoesNotExist()
         rule.onNodeWithTag("jellyfin-player").performKeyInput { pressKey(Key.DirectionRight) }
         rule.mainClock.advanceTimeBy(240)
         assertEquals(50_000L, target)
         rule.runOnIdle { state.value = state.value.copy(busy = false, playing = true) }
         rule.mainClock.advanceTimeBy(100)
-        rule.onNodeWithTag("player-toggle").assertDoesNotExist()
+        rule.onNodeWithTag("player-timeline").assertDoesNotExist()
         rule.mainClock.autoAdvance = true
     }
 
@@ -210,7 +207,6 @@ class TvPlaybackControlsTest {
                 positionMs = 120_000, durationMs = 120_000), null,
                 {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
-        rule.onNodeWithTag("player-toggle").assertIsDisplayed()
         rule.onNodeWithTag("player-timeline").assertIsDisplayed()
         rule.onNodeWithTag("player-next-episode").assertDoesNotExist()
     }
@@ -222,7 +218,6 @@ class TvPlaybackControlsTest {
             PlayerScreen(state.value, null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
-        rule.onNodeWithTag("player-toggle").performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("player-timeline").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         rule.runOnIdle { state.value = state.value.copy(busy = true) }
         rule.onNodeWithTag("player-timeline").assertIsFocused()

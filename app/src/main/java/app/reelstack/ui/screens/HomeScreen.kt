@@ -793,7 +793,9 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
     // Every card in a rail reserves the same number of title lines, so a rail where each title
     // fits on one line does not leave an empty second line under every card.
     val titleLines = if (isTelevision() && chosenWide) 1 else if (items.any { it.title.length > if (chosenWide) 26 else 15 }) 2 else 1
-    LazyRow(modifier = Modifier.fillMaxWidth().testTag("library-rail"), contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    val railState = androidx.compose.foundation.lazy.rememberLazyListState()
+    app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
+    LazyRow(state = railState, modifier = Modifier.fillMaxWidth().testTag("library-rail"), contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             LibraryCard(
                 media = media,
@@ -822,7 +824,7 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
     val chosenWide = resumeRailIsWide(format)
     val titleLines = if (isTelevision()) 1 else 2
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
-    app.reelstack.ui.components.PrefetchRailArtwork(items, railState)
+    app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     LazyRow(state = railState, contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
             ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30, actions = actions, wide = chosenWide) { onClick(media.id) }
@@ -852,8 +854,19 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
  * The fallback still matters: a title with no backdrop on the server has nothing else to show, and
  * a fitted poster is better than an empty frame.
  */
-internal fun railArtworkUrl(wide: Boolean, heroUrl: String?, posterUrl: String?, artworkUrl: String?): String? {
+internal fun railArtworkUrl(
+    wide: Boolean,
+    heroUrl: String?,
+    posterUrl: String?,
+    artworkUrl: String?,
+    isEpisode: Boolean = false,
+): String? {
     if (!wide) return posterUrl ?: artworkUrl
+    if (isEpisode) {
+        val isFallbackToPoster = artworkUrl != null && posterUrl != null && artworkUrl == posterUrl
+        if (!isFallbackToPoster && artworkUrl != null) return artworkUrl
+        return heroUrl ?: artworkUrl ?: posterUrl
+    }
     val isArtworkThumb = artworkUrl?.contains("/Images/Thumb", ignoreCase = true) == true
     val isHeroThumb = heroUrl?.contains("/Images/Thumb", ignoreCase = true) == true
     return when {
@@ -974,10 +987,11 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
             .testTag("resume-card-${media.id}"),
     ) {
         if (actions != null) MediaCardMenu(media, actions, menuOpen, onDetails = onClick) { menuOpen = false }
+        val isEpisode = media.mediaType.equals("Episode", ignoreCase = true) || (media.season != null && media.episode != null)
         Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))
             .focusOutline(interactionSource, RoundedCornerShape(ReelLayout.ArtworkCorner))) {
             app.reelstack.ui.components.RailArtwork(
-                url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl),
+                url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode = isEpisode),
                 contentDescription = null,
                 frameRatio = frameRatio,
                 fallbackRes = media.artworkRes,
@@ -1097,6 +1111,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             // See ResumeCard on why this is a plain `semantics` block.
             .semantics { contentDescription = cardLabel; role = Role.Button },
     ) {
+        val isEpisode = media.mediaType.equals("Episode", ignoreCase = true) || (media.season != null && media.episode != null)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1105,7 +1120,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .clip(artworkShape).focusOutline(interactionSource, artworkShape),
         ) {
             app.reelstack.ui.components.RailArtwork(
-                url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl),
+                url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode = isEpisode),
                 contentDescription = null,
                 frameRatio = if (wide) 16f / 9f else 2f / 3f,
                 fallbackRes = media.artworkRes,
