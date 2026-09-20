@@ -39,7 +39,8 @@
     <string name="profile_add_no_users_hint">This server does not list accounts on its login screen. Enter the username for the kid account.</string>
     <string name="profile_add_server_choice">Which server owns the account?</string>
     <string name="kids_keep_watching">Keep watching</string>
-    <string name="kids_your_shows">Everything you can watch</string>
+    <string name="kids_your_shows">Your stories</string>
+    <string name="kids_home_hint">Pick something to watch</string>
     <string name="kids_greeting">Hi, %1$s</string>
     <string name="kids_greeting_plain">Hi</string>
     <string name="kids_switch_profile">Switch profile</string>

@@ -39,7 +39,8 @@
     <string name="profile_add_no_users_hint">Tjeneren viser ingen kontoer i innloggingslisten. Skriv inn brukernavnet til barnet.</string>
     <string name="profile_add_server_choice">Hvilken tjener eier kontoen?</string>
     <string name="kids_keep_watching">Fortsett</string>
-    <string name="kids_your_shows">Alt du kan se</string>
+    <string name="kids_your_shows">Historiene dine</string>
+    <string name="kids_home_hint">Velg noko å sjå på</string>
     <string name="kids_greeting">Hei, %1$s</string>
     <string name="kids_greeting_plain">Hei</string>
     <string name="kids_switch_profile">Bytt profil</string>

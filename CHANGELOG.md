@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0-beta37 - Ryddigare barnemodus
+
+- Bakgrunnsdekorasjonen er tona ned til eit roleg stjernelag, slik at innhaldet får vere i fokus.
+- Heroen er mindre, avgrensa og viser éi fast historie utan automatisk karusell eller lang omtale.
+- Profilknappen ligg i ein ryddig topp, medan media-radene og avspelingsknappane er bevarte.
+- GitHub sin release-konsistenssjekk finn no siste versjon i README-en.
+
 ## 0.17.0-beta36 - Større miniatyrbilete og tømming av biletbuffer
 
 - Breie bilete i «Hald fram» fyller no rada også når tenaren sender ein smal fallback.

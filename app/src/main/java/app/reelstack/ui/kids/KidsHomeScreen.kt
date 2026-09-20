@@ -59,9 +59,7 @@ import kotlinx.coroutines.delay
  * Clean, charming and polished home screen for kids.
  *
  * Designed specifically for young children with large touch surfaces (64+ dp),
- * cinematic full-bleed hero with integrated profile button, distinct 16:9 library
- * artwork cards directly from Emby/Jellyfin, smooth TV focus navigation, and vivid
- * world-themed accents.
+ * A quiet hero, clear media rows and large touch surfaces keep the child home easy to scan.
  */
 @Composable
 fun KidsHomeScreen(
@@ -85,7 +83,6 @@ fun KidsHomeScreen(
     var selectedLibraryId by rememberSaveable(libraries.map { it.id }) {
         mutableStateOf(libraries.firstOrNull()?.id)
     }
-    // If selected library is missing or cleared, default to the first one available
     val activeLibraryId = selectedLibraryId ?: libraries.firstOrNull()?.id
 
     val candidates = remember(keepWatching, favourites, yourShows) {
@@ -158,7 +155,12 @@ fun KidsHomeScreen(
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        // ── 0. Filmatisk Hero ──────────────────────────────────────────────
+        if (!television) {
+            fullWidthItem(columns) {
+                KidsHomeHeader(profileButton = profileButton, modifier = Modifier.padding(top = 12.dp, bottom = 2.dp))
+            }
+        }
+
         if (featured != null) {
             fullWidthItem(columns) {
                 KidsHero(
@@ -167,15 +169,13 @@ fun KidsHomeScreen(
                     resume = keepWatching.contains(featured),
                     television = television,
                     world = world,
-                    profileButton = profileButton,
-                    modifier = Modifier.cinematicBleed(gutter),
+                    profileButton = if (television) profileButton else null,
+                    modifier = if (television) Modifier.cinematicBleed(gutter) else Modifier.padding(horizontal = 4.dp),
                     onPlay = onPlay,
                 )
             }
         }
 
-        // ── 1. Biblioteksbilete (16:9-kort henta direkte frå Emby/Jellyfin) ──
-        // Overskrift er fjerna for å gje plass til meir og unngå unødvendig fylltekst
         if (libraries.isNotEmpty()) {
             fullWidthItem(columns) {
                 LazyRow(
@@ -189,15 +189,13 @@ fun KidsHomeScreen(
                             selected = library.id == activeLibraryId,
                             source = source,
                             world = world,
-                        ) {
-                            selectedLibraryId = library.id
-                        }
+                        ) { selectedLibraryId = library.id }
                     }
                 }
             }
         }
 
-        // ── 2. Hald fram (Continue Watching) ────────────────────────────────
+        // ── 1. Hald fram ────────────────────────────────────────────────────
         if (keepWatching.isNotEmpty()) {
             fullWidthItem(columns) {
                 KidsSectionTitle(stringResource(R.string.kids_keep_watching), accent = Color(world.glow))
@@ -219,88 +217,90 @@ fun KidsHomeScreen(
             }
         }
 
-        // ── 3. Favorittar ───────────────────────────────────────────────────
         if (favourites.isNotEmpty()) {
             fullWidthItem(columns) {
                 KidsSectionTitle("Favorittar", accent = Color(world.glow))
             }
             fullWidthItem(columns) {
-                val rowPosterWidth = if (television) 140.dp else 115.dp
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp),
                     modifier = Modifier.testTag("kids-favourites"),
                 ) {
                     items(favourites, key = { it.id }) { media ->
-                        KidsPosterCard(
-                            media = media,
-                            modifier = Modifier.width(rowPosterWidth),
-                            onPlay = { onPlay(media) },
-                        )
+                        KidsPosterCard(media = media, modifier = Modifier.width(if (television) 140.dp else 115.dp), onPlay = { onPlay(media) })
                     }
                 }
             }
         }
 
-        // ── 4. Forslag (kjent navigasjon frå Emby) ───────────────────────────
         if (suggestions.isNotEmpty()) {
             fullWidthItem(columns) {
                 KidsSectionTitle("Forslag", accent = Color(world.glow))
             }
             fullWidthItem(columns) {
-                val rowPosterWidth = if (television) 140.dp else 115.dp
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp),
                     modifier = Modifier.testTag("kids-suggestions"),
                 ) {
                     items(suggestions, key = { it.id }) { media ->
-                        KidsPosterCard(
-                            media = media,
-                            modifier = Modifier.width(rowPosterWidth),
-                            onPlay = { onPlay(media) },
-                        )
+                        KidsPosterCard(media = media, modifier = Modifier.width(if (television) 140.dp else 115.dp), onPlay = { onPlay(media) })
                     }
                 }
             }
         }
 
-        // ── 5. Rutenett for valt bibliotek / innhald ─────────────────────────
         val selectedView = libraries.firstOrNull { it.id == activeLibraryId }
-        val displayShows = if (activeLibraryId != null) {
-            yourShows.filter { it.libraryId == activeLibraryId }
-        } else {
-            yourShows
-        }
+        val displayShows = if (activeLibraryId != null) yourShows.filter { it.libraryId == activeLibraryId } else yourShows
 
         if (displayShows.isNotEmpty()) {
-            val sectionHeading = selectedView?.name ?: yourShowsLabel
-
             fullWidthItem(columns) {
-                KidsSectionTitle(sectionHeading, accent = Color(world.glow))
+                KidsSectionTitle(selectedView?.name ?: yourShowsLabel, accent = Color(world.glow))
             }
             items(displayShows, key = { it.id }) { media ->
-                KidsPosterCard(
-                    media = media,
-                    onPlay = { onPlay(media) },
-                )
+                KidsPosterCard(media = media, onPlay = { onPlay(media) })
             }
         } else if (activeLibraryId != null) {
             fullWidthItem(columns) {
-                Text(
-                    "Ingen historier i dette biblioteket enno.",
-                    color = Muted,
-                    modifier = Modifier.padding(vertical = 24.dp),
-                )
+                Text("Ingen historier i dette biblioteket enno.", color = Muted, modifier = Modifier.padding(vertical = 24.dp))
             }
         }
     }
 }
 
+@Composable
+private fun KidsHomeHeader(
+    profileButton: (@Composable () -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(R.string.kids_greeting_plain),
+                color = Color.White,
+                fontSize = 28.sp,
+                lineHeight = 32.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(R.string.kids_home_hint),
+                color = Muted,
+                fontSize = 15.sp,
+                lineHeight = 20.sp,
+            )
+        }
+        profileButton?.invoke()
+    }
+}
+
 /**
- * Cinematic, full-bleed hero banner for kids, modeled after the adult TabletLibraryFeature.
- * Blends smoothly into the world's sky atmosphere, shows clean titles/clearlogo,
- * a big child-friendly Play/Episode button, and hosts the integrated profile avatar.
+ * TV keeps the established cinematic hero. Mobile uses the same artwork with a calmer, shorter
+ * presentation so it does not take over the whole phone screen.
  */
 @Composable
 private fun KidsHero(
@@ -316,10 +316,10 @@ private fun KidsHero(
     val motion = LocalMotionEnabled.current
     val titles = candidates.ifEmpty { listOf(featured) }.take(5)
     var position by rememberSaveable { mutableIntStateOf(0) }
-    val selected = titles[position.coerceIn(titles.indices)]
+    val selected = if (television) titles[position.coerceIn(titles.indices)] else featured
 
-    LaunchedEffect(titles.map { it.id }, motion) {
-        if (titles.size > 1 && motion) {
+    LaunchedEffect(titles.map { it.id }, motion, television) {
+        if (television && titles.size > 1 && motion) {
             while (true) {
                 delay(8500)
                 position = (position + 1) % titles.size
@@ -328,88 +328,104 @@ private fun KidsHero(
     }
 
     val glow = Color(world.glow)
-
     val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
     val density = androidx.compose.ui.platform.LocalDensity.current
     val screenHeight = with(density) { windowInfo.containerSize.height.toDp() }
-    val skyColor = Color(world.sky)
-    val heroHeight = if (television) (screenHeight * 0.48f).coerceIn(300.dp, 360.dp) else 240.dp
+    val heroHeight = if (television) (screenHeight * 0.48f).coerceIn(300.dp, 360.dp) else 184.dp
+    val shape = RoundedCornerShape(24.dp)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(heroHeight)
+            .then(if (television) Modifier else Modifier.clip(shape).background(Color(0xFF151522)))
             .testTag("kids-hero"),
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-                .drawWithContent {
-                    drawContent()
-                    // Vertical fade out to transparent at the bottom
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            0f to Color.Black,
-                            0.25f to Color.Black,
-                            0.65f to Color.Black.copy(alpha = 0.6f),
-                            1f to Color.Transparent,
-                        ),
-                        blendMode = BlendMode.DstIn,
-                    )
-                    // Horizontal fade out to transparent on the left for text legibility
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            0f to Color.Transparent,
-                            0.20f to Color.Black.copy(alpha = 0.5f),
-                            0.45f to Color.Black,
-                            1f to Color.Black,
-                        ),
-                        blendMode = BlendMode.DstIn,
-                    )
-                }
-        ) {
-            titles.forEach { title ->
-                key(title.id) {
-                    val opacity by animateFloatAsState(
-                        targetValue = if (title.id == selected.id) 1f else 0f,
-                        animationSpec = tween(if (motion) 750 else 0),
-                        label = "kids-hero-fade-${title.id}",
-                    )
-                    if (opacity > 0f) {
-                        Box(Modifier.matchParentSize().graphicsLayer { alpha = opacity }) {
-                            MediaArtwork(
-                                url = title.heroUrl ?: title.artworkUrl ?: title.posterUrl,
-                                contentDescription = null,
-                                source = title.source,
-                                fallbackRes = title.artworkRes,
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .fillMaxWidth(if (television) 1f else 0.75f)
-                                    .fillMaxHeight(),
-                                contentScale = ContentScale.Crop,
-                                protectAspectRatio = false,
-                                alignment = Alignment.TopCenter,
-                            )
+        if (television) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                0f to Color.Black,
+                                0.25f to Color.Black,
+                                0.65f to Color.Black.copy(alpha = 0.6f),
+                                1f to Color.Transparent,
+                            ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                0f to Color.Transparent,
+                                0.20f to Color.Black.copy(alpha = 0.5f),
+                                0.45f to Color.Black,
+                                1f to Color.Black,
+                            ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    }
+            ) {
+                titles.forEach { title ->
+                    key(title.id) {
+                        val opacity by animateFloatAsState(
+                            targetValue = if (title.id == selected.id) 1f else 0f,
+                            animationSpec = tween(if (motion) 750 else 0),
+                            label = "kids-hero-fade-${title.id}",
+                        )
+                        if (opacity > 0f) {
+                            Box(Modifier.matchParentSize().graphicsLayer { alpha = opacity }) {
+                                MediaArtwork(
+                                    url = title.heroUrl ?: title.artworkUrl ?: title.posterUrl,
+                                    contentDescription = null,
+                                    source = title.source,
+                                    fallbackRes = title.artworkRes,
+                                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                    protectAspectRatio = false,
+                                    alignment = Alignment.TopCenter,
+                                )
+                            }
                         }
                     }
                 }
             }
+        } else {
+            MediaArtwork(
+                url = selected.heroUrl ?: selected.artworkUrl ?: selected.posterUrl,
+                contentDescription = null,
+                source = selected.source,
+                fallbackRes = selected.artworkRes,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                protectAspectRatio = false,
+                alignment = Alignment.Center,
+            )
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.horizontalGradient(listOf(Color(0xF20B0C15), Color(0xA0000000), Color.Transparent))
+                )
+            )
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(listOf(Color.Transparent, Color(world.sky).copy(alpha = .95f)))
+                )
+            )
         }
 
-        // Hero caption and action button (utan fylltekst)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .fillMaxWidth(if (television) 0.58f else 0.86f)
+                .fillMaxWidth(if (television) 0.58f else 0.82f)
                 .padding(
-                    start = if (television) 48.dp else 24.dp,
-                    bottom = if (television) 20.dp else 14.dp,
-                    end = 24.dp,
+                    start = if (television) 48.dp else 16.dp,
+                    bottom = if (television) 20.dp else 12.dp,
+                    end = if (television) 24.dp else 12.dp,
                 ),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // ClearLogo eller rein tittel med høg kontrast
             val logo = selected.logoUrl
             var logoFailed by remember(selected.id) { mutableStateOf(false) }
             if (!logo.isNullOrBlank() && !logoFailed) {
@@ -422,23 +438,22 @@ private fun KidsHero(
                     source = selected.source,
                     onError = { logoFailed = true },
                     modifier = Modifier
-                        .height(if (television) 62.dp else 46.dp)
-                        .width(if (television) 280.dp else 220.dp)
+                        .height(if (television) 62.dp else 34.dp)
+                        .width(if (television) 280.dp else 190.dp)
                         .padding(vertical = 2.dp),
                 )
             } else {
                 Text(
                     text = selected.title,
                     color = Color.White,
-                    fontSize = if (television) 30.sp else 22.sp,
-                    lineHeight = if (television) 36.sp else 26.sp,
+                    fontSize = if (television) 30.sp else 19.sp,
+                    lineHeight = if (television) 36.sp else 23.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
 
-            // Barnevennleg undertittel / episodeinfo
             val subtitle = when {
                 selected.isSeries && selected.season != null && selected.episode != null ->
                     "Sesong ${selected.season} · Episode ${selected.episode}"
@@ -456,21 +471,17 @@ private fun KidsHero(
                 )
             }
 
-            // Kort skildring (maks 2 linjer)
-            if (!selected.overview.isNullOrBlank()) {
+            if (television && !selected.overview.isNullOrBlank()) {
                 Text(
                     text = selected.overview,
                     color = Color.White.copy(alpha = 0.76f),
-                    fontSize = if (television) 13.sp else 12.sp,
-                    lineHeight = if (television) 18.sp else 16.sp,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
 
-            Spacer(Modifier.height(2.dp))
-
-            // Stor og barnevennleg avspelingsknapp
             val buttonInteraction = remember { MutableInteractionSource() }
             val buttonFocused by buttonInteraction.collectIsFocusedAsState()
             val buttonShape = RoundedCornerShape(20.dp)
@@ -488,7 +499,10 @@ private fun KidsHero(
                         role = Role.Button,
                         onClick = { onPlay(selected) },
                     )
-                    .padding(horizontal = 26.dp, vertical = 14.dp)
+                    .padding(
+                        horizontal = if (television) 26.dp else 20.dp,
+                        vertical = if (television) 14.dp else 10.dp,
+                    )
                     .testTag("kids-hero-play"),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -502,23 +516,23 @@ private fun KidsHero(
                 Text(
                     text = if (selected.isSeries) "Vel episode" else if (resume) "Sjå vidare" else "Sjå no",
                     color = Color(0xFF101211),
-                    fontSize = 19.sp,
+                    fontSize = if (television) 19.sp else 16.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
         }
 
-        // Profile button in top-right corner with safe drawing insets
-        if (profileButton != null) {
+        if (television && profileButton != null) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                    .padding(if (television) 32.dp else 16.dp)
+                    .padding(32.dp)
             ) {
                 profileButton()
             }
         }
+
     }
 }
 

@@ -135,7 +135,8 @@ class KidsComposeTest {
             )
         }
 
-        // Favorittar and Forslag shelves should be displayed
+        // Favourites and suggestions remain separate media shelves; the visual cleanup targets
+        // the wallpaper and hero, not the child-facing media controls.
         composeTestRule.onNodeWithTag("kids-favourites").assertIsDisplayed()
         composeTestRule.onNodeWithText("Favorittar").assertIsDisplayed()
         composeTestRule.onNodeWithTag("kids-suggestions").assertIsDisplayed()

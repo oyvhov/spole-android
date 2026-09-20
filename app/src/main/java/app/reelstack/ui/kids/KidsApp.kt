@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -154,10 +155,10 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     )
             )
             if (options.decorations) {
+                WorldLandscape(options.world, Modifier.matchParentSize().alpha(0.28f))
                 if (options.world == KidsWorld.SPACE) {
                     SpaceBackdrop(Modifier.matchParentSize(), accent = Color(options.world.glow))
                 }
-                WorldLandscape(options.world, Modifier.matchParentSize())
             }
 
             Column(

@@ -39,7 +39,8 @@
     <string name="profile_add_no_users_hint">Tenaren viser ingen kontoar i innloggingslista. Skriv inn brukarnamnet til barnet.</string>
     <string name="profile_add_server_choice">Kva for ein tenar eig kontoen?</string>
     <string name="kids_keep_watching">Hald fram</string>
-    <string name="kids_your_shows">Alt du kan sjå</string>
+    <string name="kids_your_shows">Historiene dine</string>
+    <string name="kids_home_hint">Vel noko å sjå på</string>
     <string name="kids_greeting">Hei, %1$s</string>
     <string name="kids_greeting_plain">Hei</string>
     <string name="kids_switch_profile">Byt profil</string>
