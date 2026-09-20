@@ -60,6 +60,23 @@ internal fun playbackFailureIsVideo(error: PlaybackException): Boolean {
     return MimeTypes.isVideo(renderer.rendererFormat?.sampleMimeType ?: return false)
 }
 
+/** A failed text sidecar must not stop a video that is otherwise playing. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+internal fun playbackFailureIsSubtitle(error: PlaybackException): Boolean {
+    val renderer = error as? ExoPlaybackException
+    if (renderer?.type == ExoPlaybackException.TYPE_RENDERER &&
+        MimeTypes.isText(renderer.rendererFormat?.sampleMimeType ?: "")) return true
+    return generateSequence(error.cause) { it.cause }
+        .filterIsInstance<HttpDataSource.HttpDataSourceException>()
+        .any { exception -> playbackFailureIsSubtitleUrl(exception.dataSpec.uri.toString()) }
+}
+
+internal fun playbackFailureIsSubtitleUrl(url: String): Boolean {
+    val path = runCatching { java.net.URI(url).path.orEmpty() }.getOrDefault(url)
+    return path.contains("/Subtitles/", ignoreCase = true) &&
+        path.endsWith("/Stream.vtt", ignoreCase = true)
+}
+
 /**
  * One line for the diagnostics panel: what gave up, on what, and where playback went next.
  *

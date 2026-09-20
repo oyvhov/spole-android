@@ -455,7 +455,7 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, show
     ) {
             if (showBrand) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 app.reelstack.ui.components.SpoleBrandMark(Modifier.size(34.dp), "Spole-logo")
-                Text("Spole", color = TextColor, fontSize = 24.sp, lineHeight = 29.sp, fontWeight = FontWeight.SemiBold,
+                Text(app.reelstack.ui.theme.LocalPersonalization.current.appLabel, color = TextColor, fontSize = 24.sp, lineHeight = 29.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
             } else Spacer(Modifier.weight(1f))
         HomeAccountButton(state, onAccountClick)

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0-beta38 - Undertekst skal ikkje stoppe videoen
+
+- Manglande eller øydelagde eksterne undertekster blir no handterte separat frå videoen.
+- Spelaren slår av berre tekstsporet og held fram frå same posisjon når eit undertekstspor feilar.
+- Sluttar å førehandslaste tilfeldige undertekster når undertekst er slått av, slik at ein ikkje får
+  ei misvisande feilmelding.
+
 ## 0.17.0-beta37 - Ryddigare barnemodus
 
 - Bakgrunnsdekorasjonen er tona ned til eit roleg stjernelag, slik at innhaldet får vere i fokus.

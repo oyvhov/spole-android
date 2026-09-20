@@ -290,6 +290,18 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=stream code=${error.errorCode}")
         val position = player.currentPosition.coerceAtLeast(0)
         val source = activeMediaSource
+        val currentPlan = plan
+        if (currentPlan?.subtitleUrl != null && playbackFailureIsSubtitle(error)) {
+            // A broken/missing sidecar is not a broken episode. Disable only the text renderer and
+            // prepare the same video timeline again; the viewer can choose another subtitle later.
+            plan = currentPlan.copy(subtitleIndex = -1, subtitleUrl = null)
+            mutable.update { it.copy(subtitleIndex = -1, subtitleUnavailable = true, error = null, busy = true) }
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).clearOverridesOfType(C.TRACK_TYPE_TEXT).build()
+            player.prepare()
+            player.playWhenReady = foreground && playWhenReady
+            return
+        }
         if (source != null && plan != null && sameAccount() && localAudioFallback.tryEnable(error)) {
             // Do not renegotiate PlaybackInfo, stop the server session or lose the chosen
             // source/tracks. Recreating periods forces track mapping onto the local decoder.
@@ -358,10 +370,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         if (subtitleWarmedSession == current.sessionId) return
         subtitleWarmedSession = current.sessionId
         val text = current.subtitles.filter { it.isText }
-        val locale = java.util.Locale.getDefault()
-        val track = text.firstOrNull { it.index == current.subtitleIndex }
-            ?: text.firstOrNull { it.language in setOf(locale.language, runCatching { locale.isO3Language }.getOrNull()) }
-            ?: text.firstOrNull() ?: return
+        // Do not probe an arbitrary track when subtitles are off. A missing optional sidecar should
+        // not produce a warning for a viewer who never asked for subtitles in the first place.
+        val track = text.firstOrNull { it.index == current.subtitleIndex } ?: return
         val url = textUrl(c, current, track.index)
         subtitleWarmJob = viewModelScope.launch(Dispatchers.IO) { runCatching { cache.load(url) } }
     }

@@ -130,6 +130,8 @@ data class Personalization(
     val fallbackSubtitleLanguage: SubtitleLanguage = SubtitleLanguage.ENGLISH,
     val showLibraryCardNames: Boolean = true,
     val watchNextEnabled: Boolean = false,
+    /** Device-local name shown beside the Spole mark in the main header. */
+    val appLabel: String = "Spole",
 )
 
 enum class SubtitleStyle { CLEAN, CINEMA, HIGH_CONTRAST, LARGE }

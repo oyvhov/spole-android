@@ -62,6 +62,7 @@ internal fun SettingsServiceRow(
     }?.takeIf { it.isNotBlank() && it != status }
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(16.dp)
+    val television = isTelevision()
 
     Row(
         Modifier
@@ -82,114 +83,76 @@ internal fun SettingsServiceRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Left: Service Icon & Name
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.widthIn(min = 160.dp),
-        ) {
-            ServiceSymbol(connection.kind, Modifier.size(32.dp).testTag("settings-service-icon-${connection.kind}"))
-            Text(
-                text = connection.kind.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-
-        // Middle: User Profile with Avatar (if signed in)
-        Box(modifier = Modifier.weight(1f)) {
-            if (!account.isNullOrBlank()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceRaised)
-                            .border(1.5.dp, Primary.copy(alpha = 0.5f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (!avatarUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = avatarUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        } else {
-                            Text(
-                                text = account.trim().firstOrNull()?.uppercase().orEmpty(),
-                                color = Primary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                    Column {
-                        Text(
-                            text = account,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        if (detail != null) {
-                            Text(
-                                text = detail,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+        if (!television) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ServiceSymbol(connection.kind, Modifier.size(32.dp).testTag("settings-service-icon-${connection.kind}"))
+                    Text(connection.kind.displayName, style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    ServiceHealthBadge(health, color, status)
+                    Icon(SpoleIcons.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (!account.isNullOrBlank() || detail != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(start = 44.dp)) {
+                        if (!account.isNullOrBlank()) ServiceAvatar(account, avatarUrl)
+                        Column(Modifier.weight(1f)) {
+                            if (!account.isNullOrBlank()) Text(account, style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
                     }
                 }
-            } else if (detail != null) {
-                Text(
-                    text = detail,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.widthIn(min = 160.dp),
+            ) {
+                ServiceSymbol(connection.kind, Modifier.size(32.dp).testTag("settings-service-icon-${connection.kind}"))
+                Text(connection.kind.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                if (!account.isNullOrBlank()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ServiceAvatar(account, avatarUrl)
+                    Column {
+                        Text(account, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                } else detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ServiceHealthBadge(health, color, status)
+                Icon(SpoleIcons.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
 
-        // Right: Status badge & chevron
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+@Composable
+private fun ServiceAvatar(account: String, avatarUrl: String?) {
+    Box(Modifier.size(34.dp).clip(CircleShape).background(SurfaceRaised).border(1.5.dp, Primary.copy(alpha = 0.5f), CircleShape), contentAlignment = Alignment.Center) {
+        if (!avatarUrl.isNullOrBlank()) AsyncImage(model = avatarUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        else Text(account.trim().firstOrNull()?.uppercase().orEmpty(), color = Primary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun ServiceHealthBadge(health: ServiceHealth, color: Color, status: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(color.copy(alpha = 0.12f))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
             ) {
-                Icon(
-                    when (health) {
-                        ServiceHealth.OK -> SpoleIcons.DoneCircle
-                        ServiceHealth.WARNING, ServiceHealth.ERROR -> SpoleIcons.Alert
-                        ServiceHealth.CHECKING -> SpoleIcons.Clock
-                        else -> SpoleIcons.Info
-                    },
-                    null,
-                    Modifier.size(16.dp).testTag("service-health-${connection.kind}-$health"),
-                    tint = color,
-                )
-                Text(
-                    text = status,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = color,
-                )
+                Icon(when (health) {
+                    ServiceHealth.OK -> SpoleIcons.DoneCircle
+                    ServiceHealth.WARNING, ServiceHealth.ERROR -> SpoleIcons.Alert
+                    ServiceHealth.CHECKING -> SpoleIcons.Clock
+                    else -> SpoleIcons.Info
+                }, null, Modifier.size(16.dp), tint = color)
+                Text(status, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = color)
             }
-
-            Icon(
-                SpoleIcons.ChevronRight,
-                null,
-                Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
-    }
 }

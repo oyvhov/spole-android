@@ -46,6 +46,13 @@ class PlaybackRecoveryTest {
         for (status in listOf(408, 429, 500, 502, 503, 504)) assertTrue(recoverablePlaybackFailure(code, status, false))
     }
 
+    @Test fun aFailedSubtitleSidecarIsNotAPlaybackFailureForTheVideo() {
+        assertTrue(playbackFailureIsSubtitleUrl(
+            "https://media.example/Videos/episode/Subtitles/7/Stream.vtt"))
+        assertFalse(playbackFailureIsSubtitleUrl(
+            "https://media.example/Videos/episode/stream"))
+    }
+
     /**
      * The ladder, which used to be a cliff.
      *

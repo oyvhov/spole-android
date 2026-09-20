@@ -5,6 +5,10 @@
     <string name="personal_title">Make it yours</string>
     <string name="personal_scope">Appearance and playback on this device. Your accounts and permissions stay unchanged.</string>
     <string name="personal_appearance">Appearance</string>
+    <string name="personal_branding">Branding</string>
+    <string name="personal_app_name">App name in header</string>
+    <string name="personal_app_name_hint">For example, Living room</string>
+    <string name="personal_app_name_limit">Up to 24 characters</string>
     <string name="personal_accent">Accent colour</string>
     <string name="personal_lime">Lime</string>
     <string name="personal_ocean">Ocean</string>

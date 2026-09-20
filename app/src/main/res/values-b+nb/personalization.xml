@@ -5,6 +5,10 @@
     <string name="personal_title">Gjør Spole til din</string>
     <string name="personal_scope">Utseende og avspilling på denne enheten. Kontoene og rettighetene dine endres ikke.</string>
     <string name="personal_appearance">Utseende</string>
+    <string name="personal_branding">Profilering</string>
+    <string name="personal_app_name">Appnavn i toppteksten</string>
+    <string name="personal_app_name_hint">Til dømes, Stova</string>
+    <string name="personal_app_name_limit">Opptil 24 teikn</string>
     <string name="personal_accent">Aksentfarge</string>
     <string name="personal_lime">Lime</string>
     <string name="personal_ocean">Hav</string>

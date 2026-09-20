@@ -189,6 +189,7 @@ fun KidsHomeScreen(
                             selected = library.id == activeLibraryId,
                             source = source,
                             world = world,
+                            television = television,
                         ) { selectedLibraryId = library.id }
                     }
                 }
@@ -307,7 +308,7 @@ private fun KidsHero(
     featured: LibraryMedia,
     candidates: List<LibraryMedia>,
     resume: Boolean,
-    television: Boolean,
+    television: Boolean = false,
     world: KidsWorld,
     profileButton: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
@@ -547,6 +548,7 @@ internal fun KidsLibraryCard(
     selected: Boolean,
     source: ServiceKind,
     world: KidsWorld,
+    television: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -558,7 +560,7 @@ internal fun KidsLibraryCard(
 
     Column(
         modifier = modifier
-            .defaultMinSize(minWidth = 180.dp)
+            .width(if (television) 184.dp else 156.dp)
             .clickable(
                 interactionSource = interaction,
                 indication = null,

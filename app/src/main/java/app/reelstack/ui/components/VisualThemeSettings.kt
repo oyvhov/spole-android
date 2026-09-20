@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -171,6 +172,8 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
     artwork: List<LibraryMedia> = emptyList()) {
     val television = isTelevision()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SettingsGroup(stringResource(R.string.personal_branding))
+        AppLabelSetting(value, onChange)
         if (Season.of(value) != Season.NONE) SeasonalThemeBanner(options = value)
         ThemePreview(value, artwork)
         // A season is a pairing, not a background: red on a red ground is not Christmas, it is a
@@ -227,6 +230,41 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
             focusStyle = if (television) FocusStyle.BOLD else FocusStyle.WHITE,
             highContrast = false, seasonalOrnament = true, reduceMotion = false, heroCompact = false)) },
             modifier = Modifier.testTag("appearance-reset")) { Text(stringResource(R.string.personal_reset)) }
+    }
+}
+
+@Composable
+private fun AppLabelSetting(value: Personalization, onChange: (Personalization) -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    var draft by rememberSaveable(value.appLabel) { mutableStateOf(value.appLabel) }
+    SettingsActionRow(
+        stringResource(R.string.personal_app_name),
+        value.appLabel,
+        "personal-app-name",
+    ) { draft = value.appLabel; open = true }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(stringResource(R.string.personal_app_name)) },
+            text = {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it.take(24) },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.personal_app_name_hint)) },
+                    supportingText = { Text(stringResource(R.string.personal_app_name_limit)) },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onChange(value.copy(appLabel = draft.trim().ifBlank { "Spole" }))
+                    open = false
+                }) { Text(stringResource(R.string.library_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) }
+            },
+        )
     }
 }
 

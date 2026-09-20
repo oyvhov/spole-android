@@ -665,7 +665,7 @@ internal fun ReelstackNavigationRail(
                 role = Role.Button, onClick = { onExpandedChange(!expanded) }) else Modifier)
             .padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             app.reelstack.ui.components.SpoleBrandMark(Modifier.size(28.dp))
-            Text("Spole", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge,
+            Text(app.reelstack.ui.theme.LocalPersonalization.current.appLabel, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp)
                     .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
         }
