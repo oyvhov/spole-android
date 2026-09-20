@@ -243,7 +243,9 @@ class MediaSnapshotStore(context: Context) {
         private const val SEPARATOR = "\u001F"
 
         /** Bump when the feed rules change, so an older copy is dropped instead of shown. */
-        private const val SCHEMA = 5
+        // Resume artwork now includes the server's wide Thumb image. Drop the old cached poster
+        // URLs so the first screen cannot briefly show the old tiny, letterboxed artwork.
+        private const val SCHEMA = 6
 
         /**
          * Identifies the exact set of signed-in services a cached feed belongs to. Any change of

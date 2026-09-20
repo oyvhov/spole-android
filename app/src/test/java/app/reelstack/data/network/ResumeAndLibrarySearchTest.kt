@@ -80,6 +80,15 @@ class ResumeAndLibrarySearchTest {
         assertTrue(transport.urls.any { it.contains("Resume") && it.contains("EnableUserData=true") })
     }
 
+    @Test fun resumeRequestsThumbAlongsidePrimaryForTheWideHomeRail() {
+        val transport = Recording { url ->
+            if (url.contains("Views") || url.contains("UserViews")) HttpResponse(200, views)
+            else HttpResponse(200, """{"Items":[]}""")
+        }
+        MediaServerClient(transport).resume(connection, "me")
+        assertTrue(transport.urls.any { it.contains("Resume") && it.contains("ImageTypeLimit=2") && it.contains("EnableImageTypes=Primary,Thumb") })
+    }
+
     @Test fun aTotalResumeFailureIsReportedRatherThanShownAsAnEmptyRail() {
         val transport = Recording { url ->
             if (url.contains("Views") || url.contains("UserViews")) HttpResponse(200, views)

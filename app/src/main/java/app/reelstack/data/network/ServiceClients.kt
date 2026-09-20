@@ -450,7 +450,11 @@ class MediaServerClient(
         val allowed = views.filter { includeLibrary(connection, it) }
         if (allowed.isEmpty()) return emptyList()
         val query = "Limit=$RESUME_ITEM_LIMIT&Recursive=true&MediaTypes=Video" +
-            "&Fields=Overview,Genres,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=1" +
+            // Resume is rendered as a 16:9 thumbnail rail. Asking for only one image type makes
+            // Jellyfin/Emby return Primary for some titles, which is a portrait poster fitted
+            // into the wide frame and therefore looks like a tiny picture in the middle.
+            // Keep both Primary and Thumb available so getItems() can build the wide URL.
+            "&Fields=Overview,Genres,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=2" +
             "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&EnableUserData=true"
         val groups = allowed.mapNotNull { view ->
             val scoped = "$query&ParentId=${encodePathSegment(view.id)}"

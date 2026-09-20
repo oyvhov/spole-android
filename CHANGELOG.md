@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0-beta35 - Rette miniatyrbilete på «Fortsett å sjå»
+
+- «Fortsett å sjå» ber no Jellyfin og Emby om både Primary- og Thumb-bilete.
+- Breie kort prioriterer miniatyrbiletet, slik at posterar ikkje blir viste som små bilete midt i rada.
+- Gammal cache med poster-URL-ar blir kasta etter oppgradering, slik at oppstarten ikkje viser den gamle visinga først.
+
 ## 0.17.0-beta33 - Redesign av barnemodus med filmatisk hero og biblioteksbilete
 
 - Filmatisk, heil-breidd hero-banner for barn utan lausriven toppbar.
