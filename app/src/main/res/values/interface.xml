@@ -55,6 +55,9 @@
     <string name="settings_wifi">Sync on Wi-Fi only</string>
     <string name="settings_wifi_note">Background updates over Wi-Fi</string>
     <string name="settings_about">About</string>
+    <string name="image_cache_clear">Clear image cache</string>
+    <string name="image_cache_clear_hint">Reload artwork without signing out or deleting media data.</string>
+    <string name="image_cache_cleared">Image cache cleared. Open Home again to reload artwork.</string>
     <string name="settings_version">Your personal media hub · v%1$s</string>
     <string name="service_connected">Connected</string>
     <string name="service_checking">Checking connection…</string>

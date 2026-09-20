@@ -66,10 +66,10 @@ class RailShapeTest {
         assertNull(railArtworkUrl(wide = true, heroUrl = null, posterUrl = null, artworkUrl = null))
     }
 
-    @Test fun episodeInWideFramePrefersEpisodeStillOverSeriesBackdrop() {
-        // An episode shelf (Next Up, New Episodes) should show the episode still if present.
+    @Test fun episodeInWideFramePrefersSeriesThumbnailOverEpisodePrimary() {
+        // The wide home rail must stay wide even when the episode also has a Primary still.
         assertEquals(
-            "still",
+            "series_backdrop",
             railArtworkUrl(
                 wide = true,
                 heroUrl = "series_backdrop",
@@ -80,9 +80,8 @@ class RailShapeTest {
         )
     }
 
-    @Test fun episodeInWideFrameFallsBackToSeriesBackdropWhenStillMatchesPosterOrMissing() {
-        // When the episode has no still and artworkUrl defaulted to series poster,
-        // prefer series backdrop over portrait poster in a wide frame.
+    @Test fun episodeInWideFrameFallsBackToSeriesBackdropWhenPrimaryMatchesPosterOrMissing() {
+        // When the episode has no usable wide image, prefer series backdrop over portrait poster.
         assertEquals(
             "series_backdrop",
             railArtworkUrl(

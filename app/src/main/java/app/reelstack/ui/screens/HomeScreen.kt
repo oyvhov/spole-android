@@ -862,18 +862,15 @@ internal fun railArtworkUrl(
     isEpisode: Boolean = false,
 ): String? {
     if (!wide) return posterUrl ?: artworkUrl
+    // A wide rail must use the server's wide artwork first. Episodes used to prefer their
+    // Primary still here, even when heroUrl was a real series Thumb/Backdrop; that left a
+    // portrait fallback in RailArtwork, where it was fitted as a tiny picture in the middle.
+    heroUrl?.takeIf { it.isNotBlank() }?.let { return it }
     if (isEpisode) {
         val isFallbackToPoster = artworkUrl != null && posterUrl != null && artworkUrl == posterUrl
         if (!isFallbackToPoster && artworkUrl != null) return artworkUrl
-        return heroUrl ?: artworkUrl ?: posterUrl
     }
-    val isArtworkThumb = artworkUrl?.contains("/Images/Thumb", ignoreCase = true) == true
-    val isHeroThumb = heroUrl?.contains("/Images/Thumb", ignoreCase = true) == true
-    return when {
-        isArtworkThumb -> artworkUrl
-        isHeroThumb -> heroUrl
-        else -> heroUrl ?: artworkUrl
-    }
+    return artworkUrl ?: posterUrl
 }
 
 internal fun resumeRailIsWide(format: String?): Boolean = format != "POSTER"
@@ -997,6 +994,10 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
                 fallbackRes = media.artworkRes,
                 source = media.source,
                 modifier = Modifier.fillMaxSize(),
+                // A resume card is already a fixed 16:9 frame. If a server sends a portrait
+                // fallback, crop it to the frame rather than shrinking it into a black/blurred
+                // island that looks like a missing thumbnail.
+                fitMismatched = false,
             )
             // How far in you are is the whole point of this rail, so it sits on the artwork
             // rather than competing with the title for a line of its own.

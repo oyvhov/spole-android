@@ -54,6 +54,9 @@
     <string name="settings_wifi">Synkroniser berre på Wi-Fi</string>
     <string name="settings_wifi_note">Bakgrunnsoppdatering på Wi-Fi</string>
     <string name="settings_about">Om appen</string>
+    <string name="image_cache_clear">Tøm biletbuffer</string>
+    <string name="image_cache_clear_hint">Last inn kunst på nytt utan å logge ut eller slette mediedata.</string>
+    <string name="image_cache_cleared">Biletbuffer tømd. Opne Heim att for å laste inn bileta på nytt.</string>
     <string name="settings_version">Personleg medieoversikt · v%1$s</string>
     <string name="service_connected">Tilkopla</string>
     <string name="service_checking">Sjekkar tilkoplinga…</string>

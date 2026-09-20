@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0-beta36 - Større miniatyrbilete og tømming av biletbuffer
+
+- Breie bilete i «Hald fram» fyller no rada også når tenaren sender ein smal fallback.
+- Episodar prioriterer brei Thumb/hero-kunst framfor Primary-biletet i den breie rada.
+- Ny «Tøm biletbuffer» under «Om appen» tømmer berre Coil-bileta, ikkje innlogging eller mediedata.
+
 ## 0.17.0-beta35 - Rette miniatyrbilete på «Fortsett å sjå»
 
 - «Fortsett å sjå» ber no Jellyfin og Emby om både Primary- og Thumb-bilete.

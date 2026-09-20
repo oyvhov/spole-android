@@ -121,10 +121,11 @@ fun RailArtwork(
     modifier: Modifier = Modifier,
     @DrawableRes fallbackRes: Int = 0,
     source: ServiceKind? = null,
+    fitMismatched: Boolean = true,
 ) {
     val mismatched = remember(url, frameRatio) { androidx.compose.runtime.mutableStateOf(false) }
     androidx.compose.foundation.layout.Box(modifier) {
-        if (mismatched.value) MediaArtwork(
+        if (mismatched.value && fitMismatched) MediaArtwork(
             url = url,
             contentDescription = null,
             modifier = Modifier.matchParentSize()
@@ -141,9 +142,9 @@ fun RailArtwork(
             contentDescription = contentDescription,
             modifier = Modifier.matchParentSize(),
             fallbackRes = fallbackRes,
-            contentScale = if (mismatched.value) ContentScale.Fit else ContentScale.Crop,
+            contentScale = if (mismatched.value && fitMismatched) ContentScale.Fit else ContentScale.Crop,
             source = source,
-            protectAspectRatio = true,
+            protectAspectRatio = fitMismatched,
             onAspectRatio = { ratio -> mismatched.value = orientationDiffers(ratio, frameRatio) },
         )
     }

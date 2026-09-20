@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import coil3.imageLoader
 import app.reelstack.R
 import app.reelstack.data.model.*
 import app.reelstack.data.repository.AppPreferencesRepository
@@ -85,6 +86,21 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
                     state.wifiOnly, "settings-wifi", onWifiOnlyChange)
             }
         }
-        SettingsCategory.ABOUT -> { AppIdentity(); AttributionCard(); CrashReportRow() }
+        SettingsCategory.ABOUT -> { AppIdentity(); AttributionCard(); ImageCacheRow(); CrashReportRow() }
+    }
+}
+
+@Composable
+private fun ImageCacheRow() {
+    val context = LocalContext.current.applicationContext
+    var cleared by remember { mutableStateOf(false) }
+    SettingsActionRow(
+        stringResource(R.string.image_cache_clear),
+        stringResource(if (cleared) R.string.image_cache_cleared else R.string.image_cache_clear_hint),
+        "clear-image-cache",
+    ) {
+        context.imageLoader.memoryCache?.clear()
+        context.imageLoader.diskCache?.clear()
+        cleared = true
     }
 }
