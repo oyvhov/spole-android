@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0-beta41 - Barnemodus: toppmarg og biblioteknavigasjon
+
+- Gir namn og profilbilete korrekt avstand frå statuslinja på mobil og nettbrett.
+- Opnar eigne bibliotekssider når barnet trykkjer på eit bibliotekskort.
+- Verifiserer bibliotekflyten med Compose-test, slik at korta ikkje berre ser trykkbare ut.
+
 ## 0.17.0-beta40 - Ny mobil/nettbrett-barnemodus
 
 - Gjer barneframsida personleg med «Hei, [brukar]» og betre toppmarg på mobil og nettbrett.
