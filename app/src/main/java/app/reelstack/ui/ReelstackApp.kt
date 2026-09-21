@@ -417,6 +417,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onHomeRowOrderChange = viewModel::setHomeRowOrder,
                         onSignOutAll = viewModel::signOutAll,
                         onAddProfile = viewModel::openAddProfile,
+                        onClearLibraryCache = viewModel::clearLibraryCache,
                         onManageLibraries = viewModel::openLibraryChoices,
                         onAccountClick = { kind ->
                             if (kind == app.reelstack.data.model.ServiceKind.SEERR) viewModel.openSeerrAccount()

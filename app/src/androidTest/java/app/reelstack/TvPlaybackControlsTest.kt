@@ -84,25 +84,32 @@ class TvPlaybackControlsTest {
             PlayerScreen(PlayerScreenState(busy = false, playing = true, durationMs = 60_000), null,
                 { exits++ }, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
-        androidx.test.espresso.Espresso.pressBack()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         rule.waitForIdle()
         assertEquals(0, exits)
         rule.onNodeWithTag("player-timeline").assertDoesNotExist()
-        androidx.test.espresso.Espresso.pressBack()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        rule.waitForIdle()
         rule.runOnIdle { assertEquals(1, exits) }
     }
 
-    @Test fun backClosesPausedOsdAndTrackDialogInOnePress() {
+    @Test fun backUnwindsTrackDialogThenPausedOsdBeforeLeavingPlayer() {
         var exits = 0
         rule.setContent { ReelstackTheme {
             PlayerScreen(PlayerScreenState(busy = false, playing = false, durationMs = 60_000), null,
                 { exits++ }, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
         rule.onNodeWithTag("player-quality").performClick()
-        androidx.test.espresso.Espresso.pressBack()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        rule.waitForIdle()
+        rule.onNodeWithTag("player-timeline").assertIsDisplayed()
+        assertEquals(0, exits)
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        rule.waitForIdle()
         rule.onNodeWithTag("player-timeline").assertDoesNotExist()
         assertEquals(0, exits)
-        androidx.test.espresso.Espresso.pressBack()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        rule.waitForIdle()
         rule.runOnIdle { assertEquals(1, exits) }
     }
 

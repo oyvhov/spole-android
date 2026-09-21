@@ -23,6 +23,7 @@
     <string name="settings_services">Your services</string>
     <string name="settings_services_note">Server address and sign-in for each service.</string>
     <string name="settings_home">Home screen</string>
+    <string name="settings_home_navigation">Home and navigation</string>
     <string name="settings_customize">Customize Home</string>
     <string name="settings_customize_note">Choose rows from each library</string>
     <string name="state_expanded">Expanded</string>
@@ -58,6 +59,9 @@
     <string name="image_cache_clear">Clear image cache</string>
     <string name="image_cache_clear_hint">Reload artwork without signing out or deleting media data.</string>
     <string name="image_cache_cleared">Image cache cleared. Open Home again to reload artwork.</string>
+    <string name="library_cache_clear">Clear library cache</string>
+    <string name="library_cache_clear_hint">Forget cached library pages and fetch them again.</string>
+    <string name="library_cache_cleared">Library cache cleared. The next visit will fetch fresh data.</string>
     <string name="settings_version">Your personal media hub · v%1$s</string>
     <string name="service_connected">Connected</string>
     <string name="service_checking">Checking connection…</string>

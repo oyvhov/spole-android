@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.reelstack.AppContainer
 import app.reelstack.R
 import app.reelstack.background.BackgroundRefreshScheduler
+import app.reelstack.data.repository.MediaSnapshotStore
 import app.reelstack.data.model.ActivityEvent
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.ContentDetails
@@ -237,6 +238,36 @@ data class ReelstackUiState(
 class ReelstackViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
+    private data class LibraryCacheKey(
+        val accountFingerprint: String,
+        val source: ServiceKind,
+        val path: String,
+        val collectionType: String?,
+        val filters: app.reelstack.data.model.LibraryFilters,
+    )
+
+    private data class CachedLibraryPage(
+        val entries: List<app.reelstack.data.network.RemoteLibraryItem>,
+        val facets: app.reelstack.data.model.LibraryFacets,
+        val hasMore: Boolean,
+    )
+
+    /**
+     * Keeps visited library pages warm while the app is alive. The server remains authoritative,
+     * but returning to Films or Series should show the last page immediately while a quiet refresh
+     * checks for new titles in the background.
+     */
+    private val libraryPageCache = LinkedHashMap<LibraryCacheKey, CachedLibraryPage>(8, .75f, true)
+
+    private fun libraryCacheKey(connection: ServiceConnection, state: ReelstackUiState): LibraryCacheKey =
+        LibraryCacheKey(
+            accountFingerprint = MediaSnapshotStore.fingerprint(listOf(connection)),
+            source = connection.kind,
+            path = state.libraryPath.joinToString("/") { it.first },
+            collectionType = state.libraryCollectionType,
+            filters = state.libraryFilters,
+        )
+
     /**
      * The word for a kind of title.
      *
@@ -362,12 +393,33 @@ class ReelstackViewModel(
     }
 
     fun selectTab(tab: AppTab) {
-        _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false,
-            libraryPath = if (tab == AppTab.LIBRARY) emptyList() else it.libraryPath,
-            libraryCollectionType = if (tab == AppTab.LIBRARY) null else it.libraryCollectionType,
-            libraryFilters = if (tab == AppTab.LIBRARY) app.reelstack.data.model.LibraryFilters() else it.libraryFilters,
-            libraryFacets = if (tab == AppTab.LIBRARY) app.reelstack.data.model.LibraryFacets() else it.libraryFacets) }
+        // Keep the last library location when moving between tabs. The library loader can refresh
+        // it in place, but dropping the path made a return to Films look like a new visit to the
+        // library root every time.
+        _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false) }
         if (tab == AppTab.LIBRARY) browseLibrary(false)
+    }
+
+    /** Forget catalog pages without touching artwork, playback history, or server credentials. */
+    fun clearLibraryCache() {
+        libraryJob?.cancel()
+        shelfJob?.cancel()
+        peekJob?.cancel()
+        libraryPageCache.clear()
+        _uiState.update {
+            it.copy(
+                libraryEntries = emptyList(),
+                libraryFacets = app.reelstack.data.model.LibraryFacets(),
+                libraryShelves = app.reelstack.data.model.LibraryShelves(),
+                libraryPeeks = emptyMap(),
+                libraryPeeksLoading = false,
+                libraryOffset = 0,
+                libraryHasMore = false,
+                libraryLoading = false,
+                libraryError = null,
+            )
+        }
+        if (_uiState.value.selectedTab == AppTab.LIBRARY) browseLibrary(false)
     }
 
     fun selectLibrarySource(source: ServiceKind) {
@@ -380,6 +432,7 @@ class ReelstackViewModel(
         peekJob?.cancel()
         shelfJob?.cancel()
         libraryChoicesJob?.cancel()
+        libraryPageCache.clear()
         _uiState.update { it.copy(selectedLibrarySource = source,
             libraryPath = emptyList(), libraryCollectionType = null, libraryEntries = emptyList(),
             libraryPeeks = emptyMap(), libraryPeeksLoading = false,
@@ -434,6 +487,7 @@ class ReelstackViewModel(
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
         searchJob?.cancel()
+        libraryPageCache.clear()
         _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned, libraryIcons = savedIcons,
             libraryPath = emptyList(), libraryEntries = emptyList(), libraryDetailMedia = null,
             libraryShelves = app.reelstack.data.model.LibraryShelves(),
@@ -454,8 +508,16 @@ class ReelstackViewModel(
         val connection = state.libraryConnection ?: return
         val path = state.libraryPath
         val offset = if (more) state.libraryOffset else 0
-        _uiState.update { it.copy(libraryLoading = true, libraryError = null,
-            libraryEntries = if (more) it.libraryEntries else emptyList()) }
+        val cacheKey = libraryCacheKey(connection, state)
+        val cached = libraryPageCache[cacheKey]
+        _uiState.update { it.copy(libraryError = null,
+            // Stale-while-revalidate: a visited page is useful immediately, while the request
+            // below quietly confirms it against Jellyfin/Emby. New pages still show loading.
+            libraryLoading = cached == null,
+            libraryEntries = if (more) it.libraryEntries else cached?.entries ?: it.libraryEntries,
+            libraryFacets = cached?.facets ?: it.libraryFacets,
+            libraryOffset = if (more) it.libraryOffset else cached?.entries?.size ?: it.libraryOffset,
+            libraryHasMore = if (more) it.libraryHasMore else cached?.hasMore ?: it.libraryHasMore) }
         libraryJob = viewModelScope.launch {
             try {
                 val facetJob = async(Dispatchers.IO) {
@@ -476,9 +538,21 @@ class ReelstackViewModel(
                 }
                 val facets = facetJob.await()
                 if (!isActive || _uiState.value.connections.none { it.kind == connection.kind && it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId }) return@launch
-                _uiState.update { it.copy(libraryLoading = false, libraryFacets = facets,
-                    libraryEntries = ((if (more) it.libraryEntries else emptyList()) + entries).distinctBy { entry -> entry.id },
-                    libraryOffset = offset + entries.size, libraryHasMore = path.isNotEmpty() && entries.size == 60) }
+                _uiState.update { current ->
+                    val merged = if (more) {
+                        (current.libraryEntries + entries).distinctBy { entry -> entry.id }
+                    } else {
+                        // Keep already fetched pages after the freshly confirmed first page so a
+                        // return to a scrolled library does not throw away the user's position.
+                        (entries + (cached?.entries.orEmpty().drop(entries.size))).distinctBy { entry -> entry.id }
+                    }
+                    val hasMore = path.isNotEmpty() && (entries.size == 60 || (cached?.hasMore == true && !more))
+                    libraryPageCache[cacheKey] = CachedLibraryPage(merged, facets, hasMore)
+                    current.copy(libraryLoading = false, libraryFacets = facets,
+                        libraryEntries = merged,
+                        libraryOffset = merged.size,
+                        libraryHasMore = hasMore)
+                }
                 // The libraries this listing actually found — not the pinned shortcuts, which are a
                 // menu choice and can be empty while the page still shows every library there is.
                 if (path.isEmpty()) loadLibraryPeeks(entries.map {

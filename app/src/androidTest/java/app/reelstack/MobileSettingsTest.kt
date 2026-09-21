@@ -89,7 +89,7 @@ class MobileSettingsTest {
         try {
             repository.personalization = Personalization()
             host(2f)
-            for (name in listOf("APPEARANCE", "HOME", "MENU", "PLAYBACK", "ACCOUNTS", "UPDATES", "ABOUT")) {
+            for (name in listOf("ACCOUNTS", "APPEARANCE", "HOME", "PLAYBACK", "UPDATES", "ABOUT")) {
                 rule.onNodeWithTag("settings-category-$name").performScrollTo().assertIsDisplayed().performClick()
                 rule.onNodeWithTag("settings-back").assertIsDisplayed().performClick()
             }

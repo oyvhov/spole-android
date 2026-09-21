@@ -32,7 +32,8 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
-    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {}) {
+    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {},
+    onClearLibraryCache: () -> Unit = {}) {
     val television = isTelevision()
     var category by rememberSaveable { mutableStateOf(SettingsCategory.APPEARANCE) }
     var focusedCategory by rememberSaveable { mutableStateOf(category) }
@@ -122,7 +123,8 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                         .verticalScroll(rememberScrollState()).testTag("settings-feed"),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SharedSettingsContent(activeCategory, state, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
-                            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll, onAddProfile)
+                            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
+                            onAddProfile, onClearLibraryCache)
                         Spacer(Modifier.height(16.dp))
                     }
                 }

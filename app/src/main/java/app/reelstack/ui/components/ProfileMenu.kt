@@ -109,12 +109,12 @@ fun ProfileMenu(
                     .testTag("profile-menu"),
                 shape = RoundedCornerShape(26.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 3.dp,
-                shadowElevation = 18.dp,
+                tonalElevation = 0.dp,
+                shadowElevation = 12.dp,
             ) {
                 Column(
                     modifier = Modifier
-                        .border(1.dp, Divider, RoundedCornerShape(26.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f), RoundedCornerShape(26.dp))
                         .padding(vertical = 10.dp),
                 ) {
                     Text(
@@ -179,21 +179,10 @@ fun ProfileMenu(
     }
 }
 
-/** Each row arrives a beat after the one above, so the menu reads as unfolding rather than appearing. */
+/** Keep utility-popup content stable so focus and screenshots never race delayed rows. */
 @Composable
 private fun StaggeredRow(index: Int, content: @Composable () -> Unit) {
-    val state = remember { MutableTransitionState(false) }
-    LaunchedEffect(Unit) { state.targetState = true }
-    AnimatedVisibility(
-        visibleState = state,
-        enter = fadeIn(tween(durationMillis = 180, delayMillis = 40 + index * 35)) +
-            slideInVertically(
-                tween(durationMillis = 220, delayMillis = 40 + index * 35, easing = LinearOutSlowInEasing),
-            ) { -it / 3 },
-        exit = fadeOut(tween(80)),
-    ) {
-        content()
-    }
+    content()
 }
 
 @Composable
@@ -214,7 +203,7 @@ private fun ProfileMenuRow(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 64.dp)
             .clip(shape)
-            .background(if (selected || focused) MaterialTheme.colorScheme.primaryContainer else Surface)
+            .background(if (selected || focused) MaterialTheme.colorScheme.surfaceVariant else Surface)
             .focusOutline(interaction, shape)
             .selectable(
                 selected = selected,
@@ -234,7 +223,7 @@ private fun ProfileMenuRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = profile.name,
-                color = Primary,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 18.sp,
                 lineHeight = 23.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
@@ -353,7 +342,7 @@ private fun ProfileMenuAction(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .clip(shape)
-            .background(if (focused) MaterialTheme.colorScheme.primaryContainer else Surface)
+            .background(if (focused) MaterialTheme.colorScheme.surfaceVariant else Surface)
             .focusOutline(interaction, shape)
             .clickable(
                 interactionSource = interaction,
@@ -372,9 +361,9 @@ private fun ProfileMenuAction(
                 .background(SurfaceRaised),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(19.dp))
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
         }
         Spacer(Modifier.width(14.dp))
-        Text(text = label, color = Primary, fontSize = 16.sp, lineHeight = 21.sp)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, lineHeight = 21.sp)
     }
 }

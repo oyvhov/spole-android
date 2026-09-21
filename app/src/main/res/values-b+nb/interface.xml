@@ -22,6 +22,7 @@
     <string name="settings_services">Tjenestene dine</string>
     <string name="settings_services_note">Serveradresse og innlogging for hver tjeneste.</string>
     <string name="settings_home">Hjemskjerm</string>
+    <string name="settings_home_navigation">Hjem og navigasjon</string>
     <string name="settings_customize">Tilpass forsiden</string>
     <string name="settings_customize_note">Velg rader fra hvert bibliotek</string>
     <string name="state_expanded">Utvidet</string>
@@ -57,6 +58,9 @@
     <string name="image_cache_clear">Tøm biletbuffer</string>
     <string name="image_cache_clear_hint">Last inn kunst på nytt utan å logge ut eller slette mediedata.</string>
     <string name="image_cache_cleared">Biletbuffer tømd. Opne Heim att for å laste inn bileta på nytt.</string>
+    <string name="library_cache_clear">Tøm bibliotekbuffer</string>
+    <string name="library_cache_clear_hint">Glem mellomlagrede biblioteksider og hent dem på nytt.</string>
+    <string name="library_cache_cleared">Bibliotekbuffer tømt. Neste besøk henter ferske data.</string>
     <string name="settings_version">Personlig medieoversikt · v%1$s</string>
     <string name="service_connected">Tilkoblet</string>
     <string name="service_checking">Sjekker tilkoblingen…</string>

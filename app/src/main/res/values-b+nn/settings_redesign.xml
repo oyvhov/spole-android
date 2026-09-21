@@ -22,6 +22,9 @@
     <string name="theme_saved_live">Førehandsvising · lagra automatisk</string>
     <string name="settings_tv_hint">Vel kategori · Høgre for å justere</string>
     <string name="settings_tv_appearance_hint">Vel stemning, farge og form for Spole.</string>
+    <string name="settings_identity_group">App og identitet</string>
+    <string name="settings_home_display_group">Bibliotekvising</string>
+    <string name="settings_language_group">Appspråk</string>
     <string name="settings_tv_home_hint">Vel kva du ser når du opnar appen.</string>
     <string name="settings_tv_navigation">Meny</string>
     <string name="settings_tv_navigation_hint">Dine sider, i di rekkefølgje.</string>

@@ -22,12 +22,22 @@ import app.reelstack.ui.components.*
 import app.reelstack.ui.theme.LocalPersonalization
 
 /** The phone opens one group at a time; returning preserves that group's reading position. */
+private val mobileSettingsCategories = listOf(
+    SettingsCategory.ACCOUNTS,
+    SettingsCategory.APPEARANCE,
+    SettingsCategory.HOME,
+    SettingsCategory.PLAYBACK,
+    SettingsCategory.UPDATES,
+    SettingsCategory.ABOUT,
+)
+
 @Composable
 internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: PaddingValues,
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
-    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {}) {
+    onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {},
+    onClearLibraryCache: () -> Unit = {}) {
     var page by rememberSaveable { mutableStateOf<SettingsCategory?>(null) }
     val panes = rememberSaveableStateHolder()
     LaunchedEffect(state.accountsSettingsRequest) {
@@ -54,7 +64,7 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                     .padding(horizontal = 20.dp).testTag("settings-feed"),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (selected == null) {
-                        SettingsCategory.entries.forEach { destination ->
+                        mobileSettingsCategories.forEach { destination ->
                             SettingsActionRow(stringResource(destination.title), stringResource(destination.hint),
                                 "settings-category-${destination.name}", destination.icon, { page = destination })
                         }
@@ -62,7 +72,8 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                         Text(stringResource(selected.hint), style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
                         SharedSettingsContent(selected, state, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
-                            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll, onAddProfile)
+                            onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
+                            onAddProfile, onClearLibraryCache)
                     }
                     Spacer(Modifier.height(24.dp))
                 }

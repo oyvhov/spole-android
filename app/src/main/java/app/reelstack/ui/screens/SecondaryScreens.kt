@@ -1037,6 +1037,7 @@ fun SettingsScreen(
     onHomeRowOrderChange: (List<app.reelstack.data.model.HomeRow>) -> Unit = {},
     onSignOutAll: () -> Unit = {},
     onAddProfile: () -> Unit = {},
+    onClearLibraryCache: () -> Unit = {},
 ) {
     val television = app.reelstack.ui.components.isTelevision()
     androidx.compose.runtime.CompositionLocalProvider(app.reelstack.ui.components.LocalSettingsButtonStyle provides true) {
@@ -1044,9 +1045,11 @@ fun SettingsScreen(
         val policy = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
         val wide = television || policy.useSettingsPanes(androidx.compose.ui.platform.LocalDensity.current.fontScale)
         if (wide) TvSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange,
-            onWifiOnlyChange, onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll, onAddProfile)
+            onWifiOnlyChange, onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
+            onAddProfile, onClearLibraryCache)
         else MobileSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange,
-            onWifiOnlyChange, onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll, onAddProfile)
+            onWifiOnlyChange, onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
+            onAddProfile, onClearLibraryCache)
     }
     }
 }

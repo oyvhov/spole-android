@@ -130,7 +130,7 @@ class DesignRefreshUiTest {
         rule.onNodeWithTag("theme-choice-subtitle-fallback").assertDoesNotExist()
     }
 
-    @Test fun advancedOsdSelectsChapterAndReturnsWithOneBack() {
+    @Test fun advancedOsdSelectsChapterAndUnwindsWithBack() {
         var seek = -1L
         val state = app.reelstack.player.PlayerScreenState(title = "Film", busy = false, durationMs = 90_000,
             chapters = listOf(app.reelstack.player.PlaybackChapter("Opning", 0), app.reelstack.player.PlaybackChapter("Andre del", 30_000)))
@@ -143,6 +143,9 @@ class DesignRefreshUiTest {
         rule.onNodeWithTag("player-speed").performClick()
         rule.onNodeWithText("1.25×").performClick()
         rule.onNodeWithTag("player-speed").performClick()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        rule.waitForIdle()
+        rule.onNodeWithTag("player-controls").assertIsDisplayed()
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         rule.waitForIdle()
         rule.onNodeWithTag("player-controls").assertDoesNotExist()

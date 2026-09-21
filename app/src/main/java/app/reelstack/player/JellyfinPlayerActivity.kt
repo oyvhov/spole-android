@@ -244,7 +244,10 @@ fun PlayerScreen(
     val showNextOffer = state.showNextEpisodeOffer() && menu == null && !scrubbing
     val latestShown by rememberUpdatedState(showControls)
     val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null)
-    LaunchedEffect(canHide, finishedWithNext) { if (!canHide) controls = !finishedWithNext }
+    LaunchedEffect(canHide, finishedWithNext, dismissedControls) {
+        // Paused playback opens with controls, but an explicit Back must be allowed to hide them.
+        if (!canHide && !dismissedControls) controls = !finishedWithNext
+    }
     LaunchedEffect(controls, canHide, interaction, menu, scrubbing) {
         if (controls && canHide && menu == null && !scrubbing) {
             delay(accessibility?.calculateRecommendedTimeoutMillis(3500, containsControls = true) ?: 3500)
@@ -263,12 +266,18 @@ fun PlayerScreen(
         if (isTelevision && showNextOffer) nextFocus.requestFocus()
     }
     BackHandler {
-        if (isTelevision && (menu != null || showControls) && !state.browsing && !state.awaitingResume && state.error == null) {
-            menu = null; controls = false; dismissedControls = true; scrubbing = false
+        if (isTelevision && menu != null && !state.browsing && !state.awaitingResume && state.error == null) {
+            // Back unwinds the local layer first. Closing a track/quality menu should leave the
+            // transport controls visible so the next decision is still in the same context.
+            menu = null
+        }
+        else if (isTelevision && showControls && !state.browsing && !state.awaitingResume && state.error == null) {
+            // A paused OSD is still a layer, even though [canHide] is false. Hide it before the
+            // next Back leaves the player.
+            controls = false; dismissedControls = true; scrubbing = false
         }
         else if (menu != null) menu = null
         else if (showNextOffer && (!state.ended || state.nextEpisodeCountdown != null)) onCancelNextEpisode()
-        else if (isTelevision && showControls && canHide) controls = false
         else onClose()
     }
     CompositionLocalProvider(LocalContentColor provides if (isTelevision) Color.White else MaterialTheme.colorScheme.onSurface) {
@@ -693,7 +702,9 @@ fun PlayerScreen(
                 runCatching { selectedTrackFocus.requestFocus() }
             }
             app.reelstack.ui.components.SpoleChoiceDialog(stringResource(title.label),
-                onDismiss = { menu = null; if (isTelevision) { controls = false; dismissedControls = true } }, content = {
+                // Closing a local menu should return to the transport controls. A second Back
+                // press then hides the OSD; the dialog must not consume both layers at once.
+                onDismiss = { menu = null }, content = {
                     val options = when (title) {
                         PlayerMenu.AUDIO -> state.audio.map { it.index to it.label }
                         PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }

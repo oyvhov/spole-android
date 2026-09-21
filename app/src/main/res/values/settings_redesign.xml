@@ -22,6 +22,9 @@
     <string name="theme_saved_live">Live preview · saved automatically</string>
     <string name="settings_tv_hint">Choose a category · Right to adjust</string>
     <string name="settings_tv_appearance_hint">Set the mood, colour and shape of Spole.</string>
+    <string name="settings_identity_group">App and identity</string>
+    <string name="settings_home_display_group">Library display</string>
+    <string name="settings_language_group">App language</string>
     <string name="settings_tv_home_hint">Choose what appears when you open the app.</string>
     <string name="settings_tv_navigation">Menu</string>
     <string name="settings_tv_navigation_hint">Your pages, in your order.</string>

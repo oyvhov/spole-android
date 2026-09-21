@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.0-beta39 - Ryddigare innstillingar og raskare bibliotek
+
+- Samlar mobilinnstillingane i færre, tydelegare kategoriar; Heim og navigasjon er no éi side.
+- Flyttar appnamn, bibliotekvising, teksting og appspråk til meir logiske stader.
+- Legg til separat tømming av bibliotekbufferen, utan å påverke biletbuffer, innlogging eller historikk.
+- Held sist besøkte Jellyfin- og Emby-bibliotekside varm, slik at ho kjem fram med ein gong ved retur.
+- Gjer oppdateringskortet ryddigare på mobil og held TV-menyen separat.
+- Tek med stabilare profilpopup, lagdelt tilbakeknapp i OSD og tryggare handtering av undertekstfeil.
+
 ## 0.17.0-beta38 - Undertekst skal ikkje stoppe videoen
 
 - Manglande eller øydelagde eksterne undertekster blir no handterte separat frå videoen.

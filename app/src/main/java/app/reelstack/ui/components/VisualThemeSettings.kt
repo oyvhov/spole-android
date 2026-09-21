@@ -172,8 +172,6 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
     artwork: List<LibraryMedia> = emptyList()) {
     val television = isTelevision()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SettingsGroup(stringResource(R.string.personal_branding))
-        AppLabelSetting(value, onChange)
         if (Season.of(value) != Season.NONE) SeasonalThemeBanner(options = value)
         ThemePreview(value, artwork)
         // A season is a pairing, not a background: red on a red ground is not Christmas, it is a
@@ -234,7 +232,13 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
 }
 
 @Composable
-private fun AppLabelSetting(value: Personalization, onChange: (Personalization) -> Unit) {
+internal fun AppIdentitySettings(value: Personalization, onChange: (Personalization) -> Unit) {
+    SettingsGroup(stringResource(R.string.settings_identity_group))
+    AppLabelSetting(value, onChange)
+}
+
+@Composable
+internal fun AppLabelSetting(value: Personalization, onChange: (Personalization) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     var draft by rememberSaveable(value.appLabel) { mutableStateOf(value.appLabel) }
     SettingsActionRow(
@@ -309,7 +313,8 @@ internal fun ThemePreview(value: Personalization, artwork: List<LibraryMedia> = 
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Spole", color = app.reelstack.ui.theme.Text, style = MaterialTheme.typography.titleLarge)
+            Text(value.appLabel.ifBlank { "Spole" }, color = app.reelstack.ui.theme.Text,
+                style = MaterialTheme.typography.titleLarge, maxLines = 1)
             Box(Modifier.fillMaxWidth(.65f).height(5.dp).background(accent, RoundedCornerShape(3.dp)))
             Text(stringResource(R.string.theme_saved_live), color = muted,
                 style = MaterialTheme.typography.bodySmall)
