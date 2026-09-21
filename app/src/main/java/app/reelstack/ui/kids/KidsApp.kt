@@ -67,10 +67,14 @@ fun KidsApp(viewModel: ReelstackViewModel) {
     val television = (configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
 
-    // Back leaves the episode list, and on the home screen does nothing: there is no screen behind
-    // it, and dropping the kid out of the app is the one thing this shell exists to prevent.
-    BackHandler(enabled = state.activeSheet == null) {
-        if (state.kidsBrowse.open) viewModel.closeKidsSeries()
+    var libraryOpenId by rememberSaveable(state.activeProfileId) { mutableStateOf<String?>(null) }
+
+    // Back walks the child-facing navigation stack. It never exits the shell by accident.
+    BackHandler(enabled = state.activeSheet == null && (state.kidsBrowse.open || libraryOpenId != null)) {
+        when {
+            state.kidsBrowse.open -> viewModel.closeKidsSeries()
+            libraryOpenId != null -> libraryOpenId = null
+        }
     }
 
     val activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
@@ -80,6 +84,12 @@ fun KidsApp(viewModel: ReelstackViewModel) {
     BackHandler(appearanceOpen) { appearanceOpen = false }
 
     var profileMenuOpen by rememberSaveable(state.activeProfileId) { mutableStateOf(false) }
+    val cardColumns = when {
+        television -> 6
+        configuration.screenWidthDp >= 900 -> 5
+        configuration.screenWidthDp >= 600 -> 4
+        else -> 2
+    }
 
     // Everything on this screen must be one tap from playing. An entry with no playable id would
     // be a dead poster, and a dead poster is worse than a missing one.
@@ -102,6 +112,12 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                 !media.remoteId.isNullOrBlank() &&
                     (media.isSeries || media.mediaType.equals("Movie", ignoreCase = true))
             }
+            .distinctBy { it.source to it.remoteId }
+    }
+
+    val recent = remember(state.recentSeries, state.recentMovies) {
+        (state.recentSeries + state.recentMovies)
+            .filter { !it.remoteId.isNullOrBlank() }
             .distinctBy { it.source to it.remoteId }
     }
 
@@ -170,13 +186,14 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                 val gridPadding = PaddingValues(
                     start = if (television) 48.dp else 24.dp,
                     end = if (television) 48.dp else 24.dp,
-                    top = 0.dp,
+                    top = if (television) 0.dp else 20.dp,
                     bottom = if (television) 48.dp else 24.dp,
                 )
 
                 val page = when {
                     appearanceOpen && options.allowAppearance -> "appearance"
                     state.kidsBrowse.open -> "episodes"
+                    libraryOpenId != null -> "library"
                     else -> "home"
                 }
                 androidx.compose.animation.Crossfade(targetState = page,
@@ -218,10 +235,22 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                             if (state.kidsBrowse.selectedSeasonId.isNotBlank()) viewModel.selectKidsSeason(state.kidsBrowse.selectedSeasonId)
                             else yourShows.firstOrNull { it.remoteId == state.kidsBrowse.seriesId }?.let(viewModel::openKidsSeries)
                         },
-                        columns = if (television) 4 else 2,
+                        columns = if (television) 4 else cardColumns,
                         contentPadding = gridPadding,
                         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
                     )
+                } else if (visiblePage == "library") {
+                    val library = state.kidsLibraries.firstOrNull { it.id == libraryOpenId }
+                    if (library != null) {
+                        KidsLibraryScreen(
+                            library = library,
+                            media = state.kidsLibrary.filter { it.libraryId == library.id },
+                            onPlay = choose,
+                            onBack = { libraryOpenId = null },
+                            columns = if (television) 6 else cardColumns,
+                            contentPadding = gridPadding,
+                        )
+                    }
                 } else {
                     val serverKind = state.connections.firstOrNull {
                         it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
@@ -230,11 +259,15 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     KidsHomeScreen(
                         keepWatching = keepWatching,
                         yourShows = yourShows,
+                        recent = recent,
                         favourites = favourites,
                         suggestions = suggestions,
                         libraries = state.kidsLibraries,
                         source = serverKind,
                         world = options.world,
+                        profileName = activeProfile?.name.orEmpty(),
+                        libraryTitlesBelow = options.libraryTitlesBelow,
+                        television = television,
                         profileButton = {
                             KidsProfileButton(
                                 name = activeProfile?.name.orEmpty(),
@@ -244,7 +277,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                             )
                         },
                         onPlay = choose,
-                        columns = if (television) 6 else 2,
+                        columns = cardColumns,
                         contentPadding = gridPadding,
                         loading = state.kidsLibraryLoading,
                         error = state.kidsLibraryError,
@@ -261,6 +294,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
             name = activeProfile?.name.orEmpty(),
             avatarUrl = activeProfile?.avatarUrl,
             world = options.world,
+            pinConfigured = state.pinConfigured,
             onAppearance = { appearanceOpen = true },
             onSwitchProfile = viewModel::openProfileSwitcher,
             onDismiss = { profileMenuOpen = false },
@@ -330,13 +364,14 @@ internal fun KidsProfileButton(
 
 /**
  * Child profile dialog offering instant access to "Mi verd" (theme/landscape picker)
- * without requiring a PIN, while keeping profile switching protected by PIN.
+ * without requiring a PIN, while respecting the parent's optional adult-mode PIN choice.
  */
 @Composable
 internal fun KidsProfileDialog(
     name: String,
     avatarUrl: String?,
     world: KidsWorld,
+    pinConfigured: Boolean = true,
     onAppearance: () -> Unit,
     onSwitchProfile: () -> Unit,
     onDismiss: () -> Unit,
@@ -450,7 +485,7 @@ internal fun KidsProfileDialog(
                         }
                     }
 
-                    // Val 2: Byt profil (krev PIN)
+                    // Val 2: Byt profil
                     val switchInteraction = remember { MutableInteractionSource() }
                     val switchFocused by switchInteraction.collectIsFocusedAsState()
                     Row(
@@ -487,7 +522,7 @@ internal fun KidsProfileDialog(
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "Gå ut av barnemodus (krev PIN)",
+                                if (pinConfigured) "Gå ut av barnemodus (krev PIN)" else "Gå ut av barnemodus",
                                 color = if (switchFocused) Color(0xFF101211).copy(alpha = 0.85f) else Muted,
                                 fontSize = 13.sp,
                             )

@@ -49,4 +49,17 @@
     <string name="profile_role_kid">Kid profile</string>
     <string name="profile_role_main">Main account</string>
     <string name="kids_season_number">Season %1$d</string>
+    <string name="kids_latest_in_library">Latest in %1$s</string>
+    <string name="kids_library_page_hint">Choose and filter stories</string>
+    <string name="kids_library_empty">No stories match this filter yet.</string>
+    <string name="kids_filter_all">All</string>
+    <string name="kids_filter_movies">Movies</string>
+    <string name="kids_filter_series">Series</string>
+    <string name="kids_filter_unwatched">Unwatched</string>
+    <string name="kids_filter_favourites">Favourites</string>
+    <string name="kids_pin_required_title">Require PIN for adult mode</string>
+    <string name="kids_pin_required_hint">This applies to all kid profiles on this device.</string>
+    <string name="kids_pin_disable_title">Turn off PIN?</string>
+    <string name="kids_pin_disable_body">Anyone can then return to adult mode without a code.</string>
+    <string name="kids_pin_disable_action">Turn off</string>
 </resources>

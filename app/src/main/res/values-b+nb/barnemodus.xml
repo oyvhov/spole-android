@@ -49,4 +49,17 @@
     <string name="profile_role_kid">Barneprofil</string>
     <string name="profile_role_main">Hovedkonto</string>
     <string name="kids_season_number">Sesong %1$d</string>
+    <string name="kids_latest_in_library">Siste i %1$s</string>
+    <string name="kids_library_page_hint">Velg og filtrer historier</string>
+    <string name="kids_library_empty">Ingen historier passer dette filteret ennå.</string>
+    <string name="kids_filter_all">Alle</string>
+    <string name="kids_filter_movies">Filmer</string>
+    <string name="kids_filter_series">Serier</string>
+    <string name="kids_filter_unwatched">Ikke sett</string>
+    <string name="kids_filter_favourites">Favoritter</string>
+    <string name="kids_pin_required_title">Krev PIN for voksenmodus</string>
+    <string name="kids_pin_required_hint">Dette valget gjelder alle barneprofiler på denne enheten.</string>
+    <string name="kids_pin_disable_title">Skru av PIN?</string>
+    <string name="kids_pin_disable_body">Alle kan da gå tilbake til voksenmodus uten kode.</string>
+    <string name="kids_pin_disable_action">Skru av</string>
 </resources>

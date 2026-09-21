@@ -14,6 +14,7 @@ class KidsPreferencesRepository(context: Context) {
             world = KidsWorld.decode(preferences.getString(p + "world", null)),
             allowAppearance = preferences.getBoolean(p + "appearance", true),
             decorations = preferences.getBoolean(p + "decorations", true),
+            libraryTitlesBelow = preferences.getBoolean(p + "library_titles_below", false),
             reduceMotion = preferences.getBoolean(p + "reduce_motion", false),
             autoplay = preferences.getBoolean(p + "autoplay", false),
             episodeLimit = preferences.getInt(p + "episode_limit", 3).coerceIn(1, 3),
@@ -28,6 +29,7 @@ class KidsPreferencesRepository(context: Context) {
             putString(p + "world", value.world.name)
             putBoolean(p + "appearance", value.allowAppearance)
             putBoolean(p + "decorations", value.decorations)
+            putBoolean(p + "library_titles_below", value.libraryTitlesBelow)
             putBoolean(p + "reduce_motion", value.reduceMotion)
             putBoolean(p + "autoplay", value.autoplay)
             putInt(p + "episode_limit", value.episodeLimit.coerceIn(1, 3))

@@ -96,26 +96,20 @@ class ProfileViewModelTest {
     }
 
     @Test
-    fun `selectProfile from adult to kid prompts PIN setup if no PIN configured`() {
+    fun `selectProfile from adult to kid switches directly when PIN is disabled`() {
         assertFalse(pinSecurity.isPinConfigured())
         val kidProfile = UserProfile(id = "kid1", name = "Ola", isKid = true)
 
-        var promptedTargetId: String? = null
-        var promptedIsSetup: Boolean? = null
         var switchSucceeded = false
 
         viewModel.selectProfile(
             profile = kidProfile,
             onSwitchSuccess = { switchSucceeded = true },
-            onPromptPin = { target, isSetup ->
-                promptedTargetId = target
-                promptedIsSetup = isSetup
-            },
+            onPromptPin = { _, _ -> error("PIN should not be requested when protection is disabled") },
         )
 
-        assertFalse(switchSucceeded)
-        assertEquals("kid1", promptedTargetId)
-        assertEquals(true, promptedIsSetup)
+        assertTrue(switchSucceeded)
+        assertEquals("kid1", connectionRepository.activeProfileId)
     }
 
     @Test

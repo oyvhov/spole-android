@@ -418,6 +418,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onSignOutAll = viewModel::signOutAll,
                         onAddProfile = viewModel::openAddProfile,
                         onClearLibraryCache = viewModel::clearLibraryCache,
+                        onRequestPinSetup = viewModel::requestPinSetup,
+                        onDisablePin = viewModel::disablePinProtection,
                         onManageLibraries = viewModel::openLibraryChoices,
                         onAccountClick = { kind ->
                             if (kind == app.reelstack.data.model.ServiceKind.SEERR) viewModel.openSeerrAccount()

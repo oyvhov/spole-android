@@ -10,6 +10,8 @@ import kotlinx.serialization.json.*
 
 /** A small account-scoped journal. Server latency must not erase progress from this device. */
 class LocalPlaybackStore(context: Context) {
+    /** Do not turn the first play event at position zero into a visible local resume item. */
+    private val minimumResumePositionMs = 10_000L
     private val prefs = context.getSharedPreferences("local_playback", Context.MODE_PRIVATE)
     private val revision = MutableStateFlow(0L)
     val changes = revision.asStateFlow()
@@ -17,6 +19,7 @@ class LocalPlaybackStore(context: Context) {
 
     @Synchronized fun record(c: ServiceConnection, item: PlayableItem, position: Long, duration: Long, completed: Boolean) {
         if (c.token.isBlank() || item.id.isBlank() || duration <= 0) return
+        if (!completed && position < minimumResumePositionMs) return
         val now = System.currentTimeMillis()
         val entry = buildJsonObject {
             put("id", item.id); put("title", item.title); put("subtitle", item.subtitle); put("type", item.type)

@@ -58,7 +58,11 @@ sealed interface AppSheet {
     data class ConnectionEditor(val kind: ServiceKind) : AppSheet
     data object ProfileSwitcher : AppSheet
     data object AddProfile : AppSheet
-    data class PinPrompt(val targetProfileId: String, val isSetup: Boolean = false) : AppSheet
+    data class PinPrompt(
+        val targetProfileId: String,
+        val isSetup: Boolean = false,
+        val switchAfterSetup: Boolean = true,
+    ) : AppSheet
 }
 
 /** Framside → Episodar → Spelar. Three levels, and this is the middle one. */
@@ -108,6 +112,7 @@ data class ReelstackUiState(
     val isKidMode: Boolean = false,
     val publicUsers: List<app.reelstack.data.network.PublicUser> = emptyList(),
     val loadingPublicUsers: Boolean = false,
+    val pinConfigured: Boolean = false,
     val pinError: String? = null,
     val pinLockoutSeconds: Int = 0,
     val addProfileError: String? = null,
@@ -368,6 +373,7 @@ class ReelstackViewModel(
                         isKidMode = pState.isKidMode,
                         publicUsers = pState.publicUsers,
                         loadingPublicUsers = pState.loadingPublicUsers,
+                        pinConfigured = pState.pinConfigured,
                         pinError = pState.pinError,
                         pinLockoutSeconds = pState.pinLockoutSeconds,
                         addProfileError = pState.addProfileError,
@@ -927,9 +933,34 @@ class ReelstackViewModel(
     }
 
     fun submitPin(pin: String, targetProfileId: String, isSetup: Boolean) {
-        profileViewModel.submitPin(pin, targetProfileId, isSetup) {
-            switchProfileNow(it)
+        val switchAfterSetup = (_uiState.value.activeSheet as? AppSheet.PinPrompt)?.switchAfterSetup ?: true
+        profileViewModel.submitPin(
+            pin = pin,
+            targetProfileId = targetProfileId,
+            isSetup = isSetup,
+            switchAfterSetup = switchAfterSetup,
+            onSwitchSuccess = { switchProfileNow(it) },
+            onSetupComplete = { _uiState.update { it.copy(activeSheet = null, pinError = null) } },
+        )
+    }
+
+    /** Opens the existing PIN sheet without changing profile; used by parental settings. */
+    fun requestPinSetup(targetProfileId: String = _uiState.value.activeProfileId) {
+        _uiState.update {
+            it.copy(
+                activeSheet = AppSheet.PinPrompt(
+                    targetProfileId = targetProfileId,
+                    isSetup = true,
+                    switchAfterSetup = false,
+                ),
+                pinError = null,
+            )
         }
+    }
+
+    fun disablePinProtection() {
+        profileViewModel.clearPinProtection()
+        _uiState.update { it.copy(activeSheet = null, pinError = null, pinLockoutSeconds = 0) }
     }
 
     private fun primaryMediaServer(): ServiceConnection? =
@@ -969,6 +1000,7 @@ class ReelstackViewModel(
             if (_uiState.value.activeProfileId != recoveringProfile || _uiState.value.activeSheet !is AppSheet.PinPrompt) return@launch
             if (success) {
                 container.pinSecurity.clearPin()
+                profileViewModel.clearPinProtection()
                 switchProfileNow(targetProfileId)
             } else {
                 _uiState.update { it.copy(pinError = appString(R.string.err_feil_brukarnamn_eller_passord)) }

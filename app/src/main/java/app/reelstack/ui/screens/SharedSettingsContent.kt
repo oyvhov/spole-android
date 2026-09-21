@@ -32,7 +32,8 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
     onHomeRowOrderChange: (List<HomeRow>) -> Unit, onSignOutAll: () -> Unit, onAddProfile: () -> Unit = {},
-    onClearLibraryCache: () -> Unit = {}) {
+    onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {},
+    onDisablePin: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val preferences = remember(context) { AppPreferencesRepository(context) }
     val options = LocalPersonalization.current
@@ -79,7 +80,8 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
             SettingsToggleRow(stringResource(R.string.tv_slow_startup), stringResource(R.string.settings_tv_startup_hint),
                 options.slowStartup, "slow-startup") { change(options.copy(slowStartup = it)) }
         }
-        SettingsCategory.ACCOUNTS -> ServicesSettings(state, onConnectionClick, onAccountClick, onSignOutAll, onAddProfile)
+        SettingsCategory.ACCOUNTS -> ServicesSettings(state, onConnectionClick, onAccountClick, onSignOutAll, onAddProfile,
+            onRequestPinSetup, onDisablePin)
         SettingsCategory.UPDATES -> {
             app.reelstack.update.AppUpdateSettings(grouped = !isTelevision())
             val isTelevision = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION

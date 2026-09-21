@@ -49,4 +49,17 @@
     <string name="profile_role_kid">Barneprofil</string>
     <string name="profile_role_main">Hovudkonto</string>
     <string name="kids_season_number">Sesong %1$d</string>
+    <string name="kids_latest_in_library">Siste i %1$s</string>
+    <string name="kids_library_page_hint">Vel og filtrer historier</string>
+    <string name="kids_library_empty">Ingen historier passar dette filteret enno.</string>
+    <string name="kids_filter_all">Alle</string>
+    <string name="kids_filter_movies">Filmar</string>
+    <string name="kids_filter_series">Seriar</string>
+    <string name="kids_filter_unwatched">Ikkje sett</string>
+    <string name="kids_filter_favourites">Favorittar</string>
+    <string name="kids_pin_required_title">Krev PIN for vaksenmodus</string>
+    <string name="kids_pin_required_hint">Dette valet gjeld alle barneprofilar på denne eininga.</string>
+    <string name="kids_pin_disable_title">Skru av PIN?</string>
+    <string name="kids_pin_disable_body">Alle kan då gå tilbake til vaksenmodus utan kode.</string>
+    <string name="kids_pin_disable_action">Skru av</string>
 </resources>

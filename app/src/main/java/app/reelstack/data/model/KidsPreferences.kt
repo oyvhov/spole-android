@@ -18,6 +18,8 @@ data class KidsPreferences(
     val world: KidsWorld = KidsWorld.SPACE,
     val allowAppearance: Boolean = true,
     val decorations: Boolean = true,
+    /** Keep library names below the artwork when the child-facing home is easier to scan that way. */
+    val libraryTitlesBelow: Boolean = false,
     val reduceMotion: Boolean = false,
     val autoplay: Boolean = false,
     val episodeLimit: Int = 3,

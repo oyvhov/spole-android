@@ -977,11 +977,11 @@ class MediaServerClient(
         if (relevantViews.isEmpty()) return emptyList()
         val successfulGroups = relevantViews.mapNotNull { view ->
             runCatching {
-                getItems(
-                    connection,
-                    latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id),
-                    preferEpisodeStill = itemType.equals("Episode", ignoreCase = true),
-                )
+                    getItems(
+                        connection,
+                        latestPaths(connection.kind, userId, itemType, groupItems, parentId = view.id),
+                        preferEpisodeStill = itemType.equals("Episode", ignoreCase = true),
+                    ).map { it.copy(libraryId = view.id) }
             }.getOrNull()
         }
         if (successfulGroups.isEmpty()) serviceError(R.string.err_fekk_ikkje_oppdatert_dei)

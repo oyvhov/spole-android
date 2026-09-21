@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -65,13 +66,18 @@ import kotlinx.coroutines.delay
 fun KidsHomeScreen(
     keepWatching: List<LibraryMedia>,
     yourShows: List<LibraryMedia>,
+    recent: List<LibraryMedia> = emptyList(),
     favourites: List<LibraryMedia> = emptyList(),
     suggestions: List<LibraryMedia> = emptyList(),
     libraries: List<RemoteLibraryView> = emptyList(),
     source: ServiceKind = ServiceKind.JELLYFIN,
     world: KidsWorld = KidsWorld.SPACE,
+    profileName: String = "",
     profileButton: (@Composable () -> Unit)? = null,
     onPlay: (LibraryMedia) -> Unit,
+    onLibraryOpen: (RemoteLibraryView) -> Unit = {},
+    libraryTitlesBelow: Boolean = false,
+    television: Boolean = false,
     modifier: Modifier = Modifier,
     columns: Int = 2,
     contentPadding: PaddingValues = PaddingValues(0.dp),
@@ -79,7 +85,6 @@ fun KidsHomeScreen(
     error: Boolean = false,
     onRetry: () -> Unit = {},
 ) {
-    val television = columns > 2
     var selectedLibraryId by rememberSaveable(libraries.map { it.id }) {
         mutableStateOf(libraries.firstOrNull()?.id)
     }
@@ -145,8 +150,14 @@ fun KidsHomeScreen(
         return
     }
 
-    val yourShowsLabel = stringResource(R.string.kids_your_shows)
     val gutter = if (television) 48.dp else 24.dp
+    val configuration = LocalConfiguration.current
+    val shelfPosterWidth = when {
+        television -> 150.dp
+        configuration.screenWidthDp >= 900 -> 132.dp
+        configuration.screenWidthDp >= 600 -> 120.dp
+        else -> 116.dp
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
@@ -157,7 +168,11 @@ fun KidsHomeScreen(
     ) {
         if (!television) {
             fullWidthItem(columns) {
-                KidsHomeHeader(profileButton = profileButton, modifier = Modifier.padding(top = 12.dp, bottom = 2.dp))
+                KidsHomeHeader(
+                    profileName = profileName,
+                    profileButton = profileButton,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                )
             }
         }
 
@@ -190,7 +205,11 @@ fun KidsHomeScreen(
                             source = source,
                             world = world,
                             television = television,
-                        ) { selectedLibraryId = library.id }
+                            titleBelow = libraryTitlesBelow,
+                        ) {
+                            selectedLibraryId = library.id
+                            onLibraryOpen(library)
+                        }
                     }
                 }
             }
@@ -229,7 +248,7 @@ fun KidsHomeScreen(
                     modifier = Modifier.testTag("kids-favourites"),
                 ) {
                     items(favourites, key = { it.id }) { media ->
-                        KidsPosterCard(media = media, modifier = Modifier.width(if (television) 140.dp else 115.dp), onPlay = { onPlay(media) })
+                        KidsPosterCard(media = media, modifier = Modifier.width(shelfPosterWidth), onPlay = { onPlay(media) })
                     }
                 }
             }
@@ -246,25 +265,38 @@ fun KidsHomeScreen(
                     modifier = Modifier.testTag("kids-suggestions"),
                 ) {
                     items(suggestions, key = { it.id }) { media ->
-                        KidsPosterCard(media = media, modifier = Modifier.width(if (television) 140.dp else 115.dp), onPlay = { onPlay(media) })
+                        KidsPosterCard(media = media, modifier = Modifier.width(shelfPosterWidth), onPlay = { onPlay(media) })
                     }
                 }
             }
         }
 
-        val selectedView = libraries.firstOrNull { it.id == activeLibraryId }
-        val displayShows = if (activeLibraryId != null) yourShows.filter { it.libraryId == activeLibraryId } else yourShows
-
-        if (displayShows.isNotEmpty()) {
-            fullWidthItem(columns) {
-                KidsSectionTitle(selectedView?.name ?: yourShowsLabel, accent = Color(world.glow))
-            }
-            items(displayShows, key = { it.id }) { media ->
-                KidsPosterCard(media = media, onPlay = { onPlay(media) })
-            }
-        } else if (activeLibraryId != null) {
-            fullWidthItem(columns) {
-                Text("Ingen historier i dette biblioteket enno.", color = Muted, modifier = Modifier.padding(vertical = 24.dp))
+        // The home is a set of short shelves, not a second copy of every library. A tap on a
+        // library card opens its own page where the complete collection and filters live.
+        val homeSource = (recent + keepWatching + yourShows)
+            .filter { !it.remoteId.isNullOrBlank() }
+            .distinctBy { it.source to it.remoteId }
+        libraries.forEach { library ->
+            val latest = homeSource.filter { it.libraryId == library.id }.take(8)
+            if (latest.isNotEmpty()) {
+                fullWidthItem(columns) {
+                    KidsSectionTitle(stringResource(R.string.kids_latest_in_library, library.name), accent = Color(world.glow))
+                }
+                fullWidthItem(columns) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp),
+                        modifier = Modifier.testTag("kids-latest-${library.id}"),
+                    ) {
+                        items(latest, key = { it.id }) { media ->
+                            KidsPosterCard(
+                                media = media,
+                                modifier = Modifier.width(shelfPosterWidth),
+                                onPlay = { onPlay(media) },
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -272,6 +304,7 @@ fun KidsHomeScreen(
 
 @Composable
 private fun KidsHomeHeader(
+    profileName: String,
     profileButton: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -282,17 +315,14 @@ private fun KidsHomeHeader(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = stringResource(R.string.kids_greeting_plain),
+                text = stringResource(
+                    R.string.kids_greeting,
+                    profileName.trim().ifBlank { "Barneprofil" },
+                ),
                 color = Color.White,
                 fontSize = 28.sp,
                 lineHeight = 32.sp,
                 fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = stringResource(R.string.kids_home_hint),
-                color = Muted,
-                fontSize = 15.sp,
-                lineHeight = 20.sp,
             )
         }
         profileButton?.invoke()
@@ -549,6 +579,7 @@ internal fun KidsLibraryCard(
     source: ServiceKind,
     world: KidsWorld,
     television: Boolean = false,
+    titleBelow: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -591,54 +622,46 @@ internal fun KidsLibraryCard(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // Bottom vignette
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(58.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f))
-                        )
-                    ),
-            )
-
-            // Title inside card over vignette
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = library.name,
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    lineHeight = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
+            if (!titleBelow) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(58.dp)
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f)))),
                 )
-                if (selected) {
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clip(CircleShape)
-                            .background(glow),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            SpoleIcons.Done,
-                            contentDescription = null,
-                            tint = Color(0xFF101211),
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
+                LibraryCardTitle(library.name, selected, glow, Modifier.align(Alignment.BottomStart))
+            }
+        }
+        if (titleBelow) LibraryCardTitle(library.name, selected, glow)
+    }
+}
+
+@Composable
+private fun LibraryCardTitle(
+    title: String,
+    selected: Boolean,
+    glow: Color,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = title,
+            color = Color.White,
+            fontSize = 16.sp,
+            lineHeight = 21.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            Box(Modifier.size(22.dp).clip(CircleShape).background(glow), contentAlignment = Alignment.Center) {
+                Icon(SpoleIcons.Done, contentDescription = null, tint = Color(0xFF101211), modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -784,7 +807,7 @@ private fun KidsWideCard(
  * Poster tile for the grid with clean artwork loading and high-contrast typography.
  */
 @Composable
-private fun KidsPosterCard(
+internal fun KidsPosterCard(
     media: LibraryMedia,
     modifier: Modifier = Modifier,
     onPlay: () -> Unit,

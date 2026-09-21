@@ -30,6 +30,7 @@ data class ProfileUiState(
     val isKidMode: Boolean = false,
     val publicUsers: List<PublicUser> = emptyList(),
     val loadingPublicUsers: Boolean = false,
+    val pinConfigured: Boolean = false,
     val pinError: String? = null,
     val pinLockoutSeconds: Int = 0,
     val addProfileError: String? = null,
@@ -50,6 +51,7 @@ class ProfileViewModel(
         ProfileUiState(
             activeProfileId = connectionRepository.activeProfileId,
             isKidMode = connectionRepository.isKidMode,
+            pinConfigured = pinSecurity.isPinConfigured(),
             pinLockoutSeconds = pinSecurity.remainingLockoutSeconds(),
         )
     )
@@ -64,6 +66,7 @@ class ProfileViewModel(
                 allProfileConnections = allConnections,
                 activeProfileId = connectionRepository.activeProfileId,
                 isKidMode = connectionRepository.isKidMode,
+                pinConfigured = pinSecurity.isPinConfigured(),
                 pinLockoutSeconds = pinSecurity.remainingLockoutSeconds(),
             )
         }
@@ -93,18 +96,6 @@ class ProfileViewModel(
             }
         }
 
-        // Switching to a kid profile: if no PIN is configured, prompt parent to create one first
-        if (!profile.isMain && !pinSecurity.isPinConfigured()) {
-            _uiState.update {
-                it.copy(
-                    pinError = null,
-                    pinLockoutSeconds = 0,
-                )
-            }
-            onPromptPin(profile.id, true)
-            return
-        }
-
         switchProfileNow(profile.id, onSwitchSuccess)
     }
 
@@ -125,11 +116,15 @@ class ProfileViewModel(
         pin: String,
         targetProfileId: String,
         isSetup: Boolean,
+        switchAfterSetup: Boolean = true,
         onSwitchSuccess: (profileId: String) -> Unit,
+        onSetupComplete: () -> Unit = {},
     ) {
         if (isSetup) {
             pinSecurity.setPin(pin)
-            switchProfileNow(targetProfileId, onSwitchSuccess)
+            _uiState.update { it.copy(pinConfigured = true, pinError = null, pinLockoutSeconds = 0) }
+            if (switchAfterSetup) switchProfileNow(targetProfileId, onSwitchSuccess)
+            else onSetupComplete()
             return
         }
 
@@ -163,6 +158,11 @@ class ProfileViewModel(
         }
     }
 
+    fun clearPinProtection() {
+        pinSecurity.clearPin()
+        _uiState.update { it.copy(pinConfigured = false, pinError = null, pinLockoutSeconds = 0) }
+    }
+
     fun recoverPinWithPassword(
         password: String,
         targetProfileId: String,
@@ -193,6 +193,7 @@ class ProfileViewModel(
 
             if (success) {
                 pinSecurity.clearPin()
+                _uiState.update { it.copy(pinConfigured = false, pinError = null, pinLockoutSeconds = 0) }
                 switchProfileNow(targetProfileId, onSwitchSuccess)
             } else {
                 _uiState.update {

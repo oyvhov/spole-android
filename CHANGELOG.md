@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.0-beta40 - Ny mobil/nettbrett-barnemodus
+
+- Gjer barneframsida personleg med «Hei, [brukar]» og betre toppmarg på mobil og nettbrett.
+- Tilpassar filmcover til skjermbreidda og legg inn eigne bibliotekssider med filter.
+- Viser korte «Siste i …»-rader på framsida i staden for heile biblioteket.
+- Let foreldra velje biblioteksnamn under bileta og slå PIN-vernet for vaksenmodus av eller på.
+- Ventar med lokal fortsetjingsstatus til reell avspeling er i gang, slik at første start ikkje blir
+  feilaktig vist som lokal historikk.
+
 ## 0.17.0-beta39 - Ryddigare innstillingar og raskare bibliotek
 
 - Samlar mobilinnstillingane i færre, tydelegare kategoriar; Heim og navigasjon er no éi side.

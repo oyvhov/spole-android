@@ -12,6 +12,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import app.reelstack.R
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.*
 import app.reelstack.data.repository.KidsPreferencesRepository
@@ -22,13 +24,14 @@ import app.reelstack.ui.kids.*
 /** Connections describe services; child cards open parental controls without switching accounts. */
 @Composable
 internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKind) -> Unit,
-    onAccount: (ServiceKind) -> Unit, onSignOutAll: () -> Unit, onAddProfile: () -> Unit) {
+    onAccount: (ServiceKind) -> Unit, onSignOutAll: () -> Unit, onAddProfile: () -> Unit,
+    onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {}) {
     var editingChild by rememberSaveable { mutableStateOf<String?>(null) }
     val child = state.profiles.firstOrNull { it.id == editingChild && it.isKid }
     if (child != null) {
         androidx.activity.compose.BackHandler { editingChild = null }
         SettingsActionRow("Tilbake til tenestene dine", "", "child-settings-back", SpoleIcons.ArrowBack) { editingChild = null }
-        ChildProfileSettings(child)
+        ChildProfileSettings(child, state.pinConfigured, onRequestPinSetup, onDisablePin)
         return
     }
     SettingsGroup("Bibliotek og avspeling", "Kontoen din hos kvar teneste")
@@ -79,7 +82,12 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
 }
 
 @Composable
-private fun ChildProfileSettings(profile: UserProfile) {
+private fun ChildProfileSettings(
+    profile: UserProfile,
+    pinConfigured: Boolean,
+    onRequestPinSetup: (String) -> Unit,
+    onDisablePin: () -> Unit,
+) {
     val context = LocalContext.current.applicationContext
     val repository = remember(context) { KidsPreferencesRepository(context) }
     val options = rememberKidsPreferences(profile.id)
@@ -98,6 +106,8 @@ private fun ChildProfileSettings(profile: UserProfile) {
         options.allowAppearance, "child-allow-appearance") { change(options.copy(allowAppearance = it)) }
     SettingsToggleRow("Vis landskap og pynt", "Eit roleg bakteppe rundt historiene", options.decorations,
         "child-decorations") { change(options.copy(decorations = it)) }
+    SettingsToggleRow("Biblioteksnamn under bilete", "Gjer det lettare å sjå kva bibliotek som er valt",
+        options.libraryTitlesBelow, "child-library-titles-below") { change(options.copy(libraryTitlesBelow = it)) }
     SettingsToggleRow("Rolege overgangar", "Slå av rørsle og fokusanimasjonar", options.reduceMotion,
         "child-reduce-motion") { change(options.copy(reduceMotion = it)) }
     SettingsGroup("Avspeling", "Desse vala gjeld berre ${profile.name}.")
@@ -121,6 +131,32 @@ private fun ChildProfileSettings(profile: UserProfile) {
         change(options.copy(subtitles = languages[(languages.indexOf(options.subtitles) + 1) % languages.size]))
     }
     SettingsGroup("Innhald og tilgang")
+    var confirmDisablePin by rememberSaveable { mutableStateOf(false) }
+    SettingsToggleRow(
+        stringResource(R.string.kids_pin_required_title),
+        stringResource(R.string.kids_pin_required_hint),
+        pinConfigured,
+        "child-require-pin",
+    ) { enabled ->
+        if (enabled) onRequestPinSetup(profile.id) else confirmDisablePin = true
+    }
+    if (confirmDisablePin) {
+        AlertDialog(
+            onDismissRequest = { confirmDisablePin = false },
+            title = { Text(stringResource(R.string.kids_pin_disable_title)) },
+            text = { Text(stringResource(R.string.kids_pin_disable_body)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDisablePin = false; onDisablePin() }) {
+                    Text(stringResource(R.string.kids_pin_disable_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDisablePin = false }) {
+                    Text(stringResource(R.string.account_cancel))
+                }
+            },
+        )
+    }
     Text("Bibliotek og aldersgrenser blir styrte av barnet sin eigen konto i Jellyfin eller Emby. Spole viser innhaldet den kontoen har tilgang til.",
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text("PIN-koden vernar vegen tilbake til vaksenprofilen. Endringane her påverkar ikkje kontoane eller innstillingane til andre barn.",
