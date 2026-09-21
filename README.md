@@ -92,7 +92,8 @@ provide media. Your account permissions determine what you can view and do.
 ## Known limitations
 
 - **Emby playback:** Library browsing, authentic artwork, and direct playback work seamlessly. Certain edge-case transcoded streams or exotic audio codecs on specific Emby server versions are currently undergoing continuous optimization compared to Jellyfin.
-- **Casting (Google Cast):** Google Cast / Chromecast receiver functionality is not currently built-in; Spole is designed and optimized as a native standalone client for Android TV, tablets, and phones.
+- **Casting (Google Cast):** Sender- og Custom Receiver-grunnlaget ligg no i kjeldekoden, men Cast er medvite skjult fram til ein team-eigd Receiver-ID, GitHub Pages og CORS er konfigurert og testa på fysisk Chromecast. Sjå [Cast-oppsett](docs/CAST_SETUP.md).
+- **Offline:** Direkte, komplette Jellyfin- og Emby-filer kan no leggjast til frå mobil-/nettbrettspelaren i ein app-privat, kontoavgrensa Media3-kø. TV viser aldri nedlasting. Lagringsgrense og eige nedlastingsbibliotek kjem før funksjonen vert gjort breitt tilgjengeleg. Sjå [mobil og offline](docs/MOBILE_PLAYBACK_AND_OFFLINE.md).
 - **Physical device hardware matrix:** Continuous integration and regression testing are conducted on Google Android TV and mobile virtual devices (API 26–36). Proprietary TV OEM forks (such as modified Fire OS or operator-customized TV boxes) may display minor visual or input handling variations.
 - **Parental control & PIN security:** Child mode exit is protected with PBKDF2-HMAC-SHA256 (10,000 iterations) with progressive lockout. Recovering a lost PIN requires connecting to the primary adult media server.
 

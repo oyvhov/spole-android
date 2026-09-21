@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_notification_channel">Offline downloads</string>
+    <string name="offline_notification_title">Downloading for offline viewing</string>
+    <string name="offline_notification_text">%1$d download(s) in progress</string>
+    <string name="offline_download">Download for offline</string>
+    <string name="offline_queued">Download added. You can keep watching.</string>
+    <string name="offline_direct_only">Only complete files that play directly can be downloaded.</string>
+    <string name="offline_pause">Pause downloads</string>
+    <string name="offline_resume">Resume downloads</string>
+</resources>

@@ -118,6 +118,7 @@ import app.reelstack.ui.theme.SurfaceRaised
 @Composable
 fun ReelstackApp(viewModel: ReelstackViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val applicationContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     if (state.signingOut) {
         BackHandler { }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -223,7 +224,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         appReadyForBackgroundWork = true
     }
     val startTab = if (app.reelstack.ui.theme.LocalPersonalization.current.startInLibrary) AppTab.LIBRARY else AppTab.HOME
-    BackHandler(enabled = state.activeSheet == null && !state.showOnboarding && state.selectedTab != startTab) {
+    BackHandler(enabled = state.globalSearchOpen) { viewModel.closeGlobalSearch() }
+    BackHandler(enabled = !state.globalSearchOpen && state.activeSheet == null && !state.showOnboarding && state.selectedTab != startTab) {
         selectTab(startTab)
     }
 
@@ -374,12 +376,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onRefresh = { viewModel.refreshLiveData(userInitiated = true) },
                         onAccountClick = viewModel::openProfileSwitcher,
                         onDiscoverClick = viewModel::openRecommendationDetails,
-                        onSearchClick = {
-                            if (state.selectedTab == AppTab.HOME && !pendingSearchFocus) {
-                                pendingSearchFocus = true
-                                viewModel.selectTab(AppTab.DISCOVER)
-                            }
-                        },
+                        onSearchClick = viewModel::openGlobalSearch,
                         searchTransitionModifier = searchTransition,
                         showSearch = windowLayout.showHomeSearch,
                         showBrand = !showRail,
@@ -435,6 +432,44 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             }
         }
     }
+    }
+
+    if (state.globalSearchOpen && !state.isKidMode) {
+        // It is a destination above the current tab: closing it returns to the same scroll and
+        // selection state instead of treating search as another place in the main navigation.
+        Surface(Modifier.fillMaxSize(), color = Ink) {
+            DiscoverScreen(
+                state = state,
+                contentPadding = PaddingValues(0.dp),
+                onSearch = viewModel::setSearchQuery,
+                onRequest = viewModel::requestMedia,
+                onDetails = viewModel::openDiscoverDetails,
+                onAccountClick = viewModel::openSeerrAccount,
+                onLibraryDetails = viewModel::openLibraryDetails,
+                onLoadMore = viewModel::loadMoreSearchResults,
+                prepareSearch = true,
+                searchReady = true,
+                globalSearch = true,
+            )
+        }
+    }
+
+    // Cast has one route picker and one small remote that float above every adult destination.
+    // MainActivity routes children to a different shell, but keep this guard here so a state
+    // transition cannot expose a household receiver for even one frame.
+    if (!state.isKidMode && !tvRail && app.reelstack.cast.CastConfiguration.isEnabled(applicationContext) && state.connections.any { connection ->
+            connection.kind in setOf(app.reelstack.data.model.ServiceKind.JELLYFIN, app.reelstack.data.model.ServiceKind.EMBY) &&
+                connection.baseUrl.isNotBlank() && connection.token.isNotBlank()
+        }) {
+        Box(Modifier.fillMaxSize()) {
+            app.reelstack.cast.CastRouteButton(
+                Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp).size(40.dp),
+            )
+            app.reelstack.cast.CastMiniController(
+                viewModel.castGateway,
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp),
+            )
+        }
     }
 
     // The profile menu belongs to the corner the avatar sits in, so it is rendered here beside

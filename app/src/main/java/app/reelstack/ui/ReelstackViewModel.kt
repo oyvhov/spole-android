@@ -103,6 +103,9 @@ data class ReelstackUiState(
     val signingOut: Boolean = false,
     val showOnboarding: Boolean = false,
     val selectedTab: AppTab = AppTab.HOME,
+    /** A destination over the current adult screen, deliberately not another navigation tab. */
+    val globalSearchOpen: Boolean = false,
+    val searchHistory: List<String> = emptyList(),
     val accountsSettingsRequest: Int = 0,
     val activeSheet: AppSheet? = null,
     val connections: List<ServiceConnection> = emptyList(),
@@ -243,6 +246,8 @@ data class ReelstackUiState(
 class ReelstackViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
+    /** App-wide Cast mini control observes this memory-only gateway. */
+    val castGateway: app.reelstack.cast.CastGateway get() = container.castGateway
     private data class LibraryCacheKey(
         val accountFingerprint: String,
         val source: ServiceKind,
@@ -402,8 +407,17 @@ class ReelstackViewModel(
         // Keep the last library location when moving between tabs. The library loader can refresh
         // it in place, but dropping the path made a return to Films look like a new visit to the
         // library root every time.
-        _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false) }
+        _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false, globalSearchOpen = false) }
         if (tab == AppTab.LIBRARY) browseLibrary(false)
+    }
+
+    fun openGlobalSearch() {
+        if (_uiState.value.isKidMode) return
+        _uiState.update { it.copy(globalSearchOpen = true, activeSheet = null, searchHistory = container.preferencesRepository.searchHistory(it.activeProfileId)) }
+    }
+
+    fun closeGlobalSearch() {
+        _uiState.update { it.copy(globalSearchOpen = false) }
     }
 
     /** Forget catalog pages without touching artwork, playback history, or server credentials. */
@@ -886,6 +900,10 @@ class ReelstackViewModel(
     }
 
     fun switchProfileNow(profileId: String) {
+        // Do this while the old profile still exists: a receiver must not outlive its account.
+        container.castGateway.stop()
+        val previousProfileId = container.connectionRepository.activeProfileId
+        container.offlineDownloads.setProfileActive(previousProfileId, active = false)
         kidsLibraryJob?.cancel()
         kidsBrowseJob?.cancel()
         kidsEpisodesJob?.cancel()
@@ -896,11 +914,14 @@ class ReelstackViewModel(
         playbackJob?.cancel()
         trackingJob?.cancel()
         container.connectionRepository.activeProfileId = profileId
+        if (profileId.isBlank()) container.offlineDownloads.setProfileActive(profileId, active = true)
         val connections = container.connectionRepository.list(profileId)
         _uiState.update { current ->
             current.copy(
                 activeProfileId = profileId,
                 isKidMode = profileId.isNotBlank(),
+                globalSearchOpen = false,
+                searchHistory = container.preferencesRepository.searchHistory(profileId),
                 connections = connections,
                 activeSheet = null,
                 pinError = null,
@@ -1276,6 +1297,9 @@ class ReelstackViewModel(
     }
 
     fun deleteKidProfile(profile: app.reelstack.data.model.UserProfile) {
+        container.connectionRepository.list(profile.id).filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }
+            .forEach { container.offlineDownloads.removeScope(profile.id, it) }
+        container.offlineStorage.clearForProfile(profile.id)
         profileViewModel.deleteKidProfile(profile)
     }
 
@@ -1743,7 +1767,7 @@ class ReelstackViewModel(
             it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
                 it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
-        if (query.isBlank()) {
+        if (query.length < 2) {
             _uiState.update {
                 it.copy(searchQuery = value, searchResults = emptyList(), librarySearchResults = emptyList(),
                     isSearching = false, searchError = null, searchPage = 1, searchHasMore = false)
@@ -1785,6 +1809,7 @@ class ReelstackViewModel(
             }
             val libraryResult = libraryDeferred.await()
             if (!isActive || _uiState.value.searchQuery.trim() != query) return@launch
+            container.preferencesRepository.rememberSearch(_uiState.value.activeProfileId, query)
             _uiState.update {
                 it.copy(
                     searchResults = discoverResult.getOrNull()?.items.orEmpty(),
@@ -1801,6 +1826,7 @@ class ReelstackViewModel(
                             appString(R.string.error_search_libraries)
                         else -> null
                     },
+                    searchHistory = container.preferencesRepository.searchHistory(it.activeProfileId),
                 )
             }
         }
@@ -2563,6 +2589,9 @@ class ReelstackViewModel(
     fun setWifiOnly(enabled: Boolean) {
         container.preferencesRepository.wifiOnly = enabled
         BackgroundRefreshScheduler.schedule(container.appContext, enabled)
+        // The same explicit preference applies to the phone/tablet offline worker. TV never
+        // exposes a download entry point, so it cannot create a job here.
+        container.offlineDownloads.onlyWifi(enabled)
         _uiState.update { it.copy(wifiOnly = enabled, snackbar = "Bakgrunnsoppdateringa er endra") }
     }
 
@@ -2933,6 +2962,11 @@ class ReelstackViewModel(
         val pending = viewModelScope.coroutineContext[Job]?.children?.toList().orEmpty()
         viewModelScope.coroutineContext.cancelChildren()
         closeSessionChannel()
+        container.castGateway.stop()
+        // This is the only operation that destroys every local account. Remove Media3's opaque
+        // jobs before secure connection state, so no queued request can survive sign-out.
+        container.offlineDownloads.removeAll()
+        container.offlineStorage.clearAll()
         container.connectionRepository.signOutAll()
         container.preferencesRepository.onboardingCompleted = false
         val notifications = container.appContext.getSystemService(android.app.NotificationManager::class.java)
@@ -2976,6 +3010,11 @@ class ReelstackViewModel(
         refreshJob?.cancel()
         refreshJob = null
         historyJob?.cancel()
+        if (container.castGateway.state.value.active) container.castGateway.stop()
+        container.connectionRepository.get(kind).takeIf { it.baseUrl.isNotBlank() }?.let {
+            container.offlineDownloads.removeScope(_uiState.value.activeProfileId, it)
+            container.offlineStorage.clearForConnection(_uiState.value.activeProfileId, it)
+        }
         container.connectionRepository.signOut(kind)
         val remaining = container.connectionRepository.list()
         val signedOutEverywhere = remaining.none { it.baseUrl.isNotBlank() }
@@ -3082,6 +3121,7 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         showOnboarding = configuredKinds.isEmpty() && !container.preferencesRepository.onboardingCompleted,
         connections = connections,
         activeProfileId = container.connectionRepository.activeProfileId,
+        searchHistory = container.preferencesRepository.searchHistory(container.connectionRepository.activeProfileId),
         profiles = container.connectionRepository.listProfiles(),
         allProfileConnections = container.connectionRepository.listProfiles().associate { it.id to container.connectionRepository.list(it.id) },
         isKidMode = container.connectionRepository.isKidMode,

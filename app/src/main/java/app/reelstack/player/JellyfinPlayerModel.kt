@@ -169,6 +169,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var nextEpisodeJob: Job? = null
     private var countdownJob: Job? = null
     private var nextEpisodeCancelled = false
+    /** Retained only while browsing a season, to build the single allowed Cast queue. */
+    private var seasonEpisodes: List<PlayableItem> = emptyList()
 
     /**
      * Kids mode caps how many episodes may start on their own.
@@ -510,6 +512,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         mutable.update { it.copy(nextEpisode = null, nextEpisodeCountdown = null, nextEpisodeDismissed = false,
             nextEpisodeOfferEnabled = options.showNextEpisode, nextEpisodeLeadSeconds = options.nextEpisodeLeadSeconds) }
         if (item.type in setOf("Series", "Season")) {
+            if (item.type == "Season") seasonEpisodes = emptyList()
             if (folders.lastOrNull()?.id != item.id) folders += item
             parent = item; offset = 0; selected = null
             mutable.update { it.copy(title = item.title, subtitle = "Vel ${if (item.type == "Series") "sesong" else "episode"}",
@@ -559,7 +562,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 val result = withContext(Dispatchers.IO) { client.children(c, userId, folder, offset) }
                 check(sameAccount())
                 offset += 100
-                mutable.update { it.copy(busy = false, choices = (it.choices + result.first).distinctBy(PlayableItem::id), hasMore = result.second) }
+                mutable.update { current ->
+                    val merged = (current.choices + result.first).distinctBy(PlayableItem::id)
+                    if (folder.type == "Season") seasonEpisodes = merged
+                    current.copy(busy = false, choices = merged, hasMore = result.second)
+                }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { mutable.update { it.copy(busy = false, error = container.appString(R.string.player_err_episodes)) } }
         }
@@ -778,6 +785,80 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             mutable.update { it.copy(nextEpisodeCountdown = null) }
         }
         player.seekTo(target)
+    }
+    /**
+     * Starts the Cast handover from the exact local position. Local playback is deliberately left
+     * alone until the receiver accepts the LOAD request; a CORS/token/server failure therefore
+     * never turns a working phone stream into a silent spinner.
+     */
+    fun castCurrent(): Boolean {
+        if (kidsMode) return false
+        val c = connection ?: return false
+        val item = selected ?: return false
+        if (item.type !in setOf("Movie", "Episode", "Video")) return false
+        val spec = app.reelstack.cast.CastLoadSpec(
+            service = c.kind,
+            profileId = container.connectionRepository.activeProfileId,
+            items = listOf(app.reelstack.cast.CastQueueItem(
+                itemId = item.id, title = item.title, subtitle = item.subtitle,
+                audioStreamIndex = plan?.audioIndex, subtitleStreamIndex = plan?.subtitleIndex?.takeIf { it >= 0 },
+                sourceId = plan?.sourceId, resumePositionMs = player.currentPosition.coerceAtLeast(0),
+            )),
+        )
+        val request = app.reelstack.cast.CastLoadRequest(spec, app.reelstack.cast.CastCredentialEnvelope.from(c, deviceId))
+        return container.castGateway.load(request) {
+            if (selected?.id == item.id && sameAccount()) {
+                report("/Stopped")
+                player.pause()
+                mutable.update { it.copy(playing = false, busy = false) }
+            }
+        }
+    }
+    /** The sole Cast queue action: current episode, then later episodes from this same season. */
+    fun castRestOfSeason(): Boolean {
+        if (kidsMode) return false
+        val c = connection ?: return false
+        val item = selected?.takeIf { it.type == "Episode" } ?: return false
+        val current = plan ?: return false
+        val following = seasonEpisodes
+            .filter { it.type == "Episode" && it.seriesId == item.seriesId && it.season == item.season && (it.episode ?: -1) > (item.episode ?: -1) }
+            .sortedBy { it.episode ?: Int.MAX_VALUE }
+        if (following.isEmpty()) return false
+        val spec = app.reelstack.cast.restOfSeasonSpec(
+            connection = c,
+            profileId = container.connectionRepository.activeProfileId,
+            selected = item.copy(resumeMs = player.currentPosition.coerceAtLeast(0)),
+            followingEpisodes = following,
+            audio = current.audioIndex,
+            subtitle = current.subtitleIndex.takeIf { it >= 0 },
+            sourceId = current.sourceId,
+        )
+        val request = app.reelstack.cast.CastLoadRequest(spec, app.reelstack.cast.CastCredentialEnvelope.from(c, deviceId))
+        return container.castGateway.load(request) {
+            if (selected?.id == item.id && sameAccount()) {
+                report("/Stopped")
+                player.pause()
+                mutable.update { it.copy(playing = false, busy = false) }
+            }
+        }
+    }
+    /** Queues only the already-negotiated, direct file; never asks the server for offline transcode. */
+    fun downloadCurrent(): Boolean {
+        if (kidsMode) return false
+        val c = connection ?: return false
+        val current = plan ?: return false
+        val result = container.offlineDownloads.enqueue(app.reelstack.offline.OfflineDownloadRequest(
+            profileId = container.connectionRepository.activeProfileId,
+            connection = c,
+            candidate = app.reelstack.offline.OfflineMediaCandidate(
+                itemId = current.item.id,
+                service = c.kind,
+                requiresTranscode = !current.direct,
+                directDownloadUrl = current.url,
+            ),
+        ))
+        mutable.update { it.copy(warning = container.appString(if (result == null) R.string.offline_queued else R.string.offline_direct_only)) }
+        return result == null
     }
     fun background() { foreground = false; countdownJob?.cancel(); player.pause(); if (started) report("/Progress") }
     fun foreground() { foreground = true; if (state.value.ended) startNextEpisodeCountdown() }

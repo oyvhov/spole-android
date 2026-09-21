@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_notification_channel">Fråkopla nedlastingar</string>
+    <string name="offline_notification_title">Lastar ned for fråkopla vising</string>
+    <string name="offline_notification_text">%1$d nedlasting(ar) pågår</string>
+    <string name="offline_download">Last ned for fråkopla vising</string>
+    <string name="offline_queued">Nedlasting lagt til. Du kan halde fram å sjå.</string>
+    <string name="offline_direct_only">Berre komplette filer som kan spelast direkte kan lastast ned.</string>
+    <string name="offline_pause">Set nedlastingar på pause</string>
+    <string name="offline_resume">Hald fram nedlastingane</string>
+</resources>

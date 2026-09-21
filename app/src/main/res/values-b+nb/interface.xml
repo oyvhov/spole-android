@@ -94,6 +94,7 @@
     <string name="discover_subtitle">Finn noe nytt å se. Legg til det du vil ha i biblioteket.</string>
     <string name="search_clear">Tøm søket</string>
     <string name="search_libraries">I bibliotekene dine</string>
+    <string name="search_recent">Tidligere søk</string>
     <string name="search_ready">Alt her kan du se med en gang.</string>
     <string name="search_add_new">Legg til noe nytt</string>
     <string name="search_no_new">Ingenting nytt å legge til for «%1$s».</string>

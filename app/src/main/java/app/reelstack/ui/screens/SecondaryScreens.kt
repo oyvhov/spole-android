@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -237,6 +239,7 @@ private fun screenPadding(contentPadding: PaddingValues) = PaddingValues(
  * rather than obeyed.
  */
 @Suppress("ModifierParameter")
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun DiscoverScreen(
     state: ReelstackUiState,
@@ -250,6 +253,7 @@ fun DiscoverScreen(
     searchTransitionModifier: Modifier = Modifier,
     prepareSearch: Boolean = false,
     searchReady: Boolean = false,
+    globalSearch: Boolean = false,
     onSearchFocusConsumed: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
@@ -420,6 +424,35 @@ fun DiscoverScreen(
                                 up = searchFocus
                                 if (state.librarySearchResults.isNotEmpty() || visible.isNotEmpty()) down = firstResult
                             } else Modifier))
+                }
+            }
+        }
+        if (globalSearch && state.searchQuery.isBlank() && state.searchHistory.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.padding(top = 20.dp, bottom = 6.dp)) {
+                    Text(
+                        stringResource(R.string.search_recent),
+                        color = TextColor,
+                        fontSize = 18.sp,
+                        lineHeight = 24.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        stringResource(R.string.discover_subtitle),
+                        color = Muted,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        state.searchHistory.forEach { query ->
+                            AssistChip(
+                                onClick = { onSearch(query) },
+                                label = { Text(query, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Clock, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -209,6 +209,35 @@ class AppPreferencesRepository(context: Context) {
         get() = preferences.getBoolean(KEY_WIFI_ONLY, false)
         set(value) = preferences.edit { putBoolean(KEY_WIFI_ONLY, value) }
 
+    /** Local-only, profile-scoped search recall. Queries never leave the device as telemetry. */
+    fun searchHistory(profileId: String): List<String> = runCatching {
+        Json.parseToJsonElement(preferences.getString(searchHistoryKey(profileId), "[]")!!).jsonArray
+            .mapNotNull { it.jsonPrimitive.contentOrNull?.trim() }
+            .filter { it.length in 2..120 && it.none(Char::isISOControl) }
+            .distinct()
+            .take(12)
+    }.getOrDefault(emptyList())
+
+    fun rememberSearch(profileId: String, query: String) {
+        val cleaned = query.trim().take(120)
+        if (cleaned.length < 2 || cleaned.any(Char::isISOControl)) return
+        preferences.edit {
+            putString(searchHistoryKey(profileId), buildJsonArray {
+                add(JsonPrimitive(cleaned))
+                searchHistory(profileId).filterNot { it.equals(cleaned, ignoreCase = true) }.take(11)
+                    .forEach { add(JsonPrimitive(it)) }
+            }.toString())
+        }
+    }
+
+    fun clearSearchHistory(profileId: String) { preferences.edit { remove(searchHistoryKey(profileId)) } }
+
+    private fun searchHistoryKey(profileId: String): String {
+        val stable = profileId.ifBlank { "adult" }
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(stable.toByteArray(Charsets.UTF_8))
+        return "search_history_" + digest.joinToString("") { "%02x".format(it) }
+    }
+
     var homeRowOrder: List<app.reelstack.data.model.HomeRow>
         get() = app.reelstack.data.model.decodeHomeRowOrder(preferences.getString("home_row_order", null))
         set(value) = preferences.edit {

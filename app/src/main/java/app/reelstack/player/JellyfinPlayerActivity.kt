@@ -132,6 +132,9 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                 PlayerScreen(state, model.player, { if (!model.back()) finish() }, model::toggle, model::seek, model::retry, model::choose,
                     model::loadChildren, model::audio, model::subtitles, model::quality,
                     kids = kids,
+                    onCast = model::castCurrent,
+                    onCastRestOfSeason = model::castRestOfSeason,
+                    onDownload = model::downloadCurrent,
                     onExternal = {
                         // Handing the stream to another app is the back door out of kids mode.
                         if (kids) return@PlayerScreen
@@ -195,6 +198,9 @@ fun PlayerScreen(
     onNextEpisode: () -> Unit = {},
     onCancelNextEpisode: () -> Unit = {},
     onSkipSegment: () -> Unit = {},
+    onCast: () -> Boolean = { false },
+    onCastRestOfSeason: () -> Boolean = { false },
+    onDownload: () -> Boolean = { false },
     miniPlayer: Boolean = false,
     onMiniPlayer: (() -> Unit)? = null,
     /**
@@ -209,6 +215,7 @@ fun PlayerScreen(
 ) {
     val videoFocus = remember { FocusRequester() }
     val appearanceContext = androidx.compose.ui.platform.LocalContext.current
+    val castEnabled = app.reelstack.cast.CastConfiguration.isEnabled(appearanceContext)
     val appearancePreferences = remember(appearanceContext) { app.reelstack.data.repository.AppPreferencesRepository(appearanceContext) }
     var appearance by remember { mutableStateOf(appearancePreferences.personalization) }
     DisposableEffect(appearancePreferences) {
@@ -440,6 +447,18 @@ fun PlayerScreen(
                     onClose = onClose,
                     showBack = !isTelevision,
                     actions = {
+                        if (!kids && !isTelevision && castEnabled) {
+                            app.reelstack.cast.CastRouteButton(Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape))
+                            IconButton(onClick = onCast, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-cast")) {
+                                Icon(app.reelstack.ui.components.SpoleIcons.MiniPlayer, stringResource(R.string.cast_connect), modifier = Modifier.size(20.dp))
+                            }
+                            if (state.episode != null) IconButton(onClick = onCastRestOfSeason, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-cast-season")) {
+                                Icon(app.reelstack.ui.components.SpoleIcons.ListLines, stringResource(R.string.cast_rest_of_season), modifier = Modifier.size(20.dp))
+                            }
+                            IconButton(onClick = onDownload, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-download")) {
+                                Icon(app.reelstack.ui.components.SpoleIcons.Download, stringResource(R.string.offline_download), modifier = Modifier.size(20.dp))
+                            }
+                        }
                         if (onMiniPlayer != null && !state.busy && state.error == null && !state.awaitingResume && state.durationMs > 0) {
                             IconButton(onClick = onMiniPlayer, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-mini")) {
                                 Icon(app.reelstack.ui.components.SpoleIcons.MiniPlayer, stringResource(R.string.phase_mini), modifier = Modifier.size(20.dp))

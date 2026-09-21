@@ -38,6 +38,11 @@ class AppContainer(context: Context) {
     val sessionSocket = app.reelstack.data.network.JellyfinSessionSocket(deviceId = deviceId)
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
     val localPlaybackStore = app.reelstack.data.repository.LocalPlaybackStore(appContext)
+    /** One process-wide, memory-only Cast session. Credentials never enter persistent stores. */
+    val castGateway by lazy { app.reelstack.cast.CastSessionCoordinator(appContext) }
+    /** Per-profile, app-private offline tree. The network downloader is allowed no other target. */
+    val offlineStorage by lazy { app.reelstack.offline.OfflineStorage(appContext) }
+    val offlineDownloads by lazy { app.reelstack.offline.OfflineDownloadRepository(appContext) }
     val watchNextSync by lazy { app.reelstack.player.WatchNextSync(this) }
     /**
      * What the cached rows belong to.
