@@ -5,9 +5,14 @@ Dato: 2026-09-21
 ## Resultat
 
 - Versjon: `0.17.0-beta40`, versionCode `119`
-- APK, signatur, GitHub-URL og commit blir fylte inn etter det endelege release-bygget.
-- APK-signatur skal vere den eksisterande Spole-signaturen:
-  `36fa94f03494f326053bdcc3d7253994950652d282e6db681cc33270b5f51a10`
+- Release-commit: `6dae576041e7b7c533460d84a37ae66500e329bf`
+- GitHub-release: https://github.com/oyvhov/spole-android/releases/tag/v0.17.0-beta40
+- APK: https://github.com/oyvhov/spole-android/releases/download/v0.17.0-beta40/Spole-v0.17.0-beta40.apk
+- APK-storleik: `11,234,170` byte
+- APK SHA-256: `29bb55540269b7ba87fa844a77614aa6e14bdf46bb8f9c6f08b3137ca419bb8b`
+- APK-signatur SHA-256: `36fa94f03494f326053bdcc3d7253994950652d282e6db681cc33270b5f51a10`
+- Offentleg GitHub-nedlasting kontrollert: hash og storleik stemmer med lokal APK.
+- FFmpeg-arkiv SHA-256: `5378dbc96bfe0efa782e6315ca629da82dc846b2bbf6a0d9ac94a2686d92f132`
 
 ## Endringar
 
@@ -19,7 +24,10 @@ Dato: 2026-09-21
 ## Test og bygg
 
 - `git diff --check`: bestått.
-- `testDebugUnitTest`: bestått etter endringane.
-- Relevante profil-, preferanse- og barneskjermtestar: bestått.
-- Endeleg releasekommando, lint, Android-testar, signatur, APK-hash og GitHub-digest blir
-  dokumenterte her før publisering.
+- `testDebugUnitTest`: 701 testar, 0 feil, 0 errors, 0 skippa.
+- `assembleDebug`, `assembleDebugAndroidTest`, `lintDebug` og `assembleRelease`: bestått.
+- Lint rapporterte ingen lint-feil.
+- APK-en er verifisert med pakken `app.reelstack`, versionCode `119` og versionName
+  `0.17.0-beta40`.
+- Full instrumenteringstest på isolert emulator og manuell gjennomgang på lagra
+  real-data-emulator er ikkje køyrt i denne release-runden.
