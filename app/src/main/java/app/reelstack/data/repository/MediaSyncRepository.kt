@@ -521,6 +521,7 @@ class MediaSyncRepository(
         genres = item.genres,
         mediaType = item.mediaType,
         lastActivityEpochMillis = item.lastActivityEpochMillis,
+        addedAtEpochMillis = item.addedAtEpochMillis,
         libraryId = item.libraryId,
         seriesId = item.seriesId,
         favourite = item.favourite,

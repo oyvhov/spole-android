@@ -1,6 +1,7 @@
 package app.reelstack.ui.kids
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -8,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.reelstack.data.model.KidsWorld
 import app.reelstack.data.model.ServiceKind
@@ -164,6 +166,41 @@ class KidsComposeTest {
 
         composeTestRule.onNodeWithTag("kids-library-lib-open").assertIsDisplayed().performClick()
         assertEquals("lib-open", openedId)
+    }
+
+    @Test
+    fun kidsLibraryScreen_usesContentSortsAndNotMediaTypeFilters() {
+        val library = TestFixtures.sampleLibraryView(id = "lib-filter", name = "Barneseriar")
+        val latest = TestFixtures.sampleMedia(id = "latest", title = "Nyaste eventyr").copy(
+            addedAtEpochMillis = 200L,
+            premiereDate = "2026-09-01",
+            tmdbRating = 7.2f,
+        )
+        val older = TestFixtures.sampleMedia(id = "older", title = "Eldre eventyr").copy(
+            addedAtEpochMillis = 100L,
+            premiereDate = "2025-09-01",
+            tmdbRating = 8.8f,
+            played = true,
+        )
+
+        composeTestRule.setContent {
+            KidsLibraryScreen(
+                library = library,
+                media = listOf(latest, older),
+                onPlay = {},
+                onBack = {},
+                columns = 2,
+                contentPadding = PaddingValues(12.dp),
+            )
+        }
+
+        composeTestRule.onNodeWithTag("kids-sort-added").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("kids-sort-released").performClick()
+        composeTestRule.onNodeWithTag("kids-sort-rating").performClick()
+        composeTestRule.onNodeWithTag("kids-status-unwatched").performClick()
+        composeTestRule.onNodeWithText("Filmar").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Seriar").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Nyaste eventyr").assertIsDisplayed()
     }
 
     @Test

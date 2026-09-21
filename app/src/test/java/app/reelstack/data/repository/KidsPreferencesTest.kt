@@ -64,4 +64,16 @@ class KidsPreferencesTest {
         repo.save("one", KidsPreferences(episodeLimit = 99))
         assertEquals(3, repo.read("one").episodeLimit)
     }
+
+    @Test fun libraryTitlesDefaultToReadableMobileLayoutAndCanBeToggled() {
+        val prefs = context.getSharedPreferences("spole_kids_preferences", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("one.library_titles_below", false).commit()
+        val repo = KidsPreferencesRepository(context)
+        assertTrue(repo.read("one").libraryTitlesBelow)
+
+        repo.save("one", KidsPreferences(libraryTitlesBelow = false))
+        assertFalse(repo.read("one").libraryTitlesBelow)
+        repo.save("one", KidsPreferences(libraryTitlesBelow = true))
+        assertTrue(repo.read("one").libraryTitlesBelow)
+    }
 }

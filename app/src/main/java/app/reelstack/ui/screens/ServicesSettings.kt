@@ -106,7 +106,7 @@ private fun ChildProfileSettings(
         options.allowAppearance, "child-allow-appearance") { change(options.copy(allowAppearance = it)) }
     SettingsToggleRow("Vis landskap og pynt", "Eit roleg bakteppe rundt historiene", options.decorations,
         "child-decorations") { change(options.copy(decorations = it)) }
-    SettingsToggleRow("Biblioteksnamn under bilete", "Gjer det lettare å sjå kva bibliotek som er valt",
+    SettingsToggleRow("Biblioteksnamn under bilete", "Tilrådd på mobil og nettbrett – gjer biblioteket tydeleg",
         options.libraryTitlesBelow, "child-library-titles-below") { change(options.copy(libraryTitlesBelow = it)) }
     SettingsToggleRow("Rolege overgangar", "Slå av rørsle og fokusanimasjonar", options.reduceMotion,
         "child-reduce-motion") { change(options.copy(reduceMotion = it)) }

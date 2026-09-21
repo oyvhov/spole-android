@@ -62,6 +62,7 @@ data class RemoteLibraryItem(
     val collectionType: String? = null,
     val seriesId: String? = null,
     val lastActivityEpochMillis: Long? = null,
+    val addedAtEpochMillis: Long? = null,
     val logoItemId: String? = null,
     val logoUrl: String? = null,
     val heroImagePath: String? = null,
@@ -360,6 +361,8 @@ object ServicePayloadParser {
                 seriesId = item.string("SeriesId") ?: item.string("seriesId"),
                 lastActivityEpochMillis = (userData?.string("LastPlayedDate") ?: userData?.string("lastPlayedDate"))
                     ?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() },
+                addedAtEpochMillis = (item.string("DateCreated") ?: item.string("dateCreated"))
+                    ?.let { calendarInstant(it)?.toEpochMilli() },
                 mediaType = mediaType,
                 artworkItemId = artwork.itemId,
                 artworkImageType = artwork.imageType,

@@ -57,6 +57,11 @@
     <string name="kids_filter_series">Serier</string>
     <string name="kids_filter_unwatched">Ikke sett</string>
     <string name="kids_filter_favourites">Favoritter</string>
+    <string name="kids_sort_label">Sorter etter</string>
+    <string name="kids_sort_added">Lagt til</string>
+    <string name="kids_sort_released">Utgitt</string>
+    <string name="kids_sort_rating">Vurdering</string>
+    <string name="kids_status_label">Vis</string>
     <string name="kids_pin_required_title">Krev PIN for voksenmodus</string>
     <string name="kids_pin_required_hint">Dette valget gjelder alle barneprofiler på denne enheten.</string>
     <string name="kids_pin_disable_title">Skru av PIN?</string>

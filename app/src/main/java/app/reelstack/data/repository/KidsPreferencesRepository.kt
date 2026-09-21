@@ -14,7 +14,9 @@ class KidsPreferencesRepository(context: Context) {
             world = KidsWorld.decode(preferences.getString(p + "world", null)),
             allowAppearance = preferences.getBoolean(p + "appearance", true),
             decorations = preferences.getBoolean(p + "decorations", true),
-            libraryTitlesBelow = preferences.getBoolean(p + "library_titles_below", false),
+            // v2 deliberately defaults old profiles to the readable mobile/tablet layout.
+            // The old preference was introduced before the label was reliably wired to the home.
+            libraryTitlesBelow = preferences.getBoolean(p + "library_titles_below_v2", true),
             reduceMotion = preferences.getBoolean(p + "reduce_motion", false),
             autoplay = preferences.getBoolean(p + "autoplay", false),
             episodeLimit = preferences.getInt(p + "episode_limit", 3).coerceIn(1, 3),
@@ -29,7 +31,7 @@ class KidsPreferencesRepository(context: Context) {
             putString(p + "world", value.world.name)
             putBoolean(p + "appearance", value.allowAppearance)
             putBoolean(p + "decorations", value.decorations)
-            putBoolean(p + "library_titles_below", value.libraryTitlesBelow)
+            putBoolean(p + "library_titles_below_v2", value.libraryTitlesBelow)
             putBoolean(p + "reduce_motion", value.reduceMotion)
             putBoolean(p + "autoplay", value.autoplay)
             putInt(p + "episode_limit", value.episodeLimit.coerceIn(1, 3))

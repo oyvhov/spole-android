@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.0-beta1 - Barnemodus: betre bibliotekssider
+
+- Held biblioteknamn tydelege under bileta på mobil og nettbrett som standard.
+- Byter ut film-/serie-filter med nyttigare sortering på lagt til, utgitt og vurdering.
+- Beheld statusvala «Alle», «Ikkje sett» og «Favorittar» på bibliotekssida.
+- Hentar og tek vare på tenaren si dato for når innhaldet vart lagt til, slik at sorteringa blir reell.
+
 ## 0.17.0-beta41 - Barnemodus: toppmarg og biblioteknavigasjon
 
 - Gir namn og profilbilete korrekt avstand frå statuslinja på mobil og nettbrett.

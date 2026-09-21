@@ -678,7 +678,7 @@ class MediaServerClient(
             "&Recursive=${catalogueType != null}&StartIndex=$offset&Limit=60" + filters.query() +
             (catalogueType?.let { "&IncludeItemTypes=$it" } ?: "") +
             (if (browsingCollections) "" else "&ExcludeItemTypes=BoxSet") +
-            "&CollapseBoxSetItems=false&Fields=Overview,Genres,ProviderIds,$LIBRARY_RATING_FIELDS&EnableUserData=true&IsMissing=false"
+            "&CollapseBoxSetItems=false&Fields=Overview,Genres,ProviderIds,DateCreated,$LIBRARY_RATING_FIELDS&EnableUserData=true&IsMissing=false"
         val paths = if (connection.kind == ServiceKind.EMBY)
             listOf("Users/${encodePathSegment(user)}/Items?$query", "Items?$query")
         else listOf("Items?$query")

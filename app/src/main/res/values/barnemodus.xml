@@ -57,6 +57,11 @@
     <string name="kids_filter_series">Series</string>
     <string name="kids_filter_unwatched">Unwatched</string>
     <string name="kids_filter_favourites">Favourites</string>
+    <string name="kids_sort_label">Sort by</string>
+    <string name="kids_sort_added">Added</string>
+    <string name="kids_sort_released">Released</string>
+    <string name="kids_sort_rating">Rating</string>
+    <string name="kids_status_label">Show</string>
     <string name="kids_pin_required_title">Require PIN for adult mode</string>
     <string name="kids_pin_required_hint">This applies to all kid profiles on this device.</string>
     <string name="kids_pin_disable_title">Turn off PIN?</string>

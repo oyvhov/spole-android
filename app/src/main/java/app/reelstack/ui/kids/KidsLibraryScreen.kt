@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
@@ -27,8 +28,12 @@ import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.Text as KidsText
 
-private enum class KidsLibraryFilter {
-    ALL, MOVIES, SERIES, UNWATCHED, FAVOURITES,
+private enum class KidsLibraryStatus {
+    ALL, UNWATCHED, FAVOURITES,
+}
+
+private enum class KidsLibrarySort {
+    ADDED, RELEASED, RATING,
 }
 
 /** A small, child-friendly equivalent of the adult library page. */
@@ -42,17 +47,19 @@ internal fun KidsLibraryScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    var filter by rememberSaveable(library.id) { mutableStateOf(KidsLibraryFilter.ALL) }
-    val filtered = remember(media, filter) {
-        media.filter { item ->
-            when (filter) {
-                KidsLibraryFilter.ALL -> true
-                KidsLibraryFilter.MOVIES -> item.mediaType.equals("Movie", ignoreCase = true)
-                KidsLibraryFilter.SERIES -> item.isSeries
-                KidsLibraryFilter.UNWATCHED -> !item.played
-                KidsLibraryFilter.FAVOURITES -> item.favourite
+    var status by rememberSaveable(library.id) { mutableStateOf(KidsLibraryStatus.ALL) }
+    var sort by rememberSaveable(library.id) { mutableStateOf(KidsLibrarySort.ADDED) }
+    val filtered = remember(media, status, sort) {
+        media.asSequence()
+            .filter { item ->
+                when (status) {
+                    KidsLibraryStatus.ALL -> true
+                    KidsLibraryStatus.UNWATCHED -> !item.played
+                    KidsLibraryStatus.FAVOURITES -> item.favourite
+                }
             }
-        }
+            .sortedWith(kidsLibraryComparator(sort))
+            .toList()
     }
     val configuration = LocalConfiguration.current
     val tablet = configuration.screenWidthDp >= 600
@@ -84,17 +91,47 @@ internal fun KidsLibraryScreen(
             verticalArrangement = Arrangement.spacedBy(if (tablet) 20.dp else 16.dp),
         ) {
             item(span = { GridItemSpan(columns) }) {
-                LazyRow(
+                Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    item { KidsFilterChip(filter == KidsLibraryFilter.ALL, stringResource(R.string.kids_filter_all)) { filter = KidsLibraryFilter.ALL } }
-                    item { KidsFilterChip(filter == KidsLibraryFilter.MOVIES, stringResource(R.string.kids_filter_movies)) { filter = KidsLibraryFilter.MOVIES } }
-                    item { KidsFilterChip(filter == KidsLibraryFilter.SERIES, stringResource(R.string.kids_filter_series)) { filter = KidsLibraryFilter.SERIES } }
-                    item { KidsFilterChip(filter == KidsLibraryFilter.UNWATCHED, stringResource(R.string.kids_filter_unwatched)) { filter = KidsLibraryFilter.UNWATCHED } }
-                    if (media.any { it.favourite }) {
-                        item { KidsFilterChip(filter == KidsLibraryFilter.FAVOURITES, stringResource(R.string.kids_filter_favourites)) { filter = KidsLibraryFilter.FAVOURITES } }
+                    Text(stringResource(R.string.kids_sort_label), color = Muted, style = MaterialTheme.typography.labelLarge)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            KidsFilterChip(sort == KidsLibrarySort.ADDED, stringResource(R.string.kids_sort_added), "kids-sort-added") {
+                                sort = KidsLibrarySort.ADDED
+                            }
+                        }
+                        item {
+                            KidsFilterChip(sort == KidsLibrarySort.RELEASED, stringResource(R.string.kids_sort_released), "kids-sort-released") {
+                                sort = KidsLibrarySort.RELEASED
+                            }
+                        }
+                        item {
+                            KidsFilterChip(sort == KidsLibrarySort.RATING, stringResource(R.string.kids_sort_rating), "kids-sort-rating") {
+                                sort = KidsLibrarySort.RATING
+                            }
+                        }
+                    }
+                    Text(stringResource(R.string.kids_status_label), color = Muted, style = MaterialTheme.typography.labelLarge)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            KidsFilterChip(status == KidsLibraryStatus.ALL, stringResource(R.string.kids_filter_all), "kids-status-all") {
+                                status = KidsLibraryStatus.ALL
+                            }
+                        }
+                        item {
+                            KidsFilterChip(status == KidsLibraryStatus.UNWATCHED, stringResource(R.string.kids_filter_unwatched), "kids-status-unwatched") {
+                                status = KidsLibraryStatus.UNWATCHED
+                            }
+                        }
+                        if (media.any { it.favourite }) {
+                            item {
+                                KidsFilterChip(status == KidsLibraryStatus.FAVOURITES, stringResource(R.string.kids_filter_favourites), "kids-status-favourites") {
+                                    status = KidsLibraryStatus.FAVOURITES
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -116,7 +153,7 @@ internal fun KidsLibraryScreen(
 }
 
 @Composable
-private fun KidsFilterChip(selected: Boolean, label: String, onClick: () -> Unit) {
+private fun KidsFilterChip(selected: Boolean, label: String, tag: String, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
@@ -126,5 +163,15 @@ private fun KidsFilterChip(selected: Boolean, label: String, onClick: () -> Unit
             selectedContainerColor = Primary.copy(alpha = 0.22f),
             selectedLabelColor = KidsText,
         ),
+        modifier = Modifier.testTag(tag),
     )
 }
+
+private fun kidsLibraryComparator(sort: KidsLibrarySort): Comparator<LibraryMedia> = when (sort) {
+    KidsLibrarySort.ADDED -> compareByDescending<LibraryMedia> { it.addedAtEpochMillis ?: Long.MIN_VALUE }
+    KidsLibrarySort.RELEASED -> compareByDescending<LibraryMedia> { it.premiereDate?.take(10).orEmpty() }
+    KidsLibrarySort.RATING -> compareByDescending<LibraryMedia> { it.ratingForKidsSort() }
+}.thenBy { it.title.lowercase() }
+
+private fun LibraryMedia.ratingForKidsSort(): Float =
+    tmdbRating ?: mdblistRating ?: criticRating?.div(10f) ?: -1f

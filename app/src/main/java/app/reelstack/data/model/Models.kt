@@ -118,6 +118,8 @@ data class LibraryMedia(
     val posterUrl: String? = null,
     /** Playback activity, never the date a file was added to the library. */
     val lastActivityEpochMillis: Long? = null,
+    /** The server's DateCreated value, used only for library sorting. */
+    val addedAtEpochMillis: Long? = null,
     /** Numbers, so the screen can write them in the reader's language. */
     val season: Int? = null,
     val episode: Int? = null,
