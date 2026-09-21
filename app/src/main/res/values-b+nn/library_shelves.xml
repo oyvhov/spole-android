@@ -33,6 +33,10 @@
     <string name="theme_ornament_hint">Nisselue, julelys og snø – eller spøkelse, edderkoppar og spindelvev. Rørslene stoppar med redusert animasjon og Lett TV-modus.</string>
     <string name="player_next_episode">Neste episode</string>
     <string name="player_next_play">Spel no</string>
+    <string name="player_series_finished">Sesongen er ferdig</string>
+    <string name="player_series_finished_hint">Gå tilbake til serien for å velje kva du vil sjå vidare.</string>
+    <string name="player_return_to_series">Til serien</string>
+    <string name="detail_next_to_play">Neste å spele</string>
     <string name="player_skip_intro">Hopp over introen</string>
     <string name="player_skip_outro">Hopp over rulleteksten</string>
     <plurals name="detail_more_episodes">

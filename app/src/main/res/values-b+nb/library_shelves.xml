@@ -33,6 +33,10 @@
     <string name="theme_ornament_hint">Nisselue, julelys og snø – eller spøkelser, edderkopper og spindelvev. Bevegelsene stopper med redusert animasjon og Lett TV-modus.</string>
     <string name="player_next_episode">Neste episode</string>
     <string name="player_next_play">Spill nå</string>
+    <string name="player_series_finished">Sesongen er ferdig</string>
+    <string name="player_series_finished_hint">Gå tilbake til serien for å velge hva du vil se videre.</string>
+    <string name="player_return_to_series">Til serien</string>
+    <string name="detail_next_to_play">Neste å spille</string>
     <string name="player_skip_intro">Hopp over intro</string>
     <string name="player_skip_outro">Hopp over rulletekst</string>
     <plurals name="detail_more_episodes">

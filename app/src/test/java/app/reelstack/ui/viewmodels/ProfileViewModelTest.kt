@@ -11,6 +11,7 @@ import app.reelstack.data.network.JellyfinAuthenticationClient
 import app.reelstack.data.repository.ConnectionRepository
 import app.reelstack.data.repository.InMemoryTokenStore
 import app.reelstack.data.security.PinSecurity
+import app.reelstack.data.security.TokenStore
 import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -93,6 +94,37 @@ class ProfileViewModelTest {
         assertFalse(switchSucceeded)
         assertEquals("", promptedTargetId)
         assertEquals(false, promptedIsSetup)
+    }
+
+    @Test
+    fun `unreadable persisted PIN still blocks kid to adult switching`() {
+        val unreadablePinStore = object : TokenStore {
+            override fun put(key: String, value: String) = Unit
+            override fun get(key: String): String? = null
+            override fun remove(key: String) = Unit
+            override fun hasStoredValue(key: String): Boolean = key == PinSecurity.KEY_HASH
+        }
+        val securedViewModel = ProfileViewModel(
+            connectionRepository = connectionRepository,
+            pinSecurity = PinSecurity(context, unreadablePinStore),
+            jellyfinAuthClient = JellyfinAuthenticationClient(),
+            embyAuthClient = EmbyAuthenticationClient(),
+            appContext = context,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+        connectionRepository.activeProfileId = "kid1"
+        var prompted = false
+        var switched = false
+
+        securedViewModel.selectProfile(
+            UserProfile(id = "", name = "Hovudkonto", isKid = false),
+            onSwitchSuccess = { switched = true },
+            onPromptPin = { _, setup -> prompted = !setup },
+        )
+
+        assertTrue(prompted)
+        assertFalse(switched)
+        assertEquals("kid1", connectionRepository.activeProfileId)
     }
 
     @Test

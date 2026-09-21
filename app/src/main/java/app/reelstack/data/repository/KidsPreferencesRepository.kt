@@ -21,6 +21,11 @@ class KidsPreferencesRepository(context: Context) {
             autoplay = preferences.getBoolean(p + "autoplay", false),
             episodeLimit = preferences.getInt(p + "episode_limit", 3).coerceIn(1, 3),
             subtitles = SubtitleLanguage.decode(preferences.getString(p + "subtitles", null), SubtitleLanguage.NORWEGIAN),
+            bedtime = KidsBedtime(
+                enabled = preferences.getBoolean(p + "bedtime_enabled", false),
+                hour = preferences.getInt(p + "bedtime_hour", 19).coerceIn(0, 23),
+                minute = preferences.getInt(p + "bedtime_minute", 30).coerceIn(0, 59),
+            ),
         )
     }
 
@@ -36,6 +41,9 @@ class KidsPreferencesRepository(context: Context) {
             putBoolean(p + "autoplay", value.autoplay)
             putInt(p + "episode_limit", value.episodeLimit.coerceIn(1, 3))
             putString(p + "subtitles", value.subtitles.name)
+            putBoolean(p + "bedtime_enabled", value.bedtime.enabled)
+            putInt(p + "bedtime_hour", value.bedtime.hour.coerceIn(0, 23))
+            putInt(p + "bedtime_minute", value.bedtime.minute.coerceIn(0, 59))
         }
     }
 

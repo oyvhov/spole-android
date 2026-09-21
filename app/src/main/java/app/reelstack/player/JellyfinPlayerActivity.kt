@@ -13,9 +13,11 @@ import androidx.activity.addCallback
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -132,8 +134,6 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                 PlayerScreen(state, model.player, { if (!model.back()) finish() }, model::toggle, model::seek, model::retry, model::choose,
                     model::loadChildren, model::audio, model::subtitles, model::quality,
                     kids = kids,
-                    onCast = model::castCurrent,
-                    onCastRestOfSeason = model::castRestOfSeason,
                     onDownload = model::downloadCurrent,
                     onExternal = {
                         // Handing the stream to another app is the back door out of kids mode.
@@ -198,8 +198,6 @@ fun PlayerScreen(
     onNextEpisode: () -> Unit = {},
     onCancelNextEpisode: () -> Unit = {},
     onSkipSegment: () -> Unit = {},
-    onCast: () -> Boolean = { false },
-    onCastRestOfSeason: () -> Boolean = { false },
     onDownload: () -> Boolean = { false },
     miniPlayer: Boolean = false,
     onMiniPlayer: (() -> Unit)? = null,
@@ -213,9 +211,12 @@ fun PlayerScreen(
     isTelevision: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION,
 ) {
+    if (state.bedtimeReached) {
+        app.reelstack.ui.kids.BedtimeScreen(onClose = onClose, modifier = Modifier.fillMaxSize())
+        return
+    }
     val videoFocus = remember { FocusRequester() }
     val appearanceContext = androidx.compose.ui.platform.LocalContext.current
-    val castEnabled = app.reelstack.cast.CastConfiguration.isEnabled(appearanceContext)
     val appearancePreferences = remember(appearanceContext) { app.reelstack.data.repository.AppPreferencesRepository(appearanceContext) }
     var appearance by remember { mutableStateOf(appearancePreferences.personalization) }
     DisposableEffect(appearancePreferences) {
@@ -246,14 +247,15 @@ fun PlayerScreen(
     // A seek may briefly buffer. That is not a pause and must not reveal the whole OSD.
     val canHide = (state.playing || state.busy && state.playWhenReady) &&
         state.error == null && !state.ended && !state.awaitingResume
-    val finishedWithNext = state.ended && state.showNextEpisodeOffer()
-    val showControls = controls || (!canHide && !finishedWithNext && !dismissedControls) || menu != null
+    val finishedOffer = state.ended && (state.showNextEpisodeOffer() || state.showSeriesFinishedOffer())
+    val showControls = controls || (!canHide && !finishedOffer && !dismissedControls) || menu != null
     val showNextOffer = state.showNextEpisodeOffer() && menu == null && !scrubbing
+    val showSeriesFinished = state.showSeriesFinishedOffer() && menu == null && !scrubbing
     val latestShown by rememberUpdatedState(showControls)
     val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null)
-    LaunchedEffect(canHide, finishedWithNext, dismissedControls) {
+    LaunchedEffect(canHide, finishedOffer, dismissedControls) {
         // Paused playback opens with controls, but an explicit Back must be allowed to hide them.
-        if (!canHide && !dismissedControls) controls = !finishedWithNext
+        if (!canHide && !dismissedControls) controls = !finishedOffer
     }
     LaunchedEffect(controls, canHide, interaction, menu, scrubbing) {
         if (controls && canHide && menu == null && !scrubbing) {
@@ -263,14 +265,14 @@ fun PlayerScreen(
     }
     LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu) {
         if (isTelevision && menu == null && !state.browsing) {
-            if (showNextOffer && state.ended) nextFocus.requestFocus()
+            if ((showNextOffer || showSeriesFinished) && state.ended) nextFocus.requestFocus()
             else if (!showControls && !nextHasFocus) videoFocus.requestFocus()
             else if (!state.busy && !state.awaitingResume && state.error == null && !controlsHaveFocus && !nextHasFocus)
                 playFocus.requestFocus()
         }
     }
-    LaunchedEffect(isTelevision, showNextOffer, state.ended) {
-        if (isTelevision && showNextOffer) nextFocus.requestFocus()
+    LaunchedEffect(isTelevision, showNextOffer, showSeriesFinished, state.ended) {
+        if (isTelevision && (showNextOffer || showSeriesFinished)) nextFocus.requestFocus()
     }
     BackHandler {
         if (isTelevision && menu != null && !state.browsing && !state.awaitingResume && state.error == null) {
@@ -415,13 +417,17 @@ fun PlayerScreen(
                 }
             }
         } else if (isTelevision && !state.awaitingResume && state.error == null) {
-            TvPlaybackOverlay(state, showControls, remoteSeekTargetMs, playFocus, nextFocus.takeIf { showNextOffer },
+            TvPlaybackOverlay(state, showControls, remoteSeekTargetMs, playFocus, nextFocus.takeIf { showNextOffer || showSeriesFinished },
                 onToggle, onSeek, { menu = PlayerMenu.AUDIO }, { menu = PlayerMenu.SUBTITLES },
                 { menu = PlayerMenu.QUALITY }, fillVideo, { fillVideo = !fillVideo },
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
                 onChapters = { menu = PlayerMenu.CHAPTERS },
-                onStats = { statsVisible = !statsVisible }, kids = kids)
+                onStats = { statsVisible = !statsVisible }, showPlaybackModeLine = appearance.showPlaybackModeInOsd,
+                kids = kids)
             if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
+                Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
+                    .padding(horizontal = 48.dp, vertical = 27.dp).onFocusChanged { nextHasFocus = it.hasFocus })
+            else if (showSeriesFinished) SeriesFinishedCard(onClose, nextFocus,
                 Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
                     .padding(horizontal = 48.dp, vertical = 27.dp).onFocusChanged { nextHasFocus = it.hasFocus })
             else Box(Modifier.align(Alignment.TopEnd).padding(horizontal = 48.dp, vertical = 80.dp)) {
@@ -447,15 +453,8 @@ fun PlayerScreen(
                     onClose = onClose,
                     showBack = !isTelevision,
                     actions = {
-                        if (!kids && !isTelevision && castEnabled) {
-                            app.reelstack.cast.CastRouteButton(Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape))
-                            IconButton(onClick = onCast, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-cast")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.MiniPlayer, stringResource(R.string.cast_connect), modifier = Modifier.size(20.dp))
-                            }
-                            if (state.episode != null) IconButton(onClick = onCastRestOfSeason, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-cast-season")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.ListLines, stringResource(R.string.cast_rest_of_season), modifier = Modifier.size(20.dp))
-                            }
-                            IconButton(onClick = onDownload, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-download")) {
+                        if (!kids && !isTelevision) {
+                            IconButton(onClick = { onDownload() }, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-download")) {
                                 Icon(app.reelstack.ui.components.SpoleIcons.Download, stringResource(R.string.offline_download), modifier = Modifier.size(20.dp))
                             }
                         }
@@ -478,6 +477,7 @@ fun PlayerScreen(
                 )
                 if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                     Modifier.align(Alignment.End))
+                else if (showSeriesFinished) SeriesFinishedCard(onClose, nextFocus, Modifier.align(Alignment.End))
                 if (!showNextOffer) SkipSegmentButton(state, onSkipSegment)
             AnimatedVisibility(visible = showControls, enter = fadeIn(tween(90)), exit = fadeOut(tween(140)),
                 modifier = Modifier.weight(1f).testTag("player-controls")) {
@@ -626,7 +626,7 @@ fun PlayerScreen(
                                 }
                             }
                         }
-                        Text(
+                        if (appearance.showPlaybackModeInOsd) Text(
                             listOfNotNull(
                                 stringResource(playbackModeLabel(state.mode), state.source.displayName),
                                 playbackReasonFor(state)?.let { stringResource(R.string.player_reason_because, stringResource(it)) },
@@ -885,58 +885,100 @@ internal fun TimelineThumbnailPreview(
     }
 }
 
-/** A quiet corner offer; its countdown starts at the user's chosen lead time. */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+/** A compact, Emby-like corner offer; it leaves the picture as the primary surface. */
 @Composable
 private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCancel: () -> Unit,
     focus: FocusRequester, modifier: Modifier = Modifier) {
     val next = state.nextEpisode ?: return
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val shape = RoundedCornerShape(14.dp)
-    Surface(modifier.widthIn(max = 360.dp).fillMaxWidth()
-        .focusGroup().testTag("player-next-episode"), shape = RoundedCornerShape(16.dp),
+    val shape = RoundedCornerShape(12.dp)
+    Surface(modifier.widthIn(max = 292.dp).fillMaxWidth()
+        .focusGroup().testTag("player-next-episode"), shape = shape,
         color = Color.Black.copy(alpha = .64f), contentColor = Color.White, tonalElevation = 0.dp) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 app.reelstack.ui.components.MediaArtwork(next.artworkUrl, next.title,
-                    Modifier.width(104.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
+                    Modifier.width(76.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(7.dp))
                         .testTag("player-next-artwork"),
                     fallbackRes = R.drawable.media_placeholder,
                     source = state.source)
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelLarge,
+                    Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = .7f))
-                    Text(next.title, style = MaterialTheme.typography.titleMedium, maxLines = 1,
+                    Text(next.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
                     Text(app.reelstack.ui.components.episodeLine(next.season, next.episode, next.subtitle),
-                        style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         color = Color.White.copy(alpha = .7f))
                 }
             }
-            state.nextEpisodeCountdown?.let {
-                LinearProgressIndicator(progress = { (it.toFloat() / state.nextEpisodeCountdownTotalSeconds.coerceAtLeast(1)).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(3.dp).testTag("player-next-progress"),
-                    color = Color.White, trackColor = Color.White.copy(alpha = .18f), drawStopIndicator = {})
-                Text(stringResource(R.string.next_episode_countdown, it),
-                    style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .7f))
-            }
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onPlay, shape = shape, interactionSource = interaction,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = .18f), contentColor = Color.White),
-                    modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus)
-                        .neutralPlayerFocus(interaction, shape).testTag("player-next-play")) {
-                    Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null, Modifier.size(20.dp))
-                    Text(stringResource(R.string.player_next_play), Modifier.padding(start = 8.dp))
-                }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically) {
                 if (!state.ended || state.nextEpisodeCountdown != null) {
                     val cancelInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     TextButton(onClick = onCancel, interactionSource = cancelInteraction,
                         colors = ButtonDefaults.textButtonColors(contentColor = Color.White), shape = shape,
-                        modifier = Modifier.heightIn(min = 48.dp).neutralPlayerFocus(cancelInteraction, shape).testTag("player-next-cancel")) {
+                        modifier = Modifier.heightIn(min = 40.dp).neutralPlayerFocus(cancelInteraction, shape).testTag("player-next-cancel")) {
                         Text(stringResource(if (state.ended) R.string.next_episode_cancel else R.string.next_episode_dismiss))
                     }
                 }
+                Button(onClick = onPlay, shape = shape, interactionSource = interaction,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = .18f), contentColor = Color.White),
+                    modifier = Modifier.heightIn(min = 40.dp).focusRequester(focus)
+                        .neutralPlayerFocus(interaction, shape).testTag("player-next-play")) {
+                    // Keep the countdown in the one affirmative action, as in Emby.  It gives the
+                    // timeout a home without adding a third line or making the small TV card grow.
+                    Box(Modifier.widthIn(min = 168.dp).heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
+                        state.nextEpisodeCountdown?.let {
+                            LinearProgressIndicator(
+                                progress = { (it.toFloat() / state.nextEpisodeCountdownTotalSeconds.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).height(2.dp)
+                                    .testTag("player-next-progress"),
+                                color = Color.White, trackColor = Color.White.copy(alpha = .18f), drawStopIndicator = {},
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null, Modifier.size(18.dp))
+                            AnimatedContent(
+                                targetState = state.nextEpisodeCountdown,
+                                transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(90)) },
+                                label = "next-episode-action",
+                            ) { seconds ->
+                                Text(
+                                    text = if (seconds == null) stringResource(R.string.player_next_play)
+                                    else stringResource(R.string.next_episode_countdown, seconds),
+                                    modifier = Modifier.padding(start = 6.dp), maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The last episode should close with a small decision, never a dead frame of finished video. */
+@Composable
+private fun SeriesFinishedCard(onClose: () -> Unit, focus: FocusRequester, modifier: Modifier = Modifier) {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val shape = RoundedCornerShape(12.dp)
+    Surface(modifier.widthIn(max = 276.dp).fillMaxWidth().focusGroup().testTag("player-series-finished"),
+        shape = shape, color = Color.Black.copy(alpha = .64f), contentColor = Color.White, tonalElevation = 0.dp) {
+        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(app.reelstack.ui.components.SpoleIcons.Done, null, Modifier.size(22.dp), tint = Color.White)
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.player_series_finished), style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(R.string.player_series_finished_hint), style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = .7f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            TextButton(onClick = onClose, interactionSource = interaction,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                modifier = Modifier.heightIn(min = 40.dp).focusRequester(focus)
+                    .neutralPlayerFocus(interaction, shape).testTag("player-series-finished-close")) {
+                Text(stringResource(R.string.player_return_to_series))
             }
         }
     }

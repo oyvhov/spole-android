@@ -9,6 +9,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import java.time.LocalTime
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34])
@@ -75,5 +76,27 @@ class KidsPreferencesTest {
         assertFalse(repo.read("one").libraryTitlesBelow)
         repo.save("one", KidsPreferences(libraryTitlesBelow = true))
         assertTrue(repo.read("one").libraryTitlesBelow)
+    }
+
+    @Test fun bedtimeIsPerProfileAndUsesTheDeviceLocalClock() {
+        val repo = KidsPreferencesRepository(context)
+        val bedtime = KidsBedtime(enabled = true, hour = 19, minute = 30)
+        repo.save("one", KidsPreferences(bedtime = bedtime))
+
+        assertEquals(bedtime, repo.read("one").bedtime)
+        assertFalse(repo.read("two").bedtime.enabled)
+        assertFalse(bedtime.isReached(LocalTime.of(19, 29)))
+        assertTrue(bedtime.isReached(LocalTime.of(19, 30)))
+        assertTrue(bedtime.isReached(LocalTime.of(23, 59)))
+        assertFalse(bedtime.copy(enabled = false).isReached(LocalTime.of(23, 59)))
+    }
+
+    @Test fun bedtimeClockCyclesInHalfHourStepsAndStorageBoundsCorruptValues() {
+        val bedtime = KidsBedtime(enabled = true, hour = 23, minute = 30)
+        assertEquals(KidsBedtime(enabled = true, hour = 0, minute = 0), bedtime.nextHalfHour())
+
+        val prefs = context.getSharedPreferences("spole_kids_preferences", Context.MODE_PRIVATE)
+        prefs.edit().putInt("one.bedtime_hour", 99).putInt("one.bedtime_minute", -4).commit()
+        assertEquals(KidsBedtime(hour = 23, minute = 0), KidsPreferencesRepository(context).read("one").bedtime)
     }
 }

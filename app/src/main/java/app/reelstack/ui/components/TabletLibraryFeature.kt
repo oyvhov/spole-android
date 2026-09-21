@@ -259,22 +259,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
            }
           }
-            // The hero is usually showing something you are already part-way through, and until now
-            // the only thing it offered was a second screen with a Play button on it. Playback is
-            // one press from here.
-            //
-            // "Sjå meir" keeps the leading slot on purpose: the hero rotates between titles, and
-            // two tests hold it to the promise that the action never moves while it does. A play
-            // button that comes and goes with the selected title cannot lead the row without
-            // breaking that, so it sits beside it instead — one D-pad press to the right.
+            // The hero is usually showing something you are already part-way through. Starting or
+            // resuming it is therefore the leading, accent-coloured action; details remain one
+            // D-pad press to the right and keep their stable identity while the hero rotates.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                FilledTonalButton(onClick = { onOpen(selected.id) }, interactionSource = actionInteraction,
-                    modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
-                    .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
-                    Text(stringResource(R.string.feature_more), style = MaterialTheme.typography.labelLarge)
-                    Icon(app.reelstack.ui.components.SpoleIcons.ArrowForward, null, Modifier.padding(start = 8.dp).size(16.dp))
-                }
                 if (selected.playableNow()) {
                     val resuming = (selected.progress ?: 0f) > 0f
                     Button(
@@ -290,6 +278,13 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                         Text(stringResource(if (resuming) R.string.tv_resume else R.string.player_play),
                             Modifier.padding(start = 8.dp), style = MaterialTheme.typography.labelLarge)
                     }
+                }
+                FilledTonalButton(onClick = { onOpen(selected.id) }, interactionSource = actionInteraction,
+                    modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
+                    .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
+                    Text(stringResource(R.string.feature_more), style = MaterialTheme.typography.labelLarge)
+                    Icon(app.reelstack.ui.components.SpoleIcons.ArrowForward, null, Modifier.padding(start = 8.dp).size(16.dp))
                 }
             }
         }

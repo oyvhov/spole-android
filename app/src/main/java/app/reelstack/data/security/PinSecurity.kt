@@ -31,7 +31,10 @@ class PinSecurity(
         const val KEY_HASH = "kid.pin.hash"
         const val KEY_ITERATIONS = "kid.pin.iterations"
 
-        const val DEFAULT_ITERATIONS = 10_000
+        /** New PINs use this cost; v2 records keep their own cost in [KEY_ITERATIONS]. */
+        const val DEFAULT_ITERATIONS = 100_000
+        private const val MIN_ITERATIONS = 10_000
+        private const val MAX_ITERATIONS = 1_000_000
         const val KEY_LENGTH_BITS = 256
         const val SALT_LENGTH_BYTES = 16
 
@@ -54,21 +57,14 @@ class PinSecurity(
         }
     }
 
-    /**
-     * True if a PIN has been set.
-     * Note: Checks if either salt or hash is present so corrupted state is detected
-     * as "configured but damaged" rather than silently unconfigured.
-     */
-    fun isPinConfigured(): Boolean {
-        val hash = tokenStore.get(KEY_HASH)
-        val salt = tokenStore.get(KEY_SALT)
-        return !hash.isNullOrBlank() || !salt.isNullOrBlank()
-    }
+    /** A stored but unreadable secret is still a configured PIN and must fail closed. */
+    fun isPinConfigured(): Boolean = listOf(KEY_VERSION, KEY_ITERATIONS, KEY_SALT, KEY_HASH)
+        .any(tokenStore::hasStoredValue)
 
     fun pinVersion(): Int {
         val ver = tokenStore.get(KEY_VERSION)?.toIntOrNull()
         if (ver != null) return ver
-        // If hash & salt exist but no version key, it's legacy v1 (SHA-256)
+        // If the legacy salt/hash pair exists without a version key, it is v1 (SHA-256).
         return if (isPinConfigured()) VERSION_LEGACY else VERSION_PBKDF2
     }
 
@@ -80,10 +76,12 @@ class PinSecurity(
         val salt = ByteArray(SALT_LENGTH_BYTES).also { random.nextBytes(it) }
         val hash = pbkdf2HmacSha256(sanitized.toCharArray(), salt, DEFAULT_ITERATIONS, KEY_LENGTH_BITS)
 
-        tokenStore.put(KEY_VERSION, VERSION_PBKDF2.toString())
-        tokenStore.put(KEY_ITERATIONS, DEFAULT_ITERATIONS.toString())
-        tokenStore.put(KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
-        tokenStore.put(KEY_HASH, Base64.encodeToString(hash, Base64.NO_WRAP))
+        tokenStore.putAll(mapOf(
+            KEY_VERSION to VERSION_PBKDF2.toString(),
+            KEY_ITERATIONS to DEFAULT_ITERATIONS.toString(),
+            KEY_SALT to Base64.encodeToString(salt, Base64.NO_WRAP),
+            KEY_HASH to Base64.encodeToString(hash, Base64.NO_WRAP),
+        ))
 
         resetLockout()
     }
@@ -123,15 +121,17 @@ class PinSecurity(
             return PinResult.LockedOut(lockoutSeconds)
         }
 
+        val hasPersistedState = isPinConfigured()
         val storedSaltB64 = tokenStore.get(KEY_SALT)
         val storedHashB64 = tokenStore.get(KEY_HASH)
 
-        if (storedSaltB64.isNullOrBlank() && storedHashB64.isNullOrBlank()) {
-            // Truly unconfigured
+        if (!hasPersistedState) {
+            // Truly unconfigured: no old ciphertext or metadata exists under any PIN key.
             return PinResult.Success
         }
 
-        // Fail-closed: If either salt or hash is missing or unreadable, FAIL CLOSED!
+        // Fail closed if encryption, backup restoration or corruption makes any PIN material
+        // unreadable. Never reinterpret it as an absent parental PIN.
         if (storedSaltB64.isNullOrBlank() || storedHashB64.isNullOrBlank()) {
             return PinResult.Corrupted
         }
@@ -139,23 +139,38 @@ class PinSecurity(
         val salt = runCatching { Base64.decode(storedSaltB64, Base64.NO_WRAP) }.getOrNull()
         val storedHash = runCatching { Base64.decode(storedHashB64, Base64.NO_WRAP) }.getOrNull()
 
-        if (salt == null || storedHash == null || salt.isEmpty() || storedHash.isEmpty()) {
+        if (salt == null || storedHash == null || salt.size != SALT_LENGTH_BYTES ||
+            storedHash.size * 8 != KEY_LENGTH_BITS) {
             return PinResult.Corrupted
         }
 
         val sanitized = enteredPin.trim()
-        val version = pinVersion()
+        val version = tokenStore.get(KEY_VERSION)?.toIntOrNull()
+            ?: when {
+                // A v2 record without a readable version must never be downgraded to v1.
+                tokenStore.hasStoredValue(KEY_VERSION) || tokenStore.hasStoredValue(KEY_ITERATIONS) -> {
+                    return PinResult.Corrupted
+                }
+                // v1 had no version or cost metadata.
+                else -> VERSION_LEGACY
+            }
 
         val isMatch = when (version) {
             VERSION_PBKDF2 -> {
-                val iterations = tokenStore.get(KEY_ITERATIONS)?.toIntOrNull() ?: DEFAULT_ITERATIONS
+                val iterations = tokenStore.get(KEY_ITERATIONS)?.toIntOrNull()
+                    ?.takeIf { it in MIN_ITERATIONS..MAX_ITERATIONS }
+                    ?: return PinResult.Corrupted
                 val enteredHash = pbkdf2HmacSha256(
                     pin = sanitized.toCharArray(),
                     salt = salt,
                     iterations = iterations,
                     keyLengthBits = storedHash.size * 8,
                 )
-                MessageDigest.isEqual(storedHash, enteredHash)
+                MessageDigest.isEqual(storedHash, enteredHash).also { matches ->
+                    // V2 deliberately keeps the iteration count with the record, so older builds
+                    // can still read this upgraded value. Upgrade only after proof of the old PIN.
+                    if (matches && iterations < DEFAULT_ITERATIONS) setPin(sanitized)
+                }
             }
             VERSION_LEGACY -> {
                 val enteredHash = sha256(salt + sanitized.toByteArray(Charsets.UTF_8))

@@ -153,6 +153,12 @@ internal fun SeriesEpisodes(
     val tv = app.reelstack.ui.components.isTelevision()
     val showUpcoming = app.reelstack.ui.theme.LocalPersonalization.current.showUpcomingEpisodes
     val episodes = browse.episodes.filter { showUpcoming || it.available }
+    // The series Play button already resolves this target. Giving the same episode initial focus
+    // in the season row makes a remote's first Select do the unsurprising thing as well.
+    val preferredEpisode = nextEpisodeTarget(browse)?.remoteId?.let { id ->
+        episodes.firstOrNull { it.remoteId == id }
+    }
+    val focusEpisode = preferredEpisode ?: episodes.firstOrNull()
     if (browse.openedFor != detailKey) return
     if (browse.seasons.isEmpty() && !browse.loading && browse.error == null) return
     Column(Modifier.fillMaxWidth().padding(top = 22.dp).testTag("detail-seasons"),
@@ -195,9 +201,10 @@ internal fun SeriesEpisodes(
                 if (tv) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(4.dp)) {
                         items(episodes, key = { it.id }) { episode ->
-                            Box(Modifier.width(208.dp).then(if (episode.id == episodes.first().id)
+                            val ready = episode.id == preferredEpisode?.id
+                            Box(Modifier.width(208.dp).then(if (episode.id == focusEpisode?.id)
                                 Modifier.focusRequester(firstEpisode) else Modifier)) {
-                                TvEpisodeCard(episode, episode.id == detailKey, onEpisodeClick)
+                                TvEpisodeCard(episode, episode.id == detailKey, ready, onEpisodeClick)
                             }
                         }
                     }
@@ -207,10 +214,13 @@ internal fun SeriesEpisodes(
                 // long-running anime, and composing two hundred rows to show six is what turns a
                 // page open into a visible pause.
                 var showAll by remember(browse.selectedSeasonId) { mutableStateOf(false) }
-                val visible = if (showAll) episodes else episodes.take(EPISODE_PREVIEW)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    visible.forEachIndexed { index, episode ->
-                        Box(if (index == 0) Modifier.focusRequester(firstEpisode) else Modifier) { EpisodeRow(episode, episode.id == detailKey, onEpisodeClick) }
+                    val visible = if (showAll) episodes else episodes.take(EPISODE_PREVIEW)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        visible.forEachIndexed { index, episode ->
+                        val ready = episode.id == preferredEpisode?.id
+                        Box(if (episode.id == focusEpisode?.id || preferredEpisode !in visible && index == 0) Modifier.focusRequester(firstEpisode) else Modifier) {
+                            EpisodeRow(episode, episode.id == detailKey, ready, onEpisodeClick)
+                        }
                     }
                     if (visible.size < episodes.size) Chip(
                         text = pluralStringResource(
@@ -231,7 +241,8 @@ internal fun SeriesEpisodes(
 private const val EPISODE_PREVIEW = 12
 
 @Composable
-private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, onEpisodeClick: (LibraryMedia) -> Unit = {}) {
+private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolean = false,
+    onEpisodeClick: (LibraryMedia) -> Unit = {}) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxWidth().clip(shape).focusOutline(interaction, shape)
@@ -243,6 +254,9 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, onEpisodeClic
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
             MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), episode.artworkRes, source = episode.source)
             if (!episode.available) EpisodeStatusBadge(episode, Modifier.align(Alignment.TopStart).padding(8.dp))
+            if (ready) Icon(SpoleIcons.PlaySimple, stringResource(R.string.detail_next_to_play),
+                Modifier.align(Alignment.Center).size(28.dp).background(Color.Black.copy(alpha = .68f), RoundedCornerShape(20.dp)).padding(6.dp),
+                tint = Color.White)
             if (episode.played) Icon(SpoleIcons.Done, stringResource(R.string.library_played_unmark),
                 Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.Black.copy(alpha = .7f), RoundedCornerShape(8.dp)).padding(4.dp), tint = Color.White)
             episode.progress?.takeIf { it > 0f }?.let { progress ->
@@ -253,7 +267,9 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, onEpisodeClic
         val numberLabel = episode.episode?.let { stringResource(R.string.episode_number, it) }
         Text(if (name.equals(numberLabel, true)) name else listOfNotNull(episode.episode?.toString(), name).joinToString(" · "),
             style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            color = if (current) PrimarySoft else MaterialTheme.colorScheme.onSurface)
+            color = if (current || ready) PrimarySoft else MaterialTheme.colorScheme.onSurface)
+        if (ready) Text(stringResource(R.string.detail_next_to_play), color = Primary,
+            style = MaterialTheme.typography.labelMedium, maxLines = 1)
         if (!episode.available) EpisodeAvailability(episode)
         episode.runtimeMinutes?.let { Text(stringResource(R.string.detail_minutes, it), color = Muted, style = MaterialTheme.typography.labelMedium) }
     }
@@ -276,7 +292,8 @@ private fun seasonLabel(season: LibraryMedia): String {
  * at a glance; everything else is one line so a season of twenty-four does not become a wall.
  */
 @Composable
-private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false, onEpisodeClick: (LibraryMedia) -> Unit = {}) {
+private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false, ready: Boolean = false,
+    onEpisodeClick: (LibraryMedia) -> Unit = {}) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
     val itemId = episode.remoteId.orEmpty()
@@ -316,7 +333,7 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false, onEpisod
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (episode.played) Icon(SpoleIcons.Done, stringResource(R.string.library_played_unmark),
                     Modifier.size(15.dp).padding(end = 5.dp), tint = Primary)
-                else if (current) Icon(SpoleIcons.Play, null,
+                else if (current || ready) Icon(SpoleIcons.Play, null,
                     Modifier.size(15.dp).padding(end = 5.dp), tint = PrimarySoft)
                 // "4 · Getaway Sticks" when there is a name, "Episode 4" when there is not — never
                 // a number with a lonely separator hanging off it.
@@ -342,6 +359,8 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false, onEpisod
                 }
             }
             if (!episode.available) EpisodeAvailability(episode)
+            if (ready) Text(stringResource(R.string.detail_next_to_play), color = Primary,
+                style = MaterialTheme.typography.labelSmall)
             episode.overview?.takeIf(String::isNotBlank)?.let {
                 Text(it, color = Muted, style = MaterialTheme.typography.bodySmall,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -360,14 +379,17 @@ private fun episodeName(episode: LibraryMedia): String =
 /**
  * Where "Play" on a series page should land.
  *
- * The half-watched episode first, then the first unwatched one, then the first one at all. That is
- * the order a person resumes a series in, and it is the order Jellyfin's own clients use — the
- * point is that pressing Play never starts something already finished.
+ * The half-watched episode comes first, then the first unwatched one. A fully watched series can
+ * still be intentionally restarted from episode one, but it never gets a misleading “next” mark.
  */
-internal fun resumeTarget(browse: SeriesBrowse): LibraryMedia? =
+internal fun nextEpisodeTarget(browse: SeriesBrowse): LibraryMedia? =
     browse.nextUp?.takeIf { it.available }
         ?: browse.episodes.firstOrNull { it.available && (it.progress ?: 0f) > 0f && !it.played }
         ?: browse.episodes.firstOrNull { it.available && !it.played }
+
+/** The first available episode is a sensible first start, but never a false “next” marker. */
+internal fun resumeTarget(browse: SeriesBrowse): LibraryMedia? =
+    nextEpisodeTarget(browse)
         ?: browse.episodes.firstOrNull { it.available }
 
 /** Says why Play is missing while the episodes are still on their way. */

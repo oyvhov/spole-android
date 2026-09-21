@@ -67,4 +67,13 @@
     <string name="kids_pin_disable_title">Turn off PIN?</string>
     <string name="kids_pin_disable_body">Anyone can then return to adult mode without a code.</string>
     <string name="kids_pin_disable_action">Turn off</string>
+    <string name="kids_bedtime_enabled">Bedtime</string>
+    <string name="kids_bedtime_enabled_hint">Finish the current episode, then stop for the day.</string>
+    <string name="kids_bedtime_time_title">Bedtime starts</string>
+    <string name="kids_bedtime_time">At %1$02d:%2$02d</string>
+    <string name="kids_bedtime_local_note">This is a local family routine. A child who can change the device clock can bypass it.</string>
+    <string name="kids_bedtime_done_title">Done for today</string>
+    <string name="kids_bedtime_done_body">That was the last story for today. We can choose a new one tomorrow.</string>
+    <string name="kids_bedtime_profile_action">Switch profile</string>
+    <string name="kids_bedtime_back_action">Back to the stories</string>
 </resources>

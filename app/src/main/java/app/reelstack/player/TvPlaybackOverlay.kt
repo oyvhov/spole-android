@@ -37,6 +37,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, fillVideo: Boolean,
     onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
     onChapters: () -> Unit = {}, onStats: () -> Unit = {},
+    showPlaybackModeLine: Boolean = true,
     /** Kids mode: no tools row, parental defaults. */
     kids: Boolean = false) {
     val tools = remember { FocusRequester() }
@@ -241,7 +242,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
                 stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill), "player-frame-mode",
                 Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onFrame() }
         }
-        Text(
+        if (showPlaybackModeLine) Text(
             listOfNotNull(
                 stringResource(playbackModeLabel(state.mode), state.source.displayName),
                 playbackReasonFor(state)?.let { stringResource(R.string.player_reason_because, stringResource(it)) },

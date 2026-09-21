@@ -3,7 +3,6 @@ package app.reelstack.data.network
 import app.reelstack.data.model.ServiceConnection
 import okhttp3.Request
 import java.io.ByteArrayOutputStream
-import java.net.URI
 
 /** Never forward a service credential to an external avatar host or through a redirect. */
 internal fun profileImageHeaders(connection: ServiceConnection?, url: String, deviceId: String): Map<String, String> {
@@ -12,9 +11,8 @@ internal fun profileImageHeaders(connection: ServiceConnection?, url: String, de
 }
 
 internal fun loadProfileImage(url: String, connection: ServiceConnection?, deviceId: String): ByteArray? {
-    val uri = URI(url)
-    require(uri.scheme in setOf("https", "http") && uri.host != null && uri.userInfo == null)
-    val requestBuilder = Request.Builder().url(url)
+    val validatedUrl = EndpointValidator.validateRequestUrl(url)
+    val requestBuilder = Request.Builder().url(validatedUrl)
     requestBuilder.header("Accept", "image/*")
     profileImageHeaders(connection, url, deviceId).forEach { (k, v) -> requestBuilder.header(k, v) }
     return runCatching {

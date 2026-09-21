@@ -86,8 +86,8 @@ it from Settings or delete it there.
 
 Self-hosted servers often use HTTP on a private home network. Spole permits it only for
 `localhost`, `.local` names and literal private addresses (`10.x`, `172.16-31.x`,
-`192.168.x`, `::1`, `fc00::/7`, `fe80::/10`). An HTTP address pointing to a public host
-is rejected rather than merely warned about.
+`192.168.x`, Tailscale sitt `100.64.0.0/10`, `::1`, `fc00::/7`, `fe80::/10`). An HTTP
+address pointing til ein offentleg vert er avvist, ikkje berre åtvara om.
 
 When HTTP is used, Settings shows which connections are affected. Outside your own
 network, use HTTPS through your own proxy.

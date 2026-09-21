@@ -1,6 +1,7 @@
 package app.reelstack.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -28,20 +29,42 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>) {
     // CommunityRating is already mapped to tmdbRating when the server exposes it. Keeping the
     // old star fact here made the same score appear once unnamed and once as TMDB.
     val visibleFacts = facts.filterNot { it.startsWith("★") }
+    val ageRating = visibleFacts.firstNotNullOfOrNull(::ageRatingLabel)
+    val descriptiveFacts = visibleFacts.filterNot { ageRatingLabel(it) != null }
     val quality = if (preferences.showQuality) details.quality else emptyList()
-    val line = (visibleFacts + quality).distinct().map { formatMetadataFact(it) }
-    if (line.isNotEmpty()) Row(
+    val descriptiveLine = descriptiveFacts.distinct().map(::formatMetadataFact)
+    if (ageRating != null || descriptiveLine.isNotEmpty()) Row(
         Modifier.fillMaxWidth().padding(top = 14.dp).testTag("playback-metadata"),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            line.joinToString("  ·  "),
+        ageRating?.let { rating ->
+            Text(
+                rating,
+                color = Text,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.background(SurfaceRaised, RoundedCornerShape(5.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp).testTag("age-rating"),
+            )
+        }
+        if (descriptiveLine.isNotEmpty()) Text(
+            descriptiveLine.joinToString("  ·  "),
             color = Muted,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 2,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = if (ageRating != null) Modifier.padding(start = 8.dp) else Modifier,
         )
     }
+    // Codec and channel layout are useful diagnostics, but should not shout as loudly as title,
+    // year and running time. They live on a quieter line below the human-readable metadata.
+    if (quality.isNotEmpty()) Text(
+        quality.distinct().joinToString("  ·  "),
+        color = Muted.copy(alpha = .78f),
+        style = MaterialTheme.typography.bodySmall,
+        maxLines = 2,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp).testTag("technical-metadata"),
+    )
     val score = if (preferences.showRatings) details.tmdbRating else null
     val critic = if (preferences.showRatings) details.criticRating else null
     val mdblist = if (preferences.showRatings) details.mdblistRating else null
@@ -62,6 +85,11 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>) {
         }
     }
 }
+
+/** Jellyfin and Emby return plain age numbers; render them as an actual classification. */
+internal fun ageRatingLabel(fact: String): String? = fact.trim().toIntOrNull()
+    ?.takeIf { it in 0..18 }
+    ?.let { "$it+" }
 
 private val finishTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
 

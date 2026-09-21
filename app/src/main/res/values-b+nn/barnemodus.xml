@@ -67,4 +67,13 @@
     <string name="kids_pin_disable_title">Skru av PIN?</string>
     <string name="kids_pin_disable_body">Alle kan då gå tilbake til vaksenmodus utan kode.</string>
     <string name="kids_pin_disable_action">Skru av</string>
+    <string name="kids_bedtime_enabled">Leggjetid</string>
+    <string name="kids_bedtime_enabled_hint">Lat episoden spele ferdig, og stopp så for dagen.</string>
+    <string name="kids_bedtime_time_title">Leggjetida startar</string>
+    <string name="kids_bedtime_time">Kl. %1$02d:%2$02d</string>
+    <string name="kids_bedtime_local_note">Dette er ei lokal familierutine. Eit barn som kan endre klokka på eininga, kan omgå ho.</string>
+    <string name="kids_bedtime_done_title">Ferdig for i dag</string>
+    <string name="kids_bedtime_done_body">Det var den siste historia for i dag. De kan velje ei ny i morgon.</string>
+    <string name="kids_bedtime_profile_action">Byt profil</string>
+    <string name="kids_bedtime_back_action">Tilbake til historiene</string>
 </resources>

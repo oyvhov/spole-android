@@ -74,6 +74,20 @@ class EndpointValidatorTest {
     }
 
     @Test
+    fun completeRequestUrlsKeepTheirPathAndQueryAfterValidation() {
+        val url = "https://media.example.com/Items/An%20episode/Images/Primary?quality=90"
+        assertEquals(url, EndpointValidator.validateRequestUrl(url))
+    }
+
+    @Test
+    fun sharedJsonTransportRefusesAnUnsafeCompleteUrlBeforeOpeningANetworkRequest() {
+        val failure = runCatching {
+            HttpTransport().get("http://media.example.com/Items/1", emptyMap())
+        }.exceptionOrNull()
+        assertEquals(app.reelstack.R.string.endpoint_cleartext, failure?.localizedFailure()?.resId)
+    }
+
+    @Test
     fun reportsCleartextConnections() {
         assertTrue(EndpointValidator.isCleartext("http://192.168.1.20:8096"))
         assertFalse(EndpointValidator.isCleartext("https://media.example.com"))
@@ -122,6 +136,8 @@ class EndpointValidatorTest {
         listOf(
             "http://192.168.1.5:8096",
             "http://10.0.0.8:8096",
+            "http://100.64.0.8:8096",
+            "http://100.127.255.254:8096",
             "http://172.16.0.1:8096",
             "http://172.31.255.254:8096",
             "http://127.0.0.1:8096",
@@ -135,7 +151,7 @@ class EndpointValidatorTest {
     }
 
     @Test fun addressesOutsideThePrivateRangesStayHttpsOnly() {
-        listOf("http://172.15.0.1", "http://172.32.0.1", "http://11.0.0.1", "http://192.169.0.1", "http://256.1.1.1")
+        listOf("http://100.63.255.255", "http://100.128.0.1", "http://172.15.0.1", "http://172.32.0.1", "http://11.0.0.1", "http://192.169.0.1", "http://256.1.1.1")
             .forEach { address ->
                 assertTrue(address, runCatching { EndpointValidator.normalizeBaseUrl(address) }.isFailure)
             }

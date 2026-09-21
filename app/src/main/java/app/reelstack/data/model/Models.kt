@@ -272,6 +272,8 @@ data class ContentDetails(
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val artworkRes: Int,
+    /** The server id is retained for actions taken after navigating between episode and series. */
+    val remoteId: String? = null,
     val artworkUrl: String? = null,
     val source: ServiceKind? = null,
     val mediaType: String? = null,

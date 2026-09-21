@@ -1,6 +1,7 @@
 package app.reelstack.data.security
 
 import android.content.Context
+import android.util.Base64
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.reelstack.data.repository.InMemoryTokenStore
@@ -71,6 +72,103 @@ class PinSecurityTest {
         val result = pinSec.verifyPin("8492")
         assertTrue(result is PinResult.Success)
         assertEquals(PinSecurity.VERSION_PBKDF2, pinSec.pinVersion())
+    }
+
+    @Test
+    fun `successful v2 10k PIN is rehashed to 100k and remains valid`() {
+        seedV2Pin("1357", 10_000)
+        val oldSalt = tokenStore.get(PinSecurity.KEY_SALT)
+        val oldHash = tokenStore.get(PinSecurity.KEY_HASH)
+        val pinSec = PinSecurity(context, tokenStore = tokenStore)
+
+        assertTrue(pinSec.verifyPin("1357") is PinResult.Success)
+        assertEquals(PinSecurity.DEFAULT_ITERATIONS.toString(), tokenStore.get(PinSecurity.KEY_ITERATIONS))
+        assertNotEquals(oldSalt, tokenStore.get(PinSecurity.KEY_SALT))
+        assertNotEquals(oldHash, tokenStore.get(PinSecurity.KEY_HASH))
+        assertTrue(pinSec.verifyPin("1357") is PinResult.Success)
+    }
+
+    @Test
+    fun `v2 rehash writes a complete PIN record in one transaction`() {
+        val atomicStore = object : TokenStore {
+            val values = mutableMapOf<String, String>()
+            var transactions = 0
+            override fun put(key: String, value: String) {
+                if (key == PinSecurity.KEY_HASH) error("A rehash must not write individual PIN fields")
+                values[key] = value
+            }
+            override fun putAll(values: Map<String, String>) {
+                transactions++
+                this.values.putAll(values)
+            }
+            override fun get(key: String): String? = values[key]
+            override fun remove(key: String) { values.remove(key) }
+            override fun hasStoredValue(key: String): Boolean = values.containsKey(key)
+        }
+        val salt = ByteArray(PinSecurity.SALT_LENGTH_BYTES) { index -> (index + 1).toByte() }
+        atomicStore.values.putAll(mapOf(
+            PinSecurity.KEY_VERSION to PinSecurity.VERSION_PBKDF2.toString(),
+            PinSecurity.KEY_ITERATIONS to "10000",
+            PinSecurity.KEY_SALT to Base64.encodeToString(salt, Base64.NO_WRAP),
+            PinSecurity.KEY_HASH to Base64.encodeToString(PinSecurity.pbkdf2HmacSha256("1357".toCharArray(), salt, 10_000), Base64.NO_WRAP),
+        ))
+
+        assertTrue(PinSecurity(context, atomicStore).verifyPin("1357") is PinResult.Success)
+        assertEquals(1, atomicStore.transactions)
+        assertEquals(PinSecurity.DEFAULT_ITERATIONS.toString(), atomicStore.get(PinSecurity.KEY_ITERATIONS))
+    }
+
+    @Test
+    fun `incorrect v2 10k PIN does not rewrite its existing hash`() {
+        seedV2Pin("1357", 10_000)
+        val oldSalt = tokenStore.get(PinSecurity.KEY_SALT)
+        val oldHash = tokenStore.get(PinSecurity.KEY_HASH)
+        val pinSec = PinSecurity(context, tokenStore = tokenStore)
+
+        assertTrue(pinSec.verifyPin("0000") is PinResult.Incorrect)
+        assertEquals("10000", tokenStore.get(PinSecurity.KEY_ITERATIONS))
+        assertEquals(oldSalt, tokenStore.get(PinSecurity.KEY_SALT))
+        assertEquals(oldHash, tokenStore.get(PinSecurity.KEY_HASH))
+    }
+
+    @Test
+    fun `v2 rejects missing malformed or unreasonable iteration count`() {
+        for (invalid in listOf<String?>(null, "not-a-number", "0", "999999999")) {
+            seedV2Pin("1357", 10_000)
+            if (invalid == null) tokenStore.remove(PinSecurity.KEY_ITERATIONS)
+            else tokenStore.put(PinSecurity.KEY_ITERATIONS, invalid)
+            assertTrue("$invalid must fail closed", PinSecurity(context, tokenStore).verifyPin("1357") is PinResult.Corrupted)
+        }
+    }
+
+    @Test
+    fun `v2 metadata without a readable version is corrupted rather than treated as legacy`() {
+        seedV2Pin("1357", 10_000)
+        tokenStore.remove(PinSecurity.KEY_VERSION)
+
+        assertEquals(PinResult.Corrupted, PinSecurity(context, tokenStore).verifyPin("1357"))
+    }
+
+    @Test
+    fun `unreadable persisted PIN material stays configured and fails closed`() {
+        val unreadable = object : TokenStore {
+            override fun put(key: String, value: String) = Unit
+            override fun get(key: String): String? = null
+            override fun remove(key: String) = Unit
+            override fun hasStoredValue(key: String): Boolean = key == PinSecurity.KEY_HASH
+        }
+        val pinSec = PinSecurity(context, tokenStore = unreadable)
+        assertTrue(pinSec.isPinConfigured())
+        assertTrue(pinSec.verifyPin("1357") is PinResult.Corrupted)
+    }
+
+    private fun seedV2Pin(pin: String, iterations: Int) {
+        val salt = ByteArray(PinSecurity.SALT_LENGTH_BYTES) { index -> (index + 1).toByte() }
+        val hash = PinSecurity.pbkdf2HmacSha256(pin.toCharArray(), salt, iterations)
+        tokenStore.put(PinSecurity.KEY_VERSION, PinSecurity.VERSION_PBKDF2.toString())
+        tokenStore.put(PinSecurity.KEY_ITERATIONS, iterations.toString())
+        tokenStore.put(PinSecurity.KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
+        tokenStore.put(PinSecurity.KEY_HASH, Base64.encodeToString(hash, Base64.NO_WRAP))
     }
 
     @Test

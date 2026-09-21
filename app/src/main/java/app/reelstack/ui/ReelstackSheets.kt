@@ -173,6 +173,7 @@ fun ReelstackSheets(
     onRecoverPinWithPassword: (String, String) -> Unit = { _, _ -> },
     onAddKidUser: (app.reelstack.data.network.PublicUser, String) -> Unit = { _, _ -> },
     onAddKidManual: (String, String, String?) -> Unit = { _, _, _ -> },
+    onDetailBack: () -> Boolean = { false },
 ) {
     val sheet = state.activeSheet ?: return
     // The profile menu is an anchored popup owned by the shell. Falling through to the dialog here
@@ -225,13 +226,19 @@ fun ReelstackSheets(
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss,
         fullScreen = tvDetails,
-        onCloseStarted = { if (connectionDraft?.simpleSetup == true) onCancelConnection() }) { entered, closing, close ->
+        onCloseStarted = { if (connectionDraft?.simpleSetup == true) onCancelConnection() },
+        onBack = if (sheet is AppSheet.TitleDetails) onDetailBack else null) { entered, closing, close ->
+        // Toolbar close and the remote Back use the same detail-history step.  A normal title
+        // still closes exactly as before once there is no parent episode to restore.
+        val closeOrReturn = {
+            if (sheet is AppSheet.TitleDetails && onDetailBack()) Unit else close()
+        }
         val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
         Column(Modifier.fillMaxSize().testTag("sheet-viewport")) {
             if (!tvDetails && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails)) {
                 SheetToolbar(
                     title = if (sheet is AppSheet.SessionDetails) stringResource(R.string.details_playback) else stringResource(R.string.details_title),
-                    closeDescription = stringResource(R.string.details_close), onClose = close, enabled = !closing,
+                    closeDescription = stringResource(R.string.details_close), onClose = closeOrReturn, enabled = !closing,
                     onBack = if (state.returnToCalendar) onBackToCalendar else null,
                     page = tvDetails,
                 )
@@ -756,47 +763,15 @@ private fun TitleActionRow(
                 app.reelstack.ui.components.TrailerPreview(trailer, details.title)
             }
             if (marks) {
-                val playedInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                val playedShape = RoundedCornerShape(12.dp)
-                Box(
-                    Modifier.height(52.dp)
-                        .clip(playedShape)
-                        .background(if (details.played) Success.copy(alpha = 0.22f) else SurfaceRaised)
-                        .border(
-                            width = 1.dp,
-                            color = if (details.played) Success.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                            shape = playedShape,
-                        )
-                        .focusOutline(playedInteraction, playedShape)
-                        .toggleable(
-                            value = details.played,
-                            interactionSource = playedInteraction,
-                            indication = androidx.compose.foundation.LocalIndication.current,
-                            role = Role.Checkbox,
-                            onValueChange = { onPlayed(details.key, !details.played) },
-                        )
-                        .padding(horizontal = 14.dp)
-                        .testTag("detail-played"),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (details.played) app.reelstack.ui.components.SpoleIcons.Done else app.reelstack.ui.components.SpoleIcons.DoneCircle,
-                            contentDescription = stringResource(if (details.played) R.string.library_played_unmark else R.string.library_played_mark),
-                            tint = if (details.played) Success else Muted,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text(
-                            text = stringResource(if (details.played) R.string.detail_action_watched else R.string.detail_action_mark_watched),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = if (details.played) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (details.played) Success else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                IconAction(
+                    icon = if (details.played) app.reelstack.ui.components.SpoleIcons.Done
+                    else app.reelstack.ui.components.SpoleIcons.DoneCircle,
+                    active = details.played,
+                    description = stringResource(if (details.played) R.string.library_played_unmark else R.string.library_played_mark),
+                    tag = "detail-played",
+                    emphaticActive = true,
+                    enabled = !details.updating,
+                ) { onPlayed(details.key, !details.played) }
                 IconAction(
                     icon = if (details.favourite) app.reelstack.ui.components.SpoleIcons.HeartFilled
                     else app.reelstack.ui.components.SpoleIcons.Heart,
@@ -804,6 +779,7 @@ private fun TitleActionRow(
                     description = stringResource(
                         if (details.favourite) R.string.library_favourite_remove else R.string.library_favourite_add),
                     tag = "detail-favourite",
+                    enabled = !details.updating,
                 ) { onFavourite(details.key, !details.favourite) }
             }
             if (onSeries != null) {
@@ -829,14 +805,29 @@ private fun TitleActionRow(
 /** A round, wordless switch. The shape carries the meaning; the label is for the screen reader. */
 @Composable
 private fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, active: Boolean,
-    description: String, tag: String, onClick: () -> Unit) {
+    description: String, tag: String, emphaticActive: Boolean = false, enabled: Boolean = true,
+    onClick: () -> Unit) {
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val background = when {
+        active && emphaticActive -> Primary
+        active -> MaterialTheme.colorScheme.primaryContainer
+        else -> SurfaceRaised
+    }
+    val tint = when {
+        active && emphaticActive -> Ink
+        active -> Primary
+        else -> Muted
+    }
     Box(
         Modifier.size(52.dp).clip(CircleShape)
-            .background(if (active) MaterialTheme.colorScheme.primaryContainer else SurfaceRaised)
+            .background(background)
+            // The outlined idle state and the filled, high-contrast completed state make Sett
+            // and Usett legible at a glance; the favourite keeps its quieter treatment.
+            .then(if (emphaticActive && !active) Modifier.border(1.dp, Muted.copy(alpha = .7f), CircleShape) else Modifier)
             .focusOutline(interaction, CircleShape)
             .toggleable(
                 value = active,
+                enabled = enabled,
                 interactionSource = interaction,
                 indication = androidx.compose.foundation.LocalIndication.current,
                 role = androidx.compose.ui.semantics.Role.Checkbox,
@@ -845,7 +836,7 @@ private fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, ac
             .testTag(tag),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, description, Modifier.size(23.dp), tint = if (active) Primary else Muted)
+        Icon(icon, description, Modifier.size(23.dp), tint = tint)
     }
 }
 

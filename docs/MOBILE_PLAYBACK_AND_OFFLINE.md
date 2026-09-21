@@ -8,10 +8,6 @@ ikkje att automatisk. PiP er framleis ei uttrykkeleg handling frå spelaren, ikk
 automatisk. Spole køyrer ikkje ein `MediaSessionService` for lokal video, så det finst ikkje
 skjult bakgrunnsavspeling.
 
-Cast er annleis: når mottakaren har godteke LOAD, kan telefonen låsast eller appen avsluttast utan
-at mottakaren stansar. Ved profilbyte, utlogging eller fjerning av ei teneste stoppar Spole først
-Cast og ryddar relevante private offline-data.
-
 ## Offline-reglar
 
 `OfflineMediaCandidate` er portvakta for nedlastingsjobbar. Berre komplette, direkte

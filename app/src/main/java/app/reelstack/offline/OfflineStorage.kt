@@ -75,15 +75,18 @@ class OfflineStorage(context: Context) {
     }
 
     fun clearForProfile(profileId: String) {
-        deleteInsideRoot(File(root, digest(profileId.ifBlank { "adult" })))
-        preferences.edit { all.keys.filter { it.startsWith("offline.${digest(profileId.ifBlank { "adult" })}.") }.forEach(::remove) }
+        val profile = digest(profileId.ifBlank { "adult" })
+        deleteInsideRoot(File(root, profile))
+        val keys = preferences.all.keys.filter { it.startsWith("offline.$profile.") }
+        preferences.edit { keys.forEach(::remove) }
     }
 
     fun clearForConnection(profileId: String, connection: ServiceConnection) {
         val profile = digest(profileId.ifBlank { "adult" })
         val service = digest("${connection.kind.name}|${connection.identity}|${connection.userId}")
         deleteInsideRoot(File(File(root, profile), service))
-        preferences.edit { all.keys.filter { it.startsWith("offline.$profile.$service.") }.forEach(::remove) }
+        val keys = preferences.all.keys.filter { it.startsWith("offline.$profile.$service.") }
+        preferences.edit { keys.forEach(::remove) }
     }
 
     fun clearAll() {

@@ -45,10 +45,6 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.Reelstack">
-        <!-- Required by Google Cast. This provider never contains an account, URL or token. -->
-        <meta-data
-            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="app.reelstack.cast.SpoleCastOptionsProvider" />
         <provider android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/update_paths" />
@@ -71,6 +67,7 @@
 
         <activity
             android:name=".player.JellyfinPlayerActivity"
+            android:theme="@style/Theme.Reelstack.Player"
             android:supportsPictureInPicture="true"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />

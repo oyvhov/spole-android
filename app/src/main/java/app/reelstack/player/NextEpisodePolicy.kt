@@ -13,7 +13,12 @@ internal fun PlayerScreenState.showNextEpisodeOffer(): Boolean = !busy && error 
         nextEpisodeOfferEnabled || (ended && nextEpisodeCountdown != null), nextEpisodeDismissed,
         ended, positionMs, durationMs, nextEpisodeLeadSeconds)
 
-internal fun PlayerScreenState.canCountDownNextEpisode(): Boolean = !busy && error == null &&
-    !browsing && !awaitingResume && (playing || ended) && shouldOfferNextEpisode(nextEpisode != null,
+/** A final episode gets one clear way out, but only after the server confirmed there is no next one. */
+internal fun PlayerScreenState.showSeriesFinishedOffer(): Boolean = ended && episode != null &&
+    nextEpisodeResolved && nextEpisode == null && !busy && error == null && !browsing && !awaitingResume
+
+/** The preview may appear near the credits, but automatic playback never cuts an episode short. */
+internal fun PlayerScreenState.canCountDownNextEpisode(): Boolean = ended && !busy && error == null &&
+    !browsing && !awaitingResume && shouldOfferNextEpisode(nextEpisode != null,
         true, nextEpisodeDismissed, ended, positionMs, durationMs,
         if (nextEpisodeOfferEnabled) nextEpisodeLeadSeconds else 0)

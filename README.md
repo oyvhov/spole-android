@@ -18,7 +18,7 @@ into one focused experience. Browse each media server as its own library, play f
 Jellyfin or Emby, and track your requests from Seerr.
 
 **Active beta development.** The latest public APK is
-[0.18.0-beta1](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta1).
+[0.18.0-beta2](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta2).
 It is signed for in-place updates over earlier Spole beta releases. The source for
 this build is available on [main](https://github.com/oyvhov/spole-android/tree/main).
 Pre-release builds are published under [Releases](https://github.com/oyvhov/spole-android/releases).
@@ -91,11 +91,10 @@ provide media. Your account permissions determine what you can view and do.
 
 ## Known limitations
 
-- **Emby playback:** Library browsing, authentic artwork, and direct playback work seamlessly. Certain edge-case transcoded streams or exotic audio codecs on specific Emby server versions are currently undergoing continuous optimization compared to Jellyfin.
-- **Casting (Google Cast):** Sender- og Custom Receiver-grunnlaget ligg no i kjeldekoden, men Cast er medvite skjult fram til ein team-eigd Receiver-ID, GitHub Pages og CORS er konfigurert og testa på fysisk Chromecast. Sjå [Cast-oppsett](docs/CAST_SETUP.md).
+- **Emby playback:** Library browsing, artwork and vanleg direkteavspeling er støtta. Nokre omkoda straumar og uvanlege lydformat kan framleis krevje feilretting for den aktuelle Emby-versjonen.
 - **Offline:** Direkte, komplette Jellyfin- og Emby-filer kan no leggjast til frå mobil-/nettbrettspelaren i ein app-privat, kontoavgrensa Media3-kø. TV viser aldri nedlasting. Lagringsgrense og eige nedlastingsbibliotek kjem før funksjonen vert gjort breitt tilgjengeleg. Sjå [mobil og offline](docs/MOBILE_PLAYBACK_AND_OFFLINE.md).
-- **Physical device hardware matrix:** Continuous integration and regression testing are conducted on Google Android TV and mobile virtual devices (API 26–36). Proprietary TV OEM forks (such as modified Fire OS or operator-customized TV boxes) may display minor visual or input handling variations.
-- **Parental control & PIN security:** Child mode exit is protected with PBKDF2-HMAC-SHA256 (10,000 iterations) with progressive lockout. Recovering a lost PIN requires connecting to the primary adult media server.
+- **Fysiske einingar:** Kontinuerleg integrasjon og regresjonstest går på Google Android TV- og mobilemulatorar (API 26–36). TV-ar med eigne produsentvariantar, som Fire OS eller operatørtilpassa boksar, kan ha mindre skilnader i utsjånad eller fjernkontroll.
+- **Foreldrekontroll og PIN:** Utgang frå barnemodus er verna med PBKDF2-HMAC-SHA256 (100 000 rundar) og aukande ventetid ved feil. Eldre PIN-lagringar med lågare kostnad blir styrkte etter ein korrekt PIN. Attstilling av gløymd PIN krev kontakt med den primære vaksne medietenaren.
 
 ## Getting started
 

@@ -76,7 +76,11 @@ class HttpTransport(
         headers: Map<String, String>,
         jsonBody: String?,
     ): HttpResponse {
-        val requestBuilder = Request.Builder().url(url)
+        // Every JSON client goes through this transport. Keep validation here as a second line of
+        // defence so a future client cannot accidentally bypass EndpointValidator by passing a
+        // complete URL directly to a fake-looking transport call.
+        val validatedUrl = EndpointValidator.validateRequestUrl(url)
+        val requestBuilder = Request.Builder().url(validatedUrl)
         requestBuilder.header("Accept", "application/json")
         requestBuilder.header("User-Agent", "Spole/${BuildConfig.VERSION_NAME} Android")
         headers.forEach { (key, value) -> requestBuilder.header(key, value) }

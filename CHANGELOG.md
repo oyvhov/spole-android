@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.18.0-beta2 - stabilare detaljhandlingar og TV-heimeside
+
+- Rettar «Ikkje sett» etter episode → serie → tilbake: den opne episoden er no alltid ei gyldig
+  handling, og dobbelttrykk er låst medan tenaren svarar.
+- Gjer Spel av/Hald fram til tydeleg primærhandling i TV-heroen og flyttar «Spelar no» under
+  «Hald fram» for nye heimoppsett.
+- Viser rein numerisk aldersgrense som ei lita `6+`-brikke og legg kodek-/lydinformasjon på ei
+  rolegare eiga linje.
+- Styrkjer nettverksportvakta for alle JSON-kall, støttar Tailscale-adresser på privat HTTP og
+  publiserer PIN-oppgradering til 100 000 PBKDF2-rundar.
+- Fjernar den uferdige Google Cast-løysinga frå denne versjonen.
+
 ## 0.18.0-beta1 - Barnemodus: betre bibliotekssider
 
 - Held biblioteknamn tydelege under bileta på mobil og nettbrett som standard.

@@ -62,6 +62,10 @@ class KidsSettingsUiTest {
         capture("phone-parent-profile")
         rule.onNodeWithTag("child-allow-appearance").performScrollTo().performClick()
         rule.runOnIdle { assertFalse(KidsPreferencesRepository(context).read(child.id).allowAppearance) }
+        rule.onNodeWithTag("child-bedtime-enabled").performScrollTo().performClick()
+        rule.runOnIdle { assertTrue(KidsPreferencesRepository(context).read(child.id).bedtime.enabled) }
+        rule.onNodeWithTag("child-bedtime-time").performScrollTo().assertIsDisplayed().performClick()
+        rule.runOnIdle { assertEquals(20, KidsPreferencesRepository(context).read(child.id).bedtime.hour) }
         rule.onNodeWithTag("child-subtitles").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("child-settings-back").performScrollTo().performClick()
         rule.onNodeWithTag("settings-add-child").performScrollTo().assertIsDisplayed()

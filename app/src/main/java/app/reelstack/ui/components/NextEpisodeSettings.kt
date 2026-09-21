@@ -3,6 +3,10 @@ package app.reelstack.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
@@ -10,6 +14,7 @@ import app.reelstack.data.model.Personalization
 
 @Composable
 internal fun NextEpisodeSettings(value: Personalization, onChange: (Personalization) -> Unit) {
+    var advanced by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SettingsToggleRow(stringResource(R.string.player_next_episode), stringResource(R.string.next_episode_offer_hint),
             value.showNextEpisode, "next-episode-enabled") { onChange(value.copy(showNextEpisode = it)) }
@@ -26,6 +31,19 @@ internal fun NextEpisodeSettings(value: Personalization, onChange: (Personalizat
             ThemeChoice(stringResource(R.string.next_episode_delay), value.nextEpisodeDelaySeconds,
                 listOf(5, 10, 12, 15, 20, 30, 60), "next-episode-delay",
                 { stringResource(R.string.next_episode_seconds, it) }) { onChange(value.copy(nextEpisodeDelaySeconds = it)) }
+        }
+        SettingsActionRow(
+            stringResource(if (advanced) R.string.playback_advanced_hide else R.string.playback_advanced),
+            stringResource(R.string.playback_advanced_hint),
+            "playback-advanced",
+        ) { advanced = !advanced }
+        if (advanced) {
+            SettingsToggleRow(
+                stringResource(R.string.player_osd_playback_mode),
+                stringResource(R.string.player_osd_playback_mode_hint),
+                value.showPlaybackModeInOsd,
+                "player-osd-playback-mode",
+            ) { onChange(value.copy(showPlaybackModeInOsd = it)) }
         }
     }
 }

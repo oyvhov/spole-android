@@ -86,9 +86,12 @@ data class Personalization(
     val artworkSize: ArtworkSize = ArtworkSize.STANDARD,
     val autoResume: Boolean = true,
     val showNextEpisode: Boolean = true,
-    val nextEpisodeLeadSeconds: Int = 60,
+    /** Keep the next-episode prompt late and unobtrusive by default. */
+    val nextEpisodeLeadSeconds: Int = 15,
     val autoPlayNextEpisode: Boolean = true,
     val nextEpisodeDelaySeconds: Int = 12,
+    /** The explanatory direct-play/transcode line under the player controls. */
+    val showPlaybackModeInOsd: Boolean = true,
     val lightweightTv: Boolean = false,
     val sidebarExpanded: Boolean? = null,
     val hideTvSidebar: Boolean = false,

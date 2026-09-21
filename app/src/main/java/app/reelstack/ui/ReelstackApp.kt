@@ -118,6 +118,8 @@ import app.reelstack.ui.theme.SurfaceRaised
 @Composable
 fun ReelstackApp(viewModel: ReelstackViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val homeState by viewModel.homeUiState.collectAsStateWithLifecycle()
+    val discoverState by viewModel.discoverUiState.collectAsStateWithLifecycle()
     val applicationContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     if (state.signingOut) {
         BackHandler { }
@@ -175,7 +177,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(lifecycleOwner, state.selectedTab, state.activeSheet) {
+    LaunchedEffect(lifecycleOwner, state.activeProfileId, state.selectedTab, state.activeSheet) {
         if (!appReadyForBackgroundWork) return@LaunchedEffect
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             if (viewModel.uiState.value.selectedTab == AppTab.HOME || viewModel.uiState.value.activeSheet is AppSheet.SessionDetails) {
@@ -365,7 +367,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 tabStates.SaveableStateProvider(tab) {
                 when (tab) {
                     AppTab.HOME -> HomeScreen(
-                        state = state,
+                        state = homeState,
                         contentPadding = screenInsets,
                         onSessionClick = { viewModel.openSheet(AppSheet.SessionDetails(it)) },
                         onPlaybackToggle = viewModel::togglePlayback,
@@ -383,7 +385,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         cardActions = cardActions,
                     )
                     AppTab.DISCOVER -> DiscoverScreen(
-                        state = state,
+                        state = discoverState,
                         contentPadding = screenInsets,
                         onSearch = viewModel::setSearchQuery,
                         onRequest = viewModel::requestMedia,
@@ -439,7 +441,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         // selection state instead of treating search as another place in the main navigation.
         Surface(Modifier.fillMaxSize(), color = Ink) {
             DiscoverScreen(
-                state = state,
+                state = discoverState,
                 contentPadding = PaddingValues(0.dp),
                 onSearch = viewModel::setSearchQuery,
                 onRequest = viewModel::requestMedia,
@@ -454,102 +456,16 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         }
     }
 
-    // Cast has one route picker and one small remote that float above every adult destination.
-    // MainActivity routes children to a different shell, but keep this guard here so a state
-    // transition cannot expose a household receiver for even one frame.
-    if (!state.isKidMode && !tvRail && app.reelstack.cast.CastConfiguration.isEnabled(applicationContext) && state.connections.any { connection ->
-            connection.kind in setOf(app.reelstack.data.model.ServiceKind.JELLYFIN, app.reelstack.data.model.ServiceKind.EMBY) &&
-                connection.baseUrl.isNotBlank() && connection.token.isNotBlank()
-        }) {
-        Box(Modifier.fillMaxSize()) {
-            app.reelstack.cast.CastRouteButton(
-                Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp).size(40.dp),
-            )
-            app.reelstack.cast.CastMiniController(
-                viewModel.castGateway,
-                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp),
-            )
-        }
-    }
-
-    // The profile menu belongs to the corner the avatar sits in, so it is rendered here beside
-    // the sheet host rather than inside it.
-    if (state.activeSheet is AppSheet.ProfileSwitcher) {
-        app.reelstack.ui.components.ProfileMenu(
-            profiles = state.profiles,
-            activeProfileId = state.activeProfileId,
-            isKidMode = state.isKidMode,
-            mainAccountName = (state.accounts[app.reelstack.data.model.ServiceKind.EMBY]
-                ?: state.accounts[app.reelstack.data.model.ServiceKind.JELLYFIN])
-                ?.displayName,
-            mainAccountAvatarUrl = (state.accounts[app.reelstack.data.model.ServiceKind.EMBY]
-                ?: state.accounts[app.reelstack.data.model.ServiceKind.JELLYFIN])
-                ?.avatarUrl,
-            onSelectProfile = viewModel::selectProfile,
-            onAddProfile = viewModel::openAddProfile,
-            onOpenSettings = viewModel::openAccountsSettings,
-            onDeleteProfile = viewModel::deleteKidProfile,
-            onDismiss = viewModel::closeSheet,
-        )
-    }
-
-    ReelstackSheets(
-        state = state,
-        connectionDraft = connectionDraft,
-        onDismiss = viewModel::closeSheet,
-        onPlaybackToggle = viewModel::togglePlayback,
-        onConnectionNameChange = viewModel::updateConnectionName,
-        onConnectionUrlChange = viewModel::updateConnectionUrl,
-        onConnectionTokenChange = viewModel::updateConnectionToken,
-        onConnectionUserIdChange = viewModel::updateConnectionUserId,
-        onConnectionAlternateUrlChange = viewModel::updateConnectionAlternateUrl,
-        onConnectionAuthModeChange = viewModel::updateConnectionAuthMode,
-        onConnectionUsernameChange = viewModel::updateConnectionUsername,
-        onConnectionPasswordChange = viewModel::updateConnectionPassword,
-        onTestAndSaveConnection = viewModel::testAndSaveConnection,
-        onRemoveConnection = viewModel::removeConnection,
-        onCompanionLoginChange = viewModel::updateCompanionLogin,
-        onImportSetupLink = viewModel::importSetupLink,
-        onCancelConnection = viewModel::cancelConnectionSetup,
-        onAddMedia = viewModel::requestMedia,
-        onUpcomingClick = viewModel::openUpcomingDetails,
-        onBackToCalendar = viewModel::backToCalendar,
-        onSeerrAccount = viewModel::openSeerrAccount,
-        onRequestSeason = viewModel::setRequestSeason,
-        onRequestNotification = viewModel::setRequestNotification,
-        onConfirmRequest = viewModel::confirmRequest,
-        onSeasonWatch = viewModel::setSeasonWatch,
-        onFavourite = viewModel::setMediaFavourite,
-        onPlayed = viewModel::setMediaPlayed,
-        onSeason = viewModel::selectSeason,
-        onEpisodeSeries = viewModel::openEpisodeSeries,
-        onEpisodeClick = viewModel::openEpisodeDetail,
-        onPersonTitles = viewModel::personTitles,
-        onPersonTitle = viewModel::openPersonTitle,
-        onSelectProfile = viewModel::selectProfile,
-        onOpenAddProfile = viewModel::openAddProfile,
-        onOpenSettings = {
-            viewModel.closeSheet()
-            viewModel.selectTab(AppTab.SETTINGS)
-        },
-        onDeleteProfile = viewModel::deleteKidProfile,
-        onSubmitPin = viewModel::submitPin,
-        onRecoverPinWithPassword = viewModel::recoverPinWithPassword,
-        onAddKidUser = viewModel::addKidProfile,
-        onAddKidManual = viewModel::addKidProfileManual,
-    )
-    if (state.libraryChoicesOpen) app.reelstack.ui.screens.LibraryChoicesDialog(state,
-        viewModel::closeLibraryChoices, viewModel::openLibraryChoices, viewModel::saveLibraryChoices)
-    app.reelstack.update.AppUpdateHost(state.selectedTab == startTab && state.activeSheet == null && !state.showOnboarding && !state.libraryChoicesOpen)
+    AppOverlayHost(viewModel, state, connectionDraft, startTab)
 }
 
-private data class TabItem(
+internal data class TabItem(
     val tab: AppTab,
     val label: Int,
     val icon: ImageVector,
 )
 
-private val tabs = listOf(
+internal val tabs = listOf(
     TabItem(AppTab.HOME, app.reelstack.R.string.nav_home, app.reelstack.ui.components.SpoleIcons.Home),
     TabItem(AppTab.LIBRARY, R.string.nav_library, app.reelstack.ui.components.SpoleIcons.Library),
     TabItem(AppTab.DISCOVER, app.reelstack.R.string.nav_discover, app.reelstack.ui.components.SpoleIcons.Discover),
@@ -651,13 +567,8 @@ internal fun ReelstackBottomBar(
 }
 
 @Composable
-internal fun SidebarSlot(expanded: Boolean, hidden: Boolean = false, content: @Composable () -> Unit) {
-    // Commit the page width once. The rail reveals/clips above it instead of resizing every
-    // poster, gradient and lazy grid on every animation frame.
-    Box(Modifier.width(if (hidden) 0.dp else if (expanded) 200.dp else 80.dp).fillMaxHeight().zIndex(1f).testTag("sidebar-slot")) {
-        Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)) { content() }
-    }
-}
+internal fun SidebarSlot(expanded: Boolean, hidden: Boolean = false, content: @Composable () -> Unit) =
+    AppSidebarSlot(expanded, hidden, content)
 
 @Composable
 internal fun ReelstackNavigationRail(
@@ -673,100 +584,23 @@ internal fun ReelstackNavigationRail(
     isKidMode: Boolean = false,
     modifier: Modifier = Modifier,
     compactTouch: Boolean = false,
-) {
-    if (compactTouch) {
-        CompactTouchNavigation(selectedTab, onSelect, isKidMode, modifier)
-        return
-    }
-    val selectedFocus = remember { androidx.compose.ui.focus.FocusRequester() }
-    val width by androidx.compose.animation.core.animateDpAsState(
-        if (expanded) 200.dp else 80.dp, tween(220, easing = FastOutSlowInEasing), label = "sidebar-width")
-    val labelAlpha by androidx.compose.animation.core.animateFloatAsState(
-        if (expanded) 1f else 0f, tween(140), label = "sidebar-labels")
-    val tv = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
-        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    val toggleLabel = androidx.compose.ui.res.stringResource(if (expanded) R.string.sidebar_collapse else R.string.sidebar_expand)
-    val brandInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    Box(modifier.width(width).fillMaxHeight().clip(RoundedCornerShape(0.dp))
-        .testTag("side-navigation").background(app.reelstack.ui.theme.Surface)) {
-    app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize(), menu = true)
-    Column(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).requiredWidth(200.dp).fillMaxHeight()
-        .onFocusChanged { if (tv) onFocusWithin(it.hasFocus) }
-        .focusProperties { onEnter = { if (tv) selectedFocus.requestFocus() } }.focusGroup()
-        .padding(horizontal = 12.dp, vertical = 24.dp)
-        .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).then(if (!tv) Modifier
-            .testTag("sidebar-toggle").semantics { contentDescription = toggleLabel }
-            .clip(RoundedCornerShape(16.dp))
-            .focusOutline(brandInteraction, RoundedCornerShape(16.dp))
-            .clickable(interactionSource = brandInteraction, indication = androidx.compose.foundation.LocalIndication.current,
-                role = Role.Button, onClick = { onExpandedChange(!expanded) }) else Modifier)
-            .padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            app.reelstack.ui.components.SpoleBrandMark(Modifier.size(28.dp))
-            Text(app.reelstack.ui.theme.LocalPersonalization.current.appLabel, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp)
-                    .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
-        }
-        app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
-            .filterNot { isKidMode && it == AppTab.SETTINGS.name }
-            .mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
-            if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
-                SidebarControl(name, (libraryIcons[id] ?: app.reelstack.data.model.LibraryIcon.LIBRARY).vector(), selectedLibraryId == id,
-                    { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
-                        .then(if (selectedLibraryId == id) Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-library-$id"))
-            }
-            SidebarControl(androidx.compose.ui.res.stringResource(item.label), item.icon, selectedTab == item.tab &&
-                (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }),
-                { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
-                    .then(if (selectedTab == item.tab && (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }))
-                        Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-tab-${item.tab.name}"))
-        }
-    }
-}
-
-}
+) = AppNavigationRail(
+    selectedTab = selectedTab,
+    onSelect = onSelect,
+    expanded = expanded,
+    onExpandedChange = onExpandedChange,
+    onFocusWithin = onFocusWithin,
+    shortcuts = shortcuts,
+    libraryIcons = libraryIcons,
+    selectedLibraryId = selectedLibraryId,
+    onLibrarySelect = onLibrarySelect,
+    isKidMode = isKidMode,
+    modifier = modifier,
+    compactTouch = compactTouch,
+)
 
 /** Keep the same focusable nodes and icon positions in both sizes. Only labels fade and clip. */
 @Composable
 internal fun CompactTouchNavigation(selectedTab: AppTab, onSelect: (AppTab) -> Unit,
-    isKidMode: Boolean = false, modifier: Modifier = Modifier) {
-    val menu = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
-    Column(modifier.width(80.dp).fillMaxHeight().background(app.reelstack.ui.theme.Surface)
-        .padding(horizontal = 8.dp, vertical = 4.dp).testTag("compact-touch-navigation")) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            menu.filter { it != "SETTINGS" }.forEach { name ->
-                val item = tabs.first { it.tab.name == name }
-                SidebarControl(stringResource(item.label), item.icon, selectedTab == item.tab,
-                    { onSelect(item.tab) }, 0f, Role.Tab, Modifier.testTag("compact-tab-$name"))
-            }
-        }
-        if (!isKidMode) {
-            val settings = tabs.first { it.tab == AppTab.SETTINGS }
-            SidebarControl(stringResource(settings.label), settings.icon, selectedTab == AppTab.SETTINGS,
-                { onSelect(AppTab.SETTINGS) }, 0f, Role.Tab, Modifier.testTag("compact-tab-SETTINGS"))
-        }
-    }
-}
-
-@Composable
-private fun SidebarControl(label: String, icon: ImageVector, selected: Boolean,
-    onClick: () -> Unit, labelAlpha: Float, role: Role, modifier: Modifier) {
-    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    val shape = RoundedCornerShape(16.dp)
-    Row(modifier.fillMaxWidth().heightIn(min = 58.dp).clip(shape)
-        .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-        .border(if (focused) 2.dp else 0.dp, if (focused) Primary else Color.Transparent, shape)
-        .semantics { contentDescription = label }
-        .selectable(selected, role = role, interactionSource = interaction,
-            indication = androidx.compose.foundation.LocalIndication.current, onClick = onClick)
-        .padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = if (selected || focused) Primary else app.reelstack.ui.theme.Muted, modifier = Modifier.size(24.dp))
-        Text(label, color = if (selected || focused) MaterialTheme.colorScheme.onSurface else app.reelstack.ui.theme.Muted,
-            style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 14.dp).wrapContentWidth(Alignment.Start, unbounded = true)
-                .requiredWidth(106.dp).graphicsLayer { alpha = labelAlpha }
-                .clearAndSetSemantics {})
-    }
-}
+    isKidMode: Boolean = false, modifier: Modifier = Modifier) =
+    AppCompactTouchNavigation(selectedTab, onSelect, isKidMode, modifier)

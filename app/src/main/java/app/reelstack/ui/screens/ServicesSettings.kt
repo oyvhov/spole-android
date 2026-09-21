@@ -120,6 +120,24 @@ private fun ChildProfileSettings(
         Text("Etter grensa ventar neste episode på eit trykk. Dette er ikkje ei dagleg tidsgrense.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    SettingsToggleRow(
+        stringResource(R.string.kids_bedtime_enabled),
+        stringResource(R.string.kids_bedtime_enabled_hint),
+        options.bedtime.enabled,
+        "child-bedtime-enabled",
+    ) { enabled -> change(options.copy(bedtime = options.bedtime.copy(enabled = enabled))) }
+    if (options.bedtime.enabled) {
+        SettingsChoiceRow(
+            stringResource(R.string.kids_bedtime_time_title),
+            stringResource(R.string.kids_bedtime_time, options.bedtime.hour, options.bedtime.minute),
+            "child-bedtime-time",
+        ) { change(options.copy(bedtime = options.bedtime.nextHalfHour())) }
+        Text(
+            stringResource(R.string.kids_bedtime_local_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     val languages = listOf(SubtitleLanguage.NORWEGIAN, SubtitleLanguage.ENGLISH, SubtitleLanguage.SERVER, SubtitleLanguage.NONE)
     val languageTitle = when (options.subtitles) {
         SubtitleLanguage.NORWEGIAN -> "Norsk"

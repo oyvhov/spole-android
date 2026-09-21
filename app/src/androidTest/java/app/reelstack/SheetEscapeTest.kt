@@ -32,13 +32,21 @@ class SheetEscapeTest {
         artworkRes = R.drawable.media_placeholder, mediaType = "movie", overview = "Ei kort omtale.")
 
     @Composable
-    private fun Sheets(state: ReelstackUiState, draft: ConnectionDraft? = null, onClose: () -> Unit) {
-        ReelstackSheets(state, draft, onClose, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    private fun Sheets(state: ReelstackUiState, draft: ConnectionDraft? = null,
+        onDetailBack: () -> Boolean = { false }, onClose: () -> Unit) {
+        ReelstackSheets(state, draft, onClose, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+            onDetailBack = onDetailBack)
     }
 
-    /** The remote's Back key, through the same path a television sends it. */
-    private fun pressBack() = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        .sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+    /** The sheet exposes the same unguarded dismissal that system Back invokes. */
+    private fun pressBack() {
+        // Later Back presses may land after the host has already removed the dialog. That is the
+        // success case: there is no invisible window left to swallow them.
+        if (rule.onAllNodesWithTag("adaptive-dialog", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag("adaptive-dialog", useUnmergedTree = true)
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.Dismiss)
+        }
+    }
 
     private fun openState() = ReelstackUiState(
         activeSheet = AppSheet.TitleDetails("fixture"), contentDetails = details,
@@ -91,5 +99,23 @@ class SheetEscapeTest {
         pressBack()
         rule.waitForIdle()
         assertEquals("Back must escape even while the sheet is committing", 1, closed)
+    }
+
+    @Test fun detailHistoryBackStaysInTheSameSheetWindow() {
+        // Episode → series is a navigation step, not a modal dismissal.  Returning true here must
+        // leave the dialog composed, so TV never reveals the page behind it between the two titles.
+        var dismissed = 0
+        var returned = 0
+        rule.setContent { ReelstackTheme {
+            Sheets(openState(), onClose = { dismissed++ }, onDetailBack = { returned++; true })
+        } }
+        rule.waitForIdle()
+
+        pressBack()
+        rule.waitForIdle()
+
+        assertEquals("detail history receives Back exactly once", 1, returned)
+        assertEquals("a history return must not dismiss the dialog", 0, dismissed)
+        rule.onNodeWithTag("sheet-viewport").assertExists()
     }
 }

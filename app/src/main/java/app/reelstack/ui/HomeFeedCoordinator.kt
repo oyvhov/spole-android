@@ -1,0 +1,436 @@
+package app.reelstack.ui
+
+import app.reelstack.AppContainer
+import app.reelstack.R
+import app.reelstack.data.model.ConnectionState
+import app.reelstack.data.model.HomeSection
+import app.reelstack.data.model.HomeRow
+import app.reelstack.data.model.LibraryMedia
+import app.reelstack.data.model.ServiceConnection
+import app.reelstack.data.model.ServiceKind
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * Owns Home's server feed and the lightweight playback notification channel.
+ *
+ * `ReelstackViewModel` remains the composition root while Library, Profile and Discover still
+ * share its state object. Keeping the feed's jobs, retry clock and stale-while-revalidate cache
+ * together here makes that temporary boundary explicit: Home data no longer needs to know about
+ * navigation, PIN prompts or connection-editor state.
+ */
+internal class HomeFeedCoordinator(
+    private val container: AppContainer,
+    private val scope: CoroutineScope,
+    private val readState: () -> ReelstackUiState,
+    private val updateState: ((ReelstackUiState) -> ReelstackUiState) -> Unit,
+    private val refreshAccounts: () -> Unit,
+    private val refreshTrackedRequests: () -> Unit,
+    private val openLibraryDetails: (String) -> Unit,
+    private val isSigningOut: () -> Boolean,
+) {
+    private var refreshJob: Job? = null
+    private var cacheLoadJob: Job? = null
+    private var playbackJob: Job? = null
+    private var sessionChannel: app.reelstack.data.network.JellyfinSessionSocket.Connection? = null
+    private val sessionChannelState = MutableStateFlow(false)
+    private var lastFeedAttemptMillis = -60_000L
+
+    /** Whether Jellyfin is currently pushing playback-change notifications. */
+    val sessionChannelLive: StateFlow<Boolean> = sessionChannelState.asStateFlow()
+
+    fun cancelRefresh() {
+        refreshJob?.cancel()
+        refreshJob = null
+    }
+
+    fun cancelCacheLoad() {
+        cacheLoadJob?.cancel()
+        cacheLoadJob = null
+    }
+
+    fun resetRetryClock() {
+        lastFeedAttemptMillis = -60_000L
+    }
+
+    /** Stops in-flight Home work without changing the UI-owned socket lifecycle. */
+    fun cancelActiveWork() {
+        cancelCacheLoad()
+        cancelRefresh()
+        playbackJob?.cancel()
+        playbackJob = null
+    }
+
+    /** A notification channel is authenticated as one profile and may never cross that boundary. */
+    fun resetForProfileChange() {
+        closeSessionChannel()
+        cancelActiveWork()
+    }
+
+    fun cancel() {
+        resetForProfileChange()
+    }
+
+    /** Opens Jellyfin's optional notification channel. It is only a refresh doorbell. */
+    fun openSessionChannel() {
+        if (sessionChannel != null) return
+        val connection = readState().connections.firstOrNull {
+            it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank()
+        } ?: return
+        sessionChannel = runCatching {
+            container.sessionSocket.connect(
+                connection = connection,
+                onChanged = {
+                    if (playbackJob?.isActive != true) {
+                        playbackJob = scope.launch { refreshPlayback() }
+                    }
+                },
+                onLost = {
+                    sessionChannel = null
+                    sessionChannelState.value = false
+                },
+            )
+        }.getOrNull()
+        sessionChannelState.value = sessionChannel != null
+    }
+
+    fun closeSessionChannel() {
+        sessionChannel?.let { runCatching { it.close() } }
+        sessionChannel = null
+        sessionChannelState.value = false
+    }
+
+    suspend fun refreshPlayback() {
+        if (refreshJob?.isActive == true) return
+        val connections = readState().connections
+        if (connections.none { it.token.isNotBlank() && it.kind in MEDIA_SERVERS }) return
+        val sessions = withContext(Dispatchers.IO) {
+            container.mediaSyncRepository.refreshPlayback(connections)
+        }
+        // Never put a response from an account that has since signed out back on screen.
+        updateState { current ->
+            when {
+                current.connections != connections || refreshJob?.isActive == true -> current
+                current.sessions == sessions -> current
+                else -> current.copy(sessions = sessions)
+            }
+        }
+    }
+
+    fun localResume(
+        items: List<LibraryMedia>,
+        connections: List<ServiceConnection>,
+    ): List<LibraryMedia> = connections
+        .filter { it.kind in MEDIA_SERVERS && it.token.isNotBlank() }
+        .fold(items) { result, account -> container.localPlaybackStore.merge(account, result) }
+
+    fun localNextUp(
+        items: List<LibraryMedia>,
+        connections: List<ServiceConnection>,
+    ): List<LibraryMedia> = connections
+        .filter { it.kind in MEDIA_SERVERS && it.token.isNotBlank() }
+        .fold(items) { result, account -> container.localPlaybackStore.nextUp(account, result) }
+
+    /** Returning from local playback refreshes personal progress and the next episode. */
+    fun returnedToApp() {
+        updateState { it.copy(resume = localResume(it.resume, it.connections)) }
+        refresh()
+        val key = (readState().activeSheet as? AppSheet.TitleDetails)?.key
+        if (key != null && (key.startsWith("jellyfin-") || key.startsWith("emby-"))) {
+            openLibraryDetails(key)
+        }
+    }
+
+    /** Hydrates a profile-scoped feed before the network response arrives. */
+    fun hydrateCachedFeed() {
+        val seedConnections = readState().connections
+        if (seedConnections.none { it.baseUrl.isNotBlank() && it.token.isNotBlank() }) return
+        cancelCacheLoad()
+        cacheLoadJob = scope.launch(Dispatchers.IO) {
+            val cached = runCatching {
+                container.mediaSnapshotStore.read(container.mediaFingerprint(seedConnections))
+            }.getOrNull()
+            if (!isActive || cached == null) return@launch
+            updateState { current ->
+                if (current.connections != seedConnections) return@updateState current
+                val configuredKinds = seedConnections.filter { it.baseUrl.isNotBlank() }
+                    .mapTo(mutableSetOf()) { it.kind }
+                val hasMediaServer = configuredKinds.any { it in MEDIA_SERVERS }
+                val hasQueueService = configuredKinds.any { it in QUEUE_SERVERS }
+                val hasSeerr = ServiceKind.SEERR in configuredKinds
+                current.copy(
+                    sessions = if (hasMediaServer) cached.sessions else current.sessions,
+                    resume = if (hasMediaServer) localResume(cached.resume, current.connections) else current.resume,
+                    nextUp = if (hasMediaServer) localNextUp(cached.nextUp, current.connections) else current.nextUp,
+                    favourites = if (hasMediaServer) cached.favourites else current.favourites,
+                    recentMovies = if (hasMediaServer) cached.recentMovies else current.recentMovies,
+                    recentSeries = if (hasMediaServer) cached.recentSeries else current.recentSeries,
+                    upcoming = if (hasQueueService) cached.upcoming else current.upcoming,
+                    recentReleases = if (hasQueueService) cached.recentReleases else current.recentReleases,
+                    incoming = if (hasQueueService) cached.incoming else current.incoming,
+                    discover = if (hasSeerr) cached.discover else current.discover,
+                    recommendations = if (hasSeerr) cached.recommendations else current.recommendations,
+                    activity = if (hasQueueService || hasSeerr) cached.activity else current.activity,
+                    lastUpdatedEpochMillis = cached.refreshedAtEpochMillis,
+                    hasCachedData = true,
+                )
+            }
+        }
+    }
+
+    fun retryIncompleteFeed() {
+        val state = readState()
+        if (shouldRetryHomeFeed(
+                state.failedServices,
+                state.serviceWarnings.keys,
+                state.isRefreshing,
+                android.os.SystemClock.elapsedRealtime() - lastFeedAttemptMillis,
+            )
+        ) refresh()
+    }
+
+    fun setRowOrder(order: List<HomeRow>) {
+        container.preferencesRepository.homeRowOrder = order
+        updateState { it.copy(homeRowOrder = container.preferencesRepository.homeRowOrder) }
+    }
+
+    fun setSectionVisible(section: HomeSection, visible: Boolean) {
+        updateState { current ->
+            val updated = if (visible) current.homeSections + section else current.homeSections - section
+            container.preferencesRepository.visibleHomeSections = updated
+            current.copy(homeSections = updated)
+        }
+    }
+
+    fun refresh(userInitiated: Boolean = false) {
+        val state = readState()
+        if (isSigningOut() || (state.showOnboarding && state.configuredCount == 0)) return
+        refreshAccounts()
+        refreshTrackedRequests()
+        if (refreshJob?.isActive == true) return
+        val configured = state.connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
+        if (configured.isEmpty()) {
+            showDisconnectedHome(state, userInitiated)
+            return
+        }
+
+        val refreshFingerprint = container.mediaFingerprint(state.connections)
+        lastFeedAttemptMillis = android.os.SystemClock.elapsedRealtime()
+        updateState { it.copy(isRefreshing = true) }
+        refreshJob = scope.launch {
+            val outcome = attempt {
+                val snapshot = withContext(Dispatchers.IO) {
+                    container.mediaSyncRepository.refresh(
+                        connections = readState().connections,
+                        includeRecommendations = HomeSection.RECOMMENDATIONS in readState().homeSections,
+                        onLibraryReady = { update -> updateLibraryRow(refreshFingerprint, update) },
+                    )
+                }
+                if (snapshot.successfulServices.isNotEmpty()) {
+                    // A disk-full offline cache is not a reason to fail a live refresh.
+                    attempt {
+                        withContext(Dispatchers.IO) {
+                            container.mediaSnapshotStore.save(snapshot, refreshFingerprint)
+                        }
+                    }
+                }
+                snapshot
+            }
+            val snapshot = outcome.getOrElse {
+                updateState {
+                    it.copy(isRefreshing = false, snackbar = appString(R.string.error_feed_refresh))
+                }
+                return@launch
+            }
+            if (!isActive || container.mediaFingerprint(readState().connections) != refreshFingerprint) return@launch
+            if (snapshot.switchedToAlternate.isNotEmpty()) {
+                attempt {
+                    withContext(Dispatchers.IO) {
+                        snapshot.switchedToAlternate.forEach(container.connectionRepository::promoteAlternate)
+                    }
+                }
+            }
+            val refreshedConnections = if (snapshot.switchedToAlternate.isEmpty()) null
+            else runCatching { container.connectionRepository.list() }.getOrNull()
+            updateState { current -> applySnapshot(current, snapshot, refreshedConnections, userInitiated) }
+        }
+    }
+
+    private fun updateLibraryRow(
+        refreshFingerprint: String,
+        update: app.reelstack.data.repository.LibraryFeedUpdate,
+    ) {
+        updateState { current ->
+            if (container.mediaFingerprint(current.connections) != refreshFingerprint) current else {
+                fun replace(items: List<LibraryMedia>, fresh: List<LibraryMedia>) =
+                    items.filterNot { it.source == update.source } + fresh
+                current.copy(
+                    resume = localResume(replace(current.resume, update.resume), current.connections),
+                    nextUp = localNextUp(replace(current.nextUp, update.nextUp), current.connections),
+                    recentMovies = replace(current.recentMovies, update.recentMovies),
+                    recentSeries = replace(current.recentSeries, update.recentSeries),
+                    favourites = replace(current.favourites, update.favourites),
+                    liveLibrary = true,
+                )
+            }
+        }
+    }
+
+    private fun showDisconnectedHome(state: ReelstackUiState, userInitiated: Boolean) {
+        if (state.isKidMode) {
+            updateState { it.copy(isRefreshing = false, kidsLibraryError = true) }
+            return
+        }
+        val unreadable = state.connections.filter {
+            it.baseUrl.isNotBlank() && it.state == ConnectionState.ERROR
+        }
+        updateState {
+            it.copy(
+                sessions = demoSessions(),
+                resume = demoResume(),
+                nextUp = demoNextUp(),
+                favourites = demoFavourites(),
+                recentMovies = demoRecentMovies(),
+                recentSeries = demoRecentSeries(),
+                upcoming = demoUpcoming(),
+                recentReleases = demoRecentReleases(),
+                incoming = demoIncoming(),
+                discover = demoDiscover(),
+                recommendations = demoRecommendations(),
+                activity = demoActivity(),
+                isRefreshing = false,
+                liveSession = false,
+                liveLibrary = false,
+                liveIncoming = false,
+                liveDiscover = false,
+                liveActivity = false,
+                failedServices = emptySet(),
+                hasCachedData = false,
+                snackbar = when {
+                    unreadable.isNotEmpty() -> appString(R.string.error_login_unreadable)
+                    userInitiated -> appString(R.string.notice_connect_to_sync)
+                    else -> it.snackbar
+                },
+            )
+        }
+    }
+
+    private fun applySnapshot(
+        current: ReelstackUiState,
+        snapshot: app.reelstack.data.repository.MediaSyncSnapshot,
+        refreshedConnections: List<ServiceConnection>?,
+        userInitiated: Boolean,
+    ): ReelstackUiState {
+        val connectionsNow = refreshedConnections ?: current.connections
+        val configuredKinds = connectionsNow.filter { it.baseUrl.isNotBlank() }
+            .mapTo(mutableSetOf()) { it.kind }
+        val configuredMedia = configuredKinds.intersect(MEDIA_SERVERS)
+        val configuredQueue = configuredKinds.intersect(QUEUE_SERVERS)
+        val mediaLive = snapshot.successfulServices.any { it in configuredMedia }
+        val queueLive = snapshot.successfulServices.any { it in configuredQueue }
+        val seerrLive = ServiceKind.SEERR in snapshot.successfulServices
+        val activityLive = queueLive || seerrLive
+        val anySuccess = snapshot.successfulServices.isNotEmpty()
+        val serviceWarnings = snapshot.warnings.mapValues { (_, sentences) ->
+            sentences.joinToString(" · ") { it.text(container.appContext) }
+        }
+        return current.copy(
+            adminView = snapshot.adminView,
+            sessions = snapshot.sessions,
+            resume = localResume(snapshot.resume, connectionsNow),
+            nextUp = localNextUp(snapshot.nextUp, connectionsNow),
+            favourites = snapshot.favourites,
+            libraryShortcuts = current.copy(connections = connectionsNow).libraryConnection
+                ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
+            libraryIcons = current.copy(connections = connectionsNow).libraryConnection
+                ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
+            recentMovies = snapshot.recentMovies,
+            recentSeries = snapshot.recentSeries,
+            recentReleases = snapshot.recentReleases,
+            upcoming = snapshot.upcoming,
+            recentReleasesError = snapshot.recentReleasesError?.text(container.appContext),
+            upcomingError = snapshot.upcomingError?.text(container.appContext),
+            incoming = snapshot.incoming,
+            discover = when {
+                ServiceKind.SEERR !in configuredKinds -> emptyList()
+                seerrLive -> snapshot.discover
+                current.liveDiscover || current.hasCachedData -> current.discover
+                else -> emptyList()
+            },
+            recommendations = when {
+                snapshot.recommendationsError == null -> snapshot.recommendations
+                current.hasCachedData -> current.recommendations
+                else -> emptyList()
+            },
+            activity = snapshot.activity,
+            connections = connectionsNow.map { connection ->
+                when {
+                    connection.baseUrl.isBlank() -> connection.copy(
+                        state = ConnectionState.DEMO,
+                        detail = appString(R.string.connection_detail_demo),
+                    )
+                    connection.kind in snapshot.errors -> connection.copy(
+                        state = ConnectionState.ERROR,
+                        detail = snapshot.errors.getValue(connection.kind).text(container.appContext),
+                    )
+                    connection.kind in snapshot.successfulServices -> connection.copy(
+                        state = ConnectionState.CONNECTED,
+                        detail = when {
+                            connection.kind in snapshot.switchedToAlternate ->
+                                appString(R.string.connection_active_switched_alternate)
+                            else -> serviceWarnings[connection.kind]?.let {
+                                appString(R.string.connection_connected_with_warning, it)
+                            } ?: appString(R.string.connection_active_updated_now)
+                        },
+                    )
+                    else -> connection
+                }
+            },
+            isRefreshing = false,
+            liveSession = configuredMedia.isNotEmpty() && (mediaLive || current.liveSession),
+            liveLibrary = configuredMedia.isNotEmpty() && (mediaLive || current.liveLibrary),
+            liveIncoming = configuredQueue.isNotEmpty() && (queueLive || current.liveIncoming),
+            liveDiscover = ServiceKind.SEERR in configuredKinds && (seerrLive || current.liveDiscover),
+            liveActivity = (configuredQueue.isNotEmpty() || ServiceKind.SEERR in configuredKinds) &&
+                (activityLive || current.liveActivity),
+            lastUpdatedEpochMillis = if (anySuccess) snapshot.refreshedAt.toEpochMilli()
+            else current.lastUpdatedEpochMillis,
+            hasCachedData = !anySuccess && current.hasCachedData,
+            failedServices = snapshot.errors.keys,
+            serviceWarnings = serviceWarnings,
+            snackbar = if (userInitiated) {
+                when {
+                    snapshot.errors.isNotEmpty() -> appQuantityString(
+                        R.plurals.notice_sync_services_check,
+                        snapshot.errors.size,
+                        snapshot.errors.size,
+                    )
+                    snapshot.warnings.isNotEmpty() -> appString(R.string.notice_sync_warnings)
+                    else -> appString(R.string.notice_sync_all_updated)
+                }
+            } else current.snackbar,
+        )
+    }
+
+    private fun appString(@androidx.annotation.StringRes resId: Int, vararg args: Any): String =
+        app.reelstack.localization.AppLanguages.wrap(container.appContext).getString(resId, *args)
+
+    private fun appQuantityString(
+        @androidx.annotation.PluralsRes resId: Int,
+        quantity: Int,
+        vararg args: Any,
+    ): String = app.reelstack.localization.AppLanguages.wrap(container.appContext)
+        .resources.getQuantityString(resId, quantity, *args)
+
+    private companion object {
+        val MEDIA_SERVERS = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
+        val QUEUE_SERVERS = setOf(ServiceKind.RADARR, ServiceKind.SONARR)
+    }
+}

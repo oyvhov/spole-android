@@ -51,11 +51,15 @@ data class PlayerScreenState(
      * there is nothing after it — a film, the last episode, or a server that could not say.
      */
     val nextEpisode: PlayableItem? = null,
+    /** Whether the server has conclusively answered the next-episode lookup for this episode. */
+    val nextEpisodeResolved: Boolean = false,
     val nextEpisodeCountdown: Int? = null,
     val nextEpisodeCountdownTotalSeconds: Int = 12,
     val nextEpisodeOfferEnabled: Boolean = true,
-    val nextEpisodeLeadSeconds: Int = 60,
+    val nextEpisodeLeadSeconds: Int = 15,
     val nextEpisodeDismissed: Boolean = false,
+    /** A child routine was reached. The current episode was allowed to finish first. */
+    val bedtimeReached: Boolean = false,
     /** Title sequences and closing credits the server has marked, if anything has marked them. */
     val segments: List<PlaybackSegment> = emptyList(),
     val source: ServiceKind = ServiceKind.JELLYFIN,
@@ -169,8 +173,6 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var nextEpisodeJob: Job? = null
     private var countdownJob: Job? = null
     private var nextEpisodeCancelled = false
-    /** Retained only while browsing a season, to build the single allowed Cast queue. */
-    private var seasonEpisodes: List<PlayableItem> = emptyList()
 
     /**
      * Kids mode caps how many episodes may start on their own.
@@ -180,6 +182,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      */
     var kidsMode: Boolean = false
     private val kidsPreferences by lazy { app.reelstack.data.repository.KidsPreferencesRepository(container.appContext) }
+    private fun isKidsBedtimeReached(): Boolean = kidsMode &&
+        kidsPreferences.read(container.connectionRepository.activeProfileId).bedtime.isReached()
     private fun playbackOptions(): Personalization {
         val adult = container.preferencesRepository.personalization
         return if (kidsMode) kidsPreferences.read(container.connectionRepository.activeProfileId).playbackOptions(adult) else adult
@@ -219,7 +223,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     durationMs = duration.takeIf { value -> value > 0 } ?: it.durationMs) }
                 if (playbackState == Player.STATE_ENDED) {
                     report("/Stopped"); started = false
-                    startNextEpisodeCountdown()
+                    if (isKidsBedtimeReached()) {
+                        countdownJob?.cancel()
+                        mutable.update { it.copy(bedtimeReached = true, nextEpisodeCountdown = null) }
+                    } else startNextEpisodeCountdown()
                 }
             }
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
@@ -454,6 +461,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         source: ServiceKind = ServiceKind.JELLYFIN) {
         if (rootId.isNotEmpty()) return
         require(source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
+        if (isKidsBedtimeReached()) {
+            mutable.value = PlayerScreenState(busy = false, source = source, bedtimeReached = true)
+            return
+        }
         autoplayChain = 0
         serviceKind = source
         mutable.update { it.copy(source = source, title = source.displayName) }
@@ -509,10 +520,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         nextEpisodeJob?.cancel()
         nextEpisodeCancelled = false
         val options = playbackOptions()
-        mutable.update { it.copy(nextEpisode = null, nextEpisodeCountdown = null, nextEpisodeDismissed = false,
+        mutable.update { it.copy(nextEpisode = null, nextEpisodeResolved = false, nextEpisodeCountdown = null, nextEpisodeDismissed = false, bedtimeReached = false,
             nextEpisodeOfferEnabled = options.showNextEpisode, nextEpisodeLeadSeconds = options.nextEpisodeLeadSeconds) }
         if (item.type in setOf("Series", "Season")) {
-            if (item.type == "Season") seasonEpisodes = emptyList()
             if (folders.lastOrNull()?.id != item.id) folders += item
             parent = item; offset = 0; selected = null
             mutable.update { it.copy(title = item.title, subtitle = "Vel ${if (item.type == "Series") "sesong" else "episode"}",
@@ -564,7 +574,6 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 offset += 100
                 mutable.update { current ->
                     val merged = (current.choices + result.first).distinctBy(PlayableItem::id)
-                    if (folder.type == "Season") seasonEpisodes = merged
                     current.copy(busy = false, choices = merged, hasMore = result.second)
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
@@ -660,15 +669,16 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      */
     private fun loadNextEpisode(item: PlayableItem) {
         nextEpisodeJob?.cancel()
-        mutable.update { it.copy(nextEpisode = null, nextEpisodeCountdown = null, segments = emptyList()) }
+        mutable.update { it.copy(nextEpisode = null, nextEpisodeResolved = false, nextEpisodeCountdown = null, segments = emptyList()) }
         val c = connection ?: return
         if (item.type != "Episode") return
         nextEpisodeJob = viewModelScope.launch {
-            val next = runCatching { withContext(Dispatchers.IO) { client.nextEpisode(c, userId, item) } }.getOrNull()
+            val response = runCatching { withContext(Dispatchers.IO) { client.nextEpisode(c, userId, item) } }
             if (!isActive || selected?.id != item.id) return@launch
-            if (next != null) {
-                mutable.update { if (it.itemId != item.id) it else it.copy(nextEpisode = next) }
-                if (state.value.ended) startNextEpisodeCountdown()
+            if (response.isSuccess) {
+                val next = response.getOrNull()
+                mutable.update { if (it.itemId != item.id) it else it.copy(nextEpisode = next, nextEpisodeResolved = true) }
+                if (next != null && state.value.ended) startNextEpisodeCountdown()
             }
             val marked = runCatching { withContext(Dispatchers.IO) { client.segments(c, userId, item.id) } }
                 .getOrDefault(emptyList())
@@ -678,8 +688,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     }
 
     /**
-     * Counts from the configured offer time while playing in the foreground. Pausing also pauses
-     * the countdown; seeking away from the offer window resets it.
+     * Counts only after the current episode has ended. The offer can appear near the credits, but
+     * a countdown must never cut the episode short; pausing and leaving the foreground stop it.
      *
      * Long enough to read the title and decide, short enough that a series does not stop dead
      * between episodes. Anything that puts the viewer back in charge — a press of Cancel, closing
@@ -687,6 +697,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      * nothing to play next.
      */
     private fun startNextEpisodeCountdown() {
+        if (isKidsBedtimeReached()) {
+            countdownJob?.cancel()
+            mutable.update { it.copy(bedtimeReached = true, nextEpisodeCountdown = null) }
+            return
+        }
         val options = playbackOptions()
         if (countdownJob?.isActive == true || nextEpisodeCancelled || !foreground ||
             !options.autoPlayNextEpisode || !state.value.canCountDownNextEpisode()) return
@@ -717,6 +732,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     /** Starts the next episode now, whether the countdown ran out or someone pressed the button. */
     fun playNext(fromCountdown: Boolean = false) {
         if (!foreground || state.value.busy || state.value.error != null || !sameAccount()) return
+        if (isKidsBedtimeReached()) {
+            countdownJob?.cancel()
+            mutable.update { it.copy(bedtimeReached = true, nextEpisodeCountdown = null) }
+            return
+        }
         val next = state.value.nextEpisode ?: return
         // Only an episode that started by itself extends the chain. A press is a fresh decision.
         autoplayChain = if (fromCountdown) autoplayChain + 1 else 0
@@ -785,62 +805,6 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             mutable.update { it.copy(nextEpisodeCountdown = null) }
         }
         player.seekTo(target)
-    }
-    /**
-     * Starts the Cast handover from the exact local position. Local playback is deliberately left
-     * alone until the receiver accepts the LOAD request; a CORS/token/server failure therefore
-     * never turns a working phone stream into a silent spinner.
-     */
-    fun castCurrent(): Boolean {
-        if (kidsMode) return false
-        val c = connection ?: return false
-        val item = selected ?: return false
-        if (item.type !in setOf("Movie", "Episode", "Video")) return false
-        val spec = app.reelstack.cast.CastLoadSpec(
-            service = c.kind,
-            profileId = container.connectionRepository.activeProfileId,
-            items = listOf(app.reelstack.cast.CastQueueItem(
-                itemId = item.id, title = item.title, subtitle = item.subtitle,
-                audioStreamIndex = plan?.audioIndex, subtitleStreamIndex = plan?.subtitleIndex?.takeIf { it >= 0 },
-                sourceId = plan?.sourceId, resumePositionMs = player.currentPosition.coerceAtLeast(0),
-            )),
-        )
-        val request = app.reelstack.cast.CastLoadRequest(spec, app.reelstack.cast.CastCredentialEnvelope.from(c, deviceId))
-        return container.castGateway.load(request) {
-            if (selected?.id == item.id && sameAccount()) {
-                report("/Stopped")
-                player.pause()
-                mutable.update { it.copy(playing = false, busy = false) }
-            }
-        }
-    }
-    /** The sole Cast queue action: current episode, then later episodes from this same season. */
-    fun castRestOfSeason(): Boolean {
-        if (kidsMode) return false
-        val c = connection ?: return false
-        val item = selected?.takeIf { it.type == "Episode" } ?: return false
-        val current = plan ?: return false
-        val following = seasonEpisodes
-            .filter { it.type == "Episode" && it.seriesId == item.seriesId && it.season == item.season && (it.episode ?: -1) > (item.episode ?: -1) }
-            .sortedBy { it.episode ?: Int.MAX_VALUE }
-        if (following.isEmpty()) return false
-        val spec = app.reelstack.cast.restOfSeasonSpec(
-            connection = c,
-            profileId = container.connectionRepository.activeProfileId,
-            selected = item.copy(resumeMs = player.currentPosition.coerceAtLeast(0)),
-            followingEpisodes = following,
-            audio = current.audioIndex,
-            subtitle = current.subtitleIndex.takeIf { it >= 0 },
-            sourceId = current.sourceId,
-        )
-        val request = app.reelstack.cast.CastLoadRequest(spec, app.reelstack.cast.CastCredentialEnvelope.from(c, deviceId))
-        return container.castGateway.load(request) {
-            if (selected?.id == item.id && sameAccount()) {
-                report("/Stopped")
-                player.pause()
-                mutable.update { it.copy(playing = false, busy = false) }
-            }
-        }
     }
     /** Queues only the already-negotiated, direct file; never asks the server for offline transcode. */
     fun downloadCurrent(): Boolean {

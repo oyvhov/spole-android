@@ -9,4 +9,10 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/reelstack_background</item>
     </style>
+    <!-- The player owns its first frame.  Never expose the library behind it while Compose and
+         Media3 initialise after a reader presses Hald fram. -->
+    <style name="Theme.Reelstack.Player" parent="Theme.Reelstack">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
 </resources>

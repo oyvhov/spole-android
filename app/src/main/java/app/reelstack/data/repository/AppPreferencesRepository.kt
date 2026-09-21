@@ -49,9 +49,10 @@ class AppPreferencesRepository(context: Context) {
             artworkSize = app.reelstack.data.model.ArtworkSize.decode(preferences.getString("artwork_size", null)),
             autoResume = preferences.getBoolean("auto_resume", true),
             showNextEpisode = preferences.getBoolean("show_next_episode", true),
-            nextEpisodeLeadSeconds = preferences.getInt("next_episode_lead", 60).coerceIn(0, 300),
+            nextEpisodeLeadSeconds = preferences.getInt("next_episode_lead", 15).coerceIn(0, 300),
             autoPlayNextEpisode = preferences.getBoolean("auto_play_next_episode", true),
             nextEpisodeDelaySeconds = preferences.getInt("next_episode_delay", 12).coerceIn(5, 60),
+            showPlaybackModeInOsd = preferences.getBoolean("show_playback_mode_in_osd", true),
             lightweightTv = preferences.getBoolean("lightweight_tv", false),
             hideTvSidebar = preferences.getBoolean("hide_tv_sidebar", false),
             sidebarExpanded = if (preferences.contains("sidebar_expanded")) preferences.getBoolean("sidebar_expanded", true) else null,
@@ -100,6 +101,7 @@ class AppPreferencesRepository(context: Context) {
             putInt("next_episode_lead", value.nextEpisodeLeadSeconds.coerceIn(0, 300))
             putBoolean("auto_play_next_episode", value.autoPlayNextEpisode)
             putInt("next_episode_delay", value.nextEpisodeDelaySeconds.coerceIn(5, 60))
+            putBoolean("show_playback_mode_in_osd", value.showPlaybackModeInOsd)
             putBoolean("lightweight_tv", value.lightweightTv)
             putBoolean("hide_tv_sidebar", value.hideTvSidebar)
             value.sidebarExpanded?.let { putBoolean("sidebar_expanded", it) } ?: remove("sidebar_expanded")

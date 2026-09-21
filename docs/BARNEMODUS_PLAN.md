@@ -88,7 +88,7 @@ Dette er den viktigaste forenklinga i planen. Ikkje legg admin-kall inn att.
 | BM-9 | Verdsromlaget | ◐ Stjernehimmel og tom tilstand | BM-6 |
 | BM-10 | Nettverksinnstramming | ☐ Ikkje starta | BM-5 |
 | BM-11 | Skjermfesting | ☐ Ikkje starta | BM-4 |
-| BM-12 | Tid og leggjetid | ☐ Ikkje starta | BM-8 |
+| BM-12 | Tid og leggjetid | ◐ Leggjetid er koda, ikkje einingstesta | BM-8 |
 | BM-13 | TV-tilpassing | ◐ Fokus og tilbake-regel | BM-6 |
 
 Statusverdiar: `☐ Ikkje starta` · `◐ Delvis` · `☑ Ferdig og verifisert`
@@ -374,6 +374,14 @@ tenarfunksjon som ikkje finst.
 
 - Dagleg grense og leggjetid avbryt aldri midt i noko. Gjeldande episode blir ferdig, og så kjem
   «Ferdig for i dag» i staden for neste.
+
+**Status 21. september 2026:** Lokal, profilavgrensa leggjetid er no lagra i
+`KidsPreferencesRepository`. Forelderen kan slå ho av/på og flytte klokkeslettet i halvtimessteg.
+`KidsApp` kontrollerer ho kvart minutt medan skallet er ope; spelaren kontrollerer ho att ved slutten
+av episodar og før neste episode startar. Det finst ein roleg `BedtimeScreen`, og nye avspelingar
+etter leggjetid vert avviste. JVM-testar dekkjer klokkeslett og isolasjon mellom profilar, men ingen
+fysisk telefon-/TV-kontroll er gjort i denne endringa. Ei dagleg minuttsgrense er framleis ikkje
+spesifisert eller bygd.
 
 **Akseptansekrav**
 

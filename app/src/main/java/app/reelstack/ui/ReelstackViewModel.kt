@@ -31,6 +31,9 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.network.EndpointValidator
 import app.reelstack.data.network.readableMessage
+import app.reelstack.ui.state.DiscoverUiState
+import app.reelstack.ui.state.toDiscoverUiState
+import app.reelstack.ui.state.toHomeUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
@@ -40,6 +43,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
@@ -246,8 +252,6 @@ data class ReelstackUiState(
 class ReelstackViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
-    /** App-wide Cast mini control observes this memory-only gateway. */
-    val castGateway: app.reelstack.cast.CastGateway get() = container.castGateway
     private data class LibraryCacheKey(
         val accountFingerprint: String,
         val source: ServiceKind,
@@ -304,13 +308,27 @@ class ReelstackViewModel(
 
     private val _uiState = MutableStateFlow(initialState(container))
     val uiState: StateFlow<ReelstackUiState> = _uiState.asStateFlow()
+    /** Home observes only the data it renders, not every global sheet or profile mutation. */
+    val homeUiState: StateFlow<app.reelstack.ui.state.HomeUiState> = uiState
+        .map(ReelstackUiState::toHomeUiState)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = _uiState.value.toHomeUiState(),
+        )
+    /** Discover and global search do not need to observe sheet, player or kid-profile mutations. */
+    val discoverUiState: StateFlow<DiscoverUiState> = uiState
+        .map(ReelstackUiState::toDiscoverUiState)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = _uiState.value.toDiscoverUiState(),
+        )
 
     var connectionDraft = MutableStateFlow<ConnectionDraft?>(null)
         private set
 
-    private var refreshJob: Job? = null
     private var signOutJob: Job? = null
-    private var lastFeedAttemptMillis = -60_000L
     private var libraryChoicesJob: Job? = null
     private var libraryJob: Job? = null
     private var shelfJob: Job? = null
@@ -325,25 +343,36 @@ class ReelstackViewModel(
         val details: ContentDetails, val browse: app.reelstack.data.model.SeriesBrowse)
     private var episodeReturn: EpisodeReturn? = null
     private val detailHistory = ArrayDeque<EpisodeReturn>()
-    private var playbackJob: Job? = null
-    private var sessionChannel: app.reelstack.data.network.JellyfinSessionSocket.Connection? = null
-    private val sessionChannelState = MutableStateFlow(false)
-
-    /**
-     * Whether the server is pushing playback changes rather than being asked for them.
-     *
-     * The caller reads this to decide how often to poll: a live channel means the poll is only a
-     * safety net, and a dropped one means it is the whole story again.
-     */
-    val sessionChannelLive: StateFlow<Boolean> = sessionChannelState.asStateFlow()
-    private var searchJob: Job? = null
     private var quickConnectJob: Job? = null
     private var connectionJob: Job? = null
-    private var accountsJob: Job? = null
     private var trackingJob: Job? = null
     private var historyJob: Job? = null
     private var requestDraftJob: Job? = null
-    private var cacheLoadJob: Job? = null
+    private val accountRefresh = AccountRefreshCoordinator(
+        container = container,
+        scope = viewModelScope,
+        readState = { _uiState.value },
+        updateState = { transform -> _uiState.update(transform) },
+    )
+    private val discoverSearch = DiscoverSearchCoordinator(
+        container = container,
+        scope = viewModelScope,
+        readState = { _uiState.value },
+        updateState = { transform -> _uiState.update(transform) },
+    )
+    private val homeFeed = HomeFeedCoordinator(
+        container = container,
+        scope = viewModelScope,
+        readState = { _uiState.value },
+        updateState = { transform -> _uiState.update(transform) },
+        refreshAccounts = ::refreshAccounts,
+        refreshTrackedRequests = { refreshTrackedRequests() },
+        openLibraryDetails = { key -> openLibraryDetails(key) },
+        isSigningOut = { signOutJob?.isActive == true },
+    )
+
+    /** Whether Jellyfin is currently pushing playback-change notifications. */
+    val sessionChannelLive: StateFlow<Boolean> = homeFeed.sessionChannelLive
 
     val profileViewModel = app.reelstack.ui.viewmodels.ProfileViewModel(
         connectionRepository = container.connectionRepository,
@@ -502,11 +531,10 @@ class ReelstackViewModel(
         container.preferencesRepository.setLibraryShortcuts(connection, pinned)
         val savedIcons = icons.filterKeys { key -> state.libraryChoices.any { it.id == key } }
         container.preferencesRepository.setLibraryIcons(connection, savedIcons)
-        refreshJob?.cancel()
-        refreshJob = null
+        homeFeed.cancelRefresh()
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
-        searchJob?.cancel()
+        discoverSearch.cancel()
         libraryPageCache.clear()
         _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned, libraryIcons = savedIcons,
             libraryPath = emptyList(), libraryEntries = emptyList(), libraryDetailMedia = null,
@@ -693,18 +721,35 @@ class ReelstackViewModel(
         write: (ServiceConnection, LibraryMedia) -> Unit,
     ) {
         val state = _uiState.value
-        val media = (state.resume + state.nextUp + state.libraryShelves.resume + state.libraryShelves.nextUp +
-            state.recentMovies + state.recentSeries + state.favourites + state.librarySearchResults + listOfNotNull(state.libraryDetailMedia))
-            .firstOrNull { it.id == id } ?: return
+        val media = mediaActionTarget(state, id)
+        if (media == null) {
+            _uiState.update { it.copy(mediaActionError = container.appContext.getString(R.string.library_action_failed)) }
+            return
+        }
         val connection = state.connections.firstOrNull {
             it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        } ?: return
-        if (media.remoteId == null) return
-        _uiState.update { it.copy(mediaActionError = null) }
+        }
+        if (connection == null || media.remoteId == null) {
+            _uiState.update { it.copy(mediaActionError = container.appContext.getString(R.string.library_action_failed)) }
+            return
+        }
+        _uiState.update { current ->
+            current.copy(
+                mediaActionError = null,
+                contentDetails = current.contentDetails?.takeIf { it.key == id }?.copy(updating = true)
+                    ?: current.contentDetails,
+            )
+        }
         viewModelScope.launch {
             val result = runCatching { withContext(Dispatchers.IO) { write(connection, media) } }
             if (result.isFailure) {
-                _uiState.update { it.copy(mediaActionError = container.appContext.getString(R.string.library_action_failed)) }
+                _uiState.update { current ->
+                    current.copy(
+                        mediaActionError = container.appContext.getString(R.string.library_action_failed),
+                        contentDetails = current.contentDetails?.takeIf { it.key == id }?.copy(updating = false)
+                            ?: current.contentDetails,
+                    )
+                }
                 return@launch
             }
             if (played != null) container.localPlaybackStore.forget(connection, media.remoteId)
@@ -835,7 +880,14 @@ class ReelstackViewModel(
         _uiState.update { it.copy(activeSheet = sheet, returnToCalendar = false) }
     }
 
-    fun closeSheet() {
+    /**
+     * Restores the title that opened the current detail page, without tearing down the sheet.
+     *
+     * A close animation is only correct when the reader is actually returning to the underlying
+     * screen.  Using it for episode → series → episode briefly made the full-screen TV dialog
+     * transparent, which looked like a jump through Home before the episode reappeared.
+     */
+    fun returnFromDetail(): Boolean {
         val previous = detailHistory.removeLastOrNull() ?: episodeReturn
         episodeReturn = null
         if (previous != null && _uiState.value.contentDetails?.key == previous.seriesKey &&
@@ -845,8 +897,13 @@ class ReelstackViewModel(
             episodesJob?.cancel()
             _uiState.update { it.copy(activeSheet = AppSheet.TitleDetails(previous.details.key),
                 contentDetails = previous.details, seriesBrowse = previous.browse) }
-            return
+            return true
         }
+        return false
+    }
+
+    fun closeSheet() {
+        if (returnFromDetail()) return
         detailHistory.clear()
         if (_uiState.value.requestDraft?.sending == true) return
         requestDraftJob?.cancel()
@@ -900,18 +957,14 @@ class ReelstackViewModel(
     }
 
     fun switchProfileNow(profileId: String) {
-        // Do this while the old profile still exists: a receiver must not outlive its account.
-        container.castGateway.stop()
         val previousProfileId = container.connectionRepository.activeProfileId
         container.offlineDownloads.setProfileActive(previousProfileId, active = false)
         kidsLibraryJob?.cancel()
         kidsBrowseJob?.cancel()
         kidsEpisodesJob?.cancel()
-        refreshJob?.cancel()
-        refreshJob = null
-        cacheLoadJob?.cancel()
-        accountsJob?.cancel()
-        playbackJob?.cancel()
+        homeFeed.resetForProfileChange()
+        accountRefresh.cancel()
+        discoverSearch.cancel()
         trackingJob?.cancel()
         container.connectionRepository.activeProfileId = profileId
         if (profileId.isBlank()) container.offlineDownloads.setProfileActive(profileId, active = true)
@@ -922,6 +975,14 @@ class ReelstackViewModel(
                 isKidMode = profileId.isNotBlank(),
                 globalSearchOpen = false,
                 searchHistory = container.preferencesRepository.searchHistory(profileId),
+                searchQuery = "",
+                searchResults = emptyList(),
+                librarySearchResults = emptyList(),
+                isSearching = false,
+                searchError = null,
+                searchPage = 1,
+                searchHasMore = false,
+                loadingMoreSearch = false,
                 connections = connections,
                 activeSheet = null,
                 pinError = null,
@@ -1362,6 +1423,7 @@ class ReelstackViewModel(
                 activeSheet = AppSheet.TitleDetails(media.id),
                 contentDetails = ContentDetails(
                     key = media.id,
+                    remoteId = media.remoteId,
                     title = media.title,
                     eyebrow = "Bibliotek i ${media.source.displayName}",
                     subtitle = media.subtitle,
@@ -1756,110 +1818,9 @@ class ReelstackViewModel(
         }
     }
 
-    fun setSearchQuery(value: String) {
-        searchJob?.cancel()
-        val query = value.trim()
-        val state = _uiState.value
-        val seerr = state.connections.firstOrNull {
-            it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        }
-        val mediaServers = state.connections.filter {
-            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
-                it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        }
-        if (query.length < 2) {
-            _uiState.update {
-                it.copy(searchQuery = value, searchResults = emptyList(), librarySearchResults = emptyList(),
-                    isSearching = false, searchError = null, searchPage = 1, searchHasMore = false)
-            }
-            return
-        }
-        if (seerr == null && mediaServers.isEmpty()) {
-            _uiState.update {
-                it.copy(
-                    searchQuery = value,
-                    searchResults = it.discover.filter { media -> media.title.contains(query, ignoreCase = true) },
-                    librarySearchResults = emptyList(),
-                    isSearching = false,
-                    searchError = null,
-                )
-            }
-            return
-        }
-        _uiState.update {
-            it.copy(searchQuery = value, searchResults = emptyList(), librarySearchResults = emptyList(),
-                isSearching = true, searchError = null, searchPage = 1, searchHasMore = false)
-        }
-        searchJob = viewModelScope.launch {
-            delay(350)
-            // Your own libraries and Seerr answer independently: a title you already own must still
-            // be findable when Seerr is down, and vice versa.
-            val libraryDeferred = async {
-                if (mediaServers.isEmpty()) Result.success(emptyList())
-                else attempt {
-                    withContext(Dispatchers.IO) {
-                        container.mediaSyncRepository.searchLibraries(mediaServers, query)
-                    }
-                }
-            }
-            val discoverResult = if (seerr == null) {
-                Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
-            } else attempt {
-                withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query, page = 1) }
-            }
-            val libraryResult = libraryDeferred.await()
-            if (!isActive || _uiState.value.searchQuery.trim() != query) return@launch
-            container.preferencesRepository.rememberSearch(_uiState.value.activeProfileId, query)
-            _uiState.update {
-                it.copy(
-                    searchResults = discoverResult.getOrNull()?.items.orEmpty(),
-                    searchPage = discoverResult.getOrNull()?.page ?: 1,
-                    searchHasMore = discoverResult.getOrNull()?.hasMore == true,
-                    librarySearchResults = libraryResult.getOrDefault(emptyList()),
-                    isSearching = false,
-                    searchError = when {
-                        discoverResult.isFailure && libraryResult.isFailure ->
-                            appString(R.string.error_search_all)
-                        discoverResult.isFailure && seerr != null ->
-                            appString(R.string.error_search_seerr)
-                        libraryResult.isFailure ->
-                            appString(R.string.error_search_libraries)
-                        else -> null
-                    },
-                    searchHistory = container.preferencesRepository.searchHistory(it.activeProfileId),
-                )
-            }
-        }
-    }
+    fun setSearchQuery(value: String) = discoverSearch.setQuery(value)
 
-    /** Appends the next page of Seerr results. Existing hits stay put; only the tail grows. */
-    fun loadMoreSearchResults() {
-        val state = _uiState.value
-        val query = state.searchQuery.trim()
-        if (query.isBlank() || !state.searchHasMore || state.loadingMoreSearch || state.isSearching) return
-        val seerr = state.connections.firstOrNull {
-            it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        } ?: return
-        val next = state.searchPage + 1
-        _uiState.update { it.copy(loadingMoreSearch = true) }
-        viewModelScope.launch {
-            val result = attempt {
-                withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query, next) }
-            }
-            _uiState.update { current ->
-                if (current.searchQuery.trim() != query) return@update current.copy(loadingMoreSearch = false)
-                val page = result.getOrNull()
-                current.copy(
-                    loadingMoreSearch = false,
-                    searchResults = if (page == null) current.searchResults
-                    else (current.searchResults + page.items).distinctBy { item -> item.id },
-                    searchPage = page?.page ?: current.searchPage,
-                    searchHasMore = page?.hasMore == true,
-                    searchError = if (result.isFailure) appString(R.string.error_search_more) else current.searchError,
-                )
-            }
-        }
-    }
+    fun loadMoreSearchResults() = discoverSearch.loadMore()
 
     fun requestMedia(id: String) {
         val state = _uiState.value
@@ -2219,372 +2180,32 @@ class ReelstackViewModel(
         }
     }
 
-    /**
-     * Opens Jellyfin's notification channel, if the server offers one.
-     *
-     * The channel is a doorbell: it says that playback changed, and the ordinary access-checked
-     * request answers what changed. Opening twice is a no-op, so a caller may call it on every
-     * lifecycle event without tracking whether it already did.
-     */
-    fun openSessionChannel() {
-        if (sessionChannel != null) return
-        val connection = _uiState.value.connections.firstOrNull {
-            it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank()
-        } ?: return
-        // A channel is an optimisation. If anything about it fails — an old OkHttp, a proxy that
-        // refuses the upgrade, a malformed address — the poll below carries on exactly as before,
-        // and the reader sees nothing at all.
-        sessionChannel = runCatching { container.sessionSocket.connect(
-            connection = connection,
-            onChanged = {
-                // Arrives on the socket's own thread. One refresh at a time: a burst of progress
-                // messages must not become a burst of requests.
-                if (playbackJob?.isActive != true) {
-                    playbackJob = viewModelScope.launch { refreshPlayback() }
-                }
-            },
-            onLost = {
-                sessionChannel = null
-                sessionChannelState.value = false
-            },
-        ) }.getOrNull()
-        sessionChannelState.value = sessionChannel != null
-    }
+    fun openSessionChannel() = homeFeed.openSessionChannel()
 
-    fun closeSessionChannel() {
-        sessionChannel?.let { runCatching { it.close() } }
-        sessionChannel = null
-        sessionChannelState.value = false
-    }
+    fun closeSessionChannel() = homeFeed.closeSessionChannel()
 
-    suspend fun refreshPlayback() {
-        if (refreshJob?.isActive == true) return
-        val connections = _uiState.value.connections
-        if (connections.none { it.token.isNotBlank() && it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }) return
-        val sessions = withContext(Dispatchers.IO) { container.mediaSyncRepository.refreshPlayback(connections) }
-        // A response from an account that has since signed out must never repopulate the screen.
-        //
-        // The unchanged case returns `current` rather than a copy of it, and that is the whole
-        // point: the state is one object handed to every screen, so a `copy` with identical
-        // contents still emits a new value and recomposes the entire tree. This poll runs every
-        // five seconds while anything is playing, and nothing is playing most of the time — the
-        // app was rebuilding itself twelve times a minute to arrive at the same picture.
-        _uiState.update { current ->
-            when {
-                current.connections != connections || refreshJob?.isActive == true -> current
-                current.sessions == sessions -> current
-                else -> current.copy(sessions = sessions)
-            }
-        }
-    }
+    suspend fun refreshPlayback() = homeFeed.refreshPlayback()
 
-    private fun localResume(items: List<LibraryMedia>, connections: List<ServiceConnection>): List<LibraryMedia> {
-        return connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank() }
-            .fold(items) { result, account -> container.localPlaybackStore.merge(account, result) }
-    }
+    private fun localResume(items: List<LibraryMedia>, connections: List<ServiceConnection>): List<LibraryMedia> =
+        homeFeed.localResume(items, connections)
 
-    private fun localNextUp(items: List<LibraryMedia>, connections: List<ServiceConnection>): List<LibraryMedia> {
-        return connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank() }
-            .fold(items) { result, account -> container.localPlaybackStore.nextUp(account, result) }
-    }
+    private fun localNextUp(items: List<LibraryMedia>, connections: List<ServiceConnection>): List<LibraryMedia> =
+        homeFeed.localNextUp(items, connections)
 
-    /** Returning from playback must refresh personal progress and the next episode too. */
-    fun returnedToApp() {
-        _uiState.update { it.copy(resume = localResume(it.resume, it.connections)) }
-        refreshLiveData()
-        val key = (_uiState.value.activeSheet as? AppSheet.TitleDetails)?.key
-        if (key != null && (key.startsWith("jellyfin-") || key.startsWith("emby-"))) openLibraryDetails(key)
-    }
+    fun returnedToApp() = homeFeed.returnedToApp()
 
-    /** Recover transient startup/profile failures while Home remains open, including on TV. */
-    private fun hydrateCachedFeed() {
-        val seedConnections = _uiState.value.connections
-        if (seedConnections.none { it.baseUrl.isNotBlank() && it.token.isNotBlank() }) return
-        cacheLoadJob?.cancel()
-        cacheLoadJob = viewModelScope.launch(Dispatchers.IO) {
-            val cached = runCatching {
-                val fingerprint = container.mediaFingerprint(seedConnections)
-                container.mediaSnapshotStore.read(fingerprint)
-            }.getOrNull()
-            if (!isActive || cached == null) return@launch
-            _uiState.update { current ->
-                if (current.connections != seedConnections) return@update current
-                val configuredKinds = seedConnections.filter { it.baseUrl.isNotBlank() }.mapTo(mutableSetOf()) { it.kind }
-                val hasMediaServer = configuredKinds.any { it == ServiceKind.JELLYFIN || it == ServiceKind.EMBY }
-                val hasQueueService = configuredKinds.any { it == ServiceKind.RADARR || it == ServiceKind.SONARR }
-                val hasSeerr = configuredKinds.contains(ServiceKind.SEERR)
-                current.copy(
-                    sessions = if (hasMediaServer) cached.sessions else current.sessions,
-                    resume = if (hasMediaServer) localResume(cached.resume, current.connections) else current.resume,
-                    nextUp = if (hasMediaServer) localNextUp(cached.nextUp, current.connections) else current.nextUp,
-                    favourites = if (hasMediaServer) cached.favourites else current.favourites,
-                    recentMovies = if (hasMediaServer) cached.recentMovies else current.recentMovies,
-                    recentSeries = if (hasMediaServer) cached.recentSeries else current.recentSeries,
-                    upcoming = if (hasQueueService) cached.upcoming else current.upcoming,
-                    recentReleases = if (hasQueueService) cached.recentReleases else current.recentReleases,
-                    incoming = if (hasQueueService) cached.incoming else current.incoming,
-                    discover = if (hasSeerr) cached.discover else current.discover,
-                    recommendations = if (hasSeerr) cached.recommendations else current.recommendations,
-                    activity = if (hasQueueService || hasSeerr) cached.activity else current.activity,
-                    lastUpdatedEpochMillis = cached.refreshedAtEpochMillis,
-                    hasCachedData = true,
-                )
-            }
-        }
-    }
+    private fun hydrateCachedFeed() = homeFeed.hydrateCachedFeed()
 
-    /** Recover transient startup/profile failures while Home remains open, including on TV. */
-    fun retryIncompleteHomeFeed() {
-        val state = _uiState.value
-        if (shouldRetryHomeFeed(state.failedServices, state.serviceWarnings.keys, state.isRefreshing,
-                android.os.SystemClock.elapsedRealtime() - lastFeedAttemptMillis)) refreshLiveData()
-    }
+    fun retryIncompleteHomeFeed() = homeFeed.retryIncompleteFeed()
 
-    fun refreshLiveData(userInitiated: Boolean = false) {
-        if (signOutJob?.isActive == true || (_uiState.value.showOnboarding && _uiState.value.configuredCount == 0)) return
-        refreshAccounts()
-        refreshTrackedRequests()
-        if (refreshJob?.isActive == true) return
-        val state = _uiState.value
-        val configured = state.connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
-        if (configured.isEmpty()) {
-            if (state.isKidMode) {
-                _uiState.update { it.copy(isRefreshing = false, kidsLibraryError = true) }
-                return
-            }
-            // Falling back to demo content is right when nothing is set up. It is misleading when
-            // a service *is* set up and its stored sign-in simply cannot be decrypted any more, so
-            // that case gets its own sentence rather than the generic invitation to connect.
-            val unreadable = state.connections.filter {
-                it.baseUrl.isNotBlank() && it.state == ConnectionState.ERROR
-            }
-            _uiState.update {
-                it.copy(
-                    sessions = demoSessions(),
-                    resume = demoResume(),
-                    nextUp = demoNextUp(),
-                    favourites = demoFavourites(),
-                    recentMovies = demoRecentMovies(),
-                    recentSeries = demoRecentSeries(),
-                    upcoming = demoUpcoming(),
-                    recentReleases = demoRecentReleases(),
-                    incoming = demoIncoming(),
-                    discover = demoDiscover(),
-                    recommendations = demoRecommendations(),
-                    activity = demoActivity(),
-                    isRefreshing = false,
-                    liveSession = false,
-                    liveLibrary = false,
-                    liveIncoming = false,
-                    liveDiscover = false,
-                    liveActivity = false,
-                    failedServices = emptySet(),
-                    hasCachedData = false,
-                    snackbar = when {
-                        unreadable.isNotEmpty() -> appString(R.string.error_login_unreadable)
-                        userInitiated -> appString(R.string.notice_connect_to_sync)
-                        else -> it.snackbar
-                    },
-                )
-            }
-            return
-        }
-
-        val refreshFingerprint = container.mediaFingerprint(state.connections)
-        lastFeedAttemptMillis = android.os.SystemClock.elapsedRealtime()
-        _uiState.update { it.copy(isRefreshing = true) }
-        refreshJob = viewModelScope.launch {
-            val outcome = attempt {
-                val snapshot = withContext(Dispatchers.IO) {
-                    container.mediaSyncRepository.refresh(
-                        connections = _uiState.value.connections,
-                        includeRecommendations = HomeSection.RECOMMENDATIONS in _uiState.value.homeSections,
-                        onLibraryReady = { update ->
-                            _uiState.update { current ->
-                                if (container.mediaFingerprint(current.connections) != refreshFingerprint) current else {
-                                    fun replace(items: List<LibraryMedia>, fresh: List<LibraryMedia>) =
-                                        items.filterNot { it.source == update.source } + fresh
-                                    current.copy(resume = localResume(replace(current.resume, update.resume), current.connections), nextUp = localNextUp(replace(current.nextUp, update.nextUp), current.connections),
-                                        recentMovies = replace(current.recentMovies, update.recentMovies), recentSeries = replace(current.recentSeries, update.recentSeries),
-                                        favourites = replace(current.favourites, update.favourites), liveLibrary = true)
-                                }
-                            }
-                        },
-                    )
-                }
-                if (snapshot.successfulServices.isNotEmpty()) {
-                    // Writing the offline copy is a convenience. A full disk must not take the
-                    // refresh down with it.
-                    attempt {
-                        withContext(Dispatchers.IO) {
-                            container.mediaSnapshotStore.save(
-                                snapshot,
-                                refreshFingerprint,
-                            )
-                        }
-                    }
-                }
-                snapshot
-            }
-            val snapshot = outcome.getOrElse { error ->
-                // Per-service failures are already reported inside the snapshot. Anything that
-                // escapes to here is unexpected, and it used to leave the spinner turning forever
-                // and take the process down with it.
-                _uiState.update {
-                    it.copy(
-                        isRefreshing = false,
-                        snackbar = appString(R.string.error_feed_refresh),
-                    )
-                }
-                return@launch
-            }
-            if (!isActive || container.mediaFingerprint(_uiState.value.connections) != refreshFingerprint) return@launch
-            // A service that only answered on its alternate address keeps that address next time.
-            if (snapshot.switchedToAlternate.isNotEmpty()) {
-                attempt {
-                    withContext(Dispatchers.IO) {
-                        snapshot.switchedToAlternate.forEach(container.connectionRepository::promoteAlternate)
-                    }
-                }
-            }
-            val refreshedConnections = if (snapshot.switchedToAlternate.isEmpty()) null
-            else runCatching { container.connectionRepository.list() }.getOrNull()
-            _uiState.update { current ->
-                val connectionsNow = refreshedConnections ?: current.connections
-                val configuredKinds = connectionsNow.filter { it.baseUrl.isNotBlank() }.mapTo(mutableSetOf()) { it.kind }
-                val configuredMedia = configuredKinds.intersect(setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
-                val configuredQueue = configuredKinds.intersect(setOf(ServiceKind.RADARR, ServiceKind.SONARR))
-                val mediaLive = snapshot.successfulServices.any { it in configuredMedia }
-                val queueLive = snapshot.successfulServices.any { it in configuredQueue }
-                val seerrLive = ServiceKind.SEERR in snapshot.successfulServices
-                val activityLive = queueLive || seerrLive
-                val anySuccess = snapshot.successfulServices.isNotEmpty()
-                // A service can report several things at once. They are joined here, once, in the
-                // language the app is set to; the sync layer only decided which sentences apply.
-                val serviceWarnings = snapshot.warnings.mapValues { (_, sentences) ->
-                    sentences.joinToString(" · ") { it.text(container.appContext) }
-                }
-
-                current.copy(
-                    adminView = snapshot.adminView,
-                    sessions = snapshot.sessions,
-                    // Do not retain library data after the current profile or library scope fails verification.
-                    resume = localResume(snapshot.resume, connectionsNow),
-                    nextUp = localNextUp(snapshot.nextUp, connectionsNow),
-                    favourites = snapshot.favourites,
-                    libraryShortcuts = current.copy(connections = connectionsNow).libraryConnection
-                        ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
-                    libraryIcons = current.copy(connections = connectionsNow).libraryConnection
-                        ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
-                    recentMovies = snapshot.recentMovies,
-                    recentSeries = snapshot.recentSeries,
-                    // Release metadata does not require administrator queue credentials.
-                    recentReleases = snapshot.recentReleases,
-                    upcoming = snapshot.upcoming,
-                    recentReleasesError = snapshot.recentReleasesError?.text(container.appContext),
-                    upcomingError = snapshot.upcomingError?.text(container.appContext),
-                    incoming = snapshot.incoming,
-                    discover = when {
-                        ServiceKind.SEERR !in configuredKinds -> emptyList()
-                        seerrLive -> snapshot.discover
-                        current.liveDiscover || current.hasCachedData -> current.discover
-                        else -> emptyList()
-                    },
-                    recommendations = when {
-                        snapshot.recommendationsError == null -> snapshot.recommendations
-                        current.hasCachedData -> current.recommendations
-                        else -> emptyList()
-                    },
-                    activity = snapshot.activity,
-                    // Several sentences per service, joined once and in the reader’s language.
-                    connections = connectionsNow.map { connection ->
-                        when {
-                            connection.baseUrl.isBlank() -> connection.copy(state = ConnectionState.DEMO, detail = appString(R.string.connection_detail_demo))
-                            connection.kind in snapshot.errors -> connection.copy(
-                                state = ConnectionState.ERROR,
-                                detail = snapshot.errors.getValue(connection.kind).text(container.appContext),
-                            )
-                            connection.kind in snapshot.successfulServices -> connection.copy(
-                                state = ConnectionState.CONNECTED,
-                                detail = when {
-                                    connection.kind in snapshot.switchedToAlternate -> appString(R.string.connection_active_switched_alternate)
-                                    else -> serviceWarnings[connection.kind]?.let { appString(R.string.connection_connected_with_warning, it) }
-                                        ?: appString(R.string.connection_active_updated_now)
-                                },
-                            )
-                            else -> connection
-                        }
-                    },
-                    isRefreshing = false,
-                    liveSession = configuredMedia.isNotEmpty() && (mediaLive || current.liveSession),
-                    liveLibrary = configuredMedia.isNotEmpty() && (mediaLive || current.liveLibrary),
-                    liveIncoming = configuredQueue.isNotEmpty() && (queueLive || current.liveIncoming),
-                    liveDiscover = ServiceKind.SEERR in configuredKinds && (seerrLive || current.liveDiscover),
-                    liveActivity = (configuredQueue.isNotEmpty() || ServiceKind.SEERR in configuredKinds) &&
-                        (activityLive || current.liveActivity),
-                    lastUpdatedEpochMillis = if (anySuccess) snapshot.refreshedAt.toEpochMilli() else current.lastUpdatedEpochMillis,
-                    hasCachedData = !anySuccess && current.hasCachedData,
-                    failedServices = snapshot.errors.keys,
-                    serviceWarnings = serviceWarnings,
-                    snackbar = if (userInitiated) {
-                        when {
-                            snapshot.errors.isNotEmpty() -> appQuantityString(R.plurals.notice_sync_services_check, snapshot.errors.size, snapshot.errors.size)
-                            snapshot.warnings.isNotEmpty() -> appString(R.string.notice_sync_warnings)
-                            else -> appString(R.string.notice_sync_all_updated)
-                        }
-                    } else current.snackbar,
-                )
-            }
-        }
-    }
+    fun refreshLiveData(userInitiated: Boolean = false) = homeFeed.refresh(userInitiated)
 
     fun setNotifications(enabled: Boolean) {
         container.preferencesRepository.notificationsEnabled = enabled
         _uiState.update { it.copy(notificationsEnabled = enabled) }
     }
 
-    private fun refreshAccounts() {
-        accountsJob?.cancel()
-        val targets = _uiState.value.connections.filter {
-            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        }
-        val kinds = targets.map { it.kind }.toSet()
-        _uiState.update { it.copy(accounts = it.accounts.filterKeys(kinds::contains),
-            accountErrors = it.accountErrors.filterKeys(kinds::contains), loadingAccounts = kinds) }
-        accountsJob = viewModelScope.launch {
-            targets.forEach { connection ->
-                launch profile@ {
-                    val result = attempt { withContext(Dispatchers.IO) { container.accountProfileClient.load(connection) } }
-                    if (!isActive) return@profile
-                    // Remember who the adult actually is. The stored profile name is the server's
-                    // nickname — "Heimetenar" — which names the machine, not the person watching,
-                    // and in kids mode the loaded account is the child's, so only the main profile
-                    // may write this.
-                    val account = result.getOrNull()
-                    if (account != null && !container.connectionRepository.isKidMode &&
-                        connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
-                        account.displayName.isNotBlank()
-                    ) {
-                        container.connectionRepository.setMainProfileInfo(account.displayName, account.avatarUrl)
-                    }
-                    _uiState.update { current ->
-                        val configured = current.connections.firstOrNull { it.kind == connection.kind }
-                        if (configured == null || configured.baseUrl != connection.baseUrl || configured.token != connection.token ||
-                            configured.userId != connection.userId || configured.sessionCookie != connection.sessionCookie) current
-                        else current.copy(
-                            accounts = if (result.isSuccess) current.accounts + (connection.kind to result.getOrThrow()) else current.accounts - connection.kind,
-                            accountErrors = if (result.isSuccess) current.accountErrors - connection.kind else current.accountErrors +
-                                (connection.kind to appString(R.string.error_account_verify)),
-                            loadingAccounts = current.loadingAccounts - connection.kind,
-                            requestHistory = if (connection.kind == ServiceKind.SEERR &&
-                                (result.isFailure || result.getOrNull()?.id != current.accounts[ServiceKind.SEERR]?.id))
-                                app.reelstack.data.model.RequestHistoryState() else current.requestHistory,
-                        )
-                    }
-                }
-            }
-        }
-    }
+    private fun refreshAccounts() = accountRefresh.refresh()
 
     fun setWifiOnly(enabled: Boolean) {
         container.preferencesRepository.wifiOnly = enabled
@@ -2595,18 +2216,10 @@ class ReelstackViewModel(
         _uiState.update { it.copy(wifiOnly = enabled, snackbar = "Bakgrunnsoppdateringa er endra") }
     }
 
-    fun setHomeRowOrder(order: List<app.reelstack.data.model.HomeRow>) {
-        container.preferencesRepository.homeRowOrder = order
-        _uiState.update { it.copy(homeRowOrder = container.preferencesRepository.homeRowOrder) }
-    }
+    fun setHomeRowOrder(order: List<app.reelstack.data.model.HomeRow>) = homeFeed.setRowOrder(order)
 
-    fun setHomeSectionVisible(section: HomeSection, visible: Boolean) {
-        _uiState.update { current ->
-            val updated = if (visible) current.homeSections + section else current.homeSections - section
-            container.preferencesRepository.visibleHomeSections = updated
-            current.copy(homeSections = updated)
-        }
-    }
+    fun setHomeSectionVisible(section: HomeSection, visible: Boolean) =
+        homeFeed.setSectionVisible(section, visible)
 
     fun clearSnackbar() = _uiState.update { it.copy(snackbar = null) }
 
@@ -2913,11 +2526,10 @@ class ReelstackViewModel(
             updateDraft { copy(saving = false, error = appString(R.string.error_store_token_secure)) }
             return
         }
-        refreshJob?.cancel()
-        refreshJob = null
+        homeFeed.cancelRefresh()
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
-        searchJob?.cancel()
+        discoverSearch.cancel()
         trackingJob?.cancel()
         historyJob?.cancel()
         val saved = candidate.copy(
@@ -2962,7 +2574,6 @@ class ReelstackViewModel(
         val pending = viewModelScope.coroutineContext[Job]?.children?.toList().orEmpty()
         viewModelScope.coroutineContext.cancelChildren()
         closeSessionChannel()
-        container.castGateway.stop()
         // This is the only operation that destroys every local account. Remove Media3's opaque
         // jobs before secure connection state, so no queued request can survive sign-out.
         container.offlineDownloads.removeAll()
@@ -2975,7 +2586,7 @@ class ReelstackViewModel(
         }.forEach { notifications.cancel(it.tag, it.id) }
         app.reelstack.widget.NowPlayingWidget.requestUpdate(container.appContext)
         connectionDraft.value = null
-        lastFeedAttemptMillis = -60_000L
+        homeFeed.resetRetryClock()
         // A fresh state clears details, favourites, requests and every account-scoped pane.
         _uiState.value = ReelstackUiState(
             signingOut = true, connections = container.connectionRepository.list(),
@@ -3002,15 +2613,13 @@ class ReelstackViewModel(
         if (_uiState.value.requestingMediaIds.isNotEmpty()) return
         connectionJob?.cancel()
         quickConnectJob?.cancel()
-        accountsJob?.cancel()
+        accountRefresh.cancel()
         trackingJob?.cancel()
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
-        searchJob?.cancel()
-        refreshJob?.cancel()
-        refreshJob = null
+        discoverSearch.cancel()
+        homeFeed.cancelRefresh()
         historyJob?.cancel()
-        if (container.castGateway.state.value.active) container.castGateway.stop()
         container.connectionRepository.get(kind).takeIf { it.baseUrl.isNotBlank() }?.let {
             container.offlineDownloads.removeScope(_uiState.value.activeProfileId, it)
             container.offlineStorage.clearForConnection(_uiState.value.activeProfileId, it)
@@ -3068,22 +2677,19 @@ class ReelstackViewModel(
     }
 
     override fun onCleared() {
-        closeSessionChannel()
-        cacheLoadJob?.cancel()
+        homeFeed.cancel()
         requestDraftJob?.cancel()
         signOutJob?.cancel()
-        refreshJob?.cancel()
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
         shelfJob?.cancel()
         peekJob?.cancel()
         seasonsJob?.cancel()
         episodesJob?.cancel()
-        playbackJob?.cancel()
-        searchJob?.cancel()
+        discoverSearch.cancel()
         quickConnectJob?.cancel()
         connectionJob?.cancel()
-        accountsJob?.cancel()
+        accountRefresh.cancel()
         trackingJob?.cancel()
         historyJob?.cancel()
         super.onCleared()

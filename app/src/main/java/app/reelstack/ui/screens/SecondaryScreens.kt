@@ -120,6 +120,8 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.R
 import app.reelstack.BuildConfig
 import app.reelstack.ui.ReelstackUiState
+import app.reelstack.ui.state.DiscoverUiState
+import app.reelstack.ui.state.toDiscoverUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.ActivitySkeleton
 import app.reelstack.ui.components.DiscoverSkeleton
@@ -242,7 +244,7 @@ private fun screenPadding(contentPadding: PaddingValues) = PaddingValues(
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun DiscoverScreen(
-    state: ReelstackUiState,
+    state: DiscoverUiState,
     contentPadding: PaddingValues,
     onSearch: (String) -> Unit,
     onRequest: (String) -> Unit,
@@ -750,6 +752,39 @@ private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: (
       }
     }
 }
+
+/** Compatibility entry point for existing Compose tests while the root state is being split. */
+@Composable
+fun DiscoverScreen(
+    state: ReelstackUiState,
+    contentPadding: PaddingValues,
+    onSearch: (String) -> Unit,
+    onRequest: (String) -> Unit,
+    onDetails: (String) -> Unit,
+    onAccountClick: () -> Unit = {},
+    onLibraryDetails: (String) -> Unit = {},
+    onLoadMore: () -> Unit = {},
+    searchTransitionModifier: Modifier = Modifier,
+    prepareSearch: Boolean = false,
+    searchReady: Boolean = false,
+    globalSearch: Boolean = false,
+    onSearchFocusConsumed: () -> Unit = {},
+) = DiscoverScreen(
+    state = state.toDiscoverUiState(),
+    contentPadding = contentPadding,
+    onSearch = onSearch,
+    onRequest = onRequest,
+    onDetails = onDetails,
+    onAccountClick = onAccountClick,
+    onLibraryDetails = onLibraryDetails,
+    onLoadMore = onLoadMore,
+    searchTransitionModifier = searchTransitionModifier,
+    prepareSearch = prepareSearch,
+    searchReady = searchReady,
+    globalSearch = globalSearch,
+    onSearchFocusConsumed = onSearchFocusConsumed,
+)
+
 @Composable
 fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit,
                    onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {},

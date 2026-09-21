@@ -18,10 +18,11 @@ import org.junit.Test
  * stopped there and told the viewer the series was over.
  */
 class NextEpisodeTest {
-    @Test fun countdownStartsBeforeEndAndStopsForPauseSeekOrDismissal() {
+    @Test fun countdownWaitsForTheEndAndStopsForPauseSeekOrDismissal() {
         val ready = PlayerScreenState(busy = false, playing = true, positionMs = 1_740_000,
-            durationMs = 1_800_000, nextEpisode = PlayableItem("next", "Series", "Episode"))
-        org.junit.Assert.assertTrue(ready.canCountDownNextEpisode())
+            durationMs = 1_800_000, nextEpisodeLeadSeconds = 60,
+            nextEpisode = PlayableItem("next", "Series", "Episode"))
+        org.junit.Assert.assertFalse(ready.canCountDownNextEpisode())
         org.junit.Assert.assertFalse(ready.copy(positionMs = 1_739_999).canCountDownNextEpisode())
         org.junit.Assert.assertFalse(ready.copy(playing = false).canCountDownNextEpisode())
         org.junit.Assert.assertFalse(ready.copy(nextEpisodeDismissed = true).canCountDownNextEpisode())
@@ -61,6 +62,15 @@ class NextEpisodeTest {
         org.junit.Assert.assertTrue(ready.copy(ended = true, nextEpisodeOfferEnabled = false,
             nextEpisodeCountdown = 12).showNextEpisodeOffer())
         org.junit.Assert.assertFalse(ready.copy(ended = true, nextEpisodeOfferEnabled = false).showNextEpisodeOffer())
+    }
+
+    @Test fun finalEpisodeNeedsAConfirmedEmptyNextLookupBeforeShowingTheExitCard() {
+        val final = PlayerScreenState(busy = false, ended = true, episode = 10)
+        org.junit.Assert.assertFalse(final.showSeriesFinishedOffer())
+        org.junit.Assert.assertFalse(final.copy(nextEpisodeResolved = true,
+            nextEpisode = PlayableItem("e11", "Series", "Episode")).showSeriesFinishedOffer())
+        org.junit.Assert.assertTrue(final.copy(nextEpisodeResolved = true).showSeriesFinishedOffer())
+        org.junit.Assert.assertFalse(final.copy(nextEpisodeResolved = true, error = "offline").showSeriesFinishedOffer())
     }
 
     private class Answering(private val body: String?) : JsonHttpTransport {

@@ -53,7 +53,9 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     val tv = isTelevision()
     val large = LocalTabletCanvas.current || tv
     val inlineHeader = large && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.5f
-    val gutter = ReelLayout.Gutter
+    // The landing page and the library grid both use 32 dp on TV. Keeping the hub on the same
+    // grid stops the whole page from nudging sideways when a rail shortcut opens a library.
+    val gutter = if (tv) 32.dp else ReelLayout.Gutter
     val sections = (options.libraryHubOrder + DEFAULT_LIBRARY_HUB).distinct().filter { it !in options.libraryHubHidden }
     val leadingHero = tv && options.showHero && featured.isNotEmpty() && sections.firstOrNull() == "FEATURE"
     val hero: @Composable () -> Unit = {

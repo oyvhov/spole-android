@@ -51,6 +51,8 @@ import app.reelstack.ui.components.StableSheetDialog
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.theme.*
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 /**
  * The kid shell, beside [app.reelstack.ui.ReelstackApp] rather than a condition inside it.
@@ -80,6 +82,17 @@ fun KidsApp(viewModel: ReelstackViewModel) {
     val activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
     val options = rememberKidsPreferences(state.activeProfileId)
     val preferences = remember(context) { app.reelstack.data.repository.KidsPreferencesRepository(context) }
+    var bedtimeReached by rememberSaveable(state.activeProfileId, options.bedtime) {
+        mutableStateOf(options.bedtime.isReached())
+    }
+    // A routine needs no alarm, background worker or server request. While this shell is visible,
+    // checking each minute makes the boundary predictable without waking a background app.
+    LaunchedEffect(state.activeProfileId, options.bedtime) {
+        while (isActive) {
+            bedtimeReached = options.bedtime.isReached()
+            delay(60_000)
+        }
+    }
     var appearanceOpen by rememberSaveable(state.activeProfileId) { mutableStateOf(false) }
     BackHandler(appearanceOpen) { appearanceOpen = false }
 
@@ -142,7 +155,8 @@ fun KidsApp(viewModel: ReelstackViewModel) {
             .take(15)
     }
 
-    val play: (LibraryMedia) -> Unit = { media ->
+    val play: (LibraryMedia) -> Unit = play@{ media ->
+        if (bedtimeReached) return@play
         val itemId = media.remoteId
         if (!itemId.isNullOrBlank()) {
             app.reelstack.player.JellyfinPlayerActivity.open(context, itemId, source = media.source, kidsMode = true)
@@ -155,6 +169,12 @@ fun KidsApp(viewModel: ReelstackViewModel) {
     }
 
     KidsWorldTheme(options) {
+    if (bedtimeReached) {
+        BedtimeScreen(
+            onOpenProfile = { profileMenuOpen = true },
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize()) {
             Box(
@@ -298,6 +318,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                 }
             }
         }
+    }
     }
 
     if (profileMenuOpen) {

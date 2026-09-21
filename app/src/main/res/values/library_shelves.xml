@@ -33,6 +33,10 @@
     <string name="theme_ornament_hint">A Santa hat, festive lights and snow – or ghosts, spiders and cobwebs. Movement stops with reduced motion and lightweight TV mode.</string>
     <string name="player_next_episode">Next episode</string>
     <string name="player_next_play">Play now</string>
+    <string name="player_series_finished">Season complete</string>
+    <string name="player_series_finished_hint">Return to the series to choose what to watch next.</string>
+    <string name="player_return_to_series">Series</string>
+    <string name="detail_next_to_play">Next to play</string>
     <string name="player_skip_intro">Skip intro</string>
     <string name="player_skip_outro">Skip credits</string>
     <plurals name="detail_more_episodes">

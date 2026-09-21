@@ -88,6 +88,13 @@ internal fun StableSheetDialog(
     onDismiss: () -> Unit,
     fullScreen: Boolean = false,
     onCloseStarted: () -> Unit = {},
+    /**
+     * Handles a logical back step inside a sheet, for example series → the episode it came from.
+     * Returning true keeps this dialog alive; only a real dismissal is allowed to start its exit
+     * animation.  That distinction matters on TV, where a full-screen sheet at alpha zero exposes
+     * the page behind it for a frame.
+     */
+    onBack: (() -> Boolean)? = null,
     content: @Composable (entered: Boolean, closing: Boolean, close: () -> Unit) -> Unit,
 ) {
     val progress = remember { Animatable(0f) }
@@ -96,6 +103,7 @@ internal fun StableSheetDialog(
     val canDismiss by rememberUpdatedState(dismissEnabled)
     val dismissLatest by rememberUpdatedState(onDismiss)
     val closeStartedLatest by rememberUpdatedState(onCloseStarted)
+    val backLatest by rememberUpdatedState(onBack)
     val scope = rememberCoroutineScope()
     val hostView = LocalView.current
     val openerInput = LocalInputModeManager.current
@@ -122,6 +130,10 @@ internal fun StableSheetDialog(
     }
     // What the content and the scrim call. A sheet that is committing something still refuses this.
     val close = { leave(true) }
+    // Dismiss, whether it comes from system Back or accessibility, has the same escape guarantee.
+    val backOrLeave = {
+        if (backLatest?.invoke() != true) leave(false)
+    }
     LaunchedEffect(Unit) {
         // Android honours the user's system touch-feedback preference.
         hostView.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
@@ -150,7 +162,7 @@ internal fun StableSheetDialog(
         // Back is not a suggestion. Outside taps and the toolbar button still respect a sheet that
         // is committing something, but the remote's Back key is the one way out that must work in
         // every state — a request that is already on its way finishes on its own.
-        onDismissRequest = { leave(false) },
+        onDismissRequest = backOrLeave,
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false,
@@ -199,7 +211,7 @@ internal fun StableSheetDialog(
                         }
                         .semantics {
                             paneTitle = dialogLabel
-                            if (dismissEnabled && !closing) dismiss { close(); true }
+                            if (!closing) dismiss { backOrLeave(); true }
                         },
                     shape = if (fullScreen) RoundedCornerShape(0.dp) else if (policy.useCenteredDialog) RoundedCornerShape(28.dp)
                         else RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),

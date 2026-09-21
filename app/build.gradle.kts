@@ -43,8 +43,8 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-        versionCode = 121
-        versionName = "0.18.0-beta1"
+        versionCode = 122
+        versionName = "0.18.0-beta2"
 
         testInstrumentationRunner = "app.reelstack.SpoleTestRunner"
         vectorDrawables.useSupportLibrary = true
@@ -155,12 +155,8 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.11.1")
     implementation("androidx.media3:media3-session:1.11.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.1")
-    implementation("androidx.media3:media3-datasource-cache:1.11.1")
+    implementation("androidx.media3:media3-datasource:1.11.1")
     implementation("androidx.media3:media3-database:1.11.1")
-    // Sender only. The actual receiver application id is a public string resource and remains
-    // disabled until the team-owned Google Cast receiver has been registered.
-    implementation("com.google.android.gms:play-services-cast-framework:22.3.1")
-    implementation("androidx.mediarouter:mediarouter:1.8.1")
     implementation(project(":playback-ffmpeg"))
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

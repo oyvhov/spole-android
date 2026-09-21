@@ -1,5 +1,7 @@
 package app.reelstack.data.model
 
+import java.time.LocalTime
+
 /** Cosmetic choices are local to each child; library access always belongs to the server. */
 enum class KidsWorld(val title: String, val subtitle: String, val sky: Long, val glow: Long) {
     SPACE("Verdsrom", "Mellom stjerner og planetar", 0xFF101326, 0xFF9281DF),
@@ -14,6 +16,22 @@ enum class KidsWorld(val title: String, val subtitle: String, val sky: Long, val
     }
 }
 
+/** A local routine, not a server-side permission or a security boundary. */
+data class KidsBedtime(
+    val enabled: Boolean = false,
+    val hour: Int = 19,
+    val minute: Int = 30,
+) {
+    val time: LocalTime get() = LocalTime.of(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+
+    fun isReached(now: LocalTime = LocalTime.now()): Boolean = enabled && !now.isBefore(time)
+
+    fun nextHalfHour(): KidsBedtime {
+        val next = (time.toSecondOfDay() / 60 + 30) % (24 * 60)
+        return copy(hour = next / 60, minute = next % 60)
+    }
+}
+
 data class KidsPreferences(
     val world: KidsWorld = KidsWorld.SPACE,
     val allowAppearance: Boolean = true,
@@ -24,6 +42,7 @@ data class KidsPreferences(
     val autoplay: Boolean = false,
     val episodeLimit: Int = 3,
     val subtitles: SubtitleLanguage = SubtitleLanguage.NORWEGIAN,
+    val bedtime: KidsBedtime = KidsBedtime(),
 ) {
     fun playbackOptions(adult: Personalization): Personalization = adult.copy(
         autoResume = true,

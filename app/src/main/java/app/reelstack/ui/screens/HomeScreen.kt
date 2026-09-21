@@ -92,12 +92,14 @@ import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.isSeries
 import app.reelstack.ui.ReelstackUiState
+import app.reelstack.ui.state.HomeUiState
+import app.reelstack.ui.state.preferredHomeAccount
+import app.reelstack.ui.state.toHomeUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.HomeSearchEntry
 import app.reelstack.ui.components.IncomingSkeleton
 import app.reelstack.ui.components.LibraryRailSkeleton
 import app.reelstack.ui.components.AccountAvatarButton
-import app.reelstack.ui.components.preferredHomeAccount
 import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.UpcomingSkeleton
 import app.reelstack.ui.components.RecommendationSkeleton
@@ -128,6 +130,44 @@ import app.reelstack.ui.theme.Warning
 @Composable
 fun HomeScreen(
     state: ReelstackUiState,
+    contentPadding: PaddingValues,
+    onSessionClick: (String) -> Unit,
+    onPlaybackToggle: (String) -> Unit,
+    onMediaClick: (String) -> Unit,
+    onLibraryClick: (String) -> Unit,
+    onUpcomingClick: (String) -> Unit,
+    onCalendarClick: () -> Unit = {},
+    onRefresh: () -> Unit,
+    onAccountClick: () -> Unit = {},
+    onDiscoverClick: (String) -> Unit = {},
+    onSearchClick: () -> Unit = {},
+    searchTransitionModifier: Modifier = Modifier,
+    showSearch: Boolean = true,
+    showBrand: Boolean = true,
+    cardActions: MediaCardActions? = null,
+) = HomeScreen(
+    state = state.toHomeUiState(),
+    contentPadding = contentPadding,
+    onSessionClick = onSessionClick,
+    onPlaybackToggle = onPlaybackToggle,
+    onMediaClick = onMediaClick,
+    onLibraryClick = onLibraryClick,
+    onUpcomingClick = onUpcomingClick,
+    onCalendarClick = onCalendarClick,
+    onRefresh = onRefresh,
+    onAccountClick = onAccountClick,
+    onDiscoverClick = onDiscoverClick,
+    onSearchClick = onSearchClick,
+    searchTransitionModifier = searchTransitionModifier,
+    showSearch = showSearch,
+    showBrand = showBrand,
+    cardActions = cardActions,
+)
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun HomeScreen(
+    state: HomeUiState,
     contentPadding: PaddingValues,
     onSessionClick: (String) -> Unit,
     onPlaybackToggle: (String) -> Unit,
@@ -422,7 +462,7 @@ private fun HomeRefreshFrame(isRefreshing: Boolean, onRefresh: () -> Unit, modif
 }
 
 @Composable
-private fun HomeFreshness(state: ReelstackUiState, onRefresh: () -> Unit) {
+private fun HomeFreshness(state: HomeUiState, onRefresh: () -> Unit) {
     if (state.configuredCount == 0) return
     val text = when {
         state.isRefreshing -> stringResource(R.string.home_refreshing)
@@ -437,7 +477,7 @@ private fun HomeFreshness(state: ReelstackUiState, onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, showBrand: Boolean) {
+private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand: Boolean) {
     var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
@@ -465,7 +505,7 @@ private fun HomeHeader(state: ReelstackUiState, onAccountClick: () -> Unit, show
 }
 
 @Composable
-private fun HomeAccountButton(state: ReelstackUiState, onAccountClick: () -> Unit, onArtwork: Boolean = false) {
+private fun HomeAccountButton(state: HomeUiState, onAccountClick: () -> Unit, onArtwork: Boolean = false) {
     val account = state.preferredHomeAccount()
     val connection = state.connections.firstOrNull { it.kind == account?.source }
     AccountAvatarButton(
@@ -480,7 +520,7 @@ private fun HomeAccountButton(state: ReelstackUiState, onAccountClick: () -> Uni
 }
 
 @Composable
-private fun mediaEmptyMessage(state: ReelstackUiState, source: ServiceKind, emptyMessage: String): String =
+private fun mediaEmptyMessage(state: HomeUiState, source: ServiceKind, emptyMessage: String): String =
     if (source in state.failedServices) {
         stringResource(R.string.home_source_failed, source.displayName)
     } else if (source in state.serviceWarnings) {

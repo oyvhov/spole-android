@@ -4,11 +4,16 @@
     <string name="next_episode_at_end">Når episoden er ferdig</string>
     <string name="next_episode_seconds">%1$d sekunder</string>
     <string name="next_episode_auto">Spill neste automatisk</string>
-    <string name="next_episode_auto_hint">Teller ned når tilbudet kommer, også før slutten. Velg Se ferdig for å bli i episoden.</string>
+    <string name="next_episode_auto_hint">Teller ned når episoden er ferdig. Velg Se ferdig for å bli i episoden.</string>
     <string name="next_episode_delay">Lengde på nedtellingen</string>
     <string name="next_episode_dismiss">Se ferdig</string>
     <string name="next_episode_countdown">Starter om %1$d sekunder</string>
     <string name="next_episode_cancel">Avbryt</string>
+    <string name="playback_advanced">Avanserte valg</string>
+    <string name="playback_advanced_hide">Skjul avanserte valg</string>
+    <string name="playback_advanced_hint">Finjuster hva spilleren viser på skjermen.</string>
+    <string name="player_osd_playback_mode">Vis avspillingsmåte under kontrollene</string>
+    <string name="player_osd_playback_mode_hint">Vis tekst som «Direkte avspilling fra Jellyfin» under spillerkontrollene.</string>
     <string name="tv_lightweight">Lett TV-modus</string>
     <string name="tv_lightweight_hint">For tregere TV-er: stillestående toppbilde, uten bildeoverganger, glød og sesongbevegelser.</string>
 </resources>

@@ -6,6 +6,26 @@ import java.util.Locale
 
 object EndpointValidator {
     /**
+     * Validates a complete HTTP request address without rewriting its path or query.
+     *
+     * [normalizeBaseUrl] is for an address a person typed. Network clients also receive complete
+     * addresses after joining an item id, artwork path or query parameter, so the transport uses
+     * this check as a final common gate before any socket is opened.
+     */
+    fun validateRequestUrl(value: String): String {
+        if (value.isBlank() || value.trim().any(Char::isWhitespace)) invalidEndpoint(R.string.endpoint_invalid)
+        val uri = runCatching { URI(value.trim()) }
+            .getOrElse { invalidEndpoint(R.string.endpoint_invalid) }
+        val scheme = uri.scheme?.lowercase(Locale.ROOT)
+        if (scheme != "http" && scheme != "https") invalidEndpoint(R.string.endpoint_scheme)
+        if (uri.host.isNullOrBlank()) invalidEndpoint(R.string.endpoint_incomplete)
+        if (uri.userInfo != null) invalidEndpoint(R.string.endpoint_credentials)
+        if (uri.port != -1 && uri.port !in 1..65535) invalidEndpoint(R.string.endpoint_port)
+        if (scheme == "http" && !isTrustedLanHost(uri.host)) invalidEndpoint(R.string.endpoint_cleartext)
+        return uri.toString()
+    }
+
+    /**
      * Every rejection here names a resource, not a sentence.
      *
      * This runs in the data layer, which has no business knowing the reader's language — and for a
@@ -17,22 +37,15 @@ object EndpointValidator {
         val candidate = value.trim().let {
             if (it.contains("://")) it else "https://$it"
         }
-        val uri = runCatching { URI(candidate) }
-            .getOrElse { invalidEndpoint(R.string.endpoint_invalid) }
-
+        val uri = URI(validateRequestUrl(candidate))
         val scheme = uri.scheme?.lowercase(Locale.ROOT)
-        if (scheme != "http" && scheme != "https") invalidEndpoint(R.string.endpoint_scheme)
-        if (uri.host.isNullOrBlank()) invalidEndpoint(R.string.endpoint_incomplete)
-        if (uri.userInfo != null) invalidEndpoint(R.string.endpoint_credentials)
-        if (uri.port != -1 && uri.port !in 1..65535) invalidEndpoint(R.string.endpoint_port)
-        if (scheme == "http" && !isTrustedLanHost(uri.host)) invalidEndpoint(R.string.endpoint_cleartext)
 
         val path = (uri.path ?: "").trimEnd('/')
         return URI(scheme, null, uri.host.lowercase(Locale.ROOT), uri.port, path.ifEmpty { null }, null, null).toString()
     }
 
     fun resolve(baseUrl: String, path: String): String =
-        "${normalizeBaseUrl(baseUrl)}/${path.trimStart('/')}"
+        validateRequestUrl("${normalizeBaseUrl(baseUrl)}/${path.trimStart('/')}")
 
     fun isCleartext(baseUrl: String): Boolean =
         runCatching { URI(normalizeBaseUrl(baseUrl)).scheme == "http" }.getOrDefault(false)
@@ -57,6 +70,10 @@ object EndpointValidator {
         }
         return when (values[0]) {
             10, 127 -> true
+            // Tailscale assigns nodes from the carrier-grade range. It is not public Internet
+            // routing and the overlay encrypts transport between the two named nodes, so it has
+            // the same local-server contract as the other explicitly private ranges here.
+            100 -> values[1] in 64..127
             172 -> values[1] in 16..31
             192 -> values[1] == 168
             else -> false

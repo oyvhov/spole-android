@@ -12,7 +12,7 @@ Ein familie deler ofte éin TV i stova. Barn skal ha eit enkelt, trygt og morosa
    - Ved profilbyte blir alt minne og cache for førre profil nullstilt momentant, slik at vakseninnhald aldri ligg att i minnet.
 2. **Kryptografisk herda PIN med PBKDF2-HMAC-SHA256:**
    - Retur frå barnemodus krev ein 4-sifra foreldre-PIN.
-   - For å motstå rå makt (brute-force) på dei berre 10 000 moglege kombinasjonane, nyttar Spole `PBKDF2WithHmacSHA256` med 10 000 iterasjonar og unikt 16-byte salt per lagring.
+   - For å motstå rå makt (brute-force) på dei berre 10 000 moglege kombinasjonane, nyttar Spole `PBKDF2WithHmacSHA256` med 100 000 iterasjonar og unikt 16-byte salt per lagring. V2 lagrar kostnaden med posten: ein gyldig eldre V2-PIN på 10 000 iterasjonar blir re-hasha til gjeldande kostnad etter vellukka kontroll, utan å bryte rollback til eldre V2-bygg.
    - Versjonert format gjer at eldre SHA-256-kodar automatisk og transparent blir migrerte ved første godkjende innlogging.
 3. **Feil-lukka (fail-closed) tilgangskontroll:**
    - Dersom PIN-data i lokal lagring er korrupte, uleselege eller manipulert, gir systemet ALDRI tilgang. Det vert returnert `PinResult.Corrupted`.

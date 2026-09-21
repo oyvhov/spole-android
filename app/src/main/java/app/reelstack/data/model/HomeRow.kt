@@ -2,8 +2,10 @@ package app.reelstack.data.model
 
 /** Stable identifiers; order is independent of visibility and temporary empty server responses. */
 enum class HomeRow(val section: HomeSection?) {
-    NOW_PLAYING(HomeSection.NOW_PLAYING),
     CONTINUE_WATCHING(HomeSection.CONTINUE_WATCHING),
+    // Resuming your own title is the normal first action. Remote sessions are status and belong
+    // just below it, not before the library the person opened the app to watch.
+    NOW_PLAYING(HomeSection.NOW_PLAYING),
     NEXT_UP(null),
     FAVOURITES(HomeSection.FAVOURITES),
     JELLYFIN_MOVIES(HomeSection.JELLYFIN_MOVIES),

@@ -19,13 +19,26 @@ class EncryptedTokenStore(context: Context) : TokenStore {
             remove(key)
             return
         }
+        preferences.edit { putString(key, encrypt(value)) }
+    }
+
+    override fun putAll(values: Map<String, String>) {
+        val encrypted = values.mapValues { (_, value) ->
+            require(value.isNotBlank()) { "Tomme løyndomar skal fjernast, ikkje skrivast." }
+            encrypt(value)
+        }
+        // One SharedPreferences transaction means salt, hash, version and KDF cost become
+        // visible together. Rehashing can therefore never leave a mixed PIN record on disk.
+        preferences.edit { encrypted.forEach { (key, value) -> putString(key, value) } }
+    }
+
+    private fun encrypt(value: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey())
         val encrypted = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
-        val encoded = listOf(cipher.iv, encrypted).joinToString(SEPARATOR) {
+        return listOf(cipher.iv, encrypted).joinToString(SEPARATOR) {
             Base64.encodeToString(it, Base64.NO_WRAP)
         }
-        preferences.edit { putString(key, encoded) }
     }
 
     override fun get(key: String): String? {

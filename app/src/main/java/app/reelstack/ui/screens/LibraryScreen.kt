@@ -77,6 +77,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     BackHandler(state.libraryPath.isNotEmpty() && state.activeSheet == null) { onBack() }
     val connected = state.libraryConnection != null
     val tv = LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val pageGutter = if (tv) 32.dp else app.reelstack.ui.theme.ReelLayout.Gutter
     val folders = state.libraryPath.isEmpty()
     val showRatings = app.reelstack.ui.theme.LocalPersonalization.current.showRatings
     val libraryId = state.libraryPath.lastOrNull()?.first.orEmpty()
@@ -138,7 +139,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
         val cell = (if (wideCards) 240.dp else if (tv) 155.dp else 145.dp) * size
         LazyVerticalGrid(state = grid,
             columns = if (listView) GridCells.Fixed(1) else GridCells.Adaptive(cell),
-            contentPadding = PaddingValues(if (tv) 32.dp else 24.dp),
+            contentPadding = PaddingValues(pageGutter),
             horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp),
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("library-browser")) {
             item(key = "heading", span = { GridItemSpan(maxLineSpan) }) {
