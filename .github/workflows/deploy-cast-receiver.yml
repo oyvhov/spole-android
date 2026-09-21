@@ -32,9 +32,13 @@ jobs:
       - name: Test offentleg mottakar
         working-directory: cast-receiver
         run: npm run check:public && npm test && npm run build
+      - name: Legg mottakaren på den faste Cast-stien
+        run: |
+          mkdir -p _site/cast
+          cp -R cast-receiver/dist/. _site/cast/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: cast-receiver/dist
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
