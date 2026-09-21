@@ -180,13 +180,22 @@ fun KidsApp(viewModel: ReelstackViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                    // The status bar inset belongs to the shell, not to whichever page happens
+                    // to be visible. Keeping it here gives the mobile/tablet header a real
+                    // breathing space and prevents the name/avatar from sitting in the clock row.
+                    .then(
+                        if (television) {
+                            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                        } else {
+                            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                        }
+                    )
                     .testTag("kids-app"),
             ) {
                 val gridPadding = PaddingValues(
                     start = if (television) 48.dp else 24.dp,
                     end = if (television) 48.dp else 24.dp,
-                    top = if (television) 0.dp else 20.dp,
+                    top = if (television) 0.dp else 12.dp,
                     bottom = if (television) 48.dp else 24.dp,
                 )
 
@@ -203,7 +212,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     Column(
                         Modifier
                             .fillMaxSize()
-                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                            .then(if (television) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)) else Modifier)
                             .verticalScroll(rememberScrollState())
                             .padding(gridPadding)
                             .padding(top = 16.dp),
@@ -237,7 +246,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                         },
                         columns = if (television) 4 else cardColumns,
                         contentPadding = gridPadding,
-                        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
+                        modifier = if (television) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)) else Modifier,
                     )
                 } else if (visiblePage == "library") {
                     val library = state.kidsLibraries.firstOrNull { it.id == libraryOpenId }
@@ -249,6 +258,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                             onBack = { libraryOpenId = null },
                             columns = if (television) 6 else cardColumns,
                             contentPadding = gridPadding,
+                            modifier = if (television) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)) else Modifier,
                         )
                     }
                 } else {
@@ -277,6 +287,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                             )
                         },
                         onPlay = choose,
+                        onLibraryOpen = { libraryOpenId = it.id },
                         columns = cardColumns,
                         contentPadding = gridPadding,
                         loading = state.kidsLibraryLoading,

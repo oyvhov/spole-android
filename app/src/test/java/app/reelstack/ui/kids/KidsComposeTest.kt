@@ -147,6 +147,26 @@ class KidsComposeTest {
     }
 
     @Test
+    fun kidsHomeScreen_libraryCardInvokesOpenCallback() {
+        val library = TestFixtures.sampleLibraryView(id = "lib-open", name = "Barneseriar")
+        val item = TestFixtures.sampleMedia(id = "show-open", title = "Mummidalen").copy(mediaType = "Series")
+        var openedId: String? = null
+
+        composeTestRule.setContent {
+            KidsHomeScreen(
+                keepWatching = emptyList(),
+                yourShows = listOf(item),
+                libraries = listOf(library),
+                onPlay = {},
+                onLibraryOpen = { openedId = it.id },
+            )
+        }
+
+        composeTestRule.onNodeWithTag("kids-library-lib-open").assertIsDisplayed().performClick()
+        assertEquals("lib-open", openedId)
+    }
+
+    @Test
     fun pinEntrySheet_rendersCleanCardAndKeypad_andEntersDigits() {
         var completedPin: String? = null
         var cancelled = false

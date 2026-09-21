@@ -58,7 +58,9 @@ internal fun KidsLibraryScreen(
     val tablet = configuration.screenWidthDp >= 600
 
     Column(
-        modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
+        // The shell owns the status-bar inset. TV passes it explicitly because its shell keeps
+        // the cinematic edge-to-edge layout; mobile/tablet get it once from KidsApp.
+        modifier = modifier.fillMaxSize(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
