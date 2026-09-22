@@ -161,7 +161,7 @@ fun ReelstackSheets(
     onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> },
     onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> },
-    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?) -> Unit = { _, _, _, _ -> },
+    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?, String) -> Unit = { _, _, _, _, _ -> },
     onSeason: (String) -> Unit = {},
     onEpisodeSeries: () -> Unit = {},
     onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
@@ -343,7 +343,7 @@ private fun DetailSheetSkeleton() {
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
     scroll: ScrollState, entered: Boolean, onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {}, onEpisodeSeries: () -> Unit = {},
-    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?) -> Unit = { _, _, _, _ -> },
+    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?, String) -> Unit = { _, _, _, _, _ -> },
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
     onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {}) {
@@ -745,7 +745,7 @@ private fun TitleActionRow(
     onFavourite: (String, Boolean) -> Unit,
     onPlayed: (String, Boolean) -> Unit,
     onSeries: (() -> Unit)? = null,
-    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?) -> Unit = { _, _, _, _ -> },
+    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?, String) -> Unit = { _, _, _, _, _ -> },
     seriesFocus: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -763,6 +763,12 @@ private fun TitleActionRow(
         listOfNotNull(resumeTarget(state.seriesBrowse)) + state.seriesBrowse.episodes
     }.distinctBy { it.remoteId ?: it.id }.filter { it.remoteId != null }
     var chooseEpisode by remember(details.key) { mutableStateOf(false) }
+    var seriesDownloadNotice by remember(details.key) { mutableStateOf<Int?>(null) }
+    val preparingOffline = details.key in state.offlinePreparingDetailKeys
+    val offlineNotice = state.offlineDownloadNotice.takeIf { state.offlineDownloadNoticeDetailKey == details.key }
+    LaunchedEffect(seriesEpisodes.isNotEmpty(), state.seriesBrowse.loading) {
+        if (seriesEpisodes.isNotEmpty()) seriesDownloadNotice = null
+    }
     Column(modifier.fillMaxWidth()) {
         androidx.compose.foundation.layout.FlowRow(
             Modifier.fillMaxWidth().padding(top = 20.dp),
@@ -803,10 +809,18 @@ private fun TitleActionRow(
                     icon = app.reelstack.ui.components.SpoleIcons.Download,
                     description = stringResource(R.string.offline_download),
                     tag = "detail-download",
-                    enabled = !details.updating && (!seriesDownload || seriesEpisodes.isNotEmpty()),
+                    enabled = !details.updating && !preparingOffline,
+                    busy = preparingOffline,
+                    busyDescription = stringResource(R.string.offline_preparing),
                 ) {
-                    if (seriesDownload) chooseEpisode = true
-                    else onOfflineDownload(offlineTarget, audioIndex, subtitleIndex, versionId)
+                    if (seriesDownload) {
+                        seriesDownloadNotice = when {
+                            state.seriesBrowse.loading -> R.string.offline_series_loading
+                            seriesEpisodes.isEmpty() -> R.string.offline_series_empty
+                            else -> null
+                        }
+                        if (seriesDownloadNotice == null) chooseEpisode = true
+                    } else onOfflineDownload(offlineTarget, audioIndex, subtitleIndex, versionId, details.key)
                 }
             }
             if (onSeries != null) {
@@ -826,13 +840,21 @@ private fun TitleActionRow(
         state.mediaActionError?.let {
             Text(it, color = Warning, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
         }
+        when {
+            preparingOffline -> Text(stringResource(R.string.offline_preparing), color = Muted,
+                fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp).testTag("detail-download-status"))
+            seriesDownloadNotice != null -> Text(stringResource(seriesDownloadNotice!!), color = Muted,
+                fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp).testTag("detail-download-status"))
+            offlineNotice != null -> Text(offlineNotice, color = Warning,
+                fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp).testTag("detail-download-status"))
+        }
     }
     if (chooseEpisode) OfflineEpisodePicker(
         episodes = seriesEpisodes,
         nextEpisode = resumeTarget(state.seriesBrowse),
         onChoose = { episode ->
             chooseEpisode = false
-            onOfflineDownload(episode, null, null, null)
+            onOfflineDownload(episode, null, null, null, details.key)
         },
         onDismiss = { chooseEpisode = false },
     )
@@ -926,6 +948,8 @@ private fun IconCommand(
     description: String,
     tag: String,
     enabled: Boolean = true,
+    busy: Boolean = false,
+    busyDescription: String? = null,
     onClick: () -> Unit,
 ) {
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -942,7 +966,16 @@ private fun IconCommand(
             .testTag(tag),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, description, Modifier.size(23.dp), tint = if (enabled) Primary else Muted)
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp).testTag("$tag-progress")
+                    .semantics { contentDescription = busyDescription ?: description },
+                color = Primary,
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Icon(icon, description, Modifier.size(23.dp), tint = if (enabled) Primary else Muted)
+        }
     }
 }
 

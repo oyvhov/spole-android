@@ -4,7 +4,7 @@
     <string name="offline_notification_title">Laster ned for frakoblet visning</string>
     <string name="offline_notification_text">%1$d nedlasting(er) pågår</string>
     <string name="offline_download">Last ned for frakoblet visning</string>
-    <string name="offline_queued">Nedlasting lagt til. Du kan fortsette å se.</string>
+    <string name="offline_queued">Nedlasting lagt til. Åpner Nedlastinger.</string>
     <string name="offline_direct_only">Bare komplette filer som kan spilles av direkte kan lastes ned.</string>
     <string name="offline_pause">Sett nedlastingene på pause</string>
     <string name="offline_resume">Fortsett nedlastingene</string>
@@ -28,6 +28,9 @@
     <string name="offline_choose_next">Last ned neste episode</string>
     <string name="offline_choose_close">Lukk</string>
     <string name="offline_prepare_failed">Kunne ikke klargjøre nedlastingen. Prøv igjen.</string>
+    <string name="offline_preparing">Klargjør nedlasting …</string>
+    <string name="offline_series_loading">Henter episoder før du kan velge hva som skal lastes ned.</string>
+    <string name="offline_series_empty">Fant ingen episoder i denne serien som kan lastes ned.</string>
     <string name="offline_unknown_title">Nedlasting</string>
     <string name="offline_complete">Klar · %1$s</string>
     <string name="offline_watch">Se frakoblet</string>

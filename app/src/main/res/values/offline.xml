@@ -4,7 +4,7 @@
     <string name="offline_notification_title">Downloading for offline viewing</string>
     <string name="offline_notification_text">%1$d download(s) in progress</string>
     <string name="offline_download">Download for offline</string>
-    <string name="offline_queued">Download added. You can keep watching.</string>
+    <string name="offline_queued">Download added. Opening Downloads.</string>
     <string name="offline_direct_only">Only complete files that play directly can be downloaded.</string>
     <string name="offline_pause">Pause downloads</string>
     <string name="offline_resume">Resume downloads</string>
@@ -28,6 +28,9 @@
     <string name="offline_choose_next">Download next episode</string>
     <string name="offline_choose_close">Close</string>
     <string name="offline_prepare_failed">Could not prepare the download. Try again.</string>
+    <string name="offline_preparing">Preparing download …</string>
+    <string name="offline_series_loading">Loading episodes before you can choose what to download.</string>
+    <string name="offline_series_empty">No episodes are available to download from this series.</string>
     <string name="offline_unknown_title">Download</string>
     <string name="offline_complete">Ready · %1$s</string>
     <string name="offline_watch">Watch offline</string>

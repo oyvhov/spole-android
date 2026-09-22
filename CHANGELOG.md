@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Gjer nedlastingshandlinga på mobil/nettbrett synleg med ein gong: førebuing blokkerer dobbelt-
+  trykk, konkrete avslag står att på detaljsida, og ein lagd jobb opnar **Nedlastingar** automatisk.
+  Ein serie forklarer no når episodane framleis lastar, i staden for stille å deaktivere handlinga.
+
 ## 0.18.0-beta5 - nedlasting frå detaljsida
 
 - Flyttar nedlasting frå spelaren til detaljsida for filmar, episodar og seriar. Film og episode

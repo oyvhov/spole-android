@@ -51,6 +51,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 enum class AppTab { HOME, LIBRARY, DOWNLOADS, DISCOVER, ACTIVITY, SETTINGS }
 
@@ -203,6 +204,11 @@ data class ReelstackUiState(
     val wifiOnly: Boolean = false,
     /** Local Media3 state for the active adult profile. No server request is needed to render it. */
     val offlineDownloads: app.reelstack.offline.OfflineDownloadsSnapshot = app.reelstack.offline.OfflineDownloadsSnapshot(),
+    /** Detail sheets show preparation immediately instead of looking as though their button did nothing. */
+    val offlinePreparingDetailKeys: Set<String> = emptySet(),
+    /** A refusal belongs to one detail sheet only; it must not be mistaken for a server-wide error. */
+    val offlineDownloadNoticeDetailKey: String? = null,
+    val offlineDownloadNotice: String? = null,
     val isRefreshing: Boolean = false,
     val liveSession: Boolean = false,
     val liveLibrary: Boolean = false,
@@ -482,26 +488,37 @@ class ReelstackViewModel(
      * account to the new profile.
      */
     fun enqueueOfflineDownload(media: LibraryMedia, audioIndex: Int? = null, subtitleIndex: Int? = null,
-        versionId: String? = null) {
+        versionId: String? = null, sourceDetailKey: String = media.id) {
         val state = _uiState.value
         if (state.isKidMode || isTelevision() || !media.mediaType.equals("Movie", true) &&
             !media.mediaType.equals("Episode", true) && !media.mediaType.equals("Video", true)) return
+        val profileId = state.activeProfileId
+        val detailKey = sourceDetailKey.ifBlank { media.id }
         val remoteId = media.remoteId ?: run {
-            _uiState.update { it.copy(snackbar = appString(R.string.offline_prepare_failed)) }
+            publishOfflineDownloadNotice(profileId, detailKey, appString(R.string.offline_prepare_failed))
             return
         }
         val connection = state.connections.firstOrNull { connection ->
             connection.kind == media.source && connection.baseUrl.isNotBlank() && connection.token.isNotBlank()
         } ?: run {
-            _uiState.update { it.copy(snackbar = appString(R.string.offline_prepare_failed)) }
+            publishOfflineDownloadNotice(profileId, detailKey, appString(R.string.offline_prepare_failed))
             return
         }
-        val profileId = state.activeProfileId
         val pendingKey = "$profileId|${connection.identity}|$remoteId"
         if (!preparingOfflineIds.add(pendingKey)) return
+        _uiState.update { current ->
+            if (current.activeProfileId == profileId) current.copy(
+                offlinePreparingDetailKeys = current.offlinePreparingDetailKeys + detailKey,
+                offlineDownloadNoticeDetailKey = null,
+                offlineDownloadNotice = null,
+            ) else current
+        }
         viewModelScope.launch {
             try {
-                val prepared = runCatching {
+                val prepared = try {
+                    // This is deliberately bounded. A title-detail action must never leave a reader
+                    // staring at a disabled control when a server or route has stopped responding.
+                    withTimeoutOrNull(30_000L) {
                     withContext(Dispatchers.IO) {
                         val playback = app.reelstack.player.MediaPlaybackClient(
                             deviceId = app.reelstack.data.repository.DeviceIdentity.get(container.appContext),
@@ -524,20 +541,62 @@ class ReelstackViewModel(
                             mediaType = item.type,
                         )
                     }
-                }.getOrNull()
+                    }
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    publishOfflineDownloadNotice(profileId, detailKey,
+                        error.readableMessage(container.appContext) ?: appString(R.string.offline_prepare_failed))
+                    return@launch
+                }
                 if (prepared == null) {
-                    _uiState.update { it.copy(snackbar = appString(R.string.offline_prepare_failed)) }
+                    publishOfflineDownloadNotice(profileId, detailKey, appString(R.string.offline_prepare_failed))
                     return@launch
                 }
                 // The profile is the access boundary for the encrypted catalogue and the active
                 // download worker. Never enqueue a request negotiated before a profile changed.
                 if (_uiState.value.activeProfileId != profileId || _uiState.value.isKidMode || isTelevision()) return@launch
-                val refusal = withContext(Dispatchers.IO) { container.offlineDownloads.enqueue(prepared) }
-                _uiState.update { it.copy(snackbar = appString(if (refusal == null) R.string.offline_queued else R.string.offline_direct_only)) }
-                if (refusal == null) refreshOfflineDownloads()
+                val refusal = try {
+                    withContext(Dispatchers.IO) { container.offlineDownloads.enqueue(prepared) }
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    publishOfflineDownloadNotice(profileId, detailKey,
+                        error.readableMessage(container.appContext) ?: appString(R.string.offline_prepare_failed))
+                    return@launch
+                }
+                if (refusal != null) {
+                    publishOfflineDownloadNotice(profileId, detailKey, appString(R.string.offline_direct_only))
+                    return@launch
+                }
+                _uiState.update { current ->
+                    if (current.activeProfileId == profileId) current.copy(
+                        snackbar = appString(R.string.offline_queued),
+                        offlineDownloadNoticeDetailKey = null,
+                        offlineDownloadNotice = null,
+                    ) else current
+                }
+                // A successful tap has a visible destination: leave the detail page only after the
+                // request is persisted, then show its queued/progress state in Downloads.
+                selectTab(AppTab.DOWNLOADS)
             } finally {
                 preparingOfflineIds.remove(pendingKey)
+                _uiState.update { current ->
+                    if (current.activeProfileId == profileId) current.copy(
+                        offlinePreparingDetailKeys = current.offlinePreparingDetailKeys - detailKey,
+                    ) else current
+                }
             }
+        }
+    }
+
+    private fun publishOfflineDownloadNotice(profileId: String, detailKey: String, message: String) {
+        _uiState.update { current ->
+            if (current.activeProfileId == profileId) current.copy(
+                offlineDownloadNoticeDetailKey = detailKey,
+                offlineDownloadNotice = message,
+                snackbar = message,
+            ) else current
         }
     }
 
@@ -1147,6 +1206,9 @@ class ReelstackViewModel(
                 serviceWarnings = emptyMap(),
                 failedServices = emptySet(),
                 offlineDownloads = app.reelstack.offline.OfflineDownloadsSnapshot(),
+                offlinePreparingDetailKeys = emptySet(),
+                offlineDownloadNoticeDetailKey = null,
+                offlineDownloadNotice = null,
                 isRefreshing = false,
             )
         }

@@ -22,6 +22,12 @@ pause/hald fram. Trykk på varselet opnar **Nedlastingar**, den faste vaksen-des
 mobil- og nettbrettnavigasjonen. Der kan brukaren sjå framdrift og plassbruk, velje berre Wi-Fi,
 pause eller halde fram enkeltjobbar eller alt, prøve på nytt, og fjerne lokale filer.
 
+Trykk på nedlastingssymbolet gir alltid respons: detaljsida viser medan den trygge
+serverforhandlinga går, gjer symbolet utilgjengeleg for dobbelt-trykk, og opnar **Nedlastingar**
+berre etter at jobben er lagd i kø. Tenaravslag, utgått tilgang eller utrygg/ikkje-direkte fil
+vert ståande som ei konkret melding på den same detaljsida. Ei serie som framleis hentar episodar
+forklarer det i staden for å ha ein stille, deaktivert knapp.
+
 Berre-Wi-Fi-innstillinga gjeld òg denne jobben, også etter at prosessen har vore stengd.
 Førespurnaden i Media3-databasen har berre hasha profil-, teneste- og medienøklar;
 tilgangsteiknet vert henta frå aktiv konto akkurat når HTTP-førespurnaden skal sendast. Ein jobb
