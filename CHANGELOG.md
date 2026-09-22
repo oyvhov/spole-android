@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.18.0-beta6 - tydeleg nedlastingsrespons
 
 - Gjer nedlastingshandlinga på mobil/nettbrett synleg med ein gong: førebuing blokkerer dobbelt-
   trykk, konkrete avslag står att på detaljsida, og ein lagd jobb opnar **Nedlastingar** automatisk.
