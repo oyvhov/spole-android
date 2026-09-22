@@ -806,7 +806,7 @@ private fun TitleActionRow(
                     enabled = !details.updating && (!seriesDownload || seriesEpisodes.isNotEmpty()),
                 ) {
                     if (seriesDownload) chooseEpisode = true
-                    else offlineTarget?.let { onOfflineDownload(it, audioIndex, subtitleIndex, versionId) }
+                    else onOfflineDownload(offlineTarget, audioIndex, subtitleIndex, versionId)
                 }
             }
             if (onSeries != null) {

@@ -18,7 +18,7 @@ into one focused experience. Browse each media server as its own library, play f
 Jellyfin or Emby, and track your requests from Seerr.
 
 **Active beta development.** The latest public APK is
-[0.18.0-beta4](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta4).
+[0.18.0-beta5](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta5).
 It is signed for in-place updates over earlier Spole beta releases. The source for
 this build is available on [main](https://github.com/oyvhov/spole-android/tree/main).
 Pre-release builds are published under [Releases](https://github.com/oyvhov/spole-android/releases).
@@ -92,7 +92,7 @@ provide media. Your account permissions determine what you can view and do.
 ## Known limitations
 
 - **Emby playback:** Library browsing, artwork and ordinary direct playback are supported. Some transcoded streams and uncommon audio formats may still need fixes for the particular Emby version.
-- **Offline:** Complete, directly compatible Jellyfin and Emby files can be saved from the phone or tablet player. The adult **Downloads** library shows progress, Wi-Fi-only mode, pause/resume, retry, removal and cache-only playback. Files stay app-private and bound to the exact profile and server account. TV and child mode never offer downloads. See [mobile playback and offline](docs/MOBILE_PLAYBACK_AND_OFFLINE.md).
+- **Offline:** Complete, directly compatible Jellyfin and Emby files can be saved from a film, episode or series detail page on phone or tablet. A series opens a clear episode choice; it never starts an accidental whole-series download. The adult **Downloads** library shows progress, Wi-Fi-only mode, pause/resume, retry, removal and cache-only playback. Files stay app-private and bound to the exact profile and server account. TV and child mode never offer downloads. See [mobile playback and offline](docs/MOBILE_PLAYBACK_AND_OFFLINE.md).
 - **Physical devices:** Continuous integration and regression testing run on Google Android TV and phone emulators (API 26–36). Manufacturer variants, such as Fire OS or operator-customised boxes, can differ slightly in appearance or remote behaviour.
 - **Parental controls and PIN:** Leaving kids mode is protected with PBKDF2-HMAC-SHA256 (100,000 rounds) and increasing delays after failed attempts. Older lower-cost PIN records are strengthened after a correct PIN. Resetting a forgotten PIN requires the primary adult media-server account.
 

@@ -15,7 +15,7 @@ kompatible Jellyfin-/Emby-filer som tenaren uttrykkeleg leverer som direkte fil 
 fil. Live-TV, ISO/platemenyar, DRM, ufullstendige filer og alt som krev tenartranskoding er nekta.
 
 Nedlasting startar berre frå detaljsida på mobil/nettbrett — aldri inne i spelaren, på TV eller i
-barnemodus. Film og enkelpisode brukar dei valde lyd-, tekstings- og filvala på detaljsida. Ein
+barnemodus. Film og enkel episode brukar dei valde lyd-, tekstings- og filvala på detaljsida. Ein
 serie er ikkje éi fil: handlinga opnar ein episodeveljar og køyrer berre episoden brukaren vel.
 Media3 køyrer som ein vedvarande app-privat jobb med lågprioritets varsel, prosentsframdrift og
 pause/hald fram. Trykk på varselet opnar **Nedlastingar**, den faste vaksen-destinasjonen i

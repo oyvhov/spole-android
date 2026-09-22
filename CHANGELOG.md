@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.18.0-beta5 - nedlasting frå detaljsida
+
+- Flyttar nedlasting frå spelaren til detaljsida for filmar, episodar og seriar. Film og episode
+  brukar det valde lydsporet, tekstsporet og fila; ein serie opnar eit kort val av konkret episode
+  i staden for å laste ned heile serien.
+- Beheld den vanlege spelaren utan nedlastingshandling og held nedlasting avgrensa til vaksne på
+  mobil og nettbrett. TV og barnemodus har framleis ingen nedlasting.
+- Let «Fortsett å sjå» bruke serien si breie Thumb for episodar når tenaren tilbyr henne, med
+  trygg fallback til episodestillbiletet. Vanlege episodar og «Neste episode» held fram med sitt
+  eige stillbilete.
+
 ## 0.18.0-beta4 - private offline library
 
 - Adds **Downloads** for adult phone and tablet profiles: private progress, pause/resume, retry,
