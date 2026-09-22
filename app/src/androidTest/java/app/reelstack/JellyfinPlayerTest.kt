@@ -497,7 +497,9 @@ class JellyfinPlayerTest {
             var ready = false
             scenario.onActivity {
                 ready = it.hasWindowFocus() && androidx.core.view.ViewCompat.getRootWindowInsets(it.window.decorView)
-                    ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == false
+                    // Headless instrumentation can have no insets object at all. That means no
+                    // IME is obscuring Back; treating it as "not ready" turns this into a timeout.
+                    ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) != true
             }
             ready
         }
@@ -513,6 +515,7 @@ class JellyfinPlayerTest {
     }
     @Test fun videoTouchShowsControlsAndPauseReceivesTheNextTap() = exercise { scenario,_,_ ->
         val automation = instrumentation.uiAutomation
+        val pauseLabel = context.getString(R.string.player_pause)
         fun freshRoot(): android.view.accessibility.AccessibilityNodeInfo? {
             // AnimatedVisibility recreates nodes; do not assert against UiAutomation's old tree.
             if (android.os.Build.VERSION.SDK_INT >= 33) automation.clearCache()
@@ -533,13 +536,13 @@ class JellyfinPlayerTest {
             }
         }
         playing(scenario)
-        waitFor { find("Set på pause") != null }
-        waitFor(8_000) { find("Set på pause") == null && find("Tilbake") == null }
+        waitFor { find(pauseLabel) != null }
+        waitFor(8_000) { find(pauseLabel) == null && find("Tilbake") == null }
         val bounds = android.graphics.Rect()
         scenario.onActivity { it.window.decorView.getGlobalVisibleRect(bounds) }
         tap(bounds.left + bounds.width() * .85f,bounds.top + bounds.height() * .35f)
-        waitFor(2_000) { find("Set på pause") != null }
-        find("Set på pause")!!.getBoundsInScreen(bounds)
+        waitFor(2_000) { find(pauseLabel) != null }
+        find(pauseLabel)!!.getBoundsInScreen(bounds)
         tap(bounds.exactCenterX(),bounds.exactCenterY())
         waitFor { !snapshot(scenario).playing }
         assertTrue(snapshot(scenario).error == null)
