@@ -199,6 +199,8 @@ fun PlayerScreen(
     onCancelNextEpisode: () -> Unit = {},
     onSkipSegment: () -> Unit = {},
     onDownload: () -> Boolean = { false },
+    /** A completed private Media3 file; it must never offer a network fallback or re-download. */
+    offline: Boolean = false,
     miniPlayer: Boolean = false,
     onMiniPlayer: (() -> Unit)? = null,
     /**
@@ -453,7 +455,7 @@ fun PlayerScreen(
                     onClose = onClose,
                     showBack = !isTelevision,
                     actions = {
-                        if (!kids && !isTelevision) {
+                        if (!offline && !kids && !isTelevision) {
                             IconButton(onClick = { onDownload() }, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-download")) {
                                 Icon(app.reelstack.ui.components.SpoleIcons.Download, stringResource(R.string.offline_download), modifier = Modifier.size(20.dp))
                             }
@@ -468,7 +470,7 @@ fun PlayerScreen(
                                 Icon(app.reelstack.ui.components.SpoleIcons.Rotate, stringResource(R.string.player_rotate), modifier = Modifier.size(20.dp))
                             }
                         }
-                        if (!kids) {
+                        if (!offline && !kids) {
                             IconButton(onClick = { statsVisible = !statsVisible }, modifier = Modifier.size(40.dp).background(if (statsVisible) MaterialTheme.colorScheme.primaryContainer else Color.Black.copy(alpha = .45f), CircleShape).testTag("player-stats")) {
                                 Icon(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", tint = if (statsVisible) MaterialTheme.colorScheme.primary else Color.White, modifier = Modifier.size(20.dp))
                             }
@@ -495,7 +497,7 @@ fun PlayerScreen(
                             Icon(app.reelstack.ui.components.SpoleIcons.Alert, null, tint = MaterialTheme.colorScheme.error)
                             Text(state.error, modifier = Modifier.padding(vertical = 12.dp))
                             Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
-                            app.reelstack.ui.components.SpoleSecondaryButton(onClick = onExternal) { Text(stringResource(R.string.player_external, state.source.displayName)) }
+                            if (!offline) app.reelstack.ui.components.SpoleSecondaryButton(onClick = onExternal) { Text(stringResource(R.string.player_external, state.source.displayName)) }
                         }
                     } else {
                         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
@@ -613,7 +615,7 @@ fun PlayerScreen(
                                         modifier = Modifier.size(20.dp),
                                     )
                                 }
-                                IconButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy, modifier = Modifier.size(40.dp).testTag("player-quality")) {
+                                if (!offline) IconButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy, modifier = Modifier.size(40.dp).testTag("player-quality")) {
                                     Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_quality), Modifier.size(20.dp))
                                 }
                                 }
@@ -627,7 +629,7 @@ fun PlayerScreen(
                             }
                         }
                         if (appearance.showPlaybackModeInOsd) Text(
-                            listOfNotNull(
+                            if (offline) stringResource(R.string.offline_playback_label) else listOfNotNull(
                                 stringResource(playbackModeLabel(state.mode), state.source.displayName),
                                 playbackReasonFor(state)?.let { stringResource(R.string.player_reason_because, stringResource(it)) },
                             ).joinToString(". "),

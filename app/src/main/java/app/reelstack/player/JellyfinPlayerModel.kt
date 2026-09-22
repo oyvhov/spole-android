@@ -820,6 +820,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 requiresTranscode = !current.direct,
                 directDownloadUrl = current.url,
             ),
+            title = current.item.title,
+            subtitle = current.item.subtitle,
+            mediaType = current.item.type,
         ))
         mutable.update { it.copy(warning = container.appString(if (result == null) R.string.offline_queued else R.string.offline_direct_only)) }
         return result == null

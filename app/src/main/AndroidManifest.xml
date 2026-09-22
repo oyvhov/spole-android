@@ -71,6 +71,11 @@
             android:supportsPictureInPicture="true"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
+        <activity
+            android:name=".player.OfflinePlayerActivity"
+            android:theme="@style/Theme.Reelstack.Player"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
         <activity android:name=".player.WatchNextActivity" android:exported="true" android:excludeFromRecents="true" />
         <provider android:name=".player.WatchNextArtworkProvider" android:authorities="${applicationId}.watchart" android:exported="true" />
         <activity

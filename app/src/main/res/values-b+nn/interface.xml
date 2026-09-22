@@ -3,12 +3,14 @@
     <string name="nav_home">Heim</string>
     <string name="nav_discover">Oppdag</string>
     <string name="nav_activity">Aktivitet</string>
+    <string name="nav_downloads">Nedlastingar</string>
     <string name="nav_settings">Innstillingar</string>
     <string name="nav_settings_short">Val</string>
     <string name="nav_home_short">Heim</string>
     <string name="nav_library_short">Media</string>
     <string name="nav_discover_short">Finn</string>
     <string name="nav_activity_short">Logg</string>
+    <string name="nav_downloads_short">Lagra</string>
     <string name="action_close">Lukk</string>
     <string name="action_back">Tilbake</string>
     <string name="action_retry">Prøv igjen</string>
@@ -54,6 +56,7 @@
     <string name="settings_notifications_note">For førespurnader du har valt å følgje</string>
     <string name="settings_wifi">Synkroniser berre på Wi-Fi</string>
     <string name="settings_wifi_note">Bakgrunnsoppdatering på Wi-Fi</string>
+    <string name="notice_wifi_policy_updated">Wi-Fi-valet er endra</string>
     <string name="settings_about">Om appen</string>
     <string name="image_cache_clear">Tøm biletbuffer</string>
     <string name="image_cache_clear_hint">Last inn kunst på nytt utan å logge ut eller slette mediedata.</string>

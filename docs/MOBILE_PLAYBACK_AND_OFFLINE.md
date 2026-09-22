@@ -14,21 +14,29 @@ skjult bakgrunnsavspeling.
 kompatible Jellyfin-/Emby-filer som tenaren uttrykkeleg leverer som direkte fil kan få ei lokal
 fil. Live-TV, ISO/platemenyar, DRM, ufullstendige filer og alt som krev tenartranskoding er nekta.
 
-Nedlasting startar berre frå spelaren på mobil/nettbrett — aldri frå TV. Media3 køyrer som ein
-vedvarande app-privat jobb med lågprioritets varsel, prosentsframdrift og pause/hald fram. Berre-
-Wi-Fi-innstillinga gjeld òg denne jobben. Førespurnaden i Media3-databasen har berre hasha profil-,
-teneste- og medienøklar; tilgangsteiknet vert henta frå aktiv konto akkurat når HTTP-førespurnaden
-skal sendast. Ein jobb frå ein annan profil vert stansa ved profilbyte og får aldri låne tokenet til
-aktiv profil.
+Nedlasting startar berre frå spelaren på mobil/nettbrett — aldri frå TV eller barnemodus. Media3
+kjøyrer som ein vedvarande app-privat jobb med lågprioritets varsel, prosentsframdrift og
+pause/hald fram. Trykk på varselet opnar **Nedlastingar**, den faste vaksen-destinasjonen i
+mobil- og nettbrettnavigasjonen. Der kan brukaren sjå framdrift og plassbruk, velje berre Wi-Fi,
+pause eller halde fram enkeltjobbar eller alt, prøve på nytt, og fjerne lokale filer.
+
+Berre-Wi-Fi-innstillinga gjeld òg denne jobben, også etter at prosessen har vore stengd.
+Førespurnaden i Media3-databasen har berre hasha profil-, teneste- og medienøklar;
+tilgangsteiknet vert henta frå aktiv konto akkurat når HTTP-førespurnaden skal sendast. Ein jobb
+frå ein annan profil vert stansa ved profilbyte og får aldri låne tokenet til aktiv profil.
 
 `OfflineStorage` nyttar berre `filesDir/offline/<profil-hash>/<teneste-hash>/`, og Media3-cachen
 ligg under appen si private `filesDir/offline-media3/`. Ingen av delane er delbare eller eksterne.
-Fjerning av profil, utlogging eller teneste fjernar både jobbane og relevante private filer før
-konto-teikn vert sletta.
+Titlar og episodetekst i nedlastingsbiblioteket er krypterte med Android Keystore; Media3-databasen
+inneheld berre hashar. Ei ferdig fil opnar i ein eigen cache-only-spelar med dummy-upstream, slik
+at han ikkje kan falle tilbake til nettverket eller ei anna konto. Han krev at aktiv profil og
+presis server-/kontoidentitet framleis stemmer. Fjerning av profil, utlogging eller teneste fjernar
+både jobbane og relevante private filer før konto-teikn vert sletta.
 
-Ei lagringsgrense og eit eige nedlastingsbibliotek med sletting kjem før brei utrulling. Dei er
-ikkje skjulte som ferdige funksjonar: denne versjonen tilbyr berre trygg nedlasting frå den lokale
-spelaren, med pause/hald fram i systemvarslet.
+Spole gjer ikkje automatisk sletting av ferdige filer. Brukaren ser privat plassbruk og fjernar
+filer sjølv, slik at eit ferdig val aldri forsvinn utan varsel. Android kan framleis avvise ei
+nedlasting når eininga manglar ledig lagring; den feilen vert synleg i biblioteket og kan prøvast
+på nytt etter opprydding.
 
 ## Langtest-matrise
 

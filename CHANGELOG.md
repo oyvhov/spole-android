@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.18.0-beta4 - private offline library
+
+- Adds **Downloads** for adult phone and tablet profiles: private progress, pause/resume, retry,
+  removal and a shared Wi-Fi-only preference.
+- Completed compatible Jellyfin and Emby files play from app-private cache without a network
+  fallback, and are bound to the exact profile and media-server account that created them.
+- Keeps offline unavailable on TV and in child mode; the download notification now opens the
+  library directly.
+
 ## 0.18.0-beta3 - ryddigare innlogging og vedlikehald
 
 - Gjer ugyldige serveradresser til ei konkret, omsett feilmelding i staden for intern teknisk tekst.

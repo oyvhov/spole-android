@@ -1,11 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="offline_notification_channel">Frakoblede nedlastinger</string>
+    <string name="offline_notification_channel">Nedlastinger for frakoblet bruk</string>
     <string name="offline_notification_title">Laster ned for frakoblet visning</string>
     <string name="offline_notification_text">%1$d nedlasting(er) pågår</string>
     <string name="offline_download">Last ned for frakoblet visning</string>
     <string name="offline_queued">Nedlasting lagt til. Du kan fortsette å se.</string>
-    <string name="offline_direct_only">Bare komplette filer som kan spilles direkte kan lastes ned.</string>
-    <string name="offline_pause">Pause nedlastinger</string>
-    <string name="offline_resume">Fortsett nedlastinger</string>
+    <string name="offline_direct_only">Bare komplette filer som kan spilles av direkte kan lastes ned.</string>
+    <string name="offline_pause">Sett nedlastingene på pause</string>
+    <string name="offline_resume">Fortsett nedlastingene</string>
+    <string name="offline_pause_one">Sett på pause</string>
+    <string name="offline_resume_one">Fortsett</string>
+    <string name="offline_library_title">Nedlastinger</string>
+    <string name="offline_library_scope">Bare denne profilen · Bare på denne enheten</string>
+    <string name="offline_library_items">På denne enheten</string>
+    <string name="offline_summary_active">Laster ned</string>
+    <string name="offline_summary_ready">Klar frakoblet</string>
+    <string name="offline_summary_progress">%1$d pågår · %2$d %%</string>
+    <string name="offline_summary_paused">%1$d på pause</string>
+    <string name="offline_summary_size">%1$s lagret privat i Spole</string>
+    <string name="offline_summary_empty">Ingen lokale filer ennå</string>
+    <string name="offline_wifi">Bare Wi-Fi</string>
+    <string name="offline_wifi_note">Nedlastinger venter mens du bruker mobildata.</string>
+    <string name="offline_empty_title">Ingenting er lastet ned</string>
+    <string name="offline_empty_note">Åpne en film eller episode på telefonen, og velg nedlastingsknappen i spilleren.</string>
+    <string name="offline_unknown_title">Nedlasting</string>
+    <string name="offline_complete">Klar · %1$s</string>
+    <string name="offline_watch">Se frakoblet</string>
+    <string name="offline_paused">På pause</string>
+    <string name="offline_failed">Nedlastingen kunne ikke fullføres.</string>
+    <string name="offline_removing">Fjerner fra enheten …</string>
+    <string name="offline_queued_status">Venter på nettverk</string>
+    <string name="offline_item_progress">Laster ned · %1$d %% · %2$s av %3$s</string>
+    <string name="offline_item_progress_unknown">Laster ned · %1$d %%</string>
+    <string name="offline_remove_title">Fjern nedlasting?</string>
+    <string name="offline_remove_message">«%1$s» fjernes fra denne enheten. Serverbiblioteket er uendret.</string>
+    <string name="offline_remove">Fjern %1$s</string>
+    <string name="offline_remove_action">Fjern</string>
+    <string name="offline_keep">Ikke fjern</string>
+    <string name="offline_playback_label">Spiller fra lagret fil</string>
+    <string name="offline_playback_failed">Den lagrede filen kunne ikke spilles.</string>
+    <string name="offline_playback_unavailable">Denne nedlastingen er ikke klar for denne profilen.</string>
 </resources>

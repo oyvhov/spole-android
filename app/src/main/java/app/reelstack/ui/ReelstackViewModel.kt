@@ -52,7 +52,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-enum class AppTab { HOME, LIBRARY, DISCOVER, ACTIVITY, SETTINGS }
+enum class AppTab { HOME, LIBRARY, DOWNLOADS, DISCOVER, ACTIVITY, SETTINGS }
 
 enum class ConnectionAuthMode { QUICK_CONNECT, ACCOUNT, API_KEY }
 
@@ -201,6 +201,8 @@ data class ReelstackUiState(
     val searchError: String? = null,
     val notificationsEnabled: Boolean = true,
     val wifiOnly: Boolean = false,
+    /** Local Media3 state for the active adult profile. No server request is needed to render it. */
+    val offlineDownloads: app.reelstack.offline.OfflineDownloadsSnapshot = app.reelstack.offline.OfflineDownloadsSnapshot(),
     val isRefreshing: Boolean = false,
     val liveSession: Boolean = false,
     val liveLibrary: Boolean = false,
@@ -348,6 +350,7 @@ class ReelstackViewModel(
     private var trackingJob: Job? = null
     private var historyJob: Job? = null
     private var requestDraftJob: Job? = null
+    private var offlineRefreshJob: Job? = null
     private val accountRefresh = AccountRefreshCoordinator(
         container = container,
         scope = viewModelScope,
@@ -433,11 +436,77 @@ class ReelstackViewModel(
     }
 
     fun selectTab(tab: AppTab) {
+        // Downloads are intentionally a personal mobile/tablet space. There is no TV or kids-mode
+        // loophole through a notification, a restored tab, or a direct ViewModel call.
+        if (tab == AppTab.DOWNLOADS && (_uiState.value.isKidMode || isTelevision())) return
         // Keep the last library location when moving between tabs. The library loader can refresh
         // it in place, but dropping the path made a return to Films look like a new visit to the
         // library root every time.
         _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false, globalSearchOpen = false) }
         if (tab == AppTab.LIBRARY) browseLibrary(false)
+        if (tab == AppTab.DOWNLOADS) startOfflineRefresh()
+        else offlineRefreshJob?.cancel()
+    }
+
+    private fun startOfflineRefresh() {
+        offlineRefreshJob?.cancel()
+        val profileId = _uiState.value.activeProfileId
+        offlineRefreshJob = viewModelScope.launch {
+            while (isActive && _uiState.value.selectedTab == AppTab.DOWNLOADS &&
+                _uiState.value.activeProfileId == profileId && !_uiState.value.isKidMode) {
+                val snapshot = withContext(Dispatchers.IO) { container.offlineDownloads.snapshot(profileId) }
+                _uiState.update { current ->
+                    if (current.activeProfileId == profileId && current.selectedTab == AppTab.DOWNLOADS) current.copy(offlineDownloads = snapshot)
+                    else current
+                }
+                delay(1_000L)
+            }
+        }
+    }
+
+    fun refreshOfflineDownloads() {
+        if (_uiState.value.isKidMode || isTelevision()) return
+        val profileId = _uiState.value.activeProfileId
+        viewModelScope.launch {
+            val snapshot = withContext(Dispatchers.IO) { container.offlineDownloads.snapshot(profileId) }
+            _uiState.update { current -> if (current.activeProfileId == profileId) current.copy(offlineDownloads = snapshot) else current }
+        }
+    }
+
+    fun pauseOfflineDownload(id: String) {
+        if (id.isBlank() || _uiState.value.isKidMode) return
+        container.offlineDownloads.pause(id)
+        refreshOfflineDownloads()
+    }
+
+    fun resumeOfflineDownload(id: String) {
+        if (id.isBlank() || _uiState.value.isKidMode) return
+        container.offlineDownloads.resume(id)
+        refreshOfflineDownloads()
+    }
+
+    fun retryOfflineDownload(id: String) {
+        if (id.isBlank() || _uiState.value.isKidMode) return
+        if (!container.offlineDownloads.retry(id)) return
+        refreshOfflineDownloads()
+    }
+
+    fun removeOfflineDownload(id: String) {
+        if (id.isBlank() || _uiState.value.isKidMode) return
+        container.offlineDownloads.remove(_uiState.value.activeProfileId, id)
+        refreshOfflineDownloads()
+    }
+
+    fun pauseOfflineDownloads() {
+        if (_uiState.value.isKidMode) return
+        container.offlineDownloads.pauseAll()
+        refreshOfflineDownloads()
+    }
+
+    fun resumeOfflineDownloads() {
+        if (_uiState.value.isKidMode) return
+        container.offlineDownloads.resumeAll()
+        refreshOfflineDownloads()
     }
 
     fun openGlobalSearch() {
@@ -959,6 +1028,7 @@ class ReelstackViewModel(
     fun switchProfileNow(profileId: String) {
         val previousProfileId = container.connectionRepository.activeProfileId
         container.offlineDownloads.setProfileActive(previousProfileId, active = false)
+        offlineRefreshJob?.cancel()
         kidsLibraryJob?.cancel()
         kidsBrowseJob?.cancel()
         kidsEpisodesJob?.cancel()
@@ -973,6 +1043,7 @@ class ReelstackViewModel(
             current.copy(
                 activeProfileId = profileId,
                 isKidMode = profileId.isNotBlank(),
+                selectedTab = if (profileId.isNotBlank()) AppTab.HOME else current.selectedTab,
                 globalSearchOpen = false,
                 searchHistory = container.preferencesRepository.searchHistory(profileId),
                 searchQuery = "",
@@ -1007,6 +1078,7 @@ class ReelstackViewModel(
                 accountErrors = emptyMap(),
                 serviceWarnings = emptyMap(),
                 failedServices = emptySet(),
+                offlineDownloads = app.reelstack.offline.OfflineDownloadsSnapshot(),
                 isRefreshing = false,
             )
         }
@@ -2192,7 +2264,10 @@ class ReelstackViewModel(
     private fun localNextUp(items: List<LibraryMedia>, connections: List<ServiceConnection>): List<LibraryMedia> =
         homeFeed.localNextUp(items, connections)
 
-    fun returnedToApp() = homeFeed.returnedToApp()
+    fun returnedToApp() {
+        homeFeed.returnedToApp()
+        if (_uiState.value.selectedTab == AppTab.DOWNLOADS) refreshOfflineDownloads()
+    }
 
     private fun hydrateCachedFeed() = homeFeed.hydrateCachedFeed()
 
@@ -2213,7 +2288,7 @@ class ReelstackViewModel(
         // The same explicit preference applies to the phone/tablet offline worker. TV never
         // exposes a download entry point, so it cannot create a job here.
         container.offlineDownloads.onlyWifi(enabled)
-        _uiState.update { it.copy(wifiOnly = enabled, snackbar = "Bakgrunnsoppdateringa er endra") }
+        _uiState.update { it.copy(wifiOnly = enabled, snackbar = appString(R.string.notice_wifi_policy_updated)) }
     }
 
     fun setHomeRowOrder(order: List<app.reelstack.data.model.HomeRow>) = homeFeed.setRowOrder(order)
@@ -2692,6 +2767,7 @@ class ReelstackViewModel(
         accountRefresh.cancel()
         trackingJob?.cancel()
         historyJob?.cancel()
+        offlineRefreshJob?.cancel()
         super.onCleared()
     }
 
@@ -2699,6 +2775,10 @@ class ReelstackViewModel(
         const val QUICK_CONNECT_POLL_INTERVAL_MS = 3_000L
         const val QUICK_CONNECT_MAX_POLLS = 60
     }
+
+    private fun isTelevision(): Boolean =
+        (container.appContext.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
 }
 
 /**

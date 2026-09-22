@@ -16,11 +16,13 @@ import app.reelstack.ui.theme.ReelstackTheme
 class MainActivity : app.reelstack.localization.LocalizedActivity() {
     private var pendingSetupLink by mutableStateOf<String?>(null)
     private var pendingRequests by mutableStateOf(false)
+    private var pendingDownloads by mutableStateOf(false)
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         pendingRequests = intent.getBooleanExtra("open_requests", false)
+        pendingDownloads = intent.getBooleanExtra("open_downloads", false)
         if (intent.action == android.content.Intent.ACTION_VIEW && intent.data?.scheme == "spole") {
             pendingSetupLink = intent.dataString
         }
@@ -29,6 +31,7 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingRequests = savedInstanceState == null && intent.getBooleanExtra("open_requests", false)
+        pendingDownloads = savedInstanceState == null && intent.getBooleanExtra("open_downloads", false)
         if (savedInstanceState == null && intent.action == android.content.Intent.ACTION_VIEW && intent.data?.scheme == "spole") {
             pendingSetupLink = intent.dataString
         }
@@ -57,6 +60,10 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                 androidx.compose.runtime.LaunchedEffect(pendingRequests) {
                     if (pendingRequests) reelstackViewModel.selectTab(app.reelstack.ui.AppTab.ACTIVITY)
                     pendingRequests = false
+                }
+                androidx.compose.runtime.LaunchedEffect(pendingDownloads) {
+                    if (pendingDownloads) reelstackViewModel.selectTab(app.reelstack.ui.AppTab.DOWNLOADS)
+                    pendingDownloads = false
                 }
             }
         }

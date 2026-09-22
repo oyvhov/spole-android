@@ -113,7 +113,12 @@ internal fun AppNavigationRail(
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp)
                         .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
             }
-            app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
+            val menu = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().toMutableList().apply {
+                remove(AppTab.DOWNLOADS.name)
+                // This route intentionally has no television or kid-mode presentation.
+                if (!tv && !isKidMode) add(indexOf(AppTab.SETTINGS.name).coerceAtLeast(0), AppTab.DOWNLOADS.name)
+            }
+            menu
                 .filterNot { isKidMode && it == AppTab.SETTINGS.name }
                 .mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
                     if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
@@ -139,7 +144,10 @@ internal fun AppCompactTouchNavigation(
     isKidMode: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val menu = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
+    val menu = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().toMutableList().apply {
+        remove(AppTab.DOWNLOADS.name)
+        if (!isKidMode) add(indexOf(AppTab.SETTINGS.name).coerceAtLeast(0), AppTab.DOWNLOADS.name)
+    }
     Column(modifier.width(80.dp).fillMaxHeight().background(app.reelstack.ui.theme.Surface)
         .padding(horizontal = 8.dp, vertical = 4.dp).testTag("compact-touch-navigation")) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),

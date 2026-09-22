@@ -253,8 +253,14 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val personalization = app.reelstack.ui.theme.LocalPersonalization.current
     val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val preferences = remember(appContext) { app.reelstack.data.repository.AppPreferencesRepository(appContext) }
-    LaunchedEffect(personalization.visibleMenu()) {
-        if (state.selectedTab.name !in personalization.visibleMenu()) selectTab(AppTab.HOME)
+    val visibleNavigation = personalization.visibleMenu().toMutableList().apply {
+        // Downloads is a fixed, adult touch-only library. It is intentionally not a configurable
+        // TV menu item: a television can neither create nor consume an offline file.
+        remove(AppTab.DOWNLOADS.name)
+        if (!tvRail && !state.isKidMode) add(indexOf(AppTab.SETTINGS.name).coerceAtLeast(0), AppTab.DOWNLOADS.name)
+    }
+    LaunchedEffect(visibleNavigation, state.isKidMode) {
+        if (state.selectedTab.name !in visibleNavigation) selectTab(AppTab.HOME)
     }
     LaunchedEffect(state.isRefreshing) {
         // Home replaces its header with the feature when the first library response arrives.
@@ -402,6 +408,19 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary,
                         onShelfOpen = viewModel::openLibraryDetails, cardActions = cardActions,
                         onSource = viewModel::selectLibrarySource)
+                    AppTab.DOWNLOADS -> app.reelstack.ui.screens.OfflineDownloadsScreen(
+                        snapshot = state.offlineDownloads,
+                        wifiOnly = state.wifiOnly,
+                        contentPadding = screenInsets,
+                        onWifiOnlyChange = viewModel::setWifiOnly,
+                        onPauseAll = viewModel::pauseOfflineDownloads,
+                        onResumeAll = viewModel::resumeOfflineDownloads,
+                        onPause = viewModel::pauseOfflineDownload,
+                        onResume = viewModel::resumeOfflineDownload,
+                        onRetry = viewModel::retryOfflineDownload,
+                        onRemove = viewModel::removeOfflineDownload,
+                        onPlay = { app.reelstack.player.OfflinePlayerActivity.open(appContext, it) },
+                    )
                     AppTab.ACTIVITY -> ActivityScreen(state, screenInsets, viewModel::openActivityDetails,
                         viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
                         viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
@@ -468,6 +487,7 @@ internal data class TabItem(
 internal val tabs = listOf(
     TabItem(AppTab.HOME, app.reelstack.R.string.nav_home, app.reelstack.ui.components.SpoleIcons.Home),
     TabItem(AppTab.LIBRARY, R.string.nav_library, app.reelstack.ui.components.SpoleIcons.Library),
+    TabItem(AppTab.DOWNLOADS, R.string.nav_downloads, app.reelstack.ui.components.SpoleIcons.Download),
     TabItem(AppTab.DISCOVER, app.reelstack.R.string.nav_discover, app.reelstack.ui.components.SpoleIcons.Discover),
     TabItem(AppTab.ACTIVITY, app.reelstack.R.string.nav_activity, app.reelstack.ui.components.SpoleIcons.Activity),
     TabItem(AppTab.SETTINGS, app.reelstack.R.string.nav_settings, app.reelstack.ui.components.SpoleIcons.Settings),
@@ -479,7 +499,11 @@ internal fun ReelstackBottomBar(
     onSelect: (AppTab) -> Unit,
     isKidMode: Boolean = false,
 ) {
-    val visibleTabs = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu()
+    val visibleNames = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().toMutableList().apply {
+        remove(AppTab.DOWNLOADS.name)
+        if (!isKidMode) add(indexOf(AppTab.SETTINGS.name).coerceAtLeast(0), AppTab.DOWNLOADS.name)
+    }
+    val visibleTabs = visibleNames
         .filterNot { isKidMode && it == AppTab.SETTINGS.name }
         .mapNotNull { name -> tabs.find { it.tab.name == name } }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -493,6 +517,7 @@ internal fun ReelstackBottomBar(
         val short = androidx.compose.ui.res.stringResource(when (item.tab) {
             AppTab.HOME -> R.string.nav_home_short
             AppTab.LIBRARY -> R.string.nav_library_short
+            AppTab.DOWNLOADS -> R.string.nav_downloads_short
             AppTab.DISCOVER -> R.string.nav_discover_short
             AppTab.ACTIVITY -> R.string.nav_activity_short
             AppTab.SETTINGS -> R.string.nav_settings_short

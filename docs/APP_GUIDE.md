@@ -1,6 +1,6 @@
 # Getting started with Spole
 
-This guide applies to Spole 0.17.0-beta09.
+This guide applies to Spole 0.18.0-beta3.
 
 ## For viewers
 
@@ -47,6 +47,7 @@ On TV, the side panel can also be hidden until you navigate to the left edge.
 - **Cinematic detail pages:** backdrops, clearlogos, seasons, episodes, cast, age ratings, runtime, estimated finish time and visual ratings when supplied by the server.
 - **Integrated playback:** audio and subtitle selection, file and quality selection, progress reporting and next episode. Direct playback is requested when possible, with audio-only or full server transcoding fallback when required by the device or media.
 - **TV playback controls:** seeking, audio, subtitles, next episode and playback diagnostics. The Speed action is intentionally not part of the current OSD.
+- **Offline on phone and tablet:** save a complete, directly compatible Jellyfin or Emby file from the player. **Downloads** shows its progress, Wi-Fi-only mode, pause/resume, retry and removal; a completed item plays from app-private storage. Downloads are not available on TV or in child mode.
 - **Requests and discovery:** Seerr requests plus Radarr and Sonarr upcoming content when the connected account has access.
 - **Themes:** accent colours, Christmas and Halloween styling, with reduced-motion support.
 
@@ -58,7 +59,7 @@ installation. You do not need to uninstall first. Pre-release builds can contain
 Format support depends on the Android device, player and server transcoding
 permissions. Image-based subtitles may require burn-in. Intro and credits actions
 require markers from the server; Emby uses its chapter markers. Live TV, music,
-disc/ISO menus and offline downloads are outside this playback flow. Child mode,
+disc/ISO menus are outside this playback flow. Child mode,
 QR display for setup links and short setup codes are not implemented.
 
 [Back to Spole](../README.md)
