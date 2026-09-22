@@ -1,6 +1,6 @@
 # Verifisering — Spole 0.18.0-beta5
 
-Dato: 22. september 2026  
+Dato: 22. september 2026
 Kjelde-commit og publisert tagg: `a288e5a7e63a095b35ade5b366026e628e6e552f`
 
 ## Bygg og artefakt
