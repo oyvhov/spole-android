@@ -1279,6 +1279,7 @@ internal fun ConnectionEditorSheet(
     setupLink: String? = null,
 ) {
     val shareContext = LocalContext.current
+    val invalidAddressMessage = stringResource(R.string.error_enter_valid_url)
     var reauthenticating by rememberSaveable(draft.kind) { mutableStateOf(false) }
     var credentialsStep by rememberSaveable(draft.kind) { mutableStateOf(configured) }
     var advanced by rememberSaveable(draft.kind) { mutableStateOf(false) }
@@ -1296,7 +1297,7 @@ internal fun ConnectionEditorSheet(
                 if (television && !configured && draft.kind == ServiceKind.SEERR) onAuthModeChange(ConnectionAuthMode.QUICK_CONNECT)
                 credentialsStep = true; focus.clearFocus()
             }
-            .onFailure { addressError = it.readableMessage(shareContext) ?: shareContext.getString(R.string.error_enter_valid_url) }
+            .onFailure { addressError = it.readableMessage(shareContext) ?: invalidAddressMessage }
     }
     Column(Modifier.fillMaxSize()) {
         SheetToolbar(if (configured) draft.kind.displayName else stringResource(R.string.login_service, draft.kind.displayName), stringResource(R.string.action_close), onDismiss)

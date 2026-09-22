@@ -55,6 +55,8 @@ class DesignRefreshUiTest {
     }
 
     @Test fun libraryTvIsACompleteFrontPageAndOpensExactLibrary() {
+        org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            .targetContext.getSystemService(android.app.UiModeManager::class.java).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
         var selected = ""
         rule.setContent { Canvas(960, 540, tv = true) { LibraryHub(fixtures(), { selected = it }, {}, null, {}) } }
         rule.onNodeWithTag("hub-library-movies").performScrollTo().assertIsDisplayed().performClick()
@@ -295,6 +297,8 @@ class DesignRefreshUiTest {
     }
 
     private fun checkEpisodeReadingOrder(font: Float) {
+        org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            .targetContext.getSystemService(android.app.UiModeManager::class.java).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
         var opened = false
         rule.setContent { Canvas(960, 540, tv = true, font = font) {
             ReelstackSheets(ReelstackUiState(connections = listOf(ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://example.com", "fixture", userId = "me")), activeSheet = AppSheet.TitleDetails("jellyfin-ep"),

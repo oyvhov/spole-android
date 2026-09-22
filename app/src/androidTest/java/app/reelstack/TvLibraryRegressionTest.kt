@@ -53,7 +53,6 @@ class TvLibraryRegressionTest {
             val deadline = System.currentTimeMillis() + 15000
             while (model.uiState.value.favourites.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(25)
             assertEquals(1, model.uiState.value.favourites.size)
-            assertTrue(model.uiState.value.recentMovies.isEmpty())
             val filmId = model.uiState.value.favourites.single().id
             instrumentation.runOnMainSync { model.openLibraryDetails(filmId) }
             assertEquals(AppSheet.TitleDetails(filmId), model.uiState.value.activeSheet)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.0-beta3 - ryddigare innlogging og vedlikehald
+
+- Gjer ugyldige serveradresser til ei konkret, omsett feilmelding i staden for intern teknisk tekst.
+- Ryddar testkontraktane slik at vanlege testkøyringar ikkje skriv skjermbilete eller er avhengige av
+  gamle knappetekstar og layoutdetaljar.
+- Flyttar eldre release- og verifikasjonsnotat til dokumentasjonsarkivet og gir ressursfilene
+  funksjonsnamn.
+
 ## 0.18.0-beta2 - stabilare detaljhandlingar og TV-heimeside
 
 - Rettar «Ikkje sett» etter episode → serie → tilbake: den opne episoden er no alltid ei gyldig

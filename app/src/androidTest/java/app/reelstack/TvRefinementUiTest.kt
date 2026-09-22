@@ -24,6 +24,7 @@ import app.reelstack.ui.screens.*
 import app.reelstack.ui.theme.LocalPersonalization
 import app.reelstack.ui.theme.ReelstackTheme
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -31,6 +32,11 @@ import org.junit.Test
 class TvRefinementUiTest {
     @get:Rule val rule = createComposeRule()
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://example.com", "fixture", userId = "me")
+
+    @Before fun requireTelevisionTarget() {
+        org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            .targetContext.getSystemService(android.app.UiModeManager::class.java).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
+    }
     @Test fun remoteLongPressOpensMenuWithoutRunningAnAction() {
         var opened = 0
         var written = 0

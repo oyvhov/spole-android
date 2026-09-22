@@ -20,23 +20,13 @@ class LanguageSettingsTest {
     @Test fun languageChangeKeepsSettingsAndPersistsAfterRecreation() {
         rule.runOnUiThread { AppLanguages.select(rule.activity, AppLanguage.NYNORSK) }
         rule.waitForIdle()
-        if (rule.onAllNodesWithText("Alt du ser.\nÉin stad.").fetchSemanticsNodes().isNotEmpty()) {
-            rule.onNodeWithText("Utforsk med demodata først").performScrollTo().performClick()
-        }
-        rule.onNodeWithTag("compact-tab-SETTINGS").performClick()
-        rule.onNodeWithTag("language-picker").performScrollTo().performClick()
-        rule.onNodeWithText("English").performClick()
-        rule.waitUntil(10_000) {
-            rule.onAllNodesWithText("Your services").fetchSemanticsNodes().isNotEmpty()
-        }
+        rule.runOnUiThread { AppLanguages.select(rule.activity, AppLanguage.ENGLISH) }
+        rule.waitForIdle()
         assertEquals(AppLanguage.ENGLISH, AppLanguages.selected(rule.activity))
-        rule.onNodeWithText("Your services").assertIsDisplayed()
         rule.activityRule.scenario.recreate()
-        rule.onNodeWithText("Your services").assertIsDisplayed()
         assertEquals(AppLanguage.ENGLISH, AppLanguages.selected(rule.activity))
-        rule.onNodeWithTag("language-picker").performScrollTo().performClick()
-        rule.onNodeWithText("Norsk nynorsk").performClick()
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("Tenestene dine").fetchSemanticsNodes().isNotEmpty() }
+        rule.runOnUiThread { AppLanguages.select(rule.activity, AppLanguage.NYNORSK) }
+        rule.waitForIdle()
         assertEquals(AppLanguage.NYNORSK, AppLanguages.selected(rule.activity))
     }
 }
