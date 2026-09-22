@@ -89,7 +89,7 @@ internal fun SettingsServiceRow(
                     ServiceSymbol(connection.kind, Modifier.size(32.dp).testTag("settings-service-icon-${connection.kind}"))
                     Text(connection.kind.displayName, style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    ServiceHealthBadge(health, color, status)
+                    ServiceHealthBadge(health, color, status, Modifier.testTag("service-health-${connection.kind}-$health"))
                     Icon(SpoleIcons.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (!account.isNullOrBlank() || detail != null) {
@@ -123,7 +123,7 @@ internal fun SettingsServiceRow(
                 } else detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ServiceHealthBadge(health, color, status)
+                ServiceHealthBadge(health, color, status, Modifier.testTag("service-health-${connection.kind}-$health"))
                 Icon(SpoleIcons.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -139,9 +139,9 @@ private fun ServiceAvatar(account: String, avatarUrl: String?) {
 }
 
 @Composable
-private fun ServiceHealthBadge(health: ServiceHealth, color: Color, status: String) {
+private fun ServiceHealthBadge(health: ServiceHealth, color: Color, status: String, modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
+        modifier = modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),

@@ -63,4 +63,4 @@ trykkjer på, og ein «Slett» ved sida av.
 - 16 KB-sidestorleik verifisert, både APK-justering og ELF-segment.
 - Same signeringsnøkkel som før. APK-en kan installerast rett over 0.13.3.
 
-Sjå `docs/VERIFICATION_v0.14.0.md` for fullstendige tal og for kva som *ikkje* er verifisert.
+Sjå `VERIFICATION_v0.14.0.md` for fullstendige tal og for kva som *ikkje* er verifisert.

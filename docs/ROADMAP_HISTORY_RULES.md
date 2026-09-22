@@ -30,7 +30,7 @@ Automatisk godkjenning tek omsyn til ADMIN, MANAGE_REQUESTS, AUTO_APPROVE og ret
 - JVM: kvoteparser, ukjend/uavgrensa/restriksjon, sesongtal, medietypespesifikke rettar, eiga kvote og feil ved profilavvik.
 - Android med ekte ViewModel, lokal HTTP-fixture og lagring: dobbeltrykk, forseinka svar, feil/retry, utlogging og endra profil før side eller under profiloppdatering.
 - Compose: historikkinnsteg, detaljar/tilbake, retry frå riktig side, manglande metadata, kvote ved endra sesongval, endra rettar og nynorsk/engelsk med skrift 2.0 i breitt vindauge.
-- Skjermbilete med syntetiske data blir lagra lokalt i `app/build/roadmap-review/`. Endelege testtal og APK-kontroll: [alpha08-verifisering](VERIFICATION_v0.16.0-alpha08.md).
+- Skjermbilete med syntetiske data blir berre laga ved eksplisitt testkøyring. Endelege testtal og APK-kontroll: [alpha08-verifisering](archive/releases/VERIFICATION_v0.16.0-alpha08.md).
 
 Alle instrumenteringstestar i denne roadmap-runda går på isolert WSL-AVD 5562. Eldre bibliotektestar vart feilaktig køyrde på 5564 etter at ho hadde fått rolla som review-eining; dei blir ikkje gjentekne der. 5560 og 5564 har ekte kontoar og skal ikkje nullstillast eller brukast til instrumentering.
 

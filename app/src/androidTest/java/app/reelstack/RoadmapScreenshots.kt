@@ -17,6 +17,9 @@ internal fun RoadmapTestTheme(content: @androidx.compose.runtime.Composable () -
 
 /** Synthetic fixture images for local layout review, never the production account. */
 internal fun SemanticsNodeInteraction.saveRoadmapImage(name: String) {
+    // Ordinary verification must be hermetic: visual captures are opt-in so a full test run
+    // neither accumulates files nor leaves stale fixtures looking like release evidence.
+    if (InstrumentationRegistry.getArguments().getString("captureScreenshots") != "true") return
     val folder = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "roadmap-review").apply { mkdirs() }
     val bitmap = captureToImage().asAndroidBitmap()
     File(folder, name).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }

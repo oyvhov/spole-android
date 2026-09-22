@@ -26,7 +26,7 @@ Dette legg ikkje til ein FFmpeg-/VLC-pakke i APK-en. Spole brukar Media3 1.10.1 
 
 Den signerte APK-en er bygd og kontrollert: 329 JVM-testar, 30 utførte avspelingstestar på telefon og 10 på Google TV bestod. Lint har 0 feil. Den arkiverte APK-en er installert som oppdatering på begge review-emulatorane, med eksisterande kontoar og visingsval bevarte. Ekte Jellyfin-avspeling av Taskmaster (1080p H.264 / AAC 2.0) vart stadfesta på TV med undertekst, gjenopptaking og status «Direct from Jellyfin». Telefonen viste ekte bibliotekdata og oppdatert framdrift.
 
-APK: `app/build/test-alpha11/Spole-0.16.0-alpha11.apk`. [Full verifikasjon, avvik og signatur](VERIFICATION_v0.16.0-alpha11.md). Fysiske HDMI-/eARC-kjeder, Dolby-/DTS-mottakarar og langvarig 4K/HDR-avspeling er ikkje verifiserte av emulatorane.
+APK: `app/build/test-alpha11/Spole-0.16.0-alpha11.apk`. [Full verifikasjon, avvik og signatur](archive/releases/VERIFICATION_v0.16.0-alpha11.md). Fysiske HDMI-/eARC-kjeder, Dolby-/DTS-mottakarar og langvarig 4K/HDR-avspeling er ikkje verifiserte av emulatorane.
 
 ## Fagleg grunnlag
 

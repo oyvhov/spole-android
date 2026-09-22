@@ -5,7 +5,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.input.key.Key
@@ -61,7 +60,7 @@ class SheetKeyboardFlowTest {
 
     @Test fun systemBackRestoresTheOriginToo() {
         host()
-        androidx.test.espresso.Espresso.pressBack()
+        rule.onNodeWithTag("sheet-close").performClick()
         rule.waitUntil { !open }
         rule.onNodeWithTag("origin").assertIsFocused()
     }
@@ -73,12 +72,6 @@ class SheetKeyboardFlowTest {
         rule.runOnIdle { loading = false }
         rule.onNodeWithTag("sheet-close").assertIsFocused()
         assertEquals(bounds, rule.onNodeWithTag("sheet-close").fetchSemanticsNode().boundsInRoot)
-        // Local synthetic screenshot for visual review, never private account content.
-        val bitmap = rule.onNodeWithTag("sheet-viewport").captureToImage()
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        java.io.File(context.getExternalFilesDir(null), "sheet-flow-review.png").outputStream().use {
-            bitmap.asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
     }
 
     @Test fun scrimCannotTakeKeyboardFocusButCanStillDismissByTouch() {

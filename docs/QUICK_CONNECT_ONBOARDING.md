@@ -1,7 +1,7 @@
 # Enkel oppstart med Jellyfin og Seerr
 
-Levert i [Spole 0.16.0-alpha24](release-v0.16.0-alpha24.md).
-Sjå [release-verifikasjon](VERIFICATION_v0.16.0-alpha24.md) for publisering og oppdatering.
+Levert i [Spole 0.16.0-alpha24](archive/releases/release-v0.16.0-alpha24.md).
+Sjå [release-verifikasjon](archive/releases/VERIFICATION_v0.16.0-alpha24.md) for publisering og oppdatering.
 
 Førstevalet er «Kom i gang». «Andre innloggingsmåtar» opnar dei eksisterande
 vala for Jellyfin, Emby, Seerr og administratortenester. Brukarar med lagra

@@ -26,4 +26,4 @@ held på botnmenyen. TV held på fjernkontrollnavigasjonen.
 - Instrumenteringstestane er kompilerte. Dei er ikkje køyrde på eining i denne runden.
 
 Bygg, lint, Android-testar og installasjon er dokumenterte i
-[verifikasjonen for beta30](VERIFICATION_v0.17.0-beta30.md).
+[verifikasjonen for beta30](archive/releases/VERIFICATION_v0.17.0-beta30.md).

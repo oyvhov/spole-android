@@ -33,4 +33,4 @@ Oppstarten brukar den originale Spole-logoen med filmstriper og ein projektorbog
 - [Android PackageManager](https://developer.android.com/reference/android/content/pm/PackageManager).
 - [Jellyfin filterendepunkt](https://github.com/jellyfin/jellyfin/blob/master/Jellyfin.Api/Controllers/FilterController.cs).
 
-Sjå [verifikasjonsrapporten](VERIFICATION_v0.16.0-alpha12.md) for bestått produksjonsbygg, 340 JVM-testar, TV-/telefontestar, kontroll med ekte data og APK-signatur. APK-en er levert lokalt. Det er ikkje publisert ein alpha12 GitHub Release; full installasjon av ei framtidig nyare GitHub-utgåve er derfor ikkje prøvd ende til ende.
+Sjå [verifikasjonsrapporten](archive/releases/VERIFICATION_v0.16.0-alpha12.md) for bestått produksjonsbygg, 340 JVM-testar, TV-/telefontestar, kontroll med ekte data og APK-signatur. APK-en er levert lokalt. Det er ikkje publisert ein alpha12 GitHub Release; full installasjon av ei framtidig nyare GitHub-utgåve er derfor ikkje prøvd ende til ende.

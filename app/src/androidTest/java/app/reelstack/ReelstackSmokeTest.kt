@@ -112,11 +112,9 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Innstillingar").performClick()
 
         composeRule.onNodeWithTag("settings-category-HOME").performScrollTo().performClick()
-        composeRule.onNodeWithText("Emby · Filmar").assertDoesNotExist()
-        composeRule.onNodeWithTag("tv-home-rows").performScrollTo().performClick()
-
-        composeRule.onNodeWithText("Emby · Filmar").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Emby · Seriar").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("home-order-open").performScrollTo().performClick()
+        composeRule.onNodeWithTag("home-order-row-EMBY_MOVIES").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("home-order-row-EMBY_SERIES").performScrollTo().assertIsDisplayed()
     }
 
     @Test

@@ -50,7 +50,7 @@ Endringar blir viste med ein gong og lagra på eininga. Bakgrunn og overflater f
 
 Den signerte APK-en er bygd og installert som oppdatering på både TV- og telefonemulatoren med ekte kontoar. Begge er opne for vidare prøving. Mobiloppsettet og dei nye temavala er visuelt kontrollerte; opning og lukking av episodetaljar med berøring fungerte.
 
-317 JVM-testar, 226 ulike utførte telefon-testar og 22 målretta TV-testar bestod. To ekstra TV-testar bestod med 200 % systemskrift. Telefonresultatet inkluderer ei atterkøyring av ein paneltest som nådde tidsgrensa i fullpakken. Emulatoravbrot, atterkøyringar, lint og signatur er dokumenterte i [verifikasjonsrapporten](VERIFICATION_v0.16.0-alpha10.md).
+317 JVM-testar, 226 ulike utførte telefon-testar og 22 målretta TV-testar bestod. To ekstra TV-testar bestod med 200 % systemskrift. Telefonresultatet inkluderer ei atterkøyring av ein paneltest som nådde tidsgrensa i fullpakken. Emulatoravbrot, atterkøyringar, lint og signatur er dokumenterte i [verifikasjonsrapporten](archive/releases/VERIFICATION_v0.16.0-alpha10.md).
 
 APK: `app/build/test-alpha10/Spole-0.16.0-alpha10.apk` (bygg 53).
 

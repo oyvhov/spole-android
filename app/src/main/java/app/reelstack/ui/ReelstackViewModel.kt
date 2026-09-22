@@ -2266,7 +2266,7 @@ class ReelstackViewModel(
         if (draft.saving || (draft.simpleSetup && draft.quickConnectWaiting)) return
         val normalizedUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
             .getOrElse {
-                updateDraft { copy(error = it.message ?: appString(R.string.error_enter_valid_url)) }
+                updateDraft { copy(error = it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url)) }
                 return
             }
         val useJellyfinAccount = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
@@ -2293,7 +2293,7 @@ class ReelstackViewModel(
         }
         val alternateUrl = draft.alternateUrl.takeIf(String::isNotBlank)?.let { entered ->
             runCatching { EndpointValidator.normalizeBaseUrl(entered) }.getOrElse {
-                updateDraft { copy(error = appString(R.string.error_check_alternate_url, it.message ?: appString(R.string.error_enter_valid_url))) }
+                updateDraft { copy(error = appString(R.string.error_check_alternate_url, it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url))) }
                 return
             }
         }.orEmpty()
@@ -2303,7 +2303,7 @@ class ReelstackViewModel(
         }
         val companionUrl = if (useJellyfinAccount && draft.alsoConnect && draft.kind != ServiceKind.EMBY) {
             runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
-                updateDraft { copy(error = appString(R.string.error_check_companion_url, it.message ?: appString(R.string.error_enter_valid_url))) }
+                updateDraft { copy(error = appString(R.string.error_check_companion_url, it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url))) }
                 return
             }
         } else null

@@ -14,11 +14,13 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.SurfaceRaised
+import kotlinx.coroutines.launch
 
 /** No size animation when the code arrives. Only the dialog body can scroll. */
 @Composable
 internal fun TvQuickConnectPanel(draft: ConnectionDraft) {
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboard.current
+    val scope = rememberCoroutineScope()
     var copied by remember(draft.quickConnectCode) { mutableStateOf(false) }
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Surface(color = SurfaceRaised, shape = RoundedCornerShape(16.dp),
@@ -34,7 +36,10 @@ internal fun TvQuickConnectPanel(draft: ConnectionDraft) {
                 if (draft.quickConnectWaiting) R.string.quick_waiting else R.string.quick_finishing),
                 color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
             draft.quickConnectCode?.let { code ->
-                app.reelstack.ui.components.SpoleSecondaryButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true },
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = {
+                    scope.launch { clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("Quick Connect", code))) }
+                    copied = true
+                },
                     interactionSource = interaction,
                     modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(24.dp))) {
                     Text(stringResource(if (copied) R.string.quick_copied else R.string.quick_copy))

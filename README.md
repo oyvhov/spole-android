@@ -91,10 +91,10 @@ provide media. Your account permissions determine what you can view and do.
 
 ## Known limitations
 
-- **Emby playback:** Library browsing, artwork and vanleg direkteavspeling er støtta. Nokre omkoda straumar og uvanlege lydformat kan framleis krevje feilretting for den aktuelle Emby-versjonen.
-- **Offline:** Direkte, komplette Jellyfin- og Emby-filer kan no leggjast til frå mobil-/nettbrettspelaren i ein app-privat, kontoavgrensa Media3-kø. TV viser aldri nedlasting. Lagringsgrense og eige nedlastingsbibliotek kjem før funksjonen vert gjort breitt tilgjengeleg. Sjå [mobil og offline](docs/MOBILE_PLAYBACK_AND_OFFLINE.md).
-- **Fysiske einingar:** Kontinuerleg integrasjon og regresjonstest går på Google Android TV- og mobilemulatorar (API 26–36). TV-ar med eigne produsentvariantar, som Fire OS eller operatørtilpassa boksar, kan ha mindre skilnader i utsjånad eller fjernkontroll.
-- **Foreldrekontroll og PIN:** Utgang frå barnemodus er verna med PBKDF2-HMAC-SHA256 (100 000 rundar) og aukande ventetid ved feil. Eldre PIN-lagringar med lågare kostnad blir styrkte etter ein korrekt PIN. Attstilling av gløymd PIN krev kontakt med den primære vaksne medietenaren.
+- **Emby playback:** Library browsing, artwork and ordinary direct playback are supported. Some transcoded streams and uncommon audio formats may still need fixes for the particular Emby version.
+- **Offline:** Complete, directly compatible Jellyfin and Emby files can be added from the phone or tablet player to an app-private, account-scoped Media3 queue. TV never offers downloads. Storage limits and a dedicated downloads library are needed before offline is broadly available. See [mobile playback and offline](docs/MOBILE_PLAYBACK_AND_OFFLINE.md).
+- **Physical devices:** Continuous integration and regression testing run on Google Android TV and phone emulators (API 26–36). Manufacturer variants, such as Fire OS or operator-customised boxes, can differ slightly in appearance or remote behaviour.
+- **Parental controls and PIN:** Leaving kids mode is protected with PBKDF2-HMAC-SHA256 (100,000 rounds) and increasing delays after failed attempts. Older lower-cost PIN records are strengthened after a correct PIN. Resetting a forgotten PIN requires the primary adult media-server account.
 
 ## Getting started
 

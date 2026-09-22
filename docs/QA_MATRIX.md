@@ -54,7 +54,7 @@ Android-/tenarversjon kan registrerast utan tenaradresse, brukarnamn, passord el
 | --- | --- | --- |
 | BUILD-01 | Einingstestane køyrer utan feil eller hoppa-over-testar. | **Bestått på nytt:** 253 testar, 26 testklassar, 0 feil, 0 hoppa over. |
 | BUILD-02 | Lint avsluttar utan feil; åtvaringar blir vurderte. | **Bestått med åtvaringar:** 0 feil, 28 åtvaringar. Uendra analyse gjenbrukt av Gradle; sortering nedanfor er ny. |
-| BUILD-03 | Full Android-testpakke. | **Tidlegare bestått:** 127/127, [releasekontroll](VERIFICATION_v0.15.1.md). Ikkje køyrt på nytt no. |
+| BUILD-03 | Full Android-testpakke. | **Tidlegare bestått:** 127/127, [releasekontroll](archive/releases/VERIFICATION_v0.15.1.md). Ikkje køyrt på nytt no. |
 | INSTALL-01 | Signert 0.15.1 over 0.15.0 bevarer kontoar og innstillingar. | **Tidlegare bestått på review-emulator:** sjå releasekontrollen. Ikkje ein attest på oppdatering via Play. |
 | PHONE-01 | Appen er prøvd på to fysiske mobiltelefonar. | **Brukartesta:** Pixel 9 Pro XL og truleg OnePlus. Konkrete resultat er ikkje oppgjevne. |
 | AUTH-01 | Vanleg Seerr-brukar ser berre eigne økter og førespurnader. Administrator får berre tillatne fellesvisingar. | Automatiske tilgangstestar er med i baseline; **ekte tokonto-scenario ikkje stadfesta**. |

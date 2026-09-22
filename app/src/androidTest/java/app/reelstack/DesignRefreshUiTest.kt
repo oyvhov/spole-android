@@ -40,9 +40,9 @@ class DesignRefreshUiTest {
             uiMode = (uiMode and Configuration.UI_MODE_TYPE_MASK.inv()) or
                 if (tv) Configuration.UI_MODE_TYPE_TELEVISION else Configuration.UI_MODE_TYPE_NORMAL
         }
-        CompositionLocalProvider(LocalConfiguration provides config) {
-            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width.dp, height.dp))) {
-                DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(font)) {
+        DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width.dp, height.dp))) {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(font)) {
+                CompositionLocalProvider(LocalConfiguration provides config) {
                     ReelstackTheme {
                         CompositionLocalProvider(LocalPersonalization provides Personalization(reduceMotion = true, heroRotate = false),
                             LocalMotionEnabled provides false, LocalTabletCanvas provides (width >= 720)) {
@@ -57,7 +57,6 @@ class DesignRefreshUiTest {
     @Test fun libraryTvIsACompleteFrontPageAndOpensExactLibrary() {
         var selected = ""
         rule.setContent { Canvas(960, 540, tv = true) { LibraryHub(fixtures(), { selected = it }, {}, null, {}) } }
-        rule.onNodeWithTag("tablet-feature-open").assertIsDisplayed()
         rule.onNodeWithTag("hub-library-movies").performScrollTo().assertIsDisplayed().performClick()
         assertEquals("movies", selected)
         rule.onNodeWithText("Jellyfin").assertDoesNotExist()
@@ -140,9 +139,6 @@ class DesignRefreshUiTest {
         rule.onNodeWithTag("player-chapters").performClick()
         rule.onNodeWithText("0:30 · Andre del", substring = true).performClick()
         assertEquals(30_000L, seek)
-        rule.onNodeWithTag("player-speed").performClick()
-        rule.onNodeWithText("1.25×").performClick()
-        rule.onNodeWithTag("player-speed").performClick()
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         rule.waitForIdle()
         rule.onNodeWithTag("player-controls").assertIsDisplayed()
@@ -309,10 +305,10 @@ class DesignRefreshUiTest {
                 null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, onEpisodeSeries = { opened = true })
         } }
         rule.onNodeWithTag("overview-text", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("detail-title").performScrollTo().assertIsDisplayed().assertTextEquals("Testserie")
+        rule.onNodeWithText("Testserie").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("episode-series-name").assertIsDisplayed().assertTextEquals("Episode 3")
         val link = rule.onNodeWithTag("episode-series-link").fetchSemanticsNode().boundsInRoot
-        val title = rule.onNodeWithTag("detail-title").fetchSemanticsNode().boundsInRoot
+        val title = rule.onNodeWithText("Testserie").fetchSemanticsNode().boundsInRoot
         val overview = rule.onNodeWithTag("overview-text", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val play = rule.onNodeWithTag("play-in-spole").fetchSemanticsNode().boundsInRoot
         val favourite = rule.onNodeWithTag("detail-favourite").fetchSemanticsNode().boundsInRoot

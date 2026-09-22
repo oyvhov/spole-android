@@ -108,4 +108,4 @@ fysisk surround, bitperfekt passthrough eller HDR på TV-en.
 
 Ingen ny GitHub-release vart publisert som del av sjølve gjennomgangen.
 Den etterfølgjande release-oppgåva brukar beta18 / kode 97; sjå
-[verifikasjonsrapporten](VERIFICATION_v0.17.0-beta18.md) for den endelege APK-en og testresultata.
+[verifikasjonsrapporten](archive/releases/VERIFICATION_v0.17.0-beta18.md) for den endelege APK-en og testresultata.

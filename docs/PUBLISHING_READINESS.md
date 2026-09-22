@@ -5,7 +5,7 @@ versionName 0.13.3, pakke `app.reelstack`, minSdk 26, targetSdk 36.
 
 > **Status etter 0.14.0.** Rapporten under er originalen, uendra, slik at det går an å sjå kva som
 > vart funne. Det meste er no retta — sjå statustabellen rett under. Der eit funn er retta,
-> gjeld `docs/release-v0.14.0.md` og `docs/VERIFICATION_v0.14.0.md` framfor teksten her.
+> gjeld `docs/archive/releases/release-v0.14.0.md` og `docs/archive/releases/VERIFICATION_v0.14.0.md` framfor teksten her.
 
 ## 0. Status etter 0.14.0
 

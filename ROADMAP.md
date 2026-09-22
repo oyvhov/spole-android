@@ -150,7 +150,7 @@ Dette er alt eg ikkje kan gjere frå ei økt, med grunnen:
 Dette er implementert lokalt i `0.17.0-beta05` / bygg 84. APK-en er ikkje publisert til ein ekstern
 kanal i denne arbeidsrunden.
 
-Oppdatert 12. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**. Ny testutgåve: **0.16.0-alpha15 / bygg 58**, med rolegare TV-toppfelt og mjuk rotasjon mellom ulike seriar. [Release-notat](docs/release-v0.16.0-alpha15.md) · [Verifikasjon](docs/VERIFICATION_v0.16.0-alpha15.md) · [TV-toppfelt](docs/TV_FEATURE_ALPHA15.md) · [Release-flyt](docs/RELEASE_WORKFLOW.md).
+Oppdatert 12. september 2026. Stabilt utgangspunkt: **0.15.1 / bygg 43**. Ny testutgåve: **0.16.0-alpha15 / bygg 58**, med rolegare TV-toppfelt og mjuk rotasjon mellom ulike seriar. [Release-notat](docs/archive/releases/release-v0.16.0-alpha15.md) · [Verifikasjon](docs/archive/releases/VERIFICATION_v0.16.0-alpha15.md) · [TV-toppfelt](docs/TV_FEATURE_ALPHA15.md) · [Release-flyt](docs/RELEASE_WORKFLOW.md).
 
 **Målet:** Frå å finne ein film eller serie, via å leggje til eller følgje han, til å sjå han — med din eigen konto, i ei samanhengande og gjennomarbeidd Android-oppleving.
 
@@ -199,7 +199,7 @@ Ny kjeldebolk: [Breitt innhald og ekte Google TV-test](docs/WIDE_CONTENT_TV_PASS
 | Planlagt TV-milepåle | Android TV / Google TV med fjernkontrollstyrt grensesnitt, personleg innlogging og Jellyfin-avspeling. Ikkje støtta som TV-app i 0.15.1. |
 | Planlagt, ikkje levert | Valfri trygg delt kalender, Emby-avspeling, casting, bilete-i-bilete og offline-avspeling. |
 
-0.15.1 bestod **253 einingstestar og 127 Android-testar**, med **0 lint-feil og 28 åtvaringar**. Oppdatering med bevarte ekte kontoar er kontrollert. Dei automatiske testane brukar isolerte testkontoar; grøne testar er ikkje det same som full dekning av ekte tenarar eller fysiske telefonar. Sjå [verifiseringa](docs/VERIFICATION_v0.15.1.md).
+0.15.1 bestod **253 einingstestar og 127 Android-testar**, med **0 lint-feil og 28 åtvaringar**. Oppdatering med bevarte ekte kontoar er kontrollert. Dei automatiske testane brukar isolerte testkontoar; grøne testar er ikkje det same som full dekning av ekte tenarar eller fysiske telefonar. Sjå [verifiseringa](docs/archive/releases/VERIFICATION_v0.15.1.md).
 
 ## Retninga vi held fast på
 
@@ -233,7 +233,7 @@ Små feilrettingar kan publiserast mellom milepålane. Kritiske feil i tilgang, 
 - [x] Køyr einingstestane på nytt utan gjenbruk av testresultat: **253/253 bestod**, 8. september 2026.
 - [x] Full Android-testpakke bestod på 0.15.1: **127/127**. Dette er den tidlegare releasekontrollen, ikkje ei ny køyring i denne arbeidsrunden.
 - [x] Ny implementeringskontroll på alpha01: **269/269 einingstestar, 138/138 Android-testar og 46/46 ekstra breiddetestar**. Signert oppdatering frå 0.15.1 og språkbyte med bevarte ekte kontoar er kontrollert på review-emulatoren. Sjå [nattrapporten](docs/OVERNIGHT_REPORT_2026-09-09.md).
-- [x] Alpha08: **305 JVM-testar og 214 utførte Android-testar bestod etter avklaring og omkøyring av råka testklassar**. Fem TV-testar gjeld ikkje telefonprofilen. Signert oppdatering alpha07 → alpha08 bevarer språkvalet. [Resultat, første feil og avgrensingar](docs/VERIFICATION_v0.16.0-alpha08.md).
+- [x] Alpha08: **305 JVM-testar og 214 utførte Android-testar bestod etter avklaring og omkøyring av råka testklassar**. Fem TV-testar gjeld ikkje telefonprofilen. Signert oppdatering alpha07 → alpha08 bevarer språkvalet. [Resultat, første feil og avgrensingar](docs/archive/releases/VERIFICATION_v0.16.0-alpha08.md).
 - [x] Registrer brukartest på to fysiske telefonar: **Pixel 9 Pro XL** og **truleg OnePlus**. Stadfesta av brukaren 8. september 2026; detaljert omfang er enno ukjent.
 - [ ] Fullfør fysisk testprotokoll med appversjon, Android-/tenarversjon, andre telefonmodell, scenario og resultat. Stadfest dekning av ein telefon med meir avgrensa yting; dette er ikkje kjent frå «OnePlus» åleine.
 - [ ] Køyr minst éi samanhengande 60-minutts avspeling på kvar telefon. Test direkteavspeling, HLS/omkoding, lyd, tekst, spoling, skjuling av kontrollar, Tilbake og rotasjon.

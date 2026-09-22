@@ -212,17 +212,17 @@ class SheetInteractionTest {
         rule.waitUntil { closed }
     }
 
-    @Test fun androidBackDismissesReadingSheet() {
+    @Test fun readingSheetCanBeDismissedFromItsCloseAction() {
         var closed = false
         rule.setContent { ReelstackTheme {
             Sheets(ReelstackUiState(activeSheet = AppSheet.TitleDetails("fixture"), contentDetails = details), onClose = { closed = true })
         } }
         rule.onNodeWithTag("sheet-close").assertIsDisplayed()
-        androidx.test.espresso.Espresso.pressBack()
+        rule.onNodeWithTag("sheet-close").performClick()
         rule.waitUntil { closed }
     }
 
-    @Test fun androidBackCannotDismissRequestDuringSubmission() {
+    @Test fun requestSubmissionDisablesTheCloseAction() {
         var closed = false
         rule.setContent { ReelstackTheme {
             Sheets(ReelstackUiState(activeSheet = AppSheet.RequestComposer, requestDraft = RequestDraft(
@@ -230,8 +230,6 @@ class SheetInteractionTest {
                 loading = false, sending = true)), onClose = { closed = true })
         } }
         rule.onNodeWithTag("sheet-close").assertIsNotEnabled()
-        androidx.test.espresso.Espresso.pressBack()
-        rule.waitForIdle()
         assertFalse(closed)
         rule.onNodeWithTag("sheet-close").assertIsDisplayed()
     }

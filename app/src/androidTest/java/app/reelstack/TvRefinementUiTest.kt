@@ -74,10 +74,8 @@ class TvRefinementUiTest {
         assertEquals(48.dp, rule.onNodeWithTag("player-audio").getUnclippedBoundsInRoot().width)
         rule.onNodeWithTag("player-audio").performClick()
         rule.onNodeWithTag("choice-dialog").assertIsDisplayed()
-        capture("compact-osd-menu-large")
         rule.onNodeWithText("English").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(2, selected) }
-        capture("compact-osd-large")
     }
     @Test fun seasonalHeroFadesIntoTheSamePageColour() {
         var season by mutableStateOf(Season.CHRISTMAS)
@@ -104,7 +102,6 @@ class TvRefinementUiTest {
             assertEquals(background.red, pixel.red, .015f)
             assertEquals(background.green, pixel.green, .015f)
             assertEquals(background.blue, pixel.blue, .015f)
-            capture("season-$value-hero")
         }
     }
     @Test fun libraryServiceMenuWorksWithLargeTypeAndEmbyOnlyFallback() {
@@ -203,20 +200,15 @@ class TvRefinementUiTest {
         first.assertIsFocused()
         assertEquals(initial, first.getUnclippedBoundsInRoot())
     }
-    private fun capture(name: String) {
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-                .compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-    }
     @Composable private fun Tv(fontScale: Float = 1f, content: @Composable () -> Unit) {
         val config = Configuration(LocalConfiguration.current).apply {
             uiMode = (uiMode and Configuration.UI_MODE_TYPE_MASK.inv()) or Configuration.UI_MODE_TYPE_TELEVISION
         }
-        CompositionLocalProvider(LocalConfiguration provides config) {
-            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(960.dp, 540.dp))) {
-                DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) { ReelstackTheme(content) }
+        DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(960.dp, 540.dp))) {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) {
+                CompositionLocalProvider(LocalConfiguration provides config) { ReelstackTheme {
+                    CompositionLocalProvider(app.reelstack.ui.theme.LocalTabletCanvas provides true, content = content)
+                } }
             }
         }
     }
@@ -240,7 +232,6 @@ class TvRefinementUiTest {
         rule.onNodeWithText("8,5", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Detaljar").assertDoesNotExist()
         rule.onNodeWithContentDescription("Tilbake").assertDoesNotExist()
-        capture("alpha09-tv-details")
     }
     @Test fun televisionPlayerNeverDisplaysTouchBackButton() {
         rule.setContent { Tv { PlayerScreen(PlayerScreenState(busy = false, playing = false), null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) } }
@@ -259,7 +250,6 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("play-in-spole").assertIsFocused()
         assertTrue(rule.onNodeWithText("Ein heil filmtittel").getUnclippedBoundsInRoot().top >= 16.dp)
         rule.onNodeWithTag("tv-cinematic-detail").assertIsDisplayed()
-        capture("tv-pass2-detail-heading")
         repeat(8) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) } }
         repeat(12) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) } }
         assertTrue("Returning up must reveal the heading", rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot().top >= 0.dp)
@@ -284,7 +274,6 @@ class TvRefinementUiTest {
         repeat(9) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) } }
         repeat(16) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) } }
         rule.onNodeWithTag("play-in-spole").assertIsDisplayed()
-        capture("tv-pass3-series-$fontScale")
         assertTrue("Title bounds: ${rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot()}",
             rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot().top >= 0.dp)
     }
@@ -316,7 +305,6 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("play-in-spole").performScrollTo().assertIsDisplayed().assertIsEnabled()
         rule.onNodeWithTag("detail-played").performScrollTo().assertIsEnabled()
         rule.onNodeWithTag("detail-favourite").performScrollTo().assertIsEnabled()
-        capture("emby-cinematic-large")
     }
     @Test fun libraryChooserKeepsSavedChoicesWhenServerListArrives() {
         val state = mutableStateOf(ReelstackUiState(libraryChoicesLoading = true))
@@ -339,7 +327,6 @@ class TvRefinementUiTest {
         } }
         rule.onNodeWithTag("connection-continue").performScrollTo().performClick()
         rule.onNodeWithTag("connection-submit").assertIsDisplayed().performClick()
-        capture("alpha09-tv-quick-large")
         rule.runOnIdle { assertTrue(started) }
     }
     @Test fun libraryIsReadableAndContainsNoSettingsOrTvBackButtons() {
@@ -434,6 +421,5 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("library-pin-library-1").performScrollTo().performClick()
         rule.onNodeWithTag("library-selection-save").assertIsDisplayed().performClick()
         rule.runOnIdle { assertEquals(listOf("library-1"), saved) }
-        capture("alpha09-tv-library-settings-large")
     }
 }

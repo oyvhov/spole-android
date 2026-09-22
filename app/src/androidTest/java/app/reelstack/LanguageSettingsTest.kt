@@ -18,12 +18,14 @@ class LanguageSettingsTest {
     }
 
     @Test fun languageChangeKeepsSettingsAndPersistsAfterRecreation() {
+        rule.runOnUiThread { AppLanguages.select(rule.activity, AppLanguage.NYNORSK) }
+        rule.waitForIdle()
         if (rule.onAllNodesWithText("Alt du ser.\nÉin stad.").fetchSemanticsNodes().isNotEmpty()) {
             rule.onNodeWithText("Utforsk med demodata først").performScrollTo().performClick()
         }
-        rule.onNodeWithText("Innstillingar").performClick()
+        rule.onNodeWithTag("compact-tab-SETTINGS").performClick()
         rule.onNodeWithTag("language-picker").performScrollTo().performClick()
-        rule.onNodeWithText("English · Førehandsvising").performClick()
+        rule.onNodeWithText("English").performClick()
         rule.waitUntil(10_000) {
             rule.onAllNodesWithText("Your services").fetchSemanticsNodes().isNotEmpty()
         }

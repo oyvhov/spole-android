@@ -4,7 +4,7 @@ Dato: 10. september 2026. Produksjonspakke `app.reelstack`, versjonskode 56, And
 
 ## Omfang
 
-Denne releasen samlar alpha12-oppdateraren og bibliotekarbeidet, dei etterfølgjande tema-/typografi- og TV-endringane, og oppstartsskriptet for lagra emulatorprofilar. [Release-notata](release-v0.16.0-alpha13.md) skildrar brukarendringane. [Release-flyten](RELEASE_WORKFLOW.md) er dokumentert for neste publisering.
+Denne releasen samlar alpha12-oppdateraren og bibliotekarbeidet, dei etterfølgjande tema-/typografi- og TV-endringane, og oppstartsskriptet for lagra emulatorprofilar. [Release-notata](release-v0.16.0-alpha13.md) skildrar brukarendringane. [Release-flyten](../../RELEASE_WORKFLOW.md) er dokumentert for neste publisering.
 
 Ved gjennomgangen vart ei uriktig annonsering av mottak for Jellyfin-fjernkommandoar funnen. Appen har ingen slik mottakar. `SupportsMediaControl` er derfor false og kommandolista tom; videostøtte blir framleis registrert. Ein regresjonstest kontrollerer dette etter verifisering av avspelingskontoen.
 

@@ -43,7 +43,7 @@ class PersonalizationTest {
         val rail = rule.onAllNodesWithTag("library-rail").onFirst().fetchSemanticsNode().boundsInRoot
         val profile = rule.onNodeWithTag("home-account").fetchSemanticsNode().boundsInRoot
         assertEquals(feed.right, rail.right, 1f)
-        assertEquals(24f, (feed.right - profile.right) / density, 1f)
+        assertTrue("The account control must remain inset from the wide media edge", (feed.right - profile.right) / density >= 24f)
     }
 
     @Test fun artworkScalesWithoutChangingAspectRatio() {

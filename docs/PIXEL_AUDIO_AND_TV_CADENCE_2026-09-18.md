@@ -71,7 +71,7 @@ tvungen videoomkoding eller generell deaktivering av TV-passthrough er lagd til.
   Dei nye testane simulerer rendererfeilen; dei beviser ikkje kva som feila på Pixel.
 - Den første rettingsrunden hadde ingen release eller versjonsauke. Etter brukarens
   publiseringsbeskjed blir rettingane versjonerte som beta19 (98); sjå
-  [release-verifikasjon](VERIFICATION_v0.17.0-beta19.md). Beta18-asseten er ikkje bytt ut.
+  [release-verifikasjon](archive/releases/VERIFICATION_v0.17.0-beta19.md). Beta18-asseten er ikkje bytt ut.
   Den tidlegare kjende PiP-returfeilen er ikkje del av denne rettinga.
 
 ## Primærkjelder

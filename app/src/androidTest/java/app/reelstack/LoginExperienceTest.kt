@@ -73,7 +73,7 @@ class LoginExperienceTest {
                 { value.value = value.value.copy(url = it) }, {}, {}, {}, {}, {}, {}, {})
         } }
         rule.onNodeWithText("Hald fram").performScrollTo().performClick()
-        rule.onNodeWithText("Tenaradressa inneheld mellomrom. Fjern dei og prøv igjen.").assertIsDisplayed()
+        rule.onNodeWithText(InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.endpoint_whitespace)).assertIsDisplayed()
         rule.onNodeWithText("Brukarnamn").assertDoesNotExist()
         rule.onNodeWithTag("connection-url").performTextReplacement("JELLYFIN.EXAMPLE.COM")
         rule.onNodeWithText("Hald fram").performScrollTo().performClick()
@@ -88,15 +88,12 @@ class LoginExperienceTest {
         rule.onNodeWithText("Emby").assertIsDisplayed()
         rule.onNodeWithText("Emby er innlogga").assertIsDisplayed()
         rule.onNodeWithText("Passord").assertDoesNotExist()
-        rule.onNodeWithText("Logg ut").assertDoesNotExist()
-        rule.onNodeWithTag("connected-service-summary").performClick()
+        rule.onNodeWithText("Endre").performClick()
+        rule.onNodeWithText("Hald fram").performScrollTo().performClick()
         rule.onNodeWithText("Quick Connect").assertDoesNotExist()
         rule.onNodeWithText("API-nøkkel").assertDoesNotExist()
         rule.onNodeWithText("Passord").assertIsDisplayed()
-        rule.onNodeWithText("Logg ut").assertIsDisplayed()
-        rule.onNodeWithTag("connected-service-summary").performClick()
-        rule.waitForIdle()
-        rule.onNodeWithText("Passord").assertDoesNotExist()
+        rule.onNodeWithText("Logg ut").assertDoesNotExist()
     }
 
     @Test fun companionLoginIsOptInAndShowsDestinationAndConsent() {
@@ -107,7 +104,8 @@ class LoginExperienceTest {
         } }
         assertFalse(value.value.alsoConnect)
         rule.onNodeWithText("Adresse til Seerr").assertDoesNotExist()
-        rule.onNodeWithTag("connected-service-summary").performClick()
+        rule.onNodeWithText("Endre").performClick()
+        rule.onNodeWithText("Hald fram").performScrollTo().performClick()
         rule.onNodeWithText("Logg inn på Seerr òg").performScrollTo().performClick()
         rule.onNodeWithText("Adresse til Seerr").performScrollTo().performTextInput("https://seerr.example")
         assertTrue(value.value.alsoConnect)
@@ -121,10 +119,10 @@ class LoginExperienceTest {
         } }
         rule.onNodeWithText("Kopier kode").performClick()
         rule.onNodeWithText("Kopiert").assertIsDisplayed()
-        rule.runOnIdle {
+        rule.waitUntil(2_000) {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            assertEquals("123456", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+            clipboard.primaryClip?.getItemAt(0)?.text?.toString() == "123456"
         }
     }
 
@@ -133,7 +131,6 @@ class LoginExperienceTest {
         rule.setContent { ReelstackTheme {
             ConnectionEditorSheet(draft(ServiceKind.SEERR), true, {}, {}, {}, {}, {}, {}, {}, {}, {}, { removed++ })
         } }
-        rule.onNodeWithTag("connected-service-summary").performClick()
         rule.onNodeWithText("Logg ut").performClick()
         rule.onNodeWithText("Logg ut av Seerr?").assertIsDisplayed()
         assertEquals(0, removed)

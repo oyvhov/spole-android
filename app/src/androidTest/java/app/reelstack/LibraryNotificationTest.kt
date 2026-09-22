@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.graphics.BitmapFactory
 import android.os.Build
+import androidx.core.os.BundleCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import app.reelstack.background.LibraryNotifications
 import app.reelstack.data.model.*
@@ -39,15 +40,15 @@ class LibraryNotificationTest {
         }))
         awaitNotifications(1)
         val notification = manager.activeNotifications.single().notification
-        assertNotNull(notification.extras.getParcelable<android.graphics.Bitmap>(Notification.EXTRA_PICTURE))
-        assertTrue(notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString().contains("Sesong 2"))
+        assertNotNull(BundleCompat.getParcelable(notification.extras, Notification.EXTRA_PICTURE, android.graphics.Bitmap::class.java))
+        assertEquals(context.getString(R.string.notification_season_ready, "2"), notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals(Notification.VISIBILITY_PRIVATE, notification.visibility)
         assertNotNull(notification.contentIntent)
     }
     @Test fun missingArtworkStillPostsTextNotification() {
         assertTrue(LibraryNotifications.show(context, "test", item, artworkLoader = { null }))
         awaitNotifications(1)
-        assertEquals("Testserie · i biblioteket", manager.activeNotifications.single().notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals(context.getString(R.string.notification_title_ready, "Testserie"), manager.activeNotifications.single().notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
     }
     @Test fun switchedAccountOrDisabledFollowCannotPostAfterImageLoad() {
         assertFalse(LibraryNotifications.show(context, "test", item, stillEligible = { false }, artworkLoader = { null }))

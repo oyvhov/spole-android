@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.*
@@ -43,7 +42,6 @@ class MobileSettingsTest {
         host()
         rule.onNodeWithTag("theme-choice-season").assertDoesNotExist()
         rule.onNodeWithTag("auto-resume").assertDoesNotExist()
-        capture("mobile-settings-index")
         rule.onNodeWithTag("settings-category-APPEARANCE").performClick()
         rule.onNodeWithTag("theme-choice-season").assertIsDisplayed()
         rule.onNodeWithTag("auto-resume").assertDoesNotExist()
@@ -51,7 +49,7 @@ class MobileSettingsTest {
         rule.onNodeWithTag("settings-category-PLAYBACK").performScrollTo().performClick()
         rule.onNodeWithTag("auto-resume").assertIsDisplayed()
         rule.onNodeWithTag("theme-choice-season").assertDoesNotExist()
-        androidx.test.espresso.Espresso.pressBack()
+        rule.onNodeWithTag("settings-back").performClick()
         rule.onNodeWithTag("settings-category-PLAYBACK").assertIsDisplayed()
     }
     @Test fun christmasAndHalloweenApplyTheirPaletteAndKeepOtherPreferences() {
@@ -67,7 +65,6 @@ class MobileSettingsTest {
                 assertEquals(AccentPalette.HOLLY, repository.personalization.accent)
                 assertFalse(repository.personalization.autoResume)
             }
-            capture("mobile-settings-christmas")
             rule.onNodeWithTag("brand-season-CHRISTMAS").assertExists()
             rule.onNodeWithTag("theme-choice-season").performScrollTo().performClick()
             rule.onNodeWithTag("season-HALLOWEEN").performScrollTo().performClick()
@@ -75,7 +72,6 @@ class MobileSettingsTest {
                 assertEquals(VisualTheme.HALLOWEEN, repository.personalization.visualTheme)
                 assertEquals(AccentPalette.PUMPKIN, repository.personalization.accent)
             }
-            capture("mobile-settings-halloween")
             rule.onNodeWithTag("brand-season-HALLOWEEN").assertExists()
             rule.onNodeWithTag("theme-ornament").performScrollTo().performClick()
             rule.onNodeWithTag("brand-season-HALLOWEEN").assertDoesNotExist()
@@ -97,14 +93,6 @@ class MobileSettingsTest {
             rule.onNodeWithTag("theme-choice-next-episode-lead").performScrollTo().performClick()
             rule.onNodeWithTag("next-episode-lead-120").performScrollTo().performClick()
             rule.runOnIdle { assertEquals(120, repository.personalization.nextEpisodeLeadSeconds) }
-            capture("mobile-settings-large-text")
         } finally { rule.runOnIdle { repository.personalization = original } }
-    }
-    private fun capture(name: String) {
-        val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
     }
 }

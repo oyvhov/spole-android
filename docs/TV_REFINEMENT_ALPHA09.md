@@ -36,7 +36,7 @@ Den avgrensa, roterande innlastinga er bevara for å unngå mange hundre samtidi
 
 ## Kontroll
 
-**312 einingstestar**, **221 ulike utførte Android-testar på telefon** og **15 målretta TV-testar** bestod, inkludert dokumenterte atterkøyringar etter rettingar i teststyringa. To TV-dialogtestar bestod òg med 200 % systemskrift. Lint har 38 åtvaringar og ingen feil. [Verifikasjonsrapporten](VERIFICATION_v0.16.0-alpha09.md) viser bygg, avvik, loggar, APK-signatur og kontrollane med ekte data.
+**312 einingstestar**, **221 ulike utførte Android-testar på telefon** og **15 målretta TV-testar** bestod, inkludert dokumenterte atterkøyringar etter rettingar i teststyringa. To TV-dialogtestar bestod òg med 200 % systemskrift. Lint har 38 åtvaringar og ingen feil. [Verifikasjonsrapporten](archive/releases/VERIFICATION_v0.16.0-alpha09.md) viser bygg, avvik, loggar, APK-signatur og kontrollane med ekte data.
 
 Dei to private emulatorane er oppdaterte med den signerte produksjons-APK-en og har behalde ekte kontoar. Instrumentering brukte separate testemulatorar og syntetiske kontoar.
 

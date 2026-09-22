@@ -30,6 +30,7 @@ class UiConsistencyTest {
                 }
             }
         }
+        rule.onNodeWithTag("activity-personal-ALL").performScrollTo().performClick()
         rule.onNodeWithText("Klar for filmkveld").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("På veg heim").performScrollTo().assertIsDisplayed()
         rule.onNodeWithContentDescription("Framdrift: Førespurd").assertIsDisplayed()
@@ -74,11 +75,11 @@ class UiConsistencyTest {
         }
         rule.onNodeWithText("Emby · Filmar").assertDoesNotExist()
         rule.onNodeWithTag("settings-category-HOME").performScrollTo().performClick()
-        rule.onNodeWithTag("tv-home-rows").performScrollTo().performClick()
-        rule.onNodeWithText("Emby · Filmar").performScrollTo().performClick()
+        rule.onNodeWithTag("home-order-open").performScrollTo().performClick()
+        rule.onNodeWithTag("home-visible-EMBY_MOVIES").performScrollTo().performClick()
         assertEquals(1, changes)
         assertEquals(HomeSection.EMBY_MOVIES, changedSection)
-        rule.onNodeWithText("Lukk").performClick()
+        rule.onNodeWithContentDescription("Lukk").performClick()
         rule.onNodeWithTag("settings-back").performClick()
         rule.onNodeWithTag("settings-category-UPDATES").performScrollTo().performClick()
         rule.onNodeWithText("Bibliotekvarsel").performScrollTo().assertIsDisplayed()

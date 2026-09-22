@@ -30,7 +30,7 @@ class EnglishRequestFlowTest {
     @Test fun seasonSelectionAndReadyNotificationRemainExplicitInEnglish() {
         var draft by mutableStateOf(RequestDraft(
             DiscoverMedia("fixture", "Test series", "Serie", R.drawable.media_placeholder, true, mediaType = "tv"),
-            listOf(RequestSeason(1, LocalizedText.raw("Sesong 1"), 1, 5), RequestSeason(2, LocalizedText.raw("Sesong 2"), 8, 1)), loading = false))
+            listOf(RequestSeason(1, LocalizedText.raw("Season 1"), 1, 5), RequestSeason(2, LocalizedText.raw("Season 2"), 8, 1)), loading = false))
         var sent = 0
         rule.setContent { English {
             RequestComposer(ReelstackUiState(requestDraft = draft), { number, checked ->

@@ -2,7 +2,7 @@
 
 ## Endring
 
-Åtte nye funksjonar og elleve rettingar. Sjå `docs/release-v0.13.0.md` for heile lista.
+Åtte nye funksjonar og elleve rettingar. Sjå `release-v0.13.0.md` for heile lista.
 
 Dei to endringane med størst risiko:
 

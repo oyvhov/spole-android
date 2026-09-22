@@ -11,10 +11,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.reelstack.data.model.*
@@ -36,18 +35,6 @@ class KidsSettingsUiTest {
     private val state = ReelstackUiState(profiles = listOf(child), connections = listOf(
         ServiceConnection(ServiceKind.EMBY, "Media", "https://media.example", "test", userId = "adult")))
 
-    private fun capture(name: String) {
-        rule.waitForIdle()
-        val output = java.io.File("build/reports/kids-ui/$name.png")
-        output.parentFile?.mkdirs()
-        rule.runOnUiThread {
-            val view = rule.activity.window.decorView
-            val bitmap = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
-            view.draw(android.graphics.Canvas(bitmap))
-            output.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-        }
-    }
-
     @Test fun childRowOpensParentalControlsAndPersistsAppearancePermission() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         KidsPreferencesRepository(context).save(child.id, KidsPreferences())
@@ -59,7 +46,6 @@ class KidsSettingsUiTest {
             }
         }
         rule.onNodeWithTag("child-settings-ui-child").performScrollTo().performClick()
-        capture("phone-parent-profile")
         rule.onNodeWithTag("child-allow-appearance").performScrollTo().performClick()
         rule.runOnIdle { assertFalse(KidsPreferencesRepository(context).read(child.id).allowAppearance) }
         rule.onNodeWithTag("child-bedtime-enabled").performScrollTo().performClick()
@@ -83,7 +69,6 @@ class KidsSettingsUiTest {
             }
         }
         rule.onNodeWithTag("tv-service-EMBY").performScrollTo().assertIsDisplayed().performClick()
-        capture("phone-services-font2")
         rule.runOnIdle { assertEquals(ServiceKind.EMBY, opened) }
         rule.onNodeWithTag("child-settings-ui-child").performScrollTo().assertIsDisplayed()
     }
@@ -98,9 +83,7 @@ class KidsSettingsUiTest {
             }
         }
         rule.onNodeWithTag("tv-service-EMBY").assertIsDisplayed()
-        capture("tv-services")
         rule.onNodeWithTag("child-settings-ui-child").performScrollTo().performClick()
         rule.onNodeWithTag("child-autoplay").performScrollTo().assertIsDisplayed()
-        capture("tv-parent-playback")
     }
 }

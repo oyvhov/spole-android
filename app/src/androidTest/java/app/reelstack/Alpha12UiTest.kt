@@ -30,7 +30,7 @@ class Alpha12UiTest {
         } }
         rule.onNodeWithTag("app-updates").performClick()
         rule.onNodeWithText("Sjekk no").assertIsDisplayed()
-        rule.onNodeWithText("Lukk").performClick()
+        rule.onNodeWithContentDescription("Lukk").performClick()
         rule.onNodeWithText("Sjekk no").assertDoesNotExist()
     }
     @Test fun artworkFocusKeepsCaptionsOutsideEveryCornerShape() {

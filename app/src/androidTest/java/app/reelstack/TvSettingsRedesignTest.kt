@@ -110,7 +110,7 @@ class TvSettingsRedesignTest {
         rule.onNodeWithTag("library-manage").assertIsDisplayed().performClick()
         rule.runOnIdle { assertTrue(opened) }
         rule.onNodeWithTag("settings-category-MENU").performClick().assertIsSelected()
-        rule.onNodeWithTag("menu-option-HOME").assertIsDisplayed()
+        rule.onNodeWithTag("menu-order-card-HOME").assertIsDisplayed()
         rule.onNodeWithTag("show-next-up").assertDoesNotExist()
         rule.onNodeWithTag("theme-choice-mood").assertDoesNotExist()
     }

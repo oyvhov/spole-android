@@ -22,7 +22,7 @@ class LanguagePickerLayoutTest {
         rule.onNodeWithTag("language-picker").performClick()
         rule.onNodeWithText("Følg eininga").performScrollTo().assertIsDisplayed()
         rule.onNode(hasText("Norsk nynorsk") and hasAnyAncestor(isDialog())).performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("English · Førehandsvising").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("English").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Lukk").assertIsDisplayed().performClick()
     }
 }

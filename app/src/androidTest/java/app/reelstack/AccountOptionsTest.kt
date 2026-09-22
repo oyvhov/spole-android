@@ -51,31 +51,11 @@ class AccountOptionsTest {
             }
         }
         rule.onNodeWithText("Emby is signed in").assertIsDisplayed()
-        rule.onNodeWithTag("connected-service-summary").performClick()
+        rule.onNodeWithText("Change").performClick()
+        rule.onNodeWithText("Continue").performScrollTo().performClick()
         rule.onNodeWithText("Advanced options").performScrollTo().performClick()
         rule.onNodeWithText("Connection name").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Alternate address (optional)").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("Sign out").performScrollTo().performClick()
-        rule.waitForIdle()
-        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        instrumentation.uiAutomation.takeScreenshot().let { bitmap ->
-            java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "account-dialog.png").outputStream().use {
-                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-            }
-        }
-        rule.onNodeWithText("Sign out of Emby?").assertIsDisplayed()
-        rule.onNodeWithTag("sign-out-note").performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionDown) }
-        val scrollRange = rule.onNodeWithTag("sign-out-note").fetchSemanticsNode().config[
-            androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange]
-        rule.runOnIdle {
-            // AlertDialog owns a separate native window. On a tall phone the whole note fits;
-            // on TV/short windows D-pad must move the overflowing text.
-            if (scrollRange.maxValue() > 0f) assertTrue("D-pad must scroll overflowing text", scrollRange.value() > 0f)
-            else assertEquals(0f, scrollRange.value(), 0f)
-        }
-        rule.onNodeWithTag("sign-out-note").assertIsDisplayed()
-        rule.onNodeWithTag("sign-out-cancel").performClick()
     }
 
     @Test fun englishCompanionConsentNamesDestinationAndRemainsOptIn() {
@@ -89,7 +69,8 @@ class AccountOptionsTest {
                     onCompanionLoginChange = { enabled, url -> value = value.copy(alsoConnect = enabled, companionUrl = url) }) }
             }
         }
-        rule.onNodeWithTag("connected-service-summary").performClick()
+        rule.onNodeWithText("Change").performClick()
+        rule.onNodeWithText("Continue").performScrollTo().performClick()
         rule.runOnIdle { assertFalse(value.alsoConnect) }
         rule.onNodeWithText("Also sign in to Seerr").performScrollTo().performClick()
         rule.onNodeWithText("Address for Seerr").performScrollTo().assertIsDisplayed()

@@ -71,7 +71,6 @@ class TvControlsRegressionTest {
             assertTrue(identity.left >= title.right)
             assertTrue(identity.top < title.bottom && identity.bottom > title.top)
         }
-        screenshot("seasons-$scale")
     }
 
     @Test fun filtersExposeOneValueEachAndOnlyApplyTheConfirmedChoice() = filters(1f)
@@ -84,7 +83,6 @@ class TvControlsRegressionTest {
         } } }
         rule.onNodeWithTag("library-filters").performClick()
         rule.onNodeWithTag("library-sort-YEAR").assertDoesNotExist()
-        screenshot("compact-filters-$scale")
         rule.runOnIdle { input.requestInputMode(InputMode.Keyboard) }
         rule.onNodeWithTag("library-sort-choice").performSemanticsAction(SemanticsActions.RequestFocus)
             .performKeyInput { pressKey(Key.Enter) }
@@ -96,7 +94,7 @@ class TvControlsRegressionTest {
         rule.onNodeWithTag("library-resolution-UHD").performClick()
         assertEquals(LibraryResolution.UHD, filters.resolution)
         rule.onNodeWithTag("library-filter-reset").performClick()
-        assertEquals(LibraryFilters(), filters)
+        assertEquals(LibraryFilters(sort = LibrarySort.YEAR, descending = true), filters)
     }
 
     @Test fun focusedFilterFrameFollowsTheVisibleFillWithoutAnEmptyGutter() {
@@ -114,7 +112,6 @@ class TvControlsRegressionTest {
         // An external minimum touch region used to leave a dark gap inside the focus outline.
         val depth = (7 * rule.density.density).toInt()
         for (y in 1..depth) assertTrue("Empty band at pixel $y", pixels[pixels.width / 2, y].red > .3f)
-        screenshot("focused-filter")
     }
 
     @Test fun releaseNotesRenderAsReadableBlocksAtDoubleTextSize() {
@@ -125,16 +122,6 @@ class TvControlsRegressionTest {
         rule.onNodeWithText("Betre avspeling").assertIsDisplayed()
         rule.onNodeWithText("AC3").assertIsDisplayed()
         rule.onNodeWithText("**Betre** avspeling").assertDoesNotExist()
-        screenshot("release-notes")
     }
 
-    private fun screenshot(name: String) {
-        rule.waitForIdle()
-        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        val image = instrumentation.uiAutomation.takeScreenshot()
-        java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "$name.png").outputStream().use {
-            image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-        image.recycle()
-    }
 }

@@ -255,7 +255,8 @@ internal fun LibraryFilterBar(
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.library_reset), color = MaterialTheme.colorScheme.error) },
                         leadingIcon = { Icon(SpoleIcons.Close, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) },
-                        modifier = Modifier.testTag("library-filter-reset"),
+                        // Keep the open-menu reset distinct from the persistent quick reset.
+                        modifier = Modifier.testTag("library-filter-menu-reset"),
                         onClick = {
                             onApply(LibraryFilters(sort = filters.sort, descending = filters.descending))
                             filterMenuOpen = false

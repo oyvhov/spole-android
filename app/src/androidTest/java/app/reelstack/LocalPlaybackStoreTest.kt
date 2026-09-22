@@ -52,15 +52,16 @@ class LocalPlaybackStoreTest {
             store.record(account, item, 59_000, 60_000, true)
             assertTrue(store.merge(account, emptyList()).isEmpty())
             assertEquals(0L, store.resume(account, item).resumeMs)
-            store.record(account, item, 5_000, 60_000, false)
+            store.record(account, item, 10_000, 60_000, false)
             assertEquals("jellyfin-episode", store.merge(account, emptyList()).single().id)
-            assertEquals(5_000L, store.resume(account, item).resumeMs)
+            assertEquals(10_000L, store.resume(account, item).resumeMs)
             val current = store.merge(account, emptyList()).single()
             assertTrue(store.nextUp(account, listOf(current)).isEmpty())
             store.forget(account, item.id)
             assertEquals(listOf(current), store.nextUp(account, listOf(current)))
+            // A fresh start is intentionally not a visible resume entry.
             store.record(account, item, 0, 60_000, false)
-            assertEquals("jellyfin-episode", store.merge(account, emptyList()).single().id)
+            assertTrue(store.merge(account, emptyList()).isEmpty())
         } finally { store.clear() }
     }
 }

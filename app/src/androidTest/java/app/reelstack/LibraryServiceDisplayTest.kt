@@ -4,7 +4,6 @@ import app.reelstack.localization.LocalizedText
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
@@ -36,7 +35,6 @@ class LibraryServiceDisplayTest {
         } } }
         rule.onNodeWithTag("library-rating-rated", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("library-rating-unrated", useUnmergedTree = true).assertDoesNotExist()
-        capture("rating-grid")
         rule.onNodeWithTag("library-item-rated").performClick()
         rule.runOnIdle { assertEquals("rated", opened); options = options.copy(showRatings = false) }
         rule.onNodeWithTag("library-rating-rated", useUnmergedTree = true).assertDoesNotExist()
@@ -56,7 +54,6 @@ class LibraryServiceDisplayTest {
             rule.onNodeWithTag("library-item-rated").performScrollTo()
             rule.onNodeWithTag("library-rating-rated", useUnmergedTree = true).assertIsDisplayed()
             rule.onNodeWithText("★ 7,8", useUnmergedTree = true).assertDoesNotExist()
-            capture("rating-list-large")
         } finally { preferences.setLibraryDisplay("rating-list", old) }
     }
 
@@ -74,15 +71,11 @@ class LibraryServiceDisplayTest {
         rule.onNodeWithTag("settings-category-ACCOUNTS").performScrollTo().performClick()
         rule.onNodeWithTag("settings-service-icon-JELLYFIN", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("service-health-JELLYFIN-OK", useUnmergedTree = true).assertIsDisplayed()
-        val tv = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-            .getSystemService(android.app.UiModeManager::class.java).currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-        val prefix = if (tv) "tv" else "mobile"
-        rule.onNodeWithTag("$prefix-service-EMBY").performScrollTo().performClick()
+        rule.onNodeWithTag("tv-service-EMBY").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(ServiceKind.EMBY, opened) }
         rule.onNodeWithTag("service-health-EMBY-ERROR", useUnmergedTree = true).assertIsDisplayed()
-        rule.onNodeWithTag("$prefix-service-SEERR").performScrollTo()
+        rule.onNodeWithTag("tv-service-SEERR").performScrollTo()
         rule.onNodeWithTag("service-health-SEERR-WARNING", useUnmergedTree = true).assertIsDisplayed()
-        capture("settings-service-status-large")
     }
 
     @Test fun jellyfinDetailsOfferPlaybackWithoutExternalServerButton() = checkDetails(ServiceKind.JELLYFIN)
@@ -126,10 +119,4 @@ class LibraryServiceDisplayTest {
         rule.onNodeWithText("I biblioteket ditt").assertIsDisplayed()
     }
 
-    private fun capture(name: String) {
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
-            rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-    }
 }

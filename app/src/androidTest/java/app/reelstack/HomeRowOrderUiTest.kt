@@ -1,7 +1,6 @@
 package app.reelstack
 
 import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.semantics.SemanticsActions
@@ -42,7 +41,6 @@ class HomeRowOrderUiTest {
         rule.onNodeWithTag("home-order-FAVOURITES-0").assertIsNotEnabled()
         rule.onNodeWithTag("home-order-reset").performClick()
         rule.runOnIdle { assertEquals(HomeRow.entries, state.homeRowOrder) }
-        capture("home-order")
         rule.onNodeWithTag("home-order-row-NOW_PLAYING").assertIsDisplayed()
     }
 
@@ -55,7 +53,6 @@ class HomeRowOrderUiTest {
         rule.onNodeWithTag("home-order-list").performScrollToNode(hasTestTag("home-order-UPCOMING-0"))
         rule.onNodeWithTag("home-order-UPCOMING-0").assertIsDisplayed().performClick()
         rule.runOnIdle { assertEquals(HomeRow.UPCOMING, state.homeRowOrder[state.homeRowOrder.lastIndex - 1]) }
-        capture("home-order-large")
         rule.onNodeWithTag("home-order-done").assertIsDisplayed().performClick()
     }
 
@@ -97,13 +94,5 @@ class HomeRowOrderUiTest {
         rule.onNodeWithTag("home-feed").performScrollToIndex(1)
         assertTrue(rule.onNodeWithText(recommendations).fetchSemanticsNode().boundsInRoot.top <
             rule.onNodeWithText(releases).fetchSemanticsNode().boundsInRoot.top)
-    }
-
-    private fun capture(name: String) {
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
-            rule.onNodeWithTag("home-order-dialog").captureToImage().asAndroidBitmap()
-                .compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
     }
 }

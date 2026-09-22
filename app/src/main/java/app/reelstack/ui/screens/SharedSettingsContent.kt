@@ -57,6 +57,9 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
             SettingsToggleRow(stringResource(R.string.tv_next_up), stringResource(R.string.refine_next_hint), options.showNextUp, "show-next-up") { change(options.copy(showNextUp = it)) }
             SettingsToggleRow(stringResource(R.string.tv_combine_continue), stringResource(R.string.watching_order_hint),
                 options.combineContinueWatching, "combine-continue") { change(options.copy(combineContinueWatching = it)) }
+            // The compact television entry remains useful for a remote: it exposes visibility
+            // without opening the longer ordering editor used on touch devices.
+            if (isTelevision()) TvHomeRows(state, onHomeSectionChange)
             HomeRowOrderSetting(state, onHomeRowOrderChange, onHomeSectionChange)
             HomeRowFormats(options, change)
         }

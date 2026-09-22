@@ -1,7 +1,6 @@
 package app.reelstack
 
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.reelstack.player.*
@@ -28,19 +27,11 @@ class TvPlaybackControlsTest {
         rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.MediaPause) }
         rule.runOnIdle { assertEquals(1, toggles) }
     }
-    private fun capture(name: String) {
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
-            // A focused control may own a second tooltip root; capture the player itself.
-            rule.onNodeWithTag("jellyfin-player").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-    }
-
     @Test fun nextEpisodeAppearsBeforeEndAndRemoteSelectDoesNotToggleCurrentVideo() {
         var next = 0
         var toggles = 0
         val state = androidx.compose.runtime.mutableStateOf(PlayerScreenState(busy = false, playing = true,
-            positionMs = 1_730_000, durationMs = 1_800_000,
+            positionMs = 1_730_000, durationMs = 1_800_000, nextEpisodeLeadSeconds = 60,
             nextEpisode = PlayableItem("next", "Testserie", "Episode", season = 2, episode = 3,
                 artworkUrl = "android.resource://app.reelstack.debug/drawable/session_still")))
         rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current; ReelstackTheme {
@@ -55,7 +46,6 @@ class TvPlaybackControlsTest {
         rule.onNodeWithTag("player-next-artwork").assertIsDisplayed()
         rule.mainClock.advanceTimeBy(4000)
         rule.onNodeWithTag("player-next-play").assertIsFocused()
-        capture("tv-polish-next-episode")
         rule.onNodeWithTag("player-next-play").performKeyInput { pressKey(Key.DirectionCenter) }
         rule.runOnIdle { assertEquals(1, next); assertEquals(0, toggles) }
         rule.onNodeWithTag("player-next-cancel").performClick()
@@ -75,7 +65,6 @@ class TvPlaybackControlsTest {
         rule.onNodeWithTag("player-next-play").assertIsDisplayed()
         rule.onNodeWithTag("player-next-cancel").assertIsDisplayed()
         rule.onNodeWithTag("player-next-progress").assertIsDisplayed()
-        capture("tv-polish-next-episode-large")
     }
 
     @Test fun backHidesPlayingControlsThenLeavesPlayer() {
@@ -167,7 +156,6 @@ class TvPlaybackControlsTest {
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
         rule.onNodeWithTag("player-timeline").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         rule.runOnIdle { assertEquals(40_000L, position) }
-        capture("tv-pass2-timeline")
         rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("player-audio").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         rule.onNodeWithTag("player-subtitles").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
@@ -182,7 +170,6 @@ class TvPlaybackControlsTest {
         } } }
         listOf("player-timeline", "player-audio", "player-subtitles", "player-quality", "player-frame-mode")
             .forEach { rule.onNodeWithTag(it).assertIsDisplayed() }
-        capture("tv-pass2-osd-large")
     }
 
     @Test fun bufferingDuringRemoteSeekKeepsControlsHiddenAndAcceptsAnotherSeek() {

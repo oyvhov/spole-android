@@ -3,7 +3,7 @@ package app.reelstack
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.toPixelMap
 import app.reelstack.player.*
@@ -32,7 +32,9 @@ class JellyfinPlayerUiTest {
                 audioDecoder = "ffmpeg6.1.4-eac3", videoDecoder = "c2.test.avc.decoder", audioUnderruns = 3,
                 advertisedAudio = "aac 8 · ac3 8 · eac3 8 · dts 8 · truehd 8 · flac 8"),
                 scale = 2f, player = player)
-            rule.onNodeWithTag("player-stats").performScrollTo().performClick()
+            // The statistics action is pinned in the player chrome, not in the document below it.
+            // Asking Compose to scroll it therefore asserts an obsolete layout contract.
+            rule.onNodeWithTag("player-stats").performClick()
             rule.onNodeWithTag("player-stats-overlay").assertIsDisplayed()
             rule.onNodeWithText("Lydavbrot · 3").performScrollTo().assertIsDisplayed()
             rule.onNodeWithText("ffmpeg6.1.4-eac3", substring = true).performScrollTo().assertIsDisplayed()

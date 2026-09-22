@@ -1,7 +1,6 @@
 package app.reelstack
 
 import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.reelstack.data.model.ServiceKind
@@ -31,15 +30,6 @@ class CombinedSetupUiTest {
             rule.mainClock.advanceTimeBy(200)
         } finally { rule.mainClock.autoAdvance = true }
     }
-    private fun capture(name: String) {
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        val target = if (rule.onAllNodesWithTag("adaptive-dialog").fetchSemanticsNodes().isNotEmpty())
-            rule.onNodeWithTag("adaptive-dialog") else rule.onRoot()
-        java.io.File(context.getExternalFilesDir(null), "$name.png").outputStream().use {
-            target.captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-    }
-
     @Test fun firstScreenOffersCombinedAndOtherMethods() {
         var combined = 0
         rule.setContent { ReelstackTheme { androidx.compose.material3.Surface {
@@ -51,7 +41,6 @@ class CombinedSetupUiTest {
             .performKeyInput { pressKey(Key.Enter) }
         else rule.onNodeWithTag("setup-combined").assertIsDisplayed().performClick()
         assertEquals(1, combined)
-        capture("setup-welcome")
         rule.onNodeWithTag("setup-other").performClick()
         rule.onNodeWithTag("setup-combined").assertDoesNotExist()
     }
@@ -62,7 +51,6 @@ class CombinedSetupUiTest {
         rule.setContent { ReelstackTheme { StableSheetDialog(true, {}) { _, _, _ -> CombinedSetupSheet(draft,
             { draft = draft.copy(url = it) }, { draft = draft.copy(companionUrl = it) }, { starts++ }, {}) } } }
         rule.onNodeWithTag("setup-start").assertIsNotEnabled()
-        capture("setup-addresses-empty")
         enter("setup-jellyfin-url", "https://media.example")
         rule.onNodeWithTag("setup-start").assertIsNotEnabled()
         enter("setup-seerr-url", "https://requests.example")
@@ -71,7 +59,6 @@ class CombinedSetupUiTest {
         rule.runOnIdle { draft = draft.copy(error = "Prøv igjen") }
         rule.onNodeWithTag("setup-jellyfin-url").assertTextContains("https://media.example")
         rule.onNodeWithTag("setup-error").assertExists()
-        capture("setup-addresses")
     }
 
     @Test fun passwordAndJellyfinOnlyRemainReachableAtDoubleFontSize() {
@@ -92,7 +79,6 @@ class CombinedSetupUiTest {
         enter("setup-username", "viewer")
         rule.onNodeWithTag("setup-password").performScrollTo().assertExists()
         rule.onNodeWithTag("setup-start").performScrollTo().assertIsEnabled()
-        capture("setup-password-large")
     }
 
     @Test fun importingAddressesStillRequiresUserToStartLogin() {
@@ -121,7 +107,6 @@ class CombinedSetupUiTest {
             WelcomeScreen(ReelstackUiState(), {}, {}, onCombined = {})
         } } } }
         rule.onNodeWithTag("setup-combined").performScrollTo().assertIsDisplayed()
-        capture("setup-welcome-large")
         rule.onNodeWithTag("setup-other").performScrollTo().assertIsDisplayed()
     }
 
@@ -140,7 +125,6 @@ class CombinedSetupUiTest {
         rule.onNodeWithText(context.getString(app.reelstack.R.string.quick_copy)).performScrollTo().performClick()
         rule.onNodeWithText(context.getString(app.reelstack.R.string.quick_copied)).assertIsDisplayed()
         rule.onNodeWithTag("setup-start").assertDoesNotExist()
-        capture("setup-code-large")
         rule.onNodeWithTag("setup-cancel").performScrollTo().performClick()
         assertEquals(1, cancelled)
     }

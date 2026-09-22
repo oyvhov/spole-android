@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import app.reelstack.ui.components.ServiceSymbol
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
 import app.reelstack.data.network.EndpointValidator
+import app.reelstack.data.network.readableMessage
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -1294,7 +1296,7 @@ internal fun ConnectionEditorSheet(
                 if (television && !configured && draft.kind == ServiceKind.SEERR) onAuthModeChange(ConnectionAuthMode.QUICK_CONNECT)
                 credentialsStep = true; focus.clearFocus()
             }
-            .onFailure { addressError = it.message }
+            .onFailure { addressError = it.readableMessage(shareContext) ?: shareContext.getString(R.string.error_enter_valid_url) }
     }
     Column(Modifier.fillMaxSize()) {
         SheetToolbar(if (configured) draft.kind.displayName else stringResource(R.string.login_service, draft.kind.displayName), stringResource(R.string.action_close), onDismiss)
@@ -1655,7 +1657,8 @@ private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onTogg
 
 @Composable
 internal fun QuickConnectPanel(draft: ConnectionDraft) {
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboard.current
+    val scope = rememberCoroutineScope()
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     var copied by remember(draft.quickConnectCode) { mutableStateOf(false) }
@@ -1730,7 +1733,10 @@ internal fun QuickConnectPanel(draft: ConnectionDraft) {
                         letterSpacing = 3.sp,
                         modifier = Modifier.padding(top = 10.dp).testTag("setup-code"),
                     )
-                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(code)); copied = true }) {
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = {
+                        scope.launch { clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("Quick Connect", code))) }
+                        copied = true
+                    }) {
                         Text(stringResource(if (copied) R.string.quick_copied else R.string.quick_copy))
                     }
                     Text(

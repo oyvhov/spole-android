@@ -9,4 +9,4 @@ Lokal signert testutgåve, bygg 51. Ikkje publisert på GitHub.
 
 Nye tekstar finst på nynorsk og engelsk. Dette fullfører ikkje heile 0.17, full engelsk omsetjing eller fysisk TV-støtte. Ekte førespurnad → nedlasting → import → varsel står att som eigargodkjend tenartest.
 
-[Verifisering](VERIFICATION_v0.16.0-alpha08.md) · [Funksjonsomfang](ROADMAP_HISTORY_RULES.md) · [Veikart](../ROADMAP.md).
+[Verifisering](VERIFICATION_v0.16.0-alpha08.md) · [Funksjonsomfang](../../ROADMAP_HISTORY_RULES.md) · [Veikart](../../../ROADMAP.md).
