@@ -806,27 +806,6 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         }
         player.seekTo(target)
     }
-    /** Queues only the already-negotiated, direct file; never asks the server for offline transcode. */
-    fun downloadCurrent(): Boolean {
-        if (kidsMode) return false
-        val c = connection ?: return false
-        val current = plan ?: return false
-        val result = container.offlineDownloads.enqueue(app.reelstack.offline.OfflineDownloadRequest(
-            profileId = container.connectionRepository.activeProfileId,
-            connection = c,
-            candidate = app.reelstack.offline.OfflineMediaCandidate(
-                itemId = current.item.id,
-                service = c.kind,
-                requiresTranscode = !current.direct,
-                directDownloadUrl = current.url,
-            ),
-            title = current.item.title,
-            subtitle = current.item.subtitle,
-            mediaType = current.item.type,
-        ))
-        mutable.update { it.copy(warning = container.appString(if (result == null) R.string.offline_queued else R.string.offline_direct_only)) }
-        return result == null
-    }
     fun background() { foreground = false; countdownJob?.cancel(); player.pause(); if (started) report("/Progress") }
     fun foreground() { foreground = true; if (state.value.ended) startNextEpisodeCountdown() }
     fun fallbackUrl(): String? = connection?.let { safePlaybackUrl(it.baseUrl, "web/index.html") + "#!/details?id=${enc(selected?.id ?: rootId)}" }

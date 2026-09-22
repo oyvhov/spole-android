@@ -89,7 +89,6 @@ class OfflinePlayerActivity : app.reelstack.localization.LocalizedActivity() {
                     onSubtitle = {},
                     onQuality = {},
                     onExternal = {},
-                    onDownload = { false },
                     offline = true,
                     onRotate = {
                         requestedOrientation = if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT)

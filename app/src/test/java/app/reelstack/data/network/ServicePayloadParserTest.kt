@@ -170,6 +170,26 @@ class ServicePayloadParserTest {
     }
 
     @Test
+    fun continueWatchingUsesSeriesThumbWhileEpisodeRowsKeepTheirOwnStill() {
+        val payload = """
+            {"Items":[{
+              "Id":"episode-8","Name":"The Signal","SeriesName":"Foundation","SeriesId":"series-1",
+              "Type":"Episode","ParentIndexNumber":3,"IndexNumber":8,
+              "ImageTags":{"Primary":"episode-still"},
+              "ParentThumbItemId":"series-1","ParentThumbImageTag":"series-thumb"
+            }]}
+        """.trimIndent()
+
+        val resume = ServicePayloadParser.libraryItems(payload, preferEpisodeStill = false).single()
+        val nextUp = ServicePayloadParser.libraryItems(payload, preferEpisodeStill = true).single()
+
+        assertEquals("series-1", resume.artworkItemId)
+        assertEquals("Thumb", resume.artworkImageType)
+        assertEquals("episode-8", nextUp.artworkItemId)
+        assertEquals("Primary", nextUp.artworkImageType)
+    }
+
+    @Test
     fun readsCurrentMediaServerUserId() {
         assertEquals("user-9", ServicePayloadParser.currentUserId("""{"Id":"user-9"}"""))
     }

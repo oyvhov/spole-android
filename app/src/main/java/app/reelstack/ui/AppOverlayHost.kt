@@ -60,6 +60,7 @@ internal fun AppOverlayHost(
         onSeasonWatch = viewModel::setSeasonWatch,
         onFavourite = viewModel::setMediaFavourite,
         onPlayed = viewModel::setMediaPlayed,
+        onOfflineDownload = viewModel::enqueueOfflineDownload,
         onSeason = viewModel::selectSeason,
         onEpisodeSeries = viewModel::openEpisodeSeries,
         onEpisodeClick = viewModel::openEpisodeDetail,

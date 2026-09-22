@@ -22,7 +22,12 @@
     <string name="offline_wifi">Berre Wi-Fi</string>
     <string name="offline_wifi_note">Nedlastingar ventar når du bruker mobildata.</string>
     <string name="offline_empty_title">Ingenting er lasta ned</string>
-    <string name="offline_empty_note">Opne ein film eller episode på telefonen, og vel nedlastingsknappen i spelaren.</string>
+    <string name="offline_empty_note">Opne detaljane for ein film, serie eller episode på telefonen, og vel nedlasting der.</string>
+    <string name="offline_choose_episode_title">Vel episode</string>
+    <string name="offline_choose_episode_note">Berre komplette filer som kan spelast direkte blir lagra på denne eininga.</string>
+    <string name="offline_choose_next">Last ned neste episode</string>
+    <string name="offline_choose_close">Lukk</string>
+    <string name="offline_prepare_failed">Kunne ikkje gjere klar nedlastinga. Prøv igjen.</string>
     <string name="offline_unknown_title">Nedlasting</string>
     <string name="offline_complete">Klar · %1$s</string>
     <string name="offline_watch">Sjå fråkopla</string>

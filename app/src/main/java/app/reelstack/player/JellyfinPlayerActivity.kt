@@ -134,7 +134,6 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                 PlayerScreen(state, model.player, { if (!model.back()) finish() }, model::toggle, model::seek, model::retry, model::choose,
                     model::loadChildren, model::audio, model::subtitles, model::quality,
                     kids = kids,
-                    onDownload = model::downloadCurrent,
                     onExternal = {
                         // Handing the stream to another app is the back door out of kids mode.
                         if (kids) return@PlayerScreen
@@ -198,7 +197,6 @@ fun PlayerScreen(
     onNextEpisode: () -> Unit = {},
     onCancelNextEpisode: () -> Unit = {},
     onSkipSegment: () -> Unit = {},
-    onDownload: () -> Boolean = { false },
     /** A completed private Media3 file; it must never offer a network fallback or re-download. */
     offline: Boolean = false,
     miniPlayer: Boolean = false,
@@ -455,11 +453,6 @@ fun PlayerScreen(
                     onClose = onClose,
                     showBack = !isTelevision,
                     actions = {
-                        if (!offline && !kids && !isTelevision) {
-                            IconButton(onClick = { onDownload() }, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-download")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.Download, stringResource(R.string.offline_download), modifier = Modifier.size(20.dp))
-                            }
-                        }
                         if (onMiniPlayer != null && !state.busy && state.error == null && !state.awaitingResume && state.durationMs > 0) {
                             IconButton(onClick = onMiniPlayer, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-mini")) {
                                 Icon(app.reelstack.ui.components.SpoleIcons.MiniPlayer, stringResource(R.string.phase_mini), modifier = Modifier.size(20.dp))

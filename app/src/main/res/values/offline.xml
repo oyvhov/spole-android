@@ -22,7 +22,12 @@
     <string name="offline_wifi">Wi-Fi only</string>
     <string name="offline_wifi_note">Downloads wait while you are using mobile data.</string>
     <string name="offline_empty_title">Nothing downloaded</string>
-    <string name="offline_empty_note">Open a movie or episode on your phone, then choose the download button in the player.</string>
+    <string name="offline_empty_note">Open the details for a movie, series or episode on your phone, then choose download there.</string>
+    <string name="offline_choose_episode_title">Choose episode</string>
+    <string name="offline_choose_episode_note">Only complete files that can play directly are saved on this device.</string>
+    <string name="offline_choose_next">Download next episode</string>
+    <string name="offline_choose_close">Close</string>
+    <string name="offline_prepare_failed">Could not prepare the download. Try again.</string>
     <string name="offline_unknown_title">Download</string>
     <string name="offline_complete">Ready · %1$s</string>
     <string name="offline_watch">Watch offline</string>

@@ -161,6 +161,7 @@ fun ReelstackSheets(
     onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> },
     onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> },
+    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?) -> Unit = { _, _, _, _ -> },
     onSeason: (String) -> Unit = {},
     onEpisodeSeries: () -> Unit = {},
     onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
@@ -258,6 +259,7 @@ fun ReelstackSheets(
                         RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
                             onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered,
                             onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason, onEpisodeSeries = onEpisodeSeries,
+                            onOfflineDownload = onOfflineDownload,
                             onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle, onEpisodeClick = onEpisodeClick)
                     }
                 }
@@ -341,6 +343,7 @@ private fun DetailSheetSkeleton() {
 private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
     scroll: ScrollState, entered: Boolean, onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {}, onEpisodeSeries: () -> Unit = {},
+    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?) -> Unit = { _, _, _, _ -> },
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
     onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {}) {
@@ -391,6 +394,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val actions: @Composable () -> Unit = {
         TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed,
             onSeries = if (mediaType == "Episode" && state.seriesBrowse.seriesId.isNotBlank()) onEpisodeSeries else null,
+            onOfflineDownload = onOfflineDownload,
             seriesFocus = seriesLinkFocus,
             modifier = Modifier.onFocusChanged { if (tv && it.hasFocus && scroll.value > 0) {
                 detailScope.launch { scroll.animateScrollTo(0) }
@@ -741,6 +745,7 @@ private fun TitleActionRow(
     onFavourite: (String, Boolean) -> Unit,
     onPlayed: (String, Boolean) -> Unit,
     onSeries: (() -> Unit)? = null,
+    onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?) -> Unit = { _, _, _, _ -> },
     seriesFocus: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -750,6 +755,14 @@ private fun TitleActionRow(
     val marks = details.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
         state.connections.any { it.kind == details.source && it.token.isNotBlank() } &&
         !details.mediaType.equals("Series", true) && !details.mediaType.equals("Season", true)
+    val offlineTarget = mediaActionTarget(state, details.key)
+    val offlineAllowed = !television && !state.isKidMode && offlineTarget?.remoteId != null &&
+        offlineTarget.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
+    val seriesDownload = details.mediaType.equals("Series", true)
+    val seriesEpisodes = remember(state.seriesBrowse.openedFor, state.seriesBrowse.nextUp, state.seriesBrowse.episodes) {
+        listOfNotNull(resumeTarget(state.seriesBrowse)) + state.seriesBrowse.episodes
+    }.distinctBy { it.remoteId ?: it.id }.filter { it.remoteId != null }
+    var chooseEpisode by remember(details.key) { mutableStateOf(false) }
     Column(modifier.fillMaxWidth()) {
         androidx.compose.foundation.layout.FlowRow(
             Modifier.fillMaxWidth().padding(top = 20.dp),
@@ -784,6 +797,18 @@ private fun TitleActionRow(
                     enabled = !details.updating,
                 ) { onFavourite(details.key, !details.favourite) }
             }
+            if (offlineAllowed && (seriesDownload || details.mediaType.equals("Movie", true) ||
+                    details.mediaType.equals("Episode", true) || details.mediaType.equals("Video", true))) {
+                IconCommand(
+                    icon = app.reelstack.ui.components.SpoleIcons.Download,
+                    description = stringResource(R.string.offline_download),
+                    tag = "detail-download",
+                    enabled = !details.updating && (!seriesDownload || seriesEpisodes.isNotEmpty()),
+                ) {
+                    if (seriesDownload) chooseEpisode = true
+                    else offlineTarget?.let { onOfflineDownload(it, audioIndex, subtitleIndex, versionId) }
+                }
+            }
             if (onSeries != null) {
                 val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 TextButton(onClick = onSeries, interactionSource = interaction,
@@ -802,6 +827,58 @@ private fun TitleActionRow(
             Text(it, color = Warning, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
         }
     }
+    if (chooseEpisode) OfflineEpisodePicker(
+        episodes = seriesEpisodes,
+        nextEpisode = resumeTarget(state.seriesBrowse),
+        onChoose = { episode ->
+            chooseEpisode = false
+            onOfflineDownload(episode, null, null, null)
+        },
+        onDismiss = { chooseEpisode = false },
+    )
+}
+
+/** Series are collections, not files. Make the reader choose one concrete episode before queuing. */
+@Composable
+private fun OfflineEpisodePicker(
+    episodes: List<app.reelstack.data.model.LibraryMedia>,
+    nextEpisode: app.reelstack.data.model.LibraryMedia?,
+    onChoose: (app.reelstack.data.model.LibraryMedia) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.offline_choose_episode_title)) },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(stringResource(R.string.offline_choose_episode_note), color = Muted,
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
+                episodes.forEach { episode ->
+                    val isNext = episode.id == nextEpisode?.id
+                    TextButton(
+                        onClick = { onChoose(episode) },
+                        modifier = Modifier.fillMaxWidth().testTag("detail-download-${episode.id}"),
+                    ) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Text(
+                                if (isNext) stringResource(R.string.offline_choose_next)
+                                else app.reelstack.ui.components.episodeLine(episode.season, episode.episode, ""),
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            val name = episode.subtitle.takeIf(String::isNotBlank) ?: episode.title
+                            if (name.isNotBlank()) Text(name, color = Muted, style = MaterialTheme.typography.bodySmall,
+                                textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.offline_choose_close)) } },
+    )
 }
 
 /** A round, wordless switch. The shape carries the meaning; the label is for the screen reader. */
@@ -839,6 +916,33 @@ private fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, ac
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, description, Modifier.size(23.dp), tint = tint)
+    }
+}
+
+/** A one-shot action in the same quiet circular language as favourite and watched. */
+@Composable
+private fun IconCommand(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    tag: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Box(
+        Modifier.size(52.dp).clip(CircleShape).background(SurfaceRaised)
+            .focusOutline(interaction, CircleShape)
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = androidx.compose.foundation.LocalIndication.current,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .testTag(tag),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, description, Modifier.size(23.dp), tint = if (enabled) Primary else Muted)
     }
 }
 

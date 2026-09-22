@@ -454,6 +454,8 @@ class MediaServerClient(
             // Jellyfin/Emby return Primary for some titles, which is a portrait poster fitted
             // into the wide frame and therefore looks like a tiny picture in the middle.
             // Keep both Primary and Thumb available so getItems() can build the wide URL.
+            // A partly watched episode represents its series here, so use the series Thumb when
+            // the server provides one. The episode's own still remains the fallback.
             "&Fields=Overview,Genres,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=2" +
             "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&EnableUserData=true"
         val groups = allowed.mapNotNull { view ->
@@ -462,7 +464,7 @@ class MediaServerClient(
                 ServiceKind.JELLYFIN -> listOf("UserItems/Resume?userId=$userId&$scoped", "Users/$userId/Items/Resume?$scoped")
                 else -> listOf("Users/$userId/Items/Resume?$scoped")
             }
-            runCatching { getItems(connection, paths, preferEpisodeStill = true).map { it.copy(libraryId = view.id) } }.getOrNull()
+            runCatching { getItems(connection, paths, preferEpisodeStill = false).map { it.copy(libraryId = view.id) } }.getOrNull()
         }
         if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_hald_fram)
         return interleave(groups).distinctBy(RemoteLibraryItem::id)

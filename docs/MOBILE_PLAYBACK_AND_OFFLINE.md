@@ -14,8 +14,10 @@ skjult bakgrunnsavspeling.
 kompatible Jellyfin-/Emby-filer som tenaren uttrykkeleg leverer som direkte fil kan få ei lokal
 fil. Live-TV, ISO/platemenyar, DRM, ufullstendige filer og alt som krev tenartranskoding er nekta.
 
-Nedlasting startar berre frå spelaren på mobil/nettbrett — aldri frå TV eller barnemodus. Media3
-kjøyrer som ein vedvarande app-privat jobb med lågprioritets varsel, prosentsframdrift og
+Nedlasting startar berre frå detaljsida på mobil/nettbrett — aldri inne i spelaren, på TV eller i
+barnemodus. Film og enkelpisode brukar dei valde lyd-, tekstings- og filvala på detaljsida. Ein
+serie er ikkje éi fil: handlinga opnar ein episodeveljar og køyrer berre episoden brukaren vel.
+Media3 køyrer som ein vedvarande app-privat jobb med lågprioritets varsel, prosentsframdrift og
 pause/hald fram. Trykk på varselet opnar **Nedlastingar**, den faste vaksen-destinasjonen i
 mobil- og nettbrettnavigasjonen. Der kan brukaren sjå framdrift og plassbruk, velje berre Wi-Fi,
 pause eller halde fram enkeltjobbar eller alt, prøve på nytt, og fjerne lokale filer.

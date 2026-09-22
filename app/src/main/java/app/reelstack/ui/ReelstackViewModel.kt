@@ -351,6 +351,8 @@ class ReelstackViewModel(
     private var historyJob: Job? = null
     private var requestDraftJob: Job? = null
     private var offlineRefreshJob: Job? = null
+    /** In-memory only: duplicate presses must not create two jobs for the same private file. */
+    private val preparingOfflineIds = mutableSetOf<String>()
     private val accountRefresh = AccountRefreshCoordinator(
         container = container,
         scope = viewModelScope,
@@ -470,6 +472,72 @@ class ReelstackViewModel(
         viewModelScope.launch {
             val snapshot = withContext(Dispatchers.IO) { container.offlineDownloads.snapshot(profileId) }
             _uiState.update { current -> if (current.activeProfileId == profileId) current.copy(offlineDownloads = snapshot) else current }
+        }
+    }
+
+    /**
+     * A detail page chooses a concrete library file, then negotiates it without opening the
+     * player. The Media3 job is created only after the server confirms untouched direct playback;
+     * a profile switch during that short negotiation drops the result instead of lending the old
+     * account to the new profile.
+     */
+    fun enqueueOfflineDownload(media: LibraryMedia, audioIndex: Int? = null, subtitleIndex: Int? = null,
+        versionId: String? = null) {
+        val state = _uiState.value
+        if (state.isKidMode || isTelevision() || !media.mediaType.equals("Movie", true) &&
+            !media.mediaType.equals("Episode", true) && !media.mediaType.equals("Video", true)) return
+        val remoteId = media.remoteId ?: run {
+            _uiState.update { it.copy(snackbar = appString(R.string.offline_prepare_failed)) }
+            return
+        }
+        val connection = state.connections.firstOrNull { connection ->
+            connection.kind == media.source && connection.baseUrl.isNotBlank() && connection.token.isNotBlank()
+        } ?: run {
+            _uiState.update { it.copy(snackbar = appString(R.string.offline_prepare_failed)) }
+            return
+        }
+        val profileId = state.activeProfileId
+        val pendingKey = "$profileId|${connection.identity}|$remoteId"
+        if (!preparingOfflineIds.add(pendingKey)) return
+        viewModelScope.launch {
+            try {
+                val prepared = runCatching {
+                    withContext(Dispatchers.IO) {
+                        val playback = app.reelstack.player.MediaPlaybackClient(
+                            deviceId = app.reelstack.data.repository.DeviceIdentity.get(container.appContext),
+                        )
+                        val userId = playback.verify(connection)
+                        val item = playback.item(connection, userId, remoteId)
+                        val plan = playback.prepare(connection, userId, item, bitrate = 80_000_000,
+                            audio = audioIndex, subtitle = subtitleIndex, sourceId = versionId)
+                        app.reelstack.offline.OfflineDownloadRequest(
+                            profileId = profileId,
+                            connection = connection,
+                            candidate = app.reelstack.offline.OfflineMediaCandidate(
+                                itemId = item.id,
+                                service = connection.kind,
+                                requiresTranscode = !plan.direct,
+                                directDownloadUrl = plan.url,
+                            ),
+                            title = item.title,
+                            subtitle = item.subtitle,
+                            mediaType = item.type,
+                        )
+                    }
+                }.getOrNull()
+                if (prepared == null) {
+                    _uiState.update { it.copy(snackbar = appString(R.string.offline_prepare_failed)) }
+                    return@launch
+                }
+                // The profile is the access boundary for the encrypted catalogue and the active
+                // download worker. Never enqueue a request negotiated before a profile changed.
+                if (_uiState.value.activeProfileId != profileId || _uiState.value.isKidMode || isTelevision()) return@launch
+                val refusal = withContext(Dispatchers.IO) { container.offlineDownloads.enqueue(prepared) }
+                _uiState.update { it.copy(snackbar = appString(if (refusal == null) R.string.offline_queued else R.string.offline_direct_only)) }
+                if (refusal == null) refreshOfflineDownloads()
+            } finally {
+                preparingOfflineIds.remove(pendingKey)
+            }
         }
     }
 

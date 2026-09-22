@@ -337,7 +337,7 @@ object ServicePayloadParser {
             val year = item.int("ProductionYear") ?: item.int("productionYear")
             val ownStill = (item.obj("ImageTags") ?: item.obj("imageTags")).tag("Primary")
             val artwork = if (preferEpisodeStill && mediaType == "Episode" && ownStill != null)
-                LibraryArtwork(id, "Primary", ownStill) else libraryArtwork(item, id, mediaType)
+                LibraryArtwork(id, "Primary", ownStill) else libraryArtwork(item, id, mediaType, preferEpisodeStill)
             RemoteLibraryItem(
                 id = id,
                 isFolder = item["IsFolder"]?.jsonPrimitive?.booleanOrNull == true || mediaType in setOf("Series", "Season", "BoxSet", "Folder", "CollectionFolder", "MusicAlbum", "MusicArtist"),
@@ -978,11 +978,25 @@ object ServicePayloadParser {
     private fun JsonObject?.tag(type: String): String? =
         this?.keys?.firstOrNull { it.equals(type, ignoreCase = true) }?.let { this.string(it) }
 
-    private fun libraryArtwork(item: JsonObject, id: String, mediaType: String): LibraryArtwork {
+    private fun libraryArtwork(item: JsonObject, id: String, mediaType: String,
+        preferEpisodeStill: Boolean = false): LibraryArtwork {
         val imageTags = item.obj("ImageTags") ?: item.obj("imageTags")
         val hasOwnThumb = imageTags?.keys?.any { it.equals("Thumb", ignoreCase = true) } == true
         val isEpisode = mediaType.equals("episode", ignoreCase = true)
         val isSeriesArtwork = isEpisode || mediaType.equals("series", ignoreCase = true)
+        // "Continue watching" names a series and needs the show art, not a different frame from
+        // every partly watched episode. Episode rows and Next up explicitly set
+        // [preferEpisodeStill], retaining their own still as before.
+        if (isEpisode && !preferEpisodeStill) {
+            (item.string("ParentThumbItemId") ?: item.string("parentThumbItemId"))?.let {
+                return LibraryArtwork(it, "Thumb",
+                    item.string("ParentThumbImageTag") ?: item.string("parentThumbImageTag"))
+            }
+            val seriesId = item.string("SeriesId") ?: item.string("seriesId")
+            val seriesThumbTag = item.string("SeriesThumbImageTag") ?: item.string("seriesThumbImageTag")
+                ?: item.string("ParentThumbImageTag") ?: item.string("parentThumbImageTag")
+            if (seriesId != null && seriesThumbTag != null) return LibraryArtwork(seriesId, "Thumb", seriesThumbTag)
+        }
         if (isSeriesArtwork) {
             if (hasOwnThumb) return LibraryArtwork(id, "Thumb", imageTags.tag("Thumb"))
             (item.string("ParentThumbItemId") ?: item.string("parentThumbItemId"))?.let {
