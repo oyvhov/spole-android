@@ -19,6 +19,7 @@ class EncryptedTokenStore(context: Context) : TokenStore {
             remove(key)
             return
         }
+        preferences.getString(key, null)?.let(decrypted::remove)
         preferences.edit { putString(key, encrypt(value)) }
     }
 
@@ -29,6 +30,7 @@ class EncryptedTokenStore(context: Context) : TokenStore {
         }
         // One SharedPreferences transaction means salt, hash, version and KDF cost become
         // visible together. Rehashing can therefore never leave a mixed PIN record on disk.
+        values.keys.forEach { key -> preferences.getString(key, null)?.let(decrypted::remove) }
         preferences.edit { encrypted.forEach { (key, value) -> putString(key, value) } }
     }
 
@@ -43,6 +45,7 @@ class EncryptedTokenStore(context: Context) : TokenStore {
 
     override fun get(key: String): String? {
         val stored = preferences.getString(key, null) ?: return null
+        decrypted[stored]?.let { return it }
         val parts = stored.split(SEPARATOR, limit = 2)
         if (parts.size != 2) return null
         return runCatching {
@@ -51,10 +54,14 @@ class EncryptedTokenStore(context: Context) : TokenStore {
             val encrypted = Base64.decode(parts[1], Base64.NO_WRAP)
             cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
             cipher.doFinal(encrypted).toString(Charsets.UTF_8)
-        }.getOrNull()
+        }.getOrNull()?.also { plain ->
+            if (decrypted.size >= MAX_DECRYPTED) decrypted.clear()
+            decrypted[stored] = plain
+        }
     }
 
     override fun remove(key: String) {
+        preferences.getString(key, null)?.let(decrypted::remove)
         preferences.edit { remove(key) }
     }
 
@@ -88,6 +95,14 @@ class EncryptedTokenStore(context: Context) : TokenStore {
     }
 
     private companion object {
+        /**
+         * Plaintext by the exact ciphertext it came from. Every image request and every profile row
+         * asked for a token, and each ask was a Keystore round trip on the main thread. Keyed by
+         * ciphertext, not by name, the cache cannot go stale: a changed or removed secret has a
+         * different stored value, so it is a miss, whichever instance wrote it.
+         */
+        val decrypted = java.util.concurrent.ConcurrentHashMap<String, String>()
+        const val MAX_DECRYPTED = 128
         const val PREFERENCES_NAME = "reelstack_secrets"
         const val KEYSTORE = "AndroidKeyStore"
         const val KEY_ALIAS = "reelstack.connection.tokens.v1"

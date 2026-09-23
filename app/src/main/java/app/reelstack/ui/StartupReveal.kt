@@ -40,12 +40,19 @@ fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit
         }
         if (!state.showOnboarding && state.configuredCount > 0) coroutineScope {
             // Bounded first-screen warming. The rest continues loading in the composed page.
-            (state.resume + state.nextUp + state.recentMovies + state.recentSeries)
-                .filter { it.artworkUrl != null }.distinctBy { it.artworkUrl }.take(4).map { item -> async {
-                    val request = coil3.request.ImageRequest.Builder(context).data(item.artworkUrl).size(640, 360)
-                    app.reelstack.ui.components.MediaAuthHeaders.forUrl(context, item.source, item.artworkUrl!!)?.let(request::httpHeaders)
-                    context.imageLoader.execute(request.build())
-                } }.awaitAll()
+            // Warm the addresses the first cards will actually ask for: a resume card shows the
+            // wide hero art, not `artworkUrl`, so warming that one never helped the first frame.
+            (state.resume + state.nextUp + state.recentMovies + state.recentSeries).mapNotNull { item ->
+                val wide = item in state.resume || !item.mediaType.equals("Movie", true)
+                val isEpisode = item.mediaType.equals("Episode", true) || (item.season != null && item.episode != null)
+                app.reelstack.ui.screens.railArtworkUrl(wide, item.heroUrl, item.posterUrl, item.artworkUrl, isEpisode)
+                    ?.let { url -> Triple(item, url, wide) }
+            }.distinctBy { it.second }.take(4).map { (item, url, wide) -> async {
+                val request = coil3.request.ImageRequest.Builder(context).data(url)
+                    .size(if (wide) 1024 else 480, if (wide) 576 else 720)
+                app.reelstack.ui.components.MediaAuthHeaders.forUrl(context, item.source, url)?.let(request::httpHeaders)
+                context.imageLoader.execute(request.build())
+            } }.awaitAll()
         }
     }, content = content)
 }

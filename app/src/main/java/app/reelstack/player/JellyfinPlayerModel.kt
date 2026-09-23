@@ -219,6 +219,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 bufferingSince = if (playbackState == Player.STATE_BUFFERING) android.os.SystemClock.elapsedRealtime() else 0L
+                if (playbackState == Player.STATE_READY && openStartedNanos != 0L) {
+                    app.reelstack.data.network.PerfLog.milestone("player ready", openStartedNanos)
+                    openStartedNanos = 0L
+                }
                 mutable.update { it.copy(busy = playbackState == Player.STATE_BUFFERING, ended = playbackState == Player.STATE_ENDED,
                     durationMs = duration.takeIf { value -> value > 0 } ?: it.durationMs) }
                 if (playbackState == Player.STATE_ENDED) {
@@ -483,7 +487,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             seerr.token == seerrConnection?.token && seerr.baseUrl == seerrConnection?.baseUrl
     }
 
+    /** When the viewer asked to play; cleared once the first frame is ready. Debug timing only. */
+    private var openStartedNanos = 0L
+
     private fun loadRoot() {
+        openStartedNanos = System.nanoTime()
         request?.cancel()
         mutable.update { it.copy(busy = true, error = null) }
         request = viewModelScope.launch {
@@ -491,16 +499,33 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 val result = withContext(Dispatchers.IO) {
                     val c = container.connectionRepository.get(serviceKind)
                     val seerr = container.connectionRepository.get(ServiceKind.SEERR)
-                    val id = client.verify(c)
-                    val jellyfinAccount = container.accountProfileClient.load(c)
-                    val seerrAccount = seerr.takeIf { it.token.isNotBlank() }?.let {
-                        runCatching { container.accountProfileClient.load(it) }.getOrNull()
+                    // The capability report never decides anything here; do not wait for it.
+                    viewModelScope.launch(Dispatchers.IO) { runCatching { client.announceCapabilities(c) } }
+                    // These used to run one after another: five round trips before PlaybackInfo.
+                    // They are independent, so the wait is now the slowest of them. The rule is
+                    // unchanged: nothing plays until the account is confirmed as the viewer's own.
+                    coroutineScope {
+                        val verified = async { client.verify(c, announce = false) }
+                        val mediaAccount = async { runCatching { container.accountProfileClient.load(c) } }
+                        val seerrAccount = async {
+                            seerr.takeIf { it.token.isNotBlank() }?.let {
+                                runCatching { container.accountProfileClient.load(it) }.getOrNull()
+                            }
+                        }
+                        val knownUser = c.userId.takeIf(String::isNotBlank)
+                        val early = knownUser?.let { user -> async { runCatching { client.item(c, user, rootId) } } }
+                        val id = verified.await()
+                        val access = ViewerAccess(seerr.token.isNotBlank(), buildMap {
+                            put(serviceKind, mediaAccount.await().getOrThrow())
+                            seerrAccount.await()?.let { put(ServiceKind.SEERR, it) }
+                        })
+                        if (access.ownMediaUser(serviceKind) != id) serviceError(R.string.player_err_pick_personal_account)
+                        // verify() refuses a stored id that differs from the server's, so the early
+                        // read was made as this same account.
+                        val item = early?.takeIf { knownUser.equals(id, ignoreCase = true) }?.await()?.getOrThrow()
+                            ?: client.item(c, id, rootId)
+                        Triple(c, seerr, id) to item
                     }
-                    val access = ViewerAccess(seerr.token.isNotBlank(), buildMap {
-                        put(serviceKind, jellyfinAccount); seerrAccount?.let { put(ServiceKind.SEERR, it) }
-                    })
-                    if (access.ownMediaUser(serviceKind) != id) serviceError(R.string.player_err_pick_personal_account)
-                    Triple(c, seerr, id) to client.item(c, id, rootId)
                 }
                 connection = result.first.first; seerrConnection = result.first.second; userId = result.first.third
                 check(sameAccount())

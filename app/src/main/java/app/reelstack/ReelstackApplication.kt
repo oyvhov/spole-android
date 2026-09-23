@@ -53,9 +53,9 @@ class ReelstackApplication : Application(), coil3.SingletonImageLoader.Factory {
                 this@ReelstackApplication,
                 container.preferencesRepository.wifiOnly,
             )
-            // Keep Media3's persisted download scheduler in step with the user-visible setting
-            // after process death; otherwise a Wi-Fi-only choice could silently revert to data.
-            container.offlineDownloads.onlyWifi(container.preferencesRepository.wifiOnly)
+            // The Wi-Fi-only download rule is read by OfflineDownloadRuntime when its manager is
+            // built. Starting the download service from here crashed a process that WorkManager
+            // had started in the background.
         }
     }
 }

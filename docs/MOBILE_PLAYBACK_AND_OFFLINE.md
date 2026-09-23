@@ -28,7 +28,17 @@ berre etter at jobben er lagd i kø. Tenaravslag, utgått tilgang eller utrygg/i
 vert ståande som ei konkret melding på den same detaljsida. Ei serie som framleis hentar episodar
 forklarer det i staden for å ha ein stille, deaktivert knapp.
 
+Forhandlinga før ein nedlastingsjobb (`offline/OfflineNegotiation.kt`) brukar same
+kapabilitetar som avspelinga: `AndroidPlaybackCapabilities`, med dekodarkontroll og FFmpeg-lyd.
+Ho spør utan bilettekst, fordi fila blir lasta ned med alle innebygde spor, og utan
+straumingsgrense (`OFFLINE_NEGOTIATION_BITRATE`). Offline-spelaren brukar `PlaybackRenderersFactory`
+og same lokale lydfallback som den vanlege spelaren. Når kontoen har bytt adresse sidan jobben
+vart lagd, blir URL-en flytt over på den gjeldande adressa (`offlineRebasedUrl`) før autentisering.
+
 Berre-Wi-Fi-innstillinga gjeld òg denne jobben, også etter at prosessen har vore stengd.
+`DownloadManager` les innstillinga når han blir bygd. Tenesta blir ikkje starta frå
+`Application.onCreate`, sidan Android nektar det når prosessen er starta i bakgrunnen.
+`MainActivity.onStart` startar ho berre når det finst uferdige jobbar.
 Førespurnaden i Media3-databasen har berre hasha profil-, teneste- og medienøklar;
 tilgangsteiknet vert henta frå aktiv konto akkurat når HTTP-førespurnaden skal sendast. Ein jobb
 frå ein annan profil vert stansa ved profilbyte og får aldri låne tokenet til aktiv profil.

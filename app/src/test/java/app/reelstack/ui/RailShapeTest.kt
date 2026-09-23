@@ -55,6 +55,14 @@ class RailShapeTest {
         assertEquals("hero", railArtworkUrl(wide = true, heroUrl = "hero", posterUrl = "poster", artworkUrl = "main"))
     }
 
+    @Test fun aRailCardAsksForHeroArtAtCardSizeNotFeatureSize() {
+        val hero = "https://media.example/Items/x/Images/Backdrop?maxWidth=1920&quality=90&tag=t"
+        assertEquals(
+            "https://media.example/Items/x/Images/Backdrop?maxWidth=1080&quality=85&tag=t",
+            railArtworkUrl(wide = true, heroUrl = hero, posterUrl = "poster", artworkUrl = "main"),
+        )
+    }
+
     @Test fun aTallFrameAsksForThePoster() {
         assertEquals("poster", railArtworkUrl(wide = false, heroUrl = "hero", posterUrl = "poster", artworkUrl = "main"))
     }

@@ -113,6 +113,7 @@ import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.SurfaceRaised
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -177,30 +178,45 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(lifecycleOwner, state.activeProfileId, state.selectedTab, state.activeSheet) {
+    // Keyed on the profile only. Tab and sheet are read inside the loop: keying on them restarted
+    // the loop, reopened the Jellyfin socket and refreshed playback every time a title page opened.
+    // The ready flag is a key because the loop never started on a cold start without it.
+    LaunchedEffect(lifecycleOwner, state.activeProfileId, appReadyForBackgroundWork) {
         if (!appReadyForBackgroundWork) return@LaunchedEffect
+        fun watching(current: ReelstackUiState) =
+            current.selectedTab == AppTab.HOME || current.activeSheet is AppSheet.SessionDetails
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
-            if (viewModel.uiState.value.selectedTab == AppTab.HOME || viewModel.uiState.value.activeSheet is AppSheet.SessionDetails) {
-                // Jellyfin will tell us when playback changes, so ask it to. While that channel is
-                // open the loop below is a safety net rather than the source of truth; when it is
-                // not — an older server, a proxy that strips upgrades — nothing is lost but the
-                // saving, and the old cadence comes straight back.
-                try {
-                    viewModel.openSessionChannel()
-                    while (true) {
-                        if (viewModel.uiState.value.selectedTab == AppTab.HOME) viewModel.retryIncompleteHomeFeed()
-                        viewModel.refreshPlayback()
-                        kotlinx.coroutines.delay(
-                            when {
-                                viewModel.sessionChannelLive.value -> 60_000L
-                                viewModel.uiState.value.sessions.isEmpty() -> 15_000L
-                                else -> 5_000L
-                            },
-                        )
+            // Jellyfin will tell us when playback changes, so ask it to. While that channel is open
+            // the loop is a safety net rather than the source of truth; when it is not — an older
+            // server, a proxy that strips upgrades — nothing is lost but the saving, and the old
+            // cadence comes straight back. A lost channel is retried at most once a minute.
+            var lastChannelAttempt = Long.MIN_VALUE / 2
+            try {
+                while (true) {
+                    if (!watching(viewModel.uiState.value)) {
+                        viewModel.closeSessionChannel()
+                        lastChannelAttempt = Long.MIN_VALUE / 2
+                        viewModel.uiState.first(::watching)
                     }
-                } finally {
-                    viewModel.closeSessionChannel()
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (!viewModel.sessionChannelLive.value && now - lastChannelAttempt >= 60_000L) {
+                        lastChannelAttempt = now
+                        viewModel.openSessionChannel()
+                    }
+                    if (viewModel.uiState.value.selectedTab == AppTab.HOME) viewModel.retryIncompleteHomeFeed()
+                    viewModel.refreshPlayback()
+                    val interval = when {
+                        viewModel.sessionChannelLive.value -> 60_000L
+                        viewModel.uiState.value.sessions.isEmpty() -> 15_000L
+                        else -> 5_000L
+                    }
+                    // Leaving Home ends the wait early, so the channel closes when nobody looks.
+                    kotlinx.coroutines.withTimeoutOrNull(interval) {
+                        viewModel.uiState.first { !watching(it) }
+                    }
                 }
+            } finally {
+                viewModel.closeSessionChannel()
             }
         }
     }

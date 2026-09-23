@@ -225,14 +225,20 @@ internal class HomeFeedCoordinator(
         lastFeedAttemptMillis = android.os.SystemClock.elapsedRealtime()
         updateState { it.copy(isRefreshing = true) }
         refreshJob = scope.launch {
+            val started = System.nanoTime()
+            val firstRow = java.util.concurrent.atomic.AtomicBoolean(true)
             val outcome = attempt {
                 val snapshot = withContext(Dispatchers.IO) {
                     container.mediaSyncRepository.refresh(
                         connections = readState().connections,
                         includeRecommendations = HomeSection.RECOMMENDATIONS in readState().homeSections,
-                        onLibraryReady = { update -> updateLibraryRow(refreshFingerprint, update) },
+                        onLibraryReady = { update ->
+                            if (firstRow.getAndSet(false)) app.reelstack.data.network.PerfLog.milestone("home first-rows ${update.source}", started)
+                            updateLibraryRow(refreshFingerprint, update)
+                        },
                     )
                 }
+                app.reelstack.data.network.PerfLog.milestone("home all-rows", started)
                 if (snapshot.successfulServices.isNotEmpty()) {
                     // A disk-full offline cache is not a reason to fail a live refresh.
                     attempt {

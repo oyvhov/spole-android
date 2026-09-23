@@ -94,6 +94,10 @@ object OfflineDownloadRuntime {
     @Volatile private var manager: DownloadManager? = null
     @Volatile private var database: StandaloneDatabaseProvider? = null
     @Volatile private var cache: SimpleCache? = null
+    private val changeCount = kotlinx.coroutines.flow.MutableStateFlow(0)
+
+    /** Ticks whenever Media3 reports a job added, changed or removed. */
+    val changes: kotlinx.coroutines.flow.StateFlow<Int> = changeCount
 
     fun manager(context: Context): DownloadManager = manager ?: synchronized(this) {
         manager ?: build(context.applicationContext).also { manager = it }
@@ -110,6 +114,13 @@ object OfflineDownloadRuntime {
         .setUpstreamDataSourceFactory(PlaceholderDataSource.FACTORY)
         .setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE)
 
+    /** Reads the job table only; it neither builds the manager nor starts a transfer. */
+    fun hasUnfinishedDownloads(context: Context): Boolean = runCatching {
+        androidx.media3.exoplayer.offline.DefaultDownloadIndex(database(context.applicationContext))
+            .getDownloads(Download.STATE_QUEUED, Download.STATE_DOWNLOADING, Download.STATE_RESTARTING)
+            .use { it.count > 0 }
+    }.getOrDefault(false)
+
     private fun database(context: Context): StandaloneDatabaseProvider = database ?: synchronized(this) {
         database ?: StandaloneDatabaseProvider(context.applicationContext).also { database = it }
     }
@@ -123,12 +134,27 @@ object OfflineDownloadRuntime {
         val authenticated = ResolvingDataSource.Factory(upstream) { dataSpec ->
             val connection = connectionFor(context, dataSpec.uri, dataSpec.key)
                 ?: throw java.io.IOException("offline media route is no longer available")
-            dataSpec.withRequestHeaders(MediaPlaybackClient(deviceId = DeviceIdentity.get(context)).headers(connection))
+            // A job keeps the address it was queued on. When Spole has since moved this account to
+            // its other address (home network to mobile data), follow it instead of stalling.
+            val uri = offlineRebasedUrl(connection, dataSpec.uri.toString())?.let(Uri::parse) ?: dataSpec.uri
+            dataSpec.withUri(uri)
+                .withRequestHeaders(MediaPlaybackClient(deviceId = DeviceIdentity.get(context)).headers(connection))
         }
         return DownloadManager(context, database(context), cache(context), authenticated, Executors.newFixedThreadPool(2)).apply {
             maxParallelDownloads = 1
             minRetryCount = 3
-            requirements = Requirements(Requirements.NETWORK)
+            // Media3 keeps requirements in memory only. Reading the setting here restores it after
+            // process death without starting the download service from Application.onCreate, which
+            // Android refuses (and crashes on) when the process was started in the background.
+            requirements = offlineRequirements(app.reelstack.data.repository.AppPreferencesRepository(context).wifiOnly)
+            addListener(object : DownloadManager.Listener {
+                override fun onDownloadChanged(manager: DownloadManager, download: Download, finalException: Exception?) {
+                    changeCount.value++
+                }
+                override fun onDownloadRemoved(manager: DownloadManager, download: Download) {
+                    changeCount.value++
+                }
+            })
         }
     }
 
@@ -184,12 +210,21 @@ class OfflineDownloadRepository(private val context: Context) {
         return null
     }
 
+    /**
+     * Picks up jobs that a killed process left behind. Call only while an activity is visible:
+     * Android allows starting the service then, and the service promotes itself to foreground.
+     */
+    fun resumeUnfinished() {
+        if (!OfflineDownloadRuntime.hasUnfinishedDownloads(appContext)) return
+        runCatching { DownloadService.start(appContext, OfflineDownloadService::class.java) }
+    }
+
     fun pauseAll() = DownloadService.sendPauseDownloads(appContext, OfflineDownloadService::class.java, false)
     fun resumeAll() = DownloadService.sendResumeDownloads(appContext, OfflineDownloadService::class.java, false)
     fun onlyWifi(enabled: Boolean) = DownloadService.sendSetRequirements(
         appContext,
         OfflineDownloadService::class.java,
-        Requirements(if (enabled) Requirements.NETWORK_UNMETERED else Requirements.NETWORK),
+        offlineRequirements(enabled),
         false,
     )
     fun pause(id: String) = DownloadService.sendSetStopReason(
@@ -338,6 +373,24 @@ class OfflineDownloadRepository(private val context: Context) {
         const val STOP_REASON_USER_PAUSED = 7_402
     }
 }
+
+/**
+ * [url] moved onto the account's current address, or null when it already points there or does not
+ * belong to either of the account's addresses. The path and query are kept exactly.
+ */
+internal fun offlineRebasedUrl(connection: ServiceConnection, url: String): String? {
+    if (runCatching { safePlaybackUrl(connection.baseUrl, url) }.isSuccess) return null
+    if (connection.alternateUrl.isBlank()) return null
+    val onAlternate = runCatching { safePlaybackUrl(connection.alternateUrl, url) }.getOrNull() ?: return null
+    val alternateBase = runCatching {
+        app.reelstack.data.network.EndpointValidator.normalizeBaseUrl(connection.alternateUrl).trimEnd('/') + "/"
+    }.getOrNull() ?: return null
+    if (!onAlternate.startsWith(alternateBase, ignoreCase = true)) return null
+    return runCatching { safePlaybackUrl(connection.baseUrl, onAlternate.substring(alternateBase.length)) }.getOrNull()
+}
+
+internal fun offlineRequirements(wifiOnly: Boolean) =
+    Requirements(if (wifiOnly) Requirements.NETWORK_UNMETERED else Requirements.NETWORK)
 
 private data class OfflineScope(val profile: String, val service: String)
 

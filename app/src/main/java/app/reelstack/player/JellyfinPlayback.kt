@@ -258,7 +258,8 @@ class MediaPlaybackClient(
         else -> emptyMap()
     }
 
-    fun verify(connection: ServiceConnection): String {
+    /** [announce] false leaves the capability report to the caller, who can send it in parallel. */
+    fun verify(connection: ServiceConnection, announce: Boolean = true): String {
         if (connection.kind !in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) || connection.token.isBlank()) serviceError(R.string.player_err_sign_in_media)
         val user = read(connection, playbackProfilePath(connection))
         val id = user.str("Id")
@@ -267,7 +268,7 @@ class MediaPlaybackClient(
             serviceError(R.string.player_err_no_permission)
         }
         // Best effort: an older server that does not know the endpoint must not block playback.
-        runCatching { announceCapabilities(connection) }
+        if (announce) runCatching { announceCapabilities(connection) }
         return id
     }
 

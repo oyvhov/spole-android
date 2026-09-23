@@ -905,13 +905,22 @@ internal fun railArtworkUrl(
     // A wide rail must use the server's wide artwork first. Episodes used to prefer their
     // Primary still here, even when heroUrl was a real series Thumb/Backdrop; that left a
     // portrait fallback in RailArtwork, where it was fitted as a tiny picture in the middle.
-    heroUrl?.takeIf { it.isNotBlank() }?.let { return it }
+    heroUrl?.takeIf { it.isNotBlank() }?.let { return railSizedHero(it) }
     if (isEpisode) {
         val isFallbackToPoster = artworkUrl != null && posterUrl != null && artworkUrl == posterUrl
         if (!isFallbackToPoster && artworkUrl != null) return artworkUrl
     }
     return artworkUrl ?: posterUrl
 }
+
+/**
+ * Hero art is requested at 1920 px for the full-width feature. A rail card is at most about 300 dp
+ * wide, so a row of them downloaded three times the pixels it could show.
+ */
+internal fun railSizedHero(url: String): String = url.replace(HERO_IMAGE_SIZE, RAIL_IMAGE_SIZE)
+
+private const val HERO_IMAGE_SIZE = "maxWidth=1920&quality=90"
+private const val RAIL_IMAGE_SIZE = "maxWidth=1080&quality=85"
 
 internal fun resumeRailIsWide(format: String?): Boolean = format != "POSTER"
 

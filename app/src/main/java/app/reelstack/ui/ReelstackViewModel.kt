@@ -43,6 +43,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -324,6 +325,14 @@ class ReelstackViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = _uiState.value.toHomeUiState(),
         )
+    /** The one flag that picks the shell. The root must not redraw for every other change. */
+    val kidShell: StateFlow<Boolean> = uiState
+        .map { it.isKidMode }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = _uiState.value.isKidMode,
+        )
     /** Discover and global search do not need to observe sheet, player or kid-profile mutations. */
     val discoverUiState: StateFlow<DiscoverUiState> = uiState
         .map(ReelstackUiState::toDiscoverUiState)
@@ -462,12 +471,16 @@ class ReelstackViewModel(
         offlineRefreshJob = viewModelScope.launch {
             while (isActive && _uiState.value.selectedTab == AppTab.DOWNLOADS &&
                 _uiState.value.activeProfileId == profileId && !_uiState.value.isKidMode) {
+                val seen = app.reelstack.offline.OfflineDownloadRuntime.changes.value
                 val snapshot = withContext(Dispatchers.IO) { container.offlineDownloads.snapshot(profileId) }
                 _uiState.update { current ->
                     if (current.activeProfileId == profileId && current.selectedTab == AppTab.DOWNLOADS) current.copy(offlineDownloads = snapshot)
                     else current
                 }
-                delay(1_000L)
+                // Byte progress needs a tick while something transfers. Otherwise nothing changes
+                // until Media3 says so, and reading the job table every second was for nothing.
+                if (snapshot.hasActiveDownloads) delay(1_000L)
+                else app.reelstack.offline.OfflineDownloadRuntime.changes.first { it != seen }
             }
         }
     }
@@ -486,8 +499,11 @@ class ReelstackViewModel(
      * player. The Media3 job is created only after the server confirms untouched direct playback;
      * a profile switch during that short negotiation drops the result instead of lending the old
      * account to the new profile.
+     *
+     * [subtitleIndex] does not change the file: every embedded subtitle is downloaded with it.
      */
-    fun enqueueOfflineDownload(media: LibraryMedia, audioIndex: Int? = null, subtitleIndex: Int? = null,
+    fun enqueueOfflineDownload(media: LibraryMedia, audioIndex: Int? = null,
+        @Suppress("UNUSED_PARAMETER") subtitleIndex: Int? = null,
         versionId: String? = null, sourceDetailKey: String = media.id) {
         val state = _uiState.value
         if (state.isKidMode || isTelevision() || !media.mediaType.equals("Movie", true) &&
@@ -520,25 +536,13 @@ class ReelstackViewModel(
                     // staring at a disabled control when a server or route has stopped responding.
                     withTimeoutOrNull(30_000L) {
                     withContext(Dispatchers.IO) {
-                        val playback = app.reelstack.player.MediaPlaybackClient(
-                            deviceId = app.reelstack.data.repository.DeviceIdentity.get(container.appContext),
-                        )
-                        val userId = playback.verify(connection)
-                        val item = playback.item(connection, userId, remoteId)
-                        val plan = playback.prepare(connection, userId, item, bitrate = 80_000_000,
-                            audio = audioIndex, subtitle = subtitleIndex, sourceId = versionId)
-                        app.reelstack.offline.OfflineDownloadRequest(
+                        app.reelstack.offline.negotiateOfflineDownload(
+                            client = app.reelstack.offline.offlineNegotiationClient(container.appContext),
                             profileId = profileId,
                             connection = connection,
-                            candidate = app.reelstack.offline.OfflineMediaCandidate(
-                                itemId = item.id,
-                                service = connection.kind,
-                                requiresTranscode = !plan.direct,
-                                directDownloadUrl = plan.url,
-                            ),
-                            title = item.title,
-                            subtitle = item.subtitle,
-                            mediaType = item.type,
+                            remoteId = remoteId,
+                            audioIndex = audioIndex,
+                            versionId = versionId,
                         )
                     }
                     }
@@ -1315,19 +1319,19 @@ class ReelstackViewModel(
         }
         _uiState.update { it.copy(kidsLibraryLoading = true, kidsLibraryError = false) }
         kidsLibraryJob = viewModelScope.launch {
-            var failed = false
-            val all = withContext(Dispatchers.IO) {
-                servers.flatMap { server ->
-                    runCatching { container.mediaSyncRepository.accountLibrary(server) }
-                        .onFailure { failed = true }.getOrDefault(emptyList())
+            // One library list per server, used for both the shelves and their names; it was fetched
+            // twice. Servers are independent, so they load side by side.
+            val perServer = servers.map { server ->
+                async(Dispatchers.IO) {
+                    val views = runCatching { container.mediaServerClient.browseLibraries(server) }
+                    val titles = views.mapCatching { container.mediaSyncRepository.accountLibrary(server, allViews = it) }
+                    Triple(views.getOrDefault(emptyList()), titles.getOrDefault(emptyList()), titles.isFailure)
                 }
-            }
+            }.map { it.await() }
+            val failed = perServer.any { it.third }
+            val all = perServer.flatMap { it.second }
             val libraries = withContext(Dispatchers.IO) {
-                servers.flatMap { server ->
-                    runCatching {
-                        container.mediaServerClient.browseLibraries(server)
-                    }.onFailure { failed = true }.getOrDefault(emptyList())
-                }.filter { view ->
+                perServer.flatMap { it.first }.filter { view ->
                     val type = view.collectionType?.lowercase(java.util.Locale.ROOT)
                     type in setOf("movies", "tvshows") || type.isNullOrBlank()
                 }.distinctBy { it.id }
@@ -1653,9 +1657,11 @@ class ReelstackViewModel(
         if (connection == null || media.remoteId == null) return
         loadSeasons(connection, media)
         viewModelScope.launch {
+            val started = System.nanoTime()
             val result = attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
             }
+            app.reelstack.data.network.PerfLog.milestone("detail loaded", started)
             result.getOrNull()?.let { remote ->
                 if (_uiState.value.contentDetails?.key == media.id && media.seriesId == null && remote.seriesId != null) {
                     loadSeasons(connection, media.copy(seriesId = remote.seriesId, season = remote.season, episode = remote.episode))
@@ -1735,6 +1741,11 @@ class ReelstackViewModel(
         _uiState.update { it.copy(seriesBrowse = app.reelstack.data.model.SeriesBrowse(
             seriesId = seriesId, openedFor = media.id, loading = true)) }
         seasonsJob = viewModelScope.launch {
+            // Where the reader is in the series does not depend on the season list. Asking for
+            // both at once puts the episodes on screen one round trip (sometimes two) sooner.
+            val nextUpLookup = async(Dispatchers.IO) {
+                runCatching { container.mediaSyncRepository.seriesNextUp(connection, seriesId) }.getOrNull()
+            }
             val loaded = runCatching {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.seasons(connection, seriesId) }
             }
@@ -1752,9 +1763,7 @@ class ReelstackViewModel(
                 ))
             }
             // The season the reader is actually in the middle of, when the server knows one.
-            val nextUp = runCatching {
-                withContext(Dispatchers.IO) { container.mediaSyncRepository.seriesNextUp(connection, seriesId) }
-            }.getOrNull()
+            val nextUp = nextUpLookup.await()
             if (isActive && nextUp != null) _uiState.update {
                 if (it.seriesBrowse.seriesId != seriesId) it else it.copy(seriesBrowse = it.seriesBrowse.copy(nextUp = nextUp))
             }

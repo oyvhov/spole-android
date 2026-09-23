@@ -335,79 +335,80 @@ class MediaServerClient(
         }
     }
 
+    internal val supportsConcurrentCalls: Boolean get() = transport.supportsConcurrentCalls
+
+    /** In parallel when the transport allows it, otherwise exactly in order as before. */
+    private fun <T, R> concurrently(items: List<T>, block: (T) -> R): List<R> =
+        if (transport.supportsConcurrentCalls) parallelMap(items, block) else items.map(block)
+
+    private fun <A, B> concurrentPair(first: () -> A, second: () -> B): Pair<A, B> =
+        if (transport.supportsConcurrentCalls) parallelPair(first, second) else first() to second()
+
     private fun localAccess(connection: ServiceConnection) = ViewerAccess(false,
         runCatching { AccountProfileClient(deviceId, transport).load(connection) }.getOrNull()
             ?.let { mapOf(connection.kind to it) }.orEmpty())
 
     fun feed(connection: ServiceConnection, access: ViewerAccess = localAccess(connection)): MediaServerFeed {
+        // Every request of one feed shares a small budget, however the work below is split up.
+        if (transport !is LimitedTransport) {
+            return MediaServerClient(LimitedTransport(transport, FEED_PARALLEL_REQUESTS), deviceId, includeLibrary)
+                .feed(connection, access)
+        }
         val warnings = mutableListOf<LocalizedText>()
-        val sessionsResult = runCatching { sessions(connection, access) }
+        val allowFallback = !access.seerrConfigured || access.isAdmin
+        // Sessions and the profile's libraries do not depend on each other.
+        val (sessionsResult, identity) = concurrentPair(
+            { runCatching { sessions(connection, access) } },
+            {
+                val userId = access.ownMediaUser(connection.kind) ?: if (allowFallback) connection.userId.takeIf { it.isNotBlank() }
+                    ?: runCatching { currentUserId(connection) }.getOrNull()
+                    ?: runCatching { preferredAvailableUserId(connection) }.getOrNull() else null
+                val encoded = userId?.let(::encodePathSegment)
+                userId to runCatching { libraryViews(connection, requireNotNull(encoded) { "profile id missing" }) }
+            },
+        )
         val sessions = sessionsResult.getOrElse {
             warnings += LocalizedText(R.string.warn_sessions_unavailable)
             emptyList()
         }
-        val allowFallback = !access.seerrConfigured || access.isAdmin
-        val userId = access.ownMediaUser(connection.kind) ?: if (allowFallback) connection.userId.takeIf { it.isNotBlank() }
-            ?: runCatching { currentUserId(connection) }.getOrNull()
-            ?: runCatching { preferredAvailableUserId(connection) }.getOrNull() else null
+        val (userId, viewsResult) = identity
         if (userId == null && !allowFallback) {
             return MediaServerFeed(sessions = sessions, recentMovies = emptyList(), recentSeries = emptyList(),
                 warnings = listOf(LocalizedText(R.string.err_bibliotekprofilen_prover_igjen)))
         }
 
         val encodedUserId = userId?.let(::encodePathSegment)
-        val viewsResult = runCatching { libraryViews(connection, requireNotNull(encodedUserId) { "profile id missing" }) }
+        // Each row asks every library it covers; the rows, and the libraries inside each row, are
+        // fetched at the same time. This used to be about twenty requests one after another.
+        val rows = concurrently(listOf<() -> Result<List<RemoteLibraryItem>>>(
+            { runCatching { latestAcrossLibraries(connection, encodedUserId, "Movie", false, viewsResult.getOrThrow()) } },
+            { runCatching { latestAcrossLibraries(connection, encodedUserId, "Episode", false, viewsResult.getOrThrow()) } },
+            { runCatching { resume(connection, requireNotNull(encodedUserId) { "profile id missing" }, viewsResult.getOrThrow()) } },
+            { runCatching { releasedAcrossLibraries(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow()) } },
+            { runCatching { nextUp(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow()) } },
+            { runCatching { favourites(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow()) } },
+        )) { it() }
+        val (moviesResult, seriesResult, resumeResult) = rows
+        val releasesResult = rows[3]
 
-        val moviesResult = runCatching {
-            latestAcrossLibraries(
-                connection = connection,
-                userId = encodedUserId,
-                itemType = "Movie",
-                groupItems = false,
-                views = viewsResult.getOrThrow(),
-            )
-        }
         val movies = moviesResult.getOrElse {
             warnings += LocalizedText(R.string.warn_recent_movies_unavailable)
             emptyList()
-        }
-        val seriesResult = runCatching {
-            latestAcrossLibraries(
-                connection = connection,
-                userId = encodedUserId,
-                itemType = "Episode",
-                groupItems = false,
-                views = viewsResult.getOrThrow(),
-            )
         }
         val series = seriesResult.getOrElse {
             warnings += LocalizedText(R.string.warn_recent_series_unavailable)
             emptyList()
         }
-
-        val resumeResult = runCatching {
-            resume(connection, requireNotNull(encodedUserId) { "profile id missing" }, viewsResult.getOrThrow())
-        }
         val resume = resumeResult.getOrElse {
             warnings += LocalizedText(R.string.warn_resume_unavailable)
             emptyList()
         }
-
-        val releasesResult = runCatching {
-            releasedAcrossLibraries(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
-        }
-
-        val nextUp = runCatching {
-            nextUp(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
-        }.getOrElse {
+        val nextUp = rows[4].getOrElse {
             warnings += LocalizedText(R.string.warn_next_up_unavailable)
             emptyList()
         }
-
         // Favourites are an extra: a server that cannot answer must not cost the whole feed.
-        val favourites = runCatching {
-            favourites(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow())
-        }.getOrDefault(emptyList())
+        val favourites = rows[5].getOrDefault(emptyList())
 
         if (userId == null && connection.kind == ServiceKind.EMBY) {
             warnings += LocalizedText(R.string.warn_emby_profile_id)
@@ -458,14 +459,14 @@ class MediaServerClient(
             // the server provides one. The episode's own still remains the fallback.
             "&Fields=Overview,Genres,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&ImageTypeLimit=2" +
             "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&EnableUserData=true"
-        val groups = allowed.mapNotNull { view ->
+        val groups = concurrently(allowed) { view ->
             val scoped = "$query&ParentId=${encodePathSegment(view.id)}"
             val paths = when (connection.kind) {
                 ServiceKind.JELLYFIN -> listOf("UserItems/Resume?userId=$userId&$scoped", "Users/$userId/Items/Resume?$scoped")
                 else -> listOf("Users/$userId/Items/Resume?$scoped")
             }
             runCatching { getItems(connection, paths, preferEpisodeStill = false).map { it.copy(libraryId = view.id) } }.getOrNull()
-        }
+        }.filterNotNull()
         if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_hald_fram)
         return interleave(groups).distinctBy(RemoteLibraryItem::id)
             .sortedByDescending { it.lastActivityEpochMillis ?: Long.MIN_VALUE }.take(RESUME_ITEM_LIMIT)
@@ -491,12 +492,12 @@ class MediaServerClient(
         val query = "Recursive=true&Filters=IsFavorite&IncludeItemTypes=Movie,Series,Episode&Limit=24" +
             "&SortBy=SortName&SortOrder=Ascending&EnableUserData=true&Fields=Overview,Genres,$LIBRARY_RATING_FIELDS" +
             "&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Logo,Backdrop"
-        val groups = allowed.mapNotNull { view ->
+        val groups = concurrently(allowed) { view ->
             runCatching {
                 getItems(connection, listOf("Items?userId=$userId&ParentId=${encodePathSegment(view.id)}&$query"))
                     .map { it.copy(libraryId = view.id) }
             }.getOrNull()
-        }
+        }.filterNotNull()
         return interleave(groups).distinctBy(RemoteLibraryItem::id).take(24)
     }
 
@@ -573,7 +574,7 @@ class MediaServerClient(
         val allowed = views.filter { includeLibrary(connection, it) &&
             (it.collectionType.isNullOrBlank() || it.collectionType.lowercase(java.util.Locale.ROOT) in setOf("tvshows", "mixed")) }
         if (allowed.isEmpty()) return emptyList()
-        val groups = allowed.mapNotNull { view ->
+        val groups = concurrently(allowed) { view ->
             runCatching {
                 getItems(connection, listOf("Shows/NextUp?UserId=$userId&ParentId=${encodePathSegment(view.id)}" +
                     "&Limit=24&EnableUserData=true&EnableResumable=false" +
@@ -581,7 +582,7 @@ class MediaServerClient(
                     "&EnableImageTypes=Primary,Thumb,Logo,Backdrop"), preferEpisodeStill = true)
                     .map { it.copy(libraryId = view.id) }
             }.getOrNull()
-        }
+        }.filterNotNull()
         if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_neste_episode)
         val episodes = interleave(groups).distinctBy(RemoteLibraryItem::id).take(24)
         val series = episodes.filter { it.lastActivityEpochMillis == null }.mapNotNull { it.seriesId }.distinct().take(6)
@@ -626,14 +627,14 @@ class MediaServerClient(
             "&Fields=Overview,Genres,PrimaryImageAspectRatio,ProviderIds,PremiereDate,$LIBRARY_RATING_FIELDS" +
             "&EnableImages=true&ImageTypeLimit=1" +
             "&EnableImageTypes=Primary,Thumb,Logo,Backdrop&EnableUserData=true&IsMissing=false"
-        val groups = allowed.mapNotNull { view ->
+        val groups = concurrently(allowed) { view ->
             val scoped = "$query&ParentId=${encodePathSegment(view.id)}"
             val paths = when (connection.kind) {
                 ServiceKind.JELLYFIN -> listOf("Items?userId=$userId&$scoped", "Users/$userId/Items?$scoped")
                 else -> listOf("Users/$userId/Items?$scoped")
             }
             runCatching { getItems(connection, paths) }.getOrNull()
-        }
+        }.filterNotNull()
         if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_soke_i_biblioteket)
         return interleave(groups).distinctBy(RemoteLibraryItem::id).take(SEARCH_ITEM_LIMIT)
     }
@@ -771,7 +772,7 @@ class MediaServerClient(
         val relevant = views.filter { includeLibrary(connection, it) && (it.supports("Movie") || it.supports("Episode")) }
 
         if (relevant.isEmpty()) return emptyList()
-        val groups = relevant.flatMap { view -> listOf("Movie", "Episode").filter { view.supports(it) }.map { view to it } }.mapNotNull { (view, type) ->
+        val groups = concurrently(relevant.flatMap { view -> listOf("Movie", "Episode").filter { view.supports(it) }.map { view to it } }) { (view, type) ->
             // A movie can reach digital months after cinema. Query candidates, then verify the
             // actual digital date through Seerr. Episodes use their own air date directly.
             val start = if (type == "Movie") window.today.minusYears(1) else window.start
@@ -785,7 +786,7 @@ class MediaServerClient(
                 } else listOf("Users/$userId/Items?$query")
                 getItems(connection, paths, preferEpisodeStill = type.equals("Episode", ignoreCase = true))
             }.getOrNull()
-        }
+        }.filterNotNull()
         if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_nye_utgjevingar)
         return groups.flatten().distinctBy(RemoteLibraryItem::id).filter { it.available }
     }
@@ -977,7 +978,7 @@ class MediaServerClient(
         val relevantViews = views.filter { it.supports(itemType) && includeLibrary(connection, it) }
         // Never fall back to an unscoped query that could reintroduce excluded libraries.
         if (relevantViews.isEmpty()) return emptyList()
-        val successfulGroups = relevantViews.mapNotNull { view ->
+        val successfulGroups = concurrently(relevantViews) { view ->
             runCatching {
                     getItems(
                         connection,
@@ -985,7 +986,7 @@ class MediaServerClient(
                         preferEpisodeStill = itemType.equals("Episode", ignoreCase = true),
                     ).map { it.copy(libraryId = view.id) }
             }.getOrNull()
-        }
+        }.filterNotNull()
         if (successfulGroups.isEmpty()) serviceError(R.string.err_fekk_ikkje_oppdatert_dei)
         return interleave(successfulGroups).distinctBy(RemoteLibraryItem::id).take(LATEST_ITEM_LIMIT)
     }
@@ -1254,45 +1255,36 @@ class SeerrServiceClient(
             sessionCookie = connection.sessionCookie,
             userId = connection.userId,
         )
-        // Failures are deduplicated only within this refresh, so the next refresh can retry.
-        val detailCache = mutableMapOf<Pair<String, Int>, RequestMetadata?>()
-        var detailLookups = 0
-        val requests = ServicePayloadParser.requests(requestsResponse.body).filter { actor.isAdmin || it.ownerId == actor.id }.map { request ->
-            val remoteId = request.remoteId ?: return@map request
-            val key = request.mediaType to remoteId
-            val discovered = discoveredByMedia[key]
-            val enriched = request.copy(
+        val parsed = ServicePayloadParser.requests(requestsResponse.body).filter { actor.isAdmin || it.ownerId == actor.id }
+        fun enriched(request: RemoteRequest): RemoteRequest {
+            val discovered = request.remoteId?.let { discoveredByMedia[request.mediaType to it] }
+            return request.copy(
                 title = request.title?.takeIf { it.isNotBlank() } ?: discovered?.title,
                 artworkUrl = request.artworkUrl ?: discovered?.artworkUrl,
             )
-            if ((!enriched.title.isNullOrBlank() && enriched.artworkUrl != null) ||
-                request.mediaType !in setOf("movie", "tv")
-            ) return@map enriched
-
-            if (key !in detailCache) {
-                val cacheKey = RequestMetadataKey(scope, request.mediaType, remoteId)
-                val cached = cachedRequestMetadata(cacheKey)
-                if (cached != null) {
-                    detailCache[key] = cached
-                } else if (detailLookups < REQUEST_DETAIL_LIMIT) {
-                    detailLookups++
-                    detailCache[key] = runCatching {
-                        val response = transport.get(
-                            EndpointValidator.resolve(connection.baseUrl, "api/v1/${request.mediaType}/$remoteId"),
-                            requestHeaders,
-                        )
-                        response.requireSuccess(connection.kind)
-                        val details = ServicePayloadParser.mediaDetails(response.body)
-                        RequestMetadata(details.title?.takeIf { it.isNotBlank() }, details.artworkUrl)
-                            .takeIf { it.title != null || it.artworkUrl != null }
-                            ?.also { cacheRequestMetadata(cacheKey, it) }
-                    }.getOrNull()
-                }
-            }
-            val details = detailCache[key]
-            enriched.copy(
-                title = enriched.title?.takeIf { it.isNotBlank() } ?: details?.title,
-                artworkUrl = enriched.artworkUrl ?: details?.artworkUrl,
+        }
+        fun needsDetails(request: RemoteRequest) = request.remoteId != null && request.mediaType in setOf("movie", "tv") &&
+            enriched(request).let { it.title.isNullOrBlank() || it.artworkUrl == null }
+        // Failures are deduplicated only within this refresh, so the next refresh can retry.
+        val detailCache = mutableMapOf<Pair<String, Int>, RequestMetadata?>()
+        val toFetch = mutableListOf<Pair<String, Int>>()
+        parsed.filter(::needsDetails).map { it.mediaType to it.remoteId!! }.distinct().forEach { key ->
+            val cached = cachedRequestMetadata(RequestMetadataKey(scope, key.first, key.second))
+            if (cached != null) detailCache[key] = cached
+            else if (toFetch.size < REQUEST_DETAIL_LIMIT) toFetch += key
+        }
+        // Up to twenty title lookups went one after another; they are independent of each other.
+        val fetched = (if (transport.supportsConcurrentCalls) parallelMap(toFetch) { key -> requestMetadata(connection, requestHeaders, scope, key) }
+            else toFetch.map { key -> requestMetadata(connection, requestHeaders, scope, key) })
+        toFetch.zip(fetched).forEach { (key, metadata) -> detailCache[key] = metadata }
+        val requests = parsed.map { request ->
+            if (request.remoteId == null) return@map request
+            val base = enriched(request)
+            if (!needsDetails(request)) return@map base
+            val details = detailCache[request.mediaType to request.remoteId!!]
+            base.copy(
+                title = base.title?.takeIf { it.isNotBlank() } ?: details?.title,
+                artworkUrl = base.artworkUrl ?: details?.artworkUrl,
             )
         }
         return SeerrFeed(
@@ -1379,6 +1371,20 @@ class SeerrServiceClient(
         if (response.statusCode == 404) serviceError(R.string.err_forespurnaden_var_alt_fjerna)
         response.requireSuccess(connection.kind)
     }
+
+    private fun requestMetadata(
+        connection: ServiceConnection,
+        headers: Map<String, String>,
+        scope: RequestMetadataScope,
+        key: Pair<String, Int>,
+    ): RequestMetadata? = runCatching {
+        val response = transport.get(EndpointValidator.resolve(connection.baseUrl, "api/v1/${key.first}/${key.second}"), headers)
+        response.requireSuccess(connection.kind)
+        val details = ServicePayloadParser.mediaDetails(response.body)
+        RequestMetadata(details.title?.takeIf { it.isNotBlank() }, details.artworkUrl)
+            .takeIf { it.title != null || it.artworkUrl != null }
+            ?.also { cacheRequestMetadata(RequestMetadataKey(scope, key.first, key.second), it) }
+    }.getOrNull()
 
     private fun cachedRequestMetadata(key: RequestMetadataKey): RequestMetadata? = synchronized(requestMetadataCache) {
         val cached = requestMetadataCache[key] ?: return@synchronized null

@@ -24,6 +24,27 @@ class ViewerAccessTest {
         assertTrue(transport.urls.none { it.contains("/Items") || it.contains("/request") || it.contains("/discover") })
         assertEquals(0, transport.writes)
     }
+    @Test fun playbackChecksReuseConfirmedAccountsUntilTheyExpire() = kotlinx.coroutines.runBlocking {
+        var now = 0L
+        val transport = Transport { url -> HttpResponse(200, when {
+            url.contains("auth/me") -> """{"id":7,"jellyfinUserId":"own","permissions":32}"""
+            url.endsWith("Sessions") -> """[{"Id":"mine","UserId":"own","NowPlayingItem":{"Id":"1","Name":"Own"}},{"Id":"other","UserId":"other","NowPlayingItem":{"Id":"2","Name":"Private"}}]"""
+            else -> """{"Id":"own","Name":"Person","Policy":{"IsAdministrator":false}}"""
+        }) }
+        val repository = app.reelstack.data.repository.MediaSyncRepository(
+            mediaServerClient = MediaServerClient(transport), accountProfileClient = AccountProfileClient(transport = transport),
+            clockMillis = { now },
+        )
+        val connections = listOf(connection, ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "cookie", sessionCookie = true))
+        fun profileReads() = transport.urls.count { it.contains("auth/me") || it.endsWith("Users/Me") }
+
+        repeat(3) { assertEquals(listOf("mine"), repository.refreshPlayback(connections).map { it.sessionId }) }
+        assertEquals(2, profileReads())
+
+        now += 6 * 60_000L
+        assertEquals(listOf("mine"), repository.refreshPlayback(connections).map { it.sessionId })
+        assertEquals(4, profileReads())
+    }
     private val seerr = ServiceAccount(ServiceKind.SEERR, "7", "Same name", permissions = 32, mediaUserId = "own")
     private val media = ServiceAccount(ServiceKind.JELLYFIN, "own", "Same name")
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Server", "https://media.example", "test", "wrong-form-id")

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.18.0-beta7 - nedlasting som verkar, og ein raskare heimeskjerm
+
+- **Rettar nedlasting.** Forhandlinga med tenaren brukte ein nøktern standardprofil (H.264 og
+  stereo-AAC) i staden for det eininga faktisk kan spele. Filer med 5.1-lyd, HEVC eller 4K vart
+  difor avviste som «ikkje direkte». No gjeld same vurdering som for avspeling, med FFmpeg-lyd.
+  Ein bilettekst (PGS) som standard gjer ikkje lenger fila til eit avslag, og ingen
+  straumingsgrense avgrensar ei nedlasting.
+- Offline-spelaren har fått same lydavkodarar som den vanlege spelaren, slik at nedlasta filer med
+  EAC3/DTS-lyd ikkje spelar utan lyd.
+- Ein nedlastingsjobb følgjer kontoen til den andre adressa når Spole har bytt (heimenett til
+  mobilnett), i staden for å bli ståande fast.
+- Oppstart startar ikkje lenger nedlastingstenesta frå bakgrunnen, noko som kunne krasje appen når
+  Android starta prosessen for ein bakgrunnsjobb. Uferdige nedlastingar held fram når appen blir opna.
+- Heimeskjermen hentar rader og bibliotek frå Jellyfin og Emby samstundes (maks seks kall om gongen
+  per tenar) i staden for om lag tjue kall etter kvarandre.
+- Utanfor heimenettet vel Spole den adressa som svarar før han spør om konto og innhald. Det tek
+  eit par sekund, ikkje eit halvt minutt.
+- Innloggingstoken blir ikkje lenger dekryptert via Android Keystore for kvart plakatbilete.
+- Avspelingssjekken startar ikkje på nytt, og opnar ikkje ny WebSocket, kvar gong ein detaljside
+  opnar, og han kjem no i gang ved kald start. Han hentar heller ikkje kontoprofilane på nytt kvart
+  femte sekund.
+- Avspeling startar raskare: kontosjekk, kontoprofilar og tittel blir henta samstundes.
+- Breie kort hentar bakgrunnsbilete i kortstorleik, ikkje i 1920 px.
+
 ## 0.18.0-beta6 - tydeleg nedlastingsrespons
 
 - Gjer nedlastingshandlinga på mobil/nettbrett synleg med ein gong: førebuing blokkerer dobbelt-

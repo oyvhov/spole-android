@@ -33,6 +33,9 @@ interface JsonHttpTransport {
     /** Defaulted so a read-only fake stays valid; only the request flow needs to withdraw anything. */
     fun delete(url: String, headers: Map<String, String>): HttpResponse =
         error("this transport does not implement delete")
+
+    /** Whether calls may overlap from several threads. Callers must not assume so otherwise. */
+    val supportsConcurrentCalls: Boolean get() = false
 }
 
 class HttpTransport(
@@ -44,6 +47,9 @@ class HttpTransport(
         .readTimeout(readTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
         .build(),
 ) : JsonHttpTransport {
+    /** OkHttp's client is built for concurrent calls, and this class keeps no state of its own. */
+    override val supportsConcurrentCalls: Boolean get() = true
+
     override fun get(url: String, headers: Map<String, String>): HttpResponse =
         // GET is the only method retried. A home server on the far side of a phone's mobile
         // connection drops the occasional first attempt, and re-reading a dashboard row is free.
@@ -60,6 +66,11 @@ class HttpTransport(
     private fun <T> retrying(block: () -> T): T = try {
         block()
     } catch (first: IOException) {
+        // A host that could not be found, or did not accept a connection within the timeout,
+        // will not do so a moment later. Retrying those only doubled the wait for a dead route.
+        if (first is java.net.UnknownHostException ||
+            first is java.net.SocketTimeoutException && first.message?.contains("connect", ignoreCase = true) == true
+        ) throw first
         try {
             block()
         } catch (_: IOException) {
@@ -92,6 +103,7 @@ class HttpTransport(
         }
         requestBuilder.method(method, body)
 
+        val started = System.nanoTime()
         return client.newCall(requestBuilder.build()).execute().use { response ->
             val status = response.code
             val stream = response.body?.byteStream()
@@ -109,6 +121,7 @@ class HttpTransport(
                 output.toString(StandardCharsets.UTF_8.name())
             }.orEmpty()
 
+            PerfLog.request(method, validatedUrl, status, started)
             HttpResponse(
                 statusCode = status,
                 body = responseBody,

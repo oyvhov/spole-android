@@ -104,17 +104,37 @@ class MediaSyncRepository(
     private val recommendationsClient: RecommendationsClient = RecommendationsClient(),
     private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
     private val seerrReleaseClient: SeerrReleaseClient = SeerrReleaseClient(),
+    private val clockMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val routeProbe: (ServiceConnection) -> Boolean = { answersQuickly(it) },
 ) {
+    private class Identities(val key: List<String>, val accounts: Map<ServiceKind, app.reelstack.data.model.ServiceAccount>, val atMillis: Long)
+
+    /**
+     * The accounts the last full refresh confirmed. The playback check runs every five seconds
+     * while something plays, and it used to load three profiles before each sessions call. The
+     * server still decides what each account may see; this only avoids asking who we are again.
+     */
+    @Volatile private var identities: Identities? = null
+
+    private fun identityKey(configured: List<ServiceConnection>) = configured
+        .filter { it.kind in IDENTITY_SERVICES }
+        .map { "${it.kind}|${it.identity}|${it.userId}|${it.token}" }.sorted()
+
     /** Refresh only playback, retaining the same server-verified visibility rules as a full sync. */
     suspend fun refreshPlayback(connections: List<ServiceConnection>): List<PlaybackSession> = supervisorScope {
         val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
-        val identities = configured.filter { it.kind in setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY) }
+        val key = identityKey(configured)
+        val known = identities?.takeIf { it.key == key && clockMillis() - it.atMillis < IDENTITY_TTL_MILLIS }?.accounts
+        val accounts = known ?: configured.filter { it.kind in IDENTITY_SERVICES }
             .map { connection -> async { runCatching { accountProfileClient.load(connection) }.getOrNull()?.let { connection.kind to it } } }
             .mapNotNull { it.await() }.toMap()
-        val access = ViewerAccess(configured.any { it.kind == ServiceKind.SEERR }, identities)
+            .also { loaded -> if (loaded.size == key.size) identities = Identities(key, loaded, clockMillis()) }
+        val access = ViewerAccess(configured.any { it.kind == ServiceKind.SEERR }, accounts)
         configured.filter { it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY }
             .map { connection -> async {
                 runCatching { mediaServerClient.sessions(connection, access).map { playbackSession(it, connection.kind) } }
+                    // A refused or failed call may mean the account changed: confirm it next time.
+                    .onFailure { identities = null }
                     .getOrDefault(emptyList())
             } }.awaitAll().flatten().distinctBy { it.key }
     }
@@ -130,8 +150,16 @@ class MediaSyncRepository(
         includeRecommendations: Boolean = true,
         onLibraryReady: (LibraryFeedUpdate) -> Unit = {},
     ): MediaSyncSnapshot = supervisorScope {
-        val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
-        val profileJobs = configured.filter { it.kind in setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY) }
+        // Choose each account's live address once, before anything is asked of it.
+        val routes = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
+            .map { connection -> async(kotlinx.coroutines.Dispatchers.IO) { route(connection) } }.awaitAll()
+        val configured = routes.map { it.first }
+        val movedBeforeFetch = routes.filter { it.second }.mapTo(mutableSetOf()) { it.first.kind }
+        // The shared list needs nothing from the user's own servers; it used to wait for all of them.
+        val recommendationJob = if (!includeRecommendations) null else async(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { recommendationsClient.feed().map(::recommendationMedia) }
+        }
+        val profileJobs =configured.filter { it.kind in setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY) }
             .associate { connection -> connection.kind to async(kotlinx.coroutines.Dispatchers.IO) {
                 runCatching { accountProfileClient.load(connection) }.getOrNull()
             } }
@@ -153,6 +181,9 @@ class MediaSyncRepository(
                 result
             } }
         val identities = profileJobs.mapNotNull { (kind, job) -> job.await()?.let { kind to it } }.toMap()
+        if (identities.size == profileJobs.size) {
+            this@MediaSyncRepository.identities = Identities(identityKey(configured), identities, clockMillis())
+        }
         val access = ViewerAccess(configured.any { it.kind == ServiceKind.SEERR }, identities)
         val deferred = configured.map { connection ->
             async {
@@ -170,7 +201,9 @@ class MediaSyncRepository(
             }
         }
         val awaited = deferred.map { it.await() }
-        val switchedToAlternate = awaited.filter { it.second.second }.mapTo(mutableSetOf()) { it.first }
+        // Moving before the fetch and failing back during it cancel each other out.
+        val movedDuringFetch = awaited.filter { it.second.second }.mapTo(mutableSetOf()) { it.first }
+        val switchedToAlternate = (movedBeforeFetch + movedDuringFetch) - (movedBeforeFetch intersect movedDuringFetch)
         val results = awaited.map { it.first to it.second.first }
         val successful = results.filter { it.second.isSuccess }.mapTo(mutableSetOf()) { it.first }
         val errors = results.mapNotNull { (kind, result) ->
@@ -202,9 +235,7 @@ class MediaSyncRepository(
             .distinctBy { "${it.mediaType.lowercase(Locale.ROOT)}:${it.title.lowercase(Locale.ROOT).trim()}" }
         val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
-        val recommendationResult = if (!includeRecommendations) Result.success(emptyList()) else runCatching {
-            recommendationsClient.feed().map(::recommendationMedia)
-        }
+        val recommendationResult = recommendationJob?.await() ?: Result.success(emptyList())
         val recommendationSeed = recommendationResult.getOrDefault(emptyList())
         // The public recommendation feed deliberately contains no private Seerr state. Resolve
         // that state during refresh instead of waiting for a tap on the card. This means Home can
@@ -302,8 +333,12 @@ class MediaSyncRepository(
      * Paged, with a ceiling, because a shelf of a thousand posters is a scroll no child finishes
      * and a request no home server should have to answer at once.
      */
-    fun accountLibrary(connection: ServiceConnection, perLibraryLimit: Int = 400): List<LibraryMedia> {
-        val views = mediaServerClient.browseLibraries(connection)
+    fun accountLibrary(
+        connection: ServiceConnection,
+        perLibraryLimit: Int = 400,
+        allViews: List<app.reelstack.data.network.RemoteLibraryView> = mediaServerClient.browseLibraries(connection),
+    ): List<LibraryMedia> {
+        val views = allViews
             // Film and series libraries only.
             //
             // A collections view ("boxsets") is not a library of its own: listing its children flat
@@ -314,8 +349,9 @@ class MediaSyncRepository(
             .filter { view ->
                 view.collectionType?.lowercase(java.util.Locale.ROOT) in setOf("movies", "tvshows")
             }
-        val out = mutableListOf<LibraryMedia>()
-        for (view in views) {
+        // Pages within one library follow each other; the libraries themselves do not need to.
+        fun library(view: app.reelstack.data.network.RemoteLibraryView): List<LibraryMedia> {
+            val out = mutableListOf<LibraryMedia>()
             var offset = 0
             while (offset < perLibraryLimit) {
                 // Passing the collection type is what makes this recursive and typed — Movie for a
@@ -325,8 +361,10 @@ class MediaSyncRepository(
                 if (page.size < 60) break
                 offset += page.size
             }
+            return out
         }
-        return out
+        return (if (mediaServerClient.supportsConcurrentCalls) app.reelstack.data.network.parallelMap(views, ::library)
+            else views.map(::library)).flatten()
     }
 
     /** The newest titles in one library, already mapped for the screen. */
@@ -456,9 +494,22 @@ class MediaSyncRepository(
     }
 
     /**
-     * Tries the address in use, then the alternate. Only a failure pays for the second attempt, so
-     * the ordinary case at home costs exactly what it did before. Returns whether the alternate is
-     * the one that answered.
+     * The address to use for this refresh, and whether it is the alternate.
+     *
+     * An address that does not answer costs a connect timeout on every request, the account
+     * lookup included: leaving the home network meant half a minute of empty Home, and then a feed
+     * without a profile. A short knock first makes it a couple of seconds. At home it costs one
+     * small request, and only for accounts that have a second address at all.
+     */
+    private fun route(connection: ServiceConnection): Pair<ServiceConnection, Boolean> {
+        if (!connection.hasAlternate || routeProbe(connection)) return connection to false
+        val swapped = connection.copy(baseUrl = connection.alternateUrl, alternateUrl = connection.baseUrl)
+        return if (routeProbe(swapped)) swapped to true else connection to false
+    }
+
+    /**
+     * Tries the address in use, then the alternate. Only a failure pays for the second attempt.
+     * Returns whether the alternate is the one that answered.
      */
     private fun fetchWithFailover(
         connection: ServiceConnection,
@@ -743,10 +794,31 @@ class MediaSyncRepository(
         // renders a small number of cards, while the remaining entries can still be checked when
         // the user opens them from the catalogue in a later step.
         const val RECOMMENDATION_STATUS_LOOKUP_LIMIT = 12
+        val IDENTITY_SERVICES = setOf(ServiceKind.SEERR, ServiceKind.JELLYFIN, ServiceKind.EMBY)
+        const val IDENTITY_TTL_MILLIS = 5 * 60_000L
     }
 }
 
 /** Prefer a verified library copy; retain distinct episodes but avoid repeated source cards. */
+/**
+ * Whether anything answers at this address within a couple of seconds. Any HTTP status counts,
+ * a refusal included: the question is only whether the route is alive, not whether we may use it.
+ */
+internal fun answersQuickly(
+    connection: ServiceConnection,
+    transport: app.reelstack.data.network.JsonHttpTransport =
+        app.reelstack.data.network.HttpTransport(connectTimeoutMs = 2_000, readTimeoutMs = 3_000),
+): Boolean {
+    val path = when (connection.kind) {
+        ServiceKind.JELLYFIN, ServiceKind.EMBY -> "System/Info/Public"
+        ServiceKind.SEERR -> "api/v1/status"
+        ServiceKind.RADARR, ServiceKind.SONARR -> "ping"
+    }
+    return runCatching {
+        transport.get(app.reelstack.data.network.EndpointValidator.resolve(connection.baseUrl, path), emptyMap())
+    }.isSuccess
+}
+
 internal fun mergeReleaseItems(items: List<UpcomingMedia>): List<UpcomingMedia> = items.distinctBy {
     val episode = if (it.mediaType.equals("Episode", true)) Regex("S\\d+ E\\d+").find(it.subtitle)?.value ?: it.id else "movie"
     "${it.title.lowercase(Locale.ROOT).trim()}|$episode"

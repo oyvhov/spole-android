@@ -131,8 +131,12 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
     private val mutable = MutableStateFlow(PlayerScreenState())
     val state = mutable.asStateFlow()
     private var source: OfflinePlaybackSource? = null
+    // A download is accepted with the same FFmpeg audio the online player uses, so the local player
+    // needs the same renderers. Without them an EAC3 or DTS film played with no sound.
+    private val localAudioFallback = LocalAudioFallback()
 
-    val player: ExoPlayer = ExoPlayer.Builder(container.appContext)
+    val player: ExoPlayer = ExoPlayer.Builder(container.appContext,
+        PlaybackRenderersFactory(container.appContext, localAudioFallback))
         .setMediaSourceFactory(DefaultMediaSourceFactory(OfflineDownloadRuntime.offlineDataSourceFactory(container.appContext)))
         .build()
         .also { player ->
@@ -156,6 +160,21 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    if (localAudioFallback.tryEnable(error)) {
+                        // A platform decoder that claimed the track and then failed: hand the same
+                        // local file to the bundled decoder, from the same position.
+                        val position = player.currentPosition.coerceAtLeast(0)
+                        val playWhenReady = player.playWhenReady
+                        val item = player.currentMediaItem
+                        if (item != null) {
+                            player.stop()
+                            player.setMediaItem(item, position)
+                            mutable.update { it.copy(error = null, busy = true) }
+                            player.prepare()
+                            player.playWhenReady = playWhenReady
+                            return
+                        }
+                    }
                     mutable.update { it.copy(busy = false, error = appString(R.string.offline_playback_failed)) }
                 }
             })
@@ -184,6 +203,7 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
                 return@launch
             }
             source = resolved
+            localAudioFallback.reset()
             val item = MediaItem.Builder()
                 .setMediaId(resolved.id)
                 .setUri(resolved.uri)

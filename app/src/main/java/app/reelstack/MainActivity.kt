@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -12,11 +13,21 @@ import androidx.compose.runtime.mutableStateOf
 import app.reelstack.ui.ReelstackApp
 import app.reelstack.ui.ReelstackViewModel
 import app.reelstack.ui.theme.ReelstackTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : app.reelstack.localization.LocalizedActivity() {
     private var pendingSetupLink by mutableStateOf<String?>(null)
     private var pendingRequests by mutableStateOf(false)
     private var pendingDownloads by mutableStateOf(false)
+
+    override fun onStart() {
+        super.onStart()
+        // Resume downloads a killed process left unfinished. Only a visible activity may start the
+        // service, which is why this is here and not in Application.onCreate.
+        val offline = (application as ReelstackApplication).container.offlineDownloads
+        lifecycleScope.launch(Dispatchers.IO) { offline.resumeUnfinished() }
+    }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
@@ -46,8 +57,10 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     // Kids mode is a separate shell beside the adult app, not a condition inside
                     // it: no rail, no tabs, no detail sheet. Branching here is what keeps that
                     // promise structural instead of a growing list of `if (isKidMode)` checks.
-                    val kidMode by reelstackViewModel.uiState.collectAsStateWithLifecycle()
-                    if (kidMode.isKidMode) {
+                    // Only the one flag decides the shell. Collecting the whole state here redrew
+                    // the root on every change, down to a download's progress tick.
+                    val kidMode by reelstackViewModel.kidShell.collectAsStateWithLifecycle()
+                    if (kidMode) {
                         app.reelstack.ui.kids.KidsApp(viewModel = reelstackViewModel)
                     } else {
                         ReelstackApp(viewModel = reelstackViewModel)

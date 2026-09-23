@@ -12,6 +12,10 @@ import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+/** The widest rail cards Spole draws, on a tablet; phones and TV use narrower ones. */
+private const val WIDE_CARD_DP = 292f
+private const val POSTER_CARD_DP = 158f
+
 /** Only the visible cards plus two neighbours; no full-library download or background decode. */
 @Composable
 internal fun PrefetchRailArtwork(
@@ -43,7 +47,13 @@ internal fun PrefetchRailArtwork(
                 requests.keys.filter { it !in urlSet }.toList().forEach { requests.remove(it)?.dispose() }
                 for ((item, url) in urls) {
                     if (url in requests) continue
-                    val request = ImageRequest.Builder(context).data(url)
+                    // Decode at the card's size. Without a size Coil decoded every neighbour at the
+                    // image's full resolution. The widest card (tablet) sets the size, so the
+                    // card itself still finds the neighbour in the memory cache.
+                    val itemWide = wide ?: !item.mediaType.equals("Movie", true)
+                    val widthPx = ((if (itemWide) WIDE_CARD_DP else POSTER_CARD_DP) * options.artworkSize.scale * density).toInt()
+                    val heightPx = if (itemWide) widthPx * 9 / 16 else widthPx * 3 / 2
+                    val request = ImageRequest.Builder(context).data(url).size(widthPx, heightPx)
                     MediaAuthHeaders.forUrl(context, item.source, url)?.let(request::httpHeaders)
                     requests[url] = context.imageLoader.enqueue(request.build())
                 }
