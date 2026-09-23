@@ -49,4 +49,21 @@ Sjå `YTELSESPLAN_2026-09-22.md` for kva som er gjort per punkt. Dekt av einings
 
 ## Installasjon og oppdatering
 
-_ventar_
+Kjelde-commit og publisert tagg: `5dfca08805669fe1c40119c07d5eee8e09334d2d`.
+Release: <https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta7>
+
+- Releasen har nøyaktig fem assets: éin universell APK, kontrollsummar, R8-mapping, kjelde-commit
+  og FFmpeg-kjeldepakken. GitHub-digest for APK-en er
+  `sha256:70283d5068e7801ecf51077b789955c18b86cedfa5648c53fae157fb0e81cccc`. Den offentlege lista,
+  henta utan autorisasjon, viser `draft=false` og `prerelease=true`. Ei offentleg nedlasting utan
+  autorisasjon har same SHA-256.
+- **Mobil (5560), `adb install -r` før publisering:** 0.18.0-beta5 (125) → 0.18.0-beta7 (127) med
+  uendra `firstInstallTime`. Appen startar utan krasj og viser same velkomstskjerm som før, sidan
+  profilen medvite ikkje har kontoar.
+- **TV (5564), ekte oppdatering gjennom appen:** Spole 0.18.0-beta6 med dei lagra kontoane viste
+  sjølv «Spole v0.18.0-beta7 er klar» ved opning. **Sjå oppdatering** viste 10,8 MB og
+  release-notata. **Last ned oppdatering** fullførte kontrollen og viste **Installer oppdatering**.
+  Android sin «Do you want to update this app?» → **Update** → «App installed» → **Open**.
+  Pakkekontrollen viser versionCode 127 og 0.18.0-beta7 med uendra `firstInstallTime`
+  (9. september). Den same kontoen (Øyvind · Seerr) og «Sjå vidare · Jellyfin» med ekte titlar var
+  synlege, og krasjloggen hadde ingen treff for Spole.
