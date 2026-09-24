@@ -240,10 +240,44 @@ class AppPreferencesRepository(context: Context) {
         return "search_history_" + digest.joinToString("") { "%02x".format(it) }
     }
 
+    /**
+     * Every Home row, per server, in order and with its switch. The first read carries the older
+     * row order, section switches and next-up switch over; after that this key is the one truth.
+     */
+    var homeLayout: app.reelstack.data.model.HomeLayout
+        get() = app.reelstack.data.model.HomeLayout.decode(preferences.getString(KEY_HOME_LAYOUT, null))
+            ?: app.reelstack.data.model.HomeLayout.fromLegacy(homeRowOrder, visibleHomeSections, personalization.showNextUp)
+                .also { migrated -> preferences.edit { putString(KEY_HOME_LAYOUT, migrated.encode()) } }
+        set(value) = preferences.edit { putString(KEY_HOME_LAYOUT, value.encode()) }
+
+    /**
+     * Which of [connection]'s libraries feed each of its Home rows. Kept per account, because
+     * library ids belong to one server. The first read copies the Library-tab selection, which is
+     * what decided Home before the two were separated; after that each has its own choice.
+     */
+    fun homeLibraries(connection: app.reelstack.data.model.ServiceConnection): app.reelstack.data.model.HomeLibraryChoice {
+        val key = "home_" + libraryKey(connection)
+        app.reelstack.data.model.HomeLibraryChoice.decode(preferences.getString(key, null))?.let { return it }
+        return app.reelstack.data.model.HomeLibraryChoice.fromLibrarySelection(selectedLibraryIds(connection))
+            .also { migrated -> preferences.edit { putString(key, migrated.encode()) } }
+    }
+
+    fun setHomeLibraries(connection: app.reelstack.data.model.ServiceConnection, choice: app.reelstack.data.model.HomeLibraryChoice) {
+        preferences.edit { putString("home_" + libraryKey(connection), choice.encode()) }
+    }
+
+    /** Media servers' Home library choices, as the media-cache fingerprint needs them. */
+    fun homeLibrariesFingerprint(connections: List<app.reelstack.data.model.ServiceConnection>): String =
+        connections.filter { it.kind in app.reelstack.data.model.HOME_MEDIA_SOURCES && it.baseUrl.isNotBlank() }
+            .sortedBy { it.kind.ordinal }
+            .joinToString("|") { connection -> "${connection.kind}:" + homeLibraries(connection).fingerprint }
+
+    /** Superseded by [homeLayout]; setting it hands the choice back to these older keys. */
     var homeRowOrder: List<app.reelstack.data.model.HomeRow>
         get() = app.reelstack.data.model.decodeHomeRowOrder(preferences.getString("home_row_order", null))
         set(value) = preferences.edit {
             putString("home_row_order", app.reelstack.data.model.decodeHomeRowOrder(value.joinToString(",") { it.name }).joinToString(",") { it.name })
+            remove(KEY_HOME_LAYOUT)
         }
 
     var visibleHomeSections: Set<HomeSection>
@@ -268,9 +302,11 @@ class AppPreferencesRepository(context: Context) {
         set(value) = preferences.edit {
             putStringSet(KEY_HOME_SECTIONS, value.mapTo(mutableSetOf()) { it.name })
             putInt(KEY_HOME_SECTIONS_VERSION, HOME_SECTIONS_VERSION)
+            remove(KEY_HOME_LAYOUT)
         }
 
     private companion object {
+        const val KEY_HOME_LAYOUT = "home_layout"
         const val KEY_NOTIFICATIONS = "notifications_enabled"
         const val KEY_WIFI_ONLY = "wifi_only"
         const val KEY_HOME_SECTIONS = "home_sections"

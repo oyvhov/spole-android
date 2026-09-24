@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.18.0-beta8 - tilpass framsida
+
+- **Tilpass framsida**: éin meny under Innstillingar → Heim for alle radene på framsida. Kvar rad
+  finst no per teneste («Hald fram · Emby», «Nye episodar · Jellyfin» osv.) med eigen brytar og
+  eigen plass. Du kan til dømes vise seriar frå Emby og ikkje frå Jellyfin.
+- Kvar rad kan hente frå dei biblioteka du vel, per teneste. Framsida har no eit eige
+  biblioteksval, skilt frå Bibliotek-fana.
+- Filter per teneste, med «Vis alt frå …» og «Skjul alt frå …», og kortformat per rad.
+- Favorittar er delte per teneste, som dei andre radene.
+- Skjulte rader blir ikkje henta frå tenaren.
+- Dei gamle innstillingane blir tekne med over automatisk.
+
 ## 0.18.0-beta7 - nedlasting som verkar, og ein raskare heimeskjerm
 
 - **Rettar nedlasting.** Forhandlinga med tenaren brukte ein nøktern standardprofil (H.264 og

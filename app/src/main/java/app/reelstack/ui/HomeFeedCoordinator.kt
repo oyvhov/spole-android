@@ -3,8 +3,11 @@ package app.reelstack.ui
 import app.reelstack.AppContainer
 import app.reelstack.R
 import app.reelstack.data.model.ConnectionState
-import app.reelstack.data.model.HomeSection
-import app.reelstack.data.model.HomeRow
+import app.reelstack.data.model.HomeFetchPlan
+import app.reelstack.data.model.HomeLayout
+import app.reelstack.data.model.HomeLibraryChoice
+import app.reelstack.data.model.HomeRowKey
+import app.reelstack.data.model.HomeRowKind
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
@@ -196,17 +199,30 @@ internal class HomeFeedCoordinator(
         ) refresh()
     }
 
-    fun setRowOrder(order: List<HomeRow>) {
-        container.preferencesRepository.homeRowOrder = order
-        updateState { it.copy(homeRowOrder = container.preferencesRepository.homeRowOrder) }
+    /**
+     * Saves a new Home layout. A row that is shown again, or a different library choice, needs
+     * data the last refresh did not fetch, so those changes start a new one straight away.
+     */
+    fun setLayout(layout: HomeLayout) {
+        val before = readState().effectiveHomeLayout
+        container.preferencesRepository.homeLayout = layout
+        updateState { it.copy(homeLayout = layout) }
+        val newlyFetched = layout.order.any { key ->
+            key.kind.skippedWhenHidden && layout.isVisible(key) && !before.isVisible(key)
+        } || layout.isVisible(RECOMMENDATIONS_ROW) != before.isVisible(RECOMMENDATIONS_ROW)
+        if (newlyFetched) restartRefresh()
     }
 
-    fun setSectionVisible(section: HomeSection, visible: Boolean) {
-        updateState { current ->
-            val updated = if (visible) current.homeSections + section else current.homeSections - section
-            container.preferencesRepository.visibleHomeSections = updated
-            current.copy(homeSections = updated)
-        }
+    fun setLibraries(connection: ServiceConnection, choice: HomeLibraryChoice) {
+        container.preferencesRepository.setHomeLibraries(connection, choice)
+        updateState { it.copy(homeLibraries = it.homeLibraries + (connection.kind to choice)) }
+        restartRefresh()
+    }
+
+    /** A refresh already running asks for the old rows; let the new one replace it. */
+    private fun restartRefresh() {
+        cancelRefresh()
+        refresh()
     }
 
     fun refresh(userInitiated: Boolean = false) {
@@ -229,9 +245,11 @@ internal class HomeFeedCoordinator(
             val firstRow = java.util.concurrent.atomic.AtomicBoolean(true)
             val outcome = attempt {
                 val snapshot = withContext(Dispatchers.IO) {
+                    val layout = readState().effectiveHomeLayout
                     container.mediaSyncRepository.refresh(
                         connections = readState().connections,
-                        includeRecommendations = HomeSection.RECOMMENDATIONS in readState().homeSections,
+                        includeRecommendations = layout.isVisible(HomeRowKey(HomeRowKind.RECOMMENDATIONS)),
+                        homePlan = HomeFetchPlan(layout, container.homeLibraries(readState().connections)),
                         onLibraryReady = { update ->
                             if (firstRow.getAndSet(false)) app.reelstack.data.network.PerfLog.milestone("home first-rows ${update.source}", started)
                             updateLibraryRow(refreshFingerprint, update)
@@ -437,6 +455,7 @@ internal class HomeFeedCoordinator(
 
     private companion object {
         val MEDIA_SERVERS = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
+        val RECOMMENDATIONS_ROW = HomeRowKey(HomeRowKind.RECOMMENDATIONS)
         val QUEUE_SERVERS = setOf(ServiceKind.RADARR, ServiceKind.SONARR)
     }
 }

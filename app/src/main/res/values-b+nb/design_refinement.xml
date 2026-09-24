@@ -11,7 +11,7 @@
     <string name="refine_order_hint">Bruk auget for å vise eller skjule, og pilene for å flytte. Vala blir lagra med ein gong.</string>
     <string name="refine_group_start">Ved oppstart</string>
     <string name="refine_group_hero">Utval</string>
-    <string name="refine_group_rows">Innhaldsrader</string>
+    <string name="refine_group_rows">Innholdsrader</string>
     <string name="refine_group_colours">Fargar og sesong</string>
     <string name="refine_group_art">Bilete og omslag</string>
     <string name="refine_group_reading">Lesing og rørsle</string>

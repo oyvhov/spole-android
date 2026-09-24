@@ -52,9 +52,15 @@ class AppContainer(context: Context) {
      */
     fun mediaFingerprint(connections: List<app.reelstack.data.model.ServiceConnection>): String =
         MediaSnapshotStore.fingerprint(connections) +
-            preferencesRepository.librarySelectionFingerprint(connections) +
+            // Home reads the libraries chosen for its rows, not the ones listed in the Library tab.
+            preferencesRepository.homeLibrariesFingerprint(connections) +
             "|profile=" + connectionRepository.activeProfileId +
             "|lang=" + app.reelstack.localization.AppLanguages.selected(appContext).tag
+
+    /** Home's library choice for each media server that has an address in [connections]. */
+    fun homeLibraries(connections: List<app.reelstack.data.model.ServiceConnection>) =
+        connections.filter { it.kind in app.reelstack.data.model.HOME_MEDIA_SOURCES && it.baseUrl.isNotBlank() }
+            .associate { it.kind to preferencesRepository.homeLibraries(it) }
 
     val requestTrackingRepository = app.reelstack.data.repository.RequestTrackingRepository(appContext)
     val requestHistoryRepository = app.reelstack.data.repository.RequestHistoryRepository()

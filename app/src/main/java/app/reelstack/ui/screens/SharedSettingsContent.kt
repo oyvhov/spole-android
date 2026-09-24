@@ -33,7 +33,7 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
     onHomeRowOrderChange: (List<HomeRow>) -> Unit, onSignOutAll: () -> Unit, onAddProfile: () -> Unit = {},
     onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {},
-    onDisablePin: () -> Unit = {}) {
+    onDisablePin: () -> Unit = {}, homeEditor: HomeEditorActions = HomeEditorActions()) {
     val context = LocalContext.current.applicationContext
     val preferences = remember(context) { AppPreferencesRepository(context) }
     val options = LocalPersonalization.current
@@ -54,14 +54,9 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
             SettingsToggleRow(stringResource(R.string.tv_show_quality), stringResource(R.string.refine_quality_hint), options.showQuality, "show-quality") { change(options.copy(showQuality = it)) }
             HeroSettings(options, change)
             SettingsGroup(stringResource(R.string.refine_group_rows))
-            SettingsToggleRow(stringResource(R.string.tv_next_up), stringResource(R.string.refine_next_hint), options.showNextUp, "show-next-up") { change(options.copy(showNextUp = it)) }
-            SettingsToggleRow(stringResource(R.string.tv_combine_continue), stringResource(R.string.watching_order_hint),
-                options.combineContinueWatching, "combine-continue") { change(options.copy(combineContinueWatching = it)) }
-            // The compact television entry remains useful for a remote: it exposes visibility
-            // without opening the longer ordering editor used on touch devices.
-            if (isTelevision()) TvHomeRows(state, onHomeSectionChange)
-            HomeRowOrderSetting(state, onHomeRowOrderChange, onHomeSectionChange)
-            HomeRowFormats(options, change)
+            // One place for every row: its switch, its server, its libraries, its format and its
+            // place. These used to be four separate settings, and one switch covered both servers.
+            HomeLayoutSetting(state, homeEditor)
         }
         SettingsCategory.MENU -> {
             TvMenuSettings(options, change)

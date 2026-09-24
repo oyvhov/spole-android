@@ -26,10 +26,14 @@ class MediaRefreshWorker(
 
         val fingerprint = container.mediaFingerprint(connections)
         val snapshot = runCatching {
+            val layout = container.preferencesRepository.homeLayout
             container.mediaSyncRepository.refresh(
                 connections = connections,
-                includeRecommendations = app.reelstack.data.model.HomeSection.RECOMMENDATIONS in
-                    container.preferencesRepository.visibleHomeSections,
+                includeRecommendations = layout.isVisible(
+                    app.reelstack.data.model.HomeRowKey(app.reelstack.data.model.HomeRowKind.RECOMMENDATIONS)),
+                // The cached snapshot is what Home opens with, so it has to hold the same rows.
+                homePlan = app.reelstack.data.model.HomeFetchPlan(layout,
+                    container.homeLibraries(connections)),
             )
         }.getOrElse { return giveUpOrRetry() }
 

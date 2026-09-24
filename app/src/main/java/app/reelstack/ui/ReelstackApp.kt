@@ -447,8 +447,14 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onConnectionClick = { viewModel.openSheet(AppSheet.ConnectionEditor(it)) },
                         onNotificationsChange = viewModel::setNotifications,
                         onWifiOnlyChange = viewModel::setWifiOnly,
-                        onHomeSectionChange = viewModel::setHomeSectionVisible,
-                        onHomeRowOrderChange = viewModel::setHomeRowOrder,
+                        // Home rows are edited through the layout editor; the older callbacks remain
+                        // on the screen's signature for tests that drive it directly.
+                        onHomeSectionChange = { _, _ -> },
+                        homeEditor = app.reelstack.ui.screens.HomeEditorActions(
+                            onLayoutChange = viewModel::setHomeLayout,
+                            onLibrariesChange = viewModel::setHomeLibraries,
+                            onLoadLibraries = viewModel::loadHomeLibraryViews,
+                        ),
                         onSignOutAll = viewModel::signOutAll,
                         onAddProfile = viewModel::openAddProfile,
                         onClearLibraryCache = viewModel::clearLibraryCache,

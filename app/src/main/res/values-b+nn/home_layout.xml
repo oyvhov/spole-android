@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_layout_title">Tilpass framsida</string>
+    <string name="home_layout_summary">%1$d av %2$d rader er synlege</string>
+    <string name="home_layout_intro">Vel kva rader framsida viser, frå kva teneste og frå kva bibliotek. Endringane blir lagra med ein gong.</string>
+    <string name="home_layout_filter_all">Alle</string>
+    <string name="home_layout_filter_other">Anna</string>
+    <string name="home_layout_show_all_from">Vis alt frå %1$s</string>
+    <string name="home_layout_hide_all_from">Skjul alt frå %1$s</string>
+    <string name="home_layout_hidden">Skjult</string>
+    <string name="home_layout_shared">Alle tenester</string>
+    <string name="home_layout_in_continue">Visast inni %1$s</string>
+    <string name="home_layout_libraries_all">Alle bibliotek</string>
+    <string name="home_layout_libraries_some">%1$d av %2$d bibliotek</string>
+    <string name="home_layout_libraries_none">Ingen bibliotek: rada blir tom</string>
+    <plurals name="home_layout_libraries_chosen">
+        <item quantity="one">%1$d bibliotek valt</item>
+        <item quantity="other">%1$d bibliotek valde</item>
+    </plurals>
+    <string name="home_layout_libraries_loading">Hentar bibliotek …</string>
+    <string name="home_layout_libraries_failed">Fekk ikkje henta biblioteka frå %1$s.</string>
+    <string name="home_layout_libraries_hint">Berre biblioteka du vel, fyller denne rada. Bibliotek-fana blir ikkje endra.</string>
+    <string name="home_layout_libraries_empty">%1$s har ikkje noko bibliotek som kan fylle denne rada.</string>
+    <string name="home_layout_retry">Prøv igjen</string>
+    <string name="home_layout_row_settings">Innstillingar for %1$s</string>
+    <string name="home_layout_options">Val</string>
+    <string name="home_layout_reset">Tilbakestill rekkjefølgje og brytarar</string>
+</resources>

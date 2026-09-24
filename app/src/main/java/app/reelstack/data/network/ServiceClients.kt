@@ -7,6 +7,7 @@ import app.reelstack.data.model.ConnectionTestResult
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.ViewerAccess
+import app.reelstack.data.model.HomeRowKind
 import app.reelstack.data.model.ServiceAccount
 import app.reelstack.data.model.canRequestType
 import app.reelstack.data.model.isExcludedHomeLibrary
@@ -348,12 +349,25 @@ class MediaServerClient(
         runCatching { AccountProfileClient(deviceId, transport).load(connection) }.getOrNull()
             ?.let { mapOf(connection.kind to it) }.orEmpty())
 
-    fun feed(connection: ServiceConnection, access: ViewerAccess = localAccess(connection)): MediaServerFeed {
+    /**
+     * Home's rows from this server.
+     *
+     * [rowLibraries], when given, decides per row which libraries are read, and replaces the
+     * Library-tab selection for Home. A row with no library left is not requested at all.
+     */
+    fun feed(
+        connection: ServiceConnection,
+        access: ViewerAccess = localAccess(connection),
+        rowLibraries: ((HomeRowKind, RemoteLibraryView) -> Boolean)? = null,
+    ): MediaServerFeed {
         // Every request of one feed shares a small budget, however the work below is split up.
         if (transport !is LimitedTransport) {
-            return MediaServerClient(LimitedTransport(transport, FEED_PARALLEL_REQUESTS), deviceId, includeLibrary)
-                .feed(connection, access)
+            return MediaServerClient(LimitedTransport(transport, FEED_PARALLEL_REQUESTS), deviceId,
+                if (rowLibraries == null) includeLibrary else DEFAULT_LIBRARY_FILTER)
+                .feed(connection, access, rowLibraries)
         }
+        fun List<RemoteLibraryView>.forRow(kind: HomeRowKind) =
+            if (rowLibraries == null) this else filter { rowLibraries(kind, it) }
         val warnings = mutableListOf<LocalizedText>()
         val allowFallback = !access.seerrConfigured || access.isAdmin
         // Sessions and the profile's libraries do not depend on each other.
@@ -381,12 +395,12 @@ class MediaServerClient(
         // Each row asks every library it covers; the rows, and the libraries inside each row, are
         // fetched at the same time. This used to be about twenty requests one after another.
         val rows = concurrently(listOf<() -> Result<List<RemoteLibraryItem>>>(
-            { runCatching { latestAcrossLibraries(connection, encodedUserId, "Movie", false, viewsResult.getOrThrow()) } },
-            { runCatching { latestAcrossLibraries(connection, encodedUserId, "Episode", false, viewsResult.getOrThrow()) } },
-            { runCatching { resume(connection, requireNotNull(encodedUserId) { "profile id missing" }, viewsResult.getOrThrow()) } },
-            { runCatching { releasedAcrossLibraries(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow()) } },
-            { runCatching { nextUp(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow()) } },
-            { runCatching { favourites(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow()) } },
+            { runCatching { latestAcrossLibraries(connection, encodedUserId, "Movie", false, viewsResult.getOrThrow().forRow(HomeRowKind.NEW_MOVIES)) } },
+            { runCatching { latestAcrossLibraries(connection, encodedUserId, "Episode", false, viewsResult.getOrThrow().forRow(HomeRowKind.NEW_SERIES)) } },
+            { runCatching { resume(connection, requireNotNull(encodedUserId) { "profile id missing" }, viewsResult.getOrThrow().forRow(HomeRowKind.CONTINUE_WATCHING)) } },
+            { runCatching { releasedAcrossLibraries(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow().forRow(HomeRowKind.RECENT_RELEASES)) } },
+            { runCatching { nextUp(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow().forRow(HomeRowKind.NEXT_UP)) } },
+            { runCatching { favourites(connection, requireNotNull(encodedUserId), viewsResult.getOrThrow().forRow(HomeRowKind.FAVOURITES)) } },
         )) { it() }
         val (moviesResult, seriesResult, resumeResult) = rows
         val releasesResult = rows[3]
@@ -1103,6 +1117,8 @@ class MediaServerClient(
     }
 
     private companion object {
+        /** Every library except those Spole never shows on Home; used where Home has its own choice. */
+        val DEFAULT_LIBRARY_FILTER: (ServiceConnection, RemoteLibraryView) -> Boolean = { _, view -> !isExcludedHomeLibrary(view.name) }
         // Speed-first defaults for first-paint. Higher values are still available in metadata and
         // fallback requests when a specific view needs a larger image.
         const val ARTWORK_QUALITY = 75

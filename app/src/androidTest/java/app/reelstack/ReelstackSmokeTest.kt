@@ -112,9 +112,9 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Innstillingar").performClick()
 
         composeRule.onNodeWithTag("settings-category-HOME").performScrollTo().performClick()
-        composeRule.onNodeWithTag("home-order-open").performScrollTo().performClick()
-        composeRule.onNodeWithTag("home-order-row-EMBY_MOVIES").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("home-order-row-EMBY_SERIES").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("home-layout-open").performScrollTo().performClick()
+        composeRule.onNodeWithTag("home-layout-list").performScrollToNode(hasTestTag("home-layout-row-NEW_MOVIES:EMBY"))
+        composeRule.onNodeWithTag("home-layout-list").performScrollToNode(hasTestTag("home-layout-row-NEW_SERIES:EMBY"))
     }
 
     @Test

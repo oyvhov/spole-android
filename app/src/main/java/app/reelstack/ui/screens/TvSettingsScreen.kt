@@ -33,7 +33,8 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
     onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {},
-    onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {}) {
+    onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {},
+    homeEditor: HomeEditorActions = HomeEditorActions()) {
     val television = isTelevision()
     var category by rememberSaveable { mutableStateOf(SettingsCategory.APPEARANCE) }
     var focusedCategory by rememberSaveable { mutableStateOf(category) }
@@ -124,7 +125,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SharedSettingsContent(activeCategory, state, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
                             onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
-                            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin)
+                            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor)
                         Spacer(Modifier.height(16.dp))
                     }
                 }
@@ -133,31 +134,3 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
     }
 }
 
-@Composable
-internal fun TvHomeRows(state: ReelstackUiState, onChange: (HomeSection, Boolean) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    SettingsActionRow(stringResource(R.string.settings_tv_rows), stringResource(R.string.settings_tv_rows_hint), "tv-home-rows") { open = true }
-    if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.settings_tv_rows)) },
-        confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
-        text = { Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            HomeSection.entries.filter { it != HomeSection.DOWNLOADS }.filter { section ->
-                val service = when(section) { HomeSection.JELLYFIN_MOVIES, HomeSection.JELLYFIN_SERIES -> ServiceKind.JELLYFIN
-                    HomeSection.EMBY_MOVIES, HomeSection.EMBY_SERIES -> ServiceKind.EMBY; else -> null }
-                service == null || state.configuredCount == 0 || state.connections.any { it.kind == service && it.baseUrl.isNotBlank() }
-            }.forEach { section ->
-                val title = when(section) {
-                    HomeSection.NOW_PLAYING -> stringResource(R.string.home_now_playing)
-                    HomeSection.CONTINUE_WATCHING -> stringResource(R.string.home_continue)
-                    HomeSection.FAVOURITES -> stringResource(R.string.home_favourites)
-                    HomeSection.RECOMMENDATIONS -> stringResource(R.string.home_recommendations)
-                    HomeSection.RECENT_RELEASES -> stringResource(R.string.home_recent_releases)
-                    HomeSection.JELLYFIN_MOVIES -> stringResource(R.string.settings_movies, "Jellyfin")
-                    HomeSection.JELLYFIN_SERIES -> stringResource(R.string.settings_series, "Jellyfin")
-                    HomeSection.EMBY_MOVIES -> stringResource(R.string.settings_movies, "Emby")
-                    HomeSection.EMBY_SERIES -> stringResource(R.string.settings_series, "Emby")
-                    else -> stringResource(R.string.home_upcoming)
-                }
-                SettingsToggleRow(title, "", section in state.homeSections, "home-row-$section") { onChange(section, it) }
-            }
-        } })
-}

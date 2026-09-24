@@ -26,7 +26,7 @@
     <string name="update_install_error">Android could not open this installer. Check installation permission and try again.</string>
     <string name="update_access_error">The release is unavailable. Try again later.</string>
     <string name="update_rate_error">GitHub is limiting requests. Wait a while before checking again.</string>
-    <string name="library_choice_intro">Switch on the libraries you want in Library, on Home and in search. Put the ones you use most in the side menu.</string>
+    <string name="library_choice_intro">Switch on the libraries you want in Library and in search. Put the ones you use most in the side menu. Home has its own choice under Customise Home.</string>
     <plurals name="library_selected_count"><item quantity="one">%1$d selected</item><item quantity="other">%1$d selected</item></plurals>
     <string name="library_icon">Menu icon</string>
     <string name="library_filters">Filter and sort</string>

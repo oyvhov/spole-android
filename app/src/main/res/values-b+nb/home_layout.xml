@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_layout_title">Tilpass forsiden</string>
+    <string name="home_layout_summary">%1$d av %2$d rader vises</string>
+    <string name="home_layout_intro">Velg hvilke rader forsiden viser, fra hvilken tjeneste og fra hvilke bibliotek. Endringene lagres med en gang.</string>
+    <string name="home_layout_filter_all">Alle</string>
+    <string name="home_layout_filter_other">Annet</string>
+    <string name="home_layout_show_all_from">Vis alt fra %1$s</string>
+    <string name="home_layout_hide_all_from">Skjul alt fra %1$s</string>
+    <string name="home_layout_hidden">Skjult</string>
+    <string name="home_layout_shared">Alle tjenester</string>
+    <string name="home_layout_in_continue">Vises inne i %1$s</string>
+    <string name="home_layout_libraries_all">Alle bibliotek</string>
+    <string name="home_layout_libraries_some">%1$d av %2$d bibliotek</string>
+    <string name="home_layout_libraries_none">Ingen bibliotek: raden blir tom</string>
+    <plurals name="home_layout_libraries_chosen">
+        <item quantity="one">%1$d bibliotek valgt</item>
+        <item quantity="other">%1$d bibliotek valgt</item>
+    </plurals>
+    <string name="home_layout_libraries_loading">Henter bibliotek …</string>
+    <string name="home_layout_libraries_failed">Fikk ikke hentet bibliotekene fra %1$s.</string>
+    <string name="home_layout_libraries_hint">Bare bibliotekene du velger, fyller denne raden. Bibliotek-fanen endres ikke.</string>
+    <string name="home_layout_libraries_empty">%1$s har ikke noe bibliotek som kan fylle denne raden.</string>
+    <string name="home_layout_retry">Prøv igjen</string>
+    <string name="home_layout_row_settings">Innstillinger for %1$s</string>
+    <string name="home_layout_options">Valg</string>
+    <string name="home_layout_reset">Tilbakestill rekkefølge og brytere</string>
+</resources>

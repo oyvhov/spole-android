@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_layout_title">Customise Home</string>
+    <string name="home_layout_summary">%1$d of %2$d rows shown</string>
+    <string name="home_layout_intro">Choose which rows Home shows, from which service and from which libraries. Changes are saved straight away.</string>
+    <string name="home_layout_filter_all">All</string>
+    <string name="home_layout_filter_other">Other</string>
+    <string name="home_layout_show_all_from">Show all from %1$s</string>
+    <string name="home_layout_hide_all_from">Hide all from %1$s</string>
+    <string name="home_layout_hidden">Hidden</string>
+    <string name="home_layout_shared">All services</string>
+    <string name="home_layout_in_continue">Shown inside %1$s</string>
+    <string name="home_layout_libraries_all">All libraries</string>
+    <string name="home_layout_libraries_some">%1$d of %2$d libraries</string>
+    <string name="home_layout_libraries_none">No libraries: the row stays empty</string>
+    <plurals name="home_layout_libraries_chosen">
+        <item quantity="one">%1$d library chosen</item>
+        <item quantity="other">%1$d libraries chosen</item>
+    </plurals>
+    <string name="home_layout_libraries_loading">Loading libraries…</string>
+    <string name="home_layout_libraries_failed">Could not load the libraries from %1$s.</string>
+    <string name="home_layout_libraries_hint">Only the libraries you pick feed this row. The Library tab is not affected.</string>
+    <string name="home_layout_libraries_empty">%1$s has no library that can fill this row.</string>
+    <string name="home_layout_retry">Try again</string>
+    <string name="home_layout_row_settings">Settings for %1$s</string>
+    <string name="home_layout_options">Options</string>
+    <string name="home_layout_reset">Reset order and switches</string>
+</resources>

@@ -41,6 +41,8 @@ data class HomeUiState(
     val pendingSessionKey: String? = null,
     val homeSections: Set<HomeSection> = HomeSection.entries.toSet(),
     val homeRowOrder: List<HomeRow> = HomeRow.entries,
+    /** Every row per server, in order and with its switch: what Home actually renders. */
+    val homeLayout: app.reelstack.data.model.HomeLayout = app.reelstack.data.model.HomeLayout.fromLegacy(homeRowOrder, homeSections, showNextUp = true),
 ) {
     val configuredCount: Int get() = connections.count { it.baseUrl.isNotBlank() }
 }
@@ -69,6 +71,7 @@ fun ReelstackUiState.toHomeUiState(): HomeUiState = HomeUiState(
     pendingSessionKey = pendingSessionKey,
     homeSections = homeSections,
     homeRowOrder = homeRowOrder,
+    homeLayout = effectiveHomeLayout,
 )
 
 /** Prefer a verified personal identity, never the owner represented by a shared API key. */

@@ -58,6 +58,24 @@ internal fun tabletFeaturedTitle(series: List<LibraryMedia>, sections: Set<HomeS
 private const val HERO_FEATURE_COUNT = 5
 
 internal fun tabletFeaturedTitles(candidates: List<LibraryMedia>, sections: Set<HomeSection>, allowLocalArtwork: Boolean = false): List<LibraryMedia> =
+    tabletFeaturedTitles(candidates, app.reelstack.data.model.HomeLayout.fromLegacy(
+        app.reelstack.data.model.HomeRow.entries, sections, showNextUp = true), allowLocalArtwork)
+
+/** The feature follows the new-films and new-episodes rows: a server whose row is off is not featured. */
+internal fun tabletFeaturedTitles(candidates: List<LibraryMedia>, layout: app.reelstack.data.model.HomeLayout,
+    allowLocalArtwork: Boolean = false): List<LibraryMedia> {
+    fun shown(kind: app.reelstack.data.model.HomeRowKind, source: ServiceKind) =
+        layout.isVisible(app.reelstack.data.model.HomeRowKey(kind, source))
+    val sections = buildSet {
+        if (shown(app.reelstack.data.model.HomeRowKind.NEW_MOVIES, ServiceKind.JELLYFIN)) add(HomeSection.JELLYFIN_MOVIES)
+        if (shown(app.reelstack.data.model.HomeRowKind.NEW_SERIES, ServiceKind.JELLYFIN)) add(HomeSection.JELLYFIN_SERIES)
+        if (shown(app.reelstack.data.model.HomeRowKind.NEW_MOVIES, ServiceKind.EMBY)) add(HomeSection.EMBY_MOVIES)
+        if (shown(app.reelstack.data.model.HomeRowKind.NEW_SERIES, ServiceKind.EMBY)) add(HomeSection.EMBY_SERIES)
+    }
+    return featuredBySections(candidates, sections, allowLocalArtwork)
+}
+
+private fun featuredBySections(candidates: List<LibraryMedia>, sections: Set<HomeSection>, allowLocalArtwork: Boolean): List<LibraryMedia> =
     candidates.filter { media ->
         val hasArt = app.reelstack.data.network.libraryHeroArtworkUrl(media) != null || (allowLocalArtwork && media.artworkRes != 0)
         if (!hasArt) return@filter false

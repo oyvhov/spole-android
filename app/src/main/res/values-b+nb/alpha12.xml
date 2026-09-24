@@ -26,7 +26,7 @@
     <string name="update_install_error">Android kunne ikke åpne installasjonen. Sjekk installasjonstillatelsen og prøv igjen.</string>
     <string name="update_access_error">Utgaven er utilgjengelig. Prøv igjen senere.</string>
     <string name="update_rate_error">GitHub begrenser forespørsler. Vent litt før du sjekker igjen.</string>
-    <string name="library_choice_intro">Slå på bibliotekene du vil ha i Bibliotek, på Hjem og i søk. Legg de du bruker mest i sidemenyen.</string>
+    <string name="library_choice_intro">Slå på bibliotekene du vil ha i Bibliotek og i søk. Legg de du bruker mest i sidemenyen. Forsiden har eget valg under «Tilpass forsiden».</string>
     <plurals name="library_selected_count"><item quantity="one">%1$d valgt</item><item quantity="other">%1$d valgte</item></plurals>
     <string name="library_icon">Menyikon</string>
     <string name="library_filters">Filter og sortering</string>

@@ -149,6 +149,8 @@ class MediaSyncRepository(
          */
         includeRecommendations: Boolean = true,
         onLibraryReady: (LibraryFeedUpdate) -> Unit = {},
+        /** Which rows and libraries Home wants; null keeps the Library-tab selection for everything. */
+        homePlan: app.reelstack.data.model.HomeFetchPlan? = null,
     ): MediaSyncSnapshot = supervisorScope {
         // Choose each account's live address once, before anything is asked of it.
         val routes = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
@@ -171,7 +173,7 @@ class MediaSyncRepository(
                     profile?.let { put(connection.kind, it) }
                     seerr?.let { put(ServiceKind.SEERR, it) }
                 })
-                val result = fetchWithFailover(connection, ownAccess)
+                val result = fetchWithFailover(connection, ownAccess, homePlan)
                 val feed = (result.first.getOrNull() as? ServicePayload.Media)?.feed
                 if (profile != null && feed != null) {
                     fun mapped(items: List<RemoteLibraryItem>) = items.map { libraryMedia(it, connection.kind) }
@@ -188,9 +190,9 @@ class MediaSyncRepository(
         val deferred = configured.map { connection ->
             async {
                 val mediaJob = mediaJobs[connection.kind]
-                val result = if (mediaJob == null) fetchWithFailover(connection, access) else {
+                val result = if (mediaJob == null) fetchWithFailover(connection, access, homePlan) else {
                     val early = mediaJob.await()
-                    if (access.ownMediaUser(connection.kind) == null) fetchWithFailover(connection, access)
+                    if (access.ownMediaUser(connection.kind) == null) fetchWithFailover(connection, access, homePlan)
                     else if (access.canSeeAllSessions(connection.kind)) {
                         val payload = early.first.getOrNull() as? ServicePayload.Media
                         if (payload == null) early else Result.success<ServicePayload>(payload.copy(feed = payload.feed.copy(
@@ -514,19 +516,26 @@ class MediaSyncRepository(
     private fun fetchWithFailover(
         connection: ServiceConnection,
         access: ViewerAccess,
+        homePlan: app.reelstack.data.model.HomeFetchPlan?,
     ): Pair<Result<ServicePayload>, Boolean> {
-        val first = runCatching { fetch(connection, access) }
+        val first = runCatching { fetch(connection, access, homePlan) }
         if (first.isSuccess || !connection.hasAlternate) return first to false
         val swapped = connection.copy(baseUrl = connection.alternateUrl, alternateUrl = connection.baseUrl)
-        val second = runCatching { fetch(swapped, access) }
+        val second = runCatching { fetch(swapped, access, homePlan) }
         // Keep the original failure when neither route works: it describes the address the user set.
         return if (second.isSuccess) second to true else first to false
     }
 
-    private fun fetch(connection: ServiceConnection, access: ViewerAccess): ServicePayload = when (connection.kind) {
+    private fun fetch(
+        connection: ServiceConnection,
+        access: ViewerAccess,
+        homePlan: app.reelstack.data.model.HomeFetchPlan?,
+    ): ServicePayload = when (connection.kind) {
         ServiceKind.JELLYFIN, ServiceKind.EMBY -> ServicePayload.Media(
             connection.kind,
-            mediaServerClient.feed(connection, access),
+            mediaServerClient.feed(connection, access, homePlan?.let { plan ->
+                { kind, view -> plan.includes(connection.kind, kind, view.id) }
+            }),
         )
         ServiceKind.RADARR, ServiceKind.SONARR -> ServicePayload.Queue(
             connection.kind,

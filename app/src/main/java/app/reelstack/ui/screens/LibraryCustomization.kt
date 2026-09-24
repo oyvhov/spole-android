@@ -55,7 +55,6 @@ internal fun LibraryCustomizationDialog(state: ReelstackUiState, value: Personal
                             onOrder = { onChange(value.copy(libraryOrder = it)) },
                             onVisible = { id, show -> onChange(value.copy(libraryHidden = if (show) value.libraryHidden - id else value.libraryHidden + id)) })
                     }
-                    HomeRowFormats(value, onChange)
                 }
                 SpoleSecondaryButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_close)) }
             }

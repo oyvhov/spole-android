@@ -22,7 +22,7 @@ Følg desse føringane i alle endringar:
   botnbar strekt over heile breidda.
 - Bruk ekte data når tenesta er kopla til. Demo-data skal berre visast i eksplisitt demo-modus.
 - Heimesida skal kunne vise innhald frå alle kopla tenester utan at brukaren må byte server.
-- Jellyfin og Emby skal ha eigne rader for filmar, seriar, hald fram og neste episode; dei skal aldri blandast til éi rad. Kombinert hald fram/neste episode gjeld berre innanfor same kjelde.
+- Jellyfin og Emby skal ha eigne rader for filmar, seriar, hald fram, neste episode og favorittar; dei skal aldri blandast til éi rad. Kombinert hald fram/neste episode gjeld berre innanfor same kjelde. Kva rader som blir viste, i kva rekkjefølgje og frå kva bibliotek, vel brukaren per rad og teneste i «Tilpass framsida». Framsida har eit eige biblioteksval, skilt frå Bibliotek-fana (sjå docs/HOME_LAYOUT.md).
 - Barneseriar og barnbibliotek skal ikkje takast med i standardradene.
 - Vanlege brukarar skal berre sjå sitt eige innhald, si eiga aktivitet og eigne førespurnader. Administratorar kan få delte køar og oversikter når serverrettane tillèt det.
 - Brukaridentiteten skal kome frå den innlogga brukaren, særleg frå Seerr-profilen når ein sender ei førespurnad.

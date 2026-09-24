@@ -223,6 +223,17 @@ data class ReelstackUiState(
     val pendingSessionKey: String? = null,
     val homeSections: Set<HomeSection> = HomeSection.entries.toSet(),
     val homeRowOrder: List<app.reelstack.data.model.HomeRow> = app.reelstack.data.model.HomeRow.entries,
+    /**
+     * Every Home row per server, in order, with its switch. The app always sets it; null lets a
+     * test describe Home with [homeSections] and [homeRowOrder] as before.
+     */
+    val homeLayout: app.reelstack.data.model.HomeLayout? = null,
+    /** Which libraries feed each Home row, per media server. Separate from the Library tab. */
+    val homeLibraries: Map<ServiceKind, app.reelstack.data.model.HomeLibraryChoice> = emptyMap(),
+    /** Each media server's libraries, loaded when the Home editor opens, to choose from. */
+    val homeLibraryViews: Map<ServiceKind, List<app.reelstack.data.network.RemoteLibraryView>> = emptyMap(),
+    val homeLibraryViewsLoading: Boolean = false,
+    val homeLibraryViewsFailed: Set<ServiceKind> = emptySet(),
     val hasCachedData: Boolean = false,
     val snackbar: String? = null,
     val contentDetails: ContentDetails? = null,
@@ -249,6 +260,17 @@ data class ReelstackUiState(
 
     val configuredCount: Int
         get() = connections.count { it.baseUrl.isNotBlank() }
+
+    /** The layout Home renders: the saved one, or the one the older fields describe. */
+    val effectiveHomeLayout: app.reelstack.data.model.HomeLayout
+        get() = homeLayout ?: app.reelstack.data.model.HomeLayout.fromLegacy(homeRowOrder, homeSections, showNextUp = true)
+
+    /** Media servers that have an address, and so rows of their own on Home. */
+    val homeMediaSources: List<ServiceKind>
+        get() = app.reelstack.data.model.HOME_MEDIA_SOURCES.filter { kind -> connections.any { it.kind == kind && it.baseUrl.isNotBlank() } }
+
+    fun homeFetchPlan(): app.reelstack.data.model.HomeFetchPlan =
+        app.reelstack.data.model.HomeFetchPlan(effectiveHomeLayout, homeLibraries)
 
     fun canEditConnection(kind: ServiceKind): Boolean = kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR) ||
         connections.none { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() } || adminView
@@ -2430,10 +2452,40 @@ class ReelstackViewModel(
         _uiState.update { it.copy(wifiOnly = enabled, snackbar = appString(R.string.notice_wifi_policy_updated)) }
     }
 
-    fun setHomeRowOrder(order: List<app.reelstack.data.model.HomeRow>) = homeFeed.setRowOrder(order)
+    fun setHomeLayout(layout: app.reelstack.data.model.HomeLayout) = homeFeed.setLayout(layout)
 
-    fun setHomeSectionVisible(section: HomeSection, visible: Boolean) =
-        homeFeed.setSectionVisible(section, visible)
+    fun setHomeLibraries(kind: ServiceKind, choice: app.reelstack.data.model.HomeLibraryChoice) {
+        val connection = _uiState.value.connections.firstOrNull { it.kind == kind && it.baseUrl.isNotBlank() } ?: return
+        homeFeed.setLibraries(connection, choice)
+    }
+
+    private var homeLibraryViewsJob: Job? = null
+
+    /**
+     * Every library each media server offers this account, for the Home editor to choose from.
+     * Read unfiltered: a library hidden from the Library tab can still belong on Home.
+     */
+    fun loadHomeLibraryViews() {
+        val connections = _uiState.value.connections.filter {
+            it.kind in app.reelstack.data.model.HOME_MEDIA_SOURCES && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        }
+        _uiState.update { it.copy(homeLibraries = container.homeLibraries(it.connections),
+            homeLibraryViewsLoading = connections.isNotEmpty(), homeLibraryViewsFailed = emptySet()) }
+        val profileId = _uiState.value.activeProfileId
+        homeLibraryViewsJob?.cancel()
+        homeLibraryViewsJob = viewModelScope.launch {
+            val loaded = connections.map { connection ->
+                async(Dispatchers.IO) { connection.kind to runCatching { container.mediaServerClient.browseLibraries(connection) } }
+            }.map { it.await() }
+            // Another profile's libraries must never be offered as this one's.
+            if (!isActive || _uiState.value.activeProfileId != profileId) return@launch
+            _uiState.update { current -> current.copy(
+                homeLibraryViews = loaded.mapNotNull { (kind, result) -> result.getOrNull()?.let { kind to it } }.toMap(),
+                homeLibraryViewsFailed = loaded.filter { it.second.isFailure }.mapTo(mutableSetOf()) { it.first },
+                homeLibraryViewsLoading = false,
+            ) }
+        }
+    }
 
     fun clearSnackbar() = _uiState.update { it.copy(snackbar = null) }
 
@@ -2811,6 +2863,7 @@ class ReelstackViewModel(
             wifiOnly = container.preferencesRepository.wifiOnly,
             homeSections = container.preferencesRepository.visibleHomeSections,
             homeRowOrder = container.preferencesRepository.homeRowOrder,
+            homeLayout = container.preferencesRepository.homeLayout,
         )
         signOutJob = viewModelScope.launch {
             // Wait for any in-flight disk write before erasing the offline account snapshot.
@@ -2976,6 +3029,8 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         wifiOnly = container.preferencesRepository.wifiOnly,
         homeSections = container.preferencesRepository.visibleHomeSections,
         homeRowOrder = container.preferencesRepository.homeRowOrder,
+        homeLayout = container.preferencesRepository.homeLayout,
+        homeLibraries = container.homeLibraries(connections),
         hasCachedData = false,
         isRefreshing = configuredKinds.isNotEmpty(),
     )

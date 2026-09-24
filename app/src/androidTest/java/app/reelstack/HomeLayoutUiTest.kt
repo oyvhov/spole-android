@@ -8,23 +8,29 @@ import androidx.compose.ui.input.key.Key
 import app.reelstack.data.model.*
 import app.reelstack.data.repository.AppPreferencesRepository
 import app.reelstack.ui.ReelstackUiState
-import app.reelstack.ui.screens.HomeRowOrderSetting
+import app.reelstack.ui.screens.HomeEditorActions
+import app.reelstack.ui.screens.HomeLayoutSetting
+import app.reelstack.ui.screens.editableHomeRows
 import app.reelstack.ui.theme.ReelstackTheme
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 
+/** The Home editor with the real theme and device input, and Home following what it saves. */
 @OptIn(ExperimentalTestApi::class)
-class HomeRowOrderUiTest {
+class HomeLayoutUiTest {
     @get:Rule val rule = createComposeRule()
 
+    private val jellyfin = ServiceConnection(ServiceKind.JELLYFIN, "Jellyfin", "https://jellyfin.example", "token", "me")
+
     @Test fun canMoveRepeatedlyResetAndReopenWithDeviceInput() {
-        // Start the target third regardless of whether another test enabled the Next up row.
-        val firstRows = listOf(HomeRow.NOW_PLAYING, HomeRow.CONTINUE_WATCHING, HomeRow.FAVOURITES)
-        var state by mutableStateOf(ReelstackUiState(homeRowOrder = firstRows + HomeRow.entries.filterNot { it in firstRows }))
-        rule.setContent { ReelstackTheme { HomeRowOrderSetting(state, { state = state.copy(homeRowOrder = it) }) } }
-        rule.onNodeWithTag("home-order-open").performClick()
-        val up = rule.onNodeWithTag("home-order-FAVOURITES-0")
+        var state by mutableStateOf(ReelstackUiState(connections = listOf(jellyfin), homeLayout = HomeLayout.DEFAULT))
+        rule.setContent { ReelstackTheme {
+            HomeLayoutSetting(state, HomeEditorActions(onLayoutChange = { state = state.copy(homeLayout = it) }))
+        } }
+        val nextUp = HomeRowKey(HomeRowKind.NEXT_UP, ServiceKind.JELLYFIN)
+        rule.onNodeWithTag("home-layout-open").performClick()
+        val up = rule.onNodeWithTag("home-layout-up-${nextUp.id}")
         val television = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
             .getSystemService(android.app.UiModeManager::class.java).currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
         if (television) {
@@ -34,44 +40,35 @@ class HomeRowOrderUiTest {
         } else {
             up.performClick().performClick()
         }
-        rule.runOnIdle { assertEquals(HomeRow.FAVOURITES, state.homeRowOrder.first()) }
-        if (television) rule.onNodeWithTag("home-order-FAVOURITES-1").assertIsFocused()
-        rule.onNodeWithTag("home-order-done").performClick()
-        rule.onNodeWithTag("home-order-open").performClick()
-        rule.onNodeWithTag("home-order-FAVOURITES-0").assertIsNotEnabled()
-        rule.onNodeWithTag("home-order-reset").performClick()
-        rule.runOnIdle { assertEquals(HomeRow.entries, state.homeRowOrder) }
-        rule.onNodeWithTag("home-order-row-NOW_PLAYING").assertIsDisplayed()
+        rule.runOnIdle { assertEquals(nextUp, editableHomeRows(state).first()) }
+        if (television) rule.onNodeWithTag("home-layout-down-${nextUp.id}").assertIsFocused()
+        rule.onNodeWithTag("home-layout-done").performClick()
+        rule.onNodeWithTag("home-layout-open").performClick()
+        rule.onNodeWithTag("home-layout-up-${nextUp.id}").assertIsNotEnabled()
+        rule.onNodeWithTag("home-layout-reset").performClick()
+        rule.runOnIdle { assertEquals(HomeLayout.DEFAULT, state.homeLayout) }
     }
 
-    @Test fun largeTextCanScrollAndMoveLastRow() {
-        var state by mutableStateOf(ReelstackUiState())
-        rule.setContent { DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(2f)) {
-            ReelstackTheme { HomeRowOrderSetting(state, { state = state.copy(homeRowOrder = it) }) }
-        } }
-        rule.onNodeWithTag("home-order-open").performClick()
-        rule.onNodeWithTag("home-order-list").performScrollToNode(hasTestTag("home-order-UPCOMING-0"))
-        rule.onNodeWithTag("home-order-UPCOMING-0").assertIsDisplayed().performClick()
-        rule.runOnIdle { assertEquals(HomeRow.UPCOMING, state.homeRowOrder[state.homeRowOrder.lastIndex - 1]) }
-        rule.onNodeWithTag("home-order-done").assertIsDisplayed().performClick()
-    }
-
-    @Test fun preferencesSurviveRepositoryRecreationWithoutChangingVisibility() {
+    @Test fun layoutSurvivesRepositoryRecreationAndOlderSettingsHandItBack() {
         val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         val preferences = AppPreferencesRepository(context)
         val oldOrder = preferences.homeRowOrder
         val oldVisible = preferences.visibleHomeSections
+        val oldLayout = preferences.homeLayout
         try {
+            val chosen = HomeLayout.DEFAULT.withSourceVisible(ServiceKind.JELLYFIN, false)
+            preferences.homeLayout = chosen
+            assertEquals(chosen, AppPreferencesRepository(context).homeLayout)
+
+            // A test or an older build that writes the older keys gets a layout built from them.
             preferences.visibleHomeSections = setOf(HomeSection.FAVOURITES)
-            preferences.homeRowOrder = HomeRow.entries.reversed()
-            val reopened = AppPreferencesRepository(context)
-            assertEquals(HomeRow.entries.reversed(), reopened.homeRowOrder)
-            assertEquals(setOf(HomeSection.FAVOURITES), reopened.visibleHomeSections)
-            reopened.homeRowOrder = HomeRow.entries
-            assertEquals(setOf(HomeSection.FAVOURITES), reopened.visibleHomeSections)
+            val migrated = AppPreferencesRepository(context).homeLayout
+            assertTrue(migrated.isVisible(HomeRowKey(HomeRowKind.FAVOURITES, ServiceKind.EMBY)))
+            assertFalse(migrated.isVisible(HomeRowKey(HomeRowKind.UPCOMING)))
         } finally {
             preferences.homeRowOrder = oldOrder
             preferences.visibleHomeSections = oldVisible
+            preferences.homeLayout = oldLayout
         }
     }
 
@@ -90,7 +87,8 @@ class HomeRowOrderUiTest {
         rule.onNodeWithTag("home-feed").performScrollToIndex(1)
         assertTrue(rule.onNodeWithText(releases).fetchSemanticsNode().boundsInRoot.top <
             rule.onNodeWithText(recommendations).fetchSemanticsNode().boundsInRoot.top)
-        rule.runOnIdle { state = state.copy(homeRowOrder = HomeRow.entries) }
+        rule.runOnIdle { state = state.copy(homeLayout = state.effectiveHomeLayout.moved(
+            HomeRowKey(HomeRowKind.RECOMMENDATIONS), -1, HomeLayout.ALL_KEYS)) }
         rule.onNodeWithTag("home-feed").performScrollToIndex(1)
         assertTrue(rule.onNodeWithText(recommendations).fetchSemanticsNode().boundsInRoot.top <
             rule.onNodeWithText(releases).fetchSemanticsNode().boundsInRoot.top)
