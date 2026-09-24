@@ -133,4 +133,3 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
         }
     }
 }
-

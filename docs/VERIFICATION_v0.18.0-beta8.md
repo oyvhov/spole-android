@@ -42,6 +42,35 @@ Dekt av einingstestar:
   bibliotek per rad (berre bibliotek som kan fylle rada), alle kryssa av betyr «alle», og
   skriftstorleik 2.0.
 
+## Visuell kontroll
+
+- Mobil (5562, demodata): menyen viser filterbrikker med tenestelogo, rader per teneste med
+  brytar, «Alle bibliotek» og pilar. Ein layoutfeil vart retta før det endelege bygget. Med
+  skriftstorleik 2.0 blir ingenting klipt; brikker og knappar bryt over fleire linjer.
+- `HomeLayoutUiTest`, `UiConsistencyTest`, `ReelstackSmokeTest` og `HomeMediaRowsTest` mot det
+  endelege bygget: **OK (20 tests)**.
+
 ## Installasjon og oppdatering
 
-_ventar_
+Kjelde-commit og publisert tagg: `aa58e8f8abe31e04c8b6b63ccf2b74a25f2a149e`.
+Release: <https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta8>
+
+- Fem assets. GitHub-digest `sha256:3596fda2…ba5` er lik den lokale hashen. Den offentlege lista
+  viser `draft=false` og `prerelease=true`, og ei offentleg nedlasting utan autorisasjon har same
+  SHA-256.
+- **Mobil (5560), `adb install -r` før publisering:** 0.18.0-beta7 (127) → 0.18.0-beta8 (128) med
+  uendra `firstInstallTime`. Appen startar utan krasj.
+- **TV (5564), ekte oppdatering gjennom appen:** 0.18.0-beta7 viste sjølv «Spole v0.18.0-beta8 er
+  klar». Sjå oppdatering → Last ned oppdatering (10,9 MB) → Installer oppdatering → Android
+  «Update» → «App installed» → Open. versionCode 128, uendra `firstInstallTime`, same konto
+  (Øyvind · Seerr) og «Sjå vidare · Jellyfin» med ekte titlar. Ingen krasj.
+
+## Tilpass framsida med ekte data (TV)
+
+- Overgangen tok med det brukaren hadde: «Spelar no» var av, og «Hald fram · Jellyfin» viste
+  **4 av 5 bibliotek**, der Barne-TV var av som i biblioteksvalet frå før. Biblioteka (Filmar,
+  Seriar, Barnefilmar, Barne-TV, Samlingar) vart henta frå tenaren.
+- Jellyfin og Emby hadde kvar sine rader.
+- «Hald fram · Jellyfin» slått av: rada vart merkt «Skjult», og framsida viste «Sjå vidare · Emby»
+  utan Jellyfin-rada. Slått på att: «Sjå vidare · Jellyfin» kom tilbake med same titlar. Ingen
+  andre innstillingar vart endra.
