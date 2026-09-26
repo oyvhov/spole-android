@@ -140,4 +140,15 @@ Kontrollert på eininga (engelsk appspråk):
 
 - **Mobil (5560), `adb install -r` før publisering:** 0.18.0-beta8 (128) → 0.18.0-beta9 (129) med
   uendra `firstInstallTime`. Appen startar utan krasj og opnar på framsida med same innhald som før.
-- **TV (5564), ekte oppdatering gjennom appen:** blir prøvd etter publisering.
+- **TV (5564), ekte oppdatering gjennom appen:** Innstillingar → Varsel og oppdatering →
+  Appoppdateringar → Sjekk no viste «v0.18.0-beta9 · Nedlasting · 10,9 MB» med release-notata. Last
+  ned oppdatering → Installer oppdatering → Android «Update» → «App installed» → Open.
+  0.18.0-beta8 (128) → 0.18.0-beta9 (129), uendra `firstInstallTime`, same konto (Øyvind · Seerr)
+  og «Sjå vidare · Jellyfin» med ekte titlar. Ingen krasj.
+
+Kjelde-commit og publisert tagg: `2c896f98944e7c4e4bd8c51ed64b3e31973f43cf`.
+Release: <https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta9>
+
+- Fem assets. GitHub-digest `sha256:6b57a67c…340f` er lik den lokale hashen. Releasen er
+  publisert som prerelease, står i den offentlege lista utan autorisasjon, og ei offentleg
+  nedlasting har same SHA-256.
