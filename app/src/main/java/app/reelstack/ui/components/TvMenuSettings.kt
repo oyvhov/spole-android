@@ -38,7 +38,12 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
         TvMenuOrderEditor(order, names, value.hiddenMenuItems, value.requiredMenu(),
             { onChange(value.copy(menuOrder = it)) },
             { id, visible -> onChange(value.withMenuVisible(id, visible)) })
-        SpoleSecondaryButton(onClick = { onChange(value.copy(menuOrder = DEFAULT_MENU, hiddenMenuItems = emptySet())) }) {
+        // A television has no downloads at all, so it has nothing to put in its menu either.
+        if (!isTelevision()) SettingsToggleRow(stringResource(R.string.menu_downloads), stringResource(R.string.menu_downloads_hint),
+            value.showDownloadsInMenu, "menu-show-downloads") { onChange(value.copy(showDownloadsInMenu = it)) }
+        SpoleSecondaryButton(onClick = {
+            onChange(value.copy(menuOrder = DEFAULT_MENU, hiddenMenuItems = emptySet(), showDownloadsInMenu = false))
+        }) {
             Text(stringResource(R.string.tv_reset_menu))
         }
     }

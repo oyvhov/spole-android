@@ -27,6 +27,15 @@ startar ikkje att av seg sjølv. Feil gir høve til å prøve igjen eller opne J
 - Lyd-, kvalitets- og bilettekstbyte forhandlar straumen på nytt og bevarer posisjonen.
   Vanlege tekstspor blir valde lokalt utan å starte videostraumen på nytt. Berre valde
   tekstspor blir lasta. Ein video som er sett på pause, skal halde seg på pause etter sporbyte.
+- **Teksten ventar på biletet, aldri omvendt (26. september 2026).** Eit valt tekstspor blir
+  henta ved sida av videoen (`loadChosenSubtitle`) og slått på først når fila ligg i
+  `SubtitleMemoryCache`. Før dette var sporet slått på frå start. Medan Media3 lastar ei valt
+  sidecar-fil, held `CompositeSequenceableLoader` videolastaren att, så ein episode starta, gjekk
+  tom for bilete etter om lag 1 MiB og venta til tenaren hadde henta ut teksten frå MKV-fila.
+  Det var mest synleg på TV første gong ein episode vart spelt. Same regel gjeld byte av tekst i
+  menyen. Ved direkte avspeling blir det planlagde lydsporet sitt språk sett som ønskt språk før
+  `prepare()` når språket er eintydig, slik at Media3 sitt første val ikkje må rettast (og
+  bufferen kastast) etterpå. Regresjonstest: `JellyfinPlayerTest.slowSubtitleExtractionNeverStallsThePicture`.
 - Start, pause/spoling, framdrift kvart tiande sekund og stopp blir sende til den eigne
   Jellyfin-økta. Dette endrar den innlogga kontoen sin sjåposisjon. Nettverksfeil kan hindre
   lagring; spelaren viser ei åtvaring. Ingen varig fråkopla rapportkø.

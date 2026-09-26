@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="genre_action">Action</string>
+    <string name="genre_adventure">Eventyr</string>
+    <string name="genre_animation">Animasjon</string>
+    <string name="genre_comedy">Komedie</string>
+    <string name="genre_crime">Krim</string>
+    <string name="genre_documentary">Dokumentar</string>
+    <string name="genre_drama">Drama</string>
+    <string name="genre_family">Familie</string>
+    <string name="genre_fantasy">Fantasi</string>
+    <string name="genre_history">Historie</string>
+    <string name="genre_horror">Grøssar</string>
+    <string name="genre_music">Musikk</string>
+    <string name="genre_mystery">Mysterium</string>
+    <string name="genre_romance">Romantikk</string>
+    <string name="genre_science_fiction">Science fiction</string>
+    <string name="genre_thriller">Thriller</string>
+    <string name="genre_tv_movie">TV-film</string>
+    <string name="genre_war">Krig</string>
+    <string name="genre_western">Western</string>
+    <string name="genre_reality">Reality</string>
+    <string name="genre_reality_tv">Reality-TV</string>
+    <string name="genre_kids">Barn</string>
+    <string name="genre_news">Nyheiter</string>
+    <string name="genre_talk">Talkshow</string>
+    <string name="genre_soap">Såpeopera</string>
+    <string name="genre_scifi_fantasy">Science fiction og fantasi</string>
+    <string name="genre_action_adventure">Action og eventyr</string>
+    <string name="genre_war_politics">Krig og politikk</string>
+</resources>

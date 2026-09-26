@@ -622,7 +622,7 @@ private fun DiscoverFilterBar(
 
 /** A title you already own: no request action, just the way into its details. */
 @Composable
-private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
+internal fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
@@ -666,7 +666,7 @@ private fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
+internal fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
     val artworkShape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
     val cardInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by cardInteraction.collectIsPressedAsState()
@@ -1109,6 +1109,8 @@ fun SettingsScreen(
     onRequestPinSetup: (String) -> Unit = {},
     onDisablePin: () -> Unit = {},
     homeEditor: HomeEditorActions = HomeEditorActions(),
+    /** Downloads have their own row in Settings whether or not they are also in the menu. */
+    onOpenDownloads: () -> Unit = {},
 ) {
     val television = app.reelstack.ui.components.isTelevision()
     androidx.compose.runtime.CompositionLocalProvider(app.reelstack.ui.components.LocalSettingsButtonStyle provides true) {
@@ -1117,10 +1119,10 @@ fun SettingsScreen(
         val wide = television || policy.useSettingsPanes(androidx.compose.ui.platform.LocalDensity.current.fontScale)
         if (wide) TvSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange,
             onWifiOnlyChange, onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
-            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor)
+            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor, onOpenDownloads = onOpenDownloads)
         else MobileSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange,
             onWifiOnlyChange, onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
-            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor)
+            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor, onOpenDownloads = onOpenDownloads)
     }
     }
 }

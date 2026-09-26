@@ -46,6 +46,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     var target by remember(state.itemId) { mutableStateOf<Long?>(null) }
     LaunchedEffect(target) { if (target != null) { kotlinx.coroutines.delay(1600); target = null } }
     val position = (target ?: seekPreview ?: state.positionMs).coerceIn(0, state.durationMs.coerceAtLeast(0))
+    val padHours = state.durationMs >= 3_600_000L
 
     var transientSeekDelta by remember { mutableIntStateOf(0) }
     var transientSeekTime by remember { mutableLongStateOf(0L) }
@@ -137,7 +138,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             position, state.durationMs, state.chapters, Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp), source = state.source)
         else if (seekPreview != null) Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
             .testTag("player-seek-feedback"), shape = RoundedCornerShape(12.dp), color = Color.Black.copy(alpha = .76f)) {
-            Text(playbackTime(position) + " / " + playbackTime(state.durationMs),
+            Text(playbackTime(position, padHours) + " / " + playbackTime(state.durationMs, padHours),
                 Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = Color.White)
         }
         transientIndicator()
@@ -222,11 +223,11 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(playbackTime(position), style = MaterialTheme.typography.labelLarge, color = Color.White)
-            Text(playbackTime(state.durationMs), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .72f))
+            Text(playbackTime(position, padHours), style = MaterialTheme.typography.labelLarge, color = Color.White)
+            Text(playbackTime(state.durationMs, padHours), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .72f))
         }
         if (!kids) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            TvPlayerAction(SpoleIcons.Info, "Stats for Nerds", "player-stats", Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onStats() }
+            TvPlayerAction(SpoleIcons.Info, stringResource(R.string.player_stats_title), "player-stats", Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onStats() }
             if (state.chapters.isNotEmpty()) TvPlayerAction(SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters",
                 Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onChapters() }
             TvPlayerAction(SpoleIcons.Sound, stringResource(R.string.player_audio), "player-audio",

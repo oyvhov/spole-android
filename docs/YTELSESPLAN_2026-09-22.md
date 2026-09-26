@@ -29,6 +29,25 @@ Punkta der blir ikkje gjentekne her.
 | Y-15 | ✅ | Tilrådingar startar med ein gong; detaljoppslag for førespurnader parallelt |
 | Y-16 | ➖ | Ikkje endra: bakgrunnsjobben fyller snapshotet heimeskjermen startar frå, også tilrådingane |
 
+## Oppfølging 26. september 2026: framsida skal ikkje hoppe
+
+Brukaren melde at innlastinga på framsida framleis ikkje var god. Gjennomgangen fann at mykje av
+det som kjennest tregt, er at sida bygst om ved kvar oppfrisking, ikkje at kalla er trege:
+
+| Endring | Kvifor |
+|---|---|
+| `loadedSources`: berre ei rad som aldri har lasta, får skjelett | Tomme rader fekk skjelett ved kvar oppfrisking og mista det att, og sida hoppa to gonger |
+| «Kjem snart» får berre skjelett når Radarr/Sonarr er kopla til | Utan dei kollapsa eit 226 dp skjelett til éi linje |
+| Grenser per tenar (`HOME_RESUME_PER_SERVER`, `HOME_ROW_PER_SERVER`) | Grensa på den samanslåtte lista gjorde «Hald fram» 6 → 12 → 6 kort i éi oppfrisking |
+| Fast rekkjefølgje (`mergeHomeRows`) i kvar tenaroppdatering | Rekkjefølgja snudde seg per oppdatering, og helten bytte tittel medan han var synleg |
+| Helten følgjer ein tittel, ikkje ein plass | Same grunn, frå sida til nettbrett/TV |
+| Nytt forsøk ved feil: 1 → 2 → 4 … 30 min, åtvaringar frå 5 min | Ein tenar som låg nede, eller ei åtvaring som eigentleg var ein rett, gav full oppfrisking kvart minutt |
+| Radene kjem på skjermen før Room-lagringa | Snapshot-skrivinga låg mellom siste svar og skjermen |
+| Biblioteksval i Bibliotek-fana tømmer ikkje framsida | Framsida brukar sitt eige val (sjå `HOME_LAYOUT.md`) |
+
+Står att frå same gjennomgang: sesjonar («Spelar no») kjem framleis med heile oppfriskinga, Seerr-
+og kalenderradene ventar på katalogoppslaga, og kvar retur til appen gjer ei full oppfrisking.
+
 ## Samandrag
 
 Appen er ikkje treg fordi Compose eller biletlastinga er dårleg. Han er treg fordi nettverkskalla

@@ -176,9 +176,11 @@ class MediaSyncRepository(
                 val result = fetchWithFailover(connection, ownAccess, homePlan)
                 val feed = (result.first.getOrNull() as? ServicePayload.Media)?.feed
                 if (profile != null && feed != null) {
-                    fun mapped(items: List<RemoteLibraryItem>) = items.map { libraryMedia(it, connection.kind) }
-                    onLibraryReady(LibraryFeedUpdate(connection.kind, mapped(feed.resume), mapped(feed.nextUp), mapped(feed.recentMovies),
-                        mapped(feed.recentSeries), mapped(feed.favourites)))
+                    fun mapped(items: List<RemoteLibraryItem>, cap: Int) =
+                        homeRowForServer(items.map { libraryMedia(it, connection.kind) }, cap)
+                    onLibraryReady(LibraryFeedUpdate(connection.kind, mapped(feed.resume, HOME_RESUME_PER_SERVER),
+                        mapped(feed.nextUp, HOME_ROW_PER_SERVER), mapped(feed.recentMovies, HOME_ROW_PER_SERVER),
+                        mapped(feed.recentSeries, HOME_ROW_PER_SERVER), mapped(feed.favourites, HOME_ROW_PER_SERVER)))
                 }
                 result
             } }
@@ -289,21 +291,23 @@ class MediaSyncRepository(
             sessions = mediaPayloads.flatMap { payload ->
                 payload.feed.sessions.map { playbackSession(it, payload.kind) }
             },
+            // Capped per server, exactly as each server's early update was, so a row keeps the
+            // cards it just showed when the whole refresh lands.
             resume = interleave(mediaPayloads.map { payload ->
-                payload.feed.resume.map { item -> libraryMedia(item, payload.kind) }
-            }).take(12),
+                homeRowForServer(payload.feed.resume.map { item -> libraryMedia(item, payload.kind) }, HOME_RESUME_PER_SERVER)
+            }),
             recentMovies = interleave(mediaPayloads.map { payload ->
-                payload.feed.recentMovies.map { item -> libraryMedia(item, payload.kind) }
-            }).take(24),
+                homeRowForServer(payload.feed.recentMovies.map { item -> libraryMedia(item, payload.kind) }, HOME_ROW_PER_SERVER)
+            }),
             nextUp = interleave(mediaPayloads.map { payload ->
-                payload.feed.nextUp.map { item -> libraryMedia(item, payload.kind) }
-            }).distinctBy { it.id }.take(24),
+                homeRowForServer(payload.feed.nextUp.map { item -> libraryMedia(item, payload.kind) }, HOME_ROW_PER_SERVER)
+            }),
             favourites = interleave(mediaPayloads.map { payload ->
-                payload.feed.favourites.map { item -> libraryMedia(item, payload.kind) }
-            }).distinctBy { it.id }.take(24),
+                homeRowForServer(payload.feed.favourites.map { item -> libraryMedia(item, payload.kind) }, HOME_ROW_PER_SERVER)
+            }),
             recentSeries = interleave(mediaPayloads.map { payload ->
-                payload.feed.recentSeries.map { item -> libraryMedia(item, payload.kind) }
-            }).take(24),
+                homeRowForServer(payload.feed.recentSeries.map { item -> libraryMedia(item, payload.kind) }, HOME_ROW_PER_SERVER)
+            }),
             upcoming = upcoming.take(30),
             recentReleases = recentReleases.take(30),
             incoming = if (access.isAdmin) queue.map(::incomingMedia).distinctBy { it.id } else emptyList(),
@@ -832,6 +836,19 @@ internal fun mergeReleaseItems(items: List<UpcomingMedia>): List<UpcomingMedia> 
     val episode = if (it.mediaType.equals("Episode", true)) Regex("S\\d+ E\\d+").find(it.subtitle)?.value ?: it.id else "movie"
     "${it.title.lowercase(Locale.ROOT).trim()}|$episode"
 }
+
+/**
+ * How many cards one server gives each Home row. Rows are per server, so the cap is too: a cap on
+ * the merged list used to halve each server's row at the end of every refresh, just after that
+ * server's own update had shown the full row (6 → 12 → 6 cards).
+ */
+internal const val HOME_RESUME_PER_SERVER = 12
+internal const val HOME_ROW_PER_SERVER = 24
+
+internal fun homeRowForServer(items: List<LibraryMedia>, cap: Int): List<LibraryMedia> = items.distinctBy { it.id }.take(cap)
+
+/** One row per server, merged in the order the servers are configured, the same way every time. */
+internal fun mergeHomeRows(bySource: List<List<LibraryMedia>>): List<LibraryMedia> = interleave(bySource)
 
 private fun <T> interleave(groups: List<List<T>>): List<T> = buildList {
     val maxSize = groups.maxOfOrNull(List<T>::size) ?: 0

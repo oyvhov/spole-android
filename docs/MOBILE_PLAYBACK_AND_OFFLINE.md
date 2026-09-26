@@ -18,9 +18,22 @@ Nedlasting startar berre frå detaljsida på mobil/nettbrett — aldri inne i sp
 barnemodus. Film og enkel episode brukar dei valde lyd-, tekstings- og filvala på detaljsida. Ein
 serie er ikkje éi fil: handlinga opnar ein episodeveljar og køyrer berre episoden brukaren vel.
 Media3 køyrer som ein vedvarande app-privat jobb med lågprioritets varsel, prosentsframdrift og
-pause/hald fram. Trykk på varselet opnar **Nedlastingar**, den faste vaksen-destinasjonen i
-mobil- og nettbrettnavigasjonen. Der kan brukaren sjå framdrift og plassbruk, velje berre Wi-Fi,
-pause eller halde fram enkeltjobbar eller alt, prøve på nytt, og fjerne lokale filer.
+pause/hald fram. Trykk på varselet opnar **Nedlastingar**. Der kan brukaren sjå framdrift og
+plassbruk, velje berre Wi-Fi, pause eller halde fram enkeltjobbar eller alt, prøve på nytt, og
+fjerne lokale filer.
+
+Frå 26. september 2026 ligg **Nedlastingar** alltid som eiga rad i Innstillingar (mobil: under
+Avspeling; nettbrett: i kategorilista). I menyen er dei **av som standard**; brytaren
+«Nedlastingar i menyen» under menyvala set dei inn rett før Innstillingar. Opna frå Innstillingar
+får sida ei tilbakepil, menyen markerer Innstillingar, og Tilbake fører dit brukaren kom frå
+(`downloadsReturnTab`). Varsel og ei nyleg lagd nedlasting opnar sida på same måte. TV og
+barnemodus har framleis verken rad, menypunkt eller rute.
+
+«Sjå fråkopla» opnar spelaren frå aktiviteten. Før 26. september fekk han app-konteksten utan
+`FLAG_ACTIVITY_NEW_TASK`, og Android krasja appen (`OfflinePlayerLaunchTest`). Framdrift og
+statuslinje følgjer `ActionRow`: knappen står ved sida av teksten berre når teksten framleis får
+minst 45 % av breidda, elles under han. Sporet i framdriftslinja har sidefargen, fordi kortet og
+Material sitt standardspor er same farge.
 
 Trykk på nedlastingssymbolet gir alltid respons: detaljsida viser medan den trygge
 serverforhandlinga går, gjer symbolet utilgjengeleg for dobbelt-trykk, og opnar **Nedlastingar**

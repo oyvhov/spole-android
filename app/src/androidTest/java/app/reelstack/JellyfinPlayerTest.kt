@@ -598,11 +598,16 @@ class JellyfinPlayerTest {
     @Test fun hlsVideoSeeksAndSubtitleTrackIsSelected() = exercise(hls=true) { scenario,server,_ ->
         playing(scenario)
         assertFalse(snapshot(scenario).direct)
-        scenario.onActivity { activity ->
-            assertTrue(activity.model.player.currentTracks.groups.any { it.type==androidx.media3.common.C.TRACK_TYPE_TEXT && it.isSelected })
-            assertTrue(activity.model.player.currentCues.cues.isNotEmpty())
-            activity.model.seek(12_000)
+        // The text track is switched on once its file has arrived beside the video.
+        waitFor {
+            var shown = false
+            scenario.onActivity { activity ->
+                shown = activity.model.player.currentTracks.groups.any { it.type==androidx.media3.common.C.TRACK_TYPE_TEXT && it.isSelected } &&
+                    activity.model.player.currentCues.cues.isNotEmpty()
+            }
+            shown
         }
+        scenario.onActivity { activity -> activity.model.seek(12_000) }
         waitFor { snapshot(scenario).positionMs>=12_000 && snapshot(scenario).playing }
         assertTrue(server.requests.any { it.contains("Stream.vtt") })
         val sessions = server.events.count { it.first.endsWith("PlaybackInfo") }
@@ -615,10 +620,11 @@ class JellyfinPlayerTest {
         assertEquals(downloads, server.requests.count { it.contains("/Subtitles/") })
         assertTrue(snapshot(scenario).positionMs>=12_000)
     }
-    @Test fun disabledSubtitleIsWarmedAndEnablesWithoutAnotherDownload() = exercise(defaultSubtitle = -1) { scenario, server, _ ->
+    @Test fun subtitlesOffFetchNothingAndSwitchingOnLoadsTheTextOnce() = exercise(defaultSubtitle = -1) { scenario, server, _ ->
         playing(scenario)
         assertEquals(-1, snapshot(scenario).subtitleIndex)
-        waitFor { server.requests.any { it.contains("/Subtitles/") } }
+        SystemClock.sleep(1_000)
+        assertFalse(server.requests.any { it.contains("/Subtitles/") })
         val preparations = server.events.count { it.first.endsWith("PlaybackInfo") }
         scenario.onActivity { it.model.subtitles(2) }
         waitFor {
@@ -629,6 +635,28 @@ class JellyfinPlayerTest {
         assertEquals(1, server.requests.count { it.contains("/Subtitles/") })
         assertEquals(preparations, server.events.count { it.first.endsWith("PlaybackInfo") })
         assertTrue(snapshot(scenario).playing)
+    }
+
+    /**
+     * The TV report: an episode started, stopped for a moment, and went on with the subtitle.
+     * Media3 held the video loader back while the selected text file was still being extracted.
+     * The text now loads beside the picture, so the picture runs on and the text joins it.
+     */
+    @Test fun slowSubtitleExtractionNeverStallsThePicture() = exercise(hls = true, subtitleDelayMs = 6_000) { scenario, server, _ ->
+        playing(scenario)
+        var stalled = false
+        val until = SystemClock.elapsedRealtime() + 4_000
+        while (SystemClock.elapsedRealtime() < until) {
+            if (snapshot(scenario).busy) stalled = true
+            SystemClock.sleep(100)
+        }
+        assertFalse("the picture waited for the subtitle", stalled)
+        waitFor(15_000) {
+            var visible = false
+            scenario.onActivity { visible = it.model.player.currentCues.cues.isNotEmpty() }
+            visible
+        }
+        assertEquals(1, server.requests.count { it.contains("/Subtitles/") })
     }
 
     @Test fun switchingAudioAndQualityKeepsPosition() = exercise { scenario,server,_ ->

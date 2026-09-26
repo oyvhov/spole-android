@@ -84,7 +84,9 @@ internal fun DetailAside(
         if (inLibrary) InLibraryBadge()
         app.reelstack.ui.components.PlaybackMetadata(details, remaining)
         if (details.genres.isNotEmpty()) Text(
-            details.genres.take(4).joinToString(" · "),
+            details.genres.take(4).map { genre ->
+                standardGenreResource(genre)?.let { stringResource(it) } ?: genre
+            }.joinToString(" · "),
             color = PrimarySoft,
             style = MaterialTheme.typography.labelLarge,
             maxLines = 3,

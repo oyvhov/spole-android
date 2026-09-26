@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_downloads">Downloads in the menu</string>
+    <string name="menu_downloads_hint">Downloads are always in Settings.</string>
+    <string name="settings_downloads_hint">Films and episodes saved on this device.</string>
+    <string name="home_search_bar">Search bar on Home</string>
+    <string name="home_search_bar_hint">Search is always one tap away from the icon at the top.</string>
+    <string name="search_open">Search</string>
+    <string name="search_everywhere_hint">Search your libraries and Seerr at once.</string>
+    <string name="search_global_no_results">No results for “%1$s”. Try another word.</string>
+</resources>

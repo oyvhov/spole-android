@@ -1,8 +1,14 @@
 # Globalt søk · arbeidsplan
 
-Status: **ikkje starta.** Ingenting i denne planen er implementert. Dokumentet er arbeidslista;
-kvar funksjon har ein ID, ein hake og eit akseptansekrav. Hak av først når akseptansekravet er
-oppfylt og verifisert på eining — ikkje når koden er skriven.
+Status 26. september 2026: **påbegynt.** Søket er ein eigen skjerm med eiga spørjing
+(`GlobalSearchScreen`, `ReelstackUiState.globalSearch`), og telefonen og nettbrettet opnar det frå eit
+ikon ved profilbiletet på Heim. Sjå statustabellen. Dokumentet er arbeidslista; kvar funksjon har ein
+ID, ein hake og eit akseptansekrav. Hak av først når akseptansekravet er oppfylt og verifisert på
+eining — ikkje når koden er skriven.
+
+**Endra avgjerd 26. september:** brukaren bad om at søket på mobil ikkje skulle hoppe til Oppdag, og
+valde «ikon øvst + val i Innstillingar». Søkelina under toppen er difor av som standard og kan slåast
+på under Innstillingar → Heim. Regel 2 og GS-4 under er skrivne om etter dette.
 
 ---
 
@@ -44,11 +50,11 @@ Alt anna i planen følgjer av det.
 
 | ID | Funksjon | Status | Avheng av |
 | --- | --- | --- | --- |
-| GS-1 | Søkedestinasjonen | ☐ Ikkje starta | — |
-| GS-2 | Éi søkjekjelde i ViewModel | ☐ Ikkje starta | — |
-| GS-3 | Resultat i grupper | ☐ Ikkje starta | GS-1, GS-2 |
-| GS-4 | Telefoninngang | ☐ Ikkje starta | GS-1 |
-| GS-5 | Nettbrettinngang | ☐ Ikkje starta | GS-1 |
+| GS-1 | Søkedestinasjonen | ◐ Delvis: eigen skjerm og spørjing; rotasjon/prosessdrap ikkje verifisert | — |
+| GS-2 | Éi søkjekjelde i ViewModel | ◐ Delvis: to `DiscoverSearchCoordinator` med kvar sin `SearchSlice` | — |
+| GS-3 | Resultat i grupper | ◐ Delvis: bibliotek først, så Seerr, duplikat éin gong; episodar og personar manglar | GS-1, GS-2 |
+| GS-4 | Telefoninngang | ☑ Ferdig og verifisert (emulator-5560, 26. september) | GS-1 |
+| GS-5 | Nettbrettinngang | ◐ Delvis: ikonet på Heim, ikkje i siderada | GS-1 |
 | GS-6 | TV-inngang | ☐ Ikkje starta | GS-1 |
 | GS-7 | Tastatur og fjernkontroll | ☐ Ikkje starta | GS-6 |
 | GS-8 | Tomme og feila tilstandar | ☐ Ikkje starta | GS-3 |
@@ -128,16 +134,15 @@ Søket spør fleire tenester samtidig og skal svare så snart den første svarar
 
 ### GS-4 · Telefoninngang
 
-**Plasseringa på mobil er alt rett og skal ikkje flyttast.** Søkeknappen på Heim er der folk ser
-etter han, og `showHomeSearch` er sann under 640 dp.
-
-Det som endrar seg er kvar knappen fører: til søkedestinasjonen (GS-1) i staden for til Oppdag.
+**Frå 26. september:** eit søkeikon ved profilbiletet øvst på Heim er inngangen. Søkelina under
+toppen er eit val i Innstillingar → Heim («Søkelina på framsida», av som standard). Begge fører til
+søkedestinasjonen (GS-1), ikkje til Oppdag.
 
 **Akseptansekrav**
 
-- [ ] Knappen står nøyaktig der han står i dag.
-- [ ] Eit trykk opnar søket med tastaturet oppe og markøren i feltet.
-- [ ] Tilbake lukkar søket og fører til Heim, ikkje til Oppdag.
+- [x] Ikonet står ved profilbiletet; søkelina finst berre når ho er vald.
+- [x] Eit trykk opnar søket med tastaturet oppe og markøren i feltet.
+- [x] Tilbake lukkar søket og fører til Heim, ikkje til Oppdag.
 
 **Filer:** `ui/ReelstackApp.kt`, `ui/screens/HomeScreen.kt`
 
@@ -252,7 +257,8 @@ BM-5 seier rett ut: **ingen søkefelt** i barneskalet.
 ## Reglar som gjeld heile funksjonen
 
 1. **Søk er ein destinasjon, ikkje ei fane.** Ingen ny `AppTab`.
-2. **Plasseringa på telefon er ferdig.** Ikkje flytt han for symmetri med dei andre flatene.
+2. **På telefon er ikonet ved profilbiletet inngangen** (brukaren si avgjerd 26. september). Søkelina
+   er eit val, ikkje standard.
 3. **Skjermtastaturet kjem aldri av seg sjølv på TV.**
 4. **Eige bibliotek står alltid øvst.** Det brukaren alt har, er det mest nyttige svaret.
 5. **Ei treg teneste held aldri tilbake ei rask.**

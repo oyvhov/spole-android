@@ -38,6 +38,8 @@ data class HomeUiState(
     val failedServices: Set<ServiceKind> = emptySet(),
     val serviceWarnings: Map<ServiceKind, String> = emptyMap(),
     val lastUpdatedEpochMillis: Long? = null,
+    /** Services whose rows have loaded once; see [ReelstackUiState.loadedSources]. */
+    val loadedSources: Set<ServiceKind> = emptySet(),
     val pendingSessionKey: String? = null,
     val homeSections: Set<HomeSection> = HomeSection.entries.toSet(),
     val homeRowOrder: List<HomeRow> = HomeRow.entries,
@@ -68,6 +70,7 @@ fun ReelstackUiState.toHomeUiState(): HomeUiState = HomeUiState(
     failedServices = failedServices,
     serviceWarnings = serviceWarnings,
     lastUpdatedEpochMillis = lastUpdatedEpochMillis,
+    loadedSources = loadedSources,
     pendingSessionKey = pendingSessionKey,
     homeSections = homeSections,
     homeRowOrder = homeRowOrder,

@@ -15,6 +15,9 @@ internal fun HomeExperienceSettings(value: Personalization, onChange: (Personali
         { stringResource(if (it) R.string.nav_library else R.string.nav_home) }) { onChange(value.copy(startInLibrary = it)) }
     SettingsToggleRow(stringResource(R.string.design_library_hub), stringResource(R.string.design_library_hub_hint),
         value.libraryHub, "library-hub") { onChange(value.copy(libraryHub = it)) }
+    // A remote has its own way into search; the line under the header is a touch choice.
+    if (!isTelevision()) SettingsToggleRow(stringResource(R.string.home_search_bar), stringResource(R.string.home_search_bar_hint),
+        value.showHomeSearchBar, "home-search-bar") { onChange(value.copy(showHomeSearchBar = it)) }
 }
 
 @Composable

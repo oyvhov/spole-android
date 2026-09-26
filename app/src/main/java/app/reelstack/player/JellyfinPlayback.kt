@@ -530,8 +530,8 @@ internal fun embyPlaybackSegments(item: JsonObject): List<PlaybackSegment> {
     ).filter { it.startMs >= 0 && it.endMs > it.startMs && (duration == null || it.endMs <= duration) }
 }
 
-fun playbackTime(ms: Long): String {
+fun playbackTime(ms: Long, padHours: Boolean = false): String {
     val seconds = ms.coerceAtLeast(0) / 1000
-    return if (seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
+    return if (padHours || seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
     else "%d:%02d".format(seconds / 60, seconds % 60)
 }

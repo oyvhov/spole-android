@@ -119,8 +119,14 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val options = LocalPersonalization.current
     val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
+    // The hero follows a title, not a slot. A refresh reorders the candidates, and the old index
+    // then pointed at another film while the first was still on screen. Only a title that has
+    // left the list gives way, to whatever now stands in its place.
+    var shownId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var position by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
-    val selected = titles[position.coerceIn(titles.indices)]
+    val index = shownId?.let(identities::indexOf)?.takeIf { it >= 0 } ?: position.coerceIn(titles.indices)
+    val selected = titles[index]
+    androidx.compose.runtime.SideEffect { shownId = selected.id; position = index }
     var focused by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
@@ -130,7 +136,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
                     delay(8_000)
-                    position = (position + 1) % titles.size
+                    val current = shownId?.let(identities::indexOf)?.takeIf { it >= 0 } ?: position
+                    shownId = identities[(current + 1) % identities.size]
                 }
             }
         }
@@ -162,8 +169,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             20.sp.toDp() * (if (compactTelevision) 2 else 4) +
             (if (compactTelevision) 17.sp else 20.sp).toDp() * 2
     }
+    // Leave enough of the first shelf in view to show that the page continues below the hero.
+    // The old 76% scene pushed even the library names below a 1080p television's lower edge.
     val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } *
-        if (options.heroCompact) .58f else .76f
+        if (options.heroCompact) .52f else .64f
     val sceneHeight = maxOf(if (television) televisionHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
         reservedText + if (compactTelevision) 80.dp else 130.dp)
     val featureSize = Modifier.height(sceneHeight)
@@ -265,7 +274,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             // Films use the metadata row below for facts. Episodes keep their readable title here,
             // so season and episode numbers are shown once and in the same language everywhere.
             val name = episodeTitle(title.subtitle, title.episode)
-            if (name.isNotBlank()) Text(if (compactTelevision) listOf(numbers, name).filter(String::isNotBlank).joinToString(" · ") else name,
+            val episodeCaption = if (compactTelevision) listOf(numbers, name).filter(String::isNotBlank).joinToString(" · ") else name
+            if (episodeCaption.isNotBlank()) Text(episodeCaption,
                 color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
                 minLines = if (compactTelevision) 1 else 2,
                 maxLines = if (compactTelevision) 1 else 2,

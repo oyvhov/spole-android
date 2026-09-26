@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_downloads">Nedlastingar i menyen</string>
+    <string name="menu_downloads_hint">Du finn alltid Nedlastingar under Innstillingar.</string>
+    <string name="settings_downloads_hint">Filmar og episodar du har lagra på eininga.</string>
+    <string name="home_search_bar">Søkelina på framsida</string>
+    <string name="home_search_bar_hint">Søket er alltid eit trykk unna i ikonet øvst.</string>
+    <string name="search_open">Søk</string>
+    <string name="search_everywhere_hint">Søk i biblioteka dine og i Seerr samstundes.</string>
+    <string name="search_global_no_results">Ingen treff på «%1$s». Prøv eit anna ord.</string>
+</resources>

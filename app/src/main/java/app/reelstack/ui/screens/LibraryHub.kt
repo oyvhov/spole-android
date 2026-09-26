@@ -69,9 +69,13 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
                 list.scrollToItem(index)
             } })
     }
-    LazyColumn(state = list, modifier = Modifier.fillMaxSize().testTag("library-hub"),
+    // Keep the TV safe edge outside the scroll viewport. Content padding only appears after
+    // scrolling to the very end, so the last visible shelf could still sit against the bezel.
+    LazyColumn(state = list, modifier = Modifier.fillMaxSize()
+        .padding(bottom = if (tv) ReelLayout.TvSafeEdge else 0.dp)
+        .testTag("library-hub"),
         contentPadding = PaddingValues(start = gutter, end = gutter, top = if (leadingHero) 0.dp else 20.dp,
-            bottom = if (tv) ReelLayout.TvSafeEdge else 32.dp),
+            bottom = if (tv) 0.dp else 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (leadingHero) item("feature") { hero() }
         if (options.showLibraryTitle || !leadingHero) item("header") {

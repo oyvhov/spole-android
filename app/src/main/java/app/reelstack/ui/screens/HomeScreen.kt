@@ -145,6 +145,7 @@ fun HomeScreen(
     onSearchClick: () -> Unit = {},
     searchTransitionModifier: Modifier = Modifier,
     showSearch: Boolean = true,
+    showSearchIcon: Boolean = false,
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
 ) = HomeScreen(
@@ -162,6 +163,7 @@ fun HomeScreen(
     onSearchClick = onSearchClick,
     searchTransitionModifier = searchTransitionModifier,
     showSearch = showSearch,
+    showSearchIcon = showSearchIcon,
     showBrand = showBrand,
     cardActions = cardActions,
 )
@@ -183,6 +185,8 @@ fun HomeScreen(
     onSearchClick: () -> Unit = {},
     searchTransitionModifier: Modifier = Modifier,
     showSearch: Boolean = true,
+    /** The search icon beside the profile: every touch layout, never television or a child. */
+    showSearchIcon: Boolean = false,
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
 ) {
@@ -212,6 +216,9 @@ fun HomeScreen(
     val hasQueueConnection = state.connections.any {
         it.baseUrl.isNotBlank() && (it.kind == ServiceKind.RADARR || it.kind == ServiceKind.SONARR)
     }
+    // Recommendations, releases and the calendar arrive with the whole refresh. Until the first
+    // one (or the cache) they wait in a skeleton; after that a refresh updates them in place.
+    val feedFirstLoad = state.isRefreshing && state.lastUpdatedEpochMillis == null
     HomeRefreshFrame(
         isRefreshing = showTopRefreshIndicator,
         onRefresh = triggerRefresh,
@@ -265,7 +272,9 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize().testTag("home-feed"),
         ) {
             if (featured == null) item(key = "home-header") {
-                Box(Modifier.padding(end = if (edge) ReelLayout.Gutter else 0.dp)) { HomeHeader(state, onAccountClick, showBrand) }
+                Box(Modifier.padding(end = if (edge) ReelLayout.Gutter else 0.dp)) {
+                    HomeHeader(state, onAccountClick, showBrand, onSearchClick.takeIf { showSearchIcon })
+                }
             }
             if (showSearch) item(key = "search-entry") {
                 Box(Modifier.padding(top = 8.dp, end = mediaEndInset())) {
@@ -277,7 +286,12 @@ fun HomeScreen(
                     TabletLibraryFeature(featured, onLibraryClick,
                         Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp)
                             .then(if (television) Modifier.cinematicBleed(ReelLayout.Gutter) else Modifier),
-                        account = { HomeAccountButton(state, onAccountClick, onArtwork = true) },
+                        account = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (showSearchIcon) app.reelstack.ui.components.HomeSearchButton(onSearchClick, onArtwork = true)
+                                HomeAccountButton(state, onAccountClick, onArtwork = true)
+                            }
+                        },
                         candidates = features,
                         rotationEnabled = featureVisible && state.activeSheet == null,
                         onFocusWithin = { focused -> if (television && focused) feedScope.launch {
@@ -309,16 +323,18 @@ fun HomeScreen(
                 if (row.kind == HomeRowKind.CONTINUE_WATCHING && source != null && source in watchingSources) {
                     val items = continueRows[source].orEmpty()
                     val incomplete = source in state.failedServices || source in state.serviceWarnings
-                    if (items.isNotEmpty() || incomplete || (state.isRefreshing && state.configuredCount > 0)) {
+                    // Only a row that has never loaded waits in a skeleton. An empty row used to get
+                    // a skeleton at every refresh and lose it again, and the page jumped twice.
+                    val firstLoad = state.isRefreshing && state.configuredCount > 0 && source !in state.loadedSources
+                    if (items.isNotEmpty() || incomplete || firstLoad) {
                         item(key = "continue-watching-${source.name}") {
                             Column(Modifier.testTag("continue-watching-${source.name}")) {
                                 MediaSectionTitle(stringResource(if (combine(source)) R.string.tv_continue_combined else R.string.home_continue), source, Modifier.padding(
                                     top = if (television && featured != null) 14.dp else ReelLayout.SectionTop,
                                     bottom = ReelLayout.SectionBottom,
                                 ))
-                                if (items.isEmpty() && !state.isRefreshing && incomplete)
-                                    EmptySectionLine(stringResource(R.string.home_resume_retry))
-                                else if (items.isEmpty()) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
+                                if (items.isEmpty() && firstLoad) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
+                                else if (items.isEmpty()) EmptySectionLine(stringResource(R.string.home_resume_retry))
                                 else ResumeRail(items, onLibraryClick, cardActions, rowKey = row.id)
                             }
                         }
@@ -349,7 +365,7 @@ fun HomeScreen(
                             MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
                             val items = state.recentMovies.filter { it.source == source }
                             if (items.isEmpty()) {
-                                if (state.isRefreshing) {
+                                if (state.isRefreshing && source !in state.loadedSources) {
                                     LibraryRailSkeleton(stringResource(R.string.home_loading_movies, source.displayName))
                                 } else {
                                     EmptySectionLine(mediaEmptyMessage(state, source, stringResource(R.string.home_no_movies)))
@@ -364,7 +380,7 @@ fun HomeScreen(
                             MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
                             val items = state.recentSeries.filter { it.source == source }
                             if (items.isEmpty()) {
-                                if (state.isRefreshing) {
+                                if (state.isRefreshing && source !in state.loadedSources) {
                                     LibraryRailSkeleton(
                                         stringResource(R.string.home_loading_series, source.displayName),
                                         wide = true,
@@ -382,7 +398,7 @@ fun HomeScreen(
                         SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = ReelLayout.SectionTop, bottom = 4.dp))
                         Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                             modifier = Modifier.padding(bottom = 12.dp))
-                        if (state.recommendations.isEmpty() && state.isRefreshing) {
+                        if (state.recommendations.isEmpty() && feedFirstLoad) {
                             RecommendationSkeleton()
                         } else if (state.recommendations.isEmpty()) {
                             EmptySectionLine(stringResource(R.string.home_recommendations_empty))
@@ -404,7 +420,7 @@ fun HomeScreen(
                             )
                         }
                         if (state.recentReleases.isEmpty()) {
-                            if (state.isRefreshing && state.configuredCount > 0) {
+                            if (feedFirstLoad && state.configuredCount > 0) {
                                 UpcomingSkeleton()
                             } else {
                                 EmptySectionLine(state.recentReleasesError ?: stringResource(R.string.home_releases_empty))
@@ -422,7 +438,9 @@ fun HomeScreen(
                             modifier = Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom),
                         )
                         if (state.upcoming.isEmpty()) {
-                            if (state.isRefreshing && state.configuredCount > 0) {
+                            // Only Radarr and Sonarr fill this row. Without them it has nothing to
+                            // wait for, and a 226 dp skeleton used to collapse into one line.
+                            if (feedFirstLoad && hasQueueConnection) {
                                 UpcomingSkeleton()
                             } else {
                                 EmptySectionLine(state.upcomingError ?: if (!hasQueueConnection)
@@ -470,7 +488,7 @@ private fun HomeFreshness(state: HomeUiState, onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand: Boolean) {
+private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand: Boolean, onSearchClick: (() -> Unit)? = null) {
     var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
@@ -491,6 +509,7 @@ private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand
                 Text(app.reelstack.ui.theme.LocalPersonalization.current.appLabel, color = TextColor, fontSize = 24.sp, lineHeight = 29.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
             } else Spacer(Modifier.weight(1f))
+        if (onSearchClick != null) app.reelstack.ui.components.HomeSearchButton(onSearchClick)
         HomeAccountButton(state, onAccountClick)
     }
     if (showBrand) app.reelstack.ui.components.SeasonalThemeBanner(Modifier.padding(top = 16.dp))
@@ -823,9 +842,9 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
     val chosenWide = when (homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)) {
         "POSTER" -> false; "THUMB" -> true; else -> wide
     }
-    // Every card in a rail reserves the same number of title lines, so a rail where each title
-    // fits on one line does not leave an empty second line under every card.
-    val titleLines = if (isTelevision() && chosenWide) 1 else if (items.any { it.title.length > if (chosenWide) 26 else 15 }) 2 else 1
+    // TV cards keep two title lines on every shelf, so long titles stay readable and captions
+    // below neighbouring cards share a baseline. Touch shelves still use their compact layout.
+    val titleLines = if (isTelevision()) 2 else if (items.any { it.title.length > if (chosenWide) 26 else 15 }) 2 else 1
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     LazyRow(state = railState, modifier = Modifier.fillMaxWidth().testTag("library-rail"), contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -855,7 +874,7 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
 internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null, rowKey: String? = null) {
     val format = homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)
     val chosenWide = resumeRailIsWide(format)
-    val titleLines = if (isTelevision()) 1 else 2
+    val titleLines = 2
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     LazyRow(state = railState, contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

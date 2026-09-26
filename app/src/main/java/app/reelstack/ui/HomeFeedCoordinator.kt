@@ -45,6 +45,8 @@ internal class HomeFeedCoordinator(
     private var sessionChannel: app.reelstack.data.network.JellyfinSessionSocket.Connection? = null
     private val sessionChannelState = MutableStateFlow(false)
     private var lastFeedAttemptMillis = -60_000L
+    /** Automatic retries since the media feed was last complete; each one waits longer. */
+    private var retryAttempts = 0
 
     /** Whether Jellyfin is currently pushing playback-change notifications. */
     val sessionChannelLive: StateFlow<Boolean> = sessionChannelState.asStateFlow()
@@ -61,6 +63,7 @@ internal class HomeFeedCoordinator(
 
     fun resetRetryClock() {
         lastFeedAttemptMillis = -60_000L
+        retryAttempts = 0
     }
 
     /** Stops in-flight Home work without changing the UI-owned socket lifecycle. */
@@ -183,6 +186,12 @@ internal class HomeFeedCoordinator(
                     activity = if (hasQueueService || hasSeerr) cached.activity else current.activity,
                     lastUpdatedEpochMillis = cached.refreshedAtEpochMillis,
                     hasCachedData = true,
+                    // What the cache covers counts as loaded: a refresh then updates those rows in
+                    // place instead of turning an empty row into a skeleton and back.
+                    loadedSources = current.loadedSources + configuredKinds.filter { kind ->
+                        (kind in MEDIA_SERVERS && hasMediaServer) || (kind in QUEUE_SERVERS && hasQueueService) ||
+                            (kind == ServiceKind.SEERR && hasSeerr)
+                    },
                 )
             }
         }
@@ -195,8 +204,12 @@ internal class HomeFeedCoordinator(
                 state.serviceWarnings.keys,
                 state.isRefreshing,
                 android.os.SystemClock.elapsedRealtime() - lastFeedAttemptMillis,
+                retryAttempts,
             )
-        ) refresh()
+        ) {
+            retryAttempts++
+            refresh()
+        }
     }
 
     /**
@@ -228,6 +241,8 @@ internal class HomeFeedCoordinator(
     fun refresh(userInitiated: Boolean = false) {
         val state = readState()
         if (isSigningOut() || (state.showOnboarding && state.configuredCount == 0)) return
+        // Somebody asked: the automatic back-off starts again from its shortest wait.
+        if (userInitiated) retryAttempts = 0
         refreshAccounts()
         refreshTrackedRequests()
         if (refreshJob?.isActive == true) return
@@ -257,14 +272,6 @@ internal class HomeFeedCoordinator(
                     )
                 }
                 app.reelstack.data.network.PerfLog.milestone("home all-rows", started)
-                if (snapshot.successfulServices.isNotEmpty()) {
-                    // A disk-full offline cache is not a reason to fail a live refresh.
-                    attempt {
-                        withContext(Dispatchers.IO) {
-                            container.mediaSnapshotStore.save(snapshot, refreshFingerprint)
-                        }
-                    }
-                }
                 snapshot
             }
             val snapshot = outcome.getOrElse {
@@ -284,6 +291,17 @@ internal class HomeFeedCoordinator(
             val refreshedConnections = if (snapshot.switchedToAlternate.isEmpty()) null
             else runCatching { container.connectionRepository.list() }.getOrNull()
             updateState { current -> applySnapshot(current, snapshot, refreshedConnections, userInitiated) }
+            retryAttempts = if (snapshot.errors.keys.any { it in MEDIA_SERVERS } ||
+                snapshot.warnings.keys.any { it in MEDIA_SERVERS }) retryAttempts else 0
+            // The rows are on screen first; the copy for the next start follows. A disk-full cache
+            // is not a reason to fail a live refresh.
+            if (snapshot.successfulServices.isNotEmpty()) {
+                attempt {
+                    withContext(Dispatchers.IO) {
+                        container.mediaSnapshotStore.save(snapshot, refreshFingerprint)
+                    }
+                }
+            }
         }
     }
 
@@ -293,8 +311,15 @@ internal class HomeFeedCoordinator(
     ) {
         updateState { current ->
             if (container.mediaFingerprint(current.connections) != refreshFingerprint) current else {
-                fun replace(items: List<LibraryMedia>, fresh: List<LibraryMedia>) =
-                    items.filterNot { it.source == update.source } + fresh
+                // Merged in the order the final snapshot uses. Appending the fresh server after the
+                // other one flipped the order at every update, and the tablet and TV hero, which
+                // picks from these lists, changed title while it was on screen.
+                val order = current.connections.map { it.kind }.filter { it in MEDIA_SERVERS }.distinct()
+                fun replace(items: List<LibraryMedia>, fresh: List<LibraryMedia>): List<LibraryMedia> {
+                    val bySource = (items.filterNot { it.source == update.source } + fresh).groupBy { it.source }
+                    return app.reelstack.data.repository.mergeHomeRows(
+                        order.mapNotNull(bySource::get) + bySource.filterKeys { it !in order }.values)
+                }
                 current.copy(
                     resume = localResume(replace(current.resume, update.resume), current.connections),
                     nextUp = localNextUp(replace(current.nextUp, update.nextUp), current.connections),
@@ -302,6 +327,7 @@ internal class HomeFeedCoordinator(
                     recentSeries = replace(current.recentSeries, update.recentSeries),
                     favourites = replace(current.favourites, update.favourites),
                     liveLibrary = true,
+                    loadedSources = current.loadedSources + update.source,
                 )
             }
         }
@@ -427,6 +453,8 @@ internal class HomeFeedCoordinator(
             lastUpdatedEpochMillis = if (anySuccess) snapshot.refreshedAt.toEpochMilli()
             else current.lastUpdatedEpochMillis,
             hasCachedData = !anySuccess && current.hasCachedData,
+            // A service that answered, or failed with a message of its own, has had its first load.
+            loadedSources = current.loadedSources + snapshot.successfulServices + snapshot.errors.keys,
             failedServices = snapshot.errors.keys,
             serviceWarnings = serviceWarnings,
             snackbar = if (userInitiated) {

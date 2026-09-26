@@ -111,8 +111,15 @@ data class ReelstackUiState(
     val signingOut: Boolean = false,
     val showOnboarding: Boolean = false,
     val selectedTab: AppTab = AppTab.HOME,
+    /**
+     * Where Back leads from Downloads when they are not a menu item: Settings when opened from
+     * there, or the tab a queued download or its notification came from.
+     */
+    val downloadsReturnTab: AppTab = AppTab.SETTINGS,
     /** A destination over the current adult screen, deliberately not another navigation tab. */
     val globalSearchOpen: Boolean = false,
+    /** The global search's own query and answers, apart from Discover's field. */
+    val globalSearch: app.reelstack.ui.state.SearchSlice = app.reelstack.ui.state.SearchSlice(),
     val searchHistory: List<String> = emptyList(),
     val accountsSettingsRequest: Int = 0,
     val activeSheet: AppSheet? = null,
@@ -235,6 +242,11 @@ data class ReelstackUiState(
     val homeLibraryViewsLoading: Boolean = false,
     val homeLibraryViewsFailed: Set<ServiceKind> = emptySet(),
     val hasCachedData: Boolean = false,
+    /**
+     * Services whose Home rows have been filled once, from the cache or live, for this set of
+     * accounts. Only a row that has never loaded shows a skeleton; later refreshes update in place.
+     */
+    val loadedSources: Set<ServiceKind> = emptySet(),
     val snackbar: String? = null,
     val contentDetails: ContentDetails? = null,
     val returnToCalendar: Boolean = false,
@@ -257,6 +269,18 @@ data class ReelstackUiState(
 
     val visibleDiscover: List<DiscoverMedia>
         get() = if (searchQuery.isBlank()) discover else searchResults
+
+    /** Every Seerr card on screen anywhere, so details and requests work from the global search too. */
+    val knownDiscoverMedia: List<DiscoverMedia>
+        get() = discover + searchResults + globalSearch.results + recommendations
+
+    /** Applies one change to a Seerr title wherever it is listed. */
+    fun mapDiscoverMedia(transform: (DiscoverMedia) -> DiscoverMedia): ReelstackUiState = copy(
+        discover = discover.map(transform),
+        recommendations = recommendations.map(transform),
+        searchResults = searchResults.map(transform),
+        globalSearch = globalSearch.copy(results = globalSearch.results.map(transform)),
+    )
 
     val configuredCount: Int
         get() = connections.count { it.baseUrl.isNotBlank() }
@@ -402,6 +426,14 @@ class ReelstackViewModel(
         readState = { _uiState.value },
         updateState = { transform -> _uiState.update(transform) },
     )
+    private val globalSearch = DiscoverSearchCoordinator(
+        container = container,
+        scope = viewModelScope,
+        readState = { _uiState.value },
+        updateState = { transform -> _uiState.update(transform) },
+        slice = { it.globalSearch },
+        withSlice = { state, search -> state.copy(globalSearch = search) },
+    )
     private val homeFeed = HomeFeedCoordinator(
         container = container,
         scope = viewModelScope,
@@ -481,10 +513,21 @@ class ReelstackViewModel(
         // Keep the last library location when moving between tabs. The library loader can refresh
         // it in place, but dropping the path made a return to Films look like a new visit to the
         // library root every time.
-        _uiState.update { it.copy(selectedTab = tab, activeSheet = null, returnToCalendar = false, globalSearchOpen = false) }
+        _uiState.update {
+            it.copy(
+                selectedTab = tab,
+                downloadsReturnTab = if (tab == AppTab.DOWNLOADS && it.selectedTab != AppTab.DOWNLOADS) it.selectedTab
+                    else it.downloadsReturnTab,
+                activeSheet = null,
+                returnToCalendar = false,
+                globalSearchOpen = false,
+            )
+        }
         if (tab == AppTab.LIBRARY) browseLibrary(false)
         if (tab == AppTab.DOWNLOADS) startOfflineRefresh()
         else offlineRefreshJob?.cancel()
+        // Settings summarises the downloads in one line. It is a local read, never a server call.
+        if (tab == AppTab.SETTINGS) refreshOfflineDownloads()
     }
 
     private fun startOfflineRefresh() {
@@ -662,14 +705,28 @@ class ReelstackViewModel(
         refreshOfflineDownloads()
     }
 
+    /** Opens an empty search over the current screen; earlier searches wait as chips. */
     fun openGlobalSearch() {
         if (_uiState.value.isKidMode) return
-        _uiState.update { it.copy(globalSearchOpen = true, activeSheet = null, searchHistory = container.preferencesRepository.searchHistory(it.activeProfileId)) }
+        globalSearch.cancel()
+        _uiState.update {
+            it.copy(
+                globalSearchOpen = true,
+                globalSearch = app.reelstack.ui.state.SearchSlice(),
+                activeSheet = null,
+                searchHistory = container.preferencesRepository.searchHistory(it.activeProfileId),
+            )
+        }
     }
 
     fun closeGlobalSearch() {
-        _uiState.update { it.copy(globalSearchOpen = false) }
+        globalSearch.cancel()
+        _uiState.update { it.copy(globalSearchOpen = false, globalSearch = app.reelstack.ui.state.SearchSlice()) }
     }
+
+    fun setGlobalSearchQuery(value: String) = globalSearch.setQuery(value)
+
+    fun loadMoreGlobalSearch() = globalSearch.loadMore()
 
     /** Forget catalog pages without touching artwork, playback history, or server credentials. */
     fun clearLibraryCache() {
@@ -753,20 +810,21 @@ class ReelstackViewModel(
         container.preferencesRepository.setLibraryShortcuts(connection, pinned)
         val savedIcons = icons.filterKeys { key -> state.libraryChoices.any { it.id == key } }
         container.preferencesRepository.setLibraryIcons(connection, savedIcons)
-        homeFeed.cancelRefresh()
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
         discoverSearch.cancel()
+        globalSearch.cancel()
         libraryPageCache.clear()
+        // Home has its own library choice (docs/HOME_LAYOUT.md). This one used to empty every Home
+        // row and refetch the whole feed although nothing on Home depends on it any more.
         _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned, libraryIcons = savedIcons,
             libraryPath = emptyList(), libraryEntries = emptyList(), libraryDetailMedia = null,
             libraryShelves = app.reelstack.data.model.LibraryShelves(),
             libraryPeeks = emptyMap(), libraryPeeksLoading = false,
-            resume = emptyList(), nextUp = emptyList(), recentMovies = emptyList(), recentSeries = emptyList(), recentReleases = emptyList(),
-            librarySearchResults = emptyList(), isSearching = false, hasCachedData = false) }
+            librarySearchResults = emptyList(), isSearching = false,
+            globalSearch = app.reelstack.ui.state.SearchSlice()) }
         container.localPlaybackStore.clear()
         browseLibrary()
-        refreshLiveData()
         if (state.searchQuery.isNotBlank()) setSearchQuery(state.searchQuery)
     }
 
@@ -990,6 +1048,7 @@ class ReelstackViewModel(
                     recentSeries = update(current.recentSeries),
                     favourites = update(current.favourites).filter { it.favourite },
                     librarySearchResults = update(current.librarySearchResults),
+                    globalSearch = current.globalSearch.copy(libraryResults = update(current.globalSearch.libraryResults)),
                     libraryShelves = current.libraryShelves.copy(
                         resume = drop(current.libraryShelves.resume),
                         nextUp = update(current.libraryShelves.nextUp),
@@ -1188,6 +1247,7 @@ class ReelstackViewModel(
         homeFeed.resetForProfileChange()
         accountRefresh.cancel()
         discoverSearch.cancel()
+        globalSearch.cancel()
         trackingJob?.cancel()
         container.connectionRepository.activeProfileId = profileId
         if (profileId.isBlank()) container.offlineDownloads.setProfileActive(profileId, active = true)
@@ -1202,6 +1262,7 @@ class ReelstackViewModel(
                 searchQuery = "",
                 searchResults = emptyList(),
                 librarySearchResults = emptyList(),
+                globalSearch = app.reelstack.ui.state.SearchSlice(),
                 isSearching = false,
                 searchError = null,
                 searchPage = 1,
@@ -1213,6 +1274,8 @@ class ReelstackViewModel(
                 pinLockoutSeconds = 0,
                 // Clear media from memory so previous profile data is never visible
                 resume = emptyList(),
+                loadedSources = emptySet(),
+                lastUpdatedEpochMillis = null,
                 nextUp = emptyList(),
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
@@ -1641,7 +1704,7 @@ class ReelstackViewModel(
             detailHistory.clear()
         }
         val state = _uiState.value
-        val media = (listOfNotNull(state.libraryDetailMedia) + state.resume + state.nextUp + state.favourites + state.recentMovies + state.recentSeries + state.librarySearchResults + state.libraryPeeks.values.flatten() + state.libraryShelves.resume + state.libraryShelves.nextUp)
+        val media = (listOfNotNull(state.libraryDetailMedia) + state.resume + state.nextUp + state.favourites + state.recentMovies + state.recentSeries + state.librarySearchResults + state.globalSearch.libraryResults + state.libraryPeeks.values.flatten() + state.libraryShelves.resume + state.libraryShelves.nextUp)
             .firstOrNull { it.id == id } ?: return
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
@@ -1844,7 +1907,7 @@ class ReelstackViewModel(
     }
 
     fun openDiscoverDetails(id: String) {
-        val media = (_uiState.value.visibleDiscover + _uiState.value.recommendations).firstOrNull { it.id == id } ?: return
+        val media = (_uiState.value.visibleDiscover + _uiState.value.globalSearch.results + _uiState.value.recommendations).firstOrNull { it.id == id } ?: return
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
@@ -1907,6 +1970,10 @@ class ReelstackViewModel(
                                 if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
                                     inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
                             },
+                            globalSearch = current.globalSearch.copy(results = current.globalSearch.results.map { item ->
+                                if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
+                                    inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
+                            }),
                         )
                     },
                     onFailure = {
@@ -2057,7 +2124,7 @@ class ReelstackViewModel(
 
     fun requestMedia(id: String) {
         val state = _uiState.value
-        val media = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == id } ?: return
+        val media = state.knownDiscoverMedia.firstOrNull { it.id == id } ?: return
         if (!media.canRequest || state.requestingMediaIds.isNotEmpty()) return
         if (media.mediaType != "tv" && state.configuredCount > 0 && state.accounts[ServiceKind.SEERR]?.isPersonal == true &&
             state.accounts[ServiceKind.SEERR]?.canRequestType(media.mediaType ?: "movie") != true) return
@@ -2347,6 +2414,7 @@ class ReelstackViewModel(
                     discover = it.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
                     recommendations = it.recommendations.map { item -> if (item.id == id) item.copy(requested = true) else item },
                     searchResults = it.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
+                    globalSearch = it.globalSearch.copy(results = it.globalSearch.results.map { item -> if (item.id == id) item.copy(requested = true) else item }),
                     contentDetails = it.contentDetails?.let { details ->
                         if (details.key == id) details.copy(statusTitle = appString(R.string.flow_local_status_title), statusDescription = appString(R.string.flow_local_status_desc)) else details
                     },
@@ -2379,6 +2447,7 @@ class ReelstackViewModel(
                         discover = current.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         recommendations = current.recommendations.map { item -> if (item.id == id) item.copy(requested = true) else item },
                         searchResults = current.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
+                        globalSearch = current.globalSearch.copy(results = current.globalSearch.results.map { item -> if (item.id == id) item.copy(requested = true) else item }),
                         contentDetails = current.contentDetails?.let { details ->
                             if (details.key == id) details.copy(statusTitle = appString(R.string.flow_sent_as_title, account.displayName), statusDescription = appString(R.string.flow_sent_as_desc)) else details
                         },
@@ -2796,6 +2865,7 @@ class ReelstackViewModel(
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
         discoverSearch.cancel()
+        globalSearch.cancel()
         trackingJob?.cancel()
         historyJob?.cancel()
         val saved = candidate.copy(
@@ -2814,6 +2884,8 @@ class ReelstackViewModel(
                 adminView = false,
                 sessions = emptyList(),
                 resume = emptyList(),
+                loadedSources = emptySet(),
+                lastUpdatedEpochMillis = null,
                 nextUp = emptyList(),
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
@@ -2826,6 +2898,7 @@ class ReelstackViewModel(
                 searchQuery = "",
                 searchResults = emptyList(),
                 librarySearchResults = emptyList(),
+                globalSearch = app.reelstack.ui.state.SearchSlice(),
                 activeSheet = null,
                 isSearching = false,
                 snackbar = if (companion != null) "Jellyfin og Seerr er klare. Hentar innhaldet ditt…" else "${saved.kind.displayName} er klar. Hentar innhaldet ditt…",
@@ -2856,7 +2929,7 @@ class ReelstackViewModel(
         // A fresh state clears details, favourites, requests and every account-scoped pane.
         _uiState.value = ReelstackUiState(
             signingOut = true, connections = container.connectionRepository.list(),
-            sessions = emptyList(), resume = emptyList(), recentMovies = emptyList(),
+            sessions = emptyList(), resume = emptyList(), recentMovies = emptyList(), loadedSources = emptySet(), lastUpdatedEpochMillis = null,
             recentSeries = emptyList(), upcoming = emptyList(), recentReleases = emptyList(),
             incoming = emptyList(), discover = emptyList(), recommendations = emptyList(), activity = emptyList(),
             notificationsEnabled = container.preferencesRepository.notificationsEnabled,
@@ -2885,6 +2958,7 @@ class ReelstackViewModel(
         libraryChoicesJob?.cancel()
         libraryJob?.cancel()
         discoverSearch.cancel()
+        globalSearch.cancel()
         homeFeed.cancelRefresh()
         historyJob?.cancel()
         container.connectionRepository.get(kind).takeIf { it.baseUrl.isNotBlank() }?.let {
@@ -2915,8 +2989,13 @@ class ReelstackViewModel(
                 recentReleases = emptyList(),
                 discover = emptyList(),
                 recommendations = emptyList(),
+                // The other media server keeps its rows; everything cleared here loads afresh.
+                loadedSources = it.loadedSources.filter { source ->
+                    source != kind && (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY)
+                }.toSet(),
                 searchResults = emptyList(),
                 librarySearchResults = emptyList(),
+                globalSearch = app.reelstack.ui.state.SearchSlice(),
                 searchQuery = "",
                 isSearching = false,
                 accounts = it.accounts - kind,
@@ -2954,6 +3033,7 @@ class ReelstackViewModel(
         seasonsJob?.cancel()
         episodesJob?.cancel()
         discoverSearch.cancel()
+        globalSearch.cancel()
         quickConnectJob?.cancel()
         connectionJob?.cancel()
         accountRefresh.cancel()

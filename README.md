@@ -18,7 +18,7 @@ into one focused experience. Browse each media server as its own library, play f
 Jellyfin or Emby, and track your requests from Seerr.
 
 **Active beta development.** The latest public APK is
-[0.18.0-beta5](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta5).
+[0.18.0-beta9](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta9).
 It is signed for in-place updates over earlier Spole beta releases. The source for
 this build is available on [main](https://github.com/oyvhov/spole-android/tree/main).
 Pre-release builds are published under [Releases](https://github.com/oyvhov/spole-android/releases).

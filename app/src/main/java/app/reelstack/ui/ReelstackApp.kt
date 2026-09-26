@@ -8,7 +8,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onKeyEvent
-import app.reelstack.data.model.visibleMenu
+import app.reelstack.data.model.touchMenu
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.animation.AnimatedContent
@@ -108,6 +108,7 @@ import app.reelstack.ui.screens.ActivityScreen
 import app.reelstack.ui.screens.DiscoverScreen
 import app.reelstack.ui.screens.HomeScreen
 import app.reelstack.ui.screens.SettingsScreen
+import app.reelstack.ui.state.toGlobalSearchUiState
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
@@ -267,16 +268,22 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val wideWindow = windowLayout.useNavigationRail
     val showRail = !state.showOnboarding && wideWindow
     val personalization = app.reelstack.ui.theme.LocalPersonalization.current
-    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val activityContext = androidx.compose.ui.platform.LocalContext.current
+    val appContext = activityContext.applicationContext
     val preferences = remember(appContext) { app.reelstack.data.repository.AppPreferencesRepository(appContext) }
-    val visibleNavigation = personalization.visibleMenu().toMutableList().apply {
-        // Downloads is a fixed, adult touch-only library. It is intentionally not a configurable
-        // TV menu item: a television can neither create nor consume an offline file.
-        remove(AppTab.DOWNLOADS.name)
-        if (!tvRail && !state.isKidMode) add(indexOf(AppTab.SETTINGS.name).coerceAtLeast(0), AppTab.DOWNLOADS.name)
-    }
+    // Downloads are an adult, touch-only library. They are a menu item only when the owner asks for
+    // it; otherwise they open from Settings. A television can neither create nor consume a file.
+    val visibleNavigation = personalization.touchMenu(television = tvRail, kidMode = state.isKidMode)
+    val downloadsReachable = !tvRail && !state.isKidMode
+    val downloadsAsSettingsPage = state.selectedTab == AppTab.DOWNLOADS && AppTab.DOWNLOADS.name !in visibleNavigation
+    // The menu marks where a page lives. Downloads outside the menu belong to Settings.
+    val highlightedTab = if (downloadsAsSettingsPage) AppTab.SETTINGS else state.selectedTab
     LaunchedEffect(visibleNavigation, state.isKidMode) {
-        if (state.selectedTab.name !in visibleNavigation) selectTab(AppTab.HOME)
+        if (state.selectedTab.name !in visibleNavigation && !(state.selectedTab == AppTab.DOWNLOADS && downloadsReachable))
+            selectTab(AppTab.HOME)
+    }
+    BackHandler(enabled = downloadsAsSettingsPage && !state.globalSearchOpen && state.activeSheet == null) {
+        selectTab(state.downloadsReturnTab.takeIf { it != AppTab.DOWNLOADS } ?: AppTab.SETTINGS)
     }
     LaunchedEffect(state.isRefreshing) {
         // Home replaces its header with the feature when the first library response arrives.
@@ -305,7 +312,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
                 if (!state.showOnboarding && !wideWindow) ReelstackBottomBar(
-                    selectedTab = state.selectedTab,
+                    selectedTab = highlightedTab,
                     onSelect = selectTab,
                     isKidMode = state.isKidMode,
                 )
@@ -315,7 +322,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             if (showRail) {
                 SidebarSlot(if (tvRail) false else expandedRail, hidden = tvRail && personalization.hideTvSidebar) {
                 ReelstackNavigationRail(
-                    selectedTab = state.selectedTab,
+                    selectedTab = highlightedTab,
                     onSelect = selectTab,
                     expanded = expandedRail,
                     compactTouch = compactTouchRail,
@@ -402,7 +409,10 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onDiscoverClick = viewModel::openRecommendationDetails,
                         onSearchClick = viewModel::openGlobalSearch,
                         searchTransitionModifier = searchTransition,
-                        showSearch = windowLayout.showHomeSearch,
+                        // Search opens from the icon beside the profile on every touch layout. The
+                        // line under the header is the owner's choice, and off unless chosen.
+                        showSearch = windowLayout.showHomeSearch && personalization.showHomeSearchBar,
+                        showSearchIcon = !tvRail && !state.isKidMode,
                         showBrand = !showRail,
                         cardActions = cardActions,
                     )
@@ -435,7 +445,12 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onResume = viewModel::resumeOfflineDownload,
                         onRetry = viewModel::retryOfflineDownload,
                         onRemove = viewModel::removeOfflineDownload,
-                        onPlay = { app.reelstack.player.OfflinePlayerActivity.open(appContext, it) },
+                        // The activity, not the application: the player then opens in Spole's own
+                        // task and Back returns to this list.
+                        onPlay = { app.reelstack.player.OfflinePlayerActivity.open(activityContext, it) },
+                        onBack = if (downloadsAsSettingsPage) {
+                            { selectTab(state.downloadsReturnTab.takeIf { it != AppTab.DOWNLOADS } ?: AppTab.SETTINGS) }
+                        } else null,
                     )
                     AppTab.ACTIVITY -> ActivityScreen(state, screenInsets, viewModel::openActivityDetails,
                         viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
@@ -465,6 +480,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                             if (kind == app.reelstack.data.model.ServiceKind.SEERR) viewModel.openSeerrAccount()
                             else viewModel.openSheet(AppSheet.ConnectionEditor(kind))
                         },
+                        onOpenDownloads = { selectTab(AppTab.DOWNLOADS) },
                     )
                 }
                 }
@@ -480,19 +496,19 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     if (state.globalSearchOpen && !state.isKidMode) {
         // It is a destination above the current tab: closing it returns to the same scroll and
         // selection state instead of treating search as another place in the main navigation.
+        // It is its own screen with its own query, not Discover in disguise.
+        val search = remember(state.globalSearch, state.searchHistory, state.requestingMediaIds, state.accounts, state.connections) {
+            state.toGlobalSearchUiState()
+        }
         Surface(Modifier.fillMaxSize(), color = Ink) {
-            DiscoverScreen(
-                state = discoverState,
-                contentPadding = PaddingValues(0.dp),
-                onSearch = viewModel::setSearchQuery,
-                onRequest = viewModel::requestMedia,
-                onDetails = viewModel::openDiscoverDetails,
-                onAccountClick = viewModel::openSeerrAccount,
+            app.reelstack.ui.screens.GlobalSearchScreen(
+                state = search,
+                onQuery = viewModel::setGlobalSearchQuery,
+                onClose = viewModel::closeGlobalSearch,
                 onLibraryDetails = viewModel::openLibraryDetails,
-                onLoadMore = viewModel::loadMoreSearchResults,
-                prepareSearch = true,
-                searchReady = true,
-                globalSearch = true,
+                onDiscoverDetails = viewModel::openDiscoverDetails,
+                onRequest = viewModel::requestMedia,
+                onLoadMore = viewModel::loadMoreGlobalSearch,
             )
         }
     }
@@ -521,10 +537,7 @@ internal fun ReelstackBottomBar(
     onSelect: (AppTab) -> Unit,
     isKidMode: Boolean = false,
 ) {
-    val visibleNames = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().toMutableList().apply {
-        remove(AppTab.DOWNLOADS.name)
-        if (!isKidMode) add(indexOf(AppTab.SETTINGS.name).coerceAtLeast(0), AppTab.DOWNLOADS.name)
-    }
+    val visibleNames = app.reelstack.ui.theme.LocalPersonalization.current.touchMenu(television = false, kidMode = isKidMode)
     val visibleTabs = visibleNames
         .filterNot { isKidMode && it == AppTab.SETTINGS.name }
         .mapNotNull { name -> tabs.find { it.tab.name == name } }
@@ -534,8 +547,9 @@ internal fun ReelstackBottomBar(
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall
     val availablePx = with(density) { labelWidth.toPx() }
-    val labels = visibleTabs.map { item ->
-        val full = androidx.compose.ui.res.stringResource(item.label)
+    val fullLabels = visibleTabs.map { item -> androidx.compose.ui.res.stringResource(item.label) }
+    val labels = visibleTabs.mapIndexed { index, item ->
+        val full = fullLabels[index]
         val short = androidx.compose.ui.res.stringResource(when (item.tab) {
             AppTab.HOME -> R.string.nav_home_short
             AppTab.LIBRARY -> R.string.nav_library_short
@@ -565,9 +579,9 @@ internal fun ReelstackBottomBar(
                 Icon(app.reelstack.ui.components.SpoleIcons.Menu, null, Modifier.size(24.dp))
             }
             androidx.compose.material3.DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-                visibleTabs.forEach { item ->
+                visibleTabs.forEachIndexed { index, item ->
                     androidx.compose.material3.DropdownMenuItem(
-                        text = { Text(androidx.compose.ui.res.stringResource(item.label)) },
+                        text = { Text(fullLabels[index]) },
                         leadingIcon = { Icon(item.icon, null) },
                         trailingIcon = { if (item.tab == selectedTab) Icon(app.reelstack.ui.components.SpoleIcons.Done, null) },
                         modifier = Modifier.semantics { selected = item.tab == selectedTab },
@@ -584,7 +598,7 @@ internal fun ReelstackBottomBar(
         modifier = Modifier.navigationBarsPadding().heightIn(min = 76.dp).testTag("bottom-navigation"),
     ) {
             visibleTabs.forEachIndexed { index, item ->
-                val fullLabel = androidx.compose.ui.res.stringResource(item.label)
+                val fullLabel = fullLabels[index]
                 NavigationBarItem(
                     modifier = Modifier.semantics { contentDescription = fullLabel },
                     selected = item.tab == selectedTab,

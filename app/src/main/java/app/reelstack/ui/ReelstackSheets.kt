@@ -352,7 +352,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val opening = remember(details.key) { details }
     val ready = entered && !details.loading
     val metadataAlpha by animateFloatAsState(if (ready) 1f else 0f, tween(180), label = "metadata-reveal")
-    val discoverMedia = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == details.key }
+    val discoverMedia = state.knownDiscoverMedia.firstOrNull { it.id == details.key }
     val mediaType = resolvedMediaType(opening.mediaType, opening.subtitle)
     val isMovie = mediaType == "Movie"
     val usePoster = isMovie || mediaType == "Series" || opening.source == ServiceKind.SEERR
@@ -600,7 +600,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
 
 @Composable
 private fun TvTitleRequestAction(state: ReelstackUiState, key: String, onAddMedia: (String) -> Unit, onAccount: () -> Unit) {
-    val media = (state.discover + state.searchResults + state.recommendations).firstOrNull { it.id == key } ?: return
+    val media = state.knownDiscoverMedia.firstOrNull { it.id == key } ?: return
     if (!media.canRequest || !(state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let {
             media.mediaType == "tv" || !it.isPersonal || it.canRequestType(media.mediaType ?: "movie") } == true)) return
     val adding = media.id in state.requestingMediaIds

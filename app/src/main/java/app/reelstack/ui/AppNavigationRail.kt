@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import app.reelstack.R
 import app.reelstack.data.model.LibraryIcon
-import app.reelstack.data.model.visibleMenu
+import app.reelstack.data.model.touchMenu
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.vector
 
@@ -113,11 +113,8 @@ internal fun AppNavigationRail(
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp)
                         .graphicsLayer { alpha = labelAlpha }.clearAndSetSemantics {})
             }
-            val menu = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().toMutableList().apply {
-                remove(AppTab.DOWNLOADS.name)
-                // This route intentionally has no television or kid-mode presentation.
-                if (!tv && !isKidMode) add(indexOf(AppTab.SETTINGS.name).coerceAtLeast(0), AppTab.DOWNLOADS.name)
-            }
+            // Downloads have no television or kid-mode presentation, and join the menu only on request.
+            val menu = app.reelstack.ui.theme.LocalPersonalization.current.touchMenu(television = tv, kidMode = isKidMode)
             menu
                 .filterNot { isKidMode && it == AppTab.SETTINGS.name }
                 .mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
@@ -144,10 +141,7 @@ internal fun AppCompactTouchNavigation(
     isKidMode: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val menu = app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu().toMutableList().apply {
-        remove(AppTab.DOWNLOADS.name)
-        if (!isKidMode) add(indexOf(AppTab.SETTINGS.name).coerceAtLeast(0), AppTab.DOWNLOADS.name)
-    }
+    val menu = app.reelstack.ui.theme.LocalPersonalization.current.touchMenu(television = false, kidMode = isKidMode)
     Column(modifier.width(80.dp).fillMaxHeight().background(app.reelstack.ui.theme.Surface)
         .padding(horizontal = 8.dp, vertical = 4.dp).testTag("compact-touch-navigation")) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),

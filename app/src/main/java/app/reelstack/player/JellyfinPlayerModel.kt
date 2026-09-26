@@ -195,8 +195,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var preferredSubtitleKey: String? = null
     private var preferredSource: String? = null
     private var subtitleCache: SubtitleMemoryCache? = null
-    private var subtitleWarmJob: Job? = null
-    private var subtitleWarmedSession: String? = null
+    private var subtitleLoadJob: Job? = null
+    /** Text tracks of the current plan whose file is already in memory. Only these are switched on. */
+    private val readyTextIndices = mutableSetOf<Int>()
     private val reporter = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val reports = Channel<Report>(Channel.UNLIMITED)
     private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
@@ -214,7 +215,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 mutable.update { it.copy(playing = isPlaying) }
-                if (isPlaying && !started) { started = true; report(""); warmSubtitle() }
+                if (isPlaying && !started) { started = true; report("") }
                 else if (started) report("/Progress")
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -362,7 +363,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
 
     private fun selectTextTrack() {
         val current = plan ?: return
-        val enabled = current.subtitles.any { it.index == current.subtitleIndex && it.isText }
+        // A sidecar is switched on only once its file is in memory. While Media3 loads a selected
+        // text file it holds the video loader back, so an episode started, ran out of picture after
+        // a megabyte and waited for the server to extract the subtitle before it went on.
+        val enabled = current.subtitles.any { it.index == current.subtitleIndex && it.isText } &&
+            current.subtitleIndex in readyTextIndices
         val group = player.currentTracks.groups.firstOrNull { group -> group.type == C.TRACK_TYPE_TEXT &&
             (0 until group.length).any { group.getTrackFormat(it).id.orEmpty().substringAfterLast(':') == "spole-subtitle-${current.subtitleIndex}" } }
         val builder = player.trackSelectionParameters.buildUpon().clearOverridesOfType(C.TRACK_TYPE_TEXT)
@@ -375,19 +380,37 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private fun textUrl(c: ServiceConnection, p: PlaybackPlan, index: Int) = safePlaybackUrl(c.baseUrl,
         "Videos/${enc(p.item.id)}/${enc(p.sourceId)}/Subtitles/$index/Stream.vtt")
 
-    /** Warm one likely text track after video starts; never delay video to fetch every language. */
-    private fun warmSubtitle() {
+    /**
+     * Fetches the chosen text file beside the video, not through it, and switches the track on when
+     * the file has arrived. The picture never waits: at worst the first lines come a moment late.
+     * Nothing is fetched while subtitles are off, so a viewer who never asked for them never gets
+     * a warning about a missing one.
+     */
+    private fun loadChosenSubtitle(ticket: Int) {
+        subtitleLoadJob?.cancel()
         val current = plan ?: return
         val c = connection ?: return
         val cache = subtitleCache ?: return
-        if (subtitleWarmedSession == current.sessionId) return
-        subtitleWarmedSession = current.sessionId
-        val text = current.subtitles.filter { it.isText }
-        // Do not probe an arbitrary track when subtitles are off. A missing optional sidecar should
-        // not produce a warning for a viewer who never asked for subtitles in the first place.
-        val track = text.firstOrNull { it.index == current.subtitleIndex } ?: return
-        val url = textUrl(c, current, track.index)
-        subtitleWarmJob = viewModelScope.launch(Dispatchers.IO) { runCatching { cache.load(url) } }
+        val index = current.subtitleIndex
+        if (current.subtitles.none { it.index == index && it.isText } || index in readyTextIndices) {
+            selectTextTrack()
+            return
+        }
+        // The same address the sidecar opens, so Media3 then reads these bytes from memory.
+        val url = textUrl(c, current, index)
+        subtitleLoadJob = viewModelScope.launch {
+            val started = android.os.SystemClock.elapsedRealtime()
+            val loaded = withContext(Dispatchers.IO) { runCatching { cache.load(url) } }
+            val waited = android.os.SystemClock.elapsedRealtime() - started
+            android.util.Log.i("SpolePlayback", "source=${serviceKind.name} stage=subtitle ms=$waited " +
+                (loaded.exceptionOrNull()?.let { "result=failed type=${it.javaClass.simpleName}" } ?: "result=ready"))
+            if (ticket != generation || plan?.subtitleIndex != index) return@launch
+            if (loaded.isSuccess) {
+                readyTextIndices += index
+                mutable.update { it.copy(subtitleUnavailable = false) }
+                selectTextTrack()
+            } else mutable.update { it.copy(subtitleUnavailable = true) }
+        }
     }
 
     private val mediaSession = androidx.media3.session.MediaSession.Builder(container.appContext, player).build()
@@ -649,12 +672,18 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 val http = app.reelstack.data.network.HttpTransport.sharedClient.newBuilder()
                     .connectTimeout(8, TimeUnit.SECONDS)
                     .readTimeout(if (serviceKind == ServiceKind.EMBY) 45 else 20, TimeUnit.SECONDS).build()
-                val cache = SubtitleMemoryCache(http.newBuilder().callTimeout(8, TimeUnit.SECONDS).build(), client.headers(c)) {
+                // The text file loads beside the picture now, so it may take the time the server
+                // needs. Emby extracts every text track from the file on the first request and
+                // keeps nothing when the client gives up; at 8 seconds a subtitle-heavy episode
+                // never got its text, however many times it was chosen.
+                val cache = SubtitleMemoryCache(http.newBuilder().readTimeout(60, TimeUnit.SECONDS)
+                    .callTimeout(90, TimeUnit.SECONDS).build(), client.headers(c)) {
                     viewModelScope.launch {
                         if (ticket == generation) mutable.update { it.copy(subtitleUnavailable = true) }
                     }
                 }
                 subtitleCache = cache
+                readyTextIndices.clear()
                 val upstream = cache.factory(OkHttpDataSource.Factory(http).setDefaultRequestProperties(client.headers(c)))
                 val dataSource = ResolvingDataSource.Factory(upstream) { spec ->
                     spec.withUri(safePlaybackUrl(c.baseUrl, spec.uri.toString()).toUri())
@@ -667,8 +696,16 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                         .setId("spole-subtitle-${track.index}").setMimeType(MimeTypes.TEXT_VTT).setLanguage(track.language)
                         .setSelectionFlags(if (track.index == prepared.subtitleIndex) C.SELECTION_FLAG_DEFAULT else 0).build()
                 })
+                // Text starts off and is switched on by loadChosenSubtitle once its file is here.
+                // Direct play: when its language says which one it is, Media3's first pick is
+                // already the planned audio. Correcting the pick afterwards enables a new track in
+                // the file, and with loadOnlySelectedTracks that throws the buffer away.
+                val plannedAudio = prepared.audio.firstOrNull { it.index == prepared.audioIndex }?.language
+                    ?.takeIf { language -> language.isNotBlank() && prepared.direct &&
+                        prepared.audio.count { it.language.equals(language, ignoreCase = true) } == 1 }
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().clearOverrides()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, prepared.subtitleUrl == null).build()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .setPreferredAudioLanguages(*listOfNotNull(plannedAudio).toTypedArray()).build()
                 val source = DefaultMediaSourceFactory(dataSource).setLoadOnlySelectedTracks(true)
                     .createMediaSource(media.build())
                 activeMediaSource = source
@@ -678,6 +715,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 prepared.audio.firstOrNull { it.index == prepared.audioIndex }?.let { preferredAudioKey = it.key }
                 prepared.subtitles.firstOrNull { it.index == prepared.subtitleIndex }?.let { preferredSubtitleKey = it.key }
                 player.prepare(); player.playWhenReady = foreground && autoplay
+                loadChosenSubtitle(ticket)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=prepare type=${error.javaClass.simpleName}")
@@ -807,7 +845,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             plan = current.copy(subtitleIndex = index, subtitleUrl = if (index == -1) null else textUrl(c, current, index))
             mutable.update { it.copy(subtitleIndex = index,
                 subtitleUnavailable = it.subtitleUnavailable && index == current.subtitleIndex) }
-            selectTextTrack()
+            // The menu choice shows at once; the text itself follows when its file is here, so
+            // switching language mid-episode no longer stalls the picture either.
+            loadChosenSubtitle(generation)
             report("/Progress")
         }
     }
@@ -848,7 +888,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     }
     private fun stopCurrent() {
         recoveryJob?.cancel(); recoveryJob = null
-        subtitleWarmJob?.cancel(); subtitleWarmJob = null; subtitleCache?.close(); subtitleCache = null; subtitleWarmedSession = null
+        subtitleLoadJob?.cancel(); subtitleLoadJob = null; subtitleCache?.close(); subtitleCache = null; readyTextIndices.clear()
         countdownJob?.cancel()
         mutable.update { it.copy(nextEpisodeCountdown = null) }
         report("/Stopped"); started = false; plan = null; activeMediaSource = null

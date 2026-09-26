@@ -58,6 +58,8 @@ class AppPreferencesRepository(context: Context) {
             sidebarExpanded = if (preferences.contains("sidebar_expanded")) preferences.getBoolean("sidebar_expanded", true) else null,
             menuOrder = preferences.getString("menu_order", null)?.split(',') ?: app.reelstack.data.model.DEFAULT_MENU,
             hiddenMenuItems = preferences.getStringSet("menu_hidden", emptySet()).orEmpty().toSet(),
+            showDownloadsInMenu = preferences.getBoolean("menu_downloads", false),
+            showHomeSearchBar = preferences.getBoolean("home_search_bar", false),
             showNextUp = preferences.getBoolean("show_next_up", true),
             combineContinueWatching = preferences.getBoolean("combine_continue", false),
             showHero = preferences.getBoolean("show_hero", true),
@@ -107,6 +109,8 @@ class AppPreferencesRepository(context: Context) {
             value.sidebarExpanded?.let { putBoolean("sidebar_expanded", it) } ?: remove("sidebar_expanded")
             putString("menu_order", value.menuOrder.joinToString(","))
             putStringSet("menu_hidden", value.hiddenMenuItems.intersect(app.reelstack.data.model.DEFAULT_MENU.toSet()) - value.requiredMenu())
+            putBoolean("menu_downloads", value.showDownloadsInMenu)
+            putBoolean("home_search_bar", value.showHomeSearchBar)
             putBoolean("show_next_up", value.showNextUp)
             putBoolean("combine_continue", value.combineContinueWatching)
             putBoolean("show_hero", value.showHero)
@@ -143,6 +147,7 @@ class AppPreferencesRepository(context: Context) {
     fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key in setOf("app_label", "watch_next_enabled", "subtitle_style", "library_card_names", "accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "hide_tv_sidebar", "menu_order", "menu_hidden",
+                    "menu_downloads", "home_search_bar",
                     "show_next_up", "combine_continue", "show_hero", "show_ratings", "show_quality", "slow_startup",
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",
                     "seasonal_ornament", "show_next_episode", "next_episode_lead", "auto_play_next_episode",

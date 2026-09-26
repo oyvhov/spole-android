@@ -126,7 +126,10 @@ class JellyfinPlaybackTest {
     @Test fun profileAndClockAreConservative() {
         val profile=phonePlaybackProfile(4_000_000)
         assertEquals(JsonPrimitive("h264"), profile.objects("DirectPlayProfiles").first()["VideoCodec"])
-        assertEquals("1:02:03",playbackTime(3_723_000)); assertEquals("0:00",playbackTime(-1))
+        assertEquals("1:02:03", playbackTime(3_723_000))
+        assertEquals("0:00", playbackTime(-1))
+        assertEquals("0:03:00", playbackTime(180_000, padHours = true))
+        assertEquals("2:16:33", playbackTime(8_193_000, padHours = true))
     }
     @Test fun parsesChaptersWithAccurateTimeAndThumbnails() {
         val json = """{

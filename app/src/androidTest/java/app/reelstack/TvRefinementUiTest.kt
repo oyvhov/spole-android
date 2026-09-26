@@ -128,14 +128,20 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("library-source-menu").assertTextContains("Jellyfin")
     }
 
-    @Test fun televisionHeroUsesWindowHeightEvenWithCompactArtwork() {
+    @Test fun televisionHeroLeavesRoomForFirstShelfAndKeepsActionsVisible() {
         rule.setContent { Tv {
             CompositionLocalProvider(LocalPersonalization provides Personalization(heroCompact = false)) {
-                app.reelstack.ui.components.TabletLibraryFeature(LibraryMedia("hero", "Testserie", "S02 E02",
-                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, season = 2, episode = 2), {})
+                Column {
+                    app.reelstack.ui.components.TabletLibraryFeature(LibraryMedia("hero", "Testserie", "S02 E02",
+                        artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, season = 2, episode = 2), {})
+                }
             }
         } }
-        assertTrue(rule.onNodeWithTag("tablet-library-feature").getUnclippedBoundsInRoot().height >= 400.dp)
+        val heroHeight = rule.onNodeWithTag("tablet-library-feature").getUnclippedBoundsInRoot().height
+        val windowHeight = rule.onRoot().getUnclippedBoundsInRoot().height
+        assertTrue("TV hero must leave room for the first shelf: $heroHeight / $windowHeight",
+            heroHeight <= windowHeight * .70f)
+        rule.onNodeWithText("Testserie").assertIsDisplayed()
         rule.onNodeWithText("S2 - E2").assertIsDisplayed()
         rule.onNodeWithTag("tablet-feature-open").assertIsDisplayed()
     }
@@ -195,16 +201,49 @@ class TvRefinementUiTest {
         } }
         val first = rule.onNodeWithTag("resume-card-steady-0")
         val second = rule.onNodeWithTag("resume-card-steady-1")
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        rule.onNodeWithText(titles[1], useUnmergedTree = true)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(2, layouts.single().lineCount)
+        assertEquals(
+            rule.onNodeWithText(titles[0], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+            rule.onNodeWithText(titles[1], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+        )
         val initial = first.getUnclippedBoundsInRoot()
         first.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
         rule.waitForIdle()
-        assertEquals(initial, first.getUnclippedBoundsInRoot())
+        // Focus intentionally lifts the card on TV; its measured size must remain stable.
+        val focused = first.getUnclippedBoundsInRoot()
+        assertEquals(initial.width.value, focused.width.value, .01f)
+        assertEquals(initial.height.value, focused.height.value, .01f)
         assertEquals(first.getUnclippedBoundsInRoot().height, second.getUnclippedBoundsInRoot().height)
         first.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) }
         second.assertIsFocused()
         second.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionLeft) }
         first.assertIsFocused()
-        assertEquals(initial, first.getUnclippedBoundsInRoot())
+        val restored = first.getUnclippedBoundsInRoot()
+        assertEquals(initial.width.value, restored.width.value, .01f)
+        assertEquals(initial.height.value, restored.height.value, .01f)
+    }
+    @Test fun televisionLibraryTitlesUseTwoLinesOnWideShelves() {
+        val titles = listOf("Kort", "Ein svært lang serietittel som går over minst to heile linjer på alle TV-kort")
+        val items = titles.mapIndexed { index, title -> LibraryMedia("library-title-$index", title, "Episode",
+            artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode") }
+        rule.setContent { Tv {
+            Box(Modifier.padding(24.dp)) { LibraryRail(items, {}, wide = true) }
+        } }
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        rule.onNodeWithText(titles[1], useUnmergedTree = true)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(2, layouts.single().lineCount)
+        assertEquals(
+            rule.onNodeWithText(titles[0], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+            rule.onNodeWithText(titles[1], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+        )
+        assertEquals(
+            rule.onNodeWithTag("library-artwork-library-title-0", useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+            rule.onNodeWithTag("library-artwork-library-title-1", useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+        )
     }
     @Composable private fun Tv(fontScale: Float = 1f, content: @Composable () -> Unit) {
         val config = Configuration(LocalConfiguration.current).apply {

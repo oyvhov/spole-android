@@ -20,9 +20,13 @@ internal class SubtitleMemoryCache(private val http: OkHttpClient, private val h
     // not wait eight seconds for subtitle extraction to time out while releasing video.
     override fun close() { closed = true; calls.forEach { it.cancel() } }
 
-    @Synchronized fun load(url: String): ByteArray {
+    /**
+     * Not one lock around the download: the first extraction of a text track can take the server
+     * tens of seconds, and a second track, or closing the player, must not queue behind it.
+     */
+    fun load(url: String): ByteArray {
         if (closed) throw IOException("Subtitle cache closed")
-        files[url]?.let { return it }
+        synchronized(files) { files[url] }?.let { return it }
         val request = Request.Builder().url(url).apply { headers.forEach { (key, value) -> header(key, value) } }.build()
         val call = http.newCall(request)
         calls.add(call)
@@ -42,8 +46,10 @@ internal class SubtitleMemoryCache(private val http: OkHttpClient, private val h
                 out.toByteArray()
             }
         } } finally { calls.remove(call) }
-        if (files.size >= 4) files.remove(files.keys.first())
-        files[url] = bytes
+        synchronized(files) {
+            if (files.size >= 4) files.remove(files.keys.first())
+            files[url] = bytes
+        }
         return bytes
     }
 

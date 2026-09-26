@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.*
@@ -63,6 +64,26 @@ class DesignRefreshUiTest {
         assertEquals("movies", selected)
         rule.onNodeWithText("Jellyfin").assertDoesNotExist()
         rule.onRoot().saveRoadmapImage("design-library-tv.png")
+    }
+
+    @Test fun libraryTvKeepsLastShelfAboveSafeBottomEdge() {
+        // ForcedSize scales the canvas down on a phone, so the edge is measured in its density.
+        var density = rule.density
+        rule.setContent { Canvas(960, 540, tv = true, font = 2f) {
+            density = androidx.compose.ui.platform.LocalDensity.current
+            Box(Modifier.fillMaxSize().testTag("library-tv-frame")) {
+                LibraryHub(fixtures(), {}, {}, null, {})
+            }
+        } }
+        rule.onNodeWithTag("library-hub").performScrollToKey("customize")
+        val screen = rule.onNodeWithTag("library-tv-frame").fetchSemanticsNode().boundsInRoot
+        val viewport = rule.onNodeWithTag("library-hub").fetchSemanticsNode().boundsInRoot
+        val footer = rule.onNodeWithTag("hub-footer").fetchSemanticsNode().boundsInRoot
+        val safeEdge = with(density) { ReelLayout.TvSafeEdge.toPx() }
+        assertTrue("The TV library must reserve the safe edge while scrolling",
+            screen.bottom - viewport.bottom >= safeEdge - 1f)
+        assertTrue("The last library action must stay above the safe edge",
+            screen.bottom - footer.bottom >= safeEdge - 1f)
     }
 
     @Test fun libraryPhoneUsesTouchLayout() {

@@ -122,7 +122,17 @@ class OfflinePlayerActivity : app.reelstack.localization.LocalizedActivity() {
 
         fun open(context: Context, downloadId: String) {
             if (!downloadId.matches(Regex("[A-Za-z0-9-]{1,160}"))) return
-            context.startActivity(Intent(context, OfflinePlayerActivity::class.java).putExtra(DOWNLOAD_ID, downloadId))
+            val intent = Intent(context, OfflinePlayerActivity::class.java).putExtra(DOWNLOAD_ID, downloadId)
+            // Android refuses to start an activity from the application context unless it gets a
+            // task of its own, and the refusal is a crash: «Sjå fråkopla» took the whole app down.
+            if (context.hostActivity() == null) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
+
+        private tailrec fun Context.hostActivity(): android.app.Activity? = when (this) {
+            is android.app.Activity -> this
+            is android.content.ContextWrapper -> baseContext?.hostActivity()
+            else -> null
         }
     }
 }

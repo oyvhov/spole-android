@@ -38,7 +38,7 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
     onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {},
     onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {},
-    homeEditor: HomeEditorActions = HomeEditorActions()) {
+    homeEditor: HomeEditorActions = HomeEditorActions(), onOpenDownloads: () -> Unit = {}) {
     var page by rememberSaveable { mutableStateOf<SettingsCategory?>(null) }
     val panes = rememberSaveableStateHolder()
     LaunchedEffect(state.accountsSettingsRequest) {
@@ -68,6 +68,10 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                         mobileSettingsCategories.forEach { destination ->
                             SettingsActionRow(stringResource(destination.title), stringResource(destination.hint),
                                 "settings-category-${destination.name}", destination.icon, { page = destination })
+                            // Downloads sit with playback: they are the other way to watch.
+                            if (destination == SettingsCategory.PLAYBACK && !state.isKidMode)
+                                SettingsActionRow(stringResource(R.string.nav_downloads), offlineSettingsSummary(state.offlineDownloads),
+                                    "settings-downloads", SpoleIcons.Download, onOpenDownloads)
                         }
                     } else {
                         Text(stringResource(selected.hint), style = MaterialTheme.typography.bodyMedium,

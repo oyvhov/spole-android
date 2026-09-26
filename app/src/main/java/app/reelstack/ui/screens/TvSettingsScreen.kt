@@ -34,7 +34,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
     onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {},
     onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {},
-    homeEditor: HomeEditorActions = HomeEditorActions()) {
+    homeEditor: HomeEditorActions = HomeEditorActions(), onOpenDownloads: () -> Unit = {}) {
     val television = isTelevision()
     var category by rememberSaveable { mutableStateOf(SettingsCategory.APPEARANCE) }
     var focusedCategory by rememberSaveable { mutableStateOf(category) }
@@ -95,6 +95,11 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                                 focusedCategory = item; category = item; enterPanel = true; true
                             } else false
                         }.testTag("settings-category-${item.name}"))
+                // Downloads open as their own page rather than a pane: the list refreshes itself
+                // while it is on screen. Television has no downloads at all.
+                if (item == SettingsCategory.PLAYBACK && !television && !state.isKidMode)
+                    WideDestination(stringResource(R.string.nav_downloads), SpoleIcons.Download, selected = false,
+                        onClick = onOpenDownloads, modifier = Modifier.testTag("settings-downloads"))
             }
             if (television) Text(stringResource(R.string.settings_tv_hint), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))

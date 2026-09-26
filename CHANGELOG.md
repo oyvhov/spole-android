@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.18.0-beta9 - globalt søk, og undertekst utan stopp på TV
+
+- **Rettar krasj** når du trykte «Sjå fråkopla» på ei ferdig nedlasting.
+- **Globalt søk** på mobil og nettbrett: søkeikonet ved profilbiletet opnar eit eige søk i
+  biblioteka og i Seerr samstundes, med treff frå biblioteka først. Søket hoppar ikkje lenger til
+  Oppdag. Søkelina på framsida er av som standard; «Søkelina på framsida» under Innstillingar →
+  Heimskjerm hentar henne tilbake.
+- **Nedlastingar** er ute av menyen som standard på mobil og nettbrett og har eiga rad i
+  Innstillingar, under Avspeling. «Nedlastingar i menyen» under Heimskjerm legg fana tilbake.
+- Nedlastingssida: teksten i kortet øvst får plass ved sida av eller over knappen, framdriftslinja
+  er synleg, lange titlar sluttar med «…», og storleikar har desimalkomma (53,6 MB).
+- **Undertekst stoppar ikkje lenger biletet** rett etter start på TV. Teksten blir henta ved sida
+  av videoen og slått på når han er klar. Første gong ein episode blir spelt, kan teksten kome
+  nokre sekund etter biletet. Ved direkte avspeling er lydspråket valt før avspelinga startar.
+- Framsida: skjelett berre første gong ho lastar, same rekkjefølgje mellom tenarane kvar gong,
+  toppbiletet byter ikkje tittel medan du ser på det, og nye forsøk etter feil ventar lenger og
+  lenger (frå 1 til 30 minutt). Grensa for kort gjeld per tenar, så éin tenar ikkje fortrengjer
+  den andre, og lagra bibliotekval tømmer ikkje lenger framsida.
+- Sjangrar blir omsette i detaljvisinga, «Stats for Nerds» i TV-spelaren er omsett, tida i
+  TV-spelaren viser timar for lange filmar, og TV-biblioteket held botnkanten fri når du blar.
+
 ## 0.18.0-beta8 - tilpass framsida
 
 - **Tilpass framsida**: éin meny under Innstillingar → Heim for alle radene på framsida. Kvar rad

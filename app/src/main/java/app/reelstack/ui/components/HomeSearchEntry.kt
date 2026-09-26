@@ -18,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import app.reelstack.ui.theme.Divider
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Muted
@@ -42,6 +45,33 @@ fun HomeSearchEntry(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 lineHeight = 20.sp, modifier = Modifier.weight(1f))
         }
         HorizontalDivider(color = Divider, thickness = 1.dp)
+        }
+    }
+}
+
+/**
+ * The way into search from the top of Home, beside the profile. It is always there on a phone or
+ * tablet; the search line under the header is an extra the owner can turn on in Settings.
+ */
+@Composable
+fun HomeSearchButton(onClick: () -> Unit, modifier: Modifier = Modifier, onArtwork: Boolean = false) {
+    val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    androidx.compose.material3.IconButton(
+        onClick = onClick,
+        interactionSource = interaction,
+        modifier = modifier.size(48.dp).focusOutline(interaction, androidx.compose.foundation.shape.CircleShape)
+            .testTag("home-search-button"),
+    ) {
+        androidx.compose.foundation.layout.Box(
+            Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(if (onArtwork) androidx.compose.ui.graphics.Color.Black.copy(alpha = .38f) else app.reelstack.ui.theme.SurfaceRaised)
+                .then(if (onArtwork) Modifier.border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = .18f),
+                    androidx.compose.foundation.shape.CircleShape) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(app.reelstack.ui.components.SpoleIcons.Search,
+                contentDescription = androidx.compose.ui.res.stringResource(app.reelstack.R.string.search_open),
+                tint = app.reelstack.ui.theme.Text, modifier = Modifier.size(22.dp))
         }
     }
 }

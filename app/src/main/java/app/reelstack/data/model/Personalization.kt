@@ -97,6 +97,13 @@ data class Personalization(
     val hideTvSidebar: Boolean = false,
     val menuOrder: List<String> = DEFAULT_MENU,
     val hiddenMenuItems: Set<String> = emptySet(),
+    /**
+     * Downloads always live under Settings. Whether they also take a place in the phone and tablet
+     * menu is the owner's choice, and off by default: five tabs left every label cramped.
+     */
+    val showDownloadsInMenu: Boolean = false,
+    /** The search line under the Home header. The search icon beside the profile is always there. */
+    val showHomeSearchBar: Boolean = false,
     val showNextUp: Boolean = true,
     val combineContinueWatching: Boolean = false,
     val showHero: Boolean = true,
@@ -151,6 +158,18 @@ fun Personalization.withMenuVisible(id: String, visible: Boolean): Personalizati
 
 fun Personalization.visibleMenu(): List<String> =
     (menuOrder + DEFAULT_MENU).distinct().filter { it in DEFAULT_MENU && (it !in hiddenMenuItems || it in requiredMenu()) }
+
+const val DOWNLOADS_MENU_ITEM = "DOWNLOADS"
+
+/**
+ * The menu a phone or tablet actually shows. Downloads are an adult, touch-only library: they join
+ * the menu just before Settings when the owner asks for it, and never on television or for a child.
+ */
+fun Personalization.touchMenu(television: Boolean, kidMode: Boolean): List<String> =
+    visibleMenu().toMutableList().apply {
+        remove(DOWNLOADS_MENU_ITEM)
+        if (showDownloadsInMenu && !television && !kidMode) add(indexOf("SETTINGS").coerceAtLeast(0), DOWNLOADS_MENU_ITEM)
+    }
 
 /**
  * A season is a pairing of mood and accent, chosen as one thing.
