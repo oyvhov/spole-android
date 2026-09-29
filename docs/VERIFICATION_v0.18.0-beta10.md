@@ -39,4 +39,23 @@ Ingen instrumentering er køyrd på profilane med lagra brukardata.
   normalt via den etablerte ADB-tenaren. Ingen emulator vart nullstilt eller erstatta.
 - `git diff --check` er rein. Skjermbilete og lokale loggar ligg berre i ignorert byggmappe.
 
-Publiserings- og oppdateringsresultatet blir dokumentert i ein eigen rapport-commit etter publisering.
+## Publisering og ekte oppdatering
+
+- Release-taggen `v0.18.0-beta10` peikar på `b731452dc253b0a502a60bcfb71c438be806382e`.
+- Publisert som prerelease, ikkje draft eller stabil latest:
+  <https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta10>.
+- Alle fem assets er ferdig opplasta. Storleik og SHA-256 frå GitHub samsvarer med dei
+  lokale filene: éin universal-APK, SHA256SUMS, R8-mapping, SOURCE_COMMIT og FFmpeg-kjeldepakken.
+- Den offentlege release-lista utan autorisasjon inneheld beta10. Det første svaret rett
+  etter publisering var mellomlagra med beta9 øvst; ei ny spørjing med cache-busting viste beta10.
+  TV-appen fann beta10 med den vanlege «Sjekk no»-flyten.
+- Offentleg APK er lasta ned på nytt og har same SHA-256 som bygget.
+- TV 5564: **Innstillingar → Varsel og oppdatering → Appoppdateringar → Sjekk no** viste
+  beta10 og release-notata. **Last ned oppdatering → Installer oppdatering → Android Update →
+  App installed → Open** fullførte. Dette gjekk gjennom appen, utan ADB-installasjon på TV.
+- Installert versjon gjekk frå 129 / beta9 til 130 / beta10. Utgangspunktet var det lokale
+  beta9-førehandsbygget med dei godkjende menyendringane. `firstInstallTime` er uendra
+  (2026-09-09 20:50:58). Same Seerr-profil og ekte Jellyfin-innhald er synleg etter opning,
+  med nynorsk språk, same mørke/blå tema og lagra framdrift i «Sjå vidare».
+- Endelege lokale skjermbilete: `app/build/release-v0.18.0-beta10/phone-after-install.png`
+  og `tv-after-update.png`. Dei er ikkje publiserte eller lagde i Git.
