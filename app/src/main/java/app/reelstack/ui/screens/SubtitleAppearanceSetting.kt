@@ -16,6 +16,9 @@ import app.reelstack.R
 import app.reelstack.data.model.SubtitleStyle
 import app.reelstack.player.applyAppearance
 import app.reelstack.ui.components.SettingsActionRow
+import app.reelstack.ui.components.SpoleChoiceDialog
+import app.reelstack.ui.components.SpoleChoiceRow
+import app.reelstack.ui.components.SpoleIcons
 
 @Composable
 internal fun subtitleStyleName(style: SubtitleStyle): String = stringResource(when(style) {
@@ -30,26 +33,17 @@ internal fun subtitleStyleName(style: SubtitleStyle): String = stringResource(wh
 internal fun SubtitleAppearanceSetting(value: SubtitleStyle, onChange: (SubtitleStyle) -> Unit) {
     var open by remember { mutableStateOf(false) }
     SettingsActionRow(stringResource(R.string.subtitle_appearance), subtitleStyleName(value), "subtitle-style") { open = true }
-    if (open) AlertDialog(onDismissRequest = { open = false },
-        title = { Text(stringResource(R.string.subtitle_choose)) },
-        confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
-        text = {
+    if (open) SpoleChoiceDialog(stringResource(R.string.subtitle_choose), { open = false }, icon = SpoleIcons.Subtitles) {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val sample = stringResource(R.string.subtitle_sample)
                 AndroidView(factory = { SubtitleView(it).apply { setBackgroundColor(0xFF263444.toInt()) } },
                     update = { it.applyAppearance(value); it.setCues(listOf(Cue.Builder().setText(sample).build())) },
                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).testTag("subtitle-preview"))
                 SubtitleStyle.entries.forEach { style ->
-                    Surface(onClick = { onChange(style) }, shape = MaterialTheme.shapes.medium,
-                        color = if (value == style) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.fillMaxWidth().testTag("subtitle-style-${style.name}")) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                            RadioButton(selected = value == style, onClick = null)
-                            Text(subtitleStyleName(style), Modifier.weight(1f).padding(start = 8.dp, top = 12.dp))
-                        }
-                    }
+                    SpoleChoiceRow(subtitleStyleName(style), value == style,
+                        Modifier.testTag("subtitle-style-${style.name}"), icon = SpoleIcons.Subtitles) { onChange(style) }
                 }
                 Text(stringResource(R.string.subtitle_scope), style = MaterialTheme.typography.bodySmall)
             }
-        })
+        }
 }

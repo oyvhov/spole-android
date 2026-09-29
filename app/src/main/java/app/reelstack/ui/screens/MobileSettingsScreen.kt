@@ -66,16 +66,16 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (selected == null) {
                         mobileSettingsCategories.forEach { destination ->
-                            SettingsActionRow(stringResource(destination.title), stringResource(destination.hint),
-                                "settings-category-${destination.name}", destination.icon, { page = destination })
+                            SettingsCategoryCard(destination, Modifier.testTag("settings-category-${destination.name}")) {
+                                page = destination
+                            }
                             // Downloads sit with playback: they are the other way to watch.
                             if (destination == SettingsCategory.PLAYBACK && !state.isKidMode)
                                 SettingsActionRow(stringResource(R.string.nav_downloads), offlineSettingsSummary(state.offlineDownloads),
                                     "settings-downloads", SpoleIcons.Download, onOpenDownloads)
                         }
                     } else {
-                        Text(stringResource(selected.hint), style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                        SettingsCategoryIntro(selected, showTitle = false)
                         SharedSettingsContent(selected, state, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
                             onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
                             onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor)

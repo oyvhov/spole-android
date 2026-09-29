@@ -39,13 +39,11 @@ internal fun SettingsActionRow(title: String, summary: String, tag: String, onCl
 @Composable
 internal fun SettingsActionRow(title: String, summary: String, tag: String, icon: ImageVector?, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner)
-    Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant, shape)
-        .focusOutline(interaction, shape)
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).settingsSurface(interaction)
         .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
-            role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 14.dp, vertical = 8.dp),
+            role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        icon?.let { Icon(it, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) }
+        icon?.let { SettingsIconBadge(it) }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (summary.isNotBlank()) Text(summary, style = MaterialTheme.typography.bodySmall,
@@ -72,10 +70,10 @@ internal fun SettingsChoiceRow(
     value: String,
     tag: String,
     swatch: Color? = null,
+    preview: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner)
     val dot: @Composable () -> Unit = {
         // A circle, not a rounded square. A dark swatch — and half of these are dark, because half
         // of them are backgrounds — sat in a settings row looking exactly like an unticked checkbox.
@@ -87,12 +85,12 @@ internal fun SettingsChoiceRow(
         // One line needs room for both halves. A phone is 360 dp wide and "Storleik på omslag og
         // bilete" alone fills it, so below this the value goes back under the title rather than
         // squeezing the question down to an ellipsis.
-        val inline = maxWidth / androidx.compose.ui.platform.LocalDensity.current.fontScale >= 420.dp
-        Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .focusOutline(interaction, shape)
+        val inline = (maxWidth - if (preview != null) 76.dp else 0.dp) / androidx.compose.ui.platform.LocalDensity.current.fontScale >= 420.dp
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).settingsSurface(interaction)
             .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
-                role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 14.dp, vertical = 6.dp),
+                role = Role.Button, onClick = onClick).testTag(tag).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            preview?.invoke()
             if (inline) {
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f),
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -120,11 +118,10 @@ internal fun SettingsChoiceRow(
 @Composable
 internal fun SettingsToggleRow(title: String, summary: String, checked: Boolean, tag: String, onChange: (Boolean) -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ControlCorner)
-    Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant, shape)
-        .focusOutline(interaction, shape).toggleable(checked, role = Role.Switch, interactionSource = interaction,
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).settingsSurface(interaction)
+        .toggleable(checked, role = Role.Switch, interactionSource = interaction,
             indication = androidx.compose.foundation.LocalIndication.current, onValueChange = onChange)
-        .testTag(tag).padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        .testTag(tag).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 16.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (summary.isNotBlank()) Text(summary, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -138,7 +135,10 @@ internal fun SettingsToggleRow(title: String, summary: String, checked: Boolean,
 internal fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefix: String,
     label: @Composable (T) -> String, swatch: ((T) -> Color)? = null, onChange: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    SettingsChoiceRow(title, label(selected), "theme-choice-$prefix", swatch?.invoke(selected)) { open = true }
+    val visual = hasSettingsPreview(selected)
+    SettingsChoiceRow(title, label(selected), "theme-choice-$prefix",
+        swatch = if (visual) null else swatch?.invoke(selected),
+        preview = if (visual) { { SettingsOptionPreview(selected) } } else null) { open = true }
     if (open) SpoleChoiceDialog(onDismiss = { open = false }, title = title,
         content = {
             val selectedFocus = remember { FocusRequester() }
@@ -151,13 +151,15 @@ internal fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefi
                     val interaction = remember { MutableInteractionSource() }
                     val shape = RoundedCornerShape(12.dp)
                     Row(Modifier.fillMaxWidth().heightIn(min = app.reelstack.ui.theme.ReelLayout.SettingsMinHeight)
-                        .then(if (option == selected) Modifier.focusRequester(selectedFocus) else Modifier).focusOutline(interaction, shape)
+                        .then(if (option == selected) Modifier.focusRequester(selectedFocus) else Modifier)
+                        .settingsSurface(interaction, shape, option == selected)
                         .selectable(option == selected, role = Role.RadioButton, interactionSource = interaction,
                             indication = androidx.compose.foundation.LocalIndication.current,
                             onClick = { onChange(option); open = false }).testTag("$prefix-$option")
                         .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        if (swatch != null) Box(Modifier.size(26.dp).background(swatch(option), RoundedCornerShape(7.dp))
+                        if (hasSettingsPreview(option)) SettingsOptionPreview(option)
+                        else if (swatch != null) Box(Modifier.size(26.dp).background(swatch(option), RoundedCornerShape(7.dp))
                             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(7.dp)))
                         Text(label(option), Modifier.weight(1f))
                         if (option == selected) Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = MaterialTheme.colorScheme.primary)
@@ -226,7 +228,7 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
         app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onChange(value.copy(accent = AccentPalette.LIME, artworkSize = ArtworkSize.STANDARD,
             visualTheme = VisualTheme.FOREST, artworkCorners = ArtworkCorners.SOFT,
             focusStyle = if (television) FocusStyle.BOLD else FocusStyle.WHITE,
-            highContrast = false, seasonalOrnament = true, reduceMotion = false, heroCompact = false)) },
+            highContrast = false, seasonalOrnament = true, reduceMotion = false)) },
             modifier = Modifier.testTag("appearance-reset")) { Text(stringResource(R.string.personal_reset)) }
     }
 }
@@ -245,6 +247,7 @@ internal fun AppLabelSetting(value: Personalization, onChange: (Personalization)
         stringResource(R.string.personal_app_name),
         value.appLabel,
         "personal-app-name",
+        SpoleIcons.Edit,
     ) { draft = value.appLabel; open = true }
     if (open) {
         AlertDialog(
@@ -284,7 +287,6 @@ internal fun ThemePreview(value: Personalization, artwork: List<LibraryMedia> = 
     // choices actually do \u2014 the corner radius, the card size and the focus ring only mean anything
     // on the shape they are applied to, and the accent only means anything where the app uses it.
     Row(Modifier.fillMaxWidth().background(Color(value.visualTheme.background), RoundedCornerShape(16.dp))
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
         .padding(18.dp).clearAndSetSemantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {

@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="design_reduce_motion">Rolege overgangar</string>
-    <string name="design_hero_rotate">Roter utvalet</string>
-    <string name="design_hero_logo">Filmlogo i utvalet</string>
-    <string name="design_hero_compact">Kompakt utval</string>
     <string name="design_start_page">Startside</string>
-    <string name="design_start_hint">Vel sida som opnar når du startar Spole.</string>
-    <string name="design_library_hub">Bibliotekoversikt</string>
-    <string name="design_library_hub_hint">Utval, sjå vidare og nye titlar frå biblioteka dine.</string>
-    <string name="design_upcoming_episodes">Kommande episodar</string>
-    <string name="design_upcoming_hint">Vis premieredatoar frå biblioteket og Seerr. Krev ikkje Sonarr.</string>
     <string name="design_library_lede">Neste gode oppleving ligg her.</string>
     <string name="design_all">Alt</string>
     <string name="design_movies">Filmar</string>

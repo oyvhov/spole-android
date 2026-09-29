@@ -27,17 +27,15 @@ class LibraryServiceDisplayTest {
             RemoteLibraryItem("unrated", "Utan vurdering", "2026", null, "Movie", null),
         ))
 
-    @Test fun moviePosterShowsRealRatingAndRespectsHidePreference() {
-        var options by mutableStateOf(Personalization(showRatings = true))
+    @Test fun moviePosterShowsRealRating() {
         var opened = ""
-        rule.setContent { ReelstackTheme { CompositionLocalProvider(LocalPersonalization provides options) {
+        rule.setContent { ReelstackTheme { CompositionLocalProvider(LocalPersonalization provides Personalization()) {
             LibraryScreen(library("rating-grid"), {}, { opened = it }, {})
         } } }
         rule.onNodeWithTag("library-rating-rated", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("library-rating-unrated", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag("library-item-rated").performClick()
-        rule.runOnIdle { assertEquals("rated", opened); options = options.copy(showRatings = false) }
-        rule.onNodeWithTag("library-rating-rated", useUnmergedTree = true).assertDoesNotExist()
+        rule.runOnIdle { assertEquals("rated", opened) }
     }
 
     @Test fun listRatingWorksWithLargeTextWithoutRepeatingTheStarInFacts() {
@@ -47,7 +45,7 @@ class LibraryServiceDisplayTest {
         try {
             preferences.setLibraryDisplay("rating-list", LibraryDisplay(view = LibraryView.LIST))
             rule.setContent { DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(2f)) {
-                ReelstackTheme { CompositionLocalProvider(LocalPersonalization provides Personalization(showRatings = true)) {
+                ReelstackTheme { CompositionLocalProvider(LocalPersonalization provides Personalization()) {
                     LibraryScreen(library("rating-list"), {}, {}, {})
                 } }
             } }

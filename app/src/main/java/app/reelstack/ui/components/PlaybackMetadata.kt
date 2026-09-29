@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.ContentDetails
+import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.theme.*
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -24,36 +25,37 @@ import java.util.Locale
 /** Only display metadata the server supplied; absent quality is not an invented "Auto" badge. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>) {
-    val preferences = LocalPersonalization.current
+internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, source: ServiceKind? = null) {
     // CommunityRating is already mapped to tmdbRating when the server exposes it. Keeping the
     // old star fact here made the same score appear once unnamed and once as TMDB.
     val visibleFacts = facts.filterNot { it.startsWith("★") }
     val ageRating = visibleFacts.firstNotNullOfOrNull(::ageRatingLabel)
     val descriptiveFacts = visibleFacts.filterNot { ageRatingLabel(it) != null }
-    val quality = if (preferences.showQuality) details.quality else emptyList()
+    val quality = details.quality
     val descriptiveLine = descriptiveFacts.distinct().map(::formatMetadataFact)
-    if (ageRating != null || descriptiveLine.isNotEmpty()) Row(
-        Modifier.fillMaxWidth().padding(top = 14.dp).testTag("playback-metadata"),
-        verticalAlignment = Alignment.CenterVertically,
+    if (ageRating != null || descriptiveLine.isNotEmpty() || source != null) FlowRow(
+        Modifier.fillMaxWidth().testTag("playback-metadata"),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ageRating?.let { rating ->
             Text(
                 rating,
-                color = Text,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.background(SurfaceRaised, RoundedCornerShape(5.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp).testTag("age-rating"),
+                color = Muted,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag("age-rating"),
             )
         }
         if (descriptiveLine.isNotEmpty()) Text(
             descriptiveLine.joinToString("  ·  "),
             color = Muted,
             style = MaterialTheme.typography.bodyMedium,
-            maxLines = 2,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            modifier = if (ageRating != null) Modifier.padding(start = 8.dp) else Modifier,
         )
+        source?.let {
+            Text(it.displayName, color = Muted,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag("detail-source"))
+        }
     }
     // Codec and channel layout are useful diagnostics, but should not shout as loudly as title,
     // year and running time. They live on a quieter line below the human-readable metadata.
@@ -65,13 +67,13 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>) {
         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp).testTag("technical-metadata"),
     )
-    val score = if (preferences.showRatings) details.tmdbRating else null
-    val critic = if (preferences.showRatings) details.criticRating else null
-    val mdblist = if (preferences.showRatings) details.mdblistRating else null
-    if (score != null || critic != null || mdblist != null) Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()).testTag("metadata-ratings"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    val score = details.tmdbRating
+    val critic = details.criticRating
+    val mdblist = details.mdblistRating
+    if (score != null || critic != null || mdblist != null) FlowRow(
+        Modifier.fillMaxWidth().padding(top = 6.dp).testTag("metadata-ratings"),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         critic?.let {
             RottenTomatoesRating(it, Modifier.testTag("critic-rating"))

@@ -45,7 +45,7 @@ class DesignRefreshUiTest {
             DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(font)) {
                 CompositionLocalProvider(LocalConfiguration provides config) {
                     ReelstackTheme {
-                        CompositionLocalProvider(LocalPersonalization provides Personalization(reduceMotion = true, heroRotate = false),
+                        CompositionLocalProvider(LocalPersonalization provides Personalization(reduceMotion = true),
                             LocalMotionEnabled provides false, LocalTabletCanvas provides (width >= 720)) {
                             androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = androidx.compose.material3.MaterialTheme.colorScheme.background) { body() }
                         }
@@ -94,13 +94,14 @@ class DesignRefreshUiTest {
     }
 
     @Test fun libraryCustomizationLivesAfterAllShelvesOnTv() {
-        rule.setContent { Canvas(960, 540, tv = true, font = 2f) { LibraryHub(fixtures(), {}, {}, null, {}) } }
+        var opened = false
+        rule.setContent { Canvas(960, 540, tv = true, font = 2f) { LibraryHub(fixtures(), {}, {}, null, {}, onCustomize = { opened = true }) } }
         rule.onNodeWithTag("hub-customize").assertDoesNotExist()
         rule.onNodeWithTag("library-hub").performScrollToKey("customize")
         rule.onNodeWithTag("hub-customize").assertIsDisplayed()
         rule.onRoot().saveRoadmapImage("library-customize-footer-tv.png")
         rule.onNodeWithTag("hub-customize").performClick()
-        rule.onNodeWithTag("library-title").performScrollTo().assertIsDisplayed()
+        rule.runOnIdle { assertTrue(opened) }
     }
 
     @Test fun appearanceSettingsKeepSeasonChoiceWithoutLookPresets() {
@@ -192,6 +193,7 @@ class DesignRefreshUiTest {
     @Test fun tabletUsesSameSettingsCategoriesAsTv() {
         rule.setContent { Canvas(900, 900) { SettingsScreen(fixtures(), PaddingValues(), {}, {}, {}, { _, _ -> }) } }
         rule.onNodeWithTag("settings-categories").assertIsDisplayed()
+        rule.onNodeWithTag("settings-category-MENU").assertDoesNotExist()
         rule.onNodeWithTag("settings-category-HOME").performClick()
         rule.onNodeWithTag("theme-choice-start-page").performScrollTo().assertIsDisplayed()
         rule.onRoot().saveRoadmapImage("design-settings-tablet.png")
@@ -201,7 +203,8 @@ class DesignRefreshUiTest {
         rule.setContent { Canvas(360, 780) { SettingsScreen(fixtures(), PaddingValues(), {}, {}, {}, { _, _ -> }) } }
         rule.onNodeWithTag("settings-search").assertDoesNotExist()
         rule.onNodeWithTag("settings-category-HOME").performClick()
-        rule.onNodeWithTag("hero-compact").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("home-layout-open").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("library-customize").performScrollTo().assertIsDisplayed()
         rule.onRoot().saveRoadmapImage("design-settings-phone.png")
     }
 
@@ -241,9 +244,9 @@ class DesignRefreshUiTest {
         val repository = AppPreferencesRepository(context)
         val old = repository.personalization
         try {
-            val expected = old.copy(startInLibrary = true, heroRotate = false, heroLogo = false,
+            val expected = old.copy(startInLibrary = true,
                 preferredSubtitleLanguage = SubtitleLanguage.SWEDISH, fallbackSubtitleLanguage = SubtitleLanguage.DANISH,
-                heroCompact = true, reduceMotion = true, showUpcomingEpisodes = false,
+                reduceMotion = true,
                 homeRowFormats = mapOf("NEXT_UP" to "THUMB"), showLibraryTitle = true, libraryCardsWide = false,
                 libraryHubOrder = DEFAULT_LIBRARY_HUB.reversed(), libraryHubHidden = setOf("FEATURE"), libraryOrder = listOf("second", "first"))
             repository.personalization = expected
@@ -276,11 +279,15 @@ class DesignRefreshUiTest {
     @Test fun libraryEditorChangesOrderVisibilityAndHeading() {
         val value = mutableStateOf(Personalization())
         rule.setContent { Canvas(960, 540, tv = true) {
-            LibraryCustomizationDialog(fixtures(), value.value, { value.value = it }, {})
+            LibraryEditorDialog(fixtures(), {}, {}, { _, _, _ -> }, value.value, { value.value = it })
         } }
+        val list = rule.onNodeWithTag("library-editor-list")
+        list.performScrollToNode(hasTestTag("library-title"))
         rule.onNodeWithTag("library-title").performClick()
-        rule.onNodeWithTag("hub-down-FEATURE").performScrollTo().performClick()
-        rule.onNodeWithTag("hub-visible-FAVOURITES").performScrollTo().performClick()
+        list.performScrollToNode(hasTestTag("hub-down-FEATURE"))
+        rule.onNodeWithTag("hub-down-FEATURE").performClick()
+        list.performScrollToNode(hasTestTag("hub-visible-FAVOURITES"))
+        rule.onNodeWithTag("hub-visible-FAVOURITES").performClick()
         rule.runOnIdle {
             assertTrue(value.value.showLibraryTitle)
             assertEquals("CONTINUE", value.value.libraryHubOrder.first())

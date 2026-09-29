@@ -1,29 +1,23 @@
 package app.reelstack.ui.screens
 
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -40,7 +34,6 @@ import app.reelstack.data.repository.AppPreferencesRepository
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.*
 import app.reelstack.ui.theme.LocalPersonalization
-import app.reelstack.ui.theme.ReelLayout
 
 /** What the Home editor can change. Defaults do nothing, so a screen test can leave it out. */
 class HomeEditorActions(
@@ -62,7 +55,7 @@ internal fun HomeLayoutSetting(state: ReelstackUiState, actions: HomeEditorActio
     val layout = state.effectiveHomeLayout
     val rows = editableHomeRows(state)
     SettingsActionRow(stringResource(R.string.home_layout_title),
-        stringResource(R.string.home_layout_summary, rows.count(layout::isVisible), rows.size), "home-layout-open") {
+        stringResource(R.string.home_layout_summary, rows.count(layout::isVisible), rows.size), "home-layout-open", SpoleIcons.Home) {
         open = true
         actions.onLoadLibraries()
     }
@@ -91,6 +84,9 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
     }
     val selectedSource = sources.firstOrNull { it.name == filter }
     var detailRow by remember { mutableStateOf<HomeRowKey?>(null) }
+    // Home has a feature only on a television or a tablet-sized window, and the search line only on
+    // a phone, so each switch is offered only where it changes something.
+    val largeCanvas = isTelevision() || windowLayoutPolicy().useTabletCanvas
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f).fillMaxHeight(.92f).testTag("home-layout-editor"),
             shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.background) {
@@ -126,6 +122,11 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
                 }
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("home-layout-list"),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // The feature sits above every row, so it leads the list; it has no place to move to.
+                    if (largeCanvas && filter == FILTER_ALL) item(key = "home-layout-feature") {
+                        SettingsToggleRow(stringResource(R.string.refine_group_hero), stringResource(R.string.settings_tv_hero_hint),
+                            options.showHero, "home-layout-feature") { preferences.personalization = options.copy(showHero = it) }
+                    }
                     itemsIndexed(shown, key = { _, row -> row.id }) { index, row ->
                         // Two arrows per row. Moving a row to an end disables the arrow that moved
                         // it; focus goes to the other arrow first, or Compose's own recovery would
@@ -147,8 +148,7 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
                             onVisibleChange = { actions.onLayoutChange(layout.withVisible(row, it)) },
                             onMove = { direction ->
                                 val destination = index + direction
-                                focus[if (destination <= 0) 1 else if (destination >= shown.lastIndex) 0 else if (direction < 0) 0 else 1]
-                                    .requestFocus()
+                                focus[arrowAfterMove(destination, shown.lastIndex, direction)].requestFocus()
                                 actions.onLayoutChange(layout.moved(row, direction, shown))
                             },
                             onOpen = { detailRow = row },
@@ -157,6 +157,10 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
                     item(key = "home-layout-options") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                             SettingsGroup(stringResource(R.string.home_layout_options))
+                            if (!largeCanvas) SettingsToggleRow(stringResource(R.string.home_search_bar),
+                                stringResource(R.string.home_search_bar_hint), options.showHomeSearchBar, "home-search-bar") {
+                                preferences.personalization = options.copy(showHomeSearchBar = it)
+                            }
                             SettingsToggleRow(stringResource(R.string.tv_combine_continue), stringResource(R.string.watching_order_hint),
                                 options.combineContinueWatching, "home-layout-combine") {
                                 preferences.personalization = options.copy(combineContinueWatching = it)
@@ -166,10 +170,16 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
                 }
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { actions.onLayoutChange(HomeLayout.DEFAULT) }, modifier = Modifier.testTag("home-layout-reset")) {
+                    // A Material button shows no focus of its own on a television; these two are the
+                    // last stop of the list, so a remote has to be able to see when it is on them.
+                    val resetInteraction = remember { MutableInteractionSource() }
+                    val doneInteraction = remember { MutableInteractionSource() }
+                    TextButton(onClick = { actions.onLayoutChange(HomeLayout.DEFAULT) }, interactionSource = resetInteraction,
+                        modifier = Modifier.focusOutline(resetInteraction, CircleShape).testTag("home-layout-reset")) {
                         Text(stringResource(R.string.home_layout_reset))
                     }
-                    Button(onClick = onDismiss, modifier = Modifier.testTag("home-layout-done")) {
+                    Button(onClick = onDismiss, interactionSource = doneInteraction,
+                        modifier = Modifier.focusOutline(doneInteraction, CircleShape).testTag("home-layout-done")) {
                         Text(stringResource(R.string.home_order_done))
                     }
                 }
@@ -183,10 +193,7 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
     }
 }
 
-/**
- * One row of the editor: what it is and where it comes from, its switch, its libraries and its
- * place. Two lines rather than one, so the controls never squeeze the title at large text sizes.
- */
+/** One row of the editor: what it is and where it comes from, its switch, its libraries and its place. */
 @Composable
 private fun HomeLayoutRow(
     row: HomeRowKey,
@@ -202,58 +209,31 @@ private fun HomeLayoutRow(
     onOpen: () -> Unit,
 ) {
     val title = homeRowKindTitle(row.kind)
-    val shape = RoundedCornerShape(ReelLayout.ControlCorner)
     val subtitle = listOfNotNull(
         row.source?.displayName ?: stringResource(R.string.home_layout_shared),
         stringResource(R.string.home_layout_hidden).takeIf { !visible },
         note,
     ).joinToString(" · ")
-    Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceVariant, shape)
-        .testTag("home-layout-row-${row.id}").padding(horizontal = 10.dp, vertical = 6.dp)) {
-        val interaction = remember { MutableInteractionSource() }
-        val inner = RoundedCornerShape(8.dp)
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(inner).focusOutline(interaction, inner)
-            .toggleable(visible, role = Role.Switch, interactionSource = interaction, indication = LocalIndication.current,
-                onValueChange = onVisibleChange)
-            .testTag("home-layout-visible-${row.id}").padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            row.source?.let { ServiceLogo(it, null, Modifier.size(20.dp)) }
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium,
-                    color = if (visible) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(visible, null)
+    val source = row.source
+    val logo: (@Composable () -> Unit)? = if (source == null) null else { { ServiceLogo(source, null, Modifier.size(20.dp)) } }
+    val librariesButton: (@Composable RowScope.() -> Unit)? = if (libraries == null) null else { {
+        val openInteraction = remember { MutableInteractionSource() }
+        TextButton(onClick = onOpen, interactionSource = openInteraction,
+            modifier = Modifier.weight(1f, fill = false).focusOutline(openInteraction, CircleShape)
+                .testTag("home-layout-libraries-${row.id}")) {
+            Icon(SpoleIcons.Tune, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(libraries, style = MaterialTheme.typography.labelLarge)
         }
-        // The label takes what it needs and the arrows keep to the right. Giving both halves a
-        // weight split the line in two and broke "Alle bibliotek" over two lines.
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            if (libraries != null) {
-                val openInteraction = remember { MutableInteractionSource() }
-                TextButton(onClick = onOpen, interactionSource = openInteraction,
-                    modifier = Modifier.weight(1f, fill = false).focusOutline(openInteraction, CircleShape)
-                        .testTag("home-layout-libraries-${row.id}")) {
-                    Icon(SpoleIcons.Tune, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(libraries, style = MaterialTheme.typography.labelLarge)
-                }
-            } else {
-                Spacer(Modifier.width(0.dp))
-            }
-            Row { listOf(-1 to canMoveUp, 1 to canMoveDown).forEach { (direction, enabled) ->
-                val interaction = remember { MutableInteractionSource() }
-                IconButton(onClick = { onMove(direction) }, enabled = enabled, interactionSource = interaction,
-                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).focusOutline(interaction, CircleShape)
-                        .focusRequester(if (direction < 0) upFocus else downFocus)
-                        .testTag("home-layout-${if (direction < 0) "up" else "down"}-${row.id}")) {
-                    Icon(if (direction < 0) SpoleIcons.ChevronUp else SpoleIcons.ChevronDown,
-                        stringResource(if (direction < 0) R.string.home_order_up else R.string.home_order_down,
-                            listOfNotNull(title, row.source?.displayName).joinToString(" · ")))
-                }
-            } }
-        }
-    }
+    } }
+    LayoutEditorRow(
+        prefix = "home-layout", id = row.id, title = title, subtitle = subtitle, visible = visible,
+        canMoveUp = canMoveUp, canMoveDown = canMoveDown, upFocus = upFocus, downFocus = downFocus,
+        onVisibleChange = onVisibleChange, onMove = onMove,
+        moveLabel = listOfNotNull(title, row.source?.displayName).joinToString(" · "),
+        leading = logo,
+        options = librariesButton,
+    )
 }
 
 /** The libraries one server offers for [kind]: those whose collection type can fill it. */

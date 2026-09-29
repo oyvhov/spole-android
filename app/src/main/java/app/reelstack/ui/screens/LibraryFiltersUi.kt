@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import app.reelstack.ui.components.SpoleDropdownMenu as DropdownMenu
+import app.reelstack.ui.components.SpoleDropdownMenuItem as DropdownMenuItem
+import app.reelstack.ui.components.SpoleChoiceDialog
+import app.reelstack.ui.components.SpoleChoiceRow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +61,16 @@ internal fun LibraryFilterBar(
         else -> sorts[filters.sort.ordinal]
     }
 
+    val summary = listOfNotNull(
+        watched[filters.watched.ordinal].takeIf { filters.watched != LibraryWatched.ALL },
+        resolutions[filters.resolution.ordinal].takeIf { filters.resolution != LibraryResolution.ALL },
+        stringResource(R.string.library_favourites).takeIf { filters.favourites },
+        filters.genre.takeIf(String::isNotBlank), filters.year.takeIf(String::isNotBlank),
+        filters.initial.takeIf(String::isNotBlank), filters.search.takeIf(String::isNotBlank))
+    if (summary.isNotEmpty()) Text(summary.joinToString(" · "),
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).testTag("library-filter-summary"))
+
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -64,7 +78,7 @@ internal fun LibraryFilterBar(
     ) {
         // 1. Sortering
         Box {
-            SpoleSecondaryButton(
+            app.reelstack.ui.components.OpenMenuAction(
                 onClick = { sortOpen = true },
                 modifier = Modifier.testTag("library-sort-choice"),
             ) {
@@ -78,6 +92,7 @@ internal fun LibraryFilterBar(
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_sort_title_asc)) },
+                    selected = filters.sort == LibrarySort.TITLE && !filters.descending,
                     leadingIcon = if (filters.sort == LibrarySort.TITLE && !filters.descending) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -86,6 +101,7 @@ internal fun LibraryFilterBar(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_sort_title_desc)) },
+                    selected = filters.sort == LibrarySort.TITLE && filters.descending,
                     leadingIcon = if (filters.sort == LibrarySort.TITLE && filters.descending) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -93,6 +109,7 @@ internal fun LibraryFilterBar(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_sort_added_desc)) },
+                    selected = filters.sort == LibrarySort.ADDED,
                     leadingIcon = if (filters.sort == LibrarySort.ADDED) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -101,6 +118,7 @@ internal fun LibraryFilterBar(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_sort_year_desc)) },
+                    selected = filters.sort == LibrarySort.YEAR,
                     leadingIcon = if (filters.sort == LibrarySort.YEAR) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -109,6 +127,7 @@ internal fun LibraryFilterBar(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_sort_rating_desc)) },
+                    selected = filters.sort == LibrarySort.RATING,
                     leadingIcon = if (filters.sort == LibrarySort.RATING) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -117,6 +136,7 @@ internal fun LibraryFilterBar(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_sort_runtime_desc)) },
+                    selected = filters.sort == LibrarySort.RUNTIME,
                     leadingIcon = if (filters.sort == LibrarySort.RUNTIME) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -125,6 +145,7 @@ internal fun LibraryFilterBar(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_sort_played_desc)) },
+                    selected = filters.sort == LibrarySort.PLAYED,
                     leadingIcon = if (filters.sort == LibrarySort.PLAYED) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -134,63 +155,9 @@ internal fun LibraryFilterBar(
             }
         }
 
-        // 2. Visingsstatus
-        Box {
-            SpoleSecondaryButton(
-                onClick = { statusOpen = true },
-                modifier = Modifier.testTag("library-watched-choice"),
-            ) {
-                Text(watched[filters.watched.ordinal])
-                Icon(SpoleIcons.ChevronDown, null, modifier = Modifier.size(16.dp).padding(start = 4.dp))
-            }
-            DropdownMenu(
-                expanded = statusOpen,
-                onDismissRequest = { statusOpen = false },
-                containerColor = SurfaceRaised,
-            ) {
-                LibraryWatched.entries.forEach { w ->
-                    DropdownMenuItem(
-                        text = { Text(watched[w.ordinal]) },
-                        leadingIcon = if (filters.watched == w) {
-                            { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                        } else null,
-                        modifier = Modifier.testTag("library-watched-${w.name}"),
-                        onClick = { onApply(filters.copy(watched = w)); statusOpen = false },
-                    )
-                }
-            }
-        }
-
-        // 3. Oppløysing
-        Box {
-            SpoleSecondaryButton(
-                onClick = { resolutionOpen = true },
-                modifier = Modifier.testTag("library-resolution-choice"),
-            ) {
-                Text(resolutions[filters.resolution.ordinal])
-                Icon(SpoleIcons.ChevronDown, null, modifier = Modifier.size(16.dp).padding(start = 4.dp))
-            }
-            DropdownMenu(
-                expanded = resolutionOpen,
-                onDismissRequest = { resolutionOpen = false },
-                containerColor = SurfaceRaised,
-            ) {
-                LibraryResolution.entries.forEach { res ->
-                    DropdownMenuItem(
-                        text = { Text(resolutions[res.ordinal]) },
-                        leadingIcon = if (filters.resolution == res) {
-                            { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                        } else null,
-                        modifier = Modifier.testTag("library-resolution-${res.name}"),
-                        onClick = { onApply(filters.copy(resolution = res)); resolutionOpen = false },
-                    )
-                }
-            }
-        }
-
         // 4. Filter (Flere filter)
         Box {
-            SpoleSecondaryButton(
+            app.reelstack.ui.components.OpenMenuAction(
                 onClick = { filterMenuOpen = true },
                 modifier = Modifier.testTag("library-filters"),
             ) {
@@ -201,7 +168,7 @@ internal fun LibraryFilterBar(
                     tint = if (filters.activeCount > 0) Primary else LocalContentColor.current,
                 )
                 Text(
-                    stringResource(R.string.library_filters) + if (filters.activeCount > 0) " (${filters.activeCount})" else "",
+                    stringResource(R.string.menu_filters_short) + if (filters.activeCount > 0) " (${filters.activeCount})" else "",
                     color = if (filters.activeCount > 0) Primary else Color.Unspecified,
                 )
                 Icon(SpoleIcons.ChevronDown, null, modifier = Modifier.size(16.dp).padding(start = 4.dp))
@@ -212,21 +179,29 @@ internal fun LibraryFilterBar(
                 containerColor = SurfaceRaised,
             ) {
                 DropdownMenuItem(
+                    text = { Text(stringResource(R.string.menu_watched_short) + " · " + watched[filters.watched.ordinal]) },
+                    leadingIcon = { Icon(SpoleIcons.Eye, null) },
+                    trailingIcon = { Icon(SpoleIcons.ChevronRight, null) },
+                    modifier = Modifier.testTag("library-watched-choice"),
+                    onClick = { filterMenuOpen = false; statusOpen = true })
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.library_resolution) + " · " + resolutions[filters.resolution.ordinal]) },
+                    leadingIcon = { Icon(SpoleIcons.Screen, null) },
+                    trailingIcon = { Icon(SpoleIcons.ChevronRight, null) },
+                    modifier = Modifier.testTag("library-resolution-choice"),
+                    onClick = { filterMenuOpen = false; resolutionOpen = true })
+                DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_favourites)) },
-                    leadingIcon = if (filters.favourites) {
-                        { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
+                    leadingIcon = { Icon(if (filters.favourites) SpoleIcons.HeartFilled else SpoleIcons.Heart, null) },
                     modifier = Modifier.testTag("library-favourites"),
                     onClick = { onApply(filters.copy(favourites = !filters.favourites)); filterMenuOpen = false },
                 )
                 if (facets.genres.isNotEmpty()) {
                     DropdownMenuItem(
                         text = {
-                            Text(stringResource(R.string.library_genre) + filters.genre.takeIf(String::isNotBlank)?.let { " · $it" }.orEmpty())
+                            Text(stringResource(R.string.menu_genre_short) + filters.genre.takeIf(String::isNotBlank)?.let { " · $it" }.orEmpty())
                         },
-                        leadingIcon = if (filters.genre.isNotBlank()) {
-                            { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                        } else null,
+                        leadingIcon = { Icon(SpoleIcons.Movie, null) },
                         onClick = { filterMenuOpen = false; genreDialogOpen = true },
                     )
                 }
@@ -235,9 +210,7 @@ internal fun LibraryFilterBar(
                         text = {
                             Text(stringResource(R.string.library_year) + filters.year.takeIf(String::isNotBlank)?.let { " · $it" }.orEmpty())
                         },
-                        leadingIcon = if (filters.year.isNotBlank()) {
-                            { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                        } else null,
+                        leadingIcon = { Icon(SpoleIcons.Calendar, null) },
                         onClick = { filterMenuOpen = false; yearDialogOpen = true },
                     )
                 }
@@ -245,9 +218,7 @@ internal fun LibraryFilterBar(
                     text = {
                         Text(stringResource(R.string.design_alphabet) + filters.initial.takeIf(String::isNotBlank)?.let { " · $it" }.orEmpty())
                     },
-                    leadingIcon = if (filters.initial.isNotBlank()) {
-                        { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
+                    leadingIcon = { Icon(SpoleIcons.ListLines, null) },
                     onClick = { filterMenuOpen = false; alphabetDialogOpen = true },
                 )
                 if (filters != LibraryFilters()) {
@@ -268,12 +239,12 @@ internal fun LibraryFilterBar(
 
         // 5. Visning
         Box {
-            SpoleSecondaryButton(
+            app.reelstack.ui.components.OpenMenuAction(
                 onClick = { displayOpen = true },
                 modifier = Modifier.testTag("library-display-toggle"),
             ) {
                 Icon(SpoleIcons.ListLines, null, modifier = Modifier.size(16.dp).padding(end = 4.dp))
-                Text(stringResource(R.string.library_display))
+                Text(stringResource(R.string.menu_view_short))
                 Icon(SpoleIcons.ChevronDown, null, modifier = Modifier.size(16.dp).padding(start = 4.dp))
             }
             DropdownMenu(
@@ -283,21 +254,22 @@ internal fun LibraryFilterBar(
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_view_grid)) },
-                    leadingIcon = if (display.view == LibraryView.GRID) {
-                        { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
+                    selected = display.view == LibraryView.GRID,
+                    leadingIcon = { app.reelstack.ui.components.SettingsOptionPreview(LibraryView.GRID) },
+                    trailingIcon = { if (display.view == LibraryView.GRID) Icon(SpoleIcons.Done, null) },
                     onClick = { onDisplayChange(display.copy(view = LibraryView.GRID)); displayOpen = false },
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_view_list)) },
-                    leadingIcon = if (display.view == LibraryView.LIST) {
-                        { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
+                    selected = display.view == LibraryView.LIST,
+                    leadingIcon = { app.reelstack.ui.components.SettingsOptionPreview(LibraryView.LIST) },
+                    trailingIcon = { if (display.view == LibraryView.LIST) Icon(SpoleIcons.Done, null) },
                     onClick = { onDisplayChange(display.copy(view = LibraryView.LIST)); displayOpen = false },
                 )
                 HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_size_small)) },
+                    selected = display.size == LibraryCardSize.SMALL,
                     leadingIcon = if (display.size == LibraryCardSize.SMALL) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -305,6 +277,7 @@ internal fun LibraryFilterBar(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_size_medium)) },
+                    selected = display.size == LibraryCardSize.MEDIUM,
                     leadingIcon = if (display.size == LibraryCardSize.MEDIUM) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -312,6 +285,7 @@ internal fun LibraryFilterBar(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_size_large)) },
+                    selected = display.size == LibraryCardSize.LARGE,
                     leadingIcon = if (display.size == LibraryCardSize.LARGE) {
                         { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                     } else null,
@@ -329,7 +303,7 @@ internal fun LibraryFilterBar(
         }
 
         // 6. Søk
-        SpoleSecondaryButton(
+        app.reelstack.ui.components.OpenMenuAction(
             onClick = { searchDialogOpen = true },
             modifier = Modifier.testTag("library-search-toggle"),
         ) {
@@ -340,14 +314,14 @@ internal fun LibraryFilterBar(
                 tint = if (filters.search.isNotBlank()) Primary else LocalContentColor.current,
             )
             Text(
-                stringResource(R.string.library_search) + filters.search.takeIf(String::isNotBlank)?.let { " · $it" }.orEmpty(),
+                stringResource(R.string.search_open),
                 color = if (filters.search.isNotBlank()) Primary else Color.Unspecified,
             )
         }
 
         // 7. Nullstill hurtigknapp
         if (filters.activeCount > 0) {
-            SpoleSecondaryButton(
+            app.reelstack.ui.components.OpenMenuAction(
                 onClick = { onApply(LibraryFilters(sort = filters.sort, descending = filters.descending)) },
                 modifier = Modifier.testTag("library-filter-reset"),
             ) {
@@ -357,6 +331,26 @@ internal fun LibraryFilterBar(
         }
     }
 
+    if (statusOpen) SpoleChoiceDialog(stringResource(R.string.filter_status), { statusOpen = false }, SpoleIcons.Eye) {
+        LazyColumn {
+            items(LibraryWatched.entries) { value ->
+                SpoleChoiceRow(watched[value.ordinal], filters.watched == value,
+                    Modifier.testTag("library-watched-${value.name}")) {
+                    onApply(filters.copy(watched = value)); statusOpen = false
+                }
+            }
+        }
+    }
+    if (resolutionOpen) SpoleChoiceDialog(stringResource(R.string.library_resolution), { resolutionOpen = false }, SpoleIcons.Screen) {
+        LazyColumn {
+            items(LibraryResolution.entries) { value ->
+                SpoleChoiceRow(resolutions[value.ordinal], filters.resolution == value,
+                    Modifier.testTag("library-resolution-${value.name}")) {
+                    onApply(filters.copy(resolution = value)); resolutionOpen = false
+                }
+            }
+        }
+    }
     // Modal dialogs that do not push content down
     if (searchDialogOpen) {
         var typed by remember(filters.search) { mutableStateOf(filters.search) }
@@ -402,51 +396,34 @@ internal fun LibraryFilterBar(
 
     if (genreDialogOpen) {
         val all = stringResource(R.string.library_all)
-        AlertDialog(
-            onDismissRequest = { genreDialogOpen = false },
-            title = { Text(stringResource(R.string.library_genre)) },
-            text = {
+        SpoleChoiceDialog(stringResource(R.string.library_genre), { genreDialogOpen = false }) {
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(listOf("") + facets.genres) { value ->
-                        SpoleSecondaryButton(
-                            onClick = { onApply(filters.copy(genre = value)); genreDialogOpen = false },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        ) { Text(value.ifBlank { all }) }
+                        SpoleChoiceRow(value.ifBlank { all }, filters.genre == value) {
+                            onApply(filters.copy(genre = value)); genreDialogOpen = false
+                        }
                     }
                 }
-            },
-            confirmButton = {
-                SpoleSecondaryButton(onClick = { genreDialogOpen = false }) { Text(stringResource(R.string.library_cancel)) }
-            },
-        )
+        }
     }
 
     if (yearDialogOpen) {
         val all = stringResource(R.string.library_all)
-        AlertDialog(
-            onDismissRequest = { yearDialogOpen = false },
-            title = { Text(stringResource(R.string.library_year)) },
-            text = {
+        SpoleChoiceDialog(stringResource(R.string.library_year), { yearDialogOpen = false }, icon = SpoleIcons.Calendar) {
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(listOf("") + facets.years) { value ->
-                        SpoleSecondaryButton(
-                            onClick = { onApply(filters.copy(year = value)); yearDialogOpen = false },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        ) { Text(value.ifBlank { all }) }
+                        SpoleChoiceRow(value.ifBlank { all }, filters.year == value) {
+                            onApply(filters.copy(year = value)); yearDialogOpen = false
+                        }
                     }
                 }
-            },
-            confirmButton = {
-                SpoleSecondaryButton(onClick = { yearDialogOpen = false }) { Text(stringResource(R.string.library_cancel)) }
-            },
-        )
+        }
     }
 
     if (alphabetDialogOpen) {
-        AlertDialog(
-            onDismissRequest = { alphabetDialogOpen = false },
-            title = { Text(stringResource(R.string.design_alphabet)) },
-            text = {
+        SpoleChoiceDialog(stringResource(R.string.design_alphabet), { alphabetDialogOpen = false }, icon = SpoleIcons.Language) {
+            androidx.compose.foundation.lazy.LazyColumn {
+                item {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -462,10 +439,8 @@ internal fun LibraryFilterBar(
                         }
                     }
                 }
-            },
-            confirmButton = {
-                SpoleSecondaryButton(onClick = { alphabetDialogOpen = false }) { Text(stringResource(R.string.library_cancel)) }
-            },
-        )
+                }
+            }
+        }
     }
 }

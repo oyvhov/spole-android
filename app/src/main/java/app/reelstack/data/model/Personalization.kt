@@ -107,22 +107,20 @@ data class Personalization(
     val showNextUp: Boolean = true,
     val combineContinueWatching: Boolean = false,
     val showHero: Boolean = true,
-    val heroRotate: Boolean = true,
-    val heroLogo: Boolean = true,
-    val heroCompact: Boolean = false,
     val startInLibrary: Boolean = false,
-    val libraryHub: Boolean = true,
     val showLibraryTitle: Boolean = false,
     val libraryCardsWide: Boolean = true,
     val libraryHubOrder: List<String> = DEFAULT_LIBRARY_HUB,
     val libraryHubHidden: Set<String> = emptySet(),
+    /** One order for the library page and for the libraries pinned to the menu. */
     val libraryOrder: List<String> = emptyList(),
+    /**
+     * Libraries once hidden from the library page only. Showing and hiding is now the library
+     * selection itself; the editor folds this into it the first time it saves, then empties it.
+     */
     val libraryHidden: Set<String> = emptySet(),
-    val showUpcomingEpisodes: Boolean = true,
     val reduceMotion: Boolean = false,
     val homeRowFormats: Map<String, String> = emptyMap(),
-    val showRatings: Boolean = true,
-    val showQuality: Boolean = true,
     val detailBackdrop: Boolean = true,
     val slowStartup: Boolean = false,
     val visualTheme: VisualTheme = VisualTheme.FOREST,

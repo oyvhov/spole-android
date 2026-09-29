@@ -75,8 +75,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import app.reelstack.ui.components.SpoleDropdownMenu as DropdownMenu
+import app.reelstack.ui.components.SpoleDropdownMenuItem as DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -378,7 +378,7 @@ fun DiscoverScreen(
                     onClear = { onSearch("") },
                     onOpen = { searchOpen = true },
                 )
-                else OutlinedTextField(
+                else androidx.compose.material3.TextField(
                     value = state.searchQuery,
                     onValueChange = onSearch,
                     singleLine = true,
@@ -400,11 +400,11 @@ fun DiscoverScreen(
                         if (television) searchOpen = false
                     }),
                     shape = RoundedCornerShape(20.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Primary,
-                        unfocusedBorderColor = app.reelstack.ui.theme.ControlOutline,
-                        focusedContainerColor = SurfaceRaised,
-                        unfocusedContainerColor = SurfaceRaised,
+                    colors = androidx.compose.material3.TextFieldDefaults.colors(
+                        focusedIndicatorColor = Primary,
+                        unfocusedIndicatorColor = app.reelstack.ui.theme.ControlOutline,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
                         cursorColor = Primary,
                     ),
                     modifier = searchTransitionModifier.fillMaxWidth().focusRequester(searchFocus)
@@ -487,7 +487,7 @@ fun DiscoverScreen(
             items(8, key = { "discover-loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
         } else if (visible.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(
+                app.reelstack.ui.components.QuietEmptyState(
                     state.searchError ?: when {
                         state.searchQuery.isNotBlank() && state.librarySearchResults.isNotEmpty() ->
                             stringResource(R.string.search_no_new, state.searchQuery.trim())
@@ -495,8 +495,8 @@ fun DiscoverScreen(
                         filter != DiscoverFilter.ALL || libraryFilter != LibraryFilter.ALL -> stringResource(R.string.search_empty_filter)
                         else -> stringResource(R.string.search_not_connected)
                     },
-                    color = Muted, style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(vertical = 24.dp),
+                    icon = if (state.searchError != null) app.reelstack.ui.components.SpoleIcons.Wifi else app.reelstack.ui.components.SpoleIcons.Search,
+                    modifier = Modifier,
                 )
             }
         } else {
@@ -573,19 +573,7 @@ private fun DiscoverFilterBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(DiscoverFilter.entries, key = { "type-${it.name}" }) { option ->
-            val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            FilterChip(
-                interactionSource = interaction,
-                selected = option == type,
-                onClick = { onType(option) },
-                label = { Text(option.localizedLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                shape = RoundedCornerShape(10.dp), border = null,
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = SurfaceRaised, labelColor = Muted,
-                    selectedContainerColor = Primary, selectedLabelColor = Ink,
-                ),
-                modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(10.dp), glow = false),
-            )
+            app.reelstack.ui.components.OpenFilterTab(option.localizedLabel(), option == type) { onType(option) }
         }
         item(key = "library-status") {
             val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -598,8 +586,8 @@ private fun DiscoverFilterBar(
                     trailingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, Modifier.size(18.dp)) },
                     shape = RoundedCornerShape(10.dp), border = null,
                     colors = FilterChipDefaults.filterChipColors(
-                        containerColor = SurfaceRaised, labelColor = Muted,
-                        selectedContainerColor = Primary, selectedLabelColor = Ink,
+                        containerColor = Color.Transparent, labelColor = Muted,
+                        selectedContainerColor = Color.Transparent, selectedLabelColor = Primary,
                     ),
                     modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(10.dp), glow = false).testTag("discover-status-filter"),
                 )
@@ -608,6 +596,7 @@ private fun DiscoverFilterBar(
                     LibraryFilter.entries.forEach { option ->
                         DropdownMenuItem(
                             text = { Text(option.localizedLabel()) },
+                            selected = option == library,
                             leadingIcon = if (option == library) {
                                 { Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
                             } else null,

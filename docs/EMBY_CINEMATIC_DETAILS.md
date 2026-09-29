@@ -32,7 +32,8 @@ berre éin tenar er tilkopla.
   erstattar gamle fakta, slik at utdaterte studiofelt ikkje blir fletta tilbake.
 - `CriticRating` frå Jellyfin/Emby blir vist som Rotten Tomatoes-prosent på TV og mobil.
   Null, manglande og ugyldige verdiar blir skilde: 0 % er gyldig, fråvær gir inga linje.
-  Det eksisterande valet «Vis vurderingar» styrer både stjerner og kritikarvurdering.
+  Stjerner og kritikarvurdering blir alltid viste når serveren har dei; valet «Vis vurderingar»
+  vart fjerna 2026-09-29.
 - Ingen ekstern nøkkel eller ny tredjepart får data frå Spole. Tenaren må sjølv ha
   kritikarvurderinga i metadata, til dømes gjennom OMDb. Den generelle stjernescoren
   blir ikkje feilmerkt som IMDb eller TMDB. Direkte oppslag mot IMDb/Metacritic eller

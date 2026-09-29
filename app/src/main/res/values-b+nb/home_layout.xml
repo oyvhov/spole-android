@@ -25,4 +25,9 @@
     <string name="home_layout_row_settings">Innstillinger for %1$s</string>
     <string name="home_layout_options">Valg</string>
     <string name="home_layout_reset">Tilbakestill rekkefølge og brytere</string>
+    <string name="settings_pages_group">Sider</string>
+    <string name="library_editor_intro">Velg hvilke bibliotek Bibliotek-fanen og søket viser, og i hvilken rekkefølge. Forsiden har sitt eget valg under Tilpass forsiden.</string>
+    <string name="library_editor_in_menu">I sidemenyen</string>
+    <string name="library_editor_display">Visning</string>
+    <string name="library_editor_add_to_menu">Legg i sidemenyen</string>
 </resources>

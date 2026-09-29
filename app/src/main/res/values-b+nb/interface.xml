@@ -24,7 +24,7 @@
     <string name="settings_services">Tjenestene dine</string>
     <string name="settings_services_note">Serveradresse og innlogging for hver tjeneste.</string>
     <string name="settings_home">Hjemskjerm</string>
-    <string name="settings_home_navigation">Hjem og navigasjon</string>
+    <string name="settings_home_navigation">Sider og meny</string>
     <string name="settings_customize">Tilpass forsiden</string>
     <string name="settings_customize_note">Velg rader fra hvert bibliotek</string>
     <string name="state_expanded">Utvidet</string>

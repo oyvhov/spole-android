@@ -202,9 +202,7 @@ private fun ProfileMenuRow(
             .padding(horizontal = 10.dp, vertical = 3.dp)
             .fillMaxWidth()
             .defaultMinSize(minHeight = 64.dp)
-            .clip(shape)
-            .background(if (selected || focused) MaterialTheme.colorScheme.surfaceVariant else Surface)
-            .focusOutline(interaction, shape)
+            .settingsSurface(interaction, shape, selected = selected)
             .selectable(
                 selected = selected,
                 role = Role.RadioButton,
@@ -341,9 +339,7 @@ private fun ProfileMenuAction(
             .padding(horizontal = 10.dp, vertical = 3.dp)
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
-            .clip(shape)
-            .background(if (focused) MaterialTheme.colorScheme.surfaceVariant else Surface)
-            .focusOutline(interaction, shape)
+            .settingsSurface(interaction, shape)
             .clickable(
                 interactionSource = interaction,
                 indication = null,
@@ -364,6 +360,8 @@ private fun ProfileMenuAction(
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
         }
         Spacer(Modifier.width(14.dp))
-        Text(text = label, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, lineHeight = 21.sp)
+        Text(text = label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.titleSmall)
+        Icon(SpoleIcons.ChevronRight, null, Modifier.size(18.dp), tint = Muted)
     }
 }

@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.lazy.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,12 +31,8 @@ import app.reelstack.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     onTitle: (String) -> Unit, actions: MediaCardActions?, onRetry: () -> Unit,
-    sourcePicker: @Composable () -> Unit = {}) {
+    onCustomize: () -> Unit = {}, sourcePicker: @Composable () -> Unit = {}) {
     val options = LocalPersonalization.current
-    val context = LocalContext.current
-    val preferences = remember(context) { app.reelstack.data.repository.AppPreferencesRepository(context) }
-    var editing by remember { mutableStateOf(false) }
-    if (editing) LibraryCustomizationDialog(state, options, { preferences.personalization = it }) { editing = false }
     val libraries = state.libraryEntries.filter { it.id !in options.libraryHidden }.sortedBy { options.libraryOrder.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
     val libraryIds = libraries.map { it.id }.toSet()
     val resume = state.resume.filter { state.configuredCount == 0 || it.source == state.librarySource }
@@ -57,7 +52,8 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     // grid stops the whole page from nudging sideways when a rail shortcut opens a library.
     val gutter = if (tv) 32.dp else ReelLayout.Gutter
     val sections = (options.libraryHubOrder + DEFAULT_LIBRARY_HUB).distinct().filter { it !in options.libraryHubHidden }
-    val leadingHero = tv && options.showHero && featured.isNotEmpty() && sections.firstOrNull() == "FEATURE"
+    // The feature is one of this page's own rows. Home's switch for its feature does not reach here.
+    val leadingHero = tv && featured.isNotEmpty() && sections.firstOrNull() == "FEATURE"
     val hero: @Composable () -> Unit = {
         TabletLibraryFeature(featured.first(), onTitle,
             modifier = if (tv) Modifier.cinematicBleed(gutter) else Modifier, candidates = featured.take(5),
@@ -98,7 +94,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
             }
         }
         sections.forEach { section ->
-        if (!leadingHero && section == "FEATURE" && large && options.showHero && featured.isNotEmpty()) item("feature") { hero() }
+        if (!leadingHero && section == "FEATURE" && large && featured.isNotEmpty()) item("feature") { hero() }
         val continued = if (options.combineContinueWatching && options.showNextUp) combinedWatching(resume, next) else resume
         if (section == "CONTINUE" && continued.isNotEmpty()) item("resume") {
             HubShelf(stringResource(R.string.home_continue)) {
@@ -136,7 +132,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
                 val label = stringResource(R.string.refine_library_edit)
                 TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                     tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
-                    IconButton(onClick = { editing = true }, modifier = Modifier.testTag("hub-customize")) {
+                    IconButton(onClick = onCustomize, modifier = Modifier.testTag("hub-customize")) {
                         Icon(SpoleIcons.Tune, label)
                     }
                 }

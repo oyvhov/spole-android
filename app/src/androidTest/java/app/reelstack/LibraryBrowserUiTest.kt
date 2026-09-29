@@ -38,15 +38,15 @@ class LibraryBrowserUiTest {
         rule.onNodeWithText("Prøv igjen").performClick()
         rule.runOnIdle { assertTrue(more) }
     }
-    @Test fun librarySelectionSavesNoneOnlyAfterExplicitSave() {
+    @Test fun librarySelectionIsSavedOnceWhenTheEditorCloses() {
         var saved: Set<String>? = null
         val state = ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
             libraryChoices = listOf(app.reelstack.data.network.RemoteLibraryView("movies", "Filmar", "movies")),
             selectedLibraryIds = setOf("movies"))
-        rule.setContent { ReelstackTheme { app.reelstack.ui.screens.LibraryChoicesDialog(state, {}, {}, { ids, _, _ -> saved = ids }) } }
-        rule.onNodeWithTag("library-choice-movies").assertIsOn().performClick().assertIsOff()
+        rule.setContent { ReelstackTheme { app.reelstack.ui.screens.LibraryEditorDialog(state, {}, {}, { ids, _, _ -> saved = ids }) } }
+        rule.onNodeWithTag("library-visible-movies").assertIsOn().performClick().assertIsOff()
         rule.runOnIdle { assertNull(saved) }
-        rule.onNodeWithTag("library-selection-save").performClick()
+        rule.onNodeWithTag("library-editor-done").performClick()
         rule.runOnIdle { assertEquals(emptySet<String>(), saved) }
     }
 }

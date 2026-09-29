@@ -116,7 +116,6 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     account: (@Composable () -> Unit)? = null,
     candidates: List<LibraryMedia> = listOf(media), rotationEnabled: Boolean = true,
     onFocusWithin: (Boolean) -> Unit = {}) {
-    val options = LocalPersonalization.current
     val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
     // The hero follows a title, not a slot. A refresh reorders the candidates, and the old index
@@ -131,8 +130,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
-    LaunchedEffect(identities, focused, rotationEnabled, options.heroRotate, lifecycleOwner) {
-        if (titles.size > 1 && !focused && rotationEnabled && options.heroRotate) {
+    // The hero moves on by itself unless the reader has asked for a calmer app: a title that
+    // changes every eight seconds is motion as much as any transition is.
+    LaunchedEffect(identities, focused, rotationEnabled, motion, lifecycleOwner) {
+        if (titles.size > 1 && !focused && rotationEnabled && motion) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
                     delay(8_000)
@@ -157,7 +158,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val featureIntoView = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     // The focused button already participates in scrolling. A second request for the entire
     // hero fought that request whenever focus returned from the sidebar.
-    val compactTelevision = television || options.heroCompact || shortWindow
+    val compactTelevision = television || shortWindow
     val featureInteraction = remember { MutableInteractionSource() }
     val actionInteraction = remember { MutableInteractionSource() }
     // The feature was the one artwork surface with a fixed height, so choosing Compact shrank every
@@ -171,8 +172,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     }
     // Leave enough of the first shelf in view to show that the page continues below the hero.
     // The old 76% scene pushed even the library names below a 1080p television's lower edge.
-    val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } *
-        if (options.heroCompact) .52f else .64f
+    val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } * .64f
     val sceneHeight = maxOf(if (television) televisionHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
         reservedText + if (compactTelevision) 80.dp else 130.dp)
     val featureSize = Modifier.height(sceneHeight)
@@ -231,7 +231,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
           Crossfade(selected, animationSpec = tween(if (motion) 800 else 0), label = "feature-caption") { title ->
            Column(verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
-            val logo = title.logoUrl.takeIf { options.heroLogo }
+            val logo = title.logoUrl
             var logoFailed by remember(title.id) { mutableStateOf(false) }
             // One height for both branches, measured as the two text lines the fallback always
             // reserves. A clear logo sizes itself from its own aspect ratio, so without this the
@@ -330,7 +330,6 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
 /** One restrained line keeps the hero informative without turning it into a details sheet. */
 @Composable
 private fun HeroMetadataRow(title: LibraryMedia) {
-    val preferences = LocalPersonalization.current
     val type = title.facts.firstOrNull()?.takeUnless { it.startsWith("S") }
     val year = title.facts.firstOrNull { it.matches(Regex("\\d{4}")) }
     val runtime = title.runtimeMinutes?.takeIf { it > 0 } ?: title.facts.firstNotNullOfOrNull {
@@ -346,8 +345,7 @@ private fun HeroMetadataRow(title: LibraryMedia) {
         runtime?.let(::formatHeroRuntime),
         certification,
     )
-    val hasRatings = preferences.showRatings &&
-        (title.criticRating != null || title.tmdbRating != null || title.mdblistRating != null)
+    val hasRatings = (title.criticRating != null || title.tmdbRating != null || title.mdblistRating != null)
     if (facts.isEmpty() && !hasRatings) return
 
     Row(

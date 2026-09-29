@@ -716,6 +716,12 @@ fun PlayerScreen(
                 runCatching { selectedTrackFocus.requestFocus() }
             }
             app.reelstack.ui.components.SpoleChoiceDialog(stringResource(title.label),
+                icon = when (title) {
+                    PlayerMenu.AUDIO -> app.reelstack.ui.components.SpoleIcons.Sound
+                    PlayerMenu.SUBTITLES -> app.reelstack.ui.components.SpoleIcons.Subtitles
+                    PlayerMenu.CHAPTERS -> app.reelstack.ui.components.SpoleIcons.ListLines
+                    PlayerMenu.QUALITY -> app.reelstack.ui.components.SpoleIcons.Screen
+                },
                 // Closing a local menu should return to the transport controls. A second Back
                 // press then hides the OSD; the dialog must not consume both layers at once.
                 onDismiss = { menu = null }, content = {
@@ -749,7 +755,16 @@ fun PlayerScreen(
                                 menu = null; interaction++
                             }
                             app.reelstack.ui.components.SpoleChoiceRow(label, selected,
-                                Modifier.then(if (initialFocus) Modifier.focusRequester(selectedTrackFocus) else Modifier), choose)
+                                Modifier.then(if (initialFocus) Modifier.focusRequester(selectedTrackFocus) else Modifier),
+                                checkmark = true,
+                                supportingText = if (title == PlayerMenu.QUALITY) stringResource(when (id) {
+                                    0 -> R.string.quality_hint_auto
+                                    80_000_000 -> R.string.quality_hint_ultra
+                                    20_000_000 -> R.string.quality_hint_high
+                                    4_000_000 -> R.string.quality_hint_medium
+                                    else -> R.string.quality_hint_low
+                                }) else null,
+                                onClick = choose)
                         }
                     }
                 })

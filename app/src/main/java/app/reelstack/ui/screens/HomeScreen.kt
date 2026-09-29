@@ -14,8 +14,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import app.reelstack.ui.components.tvCardPress
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import app.reelstack.ui.components.SpoleDropdownMenu as DropdownMenu
+import app.reelstack.ui.components.SpoleDropdownMenuItem as DropdownMenuItem
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -1101,8 +1101,8 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
 @Composable
 private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: Boolean, onDetails: () -> Unit, onDismiss: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    if (open) app.reelstack.ui.components.SpoleChoiceDialog(media.title, onDismiss) {
-      Column(Modifier.verticalScroll(rememberScrollState())) {
+    if (open) app.reelstack.ui.components.SpoleChoiceDialog(media.title, onDismiss, icon = app.reelstack.ui.components.SpoleIcons.Movie) {
+      Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // Emby gained a player in 0.17.0-beta04; this menu kept asking for Jellyfin. The condition
         // now lives in one place so the next service to gain one is a single edit.
         if (media.playableNow()) DropdownMenuItem(
@@ -1115,16 +1115,19 @@ private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: 
             onClick = { onDismiss(); onDetails() }, modifier = Modifier.testTag("card-details"))
         if (actions.canRemoveFromResume) DropdownMenuItem(
             text = { Text(stringResource(R.string.library_remove_resume)) },
+            leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Close, null) },
             onClick = { onDismiss(); actions.onRemoveFromResume(media) },
             modifier = Modifier.testTag("card-remove-resume"),
         )
         DropdownMenuItem(
             text = { Text(stringResource(if (media.favourite) R.string.library_favourite_remove else R.string.library_favourite_add)) },
+            leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Heart, null) },
             onClick = { onDismiss(); actions.onFavourite(media, !media.favourite) },
             modifier = Modifier.testTag("card-favourite"),
         )
         DropdownMenuItem(
             text = { Text(stringResource(if (media.played) R.string.library_played_unmark else R.string.library_played_mark)) },
+            leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null) },
             onClick = { onDismiss(); actions.onPlayed(media, !media.played) },
             modifier = Modifier.testTag("card-played"),
         )

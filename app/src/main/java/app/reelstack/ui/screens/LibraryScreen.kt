@@ -1,4 +1,6 @@
 package app.reelstack.ui.screens
+import app.reelstack.ui.components.SpoleDropdownMenu as DropdownMenu
+import app.reelstack.ui.components.SpoleDropdownMenuItem as DropdownMenuItem
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.TextButton
 import app.reelstack.R
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.LibraryFilters
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.focusOutline
@@ -42,11 +45,11 @@ import app.reelstack.ui.components.focusOutline
 fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
     onFilter: (app.reelstack.data.model.LibraryFilters) -> Unit = {},
     onShelfOpen: (String) -> Unit = {}, cardActions: MediaCardActions? = null,
-    onSource: (ServiceKind) -> Unit = {}) {
+    onSource: (ServiceKind) -> Unit = {}, onCustomize: () -> Unit = {}) {
     val sources = state.connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
         it.baseUrl.isNotBlank() && it.token.isNotBlank() }.map { it.kind }.distinct()
     key(state.librarySource) {
-        LibraryContent(state, onLoad, onOpen, onBack, onFilter, onShelfOpen, cardActions,
+        LibraryContent(state, onLoad, onOpen, onBack, onFilter, onShelfOpen, cardActions, onCustomize,
             sourcePicker = { if (sources.size > 1) LibrarySourceMenu(state.librarySource, sources, onSource) })
     }
 }
@@ -61,10 +64,12 @@ private fun LibrarySourceMenu(selected: ServiceKind, sources: List<ServiceKind>,
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             sources.forEach { source ->
-                DropdownMenuItem(text = { Text(source.displayName) }, onClick = {
+                DropdownMenuItem(text = { Text(source.displayName) }, selected = source == selected, onClick = {
                     expanded = false
                     if (source != selected) onSource(source)
-                }, modifier = Modifier.testTag("library-source-${source.name}"))
+                }, leadingIcon = { app.reelstack.ui.components.ServiceSymbol(source, Modifier.size(24.dp)) },
+                    trailingIcon = { if (source == selected) Icon(app.reelstack.ui.components.SpoleIcons.Done, null) },
+                    modifier = Modifier.testTag("library-source-${source.name}"))
             }
         }
     }
@@ -73,13 +78,13 @@ private fun LibrarySourceMenu(selected: ServiceKind, sources: List<ServiceKind>,
 @Composable
 private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
     onFilter: (app.reelstack.data.model.LibraryFilters) -> Unit,
-    onShelfOpen: (String) -> Unit, cardActions: MediaCardActions?, sourcePicker: @Composable () -> Unit) {
+    onShelfOpen: (String) -> Unit, cardActions: MediaCardActions?, onCustomize: () -> Unit,
+    sourcePicker: @Composable () -> Unit) {
     BackHandler(state.libraryPath.isNotEmpty() && state.activeSheet == null) { onBack() }
     val connected = state.libraryConnection != null
     val tv = LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val pageGutter = if (tv) 32.dp else app.reelstack.ui.theme.ReelLayout.Gutter
     val folders = state.libraryPath.isEmpty()
-    val showRatings = app.reelstack.ui.theme.LocalPersonalization.current.showRatings
     val libraryId = state.libraryPath.lastOrNull()?.first.orEmpty()
     val (display, saveDisplay) = rememberLibraryDisplay(if (state.librarySource == ServiceKind.JELLYFIN) libraryId else "emby:$libraryId")
     // AUTO keeps the old behaviour: episodes and video get a wide frame, everything else a poster.
@@ -99,35 +104,11 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     val showShelves = !folders && state.libraryPath.size == 1 &&
         state.libraryFilters == app.reelstack.data.model.LibraryFilters() &&
         (shelfResume.isNotEmpty() || shelfNextUp.isNotEmpty())
-    // One list, not a fresh one per recomposition: an unstable argument makes the whole landing
-    // page unskippable.
-    val inProgress = remember(state.resume, state.nextUp, state.librarySource) {
-        (state.resume + state.nextUp).filter { it.source == state.librarySource }
-    }
-    // The root of Bibliotek is a page about libraries, not a grid of four folders — see
-    // [LibraryLanding] for why. Everything below the root is still the grid it always was.
+    // The root of Bibliotek is a page about libraries, not a grid of four folders. Everything
+    // below the root is still the grid it always was.
     if (folders) {
-        if (app.reelstack.ui.theme.LocalPersonalization.current.libraryHub) {
-            LibraryHub(state, onOpen, onShelfOpen, cardActions, onRetry = { onLoad(false) }, sourcePicker = sourcePicker)
-            return
-        }
-        Column {
-        Box(Modifier.fillMaxWidth().wrapContentWidth(androidx.compose.ui.Alignment.End).padding(end = 24.dp)) { sourcePicker() }
-        LibraryLanding(
-            libraries = state.libraryEntries,
-            peeks = state.libraryPeeks,
-            inProgress = inProgress,
-            icons = state.libraryIcons,
-            loading = state.libraryPeeksLoading || state.libraryLoading,
-            tv = tv,
-            onOpenLibrary = onOpen,
-            onOpenTitle = onShelfOpen,
-            cardActions = cardActions,
-            connected = connected,
-            error = state.libraryError,
-            source = state.librarySource,
-        )
-        }
+        LibraryHub(state, onOpen, onShelfOpen, cardActions, onRetry = { onLoad(false) }, onCustomize = onCustomize,
+            sourcePicker = sourcePicker)
         return
     }
     // Next up is not a resume shelf, so its cards do not offer to clear a resume point.
@@ -198,8 +179,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                 // The grid reads the sync layer's own rows, so the decisions become words here.
                 val factContext = androidx.compose.ui.platform.LocalContext.current
                 val factWords = remember(entry.id, entry.facts) { entry.facts.map { it.text(factContext) } }
-                val rating = if (entry.mediaType.equals("Movie", ignoreCase = true) &&
-                    showRatings)
+                val rating = if (entry.mediaType.equals("Movie", ignoreCase = true))
                     app.reelstack.data.model.communityRatingLabel(factWords) else null
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
@@ -269,7 +249,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                             // known — so there is nothing to filter.
                             val facts = factWords
                                 .filterNot { it.trimStart().startsWith("★") &&
-                                    (entry.mediaType.equals("Movie", ignoreCase = true) || !showRatings) }
+                                    entry.mediaType.equals("Movie", ignoreCase = true) }
                                 .filterNot { it.matches(Regex("""^S\d\d+ E\d\d+$""")) }
                                 // The line under the title already carries the year for a film or a
                                 // series; repeating it two lines later reads as a mistake.
@@ -317,7 +297,16 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                     else if (state.libraryError != null) {
                         Text(state.libraryError, color = MaterialTheme.colorScheme.error)
                         Button(onClick = { onLoad(state.libraryEntries.isNotEmpty()) }) { Text(stringResource(R.string.library_retry)) }
-                    } else if (connected && state.libraryEntries.isEmpty()) Text(stringResource(R.string.tv_library_empty))
+                    } else if (connected && state.libraryEntries.isEmpty()) {
+                        app.reelstack.ui.components.QuietEmptyState(
+                            stringResource(if (state.libraryFilters.activeCount > 0) R.string.search_empty_filter else R.string.tv_library_empty),
+                            app.reelstack.ui.components.SpoleIcons.Library,
+                            action = if (state.libraryFilters.activeCount > 0) {{
+                                app.reelstack.ui.components.OpenMenuAction(onClick = {
+                                    onFilter(LibraryFilters(sort = state.libraryFilters.sort, descending = state.libraryFilters.descending))
+                                }) { Text(stringResource(R.string.library_reset)) }
+                            }} else null)
+                    }
                     if (state.libraryHasMore && !state.libraryLoading && state.libraryError == null)
                         Button(onClick = { onLoad(true) }) { Text(stringResource(R.string.library_more)) }
                 }

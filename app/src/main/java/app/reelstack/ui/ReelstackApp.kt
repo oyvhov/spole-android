@@ -433,7 +433,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary,
                         viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary,
                         onShelfOpen = viewModel::openLibraryDetails, cardActions = cardActions,
-                        onSource = viewModel::selectLibrarySource)
+                        onSource = viewModel::selectLibrarySource, onCustomize = viewModel::openLibraryChoices)
                     AppTab.DOWNLOADS -> app.reelstack.ui.screens.OfflineDownloadsScreen(
                         snapshot = state.offlineDownloads,
                         wifiOnly = state.wifiOnly,

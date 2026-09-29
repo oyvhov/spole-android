@@ -6,11 +6,8 @@
     <string name="library_retry">Prøv igjen</string>
     <string name="library_back">Tilbake</string>
     <string name="library_failed">Fekk ikkje lasta biblioteket. Prøv igjen.</string>
-    <string name="library_manage">Vel bibliotek</string>
     <string name="library_selection_help">Vel kva bibliotek på den valde tenaren som skal lastast og visast i Bibliotek, nye filmar, nye seriar, Hald fram å sjå og biblioteksøket.</string>
     <string name="library_all">Alle</string>
-    <string name="library_none">Ingen</string>
-    <string name="library_none_help">Inkje bibliotekinnhald frå denne tenaren blir lasta når ingen bibliotek er valde.</string>
     <string name="library_save">Lagre</string>
     <string name="library_cancel">Avbryt</string>
     <string name="library_view">Vising</string>

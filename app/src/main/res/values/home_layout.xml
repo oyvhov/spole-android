@@ -25,4 +25,9 @@
     <string name="home_layout_row_settings">Settings for %1$s</string>
     <string name="home_layout_options">Options</string>
     <string name="home_layout_reset">Reset order and switches</string>
+    <string name="settings_pages_group">Pages</string>
+    <string name="library_editor_intro">Choose which libraries the Library tab and search show, and in what order. Home has its own choice under Customise Home.</string>
+    <string name="library_editor_in_menu">In the side menu</string>
+    <string name="library_editor_display">Display</string>
+    <string name="library_editor_add_to_menu">Add to side menu</string>
 </resources>

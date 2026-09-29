@@ -46,7 +46,7 @@ private fun ShimmerBlock(
     modifier: Modifier,
     shape: Shape = RoundedCornerShape(ReelLayout.ArtworkCorner),
 ) {
-    val skeletonBase = MaterialTheme.colorScheme.surfaceVariant
+    val skeletonBase = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .10f)
     val skeletonGlow = MaterialTheme.colorScheme.onSurfaceVariant
     if (!app.reelstack.ui.theme.LocalMotionEnabled.current) {
         Box(modifier.background(skeletonBase, shape))
@@ -57,7 +57,7 @@ private fun ShimmerBlock(
         initialValue = -1f,
         targetValue = 2f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_350, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 1_800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart,
         ),
         label = "skeleton-shimmer-progress",
@@ -69,7 +69,7 @@ private fun ShimmerBlock(
                 val start = Offset(size.width * (progress - 1f), 0f)
                 val end = Offset(size.width * progress, size.height)
                 val brush = Brush.linearGradient(
-                    colors = listOf(skeletonBase, skeletonGlow.copy(alpha = 0.26f), skeletonBase),
+                    colors = listOf(skeletonBase, skeletonGlow.copy(alpha = 0.16f), skeletonBase),
                     start = start,
                     end = end,
                 )
@@ -173,11 +173,11 @@ fun IncomingSkeleton(modifier: Modifier = Modifier) {
 @Composable
 fun DiscoverSkeleton(modifier: Modifier = Modifier) {
     val results = stringResource(R.string.skeleton_loading_search)
-    ShimmerBlock(
-        modifier = modifier.height(300.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale)
-            .clearAndSetSemantics { contentDescription = results },
-        shape = RoundedCornerShape(ReelLayout.ArtworkCorner),
-    )
+    Column(modifier.clearAndSetSemantics { contentDescription = results }) {
+        ShimmerBlock(Modifier.fillMaxWidth().aspectRatio(2f / 3f), RoundedCornerShape(ReelLayout.ArtworkCorner))
+        ShimmerBlock(Modifier.padding(top = 12.dp).fillMaxWidth(.76f).height(12.dp), RoundedCornerShape(6.dp))
+        ShimmerBlock(Modifier.padding(top = 8.dp).fillMaxWidth(.44f).height(8.dp), RoundedCornerShape(4.dp))
+    }
 }
 
 @Composable

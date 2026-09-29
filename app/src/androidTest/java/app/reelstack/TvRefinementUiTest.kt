@@ -19,7 +19,6 @@ import app.reelstack.data.model.*
 import app.reelstack.data.network.RemoteLibraryItem
 import app.reelstack.player.*
 import app.reelstack.ui.*
-import app.reelstack.ui.components.NavigationOptions
 import app.reelstack.ui.screens.*
 import app.reelstack.ui.theme.LocalPersonalization
 import app.reelstack.ui.theme.ReelstackTheme
@@ -86,7 +85,7 @@ class TvRefinementUiTest {
     @Test fun seasonalHeroFadesIntoTheSamePageColour() {
         var season by mutableStateOf(Season.CHRISTMAS)
         rule.setContent { Tv {
-            val options = season.applyTo(Personalization(heroRotate = false, reduceMotion = true))
+            val options = season.applyTo(Personalization(reduceMotion = true))
             androidx.compose.material3.MaterialTheme(colorScheme = androidx.compose.material3.MaterialTheme.colorScheme.copy(
                 background = androidx.compose.ui.graphics.Color(options.visualTheme.background))) {
                 CompositionLocalProvider(LocalPersonalization provides options, app.reelstack.ui.theme.LocalMotionEnabled provides false) {
@@ -130,7 +129,7 @@ class TvRefinementUiTest {
 
     @Test fun televisionHeroLeavesRoomForFirstShelfAndKeepsActionsVisible() {
         rule.setContent { Tv {
-            CompositionLocalProvider(LocalPersonalization provides Personalization(heroCompact = false)) {
+            CompositionLocalProvider(LocalPersonalization provides Personalization()) {
                 Column {
                     app.reelstack.ui.components.TabletLibraryFeature(LibraryMedia("hero", "Testserie", "S02 E02",
                         artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, season = 2, episode = 2), {})
@@ -178,17 +177,12 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("player-episode-label").assertTextEquals("S2 - E2")
     }
 
-    @Test fun criticRatingIsVisibleAtLargeTypeAndRespectsRatingPreference() {
-        var visible by mutableStateOf(true)
+    @Test fun criticRatingIsVisibleAtLargeType() {
         rule.setContent { Tv(2f) {
-            CompositionLocalProvider(LocalPersonalization provides Personalization(showRatings = visible)) {
-                app.reelstack.ui.components.PlaybackMetadata(ContentDetails("emby-film", "Film", "Emby", "",
-                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.EMBY, criticRating = 91), listOf("2024", "148 min"))
-            }
+            app.reelstack.ui.components.PlaybackMetadata(ContentDetails("emby-film", "Film", "Emby", "",
+                artworkRes = R.drawable.media_placeholder, source = ServiceKind.EMBY, criticRating = 91), listOf("2024", "148 min"))
         } }
         rule.onNodeWithTag("critic-rating").assertIsDisplayed().assertContentDescriptionEquals("Rotten Tomatoes 91%")
-        rule.runOnIdle { visible = false }
-        rule.onNodeWithTag("critic-rating").assertDoesNotExist()
     }
     @Test fun remoteFocusKeepsRailGeometryAndCaptionBaselinesStable() {
         val titles = listOf("Kort", "Ein mykje lengre serietittel som treng to linjer")
@@ -351,18 +345,31 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("detail-played").performScrollTo().assertIsEnabled()
         rule.onNodeWithTag("detail-favourite").performScrollTo().assertIsEnabled()
     }
-    @Test fun libraryChooserKeepsSavedChoicesWhenServerListArrives() {
-        val state = mutableStateOf(ReelstackUiState(libraryChoicesLoading = true))
-        var saved: Set<String>? = null
+    /** A remote had no first focus, so its first press found «Ferdig» under the list and stayed there. */
+    @Test fun libraryEditorGivesARemoteItsFirstFocus() {
         rule.setContent { Tv {
-            LibraryChoicesDialog(state.value, {}, {}, { selected, _, _ -> saved = selected })
+            LibraryEditorDialog(ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
+                libraryChoices = listOf(app.reelstack.data.network.RemoteLibraryView("films", "Filmar", "movies")),
+                selectedLibraryIds = setOf("films")), {}, {}, { _, _, _ -> })
+        } }
+        rule.waitForIdle()
+        rule.onNodeWithTag("library-visible-films").assertIsFocused()
+    }
+    @Test fun libraryEditorKeepsSavedChoicesWhenServerListArrives() {
+        val state = mutableStateOf(ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
+            libraryChoicesLoading = true))
+        var saved: Set<String>? = null
+        var dismissed = false
+        rule.setContent { Tv {
+            LibraryEditorDialog(state.value, {}, { dismissed = true }, { selected, _, _ -> saved = selected })
         } }
         rule.runOnIdle { state.value = state.value.copy(libraryChoicesLoading = false,
             libraryChoices = listOf(app.reelstack.data.network.RemoteLibraryView("saved", "Lagret bibliotek", "movies")),
             selectedLibraryIds = setOf("saved")) }
-        rule.onNodeWithTag("library-choice-saved").assertIsOn()
-        rule.onNodeWithTag("library-selection-save").performClick()
-        rule.runOnIdle { assertEquals(setOf("saved"), saved) }
+        rule.onNodeWithTag("library-visible-saved").assertIsOn()
+        rule.onNodeWithTag("library-editor-done").performClick()
+        // Nothing changed, so nothing is written and the library is not reloaded.
+        rule.runOnIdle { assertNull(saved); assertTrue(dismissed) }
     }
     @Test fun quickConnectActionIsVisibleWithoutScrollingAtDoubleTextSize() {
         val draft = mutableStateOf(ConnectionDraft(ServiceKind.JELLYFIN, "Jellyfin", "https://example.com", "", authMode = ConnectionAuthMode.QUICK_CONNECT))
@@ -444,14 +451,16 @@ class TvRefinementUiTest {
         checkRow("next-up-JELLYFIN", "Neste episode · Jellyfin", "resume-card-jellyfin-next", "resume-card-emby-next")
         checkRow("next-up-EMBY", "Neste episode · Emby", "resume-card-emby-next", "resume-card-jellyfin-next")
     }
-    @Test fun navigationOptionsReorderHideAndProtectSettings() {
+    @Test fun menuSettingsReorderHideAndProtectSettings() {
         var value by mutableStateOf(Personalization())
-        rule.setContent { ReelstackTheme { Column(Modifier.verticalScroll(rememberScrollState())) { NavigationOptions(value) { value = it } } } }
-        rule.onNodeWithTag("navigation-options").performClick()
+        rule.setContent { ReelstackTheme { Column(Modifier.verticalScroll(rememberScrollState())) {
+            app.reelstack.ui.components.TvMenuSettings(value) { value = it }
+        } } }
         rule.onNodeWithTag("menu-up-ACTIVITY").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(listOf("HOME", "LIBRARY", "ACTIVITY", "DISCOVER", "SETTINGS"), value.menuOrder) }
-        rule.onNode(hasText("Oppdag") and isToggleable()).performScrollTo().performClick()
+        rule.onNodeWithTag("menu-visible-DISCOVER").performScrollTo().performClick()
         rule.runOnIdle { assertFalse("DISCOVER" in value.visibleMenu()); assertTrue("SETTINGS" in value.visibleMenu()) }
+        rule.onNodeWithTag("menu-visible-SETTINGS").performScrollTo().assertIsNotEnabled()
     }
     @Test fun televisionLibrarySettingsKeepSaveVisibleWithManyLibrariesAndLargeText() {
         org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
@@ -459,12 +468,13 @@ class TvRefinementUiTest {
         val choices = (1..12).map { app.reelstack.data.network.RemoteLibraryView("library-$it", "Bibliotek $it", "movies") }
         var saved: List<String>? = null
         rule.setContent { Tv(2f) {
-            LibraryChoicesDialog(ReelstackUiState(libraryChoices = choices, selectedLibraryIds = choices.map { it.id }.toSet()),
+            LibraryEditorDialog(ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
+                libraryChoices = choices, selectedLibraryIds = choices.map { it.id }.toSet()),
                 {}, {}, { _, pins, _ -> saved = pins })
         } }
-        rule.onNodeWithTag("library-selection-save").assertIsDisplayed()
+        rule.onNodeWithTag("library-editor-done").assertIsDisplayed()
         rule.onNodeWithTag("library-pin-library-1").performScrollTo().performClick()
-        rule.onNodeWithTag("library-selection-save").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("library-editor-done").assertIsDisplayed().performClick()
         rule.runOnIdle { assertEquals(listOf("library-1"), saved) }
     }
 }

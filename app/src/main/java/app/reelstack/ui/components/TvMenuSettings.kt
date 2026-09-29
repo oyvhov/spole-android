@@ -32,9 +32,11 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
         "DISCOVER" to stringResource(R.string.nav_discover), "ACTIVITY" to stringResource(R.string.nav_activity),
         "SETTINGS" to stringResource(R.string.nav_settings))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SettingsGroup(stringResource(R.string.settings_menu_heading), stringResource(R.string.settings_tv_menu_hint))
+        ThemeChoice(stringResource(R.string.design_start_page), value.startInLibrary, listOf(false, true), "start-page",
+            { stringResource(if (it) R.string.nav_library else R.string.nav_home) }) { onChange(value.copy(startInLibrary = it)) }
         if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_hide_sidebar), "",
             value.hideTvSidebar, "tv-hide-sidebar") { onChange(value.copy(hideTvSidebar = it)) }
-        SettingsGroup(stringResource(R.string.settings_menu_heading))
         TvMenuOrderEditor(order, names, value.hiddenMenuItems, value.requiredMenu(),
             { onChange(value.copy(menuOrder = it)) },
             { id, visible -> onChange(value.withMenuVisible(id, visible)) })
@@ -54,17 +56,13 @@ private fun TvMenuOrderEditor(order: List<String>, names: Map<String, String>, h
     onOrder: (List<String>) -> Unit, onVisible: (String, Boolean) -> Unit) {
     val focus = remember(order.toSet()) { order.associateWith { listOf(FocusRequester(), FocusRequester()) } }
     order.forEachIndexed { index, id -> key(id) {
-        val interaction = remember { MutableInteractionSource() }
-        val shape = RoundedCornerShape(14.dp)
         val visible = id !in hidden || id in required
-        Column(Modifier.fillMaxWidth().heightIn(min = 72.dp).clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .focusOutline(interaction, shape)
+        Column(Modifier.fillMaxWidth().heightIn(min = 72.dp)
             .testTag("menu-order-card-$id")
             .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(30.dp).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) {
                 Text("${index + 1}", color = Muted, style = MaterialTheme.typography.labelMedium)
             }
             Icon(menuIcon(id), null, Modifier.size(22.dp), tint = Muted)

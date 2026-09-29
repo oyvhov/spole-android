@@ -1,5 +1,25 @@
 # Spole design system
 
+## Søk og avspelingsval · visuelt utkast 29. september 2026
+
+Sjå [søk, filter, avspelingsval og tomtilstandar](SEARCH_MENUS_VISUAL_REVIEW_2026-09-29.md).
+Filter og historikk bruker opne tekstrader. Medietype blir vald med tekstfaner;
+ikon og mellomrom skil søkegruppene. Avspelingsval bruker ei hake på aktivt val.
+
+## Felles menysystem · 29. september 2026
+
+Sjå [undermenyar, filter, handlingar og djupare val](MENU_SYSTEM_2026-09-29.md).
+Dei delte valdialogane har 24 dp hjørne og fast overskrift/lukkeknapp. Menyval
+står ope utan eigne bakgrunnsboksar eller ikonruter. Valde rader får ein svak tone,
+og TV-fokus har tydeleg markering. Luft og overskrifter skil gruppene.
+
+## Visuelle innstillingar · 29. september 2026
+
+Sjå [kategoriar, innstillingsrader og visuelle val](SETTINGS_VISUALS_2026-09-29.md).
+TV og mobil bruker same kategorisymbol, dempa fargetonar og små førehandsvisingar
+av utsjånadsvala. Fokus endrar ikkje radstorleiken; trykktilbakemelding respekterer
+systemet og valet for reduserte rørsler.
+
 ## TV-kontrollar · 18. september 2026
 
 Sjå [sesongar, bibliotekval og fokus](TV_CONTROLS_2026-09-18.md). Felles Material-

@@ -60,13 +60,16 @@ class Alpha12UiTest {
         rule.onNodeWithTag("library-favourites").performClick()
         rule.runOnIdle { assertTrue(applied.favourites) }
     }
-    @Test fun libraryIconsAreSavedOnlyWithTheSelection() {
+    @Test fun libraryIconsAreKeptWhenTheSelectionIsSaved() {
         var saved: Map<String, LibraryIcon>? = null
-        val state = ReelstackUiState(libraryChoices = listOf(RemoteLibraryView("films", "Filmar", "movies")),
-            selectedLibraryIds = setOf("films"), libraryShortcuts = listOf("films" to "Filmar"), libraryIcons = mapOf("films" to LibraryIcon.SPORT))
-        rule.setContent { ReelstackTheme { LibraryChoicesDialog(state, {}, {}, { _, _, icons -> saved = icons }) } }
+        val connection = ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://example.com", "fixture", userId = "me")
+        val state = ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
+            libraryChoices = listOf(RemoteLibraryView("films", "Filmar", "movies"), RemoteLibraryView("tv", "Seriar", "tvshows")),
+            selectedLibraryIds = setOf("films", "tv"), libraryShortcuts = listOf("films" to "Filmar"), libraryIcons = mapOf("films" to LibraryIcon.SPORT))
+        rule.setContent { ReelstackTheme { LibraryEditorDialog(state, {}, {}, { _, _, icons -> saved = icons }) } }
+        rule.onNodeWithTag("library-visible-tv").performScrollTo().performClick()
         rule.runOnIdle { assertNull(saved) }
-        rule.onNodeWithTag("library-selection-save").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("library-editor-done").assertIsDisplayed().performClick()
         rule.runOnIdle { assertEquals(LibraryIcon.SPORT, saved?.get("films")) }
     }
     @Test fun tvRequestActionIsVisibleAndFocusedBeforeTheLongSynopsis() {

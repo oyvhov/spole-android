@@ -68,9 +68,7 @@ internal fun SettingsServiceRow(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 68.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .focusOutline(interaction, shape)
-            .clip(shape)
+            .settingsSurface(interaction, shape)
             .clickable(
                 interactionSource = interaction,
                 indication = androidx.compose.foundation.LocalIndication.current,

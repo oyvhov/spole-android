@@ -65,8 +65,8 @@ class TvSettingsRedesignTest {
         rule.onNodeWithTag("settings-categories").assertIsDisplayed()
         rule.onNodeWithTag("settings-category-HOME").performSemanticsAction(SemanticsActions.RequestFocus)
             .performKeyInput { pressKey(Key.DirectionRight) }
-        rule.onNodeWithTag("theme-choice-start-page").assertIsFocused()
-        rule.onNodeWithTag("theme-choice-start-page").performKeyInput { pressKey(Key.DirectionLeft) }
+        rule.onNodeWithTag("home-layout-open").assertIsFocused()
+        rule.onNodeWithTag("home-layout-open").performKeyInput { pressKey(Key.DirectionLeft) }
         rule.onNodeWithTag("settings-category-HOME").assertIsFocused()
         rule.onNodeWithTag("theme-choice-mood").assertDoesNotExist()
         rule.onNodeWithTag("auto-resume").assertDoesNotExist()
@@ -101,16 +101,18 @@ class TvSettingsRedesignTest {
             rule.runOnIdle { assertEquals(expected.copy(focusStyle = FocusStyle.BOLD), repository.personalization) }
         } finally { rule.runOnIdle { repository.personalization = original } }
     }
-    @Test fun librarySettingsRemainInHomeAndMenuPanelContainsOnlyNavigationOptions() {
+    @Test fun pagesAndMenuShareOneCategoryWithOneLibraryEntry() {
         var opened = false
         rule.setContent { Television { SettingsScreen(ReelstackUiState(connections = listOf(
             ServiceConnection(ServiceKind.JELLYFIN,"Fixture","https://example.com","fixture"))),
             PaddingValues(0.dp), {}, {}, {}, {_,_->}, onManageLibraries = { opened = true }) } }
+        rule.onNodeWithTag("settings-category-MENU").assertDoesNotExist()
         rule.onNodeWithTag("settings-category-HOME").performClick()
-        rule.onNodeWithTag("library-manage").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("home-layout-open").assertIsDisplayed()
+        rule.onAllNodesWithTag("library-manage").assertCountEquals(0)
+        rule.onNodeWithTag("library-customize").assertIsDisplayed().performClick()
         rule.runOnIdle { assertTrue(opened) }
-        rule.onNodeWithTag("settings-category-MENU").performClick().assertIsSelected()
-        rule.onNodeWithTag("menu-order-card-HOME").assertIsDisplayed()
+        rule.onNodeWithTag("menu-order-card-HOME").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("show-next-up").assertDoesNotExist()
         rule.onNodeWithTag("theme-choice-mood").assertDoesNotExist()
     }
@@ -126,7 +128,7 @@ class TvSettingsRedesignTest {
         try {
             repository.personalization = Personalization()
             rule.setContent { Television { SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, {_,_->}) } }
-            rule.onNodeWithTag("settings-category-MENU").performClick()
+            rule.onNodeWithTag("settings-category-HOME").performClick()
             rule.onNodeWithTag("menu-order-card-ACTIVITY").performScrollTo().assertIsDisplayed()
             rule.onNodeWithTag("menu-down-ACTIVITY").performScrollTo().performSemanticsAction(SemanticsActions.RequestFocus)
                 .performKeyInput { pressKey(Key.DirectionLeft) }

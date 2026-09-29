@@ -1,7 +1,8 @@
 # Tilpass framsida
 
-Frå 0.18.0-beta8 har framsida éin samla meny: **Innstillingar → Heim → Innhaldsrader → Tilpass
-framsida**. Han erstattar fire eldre innstillingar: «Neste episode», «Slå saman hald fram»,
+Frå 0.18.0-beta8 har framsida éin samla meny, i dag under **Innstillingar → Sider og meny → Tilpass
+framsida** (sjå [SETTINGS_PAGES_2026-09-29.md](SETTINGS_PAGES_2026-09-29.md)). Øvst i lista står
+«Utval» på TV og nettbrett; «Søkelina på framsida» står under «Val» på telefon. Han erstattar fire eldre innstillingar: «Neste episode», «Slå saman hald fram»,
 rad-dialogen på TV og dialogen for rekkjefølgje, og han tek over rad-formata («Omslag»).
 
 ## Modell

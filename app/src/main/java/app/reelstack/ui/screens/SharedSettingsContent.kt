@@ -17,8 +17,8 @@ import app.reelstack.ui.theme.LocalPersonalization
 
 internal enum class SettingsCategory(val title: Int, val hint: Int, val icon: ImageVector) {
     APPEARANCE(R.string.personal_appearance, R.string.settings_tv_appearance_hint, app.reelstack.ui.components.SpoleIcons.Palette),
+    /** Home, Library and the menu. They were two categories on a television, and the library was in both. */
     HOME(R.string.settings_home_navigation, R.string.settings_tv_home_hint, app.reelstack.ui.components.SpoleIcons.Screen),
-    MENU(R.string.settings_tv_navigation, R.string.settings_tv_navigation_hint, app.reelstack.ui.components.SpoleIcons.Tune),
     PLAYBACK(R.string.personal_playback, R.string.settings_tv_playback_hint, app.reelstack.ui.components.SpoleIcons.Play),
     ACCOUNTS(R.string.settings_services, R.string.settings_tv_accounts_hint, app.reelstack.ui.components.SpoleIcons.Server),
     UPDATES(R.string.settings_updates, R.string.settings_tv_updates_hint, app.reelstack.ui.components.SpoleIcons.Bell),
@@ -43,25 +43,13 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
             VisualThemeSettings(options, change, (state.recentMovies + state.recentSeries).take(3))
         }
         SettingsCategory.HOME -> {
-            HomeExperienceSettings(options, change)
-            if (!isTelevision()) TvMenuSettings(options, change)
-            if (state.libraryConnection != null)
-                SettingsActionRow(stringResource(R.string.library_manage), stringResource(R.string.settings_tv_library_hint), "library-manage", onManageLibraries)
-            SettingsGroup(stringResource(R.string.settings_home_display_group))
-            LibraryCustomizationSetting(state, options, change)
-            LibraryAppearanceSettings(options, change)
-            SettingsToggleRow(stringResource(R.string.tv_show_ratings), stringResource(R.string.refine_ratings_hint), options.showRatings, "show-ratings") { change(options.copy(showRatings = it)) }
-            SettingsToggleRow(stringResource(R.string.tv_show_quality), stringResource(R.string.refine_quality_hint), options.showQuality, "show-quality") { change(options.copy(showQuality = it)) }
-            HeroSettings(options, change)
-            SettingsGroup(stringResource(R.string.refine_group_rows))
-            // One place for every row: its switch, its server, its libraries, its format and its
-            // place. These used to be four separate settings, and one switch covered both servers.
+            // One editor per page, built the same way: every row with its switch, its place and its
+            // own choices. Home's rows used to be four settings; the library page's were three places,
+            // two of which could hide a library, and a switch that replaced the whole page.
+            SettingsGroup(stringResource(R.string.settings_pages_group))
             HomeLayoutSetting(state, homeEditor)
-        }
-        SettingsCategory.MENU -> {
+            LibraryCustomizationSetting(onManageLibraries)
             TvMenuSettings(options, change)
-            if (state.libraryConnection != null)
-                SettingsActionRow(stringResource(R.string.library_manage), stringResource(R.string.settings_tv_library_hint), "library-manage", onManageLibraries)
         }
         SettingsCategory.PLAYBACK -> {
             SettingsGroup(stringResource(R.string.settings_playback_start_group))

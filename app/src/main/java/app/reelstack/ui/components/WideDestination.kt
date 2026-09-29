@@ -32,24 +32,17 @@ internal fun WideDestination(
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(16.dp)
 
-    val targetBackground = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-    val animatedBackground by animateColorAsState(
-        targetValue = targetBackground,
-        animationSpec = tween(durationMillis = 140),
-        label = "wide-destination-bg",
-    )
-
     val targetTint = if (selected || focused) Primary else Muted
     val animatedTint by animateColorAsState(
         targetValue = targetTint,
-        animationSpec = tween(durationMillis = 140),
+        animationSpec = tween(durationMillis = if (LocalMotionEnabled.current) 140 else 0),
         label = "wide-destination-tint",
     )
 
     val targetTextColor = if (selected || focused) app.reelstack.ui.theme.Text else Muted
     val animatedTextColor by animateColorAsState(
         targetValue = targetTextColor,
-        animationSpec = tween(durationMillis = 140),
+        animationSpec = tween(durationMillis = if (LocalMotionEnabled.current) 140 else 0),
         label = "wide-destination-text",
     )
 
@@ -57,9 +50,7 @@ internal fun WideDestination(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 58.dp)
-            .clip(shape)
-            .background(animatedBackground)
-            .focusOutline(interaction, shape)
+            .settingsSurface(interaction, shape, selected)
             .selectable(
                 selected = selected,
                 role = Role.Tab,
@@ -71,9 +62,10 @@ internal fun WideDestination(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Icon(icon, null, tint = animatedTint, modifier = Modifier.size(23.dp))
+        SettingsIconBadge(icon, animatedTint, 36.dp)
         Text(
             label,
+            modifier = Modifier.weight(1f),
             color = animatedTextColor,
             style = MaterialTheme.typography.titleSmall,
         )

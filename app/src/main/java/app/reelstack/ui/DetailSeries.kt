@@ -10,6 +10,8 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -82,12 +84,12 @@ internal fun DetailAside(
         // reached from Seerr, and it used to be a muted line at the very bottom of the page —
         // suppressed, in fact, exactly when it was true. It is a mark beside the facts now.
         if (inLibrary) InLibraryBadge()
-        app.reelstack.ui.components.PlaybackMetadata(details, remaining)
+        app.reelstack.ui.components.PlaybackMetadata(details, remaining, details.source)
         if (details.genres.isNotEmpty()) Text(
             details.genres.take(4).map { genre ->
                 standardGenreResource(genre)?.let { stringResource(it) } ?: genre
             }.joinToString(" · "),
-            color = PrimarySoft,
+            color = Muted,
             style = MaterialTheme.typography.labelLarge,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
@@ -153,8 +155,7 @@ internal fun SeriesEpisodes(
 ) {
     val firstEpisode = remember { androidx.compose.ui.focus.FocusRequester() }
     val tv = app.reelstack.ui.components.isTelevision()
-    val showUpcoming = app.reelstack.ui.theme.LocalPersonalization.current.showUpcomingEpisodes
-    val episodes = browse.episodes.filter { showUpcoming || it.available }
+    val episodes = browse.episodes
     // The series Play button already resolves this target. Giving the same episode initial focus
     // in the season row makes a remote's first Select do the unsurprising thing as well.
     val preferredEpisode = nextEpisodeTarget(browse)?.remoteId?.let { id ->
@@ -179,16 +180,15 @@ internal fun SeriesEpisodes(
                 contentPadding = PaddingValues(end = 24.dp)) {
                 items(browse.seasons, key = { it.id }) { season ->
                     val id = season.remoteId.orEmpty()
-                    Chip(
+                    SeasonTab(
                         text = seasonLabel(season),
                         chosen = id == browse.selectedSeasonId,
                         tag = "season-$id",
-                        role = Role.RadioButton,
                     ) { onSeason(id) }
                 }
             }
         }
-        if (showUpcoming) browse.upcomingError?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
+        browse.upcomingError?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
         when {
             browse.error != null -> Text(browse.error, color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium)
@@ -204,9 +204,9 @@ internal fun SeriesEpisodes(
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(4.dp)) {
                         items(episodes, key = { it.id }) { episode ->
                             val ready = episode.id == preferredEpisode?.id
-                            Box(Modifier.width(208.dp).then(if (episode.id == focusEpisode?.id)
+                            Box(Modifier.width(248.dp).then(if (episode.id == focusEpisode?.id)
                                 Modifier.focusRequester(firstEpisode) else Modifier)) {
-                                TvEpisodeCard(episode, episode.id == detailKey, ready, onEpisodeClick)
+                                TvEpisodeCard(episode, episode.id == detailKey, ready, onEpisodeClick = onEpisodeClick)
                             }
                         }
                     }
@@ -217,7 +217,7 @@ internal fun SeriesEpisodes(
                 // page open into a visible pause.
                 var showAll by remember(browse.selectedSeasonId) { mutableStateOf(false) }
                     val visible = if (showAll) episodes else episodes.take(EPISODE_PREVIEW)
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
                         visible.forEachIndexed { index, episode ->
                         val ready = episode.id == preferredEpisode?.id
                         Box(if (episode.id == focusEpisode?.id || preferredEpisode !in visible && index == 0) Modifier.focusRequester(firstEpisode) else Modifier) {
@@ -242,8 +242,26 @@ internal fun SeriesEpisodes(
 
 private const val EPISODE_PREVIEW = 12
 
+/** Text tabs let the season title lead; only the selected season has an underline. */
+@Composable
+private fun SeasonTab(text: String, chosen: Boolean, tag: String, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    Column(Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(8.dp))
+        .selectable(chosen, role = Role.RadioButton, interactionSource = interaction,
+            indication = androidx.compose.foundation.LocalIndication.current, onClick = onClick)
+        .testTag(tag).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text, style = MaterialTheme.typography.titleSmall,
+            color = if (chosen || focused) MaterialTheme.colorScheme.onSurface else Muted)
+        Box(Modifier.width(28.dp).height(2.dp).background(
+            if (chosen) Primary else Color.Transparent, RoundedCornerShape(1.dp)))
+    }
+}
+
 @Composable
 private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolean = false,
+    showOverview: Boolean = false,
     onEpisodeClick: (LibraryMedia) -> Unit = {}) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
@@ -252,7 +270,7 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolea
         .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
             enabled = episode.available && !episode.remoteId.isNullOrBlank() && episode.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
             role = Role.Button) { onEpisodeClick(episode) }
-        .padding(6.dp).testTag("episode-${episode.remoteId ?: episode.id}"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        .padding(6.dp).testTag("episode-${episode.remoteId ?: episode.id}"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
             MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), episode.artworkRes, source = episode.source)
             if (!episode.available) EpisodeStatusBadge(episode, Modifier.align(Alignment.TopStart).padding(8.dp))
@@ -261,19 +279,25 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolea
                 tint = Color.White)
             if (episode.played) Icon(SpoleIcons.Done, stringResource(R.string.library_played_unmark),
                 Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.Black.copy(alpha = .7f), RoundedCornerShape(8.dp)).padding(4.dp), tint = Color.White)
-            episode.progress?.takeIf { it > 0f }?.let { progress ->
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress.coerceIn(0f, 1f)).height(3.dp).background(Primary))
+        }
+        episode.progress?.takeIf { it > 0f }?.let { progress ->
+            Box(Modifier.fillMaxWidth().height(2.dp).background(Muted.copy(alpha = .16f))) {
+                Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().background(Primary))
             }
         }
         val name = episodeName(episode)
         val numberLabel = episode.episode?.let { stringResource(R.string.episode_number, it) }
         Text(if (name.equals(numberLabel, true)) name else listOfNotNull(episode.episode?.toString(), name).joinToString(" · "),
-            style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.titleMedium, maxLines = if (showOverview) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
             color = if (current || ready) PrimarySoft else MaterialTheme.colorScheme.onSurface)
         if (ready) Text(stringResource(R.string.detail_next_to_play), color = Primary,
             style = MaterialTheme.typography.labelMedium, maxLines = 1)
         if (!episode.available) EpisodeAvailability(episode)
         episode.runtimeMinutes?.let { Text(stringResource(R.string.detail_minutes, it), color = Muted, style = MaterialTheme.typography.labelMedium) }
+        if (showOverview) episode.overview?.takeIf(String::isNotBlank)?.let {
+            Text(it, color = Muted, style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -296,79 +320,7 @@ private fun seasonLabel(season: LibraryMedia): String {
 @Composable
 private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false, ready: Boolean = false,
     onEpisodeClick: (LibraryMedia) -> Unit = {}) {
-    val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(12.dp)
-    val itemId = episode.remoteId.orEmpty()
-    val progress = episode.progress?.coerceIn(0f, 1f) ?: 0f
-    Row(
-        Modifier.fillMaxWidth().clip(shape)
-            // The episode this page is about. On an episode page the list opens on its own season
-            // and the reader lands somewhere in the middle of it; without a mark, nothing on screen
-            // says which of the fourteen rows is the one they came from.
-            .then(if (current) Modifier.background(PrimarySoft.copy(alpha = .10f)) else Modifier)
-            .focusOutline(interaction, shape)
-            .clickable(
-                interactionSource = interaction,
-                indication = app.reelstack.ui.components.mediaCardIndication(),
-                role = Role.Button,
-                enabled = episode.available && itemId.isNotBlank() && episode.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
-            ) { onEpisodeClick(episode) }
-            .padding(6.dp)
-            .testTag("episode-${itemId.ifBlank { episode.id }}"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        // The still shrinks when the reader has asked for big text, so the words it sits beside
-        // keep the room they need instead of wrapping into a column two characters wide.
-        val stillWidth = if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) 104.dp else 148.dp
-        Box(Modifier.width(stillWidth).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
-            MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), fallbackRes = episode.artworkRes, ContentScale.Crop, episode.source)
-            if (!episode.available) EpisodeStatusBadge(episode, Modifier.align(Alignment.TopStart).padding(6.dp))
-            if (progress > 0) Box(
-                Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp)
-                    .background(Color.Black.copy(alpha = .55f)),
-            ) {
-                Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(Primary))
-            }
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (episode.played) Icon(SpoleIcons.Done, stringResource(R.string.library_played_unmark),
-                    Modifier.size(15.dp).padding(end = 5.dp), tint = Primary)
-                else if (current || ready) Icon(SpoleIcons.Play, null,
-                    Modifier.size(15.dp).padding(end = 5.dp), tint = PrimarySoft)
-                // "4 · Getaway Sticks" when there is a name, "Episode 4" when there is not — never
-                // a number with a lonely separator hanging off it.
-                val numbered = episode.episode?.let { stringResource(R.string.episode_number, it) }
-                // A name that is only the number restated is not a name, however the server spelled
-                // it. Without this last check a row could still print "1 · Episode 1".
-                val name = episodeName(episode).takeUnless { it.equals(numbered, ignoreCase = true) }.orEmpty()
-                Text(
-                    when {
-                        episode.episode == null -> name
-                        name.isBlank() -> numbered.orEmpty()
-                        else -> "${episode.episode} · $name"
-                    },
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                episode.runtimeMinutes?.takeIf { it > 0 }?.let {
-                    Text(stringResource(R.string.detail_minutes, it), color = Muted,
-                        style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 10.dp))
-                }
-            }
-            if (!episode.available) EpisodeAvailability(episode)
-            if (ready) Text(stringResource(R.string.detail_next_to_play), color = Primary,
-                style = MaterialTheme.typography.labelSmall)
-            episode.overview?.takeIf(String::isNotBlank)?.let {
-                Text(it, color = Muted, style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
+    TvEpisodeCard(episode, current, ready, showOverview = true, onEpisodeClick = onEpisodeClick)
 }
 
 /** The episode's own name without the "Episode 9 - " the number already said. */

@@ -135,7 +135,7 @@ Søket spør fleire tenester samtidig og skal svare så snart den første svarar
 ### GS-4 · Telefoninngang
 
 **Frå 26. september:** eit søkeikon ved profilbiletet øvst på Heim er inngangen. Søkelina under
-toppen er eit val i Innstillingar → Heim («Søkelina på framsida», av som standard). Begge fører til
+toppen er eit val i Innstillingar → Sider og meny → Tilpass framsida («Søkelina på framsida», av som standard). Begge fører til
 søkedestinasjonen (GS-1), ikkje til Oppdag.
 
 **Akseptansekrav**

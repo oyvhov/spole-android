@@ -15,6 +15,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,14 +54,16 @@ internal fun SettingsPreferenceRow(
     tag: String? = null,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Row(
         // Top-aligned: centring an icon against a block that can wrap to three lines leaves the
         // icon floating in the middle of the text instead of next to its label.
         verticalAlignment = Alignment.Top,
-        modifier = Modifier.fillMaxWidth()
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).settingsSurface(interaction)
+            .toggleable(value = checked, role = Role.Switch, interactionSource = interaction,
+                indication = androidx.compose.foundation.LocalIndication.current, onValueChange = onCheckedChange)
             .then(if (tag != null) Modifier.testTag(tag) else Modifier)
-            .padding(vertical = 14.dp),
+            .padding(horizontal = 14.dp, vertical = 14.dp),
     ) {
         SettingsRowIcon(icon)
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
@@ -94,19 +99,20 @@ internal fun SettingsPreferenceAction(
     tag: String? = null,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Row(
         verticalAlignment = Alignment.Top,
-        modifier = Modifier.fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).settingsSurface(interaction)
+            .clickable(role = Role.Button, interactionSource = interaction,
+                indication = androidx.compose.foundation.LocalIndication.current, onClick = onClick)
             .then(if (tag != null) Modifier.testTag(tag) else Modifier)
-            .padding(vertical = 14.dp),
+            .padding(horizontal = 14.dp, vertical = 14.dp),
     ) {
         SettingsRowIcon(icon)
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
             Text(label, color = TextColor, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
             value?.let {
-                Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                Text(it, color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
             }
         }
         Icon(SpoleIcons.ChevronRight, null, Modifier.padding(top = 2.dp).size(20.dp), tint = Primary)
@@ -115,10 +121,5 @@ internal fun SettingsPreferenceAction(
 
 @Composable
 private fun SettingsRowIcon(icon: ImageVector) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(SurfaceRaised),
-    ) {
-        Icon(icon, contentDescription = null, tint = Muted, modifier = Modifier.size(21.dp))
-    }
+    SettingsIconBadge(icon, size = 36.dp)
 }

@@ -774,9 +774,14 @@ class ReelstackViewModel(
         browseLibrary()
     }
 
+    /** Opens «Tilpass biblioteksida». Its library list needs a server; its rows and look do not. */
     fun openLibraryChoices() {
-        val connection = _uiState.value.libraryConnection ?: return
         libraryChoicesJob?.cancel()
+        val connection = _uiState.value.libraryConnection ?: run {
+            _uiState.update { it.copy(libraryChoicesOpen = true, libraryChoicesLoading = false, libraryChoicesError = null,
+                libraryChoices = emptyList()) }
+            return
+        }
         _uiState.update { it.copy(libraryChoicesOpen = true, libraryChoicesLoading = true, libraryChoicesError = null, libraryChoices = emptyList()) }
         libraryChoicesJob = viewModelScope.launch {
             try {
@@ -1733,6 +1738,9 @@ class ReelstackViewModel(
                     progress = media.progress,
                     season = media.season,
                     episode = media.episode,
+                    criticRating = media.criticRating,
+                    tmdbRating = media.tmdbRating,
+                    mdblistRating = media.mdblistRating,
                     favourite = media.favourite,
                     played = media.played,
                     statusDescription = appString(R.string.details_in_library_source, media.source.displayName),
@@ -1772,7 +1780,7 @@ class ReelstackViewModel(
                                 episode = remote.episode ?: details.episode,
                                 overview = remote.overview ?: details.overview,
                                 facts = words(remote.facts),
-                                criticRating = remote.criticRating,
+                                criticRating = remote.criticRating ?: details.criticRating,
                                 tmdbRating = remote.tmdbRating ?: details.tmdbRating,
                                 mdblistRating = remote.mdblistRating ?: details.mdblistRating,
                                 genres = (remote.genres + details.genres).distinct(),
@@ -1889,7 +1897,7 @@ class ReelstackViewModel(
             // Publish playable episodes first. Optional catalogue dates never block this list.
             val seerr = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.token.isNotBlank() }
             val number = browse.seasons.firstOrNull { it.remoteId == seasonId }?.episode
-            if (loaded.isSuccess && seerr != null && number != null && container.preferencesRepository.personalization.showUpcomingEpisodes) {
+            if (loaded.isSuccess && seerr != null && number != null) {
                 val announced = runCatching { withContext(Dispatchers.IO) {
                     container.mediaSyncRepository.upcomingSeason(connection, seerr, seriesId, number)
                 } }

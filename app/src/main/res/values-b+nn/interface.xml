@@ -24,7 +24,7 @@
     <string name="settings_services">Tenestene dine</string>
     <string name="settings_services_note">Tenaradresse og innlogging for kvar teneste.</string>
     <string name="settings_home">Heimskjerm</string>
-    <string name="settings_home_navigation">Heim og navigasjon</string>
+    <string name="settings_home_navigation">Sider og meny</string>
     <string name="settings_customize">Tilpass framsida</string>
     <string name="settings_customize_note">Vel rader frå kvart bibliotek</string>
     <string name="state_expanded">Utvida</string>

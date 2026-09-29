@@ -6,11 +6,8 @@
     <string name="library_retry">Try again</string>
     <string name="library_back">Back</string>
     <string name="library_failed">Could not load the library. Please try again.</string>
-    <string name="library_manage">Choose libraries</string>
     <string name="library_selection_help">Choose which libraries on the selected server to load and show in Library, New films, New series, Continue watching and library search.</string>
     <string name="library_all">All</string>
-    <string name="library_none">None</string>
-    <string name="library_none_help">No library content from this server will be loaded while none are selected.</string>
     <string name="library_save">Save</string>
     <string name="library_cancel">Cancel</string>
     <string name="library_view">View</string>

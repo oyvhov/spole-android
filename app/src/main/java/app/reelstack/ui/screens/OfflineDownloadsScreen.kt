@@ -312,14 +312,8 @@ private fun WifiPreference(wifiOnly: Boolean, modifier: Modifier = Modifier, onC
 
 @Composable
 private fun OfflineEmptyState(modifier: Modifier = Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(28.dp)) {
-            Icon(SpoleIcons.Download, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(18.dp).size(32.dp))
-        }
-        Text(stringResource(R.string.offline_empty_title), style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(R.string.offline_empty_note), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    app.reelstack.ui.components.QuietEmptyState(stringResource(R.string.offline_empty_title),
+        SpoleIcons.Download, modifier, hint = stringResource(R.string.offline_empty_note))
 }
 
 @Composable

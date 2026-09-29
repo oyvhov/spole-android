@@ -4,7 +4,8 @@
 
 Filmar med vurdering frå serveren viser eit lite mørkt merke med stjerne og tal nedst på omslaget.
 I listevising står vurderinga saman med informasjonen om filmen, slik at små omslag ikkje blir dekte.
-Vurderinga følgjer **Vis vurderingar**. Manglande eller ugyldig poengsum gir ikkje noko merke.
+Vurderinga blir alltid vist når serveren har ho (brytaren «Vis vurderingar» vart fjerna i
+[Sider og meny](SETTINGS_PAGES_2026-09-29.md)). Manglande eller ugyldig poengsum gir ikkje noko merke.
 Vurderinga kjem frå eksisterande `CommunityRating`-data; dette legg ikkje til nettverkskall eller bilde.
 
 ## Avspeling

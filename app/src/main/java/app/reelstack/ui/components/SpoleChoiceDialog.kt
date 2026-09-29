@@ -5,6 +5,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,18 +27,18 @@ import app.reelstack.R
 
 /** Shared compact menu surface. Only the options scroll; the title and close target stay put. */
 @Composable
-internal fun SpoleChoiceDialog(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+internal fun SpoleChoiceDialog(title: String, onDismiss: () -> Unit, icon: ImageVector = SpoleIcons.Tune, content: @Composable () -> Unit) {
     val height = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() * .82f }
     Dialog(onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.widthIn(max = 480.dp).fillMaxWidth(.92f).heightIn(max = height).testTag("choice-dialog"),
-            shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(12.dp)) {
-                Row(Modifier.fillMaxWidth().padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    SettingsIconBadge(icon, MaterialTheme.colorScheme.primary, 40.dp)
+                    Text(title, Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
                     IconButton(onClick = onDismiss) { Icon(SpoleIcons.Close, stringResource(R.string.action_close)) }
                 }
-                HorizontalDivider(Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 Box(Modifier.weight(1f, fill = false)) { content() }
             }
         }
@@ -43,19 +46,24 @@ internal fun SpoleChoiceDialog(title: String, onDismiss: () -> Unit, content: @C
 }
 
 @Composable
-internal fun SpoleChoiceRow(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun SpoleChoiceRow(label: String, selected: Boolean, modifier: Modifier = Modifier,
+    icon: ImageVector? = null, supportingText: String? = null, checkmark: Boolean = false, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    Surface(onClick, modifier.fillMaxWidth().heightIn(min = 48.dp).semantics {
-        role = Role.RadioButton; this.selected = selected
-    },
-        shape = RoundedCornerShape(4.dp), interactionSource = interaction,
-        color = if (focused) MaterialTheme.colorScheme.onSurface.copy(alpha = .14f) else androidx.compose.ui.graphics.Color.Transparent,
-        border = if (focused) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface) else null) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Box(Modifier.size(20.dp)) { if (selected) Icon(SpoleIcons.Done, null) }
+    Row(modifier.padding(vertical = 3.dp).fillMaxWidth().heightIn(min = 56.dp)
+        .settingsSurface(interaction, selected = selected)
+        .selectable(selected, role = Role.RadioButton, interactionSource = interaction,
+            indication = androidx.compose.foundation.LocalIndication.current, onClick = onClick)
+        .padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (icon != null) SettingsIconBadge(icon, size = 36.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            supportingText?.let { Text(it, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
+        if (checkmark) {
+            if (selected) Icon(SpoleIcons.Done, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+            else Spacer(Modifier.size(24.dp))
+        } else RadioButton(selected, onClick = null, modifier = Modifier.size(24.dp))
     }
 }

@@ -25,4 +25,9 @@
     <string name="home_layout_row_settings">Innstillingar for %1$s</string>
     <string name="home_layout_options">Val</string>
     <string name="home_layout_reset">Tilbakestill rekkjefølgje og brytarar</string>
+    <string name="settings_pages_group">Sider</string>
+    <string name="library_editor_intro">Vel kva bibliotek Bibliotek-fana og søket viser, og i kva rekkjefølgje. Framsida har sitt eige val under Tilpass framsida.</string>
+    <string name="library_editor_in_menu">I sidemenyen</string>
+    <string name="library_editor_display">Vising</string>
+    <string name="library_editor_add_to_menu">Legg i sidemenyen</string>
 </resources>

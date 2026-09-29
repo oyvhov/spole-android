@@ -39,25 +39,18 @@ fun LanguagePreference(compact: Boolean = false) {
         }
     }
     if (expanded) {
-        AlertDialog(onDismissRequest = { expanded = false },
-            title = { Text(stringResource(R.string.language_title)) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
+        SpoleChoiceDialog(stringResource(R.string.language_title), { expanded = false }, icon = SpoleIcons.Language) {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     AppLanguage.entries.forEach { language ->
-                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                            .selectable(selected == language, role = Role.RadioButton, onClick = {
+                        SpoleChoiceRow(languageLabel(language), selected == language, icon = SpoleIcons.Language) {
                                 expanded = false
                                 AppLanguages.select(context, language)
-                            }).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected == language, onClick = null)
-                            Text(languageLabel(language), Modifier.weight(1f).padding(start = 12.dp))
                         }
                     }
                     Text(stringResource(R.string.language_note), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
                 }
-            },
-            confirmButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { expanded = false }) { Text(stringResource(R.string.action_close)) } })
+            }
     }
 }
 

@@ -57,8 +57,7 @@ internal fun SheetToolbar(
                     Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), Modifier.padding(start = 8.dp))
                 }
             } else {
-                Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 12.dp))
+                Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(end = 12.dp))
             }
         }
         IconButton(onClick = onClose, enabled = enabled, interactionSource = closeInteraction,

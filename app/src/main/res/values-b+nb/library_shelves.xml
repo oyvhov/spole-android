@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="library_action_failed">Kunne ikke lagre dette på serveren. Prøv igjen.</string>
-    <string name="library_menu_order">Rekkefølge i menyen</string>
     <string name="library_remove_resume">Fjern fra Fortsett å se</string>
     <string name="library_favourite_add">Legg til i favoritter</string>
     <string name="library_favourite_remove">Fjern fra favoritter</string>
@@ -45,10 +44,4 @@
     </plurals>
     <string name="home_favourites">Favoritter</string>
     <string name="library_peek_loading">henter…</string>
-    <plurals name="library_peek_newest">
-        <item quantity="one">%d ny</item>
-        <item quantity="other">%d nyeste</item>
-    </plurals>
-    <string name="library_peek_open">åpne</string>
-    <string name="library_peek_progress">%d på gang</string>
 </resources>

@@ -33,6 +33,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import app.reelstack.ui.components.OpenMenuAction
+import app.reelstack.ui.components.QuietEmptyState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -109,7 +115,7 @@ fun GlobalSearchScreen(
                 IconButton(onClick = onClose, modifier = Modifier.testTag("global-search-close")) {
                     Icon(SpoleIcons.ArrowBack, stringResource(R.string.action_back))
                 }
-                OutlinedTextField(
+                TextField(
                     value = search.query,
                     onValueChange = onQuery,
                     singleLine = true,
@@ -131,11 +137,11 @@ fun GlobalSearchScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     shape = RoundedCornerShape(20.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Primary,
-                        unfocusedBorderColor = ControlOutline,
-                        focusedContainerColor = SurfaceRaised,
-                        unfocusedContainerColor = SurfaceRaised,
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = Primary,
+                        unfocusedIndicatorColor = ControlOutline,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
                         cursorColor = Primary,
                     ),
                     modifier = Modifier.weight(1f).focusRequester(field).testTag("global-search-field"),
@@ -158,18 +164,18 @@ fun GlobalSearchScreen(
                         Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             if (state.history.isNotEmpty()) {
                                 SearchHeading(stringResource(R.string.search_recent))
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     state.history.forEach { previous ->
-                                        AssistChip(
-                                            onClick = { onQuery(previous) },
-                                            label = { Text(previous, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            leadingIcon = { Icon(SpoleIcons.Clock, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                                            modifier = Modifier.heightIn(min = 48.dp),
-                                        )
+                                        OpenMenuAction(onClick = { onQuery(previous) }, modifier = Modifier.fillMaxWidth()) {
+                                            Icon(SpoleIcons.Clock, null, Modifier.size(20.dp), tint = Muted)
+                                            Text(previous, Modifier.weight(1f).padding(horizontal = 14.dp), style = MaterialTheme.typography.bodyLarge)
+                                            Icon(SpoleIcons.ArrowForward, null, Modifier.size(18.dp), tint = Muted)
+                                        }
                                     }
                                 }
                             }
-                            Text(stringResource(R.string.search_everywhere_hint), color = Muted, fontSize = 13.sp, lineHeight = 19.sp)
+                            QuietEmptyState(stringResource(R.string.home_search), SpoleIcons.Search,
+                                hint = stringResource(R.string.search_everywhere_hint))
                         }
                     }
                     return@LazyVerticalGrid
@@ -177,19 +183,29 @@ fun GlobalSearchScreen(
                 if (search.libraryResults.isNotEmpty()) {
                     item(key = "library-heading", span = { GridItemSpan(maxLineSpan) }) {
                         Column(Modifier.padding(top = 4.dp)) {
-                            SearchHeading(stringResource(R.string.search_libraries))
+                            SearchHeading(stringResource(R.string.search_libraries), icon = SpoleIcons.Library)
                             Text(stringResource(R.string.search_ready), color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                         }
                     }
-                    items(search.libraryResults, key = { "library-${it.id}" }) { media ->
-                        LibraryHitCard(media) { onLibraryDetails(media.id) }
+                    search.libraryResults.groupBy { it.mediaType }.forEach { (kind, mediaItems) ->
+                        item(key = "library-kind-$kind", span = { GridItemSpan(maxLineSpan) }) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Icon(if (kind.equals("Movie", true)) SpoleIcons.Movie else SpoleIcons.Screen,
+                                    null, Modifier.size(20.dp), tint = Muted)
+                                Text(stringResource(app.reelstack.ui.components.mediaKindRes(kind)) + " · ${mediaItems.size}",
+                                    style = MaterialTheme.typography.bodyMedium, color = Muted)
+                            }
+                        }
+                        items(mediaItems, key = { "library-${it.id}" }) { media ->
+                            LibraryHitCard(media) { onLibraryDetails(media.id) }
+                        }
                     }
                 }
                 when {
                     search.searching -> items(6, key = { "loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
                     requestable.isNotEmpty() -> {
                         item(key = "requestable-heading", span = { GridItemSpan(maxLineSpan) }) {
-                            SearchHeading(stringResource(R.string.search_add_new), Modifier.padding(top = 12.dp))
+                            SearchHeading(stringResource(R.string.search_add_new), Modifier.padding(top = 12.dp), SpoleIcons.Discover)
                         }
                         items(requestable, key = { "seerr-${it.id}" }) { media ->
                             DiscoverCard(media, media.id in state.requestingMediaIds,
@@ -212,9 +228,9 @@ fun GlobalSearchScreen(
                         }
                     }
                     search.libraryResults.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
-                        Text(search.error ?: stringResource(R.string.search_global_no_results, query),
-                            color = Muted, style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(vertical = 24.dp).testTag("global-search-empty"))
+                        QuietEmptyState(search.error ?: stringResource(R.string.search_global_no_results, query),
+                            if (search.error != null) SpoleIcons.Wifi else SpoleIcons.Search,
+                            modifier = Modifier.testTag("global-search-empty"))
                     }
                 }
                 // One service failing leaves the other's answers in place, with a line saying which.
@@ -231,7 +247,11 @@ fun GlobalSearchScreen(
 }
 
 @Composable
-private fun SearchHeading(text: String, modifier: Modifier = Modifier) {
-    Text(text, color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
-        modifier = modifier.semantics { heading() })
+private fun SearchHeading(text: String, modifier: Modifier = Modifier, icon: ImageVector = SpoleIcons.Clock) {
+    Row(modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(icon, null, Modifier.size(24.dp), tint = Muted)
+        Text(text, color = TextColor, style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.weight(1f).semantics { heading() })
+    }
 }

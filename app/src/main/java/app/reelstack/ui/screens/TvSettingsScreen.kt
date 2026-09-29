@@ -36,6 +36,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
     onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {},
     homeEditor: HomeEditorActions = HomeEditorActions(), onOpenDownloads: () -> Unit = {}) {
     val television = isTelevision()
+    val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
     var category by rememberSaveable { mutableStateOf(SettingsCategory.APPEARANCE) }
     var focusedCategory by rememberSaveable { mutableStateOf(category) }
     val context = LocalContext.current.applicationContext
@@ -81,7 +82,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
             Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(start = 12.dp, bottom = 12.dp))
             SettingsCategory.entries.forEach { item ->
-                WideDestination(stringResource(item.title), item.icon, focusedCategory == item,
+                SettingsCategoryDestination(item, focusedCategory == item,
                     onClick = {
                         // A click/tap need not move keyboard focus. Anchor it before replacing
                         // a focused pane, otherwise Compose can focus a different category.
@@ -105,14 +106,13 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight()) {
-            Text(stringResource(category.title), style = MaterialTheme.typography.headlineMedium)
-            Text(stringResource(category.hint), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
+            SettingsCategoryIntro(category)
+            Spacer(Modifier.height(8.dp))
             androidx.compose.animation.AnimatedContent(
                 targetState = category,
                 transitionSpec = {
-                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(140)) togetherWith
-                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90))
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(if (motion) 140 else 0)) togetherWith
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(if (motion) 90 else 0))
                 },
                 label = "settings-pane-crossfade",
                 modifier = Modifier.weight(1f).fillMaxWidth(),

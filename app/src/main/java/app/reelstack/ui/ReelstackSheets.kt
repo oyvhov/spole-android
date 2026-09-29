@@ -410,8 +410,6 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     if (tv) {
         app.reelstack.ui.components.TvCinematicDetails(details, scroll, heading = {
             app.reelstack.ui.components.DetailLogo(details, opening.title)
-            details.source?.let { Text(it.displayName, color = Muted,
-                style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp)) }
             if (mediaType == "Episode") Text(
                 app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
                 style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)
@@ -489,12 +487,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 title = opening.title,
                 eyebrow = opening.eyebrow,
                 subtitle = app.reelstack.ui.components.episodeLine(opening.season, opening.episode, opening.subtitle),
-                tagline = opening.tagline,
-                facts = opening.facts.filter { app.reelstack.ui.theme.LocalPersonalization.current.showRatings || !it.startsWith("★") }.take(4),
                 artworkUrl = opening.artworkUrl,
                 artworkRes = opening.artworkRes,
                 source = opening.source,
-                loading = false,
             )
         } else if (!tv) {
             CinematicTitleHero(
@@ -518,6 +513,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // Null means "whatever the server would have picked". A choice here is carried into the
         // player, so what the page promises is what starts.
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = metadataAlpha }) {
+        if (!tv) aside()
         if (tv && !wideDetail) aside()
         if (!tv && mediaType == "Episode") synopsis()
         if (!tv || !wideDetail) actions()
@@ -540,7 +536,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (tv && !isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
             { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
         // TV has already shown these alongside its smaller poster.
-        if (!tv) { aside(); if (mediaType != "Episode") synopsis() }
+        if (!tv && mediaType != "Episode") synopsis()
         details.statusTitle?.takeUnless { details.libraryAvailable && details.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }?.let { title ->
             Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
                 .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
@@ -624,16 +620,13 @@ private fun MoviePosterSummary(
     title: String,
     eyebrow: String,
     subtitle: String,
-    tagline: String?,
-    facts: List<String>,
     artworkUrl: String?,
     artworkRes: Int,
     source: ServiceKind?,
-    loading: Boolean,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
     val spacious = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useSideBySideMedia
-    val posterWidth = if (spacious) 164.dp else 116.dp
+    val posterWidth = if (spacious) 164.dp else if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) 96.dp else 132.dp
     Row(
         verticalAlignment = Alignment.Top,
         modifier = Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 2.dp),
@@ -661,39 +654,8 @@ private fun MoviePosterSummary(
                 fontSize = if (spacious) 32.sp else 25.sp,
                 lineHeight = if (spacious) 37.sp else 27.sp,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 4,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 7.dp),
             )
-            // Type/year already live in the facts: avoid saying them twice.
-            val supportingText = tagline?.takeIf(String::isNotBlank) ?: subtitle.takeIf { facts.isEmpty() }.orEmpty()
-            Box(Modifier.fillMaxWidth().heightIn(min = 43.dp).padding(top = 8.dp)) {
-                if (supportingText.isNotBlank()) {
-                Text(
-                    supportingText,
-                    color = app.reelstack.ui.theme.Muted,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    maxLines = 3,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-                }
-            }
-            Box(Modifier.fillMaxWidth().heightIn(min = 39.dp).padding(top = 11.dp)) {
-                if (facts.isNotEmpty()) {
-                    Text(
-                        facts.take(4).joinToString(" · "),
-                        color = PrimarySoft,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                } else if (loading) {
-                    Box(Modifier.width(112.dp).height(8.dp).clip(CircleShape).background(SurfaceRaised))
-                }
-            }
         }
     }
 }
@@ -1139,18 +1101,19 @@ private fun TrackChooser(label: String, tag: String, options: List<Pair<Int, Str
     onSelect: (Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val current = options.firstOrNull { it.first == selected } ?: options.first()
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Muted,
-            modifier = Modifier.padding(end = 10.dp))
-        Text(current.second, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface, maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false).padding(end = 10.dp))
-        app.reelstack.ui.screens.Chip(
-            text = stringResource(R.string.detail_change),
-            chosen = false,
-            tag = "detail-$tag-open",
-        ) { open = true }
+    app.reelstack.ui.components.OpenMenuAction(onClick = { open = true },
+        modifier = Modifier.fillMaxWidth().testTag("detail-$tag-open")) {
+        Icon(when (tag) {
+            "audio" -> app.reelstack.ui.components.SpoleIcons.Sound
+            "subtitle" -> app.reelstack.ui.components.SpoleIcons.Subtitles
+            else -> app.reelstack.ui.components.SpoleIcons.Movie
+        }, null, Modifier.size(24.dp), tint = Muted)
+        Column(Modifier.weight(1f).padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = Muted)
+            Text(current.second, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface)
+        }
+        Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, Modifier.size(20.dp), tint = Muted)
     }
     if (open) app.reelstack.ui.components.SpoleChoiceDialog(
         onDismiss = { open = false },
@@ -1159,6 +1122,7 @@ private fun TrackChooser(label: String, tag: String, options: List<Pair<Int, Str
             LazyColumn {
                 items(options) { (index, name) ->
                     app.reelstack.ui.components.SpoleChoiceRow(name, index == current.first,
+                        checkmark = true,
                         onClick = { onSelect(index); open = false },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("detail-$tag-$index"),
                     )

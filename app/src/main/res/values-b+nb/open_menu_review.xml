@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_filters_short">Filter</string>
+    <string name="menu_view_short">Visning</string>
+    <string name="menu_genre_short">Sjanger</string>
+    <string name="menu_watched_short">Sett-status</string>
+    <string name="quality_hint_auto">Bruk standardkvaliteten for avspillingen.</string>
+    <string name="quality_hint_ultra">Høyeste bitrategrense. Passer best med raskt nett.</string>
+    <string name="quality_hint_high">Høy bitrategrense for en stabil tilkobling.</string>
+    <string name="quality_hint_medium">Lavere bitrategrense gir mindre databruk.</string>
+    <string name="quality_hint_low">Laveste bitrategrense når du vil spare data.</string>
+</resources>

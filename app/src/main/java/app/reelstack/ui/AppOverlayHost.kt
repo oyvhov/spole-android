@@ -79,11 +79,11 @@ internal fun AppOverlayHost(
         onAddKidManual = viewModel::addKidProfileManual,
     )
     if (state.libraryChoicesOpen) {
-        app.reelstack.ui.screens.LibraryChoicesDialog(
+        app.reelstack.ui.screens.LibraryEditorDialog(
             state,
-            viewModel::closeLibraryChoices,
-            viewModel::openLibraryChoices,
-            viewModel::saveLibraryChoices,
+            onRetry = viewModel::openLibraryChoices,
+            onDismiss = viewModel::closeLibraryChoices,
+            onSave = viewModel::saveLibraryChoices,
         )
     }
     app.reelstack.update.AppUpdateHost(

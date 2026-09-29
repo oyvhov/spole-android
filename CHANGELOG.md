@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.18.0-beta10 - opnare menyar og meir oversiktlege detaljar
+
+- Innstillingar og undermenyar får frittståande ikon, opne rader og visuelle døme på utsjånadsval.
+- «Sider og meny» samlar tilpassing av framsida, biblioteksida og menyvala.
+- Bibliotekfilter får kortare etikettar og samlar sett-status og oppløysing under Filter.
+- Film- og seriedetaljar får rolegare kjeldenamn, betre plass til vurderingar og større episodekort på TV.
+- Vurderingar frå biblioteket blir tekne med inn i detaljane og bevarte når eit oppfølgingskall manglar dei.
+- Søk får eit ope søkjefelt, historikk som rader og bibliotektreff grupperte etter medietype.
+- Avspelingsmenyane markerer valt alternativ med hake; kvalitetsvala får korte forklaringar.
+- Tomvisingar og lasteplasshaldarar får eit lettare uttrykk. Hovudsidebaren har same utsjånad som før.
+
 ## 0.18.0-beta9 - globalt søk, og undertekst utan stopp på TV
 
 - **Rettar krasj** når du trykte «Sjå fråkopla» på ei ferdig nedlasting.

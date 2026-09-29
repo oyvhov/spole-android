@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="library_action_failed">Could not save that on the server. Please try again.</string>
-    <string name="library_menu_order">Order in the menu</string>
     <string name="library_remove_resume">Remove from Continue watching</string>
     <string name="library_favourite_add">Add to favourites</string>
     <string name="library_favourite_remove">Remove from favourites</string>
@@ -46,10 +45,4 @@
     <string name="home_favourites">Favourites</string>
     <string name="library_peek_loading">loading…</string>
     <!-- "1 newest" is not English; a library with one title in it has a new one, not a newest. -->
-    <plurals name="library_peek_newest">
-        <item quantity="one">%d new</item>
-        <item quantity="other">%d newest</item>
-    </plurals>
-    <string name="library_peek_open">open</string>
-    <string name="library_peek_progress">%d in progress</string>
 </resources>
