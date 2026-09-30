@@ -33,7 +33,7 @@ og teknisk medieinfo/innstillingsplassering frå `SETTINGS_PAGES_2026-09-29.md`.
   valet «Rolege overgangar» på, mellom anna frå Kongen befaler til Slow West.
 - Ekte episode med video og undertekst er opna. OSD viser klokke øvst til høgre,
   tid att under tidslinja og ingen avspelingsmåte-linje som standard.
-- Mobil 5560 er førebels på 130/beta10 for oppdateringsprøven gjennom appen.
+- Mobil 5560 vart halden på 130/beta10 til oppdateringsprøven gjennom appen.
   Profilen har lagra demoinnhald, ikkje innlogga medietenester. System UI viste
   ein ANR etter den trege kaldstarten; lagra appdata er bevarte.
 - Ingen instrumentering er køyrd på profilane 5560/5564. Skjermbilete er berre lagra
@@ -59,4 +59,25 @@ og teknisk medieinfo/innstillingsplassering frå `SETTINGS_PAGES_2026-09-29.md`.
   Desse resultata blir ikkje rekna som ein full, uavhengig mobilregresjonskontroll.
   Ingen data eller prosessar frå den andre oppgåva vart stoppa eller nullstilte.
 
-Publisert GitHub-oppdatering blir dokumentert etter nedlasting og installasjon gjennom appen.
+## Publisering
+
+- Release-taggen `v0.18.0-beta11` peikar på `b8ab038d409d14592a5f856e9f0e98b43dda24e8`.
+- Publisert prerelease, ikkje draft eller stabil latest:
+  <https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta11>.
+- Alle fem assets er kontrollerte før publisering: éin universal-APK, SHA256SUMS,
+  R8-mapping, SOURCE_COMMIT og FFmpeg-kjeldepakken. Storleik, uploaded-status og
+  GitHub-digest samsvarer med dei lokale filene.
+- Den offentlege release-lista utan autorisasjon inneheld beta11 med rett APK-digest.
+  APK-en er lasta ned frå den offentlege lenkja og har same SHA-256 som bygget.
+- Mobil 5560: **App updates → Check now → Download update → Install update → Android
+  Update → App installed → Open** er fullført gjennom appen. Ingen ADB-installasjon
+  vart brukt på denne profilen. Android bad om «Allow from this source» for Spole;
+  dette vart gitt. Play Protect viste «App scan recommended» fordi APK-en var ny,
+  og det vanlege valet «Install without scanning» fullførte installasjonen.
+- Installert versjon gjekk frå 130/beta10 til 131/beta11. `firstInstallTime` er uendra
+  (2026-09-15 10:09:51). Appen opnar med same engelske språk, mørke/grøne tema,
+  demoinnhald og lagra val. Ingen innlogga mediekontoar på mobil vart påstått kontrollerte;
+  dei ekte kontoane og innhaldet er kontrollerte på TV.
+- Mobilnettet vart validert etter den trege kaldstarten. System UI-dialogen vart lukka
+  med «Wait», og normal app- og installasjonsflyt fungerte etterpå.
+- Den isolerte TV-testprofilen 5566 er stoppa etter testane; brukardata er bevarte.
