@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.18.0-beta11 - rolegare TV-framside og betre avspelingskontroll
+
+- TV-spelaren viser klokka øvst til høgre og tid att under tidslinja.
+- Avspelingsinfo er av som standard, òg éin gong ved oppdatering. Brytaren verkar straks og bevarer seinare val.
+- Lågare hero gir plass til heile første rad. Teksten får meir luft, og kjeldelogoen er fjerna frå heroen.
+- Heroen byter tittel på TV sjølv med fokus og rolege overgangar; fjernkontrolltrykk startar ventetida på nytt.
+- Kjelde står berre til høgre i radoverskriftene. Episodeopplysningane ligg tettare under korttitlane på TV.
+- Teknisk medieinfo i detaljvisinga får ein eigen brytar, av som standard. Skjul TV-sidebar ligg under utsjånad.
+
 ## 0.18.0-beta10 - opnare menyar og meir oversiktlege detaljar
 
 - Innstillingar og undermenyar får frittståande ikon, opne rader og visuelle døme på utsjånadsval.

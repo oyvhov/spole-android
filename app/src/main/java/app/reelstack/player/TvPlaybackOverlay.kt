@@ -37,7 +37,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, fillVideo: Boolean,
     onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
     onChapters: () -> Unit = {}, onStats: () -> Unit = {},
-    showPlaybackModeLine: Boolean = true,
+    showPlaybackModeLine: Boolean = false,
     /** Kids mode: no tools row, parental defaults. */
     kids: Boolean = false) {
     val tools = remember { FocusRequester() }
@@ -148,7 +148,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         0f to Color.Black.copy(alpha = .65f), .25f to Color.Transparent,
         .52f to Color.Transparent, 1f to Color.Black.copy(alpha = .90f))).testTag("player-controls"))
     Column(Modifier.align(Alignment.TopStart).padding(horizontal = 48.dp, vertical = 27.dp)
-        .fillMaxWidth(if (nextFocus == null) .9f else .46f)) {
+        .fillMaxWidth(if (nextFocus == null) .76f else .46f)) {
         var logoFailed by remember(state.logoUrl) { mutableStateOf(false) }
         if (state.logoUrl != null && !logoFailed) {
             app.reelstack.ui.components.MediaArtwork(state.logoUrl, state.title,
@@ -164,6 +164,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .72f),
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+    PlayerOsdClock(Modifier.align(Alignment.TopEnd).padding(horizontal = 48.dp, vertical = 27.dp))
     Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().onFocusChanged { onFocusWithin(it.hasFocus) }.focusGroup()
         .padding(horizontal = 48.dp, vertical = 27.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -224,7 +225,10 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(playbackTime(position, padHours), style = MaterialTheme.typography.labelLarge, color = Color.White)
-            Text(playbackTime(state.durationMs, padHours), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .72f))
+            if (state.durationMs > 0) Text(
+                stringResource(R.string.player_time_remaining, playbackTime(playbackRemainingMs(state.durationMs, position))),
+                modifier = Modifier.testTag("player-time-remaining"),
+                style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .85f))
         }
         if (!kids) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             TvPlayerAction(SpoleIcons.Info, stringResource(R.string.player_stats_title), "player-stats", Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onStats() }
@@ -257,6 +261,22 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .72f))
     }
     transientIndicator()
+}
+
+/** The clock follows the OSD and the device's locale and 12/24-hour preference. */
+@Composable
+private fun PlayerOsdClock(modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            kotlinx.coroutines.delay(60_000L - now % 60_000L)
+        }
+    }
+    Text(android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(now)),
+        modifier.testTag("player-osd-clock"), color = Color.White.copy(alpha = .85f),
+        style = MaterialTheme.typography.titleMedium)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

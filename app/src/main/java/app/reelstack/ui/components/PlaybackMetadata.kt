@@ -26,12 +26,13 @@ import java.util.Locale
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, source: ServiceKind? = null) {
+    val preferences = LocalPersonalization.current
     // CommunityRating is already mapped to tmdbRating when the server exposes it. Keeping the
     // old star fact here made the same score appear once unnamed and once as TMDB.
     val visibleFacts = facts.filterNot { it.startsWith("★") }
     val ageRating = visibleFacts.firstNotNullOfOrNull(::ageRatingLabel)
     val descriptiveFacts = visibleFacts.filterNot { ageRatingLabel(it) != null }
-    val quality = details.quality
+    val quality = if (preferences.showMediaInfo) details.quality else emptyList()
     val descriptiveLine = descriptiveFacts.distinct().map(::formatMetadataFact)
     if (ageRating != null || descriptiveLine.isNotEmpty() || source != null) FlowRow(
         Modifier.fillMaxWidth().testTag("playback-metadata"),

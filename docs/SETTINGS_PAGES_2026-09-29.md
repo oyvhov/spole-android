@@ -61,12 +61,15 @@ Utan tilkopla Jellyfin eller Emby viser editoren berre radene og visinga.
 | Filmlogo i utvalet | Logoen blir vist når han finst, elles tittelen. |
 | Kompakt utval | Storleiken følgjer vindauget og «Biletstorleik». |
 | Vis vurderingar | Vurderingane blir viste når serveren har dei. |
-| Vis bilete- og lydkvalitet | Kvaliteten blir alltid vist, på den rolege tekniske linja. |
 | Kommande episodar | Blir alltid viste når Seerr er kopla til. |
 
 Ved neste lagring slettar `AppPreferencesRepository` dei lagra verdiane for desse nøklane
 (`hero_rotate`, `hero_logo`, `hero_compact`, `library_hub`, `show_upcoming_episodes`, `show_ratings`,
 `show_quality`). Eit gammalt «av» kan difor ikkje kome tilbake i ein seinare versjon.
+
+Etter tilbakemelding vart eit nytt, tydelegare val lagt til under **Utsjånad**:
+**Vis teknisk medieinfo**. Det styrer oppløysing, videokodek, lydformat og kanaloppsett i
+detaljvisinga og er av som standard. **Skjul sidemenyen** på TV ligg òg under Utsjånad.
 
 ## Overgang
 

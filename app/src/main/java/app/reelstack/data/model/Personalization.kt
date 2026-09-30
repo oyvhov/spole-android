@@ -91,7 +91,7 @@ data class Personalization(
     val autoPlayNextEpisode: Boolean = true,
     val nextEpisodeDelaySeconds: Int = 12,
     /** The explanatory direct-play/transcode line under the player controls. */
-    val showPlaybackModeInOsd: Boolean = true,
+    val showPlaybackModeInOsd: Boolean = false,
     val lightweightTv: Boolean = false,
     val sidebarExpanded: Boolean? = null,
     val hideTvSidebar: Boolean = false,
@@ -122,6 +122,8 @@ data class Personalization(
     val reduceMotion: Boolean = false,
     val homeRowFormats: Map<String, String> = emptyMap(),
     val detailBackdrop: Boolean = true,
+    /** Resolution, codecs, audio format and channel layout in title details. */
+    val showMediaInfo: Boolean = false,
     val slowStartup: Boolean = false,
     val visualTheme: VisualTheme = VisualTheme.FOREST,
     val artworkCorners: ArtworkCorners = ArtworkCorners.SOFT,

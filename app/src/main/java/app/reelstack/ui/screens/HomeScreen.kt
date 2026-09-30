@@ -556,16 +556,15 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modifier = Modifier) {
+internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.Bottom, modifier = modifier.fillMaxWidth().padding(end = mediaEndInset()).clearAndSetSemantics {
         heading()
         contentDescription = "$title · ${source.displayName}"
     }) {
-        // Two shelves called "Hald fram å sjå", told apart only by a small mark at the far right
-        // of a 16:9 screen, is not telling them apart. On television the service joins the
-        // heading, where the eye already is; the mark on the right stays as confirmation.
+        // The trailing source mark and label identify the shelf without repeating the source
+        // in its heading. Accessibility keeps both in the one spoken description above.
         Text(
-            text = if (isTelevision()) "$title · ${source.displayName}" else title,
+            text = title,
             color = TextColor,
             style = MaterialTheme.typography.titleLarge,
             maxLines = 1,
@@ -874,7 +873,8 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
 internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null, rowKey: String? = null) {
     val format = homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)
     val chosenWide = resumeRailIsWide(format)
-    val titleLines = 2
+    // One TV title line puts the episode immediately below it, without an empty reserved line.
+    val titleLines = if (isTelevision()) 1 else 2
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     LazyRow(state = railState, contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

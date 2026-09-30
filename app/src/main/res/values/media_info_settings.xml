@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="show_media_info">Show technical media info</string>
+    <string name="show_media_info_hint">Show resolution, video codec, audio format and channel layout in title details.</string>
+    <string name="tv_hide_sidebar_hint">Keep the TV sidebar out of view until you move focus to it.</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="show_media_info">Vis teknisk medieinfo</string>
+    <string name="show_media_info_hint">Vis oppløysing, videokodek, lydformat og kanaloppsett i detaljvisinga.</string>
+    <string name="tv_hide_sidebar_hint">Hald sidemenyen ute av syne til du flyttar fokuset dit.</string>
+</resources>

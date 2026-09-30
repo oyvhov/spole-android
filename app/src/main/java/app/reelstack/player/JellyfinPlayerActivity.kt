@@ -424,12 +424,17 @@ fun PlayerScreen(
                 onChapters = { menu = PlayerMenu.CHAPTERS },
                 onStats = { statsVisible = !statsVisible }, showPlaybackModeLine = appearance.showPlaybackModeInOsd,
                 kids = kids)
+            val offerTopInset = if (showControls) 27.dp + with(androidx.compose.ui.platform.LocalDensity.current) {
+                MaterialTheme.typography.titleMedium.lineHeight.toDp()
+            } + 12.dp else 27.dp
             if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                 Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
-                    .padding(horizontal = 48.dp, vertical = 27.dp).onFocusChanged { nextHasFocus = it.hasFocus })
+                    .padding(start = 48.dp, end = 48.dp, top = offerTopInset, bottom = 27.dp)
+                    .onFocusChanged { nextHasFocus = it.hasFocus })
             else if (showSeriesFinished) SeriesFinishedCard(onClose, nextFocus,
                 Modifier.align(if (showControls) Alignment.TopEnd else Alignment.BottomEnd)
-                    .padding(horizontal = 48.dp, vertical = 27.dp).onFocusChanged { nextHasFocus = it.hasFocus })
+                    .padding(start = 48.dp, end = 48.dp, top = offerTopInset, bottom = 27.dp)
+                    .onFocusChanged { nextHasFocus = it.hasFocus })
             else Box(Modifier.align(Alignment.TopEnd).padding(horizontal = 48.dp, vertical = 80.dp)) {
                 SkipSegmentButton(state, onSkipSegment)
             }

@@ -123,6 +123,14 @@ class JellyfinPlaybackTest {
         assertEquals(JsonPrimitive("session"),fixture.posted["PlaySessionId"])
         assertNull(fixture.posted["SessionId"])
     }
+    @Test fun remainingTimeUsesTheSeekPositionAndStopsAtZero() {
+        assertEquals(68_000L, playbackRemainingMs(1_307_000L, 1_239_000L))
+        assertEquals(58_000L, playbackRemainingMs(1_307_000L, 1_249_000L))
+        assertEquals(0L, playbackRemainingMs(20_000L, 21_000L))
+        assertEquals(20_000L, playbackRemainingMs(20_000L, -1L))
+        assertEquals(0L, playbackRemainingMs(-1L, 10_000L))
+    }
+
     @Test fun profileAndClockAreConservative() {
         val profile=phonePlaybackProfile(4_000_000)
         assertEquals(JsonPrimitive("h264"), profile.objects("DirectPlayProfiles").first()["VideoCodec"])

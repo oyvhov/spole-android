@@ -207,6 +207,8 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
         SettingsGroup(stringResource(R.string.refine_group_art))
         SettingsToggleRow(stringResource(R.string.detail_backdrop), stringResource(R.string.detail_backdrop_hint),
             value.detailBackdrop, "detail-backdrop") { onChange(value.copy(detailBackdrop = it)) }
+        SettingsToggleRow(stringResource(R.string.show_media_info), stringResource(R.string.show_media_info_hint),
+            value.showMediaInfo, "show-media-info") { onChange(value.copy(showMediaInfo = it)) }
         ThemeChoice(stringResource(R.string.personal_artwork), value.artworkSize, ArtworkSize.entries, "artwork",
             { stringResource(when(it) { ArtworkSize.COMPACT -> R.string.personal_compact
                 ArtworkSize.STANDARD -> R.string.personal_standard; ArtworkSize.LARGE -> R.string.personal_large }) }) {
@@ -223,6 +225,10 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
             onChange(value.copy(focusStyle = it)) }
         SettingsToggleRow(stringResource(R.string.theme_contrast), stringResource(R.string.theme_contrast_hint),
             value.highContrast, "theme-contrast") { onChange(value.copy(highContrast = it)) }
+        if (television) SettingsToggleRow(stringResource(R.string.tv_hide_sidebar),
+            stringResource(R.string.tv_hide_sidebar_hint), value.hideTvSidebar, "tv-hide-sidebar") {
+            onChange(value.copy(hideTvSidebar = it))
+        }
         if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_lightweight), stringResource(R.string.tv_lightweight_hint),
             value.lightweightTv, "tv-lightweight") { onChange(value.copy(lightweightTv = it)) }
         app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onChange(value.copy(accent = AccentPalette.LIME, artworkSize = ArtworkSize.STANDARD,

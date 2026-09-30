@@ -35,8 +35,6 @@ internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) 
         SettingsGroup(stringResource(R.string.settings_menu_heading), stringResource(R.string.settings_tv_menu_hint))
         ThemeChoice(stringResource(R.string.design_start_page), value.startInLibrary, listOf(false, true), "start-page",
             { stringResource(if (it) R.string.nav_library else R.string.nav_home) }) { onChange(value.copy(startInLibrary = it)) }
-        if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_hide_sidebar), "",
-            value.hideTvSidebar, "tv-hide-sidebar") { onChange(value.copy(hideTvSidebar = it)) }
         TvMenuOrderEditor(order, names, value.hiddenMenuItems, value.requiredMenu(),
             { onChange(value.copy(menuOrder = it)) },
             { id, visible -> onChange(value.withMenuVisible(id, visible)) })

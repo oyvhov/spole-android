@@ -530,6 +530,10 @@ internal fun embyPlaybackSegments(item: JsonObject): List<PlaybackSegment> {
     ).filter { it.startMs >= 0 && it.endMs > it.startMs && (duration == null || it.endMs <= duration) }
 }
 
+/** Clamp server positions and seek previews before calculating the time left. */
+internal fun playbackRemainingMs(durationMs: Long, positionMs: Long): Long =
+    durationMs.coerceAtLeast(0) - positionMs.coerceIn(0, durationMs.coerceAtLeast(0))
+
 fun playbackTime(ms: Long, padHours: Boolean = false): String {
     val seconds = ms.coerceAtLeast(0) / 1000
     return if (padHours || seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)

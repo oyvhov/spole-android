@@ -35,6 +35,9 @@ class TvRefinementUiTest {
     @Before fun requireTelevisionTarget() {
         org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
             .targetContext.getSystemService(android.app.UiModeManager::class.java).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
+        app.reelstack.data.repository.AppPreferencesRepository(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        ).personalization = Personalization()
     }
     @Test fun remoteLongPressOpensMenuWithoutRunningAnAction() {
         var opened = 0
@@ -81,6 +84,119 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("choice-dialog").assertIsDisplayed()
         rule.onNodeWithText("English").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(2, selected) }
+    }
+
+    @Test fun osdShowsClockAndRemainingTimeWithLargeTypeWithoutTechnicalInfo() {
+        var position by mutableLongStateOf(1_239_000L)
+        rule.setContent { Tv(2f) {
+            CompositionLocalProvider(LocalPersonalization provides Personalization()) {
+                PlayerScreen(PlayerScreenState(title = "Testepisode", busy = false,
+                    positionMs = position, durationMs = 1_307_000L),
+                    null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+            }
+        } }
+        rule.onNodeWithTag("player-osd-clock").assertIsDisplayed()
+        val clock = rule.onNodeWithTag("player-osd-clock").getUnclippedBoundsInRoot()
+        val root = rule.onRoot().getUnclippedBoundsInRoot()
+        assertTrue(clock.left > root.width * .75f)
+        assertTrue(clock.bottom < root.height * .2f)
+        rule.onNodeWithTag("player-time-remaining").assertTextEquals("1:08 att").assertIsDisplayed()
+        rule.onNodeWithTag("player-mode-line").assertDoesNotExist()
+        rule.runOnIdle { position += 10_000L }
+        rule.onNodeWithTag("player-time-remaining").assertTextEquals("0:58 att")
+    }
+
+    @Test fun osdClockHidesWithControlsAndPlaybackInfoCanBeEnabled() {
+        rule.mainClock.autoAdvance = false
+        val repository = app.reelstack.data.repository.AppPreferencesRepository(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
+        repository.personalization = Personalization(showPlaybackModeInOsd = true)
+        rule.setContent { Tv {
+            CompositionLocalProvider(LocalPersonalization provides Personalization(showPlaybackModeInOsd = true)) {
+                PlayerScreen(PlayerScreenState(busy = false, playing = true, durationMs = 120_000L),
+                    null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+            }
+        } }
+        rule.onNodeWithTag("player-osd-clock").assertExists()
+        rule.onNodeWithTag("player-mode-line").assertExists()
+        rule.mainClock.advanceTimeBy(4_000L)
+        rule.onNodeWithTag("player-osd-clock").assertDoesNotExist()
+        rule.onNodeWithTag("player-time-remaining").assertDoesNotExist()
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test fun playbackInfoSwitchUpdatesTheOpenPlayerImmediately() {
+        val repository = app.reelstack.data.repository.AppPreferencesRepository(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
+        rule.setContent { Tv {
+            PlayerScreen(PlayerScreenState(busy = false, durationMs = 120_000L),
+                null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        rule.onNodeWithTag("player-mode-line").assertDoesNotExist()
+        rule.runOnIdle { repository.personalization = repository.personalization.copy(showPlaybackModeInOsd = true) }
+        rule.onNodeWithTag("player-mode-line").assertIsDisplayed()
+        rule.runOnIdle { repository.personalization = repository.personalization.copy(showPlaybackModeInOsd = false) }
+        rule.onNodeWithTag("player-mode-line").assertDoesNotExist()
+    }
+
+    @Test fun clockHasItsOwnSpaceAboveTheNextEpisodeOfferWithDoubleText() {
+        rule.setContent { Tv(2f) {
+            PlayerScreen(PlayerScreenState(busy = false, positionMs = 115_000L, durationMs = 120_000L,
+                nextEpisode = PlayableItem("next", "Neste serie", "Episode", "Neste episode"),
+                nextEpisodeResolved = true),
+                null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } }
+        val clock = rule.onNodeWithTag("player-osd-clock").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val offer = rule.onNodeWithTag("player-next-episode").assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue("Next episode must not cover the clock: $clock / $offer", clock.bottom <= offer.top)
+    }
+
+    @Test fun playbackInfoSettingsSwitchPersistsBothDirections() {
+        val repository = app.reelstack.data.repository.AppPreferencesRepository(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
+        rule.setContent { Tv(2f) {
+            val value = app.reelstack.ui.theme.rememberPersonalization()
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                app.reelstack.ui.components.NextEpisodeSettings(value) { repository.personalization = it }
+            }
+        } }
+        rule.onNodeWithTag("playback-advanced").performScrollTo().performClick()
+        val toggle = rule.onNodeWithTag("player-osd-playback-mode")
+        toggle.performScrollTo().assertIsOff().performClick().assertIsOn()
+        rule.runOnIdle { assertTrue(repository.personalization.showPlaybackModeInOsd) }
+        toggle.performClick().assertIsOff()
+        rule.runOnIdle { assertFalse(repository.personalization.showPlaybackModeInOsd) }
+    }
+
+    @Test fun televisionHeroRotatesWithIdleFocusButRestartsTheDelayOnRemoteInput() {
+        val first = LibraryMedia("first", "Første serie", "", artworkRes = R.drawable.media_placeholder,
+            source = ServiceKind.JELLYFIN)
+        val second = first.copy(id = "second", title = "Andre serie")
+        rule.mainClock.autoAdvance = false
+        rule.setContent { Tv {
+            CompositionLocalProvider(app.reelstack.ui.theme.LocalMotionEnabled provides false) {
+                app.reelstack.ui.components.TabletLibraryFeature(first, {}, candidates = listOf(first, second))
+            }
+        } }
+        val action = rule.onNodeWithTag("tablet-feature-open")
+        action.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+        rule.mainClock.advanceTimeBy(7_000L)
+        rule.onNodeWithText("Første serie").assertExists()
+        action.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) }
+        rule.mainClock.advanceTimeBy(2_000L)
+        rule.onNodeWithText("Første serie").assertExists()
+        rule.mainClock.advanceTimeBy(6_500L)
+        rule.onNodeWithText("Andre serie").assertExists()
+        action.assertIsFocused()
+        val repository = app.reelstack.data.repository.AppPreferencesRepository(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
+        rule.runOnIdle { repository.personalization = Personalization(reduceMotion = true) }
+        rule.mainClock.advanceTimeBy(9_000L)
+        rule.onNodeWithText("Første serie").assertExists()
+        rule.runOnIdle { repository.personalization = Personalization(lightweightTv = true) }
+        rule.mainClock.advanceTimeBy(9_000L)
+        rule.onNodeWithText("Første serie").assertExists()
+        rule.mainClock.autoAdvance = true
     }
     @Test fun seasonalHeroFadesIntoTheSamePageColour() {
         var season by mutableStateOf(Season.CHRISTMAS)
@@ -132,17 +248,40 @@ class TvRefinementUiTest {
             CompositionLocalProvider(LocalPersonalization provides Personalization()) {
                 Column {
                     app.reelstack.ui.components.TabletLibraryFeature(LibraryMedia("hero", "Testserie", "S02 E02",
-                        artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, season = 2, episode = 2), {})
+                        artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, season = 2, episode = 2,
+                        facts = listOf("Episode", "2026", "41 min")), {})
+                    MediaSectionTitle("Sjå vidare", ServiceKind.JELLYFIN,
+                        Modifier.padding(top = 14.dp, bottom = app.reelstack.ui.theme.ReelLayout.SectionBottom))
+                    ResumeRail(listOf(LibraryMedia("shelf", "Heile første rada", "Episode 2",
+                        artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN,
+                        mediaType = "Episode")), {})
                 }
             }
         } }
         val heroHeight = rule.onNodeWithTag("tablet-library-feature").getUnclippedBoundsInRoot().height
         val windowHeight = rule.onRoot().getUnclippedBoundsInRoot().height
         assertTrue("TV hero must leave room for the first shelf: $heroHeight / $windowHeight",
-            heroHeight <= windowHeight * .70f)
+            heroHeight <= windowHeight * .55f)
         rule.onNodeWithText("Testserie").assertIsDisplayed()
         rule.onNodeWithText("S2 - E2").assertIsDisplayed()
         rule.onNodeWithTag("tablet-feature-open").assertIsDisplayed()
+        val card = rule.onNodeWithTag("resume-card-shelf").getUnclippedBoundsInRoot()
+        assertTrue("The whole first card including captions must fit: $card / $windowHeight", card.bottom <= windowHeight)
+        rule.onNode(hasContentDescription("Jellyfin") and hasAnyAncestor(hasTestTag("hero-metadata")))
+            .assertDoesNotExist()
+    }
+
+    @Test fun televisionHeroGrowsForDoubleTextAndKeepsActionsReachable() {
+        rule.setContent { Tv(2f) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                app.reelstack.ui.components.TabletLibraryFeature(LibraryMedia("large-hero",
+                    "Ein lang serietittel som treng to linjer", "S02 E02 · Episodetittel",
+                    artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN,
+                    season = 2, episode = 2, facts = listOf("Episode", "2026", "41 min"),
+                    overview = "Ein omtale som framleis skal kunne lesast når skrifta blir større."), {})
+            }
+        } }
+        rule.onNodeWithTag("tablet-feature-open").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun preferredLibrarySourceSurvivesRepositoryRecreation() {
@@ -198,7 +337,7 @@ class TvRefinementUiTest {
         val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
         rule.onNodeWithText(titles[1], useUnmergedTree = true)
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
-        assertEquals(2, layouts.single().lineCount)
+        assertEquals(1, layouts.single().lineCount)
         assertEquals(
             rule.onNodeWithText(titles[0], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
             rule.onNodeWithText(titles[1], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
@@ -254,13 +393,16 @@ class TvRefinementUiTest {
     @Test fun televisionDetailsFocusResumeShowProgressQualityAndOmitBackToolbar() {
         org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
             .getSystemService(android.app.UiModeManager::class.java).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
+        app.reelstack.data.repository.AppPreferencesRepository(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        ).personalization = Personalization(showMediaInfo = true)
         rule.setContent { Tv {
             val mode = LocalInputModeManager.current
             SideEffect { mode.requestInputMode(InputMode.Keyboard) }
             ReelstackSheets(ReelstackUiState(connections = listOf(connection), activeSheet = AppSheet.TitleDetails("jellyfin-episode"),
                 contentDetails = ContentDetails("jellyfin-episode", "Testserie", "Jellyfin", "S02 E03 · Episode", artworkRes = R.drawable.media_placeholder,
                     source = ServiceKind.JELLYFIN, mediaType = "Episode", progress = .42f, remainingMinutes = 27,
-                    quality = listOf("4K", "HDR10", "EAC3 5.1"), facts = listOf("2026", "47 min", "★ 8,5"),
+                    quality = listOf("4K", "HDR10", "EAC3 5.1"), tmdbRating = 85f, facts = listOf("2026", "47 min", "★ 8,5"),
                     overview = "Ein episode med full omtale.", libraryAvailable = true)), null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         } }
         rule.onNodeWithTag("play-in-spole").assertIsDisplayed().assertIsFocused()
@@ -268,13 +410,27 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("tv-detail-hero").assertIsDisplayed()
         rule.onNodeWithTag("tv-detail-artwork").assertDoesNotExist()
         rule.onNodeWithText("4K", substring = true).assertIsDisplayed()
-        rule.onNodeWithText("8,5", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("8.5", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Detaljar").assertDoesNotExist()
         rule.onNodeWithContentDescription("Tilbake").assertDoesNotExist()
     }
+    @Test fun technicalMediaInfoIsHiddenByDefaultAndAppearsWhenEnabled() {
+        val repository = app.reelstack.data.repository.AppPreferencesRepository(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
+        rule.setContent { Tv(2f) {
+            app.reelstack.ui.components.PlaybackMetadata(ContentDetails("metadata", "Testserie", "Jellyfin", "",
+                artworkRes = R.drawable.media_placeholder, quality = listOf("4K", "EAC3 5.1")), listOf("2026", "47 min"))
+        } }
+        rule.onNodeWithText("4K", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("47m", substring = true).assertIsDisplayed()
+        rule.runOnIdle { repository.personalization = Personalization(showMediaInfo = true) }
+        rule.onNodeWithText("4K", substring = true).assertIsDisplayed()
+        rule.runOnIdle { repository.personalization = Personalization() }
+        rule.onNodeWithText("4K", substring = true).assertDoesNotExist()
+    }
     @Test fun televisionPlayerNeverDisplaysTouchBackButton() {
         rule.setContent { Tv { PlayerScreen(PlayerScreenState(busy = false, playing = false), null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) } }
-        rule.onNodeWithTag("player-toggle").assertIsDisplayed()
+        rule.onNodeWithTag("player-timeline").assertIsDisplayed()
         rule.onNodeWithTag("player-close").assertDoesNotExist()
     }
     @Test fun movieDetailsKeepHeadingVisibleWhenPlayReceivesInitialFocus() {
@@ -348,6 +504,8 @@ class TvRefinementUiTest {
     /** A remote had no first focus, so its first press found «Ferdig» under the list and stayed there. */
     @Test fun libraryEditorGivesARemoteItsFirstFocus() {
         rule.setContent { Tv {
+            val mode = LocalInputModeManager.current
+            SideEffect { mode.requestInputMode(InputMode.Keyboard) }
             LibraryEditorDialog(ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
                 libraryChoices = listOf(app.reelstack.data.network.RemoteLibraryView("films", "Filmar", "movies")),
                 selectedLibraryIds = setOf("films")), {}, {}, { _, _, _ -> })

@@ -15,6 +15,37 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34], application = app.reelstack.SheetTestApplication::class)
 class PersonalizationObserverTest {
+    @Test fun changingOnlyPlaybackInfoImmediatelyReachesObservers() {
+        val repository = AppPreferencesRepository(ApplicationProvider.getApplicationContext())
+        repository.personalization = Personalization()
+        var seen = repository.personalization
+        val stop = repository.observePersonalization { seen = it }
+        repository.personalization = repository.personalization.copy(showPlaybackModeInOsd = true)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(seen.showPlaybackModeInOsd)
+        repository.personalization = repository.personalization.copy(showPlaybackModeInOsd = false)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(seen.showPlaybackModeInOsd)
+        stop()
+    }
+
+    @Test fun playbackModeIsOffOnFreshInstallAndOnceOnUpgrade() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val file = context.getSharedPreferences("reelstack_preferences", android.content.Context.MODE_PRIVATE)
+        file.edit().remove("quiet_osd_default_applied").remove("show_playback_mode_in_osd").commit()
+        assertFalse(Personalization().showPlaybackModeInOsd)
+        assertFalse(AppPreferencesRepository(context).personalization.showPlaybackModeInOsd)
+
+        file.edit().remove("quiet_osd_default_applied").putBoolean("show_playback_mode_in_osd", true).commit()
+        file.edit().putString("preferred_library_source", "EMBY").commit()
+        val upgraded = AppPreferencesRepository(context)
+        assertFalse(upgraded.personalization.showPlaybackModeInOsd)
+        assertEquals(app.reelstack.data.model.ServiceKind.EMBY, upgraded.preferredLibrarySource)
+
+        upgraded.personalization = upgraded.personalization.copy(showPlaybackModeInOsd = true)
+        assertTrue(AppPreferencesRepository(context).personalization.showPlaybackModeInOsd)
+    }
+
     /**
      * The screen only hears about keys the observer lists. The two new choices were missing, so
      * switching one of them off in Settings changed the stored value and nothing on screen.

@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -130,10 +131,17 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
-    // The hero moves on by itself unless the reader has asked for a calmer app: a title that
-    // changes every eight seconds is motion as much as any transition is.
-    LaunchedEffect(identities, focused, rotationEnabled, motion, lifecycleOwner) {
-        if (titles.size > 1 && !focused && rotationEnabled && motion) {
+    val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val options = LocalPersonalization.current
+    val allowRotation = if (television) !options.lightweightTv else motion
+    var interaction by remember { mutableIntStateOf(0) }
+    // A TV remote leaves focus on a button even when idle. Pause on actual key input instead
+    // of freezing the carousel for as long as that focus remains. System animation scale
+    // and calm transitions control the crossfade; only lightweight TV mode stops rotation.
+    LaunchedEffect(identities, focused && !television, interaction, rotationEnabled, allowRotation, lifecycleOwner) {
+        if (titles.size > 1 && (!focused || television) && rotationEnabled && allowRotation) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
                     delay(8_000)
@@ -152,9 +160,6 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         widthDp = with(density) { windowInfo.containerSize.width.toDp().value },
         heightDp = with(density) { windowInfo.containerSize.height.toDp().value },
     ).useCompactFeature
-    val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
-        android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
-        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val featureIntoView = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     // The focused button already participates in scrolling. A second request for the entire
     // hero fought that request whenever focus returned from the sidebar.
@@ -164,26 +169,31 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     // The feature was the one artwork surface with a fixed height, so choosing Compact shrank every
     // rail under it and left the hero at full size.
     val heroScale = LocalPersonalization.current.artworkSize.scale
-    // Window and text scale determine the scene once. Media metadata never changes its height.
+    // Window and text scale reserve the scene before its artwork has loaded.
     val reservedText = with(density) {
         (if (compactTelevision) 28.sp else 36.sp).toDp() * 2 +
             20.sp.toDp() * (if (compactTelevision) 2 else 4) +
             (if (compactTelevision) 17.sp else 20.sp).toDp() * 2
     }
-    // Leave enough of the first shelf in view to show that the page continues below the hero.
-    // The old 76% scene pushed even the library names below a 1080p television's lower edge.
-    val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } * .64f
+    // Reserve room for the first shelf's heading, artwork and captions at normal text size.
+    // Large text can grow the scene instead of clipping its controls.
+    val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } * .52f
     val sceneHeight = maxOf(if (television) televisionHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
         reservedText + if (compactTelevision) 80.dp else 130.dp)
-    val featureSize = Modifier.height(sceneHeight)
-    val featureSpacing = if (compactTelevision) 4.dp else 10.dp
+    val featureSize = if (television) Modifier.heightIn(min = sceneHeight) else Modifier.height(sceneHeight)
+    val featureSpacing = if (television) 8.dp else if (compactTelevision) 4.dp else 10.dp
     val titleSize = if (compactTelevision) TV_TITLE_SIZE else TITLE_SIZE
     val titleLineHeight = if (compactTelevision) TV_TITLE_LINE_HEIGHT else TITLE_LINE_HEIGHT
     Box(modifier.fillMaxWidth().then(featureSize)
         .bringIntoViewRequester(featureIntoView)
         .onFocusChanged {
+            if (television && it.hasFocus && !focused) interaction++
             focused = it.hasFocus
             onFocusWithin(it.hasFocus)
+        }
+        .onPreviewKeyEvent {
+            if (television && it.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) interaction++
+            false
         }
         .focusGroup()
         .then(if (television) Modifier else Modifier.clip(RoundedCornerShape(24.dp)))
@@ -353,7 +363,6 @@ private fun HeroMetadataRow(title: LibraryMedia) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ServiceLogo(title.source, title.source.displayName, Modifier.size(18.dp))
         facts.forEachIndexed { index, fact ->
             if (index > 0) HeroMetadataDot()
             Text(fact, color = Color.White.copy(alpha = .68f), style = MaterialTheme.typography.labelMedium,

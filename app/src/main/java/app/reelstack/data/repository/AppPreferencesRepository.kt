@@ -10,6 +10,17 @@ import kotlinx.serialization.json.*
 class AppPreferencesRepository(context: Context) {
     private val preferences = context.getSharedPreferences("reelstack_preferences", Context.MODE_PRIVATE)
 
+    init {
+        // The old default was on. Turn it off once on upgrade as well as on a fresh install;
+        // subsequent explicit choices still survive repository recreation and app updates.
+        if (!preferences.getBoolean("quiet_osd_default_applied", false)) {
+            preferences.edit {
+                putBoolean("show_playback_mode_in_osd", false)
+                putBoolean("quiet_osd_default_applied", true)
+            }
+        }
+    }
+
     var preferredLibrarySource: app.reelstack.data.model.ServiceKind
         get() = app.reelstack.data.model.ServiceKind.entries.firstOrNull {
             it.name == preferences.getString("preferred_library_source", null) &&
@@ -52,7 +63,7 @@ class AppPreferencesRepository(context: Context) {
             nextEpisodeLeadSeconds = preferences.getInt("next_episode_lead", 15).coerceIn(0, 300),
             autoPlayNextEpisode = preferences.getBoolean("auto_play_next_episode", true),
             nextEpisodeDelaySeconds = preferences.getInt("next_episode_delay", 12).coerceIn(5, 60),
-            showPlaybackModeInOsd = preferences.getBoolean("show_playback_mode_in_osd", true),
+            showPlaybackModeInOsd = preferences.getBoolean("show_playback_mode_in_osd", false),
             lightweightTv = preferences.getBoolean("lightweight_tv", false),
             hideTvSidebar = preferences.getBoolean("hide_tv_sidebar", false),
             sidebarExpanded = if (preferences.contains("sidebar_expanded")) preferences.getBoolean("sidebar_expanded", true) else null,
@@ -75,6 +86,7 @@ class AppPreferencesRepository(context: Context) {
                 val pair = it.split('='); if (pair.size == 2) pair[0] to pair[1] else null
             }.toMap(),
             detailBackdrop = preferences.getBoolean("detail_backdrop", true),
+            showMediaInfo = preferences.getBoolean("show_media_info", false),
             slowStartup = preferences.getBoolean("slow_startup", false),
             visualTheme = app.reelstack.data.model.VisualTheme.decode(preferences.getString("visual_theme", null)),
             artworkCorners = app.reelstack.data.model.ArtworkCorners.decode(preferences.getString("artwork_corners", null)),
@@ -117,6 +129,7 @@ class AppPreferencesRepository(context: Context) {
             putBoolean("reduce_motion", value.reduceMotion)
             putString("home_row_formats", value.homeRowFormats.entries.joinToString(",") { "${it.key}=${it.value}" })
             putBoolean("detail_backdrop", value.detailBackdrop)
+            putBoolean("show_media_info", value.showMediaInfo)
             putBoolean("slow_startup", value.slowStartup)
             putString("visual_theme", value.visualTheme.name)
             putString("artwork_corners", value.artworkCorners.name)
@@ -141,7 +154,7 @@ class AppPreferencesRepository(context: Context) {
                     "show_next_up", "combine_continue", "show_hero", "slow_startup",
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",
                     "seasonal_ornament", "show_next_episode", "next_episode_lead", "auto_play_next_episode",
-                    "next_episode_delay", "lightweight_tv", "detail_backdrop",
+                    "next_episode_delay", "show_playback_mode_in_osd", "lightweight_tv", "detail_backdrop", "show_media_info",
                     "start_in_library", "reduce_motion", "home_row_formats", "library_title", "library_cards_wide", "library_hub_order", "library_hub_hidden", "library_order", "library_hidden", "subtitle_language", "subtitle_fallback")) onChange(personalization)
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
