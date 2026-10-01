@@ -63,9 +63,16 @@ Nettbrett får ikkje den nye sentrerte telefonhelten.
 
 Den første instrumenteringsstarten på den delte 5562-profilen vart avbroten då
 anna arbeid var aktivt. Skjermstorleik og tettleik vart sette tilbake. Ingen
-instrumenteringssuite vart fullført i denne gjennomgangen, og dei lagra
+instrumenteringssuite vart fullført i den første mobilgjennomgangen, og dei lagra
 produksjonskontoane vart ikkje brukte eller endra. Fysisk iPhone er ikkje testa.
-Endringane er ikkje publiserte i ein ny APK-release enno.
+Endringane er publiserte i
+[Spole 0.18.0-beta12](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta12),
+kode 132. Oppdateringa frå beta11 gjennom appen og den nye detaljvisinga med
+normal lukking er kontrollerte på mobilprofilen. Denne profilen har lagra demo,
+så den faste avspelingsknappen er verifisert gjennom dei syntetiske UI-testane.
+Release-gjennomgangen stadfesta 15/16 utvalde Android-testar på den isolerte
+TV-profilen; ein tastaturtest har den same tidsfristfeilen som i beta11.
+Sjå [full release-verifisering](VERIFICATION_v0.18.0-beta12.md).
 
 Designreferansen er Infuse-biletet som brukaren la ved 1. oktober: kunst bak
 identiteten, kompakte metadata og samla handlingar. Spole bevarer sin eigen aksent,
