@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.0-beta12 - betre detaljvising på mobil
+
+- Kunst heilt ut til kantane på telefon, med tittel eller serielogo og sentrerte episodeopplysningar og vurderingar.
+- «Spel av» / «Hald fram» ligg fast over gestfeltet medan omtale, sporval og episodar kan rullast.
+- Den generiske «Detaljar»-overskrifta er fjerna. Lukkeknappen ligg fast over kunsten.
+- Detaljarket får meir plass på telefon og held høgda stabil medan metadata lastar.
+- Knappetekst og TMDB-merke får plass også med skriftstorleik 2.0.
+
 ## 0.18.0-beta11 - rolegare TV-framside og betre avspelingskontroll
 
 - TV-spelaren viser klokka øvst til høgre og tid att under tidslinja.

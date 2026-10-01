@@ -25,7 +25,8 @@ import java.util.Locale
 /** Only display metadata the server supplied; absent quality is not an invented "Auto" badge. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, source: ServiceKind? = null) {
+internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, source: ServiceKind? = null,
+    centered: Boolean = false) {
     val preferences = LocalPersonalization.current
     // CommunityRating is already mapped to tmdbRating when the server exposes it. Keeping the
     // old star fact here made the same score appear once unnamed and once as TMDB.
@@ -36,7 +37,7 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, sour
     val descriptiveLine = descriptiveFacts.distinct().map(::formatMetadataFact)
     if (ageRating != null || descriptiveLine.isNotEmpty() || source != null) FlowRow(
         Modifier.fillMaxWidth().testTag("playback-metadata"),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ageRating?.let { rating ->
@@ -51,6 +52,7 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, sour
             descriptiveLine.joinToString("  ·  "),
             color = Muted,
             style = MaterialTheme.typography.bodyMedium,
+            textAlign = if (centered) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
         )
         source?.let {
             Text(it.displayName, color = Muted,
@@ -64,6 +66,7 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, sour
         quality.distinct().joinToString("  ·  "),
         color = Muted.copy(alpha = .78f),
         style = MaterialTheme.typography.bodySmall,
+        textAlign = if (centered) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
         maxLines = 2,
         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp).testTag("technical-metadata"),
@@ -73,7 +76,7 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, sour
     val mdblist = details.mdblistRating
     if (score != null || critic != null || mdblist != null) FlowRow(
         Modifier.fillMaxWidth().padding(top = 6.dp).testTag("metadata-ratings"),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         critic?.let {

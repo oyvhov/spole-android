@@ -24,6 +24,7 @@ internal fun SheetToolbar(
     enabled: Boolean = true,
     onBack: (() -> Unit)? = null,
     page: Boolean = false,
+    compact: Boolean = false,
 ) {
     val closeFocus = remember { FocusRequester() }
     val closeInteraction = remember { MutableInteractionSource() }
@@ -35,7 +36,8 @@ internal fun SheetToolbar(
         if (enabled && keyboardEntry) closeFocus.requestFocus()
     }
     Row(
-        Modifier.fillMaxWidth().testTag("sheet-toolbar").padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().testTag("sheet-toolbar").padding(start = 20.dp, end = 12.dp,
+            top = if (compact) 0.dp else 8.dp, bottom = if (compact) 0.dp else 8.dp),
         verticalAlignment = Alignment.Top,
     ) {
         if (page) {
@@ -56,7 +58,7 @@ internal fun SheetToolbar(
                     Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, null, Modifier.size(20.dp))
                     Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), Modifier.padding(start = 8.dp))
                 }
-            } else {
+            } else if (title.isNotBlank()) {
                 Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(end = 12.dp))
             }
         }

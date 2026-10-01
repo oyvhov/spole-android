@@ -17,7 +17,8 @@ import androidx.compose.ui.unit.dp
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
     artwork: @Composable () -> Unit, series: Boolean = false,
-    heading: @Composable () -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
+    heading: @Composable () -> Unit = {}, cinematic: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit) {
     if (tv) {
         if (series) {
             CompositionLocalProvider(LocalBringIntoViewSpec provides DetailBringIntoView) {
@@ -50,7 +51,8 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
         }
     } else {
         Column(Modifier.fillMaxSize().testTag("detail-scroll").verticalScroll(scroll)
-            .padding(start = 24.dp, end = 24.dp, bottom = 40.dp), content = content)
+            .padding(start = if (cinematic) 0.dp else 24.dp, end = if (cinematic) 0.dp else 24.dp,
+                bottom = 40.dp), content = content)
     }
 }
 

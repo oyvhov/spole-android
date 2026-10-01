@@ -64,6 +64,7 @@ internal fun DetailAside(
     tv: Boolean,
     synopsis: (@Composable () -> Unit)? = null,
     cast: (@Composable () -> Unit)? = null,
+    centered: Boolean = false,
 ) {
     // The kind word leads a fact list and the heading above already says it. It used to be
     // removed by matching a set of Norwegian and English words, which left it in place in any
@@ -79,18 +80,20 @@ internal fun DetailAside(
     Column(
         Modifier.fillMaxWidth().padding(top = if (tv) 16.dp else 18.dp).testTag("detail-aside"),
         verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
     ) {
         // Whether you already have it is the first thing worth knowing about a title you
         // reached from Seerr, and it used to be a muted line at the very bottom of the page —
         // suppressed, in fact, exactly when it was true. It is a mark beside the facts now.
         if (inLibrary) InLibraryBadge()
-        app.reelstack.ui.components.PlaybackMetadata(details, remaining, details.source)
+        app.reelstack.ui.components.PlaybackMetadata(details, remaining, details.source, centered)
         if (details.genres.isNotEmpty()) Text(
             details.genres.take(4).map { genre ->
                 standardGenreResource(genre)?.let { stringResource(it) } ?: genre
             }.joinToString(" · "),
             color = Muted,
             style = MaterialTheme.typography.labelLarge,
+            textAlign = if (centered) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )

@@ -1,5 +1,13 @@
 # Spole layout
 
+Mobilpresisering (1. oktober 2026): telefonens titteldetaljar bruker eit fast
+96 %-ark med kunst heilt ut til kantane, tittel/serielogo på ein mørk overgang og
+sentrerte metadata. Lukkeknappen ligg fast over kunsten, utan generisk overskrift.
+Avspeling ligg i eit eige fast botnfelt over systeminnfellinga; lesekolonnen held
+av plassen og kan rullast uavhengig. Andre popupoverskrifter, nettbrett og
+TV-detaljar held på oppsettet sitt.
+Sjå [detaljvising på mobil](MOBILE_DETAILS_2026-10-01.md).
+
 Current override (alpha13): every width threshold lives in `WindowLayoutPolicy` —
 `useSideBySideMedia` 600, `useNavigationRail` 640, `useInlineHeader` 680, `useCenteredDialog` 840,
 `useTabletCanvas` 900, `expandSidebarByDefault` 1000 dp. A screen never writes its own dp

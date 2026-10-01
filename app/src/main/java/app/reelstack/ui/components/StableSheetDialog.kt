@@ -87,6 +87,7 @@ internal fun StableSheetDialog(
     dismissEnabled: Boolean,
     onDismiss: () -> Unit,
     fullScreen: Boolean = false,
+    expanded: Boolean = false,
     onCloseStarted: () -> Unit = {},
     /**
      * Handles a logical back step inside a sheet, for example series → the episode it came from.
@@ -198,7 +199,9 @@ internal fun StableSheetDialog(
             BoxWithConstraints(Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .imePadding()) {
-                val sheetHeight = if (fullScreen) maxHeight else policy.dialogHeightDp(maxHeight.value).dp
+                val sheetHeight = if (fullScreen) maxHeight
+                    else if (expanded && !policy.useSideBySideMedia) maxHeight * .96f
+                    else policy.dialogHeightDp(maxHeight.value).dp
                 Surface(
                     modifier = Modifier.align(if (policy.useCenteredDialog) Alignment.Center else Alignment.BottomCenter)
                         .then(if (fullScreen) Modifier else Modifier.widthIn(max = policy.dialogWidthDp.dp))

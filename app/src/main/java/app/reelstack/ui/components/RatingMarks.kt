@@ -3,7 +3,9 @@ package app.reelstack.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,10 +53,12 @@ internal fun TmdbRating(score: Float, modifier: Modifier = Modifier) {
 @Composable
 internal fun TmdbMark(modifier: Modifier = Modifier) {
     androidx.compose.foundation.layout.Box(
-        modifier.size(width = 42.dp, height = 20.dp)
-            .clip(RoundedCornerShape(3.dp)).background(Color(0xFF01B4E4)),
+        modifier.sizeIn(minWidth = 42.dp, minHeight = 20.dp)
+            .clip(RoundedCornerShape(3.dp)).background(Color(0xFF01B4E4))
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text("TMDB", color = Color.White, style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
+        Text("TMDB", color = Color.White, maxLines = 1,
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
     }
 }
