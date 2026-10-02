@@ -782,7 +782,7 @@ private fun TitleActionRow(
     }
     Column(modifier.fillMaxWidth()) {
         androidx.compose.foundation.layout.FlowRow(
-            Modifier.fillMaxWidth().padding(top = 20.dp),
+            Modifier.fillMaxWidth().padding(top = if (television) 16.dp else 20.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

@@ -43,7 +43,10 @@ internal fun TvCinematicDetails(
     val options = LocalPersonalization.current
     val largeText = LocalDensity.current.fontScale >= 1.5f
     BoxWithConstraints(Modifier.fillMaxSize().background(Ink).testTag("tv-cinematic-detail")) {
-        val heroHeight = maxHeight * .76f
+        // Keep the episode rail near the actions, with breathing room for the title and logo.
+        // The heading grows naturally for expanded synopsis or large type.
+        val episodic = details.mediaType == "Series" || details.mediaType == "Episode"
+        val heroHeight = maxHeight * if (episodic) .52f else .76f
         if (options.detailBackdrop) {
             Box(Modifier.fillMaxWidth().height(maxHeight)) {
                 MediaArtwork(details.backdropUrl ?: details.artworkUrl, null, Modifier.matchParentSize(),
@@ -61,7 +64,8 @@ internal fun TvCinematicDetails(
             Column(Modifier.fillMaxSize().verticalScroll(scroll).testTag("detail-scroll")) {
                 Box(Modifier.fillMaxWidth().heightIn(min = heroHeight).testTag("tv-detail-hero")) {
                     Column(Modifier.fillMaxWidth(if (largeText) .92f else .62f)
-                        .padding(start = 40.dp, top = 24.dp, end = 20.dp, bottom = 20.dp)) { heading() }
+                        .padding(start = 40.dp, top = 24.dp, end = 20.dp,
+                            bottom = if (episodic) 16.dp else 20.dp)) { heading() }
                 }
                 Column(Modifier.fillMaxWidth().padding(start = 40.dp, end = 32.dp, bottom = 40.dp), content = content)
             }
@@ -73,7 +77,9 @@ internal fun TvCinematicDetails(
 internal fun DetailLogo(details: ContentDetails, title: String) {
     var failed by remember(details.key, details.logoUrl) { mutableStateOf(false) }
     if (!details.logoUrl.isNullOrBlank() && !failed) {
-        MediaArtwork(details.logoUrl, title, Modifier.width(280.dp).height(72.dp).testTag("detail-title"),
+        val height = if (details.mediaType == "Series" || details.mediaType == "Episode") 64.dp else 72.dp
+        MediaArtwork(details.logoUrl, title, Modifier.padding(bottom = 16.dp)
+            .width(280.dp).height(height).testTag("detail-title"),
             contentScale = ContentScale.Fit, source = details.source, onError = { failed = true },
             alignment = Alignment.CenterStart, trimTransparent = true)
     } else {

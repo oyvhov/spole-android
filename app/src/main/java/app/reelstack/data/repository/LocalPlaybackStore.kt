@@ -4,6 +4,7 @@ import android.content.Context
 import app.reelstack.R
 import app.reelstack.data.model.*
 import app.reelstack.player.PlayableItem
+import app.reelstack.player.playbackNearEnd
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.*
@@ -17,20 +18,35 @@ class LocalPlaybackStore(context: Context) {
     val changes = revision.asStateFlow()
     private fun key(c: ServiceConnection) = MediaSnapshotStore.fingerprint(listOf(c))
 
-    @Synchronized fun record(c: ServiceConnection, item: PlayableItem, position: Long, duration: Long, completed: Boolean) {
-        if (c.token.isBlank() || item.id.isBlank() || duration <= 0) return
-        if (!completed && position < minimumResumePositionMs) return
+    @Synchronized fun record(c: ServiceConnection, item: PlayableItem, position: Long, duration: Long, completed: Boolean): String? {
+        if (c.token.isBlank() || item.id.isBlank() || duration <= 0) return null
+        if (!completed && position < minimumResumePositionMs) return null
         val now = System.currentTimeMillis()
+        val journalId = java.util.UUID.randomUUID().toString()
         val entry = buildJsonObject {
             put("id", item.id); put("title", item.title); put("subtitle", item.subtitle); put("type", item.type)
             put("art", item.artworkUrl); put("logo", item.logoUrl); put("series", item.seriesId)
             put("season", item.season); put("episode", item.episode)
             put("position", position.coerceIn(0, duration)); put("duration", duration)
             put("updated", now); put("completed", completed)
+            put("journalId", journalId)
         }
         val rows = (listOf(entry) + entries(c).filter { it.text("id") != item.id }).take(20)
         // apply updates the in-process value immediately and serialises disk writes in order.
         prefs.edit().putString(key(c), JsonArray(rows).toString()).apply()
+        revision.value++
+        return journalId
+    }
+
+    /** Only acknowledge this exact record: a delayed report must not overwrite a newer seek or rewatch. */
+    @Synchronized fun confirm(c: ServiceConnection, itemId: String, journalId: String, positionMs: Long, played: Boolean) {
+        val rows = entries(c)
+        val row = rows.firstOrNull { it.text("id") == itemId && it.text("journalId") == journalId } ?: return
+        val confirmed = JsonObject(row + mapOf(
+            "position" to JsonPrimitive(if (played) 0L else positionMs.coerceAtLeast(0)),
+            "completed" to JsonPrimitive(played), "serverConfirmed" to JsonPrimitive(true),
+        ))
+        prefs.edit().putString(key(c), JsonArray(rows.map { if (it === row) confirmed else it }).toString()).apply()
         revision.value++
     }
 
@@ -54,7 +70,7 @@ class LocalPlaybackStore(context: Context) {
             val existing = result.firstOrNull { it.source == c.kind && it.id == id }
             if ((existing?.lastActivityEpochMillis ?: 0) > row.number("updated")) continue
             result.removeAll { it.source == c.kind && it.id == id }
-            if (row.done()) continue
+            if (row.done() || row.number("position") <= 0) continue
             val media = existing ?: LibraryMedia(id, row.text("title").orEmpty(), row.text("subtitle").orEmpty(),
                 artworkRes = R.drawable.media_placeholder, source = c.kind, remoteId = row.text("id"),
                 artworkUrl = row.text("art"), logoUrl = row.text("logo"), mediaType = row.text("type").orEmpty(),
@@ -70,7 +86,8 @@ class LocalPlaybackStore(context: Context) {
         val recent = entries(c).associateBy { "${c.kind.name.lowercase(java.util.Locale.ROOT)}-${it.text("id")}" }
         return server.filter { item ->
             val row = recent[item.id]
-            item.source != c.kind || row == null || (item.lastActivityEpochMillis ?: 0) > row.number("updated")
+            item.source != c.kind || row == null || (item.lastActivityEpochMillis ?: 0) > row.number("updated") ||
+                row.text("serverConfirmed") == "true" && row.number("position") == 0L && !row.done()
         }
     }
 
@@ -81,5 +98,7 @@ class LocalPlaybackStore(context: Context) {
     }
     private fun JsonObject.text(key: String) = (this[key] as? JsonPrimitive)?.contentOrNull
     private fun JsonObject.number(key: String) = text(key)?.toLongOrNull() ?: 0L
-    private fun JsonObject.done() = text("completed") == "true"
+    // Also normalise old journals, so an upgrade removes previously stuck end-of-episode entries.
+    private fun JsonObject.done() = text("completed") == "true" ||
+        text("serverConfirmed") != "true" && playbackNearEnd(number("position"), number("duration"))
 }

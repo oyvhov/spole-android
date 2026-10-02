@@ -249,13 +249,20 @@ fun HomeScreen(
                 }
             }
         }
-        val features = if (tablet && personalization.showHero) tabletFeaturedTitles(featurePool, layout,
+        val features = if (personalization.showHero) tabletFeaturedTitles(featurePool, layout,
             allowLocalArtwork = state.configuredCount == 0) else emptyList()
         val featured = features.firstOrNull()
         val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
         val feedScope = rememberCoroutineScope()
+        val parallaxOffset by remember {
+            androidx.compose.runtime.derivedStateOf {
+                if (feedState.firstVisibleItemIndex == 0) {
+                    feedState.firstVisibleItemScrollOffset * 0.42f
+                } else 0f
+            }
+        }
         val featureVisible by remember { androidx.compose.runtime.derivedStateOf {
-            feedState.layoutInfo.visibleItemsInfo.any { it.key == "tablet-feature" }
+            feedState.layoutInfo.visibleItemsInfo.any { it.key == "tablet-feature" || it.key == "mobile-feature" }
         } }
         androidx.compose.runtime.CompositionLocalProvider(
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
@@ -265,7 +272,7 @@ fun HomeScreen(
             state = feedState,
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
-                top = if (television && featured != null) 0.dp else ReelLayout.PageTop,
+                top = if (television && featured != null) 0.dp else if (!tablet && featured != null) 0.dp else ReelLayout.PageTop,
                 end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
@@ -276,30 +283,54 @@ fun HomeScreen(
                     HomeHeader(state, onAccountClick, showBrand, onSearchClick.takeIf { showSearchIcon })
                 }
             }
+            if (featured != null) {
+                if (tablet) {
+                    item(key = "tablet-feature") {
+                        TabletLibraryFeature(featured, onLibraryClick,
+                            Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp)
+                                .then(if (television) Modifier.cinematicBleed(ReelLayout.Gutter) else Modifier),
+                            account = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (showSearchIcon) app.reelstack.ui.components.HomeSearchButton(onSearchClick, onArtwork = true)
+                                    HomeAccountButton(state, onAccountClick, onArtwork = true)
+                                }
+                            },
+                            candidates = features,
+                            rotationEnabled = featureVisible && state.activeSheet == null,
+                            onFocusWithin = { focused -> if (television && focused) feedScope.launch {
+                                // Let the focus target finish its own bring-into-view request first.
+                                androidx.compose.runtime.withFrameNanos { }
+                                feedState.scrollToItem(0)
+                            } },
+                        )
+                    }
+                } else {
+                    item(key = "mobile-feature") {
+                        app.reelstack.ui.components.MobileLibraryFeature(
+                            media = featured,
+                            onOpen = onLibraryClick,
+                            modifier = Modifier
+                                .padding(bottom = 6.dp)
+                                .cinematicBleed(ReelLayout.Gutter),
+                            header = {
+                                HomeHeader(
+                                    state = state,
+                                    onAccountClick = onAccountClick,
+                                    showBrand = showBrand,
+                                    onSearchClick = onSearchClick.takeIf { showSearchIcon },
+                                    onArtwork = true,
+                                )
+                            },
+                            candidates = features,
+                            rotationEnabled = featureVisible && state.activeSheet == null,
+                            parallaxOffset = parallaxOffset,
+                        )
+                    }
+                }
+            }
             if (showSearch) item(key = "search-entry") {
                 Box(Modifier.padding(top = 8.dp, end = mediaEndInset())) {
                     HomeSearchEntry(onSearchClick, searchTransitionModifier)
-                }
-            }
-            if (featured != null) {
-                item(key = "tablet-feature") {
-                    TabletLibraryFeature(featured, onLibraryClick,
-                        Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp)
-                            .then(if (television) Modifier.cinematicBleed(ReelLayout.Gutter) else Modifier),
-                        account = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (showSearchIcon) app.reelstack.ui.components.HomeSearchButton(onSearchClick, onArtwork = true)
-                                HomeAccountButton(state, onAccountClick, onArtwork = true)
-                            }
-                        },
-                        candidates = features,
-                        rotationEnabled = featureVisible && state.activeSheet == null,
-                        onFocusWithin = { focused -> if (television && focused) feedScope.launch {
-                            // Let the focus target finish its own bring-into-view request first.
-                            androidx.compose.runtime.withFrameNanos { }
-                            feedState.scrollToItem(0)
-                        } },
-                    )
                 }
             }
             layout.order.filter(layout::isVisible).forEach { row ->
@@ -488,7 +519,7 @@ private fun HomeFreshness(state: HomeUiState, onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand: Boolean, onSearchClick: (() -> Unit)? = null) {
+private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand: Boolean, onSearchClick: (() -> Unit)? = null, onArtwork: Boolean = false) {
     var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
@@ -509,10 +540,10 @@ private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand
                 Text(app.reelstack.ui.theme.LocalPersonalization.current.appLabel, color = TextColor, fontSize = 24.sp, lineHeight = 29.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.7).sp, modifier = Modifier.padding(start = 8.dp))
             } else Spacer(Modifier.weight(1f))
-        if (onSearchClick != null) app.reelstack.ui.components.HomeSearchButton(onSearchClick)
-        HomeAccountButton(state, onAccountClick)
+        if (onSearchClick != null) app.reelstack.ui.components.HomeSearchButton(onSearchClick, onArtwork = onArtwork)
+        HomeAccountButton(state, onAccountClick, onArtwork = onArtwork)
     }
-    if (showBrand) app.reelstack.ui.components.SeasonalThemeBanner(Modifier.padding(top = 16.dp))
+    if (showBrand && !onArtwork) app.reelstack.ui.components.SeasonalThemeBanner(Modifier.padding(top = 16.dp))
     }
 }
 

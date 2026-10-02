@@ -168,8 +168,32 @@ class TvPlaybackControlsTest {
                 positionMs = 30_000, durationMs = 120_000), null,
                 {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } } }
-        listOf("player-timeline", "player-audio", "player-subtitles", "player-quality", "player-frame-mode")
+        listOf("player-timeline", "player-audio", "player-subtitles", "player-quality")
             .forEach { rule.onNodeWithTag(it).assertIsDisplayed() }
+        rule.onNodeWithTag("player-frame-mode").assertDoesNotExist()
+    }
+
+    @Test fun seekMessageKeepsItsValueThroughFadeAndShowsActualBoundaryMovement() = checkSeekMessage(1f)
+    @Test fun seekMessageFitsAtDoubleTextSize() = checkSeekMessage(2f)
+    private fun checkSeekMessage(fontScale: Float) {
+        rule.mainClock.autoAdvance = false
+        rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current
+          DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) { ReelstackTheme {
+            PlayerScreen(PlayerScreenState(busy = false, positionMs = 5_000, durationMs = 60_000), null,
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+        } } }
+        rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        rule.onNodeWithTag("player-timeline")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+        rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.DirectionLeft) }
+        rule.mainClock.advanceTimeBy(200)
+        rule.onNodeWithTag("player-seek-delta").assertTextEquals("−5 s").assertIsDisplayed()
+        saveTvReview("seek-$fontScale", rule.onRoot().captureToImage())
+        rule.mainClock.advanceTimeBy(1_100)
+        rule.onNodeWithTag("player-seek-delta").assertTextEquals("−5 s")
+        rule.mainClock.advanceTimeBy(400)
+        rule.onNodeWithTag("player-seek-delta").assertDoesNotExist()
+        rule.mainClock.autoAdvance = true
     }
 
     @Test fun bufferingDuringRemoteSeekKeepsControlsHiddenAndAcceptsAnotherSeek() {

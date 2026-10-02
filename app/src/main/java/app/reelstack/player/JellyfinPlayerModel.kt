@@ -200,7 +200,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private val readyTextIndices = mutableSetOf<Int>()
     private val reporter = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val reports = Channel<Report>(Channel.UNLIMITED)
-    private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long, val paused: Boolean)
+    private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long,
+        val paused: Boolean, val journalId: String?)
 
     val player: ExoPlayer = ExoPlayer.Builder(container.appContext,
         PlaybackRenderersFactory(container.appContext, localAudioFallback))
@@ -419,6 +420,12 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         reporter.launch {
             for (event in reports) {
                 val failed = runCatching { client.report(event.connection, event.plan, event.event, event.position, event.paused) }.isFailure
+                if (!failed && event.journalId != null && (event.event == "/Stopped" ||
+                        playbackNearEnd(event.position, event.plan.item.durationMs))) {
+                    runCatching { client.resumeState(event.connection, event.plan.item.id) }.getOrNull()?.let { (position, played) ->
+                        container.localPlaybackStore.confirm(event.connection, event.plan.item.id, event.journalId, position, played)
+                    }
+                }
                 // The session exists on the server from the first report onwards, and it is the
                 // only place that says whether the picture is being copied or re-encoded. Until
                 // it answers, the plan's reading of the transcoding URL stands.
@@ -882,9 +889,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             if (stopped) return
             stopped = true
         } else if (!started) return
-        if (started) container.localPlaybackStore.record(c, current.item, player.currentPosition.coerceAtLeast(0),
-            player.duration.takeIf { it > 0 } ?: current.item.durationMs, player.playbackState == Player.STATE_ENDED)
-        reports.trySend(Report(c, current, event, player.currentPosition.coerceAtLeast(0), !player.isPlaying))
+        val journalId = if (started) container.localPlaybackStore.record(c, current.item, player.currentPosition.coerceAtLeast(0),
+            player.duration.takeIf { it > 0 } ?: current.item.durationMs, player.playbackState == Player.STATE_ENDED) else null
+        reports.trySend(Report(c, current, event, player.currentPosition.coerceAtLeast(0), !player.isPlaying, journalId))
     }
     private fun stopCurrent() {
         recoveryJob?.cancel(); recoveryJob = null

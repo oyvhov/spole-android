@@ -18,6 +18,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -86,29 +90,74 @@ internal fun AppUpdateHost(showBanner: Boolean) {
     LaunchedEffect(lifecycle) {
         lifecycle.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) { model.check(); kotlinx.coroutines.awaitCancellation() }
     }
-    if (state.banner && showBanner && !state.open) Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), contentAlignment = Alignment.TopEnd) {
+    if (state.banner && showBanner && !state.open) AppUpdateBanner(state.release?.tag.orEmpty(), model::open, model::later)
+    if (state.open) AppUpdateDialog(state, model::close, model::cancel, model::install, model::download, { model.check(true) })
+}
+
+/** TV notifications own a window so the remote cannot leave focus on the page behind them. */
+@Composable
+internal fun AppUpdateBanner(tag: String, onOpen: () -> Unit, onLater: () -> Unit) {
+    val tv = app.reelstack.ui.components.isTelevision()
+    val stacked = LocalDensity.current.fontScale >= 1.5f
+    val body: @Composable () -> Unit = {
+        val openFocus = remember { FocusRequester() }
+        val laterFocus = remember { FocusRequester() }
+        val interaction = remember { MutableInteractionSource() }
+        val input = LocalInputModeManager.current
+        LaunchedEffect(tv) {
+            if (tv) {
+                input.requestInputMode(InputMode.Keyboard)
+                withFrameNanos { }
+                openFocus.requestFocus()
+            }
+        }
         Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 4.dp, modifier = Modifier.widthIn(max = 460.dp).testTag("update-banner")) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.update_available, state.release?.tag.orEmpty()), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.update_available, tag), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.update_banner_hint), style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = model::open) { Text(stringResource(R.string.update_view)) }
-                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = model::later) { Text(stringResource(R.string.update_later)) }
+                val buttons: @Composable () -> Unit = {
+                    val width = if (stacked) Modifier.fillMaxWidth() else Modifier
+                    Button(onClick = onOpen, interactionSource = interaction,
+                        modifier = width.focusRequester(openFocus).focusProperties {
+                            if (tv) { right = laterFocus; down = laterFocus }
+                        }.focusOutline(interaction, ButtonDefaults.shape).testTag("update-view")) {
+                        Text(stringResource(R.string.update_view))
+                    }
+                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = onLater,
+                        modifier = width.focusRequester(laterFocus).focusProperties {
+                            if (tv) { left = openFocus; up = openFocus }
+                        }.testTag("update-later")) { Text(stringResource(R.string.update_later)) }
                 }
+                if (stacked) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { buttons() }
+                else Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { buttons() }
             }
         }
     }
-    if (state.open) Dialog(onDismissRequest = model::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    if (tv) Dialog(onDismissRequest = onLater, properties = DialogProperties(usePlatformDefaultWidth = false)) { body() }
+    else Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), contentAlignment = Alignment.TopEnd) { body() }
+}
+
+@Composable
+internal fun AppUpdateDialog(state: UpdateState, onClose: () -> Unit, onCancel: () -> Unit,
+    onInstall: () -> Unit, onDownload: () -> Unit, onCheck: () -> Unit) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val focus = remember { FocusRequester() }
+        val closeFocus = remember { FocusRequester() }
         val interaction = remember { MutableInteractionSource() }
+        val checkInteraction = remember { MutableInteractionSource() }
+        val input = LocalInputModeManager.current
         val configuration = androidx.compose.ui.platform.LocalConfiguration.current
         val tv = configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
         // A phone is not a small television. Two labelled buttons side by side, a 28 dp gutter and
         // a close button sharing the title's line all fit at 720 dp and none of them fit at 360.
         val compact = configuration.screenWidthDp < 600
         LaunchedEffect(tv, state.release, state.ready, state.downloading, state.checking) {
-            if (tv && !state.checking) { withFrameNanos { }; focus.requestFocus() }
+            if (tv) {
+                input.requestInputMode(InputMode.Keyboard)
+                withFrameNanos { }
+                if (state.checking) closeFocus.requestFocus() else focus.requestFocus()
+            }
         }
         val actionModifier = Modifier.focusRequester(focus).focusOutline(interaction, CircleShape)
         Surface(
@@ -148,7 +197,7 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                         )
                     }
                     if (compact) {
-                        IconButton(onClick = model::close, modifier = Modifier.size(44.dp)) {
+                        IconButton(onClick = onClose, modifier = Modifier.size(44.dp).focusRequester(closeFocus).testTag("update-close")) {
                             Icon(
                                 app.reelstack.ui.components.SpoleIcons.Close,
                                 contentDescription = stringResource(R.string.update_close),
@@ -156,7 +205,8 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                             )
                         }
                     } else {
-                        app.reelstack.ui.components.SpoleSecondaryButton(onClick = model::close) {
+                        app.reelstack.ui.components.SpoleSecondaryButton(onClick = onClose,
+                            modifier = Modifier.focusRequester(closeFocus).testTag("update-close")) {
                             Text(stringResource(R.string.update_close))
                         }
                     }
@@ -254,14 +304,14 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                     val buttonWidth = if (compact) Modifier.fillMaxWidth() else Modifier
                     when {
                         state.downloading -> OutlinedButton(
-                            onClick = model::cancel,
+                            onClick = onCancel,
                             interactionSource = interaction,
-                            modifier = actionModifier.then(buttonWidth),
+                            modifier = actionModifier.then(buttonWidth).testTag("update-cancel"),
                         ) {
                             Text(stringResource(R.string.update_cancel))
                         }
                         state.ready -> Button(
-                            onClick = model::install,
+                            onClick = onInstall,
                             interactionSource = interaction,
                             modifier = actionModifier.then(buttonWidth).testTag("update-install"),
                         ) {
@@ -273,7 +323,7 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                             Text(stringResource(R.string.update_install))
                         }
                         state.release != null -> Button(
-                            onClick = model::download,
+                            onClick = onDownload,
                             interactionSource = interaction,
                             enabled = !state.checking,
                             modifier = actionModifier.then(buttonWidth).testTag("update-download"),
@@ -287,9 +337,10 @@ internal fun AppUpdateHost(showBanner: Boolean) {
                         }
                     }
                     OutlinedButton(
-                        onClick = { model.check(true) },
-                        interactionSource = if (state.release == null) interaction else null,
-                        modifier = (if (state.release == null) actionModifier else Modifier).then(buttonWidth),
+                        onClick = onCheck,
+                        interactionSource = if (state.release == null) interaction else checkInteraction,
+                        modifier = (if (state.release == null) actionModifier else
+                            Modifier.focusOutline(checkInteraction, CircleShape)).then(buttonWidth).testTag("update-check"),
                         enabled = !state.checking && !state.downloading,
                     ) {
                         Icon(

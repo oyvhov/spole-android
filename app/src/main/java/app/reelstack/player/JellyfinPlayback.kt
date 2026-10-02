@@ -275,6 +275,15 @@ class MediaPlaybackClient(
     fun item(c: ServiceConnection, user: String, id: String) =
         parsePlayable(read(c, "Users/${enc(user)}/Items/${enc(id)}?Fields=Chapters"), c.baseUrl)
 
+    /** Read this profile's canonical state after reporting; no administrator configuration is needed. */
+    fun resumeState(c: ServiceConnection, id: String): Pair<Long, Boolean>? {
+        val user = c.userId.takeIf(String::isNotBlank) ?: verify(c, announce = false)
+        val data = read(c, "Users/${enc(user)}/Items/${enc(id)}").obj("UserData")
+        val played = (data["Played"] as? JsonPrimitive)?.booleanOrNull ?: return null
+        val ticks = (data["PlaybackPositionTicks"] as? JsonPrimitive)?.longOrNull ?: return null
+        return ticks.coerceAtLeast(0) / 10_000 to played
+    }
+
     /**
      * The marked stretches of this item, if anything has marked them.
      *

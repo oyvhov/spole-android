@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.0-beta14 - TV-fokus, rolegare spoling og betre serieside
+
+- Oppdateringsvarselet på TV får startfokus og tydeleg fjernkontrollnavigasjon. Fokus følgjer nedlasting, avbryt og installer.
+- TV-Hero har mjukare biletovergang og stabile handlingsknappar; mobilframsida får ein eigen Hero.
+- Spoling viser éi nøytral tidsmelding utan doble tal eller blinkande null. «Fyll skjermen» er fjerna frå TV-OSD.
+- Sesongane ligg nærare handlingane, med meir luft under logoen og mellom opplysningane.
+- Nesten ferdige episodar blir ikkje lagde tilbake i «Hald fram» av lokale data. Jellyfin-statusen får siste ord.
+
 ## 0.18.0-beta13 - mjukare Hero og raskare profilbyte
 
 - TV-Hero tonar det nye biletet inn over det førre, med førehandslasta bilete og kortare tekstovergang.

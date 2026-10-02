@@ -284,6 +284,27 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("tablet-feature-open").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun televisionHeroActionsStayStillWhileFilmAndEpisodeCaptionsFade() {
+        rule.mainClock.autoAdvance = false
+        val film = LibraryMedia("steady-film", "Ein film", "", artworkRes = R.drawable.media_placeholder,
+            source = ServiceKind.JELLYFIN, remoteId = "film", mediaType = "Movie", facts = listOf("Film", "2026"))
+        val episode = film.copy(id = "steady-episode", title = "Ein serie", subtitle = "Ei lengre episodetekst",
+            remoteId = "episode", mediaType = "Episode", season = 2, episode = 3)
+        rule.setContent { Tv {
+            CompositionLocalProvider(app.reelstack.ui.theme.LocalMotionEnabled provides true) {
+                Column { app.reelstack.ui.components.TabletLibraryFeature(film, {}, candidates = listOf(film, episode)) }
+            }
+        } }
+        val original = rule.onNodeWithTag("tablet-feature-open").getUnclippedBoundsInRoot()
+        rule.mainClock.advanceTimeBy(8_240)
+        rule.onNodeWithText("Ein serie").assertExists()
+        assertEquals(original, rule.onNodeWithTag("tablet-feature-open").getUnclippedBoundsInRoot())
+        rule.mainClock.advanceTimeBy(1_200)
+        assertEquals(original, rule.onNodeWithTag("tablet-feature-open").getUnclippedBoundsInRoot())
+        rule.onNodeWithTag("tablet-feature-open").assertIsDisplayed()
+        rule.mainClock.autoAdvance = true
+    }
+
     @Test fun preferredLibrarySourceSurvivesRepositoryRecreation() {
         val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         val preferences = app.reelstack.data.repository.AppPreferencesRepository(context)
@@ -379,11 +400,12 @@ class TvRefinementUiTest {
         )
     }
     @Composable private fun Tv(fontScale: Float = 1f, content: @Composable () -> Unit) {
-        val config = Configuration(LocalConfiguration.current).apply {
-            uiMode = (uiMode and Configuration.UI_MODE_TYPE_MASK.inv()) or Configuration.UI_MODE_TYPE_TELEVISION
-        }
         DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(960.dp, 540.dp))) {
             DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) {
+                // Dialogs create their own Android view and read density from this configuration.
+                val config = Configuration(LocalConfiguration.current).apply {
+                    uiMode = (uiMode and Configuration.UI_MODE_TYPE_MASK.inv()) or Configuration.UI_MODE_TYPE_TELEVISION
+                }
                 CompositionLocalProvider(LocalConfiguration provides config) { ReelstackTheme {
                     CompositionLocalProvider(app.reelstack.ui.theme.LocalTabletCanvas provides true, content = content)
                 } }
@@ -450,7 +472,51 @@ class TvRefinementUiTest {
         assertTrue("Returning up must reveal the heading", rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot().top >= 0.dp)
     }
     @Test fun seriesHeaderAndResumeRemainReachableAfterEpisodeNavigation() = checkSeriesHeader(1f)
-    @Test fun seriesHeaderRemainsReachableAtDoubleTextSize() = checkSeriesHeader(2f)
+    @Test fun seriesHeaderRemainsReachableAtDoubleTextSize() {
+        // A Dialog gets density from its own Android window. Run this case with the isolated
+        // emulator's real system font scale at 2.0; a root-only Compose override does not suffice.
+        org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            .targetContext.resources.configuration.fontScale >= 1.9f)
+        checkSeriesHeader(2f)
+    }
+    @Test fun episodeLogoHasBreathingRoomAndFirstEpisodeRemainsVisible() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val logo = java.io.File(context.cacheDir, "detail-logo-fixture.png")
+        val bitmap = android.graphics.Bitmap.createBitmap(480, 100, android.graphics.Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(bitmap).drawText("Testserie", 8f, 78f,
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.WHITE; textSize = 76f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            })
+        logo.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+        val episode = LibraryMedia("jellyfin-ep", "Testserie", "Seiland – Vill, vakker, voldsom",
+            artworkRes = R.drawable.session_still, source = ServiceKind.JELLYFIN, remoteId = "ep",
+            mediaType = "Episode", season = 2, episode = 6, runtimeMinutes = 59)
+        rule.setContent { Tv {
+            ReelstackSheets(ReelstackUiState(connections = listOf(connection), activeSheet = AppSheet.TitleDetails("jellyfin-ep"),
+                contentDetails = ContentDetails("jellyfin-ep", "Testserie", "Jellyfin", episode.subtitle,
+                    artworkRes = R.drawable.session_still, source = ServiceKind.JELLYFIN, mediaType = "Episode",
+                    logoUrl = logo.toURI().toString(), season = 2, episode = 6, facts = listOf("2026", "59 min"),
+                    overview = "Ein godt lesbar omtale som gir episoden samanheng og held seg til to linjer på TV. ".repeat(3),
+                    libraryAvailable = true, progress = .53f, remainingMinutes = 28),
+                seriesBrowse = SeriesBrowse(seriesId = "series", openedFor = "jellyfin-ep", nextUp = episode,
+                    seasons = listOf(episode.copy(id = "season", remoteId = "season", title = "Sesong 2", episode = 2)),
+                    selectedSeasonId = "season", episodes = listOf(episode))),
+                null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        } }
+        rule.onNodeWithTag("play-in-spole").assertIsFocused()
+        saveTvReview("episode", rule.onNodeWithTag("tv-cinematic-detail").captureToImage())
+        val logoBounds = rule.onNodeWithTag("detail-title").getUnclippedBoundsInRoot()
+        val identityBounds = rule.onNodeWithTag("episode-series-name").getUnclippedBoundsInRoot()
+        assertTrue("Logo needs its own breathing room: $logoBounds / $identityBounds",
+            identityBounds.top - logoBounds.bottom >= 16.dp)
+        val card = rule.onNodeWithTag("episode-ep").getUnclippedBoundsInRoot()
+        val viewport = rule.onNodeWithTag("tv-cinematic-detail").getUnclippedBoundsInRoot()
+        // Leave room under the logo rather than squeezing the whole caption onto a 540 dp screen.
+        // The complete 16:9 image and the start of its caption should still be visible.
+        assertTrue("Episode image should fit before scrolling: $card / $viewport", card.top + 145.dp <= viewport.bottom)
+        rule.onNodeWithTag("episode-ep").assertIsDisplayed()
+    }
     private fun checkSeriesHeader(fontScale: Float) {
         val episode = LibraryMedia("jellyfin-ep", "Testserie", "Episode 1", artworkRes = R.drawable.media_placeholder,
             source = ServiceKind.JELLYFIN, remoteId = "ep", mediaType = "Episode", season = 1, episode = 1)
@@ -466,6 +532,19 @@ class TvRefinementUiTest {
         } }
         rule.onNodeWithTag("play-in-spole").assertIsFocused()
         rule.onNodeWithTag("tv-detail-hero").assertIsDisplayed()
+        val titleLayouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        rule.onNodeWithTag("detail-title").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) {
+            it(titleLayouts)
+        }
+        assertEquals(fontScale, titleLayouts.single().layoutInput.density.fontScale, .01f)
+        saveTvReview("series-$fontScale", rule.onNodeWithTag("tv-cinematic-detail").captureToImage())
+        if (fontScale == 1f) {
+            rule.onNodeWithTag("season-season").assertIsDisplayed()
+            rule.onNodeWithTag("episode-ep1").assertIsDisplayed()
+            val episode = rule.onNodeWithTag("episode-ep1").getUnclippedBoundsInRoot()
+            val root = rule.onNodeWithTag("tv-cinematic-detail").getUnclippedBoundsInRoot()
+            assertTrue("The first episode should fit before scrolling: $episode / $root", episode.bottom <= root.bottom)
+        }
         repeat(9) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) } }
         repeat(16) { rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionUp) } }
         rule.onNodeWithTag("play-in-spole").assertIsDisplayed()

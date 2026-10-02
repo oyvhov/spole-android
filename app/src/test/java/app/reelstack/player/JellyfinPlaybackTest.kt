@@ -7,6 +7,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class JellyfinPlaybackTest {
+    @Test fun reportedProgressIsReconciledFromThisUsersCanonicalState() {
+        var response = """{"UserData":{"Played":true,"PlaybackPositionTicks":0}}"""
+        val transport = object : JsonHttpTransport {
+            override fun get(url: String, headers: Map<String, String>): HttpResponse {
+                assertTrue(url.endsWith("/Users/u1/Items/film"))
+                assertTrue(headers.containsKey("Authorization"))
+                return HttpResponse(200, response)
+            }
+            override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse =
+                error("No write is needed to read canonical progress")
+        }
+        val client = MediaPlaybackClient(transport, "fixture-device")
+        assertEquals(0L to true, client.resumeState(connection, "film"))
+        response = """{"UserData":{"Played":false,"PlaybackPositionTicks":5950000000}}"""
+        assertEquals(595_000L to false, client.resumeState(connection, "film"))
+        response = """{"Id":"film"}"""
+        assertNull(client.resumeState(connection, "film"))
+    }
     @Test fun newResumeMovieUsesDeclaredLandscapeInsteadOfAPoster() {
         val item = obj("""{"Id":"movie","Type":"Movie","ImageTags":{"Primary":"poster","Thumb":"thumb"},"BackdropImageTags":["background"]}""")
         assertTrue(parsePlayable(item, "https://media.example").artworkUrl!!.contains("/Backdrop/0?"))

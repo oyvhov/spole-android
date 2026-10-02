@@ -78,7 +78,7 @@ internal fun DetailAside(
     val inLibrary = details.libraryAvailable && details.source !in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
     if (!inLibrary && remaining.isEmpty() && details.criticRating == null && details.tmdbRating == null && details.mdblistRating == null && details.quality.isEmpty() && details.genres.isEmpty() && tagline == null && synopsis == null && cast == null) return
     Column(
-        Modifier.fillMaxWidth().padding(top = if (tv) 16.dp else 18.dp).testTag("detail-aside"),
+        Modifier.fillMaxWidth().padding(top = if (tv) 12.dp else 18.dp).testTag("detail-aside"),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
     ) {
@@ -167,8 +167,8 @@ internal fun SeriesEpisodes(
     val focusEpisode = preferredEpisode ?: episodes.firstOrNull()
     if (browse.openedFor != detailKey) return
     if (browse.seasons.isEmpty() && !browse.loading && browse.error == null) return
-    Column(Modifier.fillMaxWidth().padding(top = 22.dp).testTag("detail-seasons"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = if (tv) 10.dp else 22.dp).testTag("detail-seasons"),
+        verticalArrangement = Arrangement.spacedBy(if (tv) 8.dp else 12.dp)) {
         if (browse.seasons.size > 1 || browse.seasons.size == 1 && browse.seasons.first().title.isNotBlank()) {
             // A little air past the last chip, so a season that runs off the edge looks like a row
             // that continues rather than one that was cut.
@@ -267,13 +267,14 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolea
     showOverview: Boolean = false,
     onEpisodeClick: (LibraryMedia) -> Unit = {}) {
     val interaction = remember { MutableInteractionSource() }
+    val tv = app.reelstack.ui.components.isTelevision()
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxWidth().clip(shape).focusOutline(interaction, shape)
         .then(if (!episode.available) Modifier.focusable(interactionSource = interaction) else Modifier)
         .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
             enabled = episode.available && !episode.remoteId.isNullOrBlank() && episode.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
             role = Role.Button) { onEpisodeClick(episode) }
-        .padding(6.dp).testTag("episode-${episode.remoteId ?: episode.id}"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        .padding(6.dp).testTag("episode-${episode.remoteId ?: episode.id}"), verticalArrangement = Arrangement.spacedBy(if (tv) 6.dp else 10.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
             MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), episode.artworkRes, source = episode.source)
             if (!episode.available) EpisodeStatusBadge(episode, Modifier.align(Alignment.TopStart).padding(8.dp))
@@ -282,6 +283,13 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolea
                 tint = Color.White)
             if (episode.played) Icon(SpoleIcons.Done, stringResource(R.string.library_played_unmark),
                 Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.Black.copy(alpha = .7f), RoundedCornerShape(8.dp)).padding(4.dp), tint = Color.White)
+            if (tv) episode.runtimeMinutes?.let { minutes ->
+                Text(stringResource(R.string.detail_minutes, minutes), color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                        .background(Color.Black.copy(alpha = .72f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp))
+            }
         }
         episode.progress?.takeIf { it > 0f }?.let { progress ->
             Box(Modifier.fillMaxWidth().height(2.dp).background(Muted.copy(alpha = .16f))) {
@@ -293,10 +301,11 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolea
         Text(if (name.equals(numberLabel, true)) name else listOfNotNull(episode.episode?.toString(), name).joinToString(" · "),
             style = MaterialTheme.typography.titleMedium, maxLines = if (showOverview) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
             color = if (current || ready) PrimarySoft else MaterialTheme.colorScheme.onSurface)
-        if (ready) Text(stringResource(R.string.detail_next_to_play), color = Primary,
+        // On TV the play glyph already identifies the next episode. Keep the caption for its name.
+        if (ready && !tv) Text(stringResource(R.string.detail_next_to_play), color = Primary,
             style = MaterialTheme.typography.labelMedium, maxLines = 1)
         if (!episode.available) EpisodeAvailability(episode)
-        episode.runtimeMinutes?.let { Text(stringResource(R.string.detail_minutes, it), color = Muted, style = MaterialTheme.typography.labelMedium) }
+        if (!tv) episode.runtimeMinutes?.let { Text(stringResource(R.string.detail_minutes, it), color = Muted, style = MaterialTheme.typography.labelMedium) }
         if (showOverview) episode.overview?.takeIf(String::isNotBlank)?.let {
             Text(it, color = Muted, style = MaterialTheme.typography.bodyMedium,
                 maxLines = 3, overflow = TextOverflow.Ellipsis)

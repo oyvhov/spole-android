@@ -33,9 +33,9 @@ import app.reelstack.ui.components.focusScale
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean, seekPreview: Long?,
-    playFocus: FocusRequester, nextFocus: FocusRequester?, onToggle: () -> Unit, onSeek: (Long) -> Unit,
-    onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, fillVideo: Boolean,
-    onFrame: () -> Unit, onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
+    playFocus: FocusRequester, nextFocus: FocusRequester?, onToggle: () -> Unit, onSeek: (Long, Long) -> Unit,
+    onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, seekFeedback: TvSeekFeedback?,
+    onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
     onChapters: () -> Unit = {}, onStats: () -> Unit = {},
     showPlaybackModeLine: Boolean = false,
     /** Kids mode: no tools row, parental defaults. */
@@ -48,84 +48,55 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     val position = (target ?: seekPreview ?: state.positionMs).coerceIn(0, state.durationMs.coerceAtLeast(0))
     val padHours = state.durationMs >= 3_600_000L
 
-    var transientSeekDelta by remember { mutableIntStateOf(0) }
-    var transientSeekTime by remember { mutableLongStateOf(0L) }
-    var transientSeekIsForward by remember { mutableStateOf(true) }
-
     val seek: (Long) -> Unit = { delta ->
         if (state.durationMs > 0) {
-            val isFwd = delta > 0
-            val now = System.currentTimeMillis()
-            if (transientSeekTime > 0 && now - transientSeekTime < 1000L && transientSeekIsForward == isFwd) {
-                transientSeekDelta += if (isFwd) 10 else -10
-            } else {
-                transientSeekDelta = if (isFwd) 10 else -10
-                transientSeekIsForward = isFwd
-            }
-            transientSeekTime = now
-
-            val value = (position + delta).coerceIn(0, state.durationMs)
-            target = value; onInteraction(); onSeek(value)
+            val from = (target ?: seekPreview ?: state.positionMs).coerceIn(0, state.durationMs)
+            val value = (from + delta).coerceIn(0, state.durationMs)
+            target = value; onInteraction(); onSeek(from, value)
         }
     }
-
-    var lastObservedPreview by remember { mutableStateOf<Long?>(null) }
-    LaunchedEffect(seekPreview) {
-        if (seekPreview != null && seekPreview != lastObservedPreview) {
-            val prev = lastObservedPreview ?: state.positionMs
-            val delta = seekPreview - prev
-            if (delta != 0L) {
-                val isFwd = delta > 0
-                val now = System.currentTimeMillis()
-                if (transientSeekTime > 0 && now - transientSeekTime < 1000L && transientSeekIsForward == isFwd) {
-                    transientSeekDelta += if (isFwd) 10 else -10
-                } else {
-                    transientSeekDelta = if (isFwd) 10 else -10
-                    transientSeekIsForward = isFwd
-                }
-                transientSeekTime = now
-            }
-            lastObservedPreview = seekPreview
-        } else if (seekPreview == null) {
-            lastObservedPreview = null
-        }
-    }
-
-    LaunchedEffect(transientSeekTime) {
-        if (transientSeekTime > 0L) {
+    var feedbackVisible by remember(state.itemId) { mutableStateOf(false) }
+    var displayedFeedback by remember { mutableStateOf<TvSeekFeedback?>(null) }
+    val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
+    LaunchedEffect(seekFeedback) {
+        if (seekFeedback != null) {
+            displayedFeedback = seekFeedback
+            feedbackVisible = true
             kotlinx.coroutines.delay(1200)
-            transientSeekDelta = 0
-            transientSeekTime = 0L
+            feedbackVisible = false
         }
     }
 
-    // Elegant transient "Spol 10" indicator in screen center (clean floating icon + text directly over video)
+    // One number, number-free direction glyphs, and a quiet fade. Keep the last value through exit.
     val transientIndicator = @Composable {
         AnimatedVisibility(
-            visible = transientSeekTime > 0L && transientSeekDelta != 0,
-            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.82f),
-            exit = fadeOut(tween(350)) + scaleOut(tween(350), targetScale = 0.90f),
+            visible = feedbackVisible,
+            enter = fadeIn(tween(if (motion) 120 else 0)),
+            exit = fadeOut(tween(if (motion) 240 else 0)),
             modifier = Modifier.align(Alignment.Center),
         ) {
+            val delta = displayedFeedback?.deltaMs ?: 0L
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
                     .testTag("player-seek-transient-indicator")
-                    .padding(16.dp),
+                    .background(Color.Black.copy(alpha = .72f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
             ) {
                 Icon(
-                    imageVector = if (transientSeekIsForward) SpoleIcons.Forward10 else SpoleIcons.Replay10,
+                    imageVector = if (delta > 0) SpoleIcons.SeekForward else SpoleIcons.SeekBack,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(52.dp),
+                    modifier = Modifier.size(28.dp),
                 )
                 Text(
-                    text = if (transientSeekDelta > 0) "+$transientSeekDelta s" else "$transientSeekDelta s",
+                    text = (if (delta > 0) "+" else "−") +
+                        kotlin.math.ceil(kotlin.math.abs(delta) / 1000.0).toLong() + " s",
                     color = Color.White,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.testTag("player-seek-delta"),
                 )
             }
         }
@@ -210,7 +181,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             .semantics {
                 contentDescription = timelineLabel
                 progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
-                setProgress { fraction -> onSeek((fraction.coerceIn(0f, 1f) * state.durationMs).toLong()); true }
+                setProgress { fraction -> onSeek(position, (fraction.coerceIn(0f, 1f) * state.durationMs).toLong()); true }
             }.focusable(state.durationMs > 0)
             .padding(horizontal = 12.dp).testTag("player-timeline"), contentAlignment = Alignment.CenterStart) {
             val trackHeight = if (kids) (if (timelineFocused) 9.dp else 7.dp) else (if (timelineFocused) 8.dp else 6.dp)
@@ -243,9 +214,6 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             TvPlayerAction(SpoleIcons.Tune, stringResource(R.string.player_quality), "player-quality",
                 Modifier.then(if (state.audio.isEmpty() && state.subtitles.isEmpty()) Modifier.focusRequester(tools) else Modifier)
                     .focusProperties { up = playFocus }, enabled = !state.busy, labelVisible = true) { onInteraction(); onQuality() }
-            TvPlayerAction(if (fillVideo) SpoleIcons.Contract else SpoleIcons.Expand,
-                stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill), "player-frame-mode",
-                Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onFrame() }
         }
         if (showPlaybackModeLine) Text(
             listOfNotNull(

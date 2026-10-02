@@ -7,12 +7,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,7 +58,7 @@ internal fun tabletFeaturedTitle(series: List<LibraryMedia>, sections: Set<HomeS
     tabletFeaturedTitles(series, sections).firstOrNull()
 
 /** Episode titles are mapped to SeriesName by the server parser. Deduplicate across servers too. */
-private const val HERO_FEATURE_COUNT = 5
+internal const val HERO_FEATURE_COUNT = 5
 
 internal fun tabletFeaturedTitles(candidates: List<LibraryMedia>, sections: Set<HomeSection>, allowLocalArtwork: Boolean = false): List<LibraryMedia> =
     tabletFeaturedTitles(candidates, app.reelstack.data.model.HomeLayout.fromLegacy(
@@ -222,9 +223,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             (if (motion) titles else listOf(selected)).forEach { title ->
               key(title.id) {
                 val incoming = title.id == selected.id
+                val duration = if (television) 1100 else 500
                 val opacity by animateFloatAsState(if (incoming) 1f else 0f,
-                    tween(durationMillis = if (motion && incoming) 500 else 0,
-                        delayMillis = if (motion && !incoming) 500 else 0), label = "feature-artwork-${title.id}")
+                    tween(durationMillis = if (motion && incoming) duration else 0,
+                        delayMillis = if (motion && !incoming) duration else 0), label = "feature-artwork-${title.id}")
                 Box(Modifier.matchParentSize().zIndex(if (incoming) 1f else 0f).graphicsLayer { alpha = opacity }) {
                     MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false, alignment = Alignment.TopCenter, crossfadeDurationMillis = 0)
                 }
@@ -245,8 +247,18 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             vertical = if (television) 32.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
             horizontal = if (television) 40.dp else 28.dp,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
-          Crossfade(selected, animationSpec = tween(if (motion) 300 else 0), label = "feature-caption") { title ->
-           Column(verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
+          // Compose the bounded caption stack ahead of time: logos are ready and the actions
+          // keep their position when a film replaces an episode with a taller caption.
+          Box(Modifier.fillMaxWidth().testTag("feature-caption")) {
+           titles.forEach { title -> key(title.id) {
+            val incoming = title.id == selected.id
+            val captionAlpha by animateFloatAsState(if (incoming) 1f else 0f,
+                tween(if (!motion) 0 else if (incoming) 420 else 160,
+                    delayMillis = if (motion && incoming) 160 else 0), label = "feature-caption-${title.id}")
+           Column(Modifier.graphicsLayer { alpha = captionAlpha }
+               .focusProperties { canFocus = incoming }
+               .then(if (incoming) Modifier else Modifier.clearAndSetSemantics {}),
+               verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
             val logo = title.logoUrl
             var logoFailed by remember(title.id) { mutableStateOf(false) }
             // One height for both branches, measured as the two text lines the fallback always
@@ -268,6 +280,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                         trimTransparent = true,
                         source = title.source,
                         onError = { logoFailed = true },
+                        crossfadeDurationMillis = 0,
                         modifier = Modifier.height(titleSlot).width(if (television) 320.dp else 240.dp).testTag("hero-clearlogo")
                             .padding(vertical = 2.dp),
                     )
@@ -302,6 +315,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 lineHeight = if (compactTelevision) 17.sp else 20.sp,
                 minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
            }
+           } }
           }
             // The hero is usually showing something you are already part-way through. Starting or
             // resuming it is therefore the leading, accent-coloured action; details remain one
@@ -345,7 +359,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
 
 /** One restrained line keeps the hero informative without turning it into a details sheet. */
 @Composable
-private fun HeroMetadataRow(title: LibraryMedia) {
+internal fun HeroMetadataRow(title: LibraryMedia) {
     val type = title.facts.firstOrNull()?.takeUnless { it.startsWith("S") }
     val year = title.facts.firstOrNull { it.matches(Regex("\\d{4}")) }
     val runtime = title.runtimeMinutes?.takeIf { it > 0 } ?: title.facts.firstNotNullOfOrNull {

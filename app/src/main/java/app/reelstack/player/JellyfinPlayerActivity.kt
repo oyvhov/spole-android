@@ -243,6 +243,10 @@ fun PlayerScreen(
     val scope = rememberCoroutineScope()
     var remoteSeekTargetMs by remember { mutableStateOf<Long?>(null) }
     var remoteSeekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var seekFeedback by remember(state.itemId) { mutableStateOf<TvSeekFeedback?>(null) }
+    val recordSeek: (Long, Long) -> Unit = { from, to ->
+        seekFeedback = tvSeekFeedback(seekFeedback, from, to, android.os.SystemClock.elapsedRealtime())
+    }
     val accessibility = LocalAccessibilityManager.current
     // A seek may briefly buffer. That is not a pause and must not reveal the whole OSD.
     val canHide = (state.playing || state.busy && state.playWhenReady) &&
@@ -324,7 +328,9 @@ fun PlayerScreen(
             when (action) {
                 RemotePlaybackAction.TOGGLE -> onToggle()
                 RemotePlaybackAction.REWIND -> {
-                    val target = ((remoteSeekTargetMs ?: state.positionMs) - 10_000).coerceAtLeast(0)
+                    val from = remoteSeekTargetMs ?: state.positionMs
+                    val target = (from - 10_000).coerceAtLeast(0)
+                    recordSeek(from, target)
                     remoteSeekTargetMs = target
                     remoteSeekJob?.cancel()
                     remoteSeekJob = scope.launch {
@@ -335,7 +341,9 @@ fun PlayerScreen(
                     }
                 }
                 RemotePlaybackAction.FORWARD -> if (state.durationMs > 0) {
-                    val target = ((remoteSeekTargetMs ?: state.positionMs) + 10_000).coerceAtMost(state.durationMs)
+                    val from = remoteSeekTargetMs ?: state.positionMs
+                    val target = (from + 10_000).coerceAtMost(state.durationMs)
+                    recordSeek(from, target)
                     remoteSeekTargetMs = target
                     remoteSeekJob?.cancel()
                     remoteSeekJob = scope.launch {
@@ -358,7 +366,7 @@ fun PlayerScreen(
             update = {
                 it.player = player
                 it.subtitleView?.applyAppearance(appearance.subtitleStyle)
-                it.resizeMode = if (fillVideo) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                it.resizeMode = if (!isTelevision && fillVideo) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
             },
             onRelease = { it.player = null },
@@ -418,8 +426,9 @@ fun PlayerScreen(
             }
         } else if (isTelevision && !state.awaitingResume && state.error == null) {
             TvPlaybackOverlay(state, showControls, remoteSeekTargetMs, playFocus, nextFocus.takeIf { showNextOffer || showSeriesFinished },
-                onToggle, onSeek, { menu = PlayerMenu.AUDIO }, { menu = PlayerMenu.SUBTITLES },
-                { menu = PlayerMenu.QUALITY }, fillVideo, { fillVideo = !fillVideo },
+                onToggle, { from, to -> recordSeek(from, to); onSeek(to) },
+                { menu = PlayerMenu.AUDIO }, { menu = PlayerMenu.SUBTITLES },
+                { menu = PlayerMenu.QUALITY }, seekFeedback,
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
                 onChapters = { menu = PlayerMenu.CHAPTERS },
                 onStats = { statsVisible = !statsVisible }, showPlaybackModeLine = appearance.showPlaybackModeInOsd,

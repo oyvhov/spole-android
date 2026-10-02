@@ -202,6 +202,16 @@ object SpoleIcons {
     val Replay10 = seekTen(false)
     val Forward10 = seekTen(true)
 
+    /** Direction only: the seek feedback supplies the distance once, beside this glyph. */
+    val SeekBack = glyph("SeekBack") {
+        moveTo(11f, 6f); lineTo(5f, 12f); lineTo(11f, 18f)
+        moveTo(19f, 6f); lineTo(13f, 12f); lineTo(19f, 18f)
+    }
+    val SeekForward = glyph("SeekForward") {
+        moveTo(5f, 6f); lineTo(11f, 12f); lineTo(5f, 18f)
+        moveTo(13f, 6f); lineTo(19f, 12f); lineTo(13f, 18f)
+    }
+
     private fun seekTen(forward: Boolean) = ImageVector.Builder(
         "Spole.SeekTen.$forward", 32.dp, 32.dp, 32f, 32f,
     ).apply {
