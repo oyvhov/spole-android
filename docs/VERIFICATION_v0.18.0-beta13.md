@@ -40,4 +40,23 @@ Endringane og den første kontrollen er dokumenterte i `UI_REFINEMENT_2026-10-02
   Mobilprofilen har lagra demo og berre hovudprofil, så barnemodus med ekte mobilkonto
   er ikkje manuelt verifisert i denne releasen.
 
-Offentleg GitHub-oppdatering blir dokumentert etter publisering.
+## Publisering og ekte oppdatering
+
+- [GitHub Release](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta13)
+  er publisert som prerelease, ikkje draft eller stabil latest. Taggen peikar på
+  kjeldecommit `e1406894f20cef902d0535bd42c5d739dee9f35e`.
+- Alle fem assets er ferdig opplasta: éin universal produksjons-APK, R8-mapping,
+  `SHA256SUMS.txt`, `SOURCE_COMMIT.txt` og FFmpeg-kjelde-/relenkingsarkiv.
+  Byte-storleikar og GitHub-digestar samsvarar med alle lokale filer.
+- Offentleg release-metadata er henta utan Authorization-header. APK-en er lasta ned
+  offentleg til ei separat kontrollfil; SHA-256 samsvarar med den bygde APK-en.
+- Mobil 5560 fann beta13 med «Check now», lasta ned gjennom appen og gjekk vidare til
+  Android sin oppdateringsdialog. Play Protect bad om skann; skannen fullførte med
+  «This app looks safe». Installeringa vart deretter godkjend, og Android viste
+  «App installed». Dette var ei ekte appoppdatering gjennom GitHub, ikkje ADB-installering.
+- Installert versjon er beta13/kode 133. `firstInstallTime` er framleis
+  2026-09-15 10:09:51, og `lastUpdateTime` er 2026-10-02 13:42:44.
+- Appen er opna att frå Android-dialogen og viser den same framsida med lagra
+  demoinnhald, engelsk språk og grønt tema. Desse vala er bevarte.
+- Ei system-UI-henging etter kald mobiloppstart vart lukka utan å slette appdata.
+  Ingen tryggingskontroll vart deaktivert eller omgått.
