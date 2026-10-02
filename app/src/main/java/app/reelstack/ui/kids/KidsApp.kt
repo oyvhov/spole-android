@@ -596,7 +596,6 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
             mainAccountAvatarUrl = (state.accounts[ServiceKind.EMBY] ?: state.accounts[ServiceKind.JELLYFIN])
                 ?.avatarUrl,
             onSelectProfile = viewModel::selectProfile,
-            onAddProfile = { },
             onOpenSettings = { },
             onDeleteProfile = { },
             onDismiss = viewModel::closeSheet,

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.0-beta13 - mjukare Hero og raskare profilbyte
+
+- TV-Hero tonar det nye biletet inn over det førre, med førehandslasta bilete og kortare tekstovergang.
+- Bibliotekkorta i barnemodus opnar biblioteket utan fast valramme og hake på mobil og TV.
+- Profilpopupen opnar raskare med mindre skalering og utan vertikal gliding.
+- «Legg til barneprofil» er fjerna frå profilpopupen. Valet finst framleis under «Tenestene dine».
+
+
 ## 0.18.0-beta12 - betre detaljvising på mobil
 
 - Kunst heilt ut til kantane på telefon, med tittel eller serielogo og sentrerte episodeopplysningar og vurderingar.

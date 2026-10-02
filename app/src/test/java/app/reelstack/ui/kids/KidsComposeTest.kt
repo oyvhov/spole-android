@@ -70,7 +70,7 @@ class KidsComposeTest {
     }
 
     @Test
-    fun kidsLibraryCard_displaysTitleAndSelection() {
+    fun kidsLibraryCard_displaysTitleAndOpensLibrary() {
         val library = TestFixtures.sampleLibraryView(
             id = "lib-kids-tv",
             name = "Barne-Tv Serier",
@@ -80,7 +80,6 @@ class KidsComposeTest {
         composeTestRule.setContent {
             KidsLibraryCard(
                 library = library,
-                selected = true,
                 source = ServiceKind.JELLYFIN,
                 world = KidsWorld.FOREST,
                 onClick = { selectedId = library.id },

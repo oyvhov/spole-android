@@ -7,8 +7,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -51,8 +49,8 @@ import coil3.compose.AsyncImage
  * Profiles fall out of the account picture rather than arriving as a sheet from the bottom.
  *
  * Switching who is watching is a small, local act — it belongs to the corner you pressed, not to a
- * panel that takes the whole screen. The menu scales open from its own top-right corner so the
- * motion reads as the avatar unfolding, and each row fades in just behind the one above it.
+ * panel that takes the whole screen. A short fade and small lift from the top-right corner keep
+ * the menu responsive without moving its rows across the screen.
  */
 @Composable
 fun ProfileMenu(
@@ -68,13 +66,13 @@ fun ProfileMenu(
     mainAccountName: String? = null,
     mainAccountAvatarUrl: String? = null,
     onSelectProfile: (UserProfile) -> Unit,
-    onAddProfile: () -> Unit,
     onOpenSettings: () -> Unit,
     onDeleteProfile: (UserProfile) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val visible = remember { MutableTransitionState(false) }
+    val motion = LocalMotionEnabled.current
     LaunchedEffect(Unit) { visible.targetState = true }
 
     // A television draws to the panel edge, so the menu keeps clear of the overscan the way every
@@ -92,15 +90,14 @@ fun ProfileMenu(
     ) {
         AnimatedVisibility(
             visibleState = visible,
-            enter = fadeIn(tween(160)) +
+            enter = fadeIn(tween(if (motion) 100 else 0)) +
                 scaleIn(
-                    animationSpec = tween(220, easing = LinearOutSlowInEasing),
-                    initialScale = 0.86f,
+                    animationSpec = tween(if (motion) 120 else 0, easing = LinearOutSlowInEasing),
+                    initialScale = 0.98f,
                     // The corner the avatar sits in. Everything unfolds from that point.
                     transformOrigin = TransformOrigin(1f, 0f),
-                ) +
-                slideInVertically(tween(220, easing = LinearOutSlowInEasing)) { -it / 10 },
-            exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.92f),
+                ),
+            exit = fadeOut(tween(if (motion) 80 else 0)),
         ) {
             Surface(
                 modifier = modifier
@@ -156,14 +153,6 @@ fun ProfileMenu(
                         )
                         Spacer(Modifier.height(8.dp))
 
-                        StaggeredRow(index = profiles.size) {
-                            ProfileMenuAction(
-                                icon = SpoleIcons.Add,
-                                label = stringResource(R.string.profile_add_action),
-                                testTag = "profile-action-add",
-                                onClick = onAddProfile,
-                            )
-                        }
                         StaggeredRow(index = profiles.size + 1) {
                             ProfileMenuAction(
                                 icon = SpoleIcons.Settings,

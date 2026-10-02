@@ -11,6 +11,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
@@ -215,16 +216,21 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         )
         .testTag("tablet-library-feature")) {
         Box(Modifier.matchParentSize()) {
-            // Keep the three bounded image requests alive so the next slide is already decoded.
+          Box(Modifier.matchParentSize()) {
+            // Predecode the bounded carousel. Keep the outgoing image opaque beneath the incoming
+            // layer until its fade finishes, avoiding a dark dip halfway through the transition.
             (if (motion) titles else listOf(selected)).forEach { title ->
               key(title.id) {
-                val opacity by animateFloatAsState(if (title.id == selected.id) 1f else 0f,
-                    tween(800), label = "feature-artwork-${title.id}")
-                Box(Modifier.matchParentSize().graphicsLayer { alpha = opacity }) {
-                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false, alignment = Alignment.TopCenter)
+                val incoming = title.id == selected.id
+                val opacity by animateFloatAsState(if (incoming) 1f else 0f,
+                    tween(durationMillis = if (motion && incoming) 500 else 0,
+                        delayMillis = if (motion && !incoming) 500 else 0), label = "feature-artwork-${title.id}")
+                Box(Modifier.matchParentSize().zIndex(if (incoming) 1f else 0f).graphicsLayer { alpha = opacity }) {
+                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false, alignment = Alignment.TopCenter, crossfadeDurationMillis = 0)
                 }
               }
             }
+          }
             Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
                 0f to Ink, .27f to Ink, .52f to Ink.copy(alpha = .88f),
                 .72f to Ink.copy(alpha = .18f), 1f to Color.Transparent)))
@@ -239,7 +245,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             vertical = if (television) 32.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
             horizontal = if (television) 40.dp else 28.dp,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
-          Crossfade(selected, animationSpec = tween(if (motion) 800 else 0), label = "feature-caption") { title ->
+          Crossfade(selected, animationSpec = tween(if (motion) 300 else 0), label = "feature-caption") { title ->
            Column(verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
             val logo = title.logoUrl
             var logoFailed by remember(title.id) { mutableStateOf(false) }

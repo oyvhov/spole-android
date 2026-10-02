@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
@@ -36,8 +36,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,10 +83,6 @@ fun KidsHomeScreen(
     error: Boolean = false,
     onRetry: () -> Unit = {},
 ) {
-    var selectedLibraryId by rememberSaveable(libraries.map { it.id }) {
-        mutableStateOf(libraries.firstOrNull()?.id)
-    }
-    val activeLibraryId = selectedLibraryId ?: libraries.firstOrNull()?.id
 
     val candidates = remember(keepWatching, favourites, yourShows) {
         (keepWatching + favourites + yourShows)
@@ -201,13 +195,11 @@ fun KidsHomeScreen(
                     items(libraries, key = { it.id }) { library ->
                         KidsLibraryCard(
                             library = library,
-                            selected = library.id == activeLibraryId,
                             source = source,
                             world = world,
                             television = television,
                             titleBelow = libraryTitlesBelow,
                         ) {
-                            selectedLibraryId = library.id
                             onLibraryOpen(library)
                         }
                     }
@@ -404,13 +396,15 @@ private fun KidsHero(
             ) {
                 titles.forEach { title ->
                     key(title.id) {
+                        val incoming = title.id == selected.id
                         val opacity by animateFloatAsState(
-                            targetValue = if (title.id == selected.id) 1f else 0f,
-                            animationSpec = tween(if (motion) 750 else 0),
+                            targetValue = if (incoming) 1f else 0f,
+                            animationSpec = tween(durationMillis = if (motion && incoming) 500 else 0,
+                                delayMillis = if (motion && !incoming) 500 else 0),
                             label = "kids-hero-fade-${title.id}",
                         )
-                        if (opacity > 0f) {
-                            Box(Modifier.matchParentSize().graphicsLayer { alpha = opacity }) {
+                            // Keep hidden images composed so the next backdrop is already decoded.
+                            Box(Modifier.matchParentSize().zIndex(if (incoming) 1f else 0f).graphicsLayer { alpha = opacity }) {
                                 MediaArtwork(
                                     url = title.heroUrl ?: title.artworkUrl ?: title.posterUrl,
                                     contentDescription = null,
@@ -420,9 +414,9 @@ private fun KidsHero(
                                     contentScale = ContentScale.Crop,
                                     protectAspectRatio = false,
                                     alignment = Alignment.TopCenter,
+                                    crossfadeDurationMillis = 0,
                                 )
                             }
-                        }
                     }
                 }
             }
@@ -573,12 +567,11 @@ private fun KidsHero(
 /**
  * 16:9 artwork card for libraries directly from Emby/Jellyfin.
  * Displays the library's real cover image, dark bottom vignette, legible title,
- * and high-contrast selected status.
+ * and a focus lift for remote navigation. Each card opens a library, rather than selecting a tab.
  */
 @Composable
 internal fun KidsLibraryCard(
     library: RemoteLibraryView,
-    selected: Boolean,
     source: ServiceKind,
     world: KidsWorld,
     television: Boolean = false,
@@ -597,8 +590,8 @@ internal fun KidsLibraryCard(
             .width(if (television) 184.dp else 156.dp)
             .clickable(
                 interactionSource = interaction,
-                indication = null,
-                role = Role.RadioButton,
+                indication = app.reelstack.ui.components.mediaCardIndication(),
+                role = Role.Button,
                 onClick = onClick,
             )
             .testTag("kids-library-${library.id}"),
@@ -611,8 +604,8 @@ internal fun KidsLibraryCard(
                 .clip(shape)
                 .background(SurfaceRaised)
                 .border(
-                    width = if (selected) 3.5.dp else if (focused) 2.dp else 1.dp,
-                    color = if (selected) glow else if (focused) Color.White else Color.White.copy(alpha = 0.15f),
+                    width = if (focused) 2.dp else 1.dp,
+                    color = if (focused) Color.White else Color.White.copy(alpha = 0.15f),
                     shape = shape,
                 ),
         ) {
@@ -633,18 +626,16 @@ internal fun KidsLibraryCard(
                         .height(58.dp)
                         .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f)))),
                 )
-                LibraryCardTitle(library.name, selected, glow, Modifier.align(Alignment.BottomStart))
+                LibraryCardTitle(library.name, Modifier.align(Alignment.BottomStart))
             }
         }
-        if (titleBelow) LibraryCardTitle(library.name, selected, glow)
+        if (titleBelow) LibraryCardTitle(library.name)
     }
 }
 
 @Composable
 private fun LibraryCardTitle(
     title: String,
-    selected: Boolean,
-    glow: Color,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -662,11 +653,6 @@ private fun LibraryCardTitle(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (selected) {
-            Box(Modifier.size(22.dp).clip(CircleShape).background(glow), contentAlignment = Alignment.Center) {
-                Icon(SpoleIcons.Done, contentDescription = null, tint = Color(0xFF101211), modifier = Modifier.size(16.dp))
-            }
-        }
     }
 }
 

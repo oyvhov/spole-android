@@ -24,7 +24,6 @@ internal fun AppOverlayHost(
             mainAccountName = (state.accounts[ServiceKind.EMBY] ?: state.accounts[ServiceKind.JELLYFIN])?.displayName,
             mainAccountAvatarUrl = (state.accounts[ServiceKind.EMBY] ?: state.accounts[ServiceKind.JELLYFIN])?.avatarUrl,
             onSelectProfile = viewModel::selectProfile,
-            onAddProfile = viewModel::openAddProfile,
             onOpenSettings = viewModel::openAccountsSettings,
             onDeleteProfile = viewModel::deleteKidProfile,
             onDismiss = viewModel::closeSheet,
