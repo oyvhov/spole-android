@@ -51,5 +51,31 @@ gjennomgått og er med i releasen, med tre eigne JVM-/Compose-testar.
 - Den faktiske Monsen S2/E6-sida frå brukarbiletet er opna med ekte metadata og sesongar.
   Logoen har synleg luft under seg, sesongane ligg under handlingane, og heile episodebileta
   er synlege før rulling. Ingen avspeling eller sett-status er endra for denne kontrollen.
-- Mobil blir halden på beta13 for prøven gjennom GitHub-oppdatering. Resultatet frå
-  publisering og appoppdatering blir ført inn etter kontrollen.
+- Mobil 5560 vart halden på beta13 fram til prøven gjennom GitHub-oppdatering.
+
+## Publisering
+
+- [GitHub Release](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta14)
+  er publisert som prerelease, ikkje draft eller stabil latest. Taggen peikar på
+  kjeldecommit `c74b15c09466b712482e7cbb5808197f9e8fa67f`.
+- Alle fem assets er ferdig opplasta: éin universal produksjons-APK, R8-mapping,
+  `SHA256SUMS.txt`, `SOURCE_COMMIT.txt` og FFmpeg-kjelde-/relenkingsarkiv.
+  Byte-storleikar og GitHub-digestar samsvarar med alle lokale filer.
+- Offentleg release-metadata er henta utan Authorization-header. APK-en er lasta ned
+  offentleg til ei separat kontrollfil; SHA-256 samsvarar med den bygde APK-en.
+
+## Ekte appoppdatering
+
+- Mobil 5560 fann beta14 med «Check now», lasta ned gjennom appen, kontrollerte pakken
+  og gjekk vidare til Android sin oppdateringsdialog. Dette var ei oppdatering gjennom
+  GitHub og appen, ikkje ADB-installering.
+- Play Protect bad om skann. Skannen fullførte med «This app looks safe». Installeringa
+  vart godkjend, og Android viste «App installed».
+- Installert versjon er beta14/kode 134. `firstInstallTime` er framleis
+  2026-09-15 10:09:51; `lastUpdateTime` er 2026-10-03 00:51:13.
+- Appen er opna frå Android-dialogen. Demo, hovudprofil, engelske språkval og grønt tema
+  er bevarte. Mobil-Hero og dei separate Jellyfin-/Emby-radene er synlege.
+- Mobilprofilen bruker lagra demo, så denne prøven stadfestar oppdatering og bevaring
+  av appval. Ekte mobilkontoar er ikkje manuelt verifiserte i denne releasen.
+- Ingen tryggingskontroll er deaktivert eller omgått. Begge review-emulatorane er opne
+  på beta14; isolert TV-testprofil er stengd med systemskrift tilbake på 1,0.
