@@ -105,9 +105,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     if (!shown) {
         if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp),
             color = Color.White.copy(alpha = .7f), strokeWidth = 2.dp)
-        if (seekPreview != null && state.chapters.any { it.imageUrl != null }) TimelineThumbnailPreview(
-            position, state.durationMs, state.chapters, Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp), source = state.source)
-        else if (seekPreview != null) Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
+        if (seekPreview != null) Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
             .testTag("player-seek-feedback"), shape = RoundedCornerShape(12.dp), color = Color.Black.copy(alpha = .76f)) {
             Text(playbackTime(position, padHours) + " / " + playbackTime(state.durationMs, padHours),
                 Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = Color.White)

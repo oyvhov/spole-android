@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.0-beta17 - spoling utan preview
+
+- Preview-boksen ved spoling er fjerna frå mobil og TV. Play- og spoleknappane held same plass ved knappetrykk og drag på tidslinja.
+
 ## 0.18.0-beta16 - dynamisk mobil-toppmeny og stabil detaljkunst
 
 - Logo, søk og profilbilde på mobilframsida ligg høgare: systemmargane blir brukte éin gong og tilpassar seg statuslinje og kamerautskjering. Parallax og sveiping er bevarte.

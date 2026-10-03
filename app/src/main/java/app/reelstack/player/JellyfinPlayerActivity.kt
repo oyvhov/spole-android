@@ -67,8 +67,6 @@ import app.reelstack.ui.theme.ReelstackTheme
 import app.reelstack.ui.components.NativeClientLauncher
 import app.reelstack.ui.components.MediaArtwork
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.reelstack.data.model.ServiceKind
@@ -519,7 +517,7 @@ fun PlayerScreen(
                                     delay(2200)
                                     remoteSeekTargetMs = null
                                 }
-                            }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision)) {
+                            }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision).testTag("player-rewind")) {
                                 Icon(app.reelstack.ui.components.SpoleIcons.Replay10, stringResource(R.string.player_rewind), Modifier.size(32.dp))
                             }
                             FilledIconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy, modifier = Modifier.size(72.dp).remoteFocus(isTelevision).focusRequester(playFocus).testTag("player-toggle")) {
@@ -539,7 +537,7 @@ fun PlayerScreen(
                                         remoteSeekTargetMs = null
                                     }
                                 }
-                            }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision)) {
+                            }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision).testTag("player-forward")) {
                                 Icon(app.reelstack.ui.components.SpoleIcons.Forward10, stringResource(R.string.player_forward), Modifier.size(32.dp))
                             }
                         }
@@ -548,19 +546,6 @@ fun PlayerScreen(
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (!state.awaitingResume) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
                         var dragging by remember { mutableStateOf<Float?>(null) }
-                        val previewPositionMs = dragging?.toLong() ?: remoteSeekTargetMs
-                        if (previewPositionMs != null && state.durationMs > 0) {
-                            TimelineThumbnailPreview(
-                                previewPositionMs = previewPositionMs,
-                                durationMs = state.durationMs,
-                                chapters = state.chapters,
-                                source = state.source,
-                                modifier = Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .padding(bottom = 12.dp)
-                                    .testTag("player-timeline-preview"),
-                            )
-                        }
                         Slider(value = dragging ?: remoteSeekTargetMs?.toFloat() ?: state.positionMs.toFloat().coerceIn(0f, state.durationMs.coerceAtLeast(1).toFloat()),
                             // A child drags this with a whole finger, not a fingertip, so the kid
                             // timeline is a 7 dp track with a 20 dp handle rather than 4 and 12.
@@ -841,74 +826,6 @@ private fun PlayerHeader(
         }
     }
 }
-
-@Composable
-internal fun TimelineThumbnailPreview(
-    previewPositionMs: Long,
-    durationMs: Long,
-    chapters: List<PlaybackChapter>,
-    modifier: Modifier = Modifier,
-    source: ServiceKind = ServiceKind.JELLYFIN,
-) {
-    val currentChapter = chapters.lastOrNull { it.startPositionMs <= previewPositionMs }
-    Surface(
-        modifier = modifier
-            .width(180.dp)
-            .shadow(elevation = 12.dp, shape = RoundedCornerShape(12.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.95f),
-    ) {
-        Column(
-            modifier = Modifier.padding(6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Black.copy(alpha = 0.6f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (currentChapter?.imageUrl != null) {
-                    MediaArtwork(
-                        url = currentChapter.imageUrl,
-                        contentDescription = currentChapter.name,
-                        contentScale = ContentScale.Crop,
-                        source = source,
-                        fallbackRes = 0,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    Icon(
-                        imageVector = app.reelstack.ui.components.SpoleIcons.Movie,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                        modifier = Modifier.size(32.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = playbackTime(previewPositionMs),
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            if (!currentChapter?.name.isNullOrBlank()) {
-                Text(
-                    text = currentChapter.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                )
-            }
-        }
-    }
-}
-
 /** A compact, Emby-like corner offer; it leaves the picture as the primary surface. */
 @Composable
 private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCancel: () -> Unit,
