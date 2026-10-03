@@ -69,10 +69,9 @@ internal fun MobileSettingsScreen(state: ReelstackUiState, contentPadding: Paddi
                             SettingsCategoryCard(destination, Modifier.testTag("settings-category-${destination.name}")) {
                                 page = destination
                             }
-                            // Downloads sit with playback: they are the other way to watch.
-                            if (destination == SettingsCategory.PLAYBACK && !state.isKidMode)
-                                SettingsActionRow(stringResource(R.string.nav_downloads), offlineSettingsSummary(state.offlineDownloads),
-                                    "settings-downloads", SpoleIcons.Download, onOpenDownloads)
+                            if (destination == SettingsCategory.UPDATES && !state.isKidMode)
+                                SettingsOverviewRow(stringResource(R.string.nav_downloads), offlineSettingsSummary(state.offlineDownloads),
+                                    SpoleIcons.Download, modifier = Modifier.testTag("settings-downloads"), onClick = onOpenDownloads)
                         }
                     } else {
                         SettingsCategoryIntro(selected, showTitle = false)

@@ -7,12 +7,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.toPixelMap
 import app.reelstack.player.*
 import app.reelstack.ui.theme.ReelstackTheme
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 
+@OptIn(ExperimentalTestApi::class)
 class PlayerSeekLayoutTest {
     @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
     private val fixture = PlayerScreenState(busy = false, playing = false,
@@ -27,6 +31,62 @@ class PlayerSeekLayoutTest {
 
     private fun controls() = listOf("player-toggle", "player-rewind", "player-forward")
         .map { rule.onNodeWithTag(it).getUnclippedBoundsInRoot() }
+
+    private fun bufferingScenario(size: DpSize) {
+        rule.mainClock.autoAdvance = false
+        var state by mutableStateOf(fixture.copy(playing = true, playWhenReady = true))
+        rule.setContent {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(size)) {
+                ReelstackTheme {
+                    PlayerScreen(state, null, {}, {}, { target ->
+                        state = state.copy(busy = true, playing = false, positionMs = target)
+                    }, {}, {}, {}, {}, {}, {}, {}, isTelevision = false)
+                }
+            }
+        }
+        rule.mainClock.advanceTimeBy(160)
+        val before = controls()
+        saveTvReview("player-ready-${size.width.value.toInt()}", rule.onNodeWithTag("jellyfin-player").captureToImage())
+        rule.onNodeWithTag("player-forward").performClick()
+        rule.mainClock.advanceTimeBy(160)
+        rule.onNodeWithTag("player-buffering", useUnmergedTree = true).assertExists()
+        assertEquals("Buffering must not move any transport button", before, controls())
+        saveTvReview("player-buffering-${size.width.value.toInt()}", rule.onNodeWithTag("jellyfin-player").captureToImage())
+        rule.runOnIdle { state = state.copy(busy = false, playing = true) }
+        rule.mainClock.advanceTimeBy(160)
+        assertEquals("Ready must not move any transport button", before, controls())
+        rule.onNodeWithTag("player-rewind").performClick()
+        rule.mainClock.advanceTimeBy(160)
+        assertEquals("Repeated reverse seek must remain stable", before, controls())
+        rule.runOnIdle { state = state.copy(busy = false, playing = true) }
+        rule.mainClock.advanceTimeBy(2_400)
+        assertEquals(before, controls())
+    }
+
+    @Test fun bufferingKeepsControlsFixedOnPortraitPhone() = bufferingScenario(DpSize(412.dp, 840.dp))
+
+    @Test fun bufferingKeepsControlsFixedOnLandscapePhone() = bufferingScenario(DpSize(740.dp, 360.dp))
+
+    @Test fun pauseButtonIsCompactAndNeutral() {
+        rule.setContent { ReelstackTheme {
+            PlayerScreen(fixture.copy(playing = true, playWhenReady = true), null,
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = false)
+        } }
+        val bounds = rule.onNodeWithTag("player-toggle").getUnclippedBoundsInRoot()
+        assertEquals(56.dp, bounds.right - bounds.left)
+        assertEquals(56.dp, bounds.bottom - bounds.top)
+        val pixels = rule.onNodeWithTag("player-toggle").captureToImage().toPixelMap()
+        var visiblePixels = 0
+        for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
+            val c = pixels[x, y]
+            if (c.alpha > .5f) {
+                visiblePixels++
+                assertTrue("Pause must use neutral colours", kotlin.math.abs(c.red - c.green) < .025f &&
+                    kotlin.math.abs(c.green - c.blue) < .025f)
+            }
+        }
+        assertTrue(visiblePixels > 20)
+    }
 
     @Test fun skipButtonsNeverMoveWhileSeekingOrWhenFeedbackExpires() {
         var sought = -1L

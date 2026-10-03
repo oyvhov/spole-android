@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta1 - stabile spelarkontrollar og samordna innstillingsrader
+
+- Spoleknappane held same plass når avspelinga buffer etter spoling. Lastestatus bruker den faste knappflata.
+- Mindre og nøytral play-/pauseknapp, enkle spolepiler og rolegare tidsvising med jamne talbreidder.
+- Nedlastingar har same innrykk som dei andre innstillingsradene og ligg under varsel.
+- Ny versjonsserie: 1.0.0-beta1, beta2 og vidare fram mot stabil 1.0.0.
+
 ## 0.18.0-beta17 - spoling utan preview
 
 - Preview-boksen ved spoling er fjerna frå mobil og TV. Play- og spoleknappane held same plass ved knappetrykk og drag på tidslinja.

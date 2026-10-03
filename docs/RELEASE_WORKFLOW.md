@@ -4,6 +4,8 @@ Dette er gjeldande arbeidsflyt frå alpha13. Ho gjeld framfor eldre publiserings
 
 ## Kontrakten appen forventar
 
+Frå 3. oktober 2026 bruker appen versjonsserien `1.0.0-beta1`, `1.0.0-beta2` og vidare fram mot stabil `1.0.0`. Første utgåve i serien har `versionCode = 138`; Android-koden skal framleis auke for kvar utgåve og blir ikkje nullstilt når versjonsnamnet skiftar serie. Beta-utgåvene bruker testkanalen som før, med same pakkenamn og signatur.
+
 - Offentleg repo: `oyvhov/spole-android`. Appen les `https://api.github.com/repos/oyvhov/spole-android/releases?per_page=100` utan GitHub-token.
 - Produksjonspakke: `app.reelstack`, aldri `.debug`.
 - `versionName` og tag må samsvare, til dømes `0.16.0-alpha13` og `v0.16.0-alpha13`. Bruk numeriske alpha-/beta-/rc-versjonar som `ReleaseVersion` støttar.

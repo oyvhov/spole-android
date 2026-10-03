@@ -22,7 +22,7 @@ import org.junit.Test
 class MobileSettingsTest {
     @get:Rule val rule = createComposeRule()
     private val repository get() = AppPreferencesRepository(InstrumentationRegistry.getInstrumentation().targetContext)
-    private fun host(fontScale: Float = 1f) {
+    private fun host(fontScale: Float = 1f, onDownloads: () -> Unit = {}) {
         rule.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(360.dp, 800.dp))) {
                 DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) {
@@ -31,13 +31,38 @@ class MobileSettingsTest {
                     }
                     CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides phone) {
                     ReelstackTheme { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                        SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, { _, _ -> })
+                        SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, { _, _ -> }, onOpenDownloads = onDownloads)
                     } }
                     }
                 }
             }
         }
     }
+    private fun checkOverviewAlignment(fontScale: Float) {
+        var opened = false
+        host(fontScale) { opened = true }
+        val rows = listOf("ACCOUNTS", "APPEARANCE", "HOME", "PLAYBACK", "UPDATES")
+            .map { "settings-category-$it" } + "settings-downloads" + "settings-category-ABOUT"
+        val columns = rows.map { tag ->
+            rule.onNodeWithTag(tag).performScrollTo()
+            listOf("icon", "text", "chevron").map { column ->
+                rule.onNode(hasTestTag("settings-overview-$column") and hasAnyAncestor(hasTestTag(tag)),
+                    useUnmergedTree = true).getUnclippedBoundsInRoot().left
+            }
+        }
+        columns.forEach { assertEquals("Overview rows must share one grid", columns.first(), it) }
+        rule.onNodeWithTag("settings-downloads").performScrollTo().assertIsDisplayed()
+        val updates = rule.onNodeWithTag("settings-category-UPDATES").getUnclippedBoundsInRoot()
+        val downloads = rule.onNodeWithTag("settings-downloads").getUnclippedBoundsInRoot()
+        val about = rule.onNodeWithTag("settings-category-ABOUT").getUnclippedBoundsInRoot()
+        assertTrue(downloads.top >= updates.bottom)
+        assertTrue(about.top >= downloads.bottom)
+        saveTvReview("settings-index-$fontScale", rule.onNodeWithTag("settings-feed").captureToImage())
+        rule.onNodeWithTag("settings-downloads").performClick()
+        assertTrue(opened)
+    }
+    @Test fun overviewRowsAlignAndDownloadsFollowUpdates() = checkOverviewAlignment(1f)
+    @Test fun largeTextOverviewRowsAlignAndDownloadsRemainReachable() = checkOverviewAlignment(2f)
     @Test fun overviewOpensOnlyOneGroupAndBackReturnsToCategories() {
         host()
         rule.onNodeWithTag("theme-choice-season").assertDoesNotExist()

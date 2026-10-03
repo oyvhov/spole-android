@@ -49,6 +49,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -518,12 +519,23 @@ fun PlayerScreen(
                                     remoteSeekTargetMs = null
                                 }
                             }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision).testTag("player-rewind")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.Replay10, stringResource(R.string.player_rewind), Modifier.size(32.dp))
+                                Icon(app.reelstack.ui.components.SpoleIcons.SeekBack, stringResource(R.string.player_rewind), Modifier.size(28.dp), tint = Color.White)
                             }
-                            FilledIconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy, modifier = Modifier.size(72.dp).remoteFocus(isTelevision).focusRequester(playFocus).testTag("player-toggle")) {
-                                if (state.busy) CircularProgressIndicator(Modifier.size(30.dp), strokeWidth = 2.dp)
-                                else Icon(if (state.playing) app.reelstack.ui.components.SpoleIcons.Pause else app.reelstack.ui.components.SpoleIcons.Play,
-                                    if (state.playing) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(36.dp))
+                            val preparingLabel = stringResource(R.string.player_preparing)
+                            IconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy,
+                                colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White,
+                                    disabledContentColor = Color.White.copy(alpha = .7f)),
+                                modifier = Modifier.size(56.dp)
+                                    .background(Color.Black.copy(alpha = .52f), CircleShape)
+                                    .border(1.dp, Color.White.copy(alpha = .24f), CircleShape)
+                                    .remoteFocus(isTelevision).focusRequester(playFocus)
+                                    .semantics { if (state.busy) stateDescription = preparingLabel }
+                                    .testTag("player-toggle")) {
+                                // Buffering changes only the contents of this fixed icon slot.
+                                if (state.busy) CircularProgressIndicator(Modifier.size(24.dp).testTag("player-buffering"),
+                                    color = Color.White, strokeWidth = 2.dp)
+                                else Icon(if (state.playing || state.playWhenReady && !state.ended) app.reelstack.ui.components.SpoleIcons.Pause else app.reelstack.ui.components.SpoleIcons.PlaySimple,
+                                    if (state.playing || state.playWhenReady && !state.ended) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(28.dp))
                             }
                             IconButton(onClick = {
                                 interaction++
@@ -538,26 +550,31 @@ fun PlayerScreen(
                                     }
                                 }
                             }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision).testTag("player-forward")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.Forward10, stringResource(R.string.player_forward), Modifier.size(32.dp))
+                                Icon(app.reelstack.ui.components.SpoleIcons.SeekForward, stringResource(R.string.player_forward), Modifier.size(28.dp), tint = Color.White)
                             }
                         }
-                        if (state.busy) Text(stringResource(R.string.player_preparing), Modifier.align(Alignment.CenterHorizontally).padding(8.dp))
                     }
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (!state.awaitingResume) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
                         var dragging by remember { mutableStateOf<Float?>(null) }
+                        val timelineColors = SliderDefaults.colors(thumbColor = Color.White,
+                            activeTrackColor = Color.White, inactiveTrackColor = Color.White.copy(alpha = .28f),
+                            disabledActiveTrackColor = Color.White.copy(alpha = .5f),
+                            disabledInactiveTrackColor = Color.White.copy(alpha = .2f))
                         Slider(value = dragging ?: remoteSeekTargetMs?.toFloat() ?: state.positionMs.toFloat().coerceIn(0f, state.durationMs.coerceAtLeast(1).toFloat()),
+                            colors = timelineColors,
                             // A child drags this with a whole finger, not a fingertip, so the kid
                             // timeline is a 7 dp track with a 20 dp handle rather than 4 and 12.
                             thumb = {
                                 Box(
                                     Modifier.size(if (kids) 20.dp else 12.dp)
-                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                        .background(Color.White.copy(alpha = if (state.busy) .5f else 1f), CircleShape),
                                 )
                             },
                             track = {
                                 SliderDefaults.Track(
                                     it,
+                                    colors = timelineColors,
                                     modifier = Modifier.height(if (kids) 7.dp else 4.dp),
                                     thumbTrackGapSize = 0.dp,
                                 )
@@ -571,23 +588,15 @@ fun PlayerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White,
-                                )
-                                Text(
-                                    "/",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    playbackTime(state.durationMs),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                            val padHours = state.durationMs >= 3_600_000L
+                            Text(
+                                playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs, padHours) +
+                                    " / " + playbackTime(state.durationMs, padHours),
+                                modifier = Modifier.weight(1f).testTag("player-time-label"),
+                                style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                                color = Color.White.copy(alpha = .78f), maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 if (!kids) {
                                 if (state.chapters.isNotEmpty()) {

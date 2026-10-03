@@ -98,7 +98,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                         }.testTag("settings-category-${item.name}"))
                 // Downloads open as their own page rather than a pane: the list refreshes itself
                 // while it is on screen. Television has no downloads at all.
-                if (item == SettingsCategory.PLAYBACK && !television && !state.isKidMode)
+                if (item == SettingsCategory.UPDATES && !television && !state.isKidMode)
                     WideDestination(stringResource(R.string.nav_downloads), SpoleIcons.Download, selected = false,
                         onClick = onOpenDownloads, modifier = Modifier.testTag("settings-downloads"))
             }

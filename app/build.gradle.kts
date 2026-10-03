@@ -43,8 +43,8 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-        versionCode = 137
-        versionName = "0.18.0-beta17"
+        versionCode = 138
+        versionName = "1.0.0-beta1"
 
         testInstrumentationRunner = "app.reelstack.SpoleTestRunner"
         vectorDrawables.useSupportLibrary = true

@@ -4,6 +4,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ReleasePolicyTest {
+    @Test fun onePointZeroBetaContinuesExistingUpdatesAndOrdersFutureBetas() {
+        val raw = "[${release("v0.18.0-beta17")},${release("v1.0.0-beta1")}]"
+        assertEquals("v1.0.0-beta1", newerRelease(raw, "0.18.0-beta17", true)?.tag)
+        assertNull(newerRelease(raw, "0.18.0-beta17", false))
+        assertTrue(ReleaseVersion.parse("1.0.0-beta2")!! > ReleaseVersion.parse("1.0.0-beta1")!!)
+        assertTrue(ReleaseVersion.parse("1.0.0")!! > ReleaseVersion.parse("1.0.0-beta99")!!)
+        val installed = UpdatePackageIdentity("app.reelstack", 137, "0.18.0-beta17", 26, false, setOf("certificate"))
+        assertTrue(compatibleUpdate(installed, installed.copy(versionCode = 138, versionName = "1.0.0-beta1"),
+            "v1.0.0-beta1", 36))
+    }
     private fun release(tag: String, preview: Boolean = true, draft: Boolean = false, asset: String = "Spole.apk", digest: String = "a".repeat(64), size: Long = 5000) =
         """{"tag_name":"$tag","prerelease":$preview,"draft":$draft,"body":"Notes","assets":[{"id":5,"name":"$asset","state":"uploaded","size":$size,"digest":"sha256:$digest"}]}"""
     @Test fun numericPreviewVersionsAndStableOrder() {

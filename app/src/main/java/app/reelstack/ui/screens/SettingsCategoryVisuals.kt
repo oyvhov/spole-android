@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -44,18 +46,27 @@ internal fun SettingsCategoryIntro(category: SettingsCategory, showTitle: Boolea
 
 @Composable
 internal fun SettingsCategoryCard(category: SettingsCategory, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    SettingsOverviewRow(stringResource(category.title), stringResource(category.hint), category.icon,
+        category.ink, modifier, onClick)
+}
+
+/** Every entry in the mobile index shares one icon, text and chevron grid. */
+@Composable
+internal fun SettingsOverviewRow(title: String, summary: String, icon: ImageVector,
+    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Row(modifier.fillMaxWidth().heightIn(min = 88.dp).settingsSurface(interaction)
         .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
             role = Role.Button, onClick = onClick).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        SettingsIconBadge(category.icon, category.ink, 48.dp)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(category.title), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(category.hint), style = MaterialTheme.typography.bodySmall,
+        Box(Modifier.testTag("settings-overview-icon")) { SettingsIconBadge(icon, tint, 48.dp) }
+        Column(Modifier.weight(1f).testTag("settings-overview-text"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(summary, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(SpoleIcons.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(SpoleIcons.ChevronRight, null, Modifier.size(18.dp).testTag("settings-overview-chevron"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
