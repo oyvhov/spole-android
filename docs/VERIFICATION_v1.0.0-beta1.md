@@ -27,3 +27,9 @@
 - APK og nøyaktig R8-mapping frosne i `app/build/release-v1.0.0-beta1`.
 - Fire FFmpeg-bibliotek og to lisensfiler er byteidentiske med beta17. Kjelde-/relenkingsarkivet har SHA-256 `2b7eeba9705de0fcff66d3a04f71a811d39a9299d70e1f65728a8a8809965b21`.
 - Signert `install -r` frå beta17 til 1.0.0-beta1 lykkast på lagra TV-profil 5564. Installert kode er 138; første installasjonstid er framleis 9. september 2026 kl. 20:50:58. Ingen appdata sletta.
+
+## Publisering
+
+- Publisert som prerelease, ikkje draft: https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta1 . Stabil latest er ikkje endra.
+- Kjelde/tag: `3ac6d92`. Fem assets og nøyaktig éin universal produksjons-APK.
+- Uautentisert offentleg metadata og offentleg APK-nedlasting er kontrollerte. GitHub-digest og nedlasta SHA-256 samsvarer med det frosne bygget.
