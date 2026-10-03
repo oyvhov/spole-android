@@ -12,3 +12,9 @@
 - Fire FFmpeg-bibliotek og to lisensfiler er byteidentiske med beta16. Tilhøyrande kjelde-/relenkingsarkiv har SHA-256 `2b7eeba9705de0fcff66d3a04f71a811d39a9299d70e1f65728a8a8809965b21`.
 - Signert `install -r` frå beta16 til beta17 på lagra TV-profil 5564 lykkast. Første installasjonstid er framleis 9. september 2026 kl. 20:50:58. Ingen appdata sletta eller instrumentering på denne profilen.
 - Full nedlasting/installasjon gjennom appen blir ikkje repetert i denne kjappe releasen. Offentleg nedlasting og GitHub-digest blir kontrollerte etter publisering.
+
+## Publisering
+
+- Publisert prerelease: https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta17 . Ikkje draft; stabil latest er ikkje endra.
+- Kjelde/tag: `b1f9389`. Fem assets og nøyaktig éin universal produksjons-APK.
+- Uautentisert offentleg tag-endepunkt og offentleg APK-nedlasting er verifiserte. GitHub-digest og SHA-256 frå nedlasta APK samsvarer med det frosne bygget.
