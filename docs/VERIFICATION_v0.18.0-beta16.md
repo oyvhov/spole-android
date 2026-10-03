@@ -44,4 +44,30 @@ bakgrunnskunst i mobil-/TV-detaljar. Tidlegare lokal kontroll er dokumentert i
 - Mobil-emulatoren viste eit mellombels System UI-varsel etter kaldstart,
   også på den gamle beta15-utgåva. «Wait» lukka varselet utan å slette data.
 
-Offentleg publisering og faktisk oppdateringsprøve blir dokumenterte etterpå.
+## Publisering
+
+- [GitHub Release](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta16)
+  er publisert som prerelease, ikkje draft eller stabil latest. Release-taggen
+  peikar på `eeac05ffdee650416106d7ea37fe514c12d6143e`.
+- Alle fem assets er kontrollerte før publisering: éin universal produksjons-APK,
+  R8-mapping, `SHA256SUMS.txt`, `SOURCE_COMMIT.txt` og FFmpeg-kjelde-/relenkingsarkiv.
+  Storleik og GitHub-digest samsvarar med alle lokale filer, og den eksterne
+  taggen samsvarar med `SOURCE_COMMIT.txt`.
+- Offentleg metadata er henta utan Authorization-header. Den offentlege APK-en
+  er lasta ned til ei separat kontrollfil; SHA-256 og storleik samsvarar med bygget.
+
+## Faktisk oppdateringsprøve
+
+- Mobil 5560: Innstillingar → Notifications and updates → App updates → Check now
+  fann v0.18.0-beta16. Download update lasta ned og kontrollerte APK-en gjennom appen.
+- Install update opna Android-installasjonen. Update og Play Protect-skannen vart
+  gjennomførte. Play Protect viste «This app looks safe», og Install gav deretter
+  Android-meldinga «App installed.».
+- Installert pakke er beta16/kode 136, `lastUpdateTime=2026-10-03 13:58:23`.
+  `firstInstallTime=2026-09-15 10:09:51` er uendra. Beta16 vart ikkje installert
+  med ADB på mobilen; ADB vart brukt til UI-trykk og avlesing.
+- Open frå Android-installasjonen opna framsida med den høgare toppmenyen.
+  Engelsk språk, grøn/Lime-profil og eksisterande demoinnhald er bevarte.
+  Ekte mobilkonto er ikkje verifisert; TV-kontoane vart kontrollerte før
+  publisering. Begge lagra emulatorane står opne med beta16.
+- Skjermbilete og UI-dumpar er berre lagra lokalt under den ignorerte byggmappa.
