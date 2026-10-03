@@ -3,6 +3,21 @@ package app.reelstack.data.network
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import app.reelstack.data.model.LibraryMedia
 
+/** A portrait hero must not enlarge the lettering already printed on a Thumb or poster. */
+fun mobileHeroArtworkUrl(media: LibraryMedia): String? {
+    media.backdropUrl?.takeIf(String::isNotBlank)?.let { return it }
+    // Older snapshots can already carry a real backdrop in heroUrl or the card's artwork.
+    return listOfNotNull(media.heroUrl, media.artworkUrl).firstOrNull { url ->
+        if (url.isBlank()) return@firstOrNull false
+        val segments = url.toHttpUrlOrNull()?.pathSegments ?: return@firstOrNull false
+        val images = segments.indexOfLast { it.equals("Images", true) }
+        if (images < 0) return@firstOrNull url == media.heroUrl
+        segments.getOrNull(images + 1).equals("Backdrop", true) &&
+            (!media.mediaType.equals("Episode", true) ||
+                (!media.seriesId.isNullOrBlank() && segments.getOrNull(images - 1) == media.seriesId))
+    }
+}
+
 /** Older snapshots only contain card art. Reuse it only when its image owner is suitable. */
 fun libraryHeroArtworkUrl(media: LibraryMedia): String? {
     media.heroUrl?.takeIf { it.isNotBlank() }?.let { return it }

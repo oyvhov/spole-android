@@ -1022,6 +1022,7 @@ class MediaServerClient(
                             artworkUrl(connection, it, item.artworkImageType, item.artworkTag)
                         },
                         heroUrl = item.heroImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
+                        backdropUrl = item.backdropImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
                         posterUrl = item.posterImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
                         logoUrl = item.logoItemId?.let {
                             logoUrl(connection, it, item.logoTag)

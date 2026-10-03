@@ -148,6 +148,8 @@ data class LibraryMedia(
     val criticRating: Int? = null,
     val tmdbRating: Float? = null,
     val mdblistRating: Float? = null,
+    /** Background art kept separately from the often lettered TV/card thumbnail. */
+    val backdropUrl: String? = null,
 ) {
     /**
      * A series, whatever the server called it.

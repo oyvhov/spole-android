@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.0-beta15 - mobil-Hero med bakgrunnskunst og sveiping
+
+- Mobil-Hero prioriterer bakgrunnskunst frå filmen eller serien framfor miniatyrbilete med innebygd tekst.
+- Sveiping med touch følgjer fingeren i begge retningar, med fast toppmeny og vanleg vertikal rulling.
+- Større trykkflater på sideprikkane og ein ny pause før automatisk bytte etter sveiping.
+
 ## 0.18.0-beta14 - TV-fokus, rolegare spoling og betre serieside
 
 - Oppdateringsvarselet på TV får startfokus og tydeleg fjernkontrollnavigasjon. Fokus følgjer nedlasting, avbryt og installer.

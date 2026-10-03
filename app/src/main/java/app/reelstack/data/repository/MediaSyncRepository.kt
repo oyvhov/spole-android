@@ -578,6 +578,7 @@ class MediaSyncRepository(
         artworkUrl = item.artworkUrl,
         logoUrl = item.logoUrl,
         heroUrl = item.heroUrl,
+        backdropUrl = item.backdropUrl,
         posterUrl = item.posterUrl,
         remoteId = item.id,
         overview = item.overview,

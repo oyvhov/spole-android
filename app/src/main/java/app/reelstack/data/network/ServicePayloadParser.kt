@@ -94,6 +94,8 @@ data class RemoteLibraryItem(
     val criticRating: Int? = null,
     val tmdbRating: Float? = null,
     val mdblistRating: Float? = null,
+    val backdropImagePath: String? = null,
+    val backdropUrl: String? = null,
 )
 
 data class RemoteLibraryView(
@@ -368,6 +370,7 @@ object ServicePayloadParser {
                 artworkImageType = artwork.imageType,
                 artworkTag = artwork.tag,
                 heroImagePath = libraryHeroPath(item, id, mediaType),
+                backdropImagePath = libraryBackdropPath(item, id, mediaType),
                 posterImagePath = libraryPosterPath(item, id, mediaType),
                 season = season,
                 episode = episode,
@@ -1060,6 +1063,18 @@ object ServicePayloadParser {
             ?: item.array("parentBackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
         imagePath(parentBackdropId, "Backdrop/0", parentBackdropTag)?.let { return it }
         return null
+    }
+
+    /** Mobile needs scenery rather than a series thumbnail with a title baked into it. */
+    private fun libraryBackdropPath(item: JsonObject, id: String, type: String): String? {
+        val parent = type.equals("Episode", true) || type.equals("Season", true)
+        val owner = if (parent) item.string("ParentBackdropItemId") ?: item.string("parentBackdropItemId")
+            ?: item.string("SeriesId") ?: item.string("seriesId") else id
+        val tag = if (parent) item.array("ParentBackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+            ?: item.array("parentBackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+        else item.array("BackdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+            ?: item.array("backdropImageTags").firstOrNull()?.jsonPrimitive?.contentOrNull
+        return imagePath(owner, "Backdrop/0", tag)
     }
 
     private fun libraryPosterPath(item: JsonObject, id: String, type: String): String? =

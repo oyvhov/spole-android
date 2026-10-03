@@ -6,6 +6,7 @@ import kotlinx.serialization.json.*
 /** Optional additions to cached cards. Older rows remain readable without discarding their art. */
 internal fun encodeLibraryMetadata(item: LibraryMedia): String = buildJsonObject {
     put("heroUrl", item.heroUrl); put("posterUrl", item.posterUrl)
+    put("backdropUrl", item.backdropUrl)
     put("season", item.season); put("episode", item.episode)
     put("seriesId", item.seriesId); put("libraryId", item.libraryId); put("logoUrl", item.logoUrl)
     put("runtime", item.runtimeMinutes); put("children", item.childCount)
@@ -22,6 +23,7 @@ internal fun LibraryMedia.restoreLibraryMetadata(value: String): LibraryMedia {
     fun decimal(key: String) = text(key)?.toFloatOrNull()
     fun flag(key: String, fallback: Boolean) = text(key)?.toBooleanStrictOrNull() ?: fallback
     return copy(heroUrl = text("heroUrl"), posterUrl = text("posterUrl"), season = number("season"), episode = number("episode"), seriesId = text("seriesId"),
+        backdropUrl = text("backdropUrl"),
         libraryId = text("libraryId"), logoUrl = text("logoUrl"), runtimeMinutes = number("runtime"),
         childCount = number("children"), favourite = flag("favourite", false), played = flag("played", false),
         available = flag("available", true), premiereDate = text("premiere"), tmdbId = number("tmdb"),

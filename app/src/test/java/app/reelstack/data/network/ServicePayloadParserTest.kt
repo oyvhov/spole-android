@@ -419,6 +419,8 @@ class ServicePayloadParserTest {
         val movie = ServicePayloadParser.libraryItems(moviePayload).single()
         assertTrue(movie.heroImagePath!!.contains("/Images/Thumb?"))
         assertTrue(movie.heroImagePath.contains("tag=thumb1"))
+        assertTrue(movie.backdropImagePath!!.contains("Items/movie-1/Images/Backdrop/0?"))
+        assertTrue(movie.backdropImagePath.contains("tag=backdrop1"))
 
         val episodePayload = """
             [{"Id":"ep-1","Name":"Villmark","Type":"Episode","SeriesId":"series-1",
@@ -429,6 +431,8 @@ class ServicePayloadParserTest {
         val episode = ServicePayloadParser.libraryItems(episodePayload).single()
         assertTrue(episode.heroImagePath!!.contains("Items/series-1/Images/Thumb?"))
         assertTrue(episode.heroImagePath.contains("tag=seriestag1"))
+        assertTrue(episode.backdropImagePath!!.contains("Items/series-1/Images/Backdrop/0?"))
+        assertTrue(episode.backdropImagePath.contains("tag=seriesbackdrop1"))
 
         val fallbackPayload = """
             [{"Id":"movie-2","Name":"No Thumb","Type":"Movie",
@@ -437,5 +441,16 @@ class ServicePayloadParserTest {
         """.trimIndent()
         val fallback = ServicePayloadParser.libraryItems(fallbackPayload).single()
         assertTrue(fallback.heroImagePath!!.contains("/Images/Backdrop/0?"))
+    }
+
+    @Test fun mobileBackdropHandlesEmbyCapitalisationAndNeverUsesAnEpisodeStill() {
+        val episode = ServicePayloadParser.libraryItems("""[{"id":"episode","name":"Episode","type":"Episode",
+            "seriesId":"series","imageTags":{"Primary":"still","Thumb":"lettered"},
+            "backdropImageTags":["episode-scene"],"parentBackdropImageTags":["series-scene"]}]""").single()
+        assertTrue(episode.backdropImagePath!!.contains("Items/series/Images/Backdrop/0?"))
+        assertTrue(episode.backdropImagePath.contains("tag=series-scene"))
+        val noBackdrop = ServicePayloadParser.libraryItems("""[{"Id":"film","Name":"Film","Type":"Movie",
+            "ImageTags":{"Primary":"poster","Thumb":"lettered"}}]""").single()
+        assertNull(noBackdrop.backdropImagePath)
     }
 }

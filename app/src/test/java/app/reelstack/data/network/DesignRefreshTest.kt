@@ -39,7 +39,8 @@ class DesignRefreshTest {
 
     @Test fun cachedEpisodePreservesIdentityArtworkAndAvailability() {
         val before = card("episode").copy(seriesId = "series", libraryId = "library", logoUrl = "https://example.org/logo",
-            favourite = true, played = true, runtimeMinutes = 42, childCount = 9, available = false, premiereDate = "2026-10-01")
+            favourite = true, played = true, runtimeMinutes = 42, childCount = 9, available = false, premiereDate = "2026-10-01",
+            backdropUrl = "https://example.org/Items/series/Images/Backdrop/0?tag=scenery")
         val restored = card("episode").restoreLibraryMetadata(encodeLibraryMetadata(before))
         assertEquals(before, restored)
         assertEquals(card("episode"), card("episode").restoreLibraryMetadata("old invalid metadata"))
