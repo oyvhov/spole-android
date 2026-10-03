@@ -37,6 +37,7 @@ import app.reelstack.ui.theme.LocalPersonalization
 internal fun TvCinematicDetails(
     details: ContentDetails,
     scroll: ScrollState,
+    opening: ContentDetails = details,
     heading: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -49,8 +50,10 @@ internal fun TvCinematicDetails(
         val heroHeight = maxHeight * if (episodic) .52f else .76f
         if (options.detailBackdrop) {
             Box(Modifier.fillMaxWidth().height(maxHeight)) {
-                MediaArtwork(details.backdropUrl ?: details.artworkUrl, null, Modifier.matchParentSize(),
-                    fallbackRes = details.artworkRes, contentScale = ContentScale.Crop,
+                MediaArtwork(app.reelstack.data.network.detailBackdropUrl(opening, details), null,
+                    Modifier.matchParentSize().testTag("tv-detail-backdrop"),
+                    fallbackRes = if (opening.remoteId == null && opening.artworkUrl == null) opening.artworkRes else 0,
+                    contentScale = ContentScale.Crop,
                     source = details.source, protectAspectRatio = false, alignment = Alignment.TopCenter)
                 Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
                     0f to Ink.copy(alpha = if (options.highContrast) 1f else .96f),

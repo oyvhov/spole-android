@@ -10,11 +10,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.components.MobileLibraryFeature
+import app.reelstack.ui.appScaffoldPadding
 import app.reelstack.ui.theme.LocalMotionEnabled
 import app.reelstack.ui.theme.ReelstackTheme
 import org.junit.Assert.*
@@ -22,7 +24,7 @@ import org.junit.Rule
 import org.junit.Test
 
 class MobileHeroGestureTest {
-    @get:Rule val rule = createComposeRule()
+    @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
     private val first = LibraryMedia("first", "Den første filmen med eit langt namn", "", artworkRes = 0,
         source = ServiceKind.JELLYFIN, mediaType = "Movie", remoteId = "first")
     private val second = first.copy(id = "second", title = "Den andre filmen", remoteId = "second")
@@ -94,6 +96,27 @@ class MobileHeroGestureTest {
         } }
         rule.onNodeWithTag("mobile-hero-pager").performTouchInput { swipeUp() }
         rule.runOnIdle { assertTrue(feed.firstVisibleItemIndex > 0 || feed.firstVisibleItemScrollOffset > 0) }
+    }
+
+    @Test fun headerUsesTheActualSystemSafeAreaOnlyOnce() {
+        rule.runOnUiThread { WindowCompat.setDecorFitsSystemWindows(rule.activity.window, false) }
+        var safeTop = 0.dp
+        rule.setContent { ReelstackTheme {
+            val density = LocalDensity.current
+            safeTop = with(density) { WindowInsets.safeDrawing.getTop(this).toDp() }
+            androidx.compose.material3.Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
+                Box(Modifier.fillMaxSize().appScaffoldPadding(padding)) {
+                    LazyColumn {
+                        item { MobileLibraryFeature(first, {}, rotationEnabled = false,
+                            header = { Text("Spole", Modifier.testTag("fixture-header")) }) }
+                    }
+                }
+            }
+        } }
+        val header = rule.onNodeWithTag("fixture-header", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertTrue("Must test a real status bar", safeTop > 0.dp)
+        assertEquals((safeTop + 8.dp).value, header.top.value, 1f)
+        rule.onNodeWithTag("mobile-feature-open").assertIsDisplayed()
     }
 
     @Test fun headingAndActionsRemainReachableAtSystemFontScale() {

@@ -434,7 +434,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }.focusGroup())
     }
     if (tv) {
-        app.reelstack.ui.components.TvCinematicDetails(details, scroll, heading = {
+        app.reelstack.ui.components.TvCinematicDetails(details, scroll, opening = opening, heading = {
             app.reelstack.ui.components.DetailLogo(details, opening.title)
             if (mediaType == "Episode") Text(
                 app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),

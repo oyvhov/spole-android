@@ -2,6 +2,11 @@ package app.reelstack.data.network
 
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import app.reelstack.data.model.LibraryMedia
+import app.reelstack.data.model.ContentDetails
+
+/** A detail sheet keeps its known backdrop; late metadata must not swap it for another image. */
+fun detailBackdropUrl(opening: ContentDetails, details: ContentDetails): String? = heroArtworkUrl(
+    opening.backdropUrl?.takeIf(String::isNotBlank) ?: details.backdropUrl?.takeIf(String::isNotBlank))
 
 /** A portrait hero must not enlarge the lettering already printed on a Thumb or poster. */
 fun mobileHeroArtworkUrl(media: LibraryMedia): String? {

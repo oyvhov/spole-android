@@ -4,9 +4,36 @@ import org.junit.Assert.*
 import org.junit.Test
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.ContentDetails
 
 class HeroArtworkTest {
     private val media = LibraryMedia("film", "Film", "", artworkRes = 0, source = ServiceKind.JELLYFIN)
+
+    private val detail = ContentDetails("film", "Film", "", "", artworkRes = 0,
+        artworkUrl = "https://image.example/poster.jpg", source = ServiceKind.JELLYFIN)
+
+    @Test fun detailKeepsTheOpeningBackdropWhenMetadataArrives() {
+        val opening = detail.copy(backdropUrl = "https://image.example/scenery.jpg", loading = true)
+        val loaded = opening.copy(backdropUrl = "https://image.example/other.jpg", loading = false)
+        assertEquals(opening.backdropUrl, detailBackdropUrl(opening, opening))
+        assertEquals(opening.backdropUrl, detailBackdropUrl(opening, loaded))
+    }
+
+    @Test fun detailNeverShowsAPosterBeforeTheLateBackdrop() {
+        assertNull(detailBackdropUrl(detail, detail))
+        val loaded = detail.copy(backdropUrl = "https://image.example/scenery.jpg", loading = false)
+        assertEquals(loaded.backdropUrl, detailBackdropUrl(detail, loaded))
+        assertEquals(loaded.backdropUrl, detailBackdropUrl(detail.copy(backdropUrl = " "), loaded))
+    }
+
+    @Test fun detailAndHeroShareTheSameHighResolutionImageRequest() {
+        val url = "https://media.example/Items/film/Images/Backdrop/0?maxWidth=480&quality=75&tag=scenery"
+        val item = media.copy(backdropUrl = url, heroUrl = "https://media.example/Items/film/Images/Thumb")
+        val opening = detail.copy(backdropUrl = heroArtworkUrl(mobileHeroArtworkUrl(item)))
+        assertEquals(opening.backdropUrl, detailBackdropUrl(opening,
+            opening.copy(backdropUrl = url.replace("480", "1280"))))
+        assertTrue(opening.backdropUrl!!.contains("maxWidth=1920"))
+    }
 
     @Test fun mobileChoosesSceneryEvenWhenTvHeroAndCardUseLetteredImages() {
         val backdrop = "https://media.example/Items/film/Images/Backdrop/0?tag=scenery"

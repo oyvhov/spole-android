@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.safeDrawing
@@ -318,7 +319,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 )
             },
         ) { paddingValues ->
-            Row(Modifier.fillMaxSize().padding(paddingValues)) {
+            Row(Modifier.fillMaxSize().appScaffoldPadding(paddingValues)) {
             if (showRail) {
                 SidebarSlot(if (tvRail) false else expandedRail, hidden = tvRail && personalization.hideTvSidebar) {
                 ReelstackNavigationRail(
@@ -659,6 +660,10 @@ internal fun ReelstackNavigationRail(
     modifier = modifier,
     compactTouch = compactTouch,
 )
+
+/** Children only add the safe area that the scaffold has not already applied. */
+internal fun Modifier.appScaffoldPadding(padding: PaddingValues): Modifier =
+    padding(padding).consumeWindowInsets(padding)
 
 /** Keep the same focusable nodes and icon positions in both sizes. Only labels fade and clip. */
 @Composable

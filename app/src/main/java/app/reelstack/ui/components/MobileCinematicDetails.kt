@@ -25,11 +25,11 @@ internal fun MobileCinematicDetails(
 ) {
     Box(Modifier.fillMaxWidth().heightIn(min = 340.dp).testTag("mobile-detail-hero")) {
         MediaArtwork(
-            url = if (ready) details.backdropUrl ?: opening.backdropUrl ?: opening.artworkUrl
-                else opening.backdropUrl ?: opening.artworkUrl,
-            contentDescription = null, fallbackRes = opening.artworkRes,
+            url = app.reelstack.data.network.detailBackdropUrl(opening, details),
+            contentDescription = null,
+            fallbackRes = if (opening.remoteId == null && opening.artworkUrl == null) opening.artworkRes else 0,
             source = opening.source, contentScale = ContentScale.Crop, protectAspectRatio = false,
-            alignment = Alignment.TopCenter, crossfadeDurationMillis = 0,
+            alignment = Alignment.TopCenter, crossfadeDurationMillis = 180,
             modifier = Modifier.matchParentSize().testTag("mobile-detail-backdrop"),
         )
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(

@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -18,6 +19,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.testTag
+import app.reelstack.ui.appScaffoldPadding
 import androidx.compose.ui.Modifier
 import app.reelstack.ui.components.MobileLibraryFeature
 import app.reelstack.ui.theme.LocalMotionEnabled
@@ -156,6 +164,33 @@ class MobileHeroUiTest {
         rule.onNodeWithText("Inception").assertIsDisplayed()
         rule.mainClock.autoAdvance = true
     }
+
+    private fun checkHeaderSafeArea(top: Int, left: Int = 0, right: Int = 0) {
+        rule.setContent { ReelstackTheme {
+            val safeArea = WindowInsets(left = left.dp, top = top.dp, right = right.dp)
+            Box(Modifier.fillMaxSize().appScaffoldPadding(safeArea.asPaddingValues())) {
+                // The same safe area is requested by a nested header. It must be consumed once.
+                Box(Modifier.windowInsetsPadding(safeArea)) {
+                    MobileLibraryFeature(sampleItem, {}, rotationEnabled = false,
+                        header = { Text("Spole", Modifier.testTag("safe-header")) })
+                }
+            }
+        } }
+        val header = rule.onNodeWithTag("safe-header", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val hero = rule.onNodeWithTag("mobile-library-feature").getUnclippedBoundsInRoot()
+        assertEquals((top + 8).toFloat(), header.top.value, 1f)
+        assertEquals(left.toFloat(), hero.left.value, 1f)
+        rule.onNodeWithTag("mobile-feature-open").assertIsDisplayed()
+    }
+
+    @Test @Config(qualifiers = "w320dp-h640dp-port-xhdpi")
+    fun compactPhoneHeaderUsesTheStatusBarOnlyOnce() = checkHeaderSafeArea(24)
+
+    @Test @Config(qualifiers = "w430dp-h932dp-port-xhdpi")
+    fun tallPhoneHeaderStaysNearTheTopWithALargeCutout() = checkHeaderSafeArea(64)
+
+    @Test
+    fun headerRespectsBothSideCutoutsWithoutDoublingThem() = checkHeaderSafeArea(32, 28, 16)
 
     @Test
     fun mobileHeroRendersOnPhoneWhenMediaAvailable() {

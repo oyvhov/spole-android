@@ -1729,7 +1729,8 @@ class ReelstackViewModel(
                     artworkRes = media.artworkRes,
                     artworkUrl = media.artworkUrl,
                     logoUrl = media.logoUrl,
-                    backdropUrl = media.heroUrl,
+                    backdropUrl = app.reelstack.data.network.heroArtworkUrl(
+                        app.reelstack.data.network.mobileHeroArtworkUrl(media)),
                     source = media.source,
                     mediaType = media.mediaType,
                     loading = connection != null && media.remoteId != null,

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.18.0-beta16 - dynamisk mobil-toppmeny og stabil detaljkunst
+
+- Logo, søk og profilbilde på mobilframsida ligg høgare: systemmargane blir brukte éin gong og tilpassar seg statuslinje og kamerautskjering. Parallax og sveiping er bevarte.
+- Detaljpopupen brukar riktig bakgrunnskunst frå opninga og held biletet stabilt når metadata kjem. Manglande bakgrunn blir lasta inn utan eit kort glimt av poster eller miniatyrbilete først.
+
 ## 0.18.0-beta15 - mobil-Hero med bakgrunnskunst og sveiping
 
 - Mobil-Hero prioriterer bakgrunnskunst frå filmen eller serien framfor miniatyrbilete med innebygd tekst.
