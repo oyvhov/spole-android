@@ -48,4 +48,29 @@ stor skrift. Detaljar og lokal før-release-test er dokumenterte i
 - Mobil 5560 har fått den publiserte beta14-APK-en med `install -r`, med bevarte
   brukardata og opphavleg installasjonsdato. Denne utgåva blir brukt til prøven
   av faktisk GitHub-nedlasting og Android-installasjon etter publisering.
-- Publisering og oppdateringsprøve blir dokumenterte i ein etterfølgjande rapport-commit.
+
+## Publisering
+
+- [GitHub Release](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta15)
+  er publisert som prerelease, ikkje draft eller stabil latest. Taggen peikar på
+  kjeldecommit `002d44dafbf9bf21dbca1afe3e28a3d790fc5feb`.
+- Alle fem assets er opplasta: éin universal produksjons-APK, R8-mapping,
+  `SHA256SUMS.txt`, `SOURCE_COMMIT.txt` og FFmpeg-kjelde-/relenkingsarkiv.
+  Storleik og GitHub-digest samsvarar med alle lokale filer.
+- Offentleg release-metadata er henta utan Authorization-header. Den offentlege
+  APK-en er lasta ned til ei separat kontrollfil; SHA-256 samsvarar med bygget.
+
+## Faktisk oppdateringsprøve
+
+- Mobil 5560: Innstillingar → Notifications and updates → App updates → Check now
+  fann beta15. Download update lasta ned og kontrollerte APK-en gjennom appen.
+- Install update opna Android. Update, Play Protect-skann og deretter Install
+  vart gjennomførte. Play Protect viste «This app looks safe», og Android viste
+  «App installed».
+- Installert pakke er beta15/kode 135, `lastUpdateTime=2026-10-03 12:32:13`.
+  `firstInstallTime=2026-09-15 10:09:51` er uendra. Beta15 vart ikkje installert
+  med ADB på mobilen.
+- Open frå Android-installatøren opna den nye framsida med mobil-Hero og
+  prikkval. Engelsk språk, grøn/Lime-profil og eksisterande demoinnhald er
+  bevarte. Mobilprofilen var i demo før oppdateringa; ekte mobilkonto er difor
+  ikkje verifisert i denne prøven. Begge dei lagra emulatorane står opne.
