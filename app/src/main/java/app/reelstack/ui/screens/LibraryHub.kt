@@ -3,6 +3,8 @@ package app.reelstack.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -28,7 +30,7 @@ import app.reelstack.ui.theme.*
 
 /** A personal front door. Browsing tools stay one press away, each source keeps its own shelves. */
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     onTitle: (String) -> Unit, actions: MediaCardActions?, onRetry: () -> Unit,
     onCustomize: () -> Unit = {}, sourcePicker: @Composable () -> Unit = {}) {
@@ -51,7 +53,8 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     // The landing page and the library grid both use 32 dp on TV. Keeping the hub on the same
     // grid stops the whole page from nudging sideways when a rail shortcut opens a library.
     val gutter = if (tv) 32.dp else ReelLayout.Gutter
-    val sections = (options.libraryHubOrder + DEFAULT_LIBRARY_HUB).distinct().filter { it !in options.libraryHubHidden }
+    val sections = libraryHubOrder(options.libraryHubOrder).filter { it !in libraryHubHidden(options.libraryHubHidden) }
+    val nextItems = libraryNextItems(resume, next)
     // The feature is one of this page's own rows. Home's switch for its feature does not reach here.
     val leadingHero = tv && featured.isNotEmpty() && sections.firstOrNull() == "FEATURE"
     val hero: @Composable () -> Unit = {
@@ -95,14 +98,10 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         }
         sections.forEach { section ->
         if (!leadingHero && section == "FEATURE" && large && featured.isNotEmpty()) item("feature") { hero() }
-        val continued = if (options.combineContinueWatching && options.showNextUp) combinedWatching(resume, next) else resume
-        if (section == "CONTINUE" && continued.isNotEmpty()) item("resume") {
-            HubShelf(stringResource(R.string.home_continue)) {
-                ResumeRail(continued, onTitle, actions, "CONTINUE_WATCHING")
+        if (section == "LIBRARY_NEXT" && nextItems.isNotEmpty()) item("next") {
+            HubShelf(stringResource(R.string.library_next)) {
+                ResumeRail(nextItems, onTitle, actions, resumeIds = resume.map { it.id }.toSet())
             }
-        }
-        if (section == "NEXT" && options.showNextUp && !options.combineContinueWatching && next.isNotEmpty()) item("next") {
-            HubShelf(stringResource(R.string.tv_next_up)) { ResumeRail(next, onTitle, actions.withoutResumeRemoval(), "NEXT_UP") }
         }
         if (section == "FAVOURITES" && state.favourites.any { it.source == state.librarySource }) item("favourites") {
             HubShelf(stringResource(R.string.home_favourites)) {
@@ -111,11 +110,24 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         }
         if (section == "LIBRARIES") items(libraries, key = { "shelf-${it.id}" }) { library ->
             val titles = state.libraryPeeks[library.id].orEmpty()
+            val (display, saveDisplay) = rememberLibraryDisplay(if (state.librarySource == ServiceKind.JELLYFIN) library.id else "emby:${library.id}")
+            var displayOpen by remember { mutableStateOf(false) }
+            if (displayOpen) SpoleChoiceDialog(stringResource(R.string.library_display), { displayOpen = false }, SpoleIcons.ListLines) {
+                LibraryDisplayPanel(display, saveDisplay, Modifier.verticalScroll(rememberScrollState()).padding(8.dp), includeLayout = false)
+            }
             HubShelf(library.title) {
                 if (titles.isNotEmpty()) LibraryRail(titles, onTitle, wide = library.collectionType == "tvshows",
-                    rowKey = when(library.collectionType) { "movies" -> "${state.librarySource.name}_MOVIES"; "tvshows" -> "${state.librarySource.name}_SERIES"; else -> null }, actions = actions)
+                    rowKey = when(library.collectionType) { "movies" -> "${state.librarySource.name}_MOVIES"; "tvshows" -> "${state.librarySource.name}_SERIES"; else -> null }, actions = actions,
+                    libraryDisplay = display)
                 else if (state.libraryPeeksLoading) app.reelstack.ui.components.LibraryRailSkeleton(description = stringResource(R.string.library_peek_loading), wide = false)
-                AppNavigationChip(stringResource(R.string.design_browse_all), "hub-all-${library.id}") { onLibrary(library.id) }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    AppNavigationChip(stringResource(R.string.design_browse_all), "hub-all-${library.id}") { onLibrary(library.id) }
+                    OpenMenuAction(onClick = { displayOpen = true }, modifier = Modifier.testTag("hub-view-${library.id}")) {
+                        Icon(SpoleIcons.ListLines, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.menu_view_short))
+                    }
+                }
             }
         }
         }

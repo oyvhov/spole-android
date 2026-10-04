@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-beta2 - betre bibliotek på mobil og TV
+
+- Biblioteket får eigne val for cover, miniatyr, banner, logo, rutenett og liste, med kortstorleik og brytarar for titlar, vurderingar, sett-merke og usette episodar.
+- «Hald fram» og «Neste episode» er samla i «Neste» i biblioteket, med eitt kort per serie og eigne kjelder.
+- Filmkort viser årstalet tett under tittelen. Seriekort får jamne breie bilete utan høge, tomme fokusrammer.
+- Bilete startar å laste før filtermetadata er klare, med bilete tilpassa kortstorleiken og avgrensa førehenting.
+- Sett film får ei diskret kvit hake; faktisk tal på usette episodar kjem frå tenaren.
+
 ## 1.0.0-beta1 - stabile spelarkontrollar og samordna innstillingsrader
 
 - Spoleknappane held same plass når avspelinga buffer etter spoling. Lastestatus bruker den faste knappflata.

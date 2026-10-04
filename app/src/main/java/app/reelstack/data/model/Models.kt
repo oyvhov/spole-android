@@ -150,6 +150,9 @@ data class LibraryMedia(
     val mdblistRating: Float? = null,
     /** Background art kept separately from the often lettered TV/card thumbnail. */
     val backdropUrl: String? = null,
+    val unplayedItemCount: Int? = null,
+    val thumbnailUrl: String? = null,
+    val bannerUrl: String? = null,
 ) {
     /**
      * A series, whatever the server called it.

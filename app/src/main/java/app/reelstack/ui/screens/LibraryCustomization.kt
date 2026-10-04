@@ -78,9 +78,10 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
         } else onDismiss()
     }
     val hubLabels = mapOf("FEATURE" to stringResource(R.string.refine_group_hero),
-        "CONTINUE" to stringResource(R.string.home_continue), "NEXT" to stringResource(R.string.tv_next_up),
+        "LIBRARY_NEXT" to stringResource(R.string.library_next),
         "FAVOURITES" to stringResource(R.string.home_favourites), "LIBRARIES" to stringResource(R.string.refine_library_shelves))
-    val hubOrder = (options.libraryHubOrder + DEFAULT_LIBRARY_HUB).distinct().filter { it in hubLabels }
+    val hubOrder = libraryHubOrder(options.libraryHubOrder)
+    val hubHidden = libraryHubHidden(options.libraryHubHidden)
     val connection = state.libraryConnection
     val hidden = stringResource(R.string.home_layout_hidden)
     val inMenu = stringResource(R.string.library_editor_in_menu)
@@ -164,7 +165,7 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
                     }
                     item(key = "rows-heading") { SettingsGroup(stringResource(R.string.refine_group_rows)) }
                     itemsIndexed(hubOrder, key = { _, id -> "hub-$id" }) { index, id ->
-                        val shown = id !in options.libraryHubHidden
+                        val shown = id !in hubHidden
                         val focus = remember(id) { listOf(FocusRequester(), FocusRequester()) }
                         LayoutEditorRow(
                             prefix = "hub", id = id, title = hubLabels.getValue(id), subtitle = if (shown) "" else hidden,
@@ -172,7 +173,7 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
                             upFocus = focus[0], downFocus = focus[1],
                             switchFocus = firstFocus.takeIf { firstRow == "hub-$id" },
                             onVisibleChange = { show ->
-                                change(options.copy(libraryHubHidden = if (show) options.libraryHubHidden - id else options.libraryHubHidden + id))
+                                change(options.copy(libraryHubHidden = if (show) hubHidden - id else hubHidden + id))
                             },
                             onMove = { direction ->
                                 val destination = index + direction

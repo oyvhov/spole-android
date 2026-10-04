@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil3.compose.AsyncImage
+import coil3.compose.preferEndFirstIntrinsicSize
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
@@ -23,6 +24,7 @@ import app.reelstack.ReelstackApplication
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.network.jellyfinAuthorization
 
+@OptIn(coil3.annotation.ExperimentalCoilApi::class)
 @Composable
 fun MediaArtwork(
     url: String?,
@@ -42,16 +44,22 @@ fun MediaArtwork(
     onAspectRatio: ((Float) -> Unit)? = null,
     alignment: androidx.compose.ui.Alignment = androidx.compose.ui.Alignment.Center,
     trimTransparent: Boolean = false,
+    requestSize: androidx.compose.ui.unit.IntSize? = null,
 ) {
     val context = LocalContext.current
     val fallback = if (fallbackRes != 0) painterResource(fallbackRes) else null
     // One binder call per frame per poster is what this used to be. The theme reads it once.
     val fadeDuration = if (app.reelstack.ui.theme.LocalMotionEnabled.current) crossfadeDurationMillis else 0
-    val model = remember(url, fallbackRes, source, fadeDuration, trimTransparent) {
+    val model = remember(url, fallbackRes, source, fadeDuration, trimTransparent, requestSize) {
         runCatching {
             val builder = ImageRequest.Builder(context)
                 .data(url ?: fallbackRes.takeIf { it != 0 })
                 .crossfade(fadeDuration)
+            requestSize?.let {
+                builder.size(it.width.coerceAtLeast(1), it.height.coerceAtLeast(1))
+                // A portrait placeholder must not change a loaded thumbnail's crop during the fade.
+                builder.preferEndFirstIntrinsicSize(true)
+            }
             if (url != null) MediaAuthHeaders.forUrl(context, source, url)?.let(builder::httpHeaders)
             if (trimTransparent) builder.allowHardware(false).transformations(ClearLogoTransformation)
             builder.build()
@@ -122,6 +130,7 @@ fun RailArtwork(
     @DrawableRes fallbackRes: Int = 0,
     source: ServiceKind? = null,
     fitMismatched: Boolean = true,
+    requestSize: androidx.compose.ui.unit.IntSize? = null,
 ) {
     val mismatched = remember(url, frameRatio) { androidx.compose.runtime.mutableStateOf(false) }
     androidx.compose.foundation.layout.Box(modifier) {
@@ -136,6 +145,7 @@ fun RailArtwork(
             source = source,
             protectAspectRatio = false,
             crossfadeDurationMillis = 0,
+            requestSize = requestSize,
         )
         MediaArtwork(
             url = url,
@@ -146,6 +156,7 @@ fun RailArtwork(
             source = source,
             protectAspectRatio = fitMismatched,
             onAspectRatio = { ratio -> mismatched.value = orientationDiffers(ratio, frameRatio) },
+            requestSize = requestSize,
         )
     }
 }

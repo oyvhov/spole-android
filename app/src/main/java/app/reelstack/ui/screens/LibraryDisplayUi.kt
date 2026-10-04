@@ -48,11 +48,8 @@ fun rememberLibraryDisplay(libraryId: String): Pair<LibraryDisplay, (LibraryDisp
 /**
  * The display controls.
  *
- * One wrapping row, not a settings page: these live above the grid the whole time they are open, so
- * every row they take is a row of covers the reader cannot see. Chips are as wide as their label
- * rather than stretched to equal widths, the whole set stays visible so a D-pad reaches any of it
- * in one move, and each change saves immediately — there is no Save button, because the result is
- * on screen behind it.
+ * Scrollable groups in the compact View dialog. Choices save immediately, while the dialog keeps
+ * its own viewport and focus; changing artwork cannot displace the controls.
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -60,13 +57,13 @@ fun LibraryDisplayPanel(
     display: LibraryDisplay,
     onChange: (LibraryDisplay) -> Unit,
     modifier: Modifier = Modifier,
+    includeLayout: Boolean = true,
 ) {
-    androidx.compose.foundation.layout.FlowRow(
+    Column(
         modifier.fillMaxWidth().testTag("library-display-panel"),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Segments(
+        if (includeLayout) Segments(
             label = stringResource(R.string.library_view),
             options = LibraryView.entries,
             selected = display.view,
@@ -108,14 +105,15 @@ fun LibraryDisplayPanel(
             },
         ) { onChange(display.copy(artType = it)) }
 
-        // Titles are one binary choice, so it is a chip like the rest rather than a switch row.
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.library_titles), style = MaterialTheme.typography.labelSmall, color = Muted)
-            Chip(
-                text = stringResource(if (display.showTitles) R.string.library_titles_on else R.string.library_titles_off),
-                chosen = display.showTitles,
-                tag = "library-titles-toggle",
-            ) { onChange(display.copy(showTitles = !display.showTitles)) }
+            app.reelstack.ui.components.SettingsToggleRow(stringResource(R.string.library_titles), "",
+                display.showTitles, "library-titles-toggle") { onChange(display.copy(showTitles = it)) }
+            app.reelstack.ui.components.SettingsToggleRow(stringResource(R.string.library_show_ratings), "",
+                display.showRatings, "library-ratings-toggle") { onChange(display.copy(showRatings = it)) }
+            app.reelstack.ui.components.SettingsToggleRow(stringResource(R.string.library_show_watched), "",
+                display.showWatched, "library-watched-toggle") { onChange(display.copy(showWatched = it)) }
+            app.reelstack.ui.components.SettingsToggleRow(stringResource(R.string.library_show_unwatched), "",
+                display.showUnwatchedCount, "library-unwatched-toggle") { onChange(display.copy(showUnwatchedCount = it)) }
         }
     }
 }
@@ -132,7 +130,7 @@ internal fun <T> Segments(
     onSelect: (T) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Muted)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = Muted)
         FlowRow(
             Modifier.selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -181,7 +179,7 @@ fun Chip(
             // The selected chip sits on the accent, so its label takes the accent's own contrast
             // colour rather than the page's warm white.
             color = if (chosen) MaterialTheme.colorScheme.onPrimary else TextColor,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
     }
 }

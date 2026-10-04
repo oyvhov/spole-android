@@ -1,6 +1,8 @@
 package app.reelstack.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -247,59 +249,6 @@ internal fun LibraryFilterBar(
                 Text(stringResource(R.string.menu_view_short))
                 Icon(SpoleIcons.ChevronDown, null, modifier = Modifier.size(16.dp).padding(start = 4.dp))
             }
-            DropdownMenu(
-                expanded = displayOpen,
-                onDismissRequest = { displayOpen = false },
-                containerColor = SurfaceRaised,
-            ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.library_view_grid)) },
-                    selected = display.view == LibraryView.GRID,
-                    leadingIcon = { app.reelstack.ui.components.SettingsOptionPreview(LibraryView.GRID) },
-                    trailingIcon = { if (display.view == LibraryView.GRID) Icon(SpoleIcons.Done, null) },
-                    onClick = { onDisplayChange(display.copy(view = LibraryView.GRID)); displayOpen = false },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.library_view_list)) },
-                    selected = display.view == LibraryView.LIST,
-                    leadingIcon = { app.reelstack.ui.components.SettingsOptionPreview(LibraryView.LIST) },
-                    trailingIcon = { if (display.view == LibraryView.LIST) Icon(SpoleIcons.Done, null) },
-                    onClick = { onDisplayChange(display.copy(view = LibraryView.LIST)); displayOpen = false },
-                )
-                HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.library_size_small)) },
-                    selected = display.size == LibraryCardSize.SMALL,
-                    leadingIcon = if (display.size == LibraryCardSize.SMALL) {
-                        { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
-                    onClick = { onDisplayChange(display.copy(size = LibraryCardSize.SMALL)); displayOpen = false },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.library_size_medium)) },
-                    selected = display.size == LibraryCardSize.MEDIUM,
-                    leadingIcon = if (display.size == LibraryCardSize.MEDIUM) {
-                        { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
-                    onClick = { onDisplayChange(display.copy(size = LibraryCardSize.MEDIUM)); displayOpen = false },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.library_size_large)) },
-                    selected = display.size == LibraryCardSize.LARGE,
-                    leadingIcon = if (display.size == LibraryCardSize.LARGE) {
-                        { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
-                    onClick = { onDisplayChange(display.copy(size = LibraryCardSize.LARGE)); displayOpen = false },
-                )
-                HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                DropdownMenuItem(
-                    text = { Text(stringResource(if (display.showTitles) R.string.library_titles_on else R.string.library_titles_off)) },
-                    leadingIcon = if (display.showTitles) {
-                        { Icon(SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
-                    onClick = { onDisplayChange(display.copy(showTitles = !display.showTitles)); displayOpen = false },
-                )
-            }
         }
 
         // 6. Søk
@@ -331,6 +280,10 @@ internal fun LibraryFilterBar(
         }
     }
 
+    if (displayOpen) SpoleChoiceDialog(stringResource(R.string.library_display), { displayOpen = false }, SpoleIcons.ListLines) {
+        LibraryDisplayPanel(display, onDisplayChange, Modifier
+            .verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp))
+    }
     if (statusOpen) SpoleChoiceDialog(stringResource(R.string.filter_status), { statusOpen = false }, SpoleIcons.Eye) {
         LazyColumn {
             items(LibraryWatched.entries) { value ->

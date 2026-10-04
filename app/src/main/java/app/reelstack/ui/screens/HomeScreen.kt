@@ -868,15 +868,20 @@ private fun NowPlayingCard(
 }
 
 @Composable
-internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean, rowKey: String? = null, actions: MediaCardActions? = null) {
-    val chosenWide = when (homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)) {
+internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean, rowKey: String? = null, actions: MediaCardActions? = null,
+    libraryDisplay: app.reelstack.data.model.LibraryDisplay? = null) {
+    val chosenWide = if (libraryDisplay != null) when (libraryDisplay.artType) {
+        app.reelstack.data.model.LibraryArtType.AUTO -> wide
+        app.reelstack.data.model.LibraryArtType.POSTER -> false
+        else -> true
+    } else when (homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)) {
         "POSTER" -> false; "THUMB" -> true; else -> wide
     }
     // TV cards keep two title lines on every shelf, so long titles stay readable and captions
     // below neighbouring cards share a baseline. Touch shelves still use their compact layout.
     val titleLines = if (isTelevision()) 2 else if (items.any { it.title.length > if (chosenWide) 26 else 15 }) 2 else 1
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
-    app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
+    app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide, libraryDisplay = libraryDisplay)
     LazyRow(state = railState, modifier = Modifier.fillMaxWidth().testTag("library-rail"), contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             LibraryCard(
@@ -885,6 +890,7 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
                 titleLines = titleLines,
                 revealDelay = (index.coerceAtMost(2) * 30),
                 actions = actions?.copy(canRemoveFromResume = false),
+                libraryDisplay = libraryDisplay,
                 onClick = { onClick(media.id) },
             )
         }
@@ -901,16 +907,20 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
  * other way is fitted into it with a blurred copy of itself behind.
  */
 @Composable
-internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null, rowKey: String? = null) {
+internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null, rowKey: String? = null,
+    resumeIds: Set<String>? = null) {
     val format = homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)
     val chosenWide = resumeRailIsWide(format)
     // One TV title line puts the episode immediately below it, without an empty reserved line.
     val titleLines = if (isTelevision()) 1 else 2
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
+    val nextActions = actions.withoutResumeRemoval()
     LazyRow(state = railState, contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
-            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30, actions = actions, wide = chosenWide) { onClick(media.id) }
+            ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30,
+                actions = if (resumeIds == null || media.id in resumeIds) actions else nextActions,
+                wide = chosenWide, showSeriesYear = resumeIds == null) { onClick(media.id) }
         }
     }
 }
@@ -1026,7 +1036,7 @@ data class MediaCardActions(
 
 @Composable
 private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
-    actions: MediaCardActions? = null, wide: Boolean, onClick: () -> Unit) {
+    actions: MediaCardActions? = null, wide: Boolean, showSeriesYear: Boolean = true, onClick: () -> Unit) {
     val artworkHeight = ReelLayout.EpisodeHeight * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val frameRatio = if (wide) 16f / 9f else 2f / 3f
     val cardWidth = artworkHeight * frameRatio
@@ -1111,7 +1121,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 9.dp),
         )
-        Text(
+        if (showSeriesYear || !media.mediaType.equals("Series", true)) Text(
             app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle),
             color = Muted,
             fontSize = 12.sp,
@@ -1167,11 +1177,19 @@ private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: 
 }
 
 @Composable
-private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, revealDelay: Int, actions: MediaCardActions? = null, onClick: () -> Unit) {
+private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, revealDelay: Int, actions: MediaCardActions? = null,
+    libraryDisplay: app.reelstack.data.model.LibraryDisplay? = null, onClick: () -> Unit) {
     var menuOpen by remember(media.id) { mutableStateOf(false) }
     val tablet = LocalTabletCanvas.current
-    val cardWidth = (if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
-    val artworkHeight = if (wide) cardWidth * 9f / 16f else cardWidth * 1.5f
+    val cardWidth = (if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }) *
+        app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale * (libraryDisplay?.size?.scale ?: 1f)
+    val artType = libraryDisplay?.artType?.takeIf { it != app.reelstack.data.model.LibraryArtType.AUTO }
+        ?: if (wide) app.reelstack.data.model.LibraryArtType.THUMB else app.reelstack.data.model.LibraryArtType.POSTER
+    val frameRatio = artType.ratio
+    val artworkHeight = cardWidth / frameRatio
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val widthPx = with(density) { cardWidth.roundToPx() }
+    val requestSize = androidx.compose.ui.unit.IntSize(widthPx, (widthPx / frameRatio).toInt().coerceAtLeast(1))
     val artworkShape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val cardLabel = listOf(media.title, media.subtitle).filter(String::isNotBlank).joinToString(", ")
     val interactionSource = remember { MutableInteractionSource() }
@@ -1215,16 +1233,30 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .testTag("library-artwork-${media.id}")
                 .clip(artworkShape).focusOutline(interactionSource, artworkShape),
         ) {
-            app.reelstack.ui.components.RailArtwork(
-                url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode = isEpisode),
+            val image = if (libraryDisplay == null) railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode = isEpisode)
+                else app.reelstack.data.model.librarySizedArtwork(app.reelstack.data.model.libraryArtworkUrl(media, artType), widthPx)
+            if (libraryDisplay != null && artType == app.reelstack.data.model.LibraryArtType.LOGO && media.logoUrl != null)
+                app.reelstack.ui.components.MediaArtwork(image, null, Modifier.fillMaxSize().padding(12.dp), source = media.source,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit, requestSize = requestSize)
+            else app.reelstack.ui.components.RailArtwork(
+                url = image,
                 contentDescription = null,
-                frameRatio = if (wide) 16f / 9f else 2f / 3f,
+                frameRatio = frameRatio,
                 fallbackRes = media.artworkRes,
                 source = media.source,
                 modifier = Modifier.fillMaxSize(),
+                requestSize = requestSize.takeIf { libraryDisplay != null },
             )
             if (actions != null) MediaCardMenu(media, actions, menuOpen, onDetails = onClick) { menuOpen = false }
+            libraryDisplay?.let { display ->
+                app.reelstack.ui.components.LibraryCardStatus(media.id, media.mediaType, media.played, media.unplayedItemCount,
+                    display, Modifier.align(Alignment.TopEnd).padding(6.dp))
+                if (display.showRatings) app.reelstack.data.model.communityRatingLabel(media.facts)?.let { rating ->
+                    app.reelstack.ui.components.LibraryRating(rating, Modifier.align(Alignment.BottomEnd).padding(6.dp))
+                }
+            }
         }
+        if (libraryDisplay?.showTitles != false) {
         Text(
             media.title,
             color = TextColor,
@@ -1233,11 +1265,11 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             lineHeight = 19.sp,
             maxLines = titleLines,
             overflow = TextOverflow.Ellipsis,
-            // A long neighbouring title must not reserve a blank line in this card.
-            minLines = if (isTelevision()) titleLines else 1,
+            // Library captions sit directly below the image, without a reserved empty line.
+            minLines = if (libraryDisplay == null && isTelevision()) titleLines else 1,
             modifier = Modifier.padding(top = 9.dp),
         )
-        Text(
+        if (libraryDisplay == null || !media.mediaType.equals("Series", true)) Text(
             app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle),
             color = Muted,
             fontSize = 12.sp,
@@ -1246,6 +1278,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 2.dp),
         )
+        }
     }
 }
 

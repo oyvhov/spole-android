@@ -1,0 +1,11 @@
+<resources>
+    <string name="library_next">Next</string>
+    <string name="library_show_ratings">Show ratings</string>
+    <string name="library_show_watched">Show watched indicator</string>
+    <string name="library_show_unwatched">Show unwatched episode count</string>
+    <string name="library_watched_description">Watched</string>
+    <plurals name="library_unwatched_description">
+        <item quantity="one">%1$d unwatched episode</item>
+        <item quantity="other">%1$d unwatched episodes</item>
+    </plurals>
+</resources>

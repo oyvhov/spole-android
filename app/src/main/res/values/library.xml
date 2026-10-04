@@ -20,10 +20,10 @@
     <string name="library_art">Image</string>
     <string name="library_art_auto">Auto</string>
     <string name="library_art_poster">Poster</string>
-    <string name="library_art_thumb">Thumb</string>
+    <string name="library_art_thumb">Thumbnail</string>
     <string name="library_art_banner">Banner</string>
     <string name="library_art_logo">Logo</string>
-    <string name="library_titles">Titles under artwork</string>
+    <string name="library_titles">Show titles</string>
     <string name="library_display">View and size</string>
     <string name="library_titles_on">On</string>
     <string name="library_titles_off">Off</string>

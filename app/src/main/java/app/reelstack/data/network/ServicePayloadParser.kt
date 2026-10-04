@@ -96,6 +96,12 @@ data class RemoteLibraryItem(
     val mdblistRating: Float? = null,
     val backdropImagePath: String? = null,
     val backdropUrl: String? = null,
+    val thumbnailImagePath: String? = null,
+    val thumbnailUrl: String? = null,
+    val bannerImagePath: String? = null,
+    val bannerUrl: String? = null,
+    /** The signed-in user's count; absent is unknown, never the total episode count. */
+    val unplayedItemCount: Int? = null,
 )
 
 data class RemoteLibraryView(
@@ -372,6 +378,9 @@ object ServicePayloadParser {
                 heroImagePath = libraryHeroPath(item, id, mediaType),
                 backdropImagePath = libraryBackdropPath(item, id, mediaType),
                 posterImagePath = libraryPosterPath(item, id, mediaType),
+                thumbnailImagePath = imagePath(id, "Thumb", (item.obj("ImageTags") ?: item.obj("imageTags")).tag("Thumb")),
+                bannerImagePath = imagePath(id, "Banner", (item.obj("ImageTags") ?: item.obj("imageTags")).tag("Banner")),
+                unplayedItemCount = (userData?.int("UnplayedItemCount") ?: userData?.int("unplayedItemCount"))?.takeIf { it >= 0 },
                 season = season,
                 episode = episode,
                 logoItemId = libraryLogo(item, id)?.itemId,

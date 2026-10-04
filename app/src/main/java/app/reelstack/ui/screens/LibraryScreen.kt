@@ -37,6 +37,12 @@ import androidx.compose.material3.TextButton
 import app.reelstack.R
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.LibraryFilters
+import app.reelstack.data.model.libraryArtType
+import app.reelstack.data.model.libraryArtworkUrl
+import app.reelstack.data.model.librarySizedArtwork
+import app.reelstack.data.model.libraryNextItems
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.focusOutline
@@ -87,13 +93,9 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     val folders = state.libraryPath.isEmpty()
     val libraryId = state.libraryPath.lastOrNull()?.first.orEmpty()
     val (display, saveDisplay) = rememberLibraryDisplay(if (state.librarySource == ServiceKind.JELLYFIN) libraryId else "emby:$libraryId")
-    // AUTO keeps the old behaviour: episodes and video get a wide frame, everything else a poster.
-    val autoWide = folders || state.libraryEntries.any { it.mediaType in setOf("Episode", "Video", "Photo") }
-    val wideCards = if (display.artType == app.reelstack.data.model.LibraryArtType.AUTO) autoWide
-        else display.artType.ratio > 1f
-    val ratio = if (display.artType == app.reelstack.data.model.LibraryArtType.AUTO) {
-        if (autoWide) 16f / 9f else 2f / 3f
-    } else display.artType.ratio
+    val artType = libraryArtType(display, state.libraryCollectionType, state.libraryEntries)
+    val ratio = artType.ratio
+    val wideCards = ratio > 1f
     val listView = !folders && display.view == app.reelstack.data.model.LibraryView.LIST
     val size = app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale * display.size.scale
     // Resume and Next up for this library, fetched by the library page rather than sliced out of
@@ -101,8 +103,9 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     val shelves = state.libraryShelves.takeIf { it.libraryId == libraryId }
     val shelfResume = shelves?.resume.orEmpty()
     val shelfNextUp = shelves?.nextUp.orEmpty()
+    val nextItems = remember(shelfResume, shelfNextUp) { libraryNextItems(shelfResume, shelfNextUp) }
     val showShelves = !folders && state.libraryPath.size == 1 &&
-        state.libraryFilters == app.reelstack.data.model.LibraryFilters() &&
+        state.libraryFilters.activeCount == 0 &&
         (shelfResume.isNotEmpty() || shelfNextUp.isNotEmpty())
     // The root of Bibliotek is a page about libraries, not a grid of four folders. Everything
     // below the root is still the grid it always was.
@@ -111,17 +114,19 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             sourcePicker = sourcePicker)
         return
     }
-    // Next up is not a resume shelf, so its cards do not offer to clear a resume point.
-    val nextUpActions = cardActions.withoutResumeRemoval()
     val pageStates = rememberSaveableStateHolder()
     pageStates.SaveableStateProvider(state.libraryPath.joinToString("/") { it.first }) {
         val grid = rememberLazyGridState()
         val firstContent = remember { FocusRequester() }
-        val cell = (if (wideCards) 240.dp else if (tv) 155.dp else 145.dp) * size
+        val cell = (if (wideCards) { if (tv) 240.dp else 156.dp } else if (tv) 155.dp else 130.dp) * size
+        val listArtHeight = (if (tv) 118.dp else 96.dp) * size
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        app.reelstack.ui.components.PrefetchLibraryArtwork(state.libraryEntries, grid, artType, state.librarySource,
+            listArtworkWidth = if (listView) with(density) { (listArtHeight * ratio).roundToPx() } else null)
         LazyVerticalGrid(state = grid,
             columns = if (listView) GridCells.Fixed(1) else GridCells.Adaptive(cell),
             contentPadding = PaddingValues(pageGutter),
-            horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (tv) 20.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp),
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("library-browser")) {
             item(key = "heading", span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.focusProperties { if (tv && (showShelves || state.libraryEntries.isNotEmpty())) down = firstContent },
@@ -132,10 +137,16 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                         state.libraryPath.dropLast(1).map { it.second }).joinToString("  /  "),
                         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
                     val heading: @Composable () -> Unit = {
-                        Text(state.libraryPath.lastOrNull()?.second ?: stringResource(R.string.nav_library),
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.displaySmall,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!tv) IconButton(onClick = onBack, modifier = Modifier.testTag("library-back")) {
+                                Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, stringResource(R.string.library_back))
+                            }
+                            Text(state.libraryPath.lastOrNull()?.second ?: stringResource(R.string.nav_library),
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.displaySmall,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        }
                     }
                     val controls: @Composable () -> Unit = {
                         LibraryFilterBar(state.libraryFilters, onFilter, state.libraryFacets, display, saveDisplay)
@@ -152,7 +163,6 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                     } else {
                         heading()
                         controls()
-                        if (!tv) app.reelstack.ui.components.TextColumnButton(onClick = onBack) { Text(stringResource(R.string.library_back)) }
                     }
                     state.mediaActionError?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -164,22 +174,31 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             // result, and "what you were watching" is not part of the answer to a query.
             if (showShelves) item(key = "shelves", span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(bottom = 8.dp).focusRequester(firstContent)) {
-                    if (shelfResume.isNotEmpty()) {
-                        LibraryShelfTitle(stringResource(R.string.home_continue), cardActions != null)
-                        ResumeRail(shelfResume, onShelfOpen, cardActions)
-                    }
-                    if (shelfNextUp.isNotEmpty()) {
-                        LibraryShelfTitle(stringResource(R.string.tv_next_up), cardActions != null && shelfResume.isEmpty())
-                        ResumeRail(shelfNextUp, onShelfOpen, nextUpActions)
-                    }
+                    LibraryShelfTitle(stringResource(R.string.library_next), cardActions != null)
+                    ResumeRail(nextItems, onShelfOpen, cardActions, resumeIds = shelfResume.map { it.id }.toSet())
                 }
             }
             if (!connected) item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.library_connect)) }
+            if (state.libraryLoading && state.libraryEntries.isEmpty()) items(8, key = { "skeleton-$it" }) {
+                val image: @Composable () -> Unit = {
+                    Box(Modifier.then(if (listView) Modifier.height(listArtHeight) else Modifier.fillMaxWidth()).aspectRatio(ratio)
+                        .clip(RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner))
+                        .background(MaterialTheme.colorScheme.surfaceVariant))
+                }
+                val caption: @Composable () -> Unit = {
+                    if (display.showTitles) Box(Modifier.fillMaxWidth(.7f).height(20.dp)
+                        .clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant))
+                }
+                if (listView) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    image(); Column(Modifier.weight(1f)) { caption() }
+                } else Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { image(); caption() }
+            }
             items(state.libraryEntries, key = { it.id }) { entry ->
                 // The grid reads the sync layer's own rows, so the decisions become words here.
                 val factContext = androidx.compose.ui.platform.LocalContext.current
                 val factWords = remember(entry.id, entry.facts) { entry.facts.map { it.text(factContext) } }
-                val rating = if (entry.mediaType.equals("Movie", ignoreCase = true))
+                val rating = if (display.showRatings)
                     app.reelstack.data.model.communityRatingLabel(factWords) else null
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
@@ -203,25 +222,37 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                         indication = app.reelstack.ui.components.mediaCardIndication(),
                         role = Role.Button, onClick = { onOpen(entry.id) })
                     .testTag("library-item-${entry.id}")
+                    .semantics { contentDescription = entry.title }
                 val artwork: @Composable (Modifier) -> Unit = { artModifier ->
-                    Box(artModifier.aspectRatio(ratio)
+                    BoxWithConstraints(artModifier.aspectRatio(ratio)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, shape)
                         .focusOutline(interaction, shape).clip(shape).testTag("library-art-${entry.id}")) {
-                        MediaArtwork(display.artType.applyTo(entry.artworkUrl), null, Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = state.librarySource)
+                        val widthPx = with(density) { maxWidth.roundToPx() }.coerceAtLeast(1)
+                        val requestSize = androidx.compose.ui.unit.IntSize(widthPx, (widthPx / ratio).toInt().coerceAtLeast(1))
+                        val url = librarySizedArtwork(libraryArtworkUrl(entry, artType), widthPx)
+                        if (artType == app.reelstack.data.model.LibraryArtType.LOGO && entry.logoUrl != null) {
+                            MediaArtwork(url, null, Modifier.fillMaxSize().padding(12.dp), source = state.librarySource,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Fit, requestSize = requestSize)
+                        } else app.reelstack.ui.components.RailArtwork(url, null, ratio, Modifier.fillMaxSize(),
+                            fallbackRes = R.drawable.media_placeholder, source = state.librarySource, requestSize = requestSize)
+                        app.reelstack.ui.components.LibraryCardStatus(entry, display,
+                            Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(6.dp))
                         if (!listView && rating != null) app.reelstack.ui.components.LibraryRating(rating,
                             Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(6.dp).testTag("library-rating-${entry.id}"))
-                        entry.progress?.takeIf { it > 0f }?.let { progress ->
+                        entry.progress?.takeIf { it > 0f && !entry.played }?.let { progress ->
                             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(4.dp)
-                                .align(androidx.compose.ui.Alignment.BottomCenter))
+                                .align(androidx.compose.ui.Alignment.BottomCenter), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .8f),
+                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = .65f), drawStopIndicator = {})
                         }
                     }
                 }
                 val title: @Composable () -> Unit = {
                     Text(entry.title, color = MaterialTheme.colorScheme.onBackground,
-                        minLines = if (tv && !listView) 2 else 1,
+                        minLines = 1,
                         maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                    if (!folders && entry.subtitle.isNotBlank()) Text(
+                    if (!folders && entry.subtitle.isNotBlank() && !entry.mediaType.equals("Series", true)) Text(
                         app.reelstack.ui.components.episodeLine(entry.season, entry.episode, entry.subtitle),
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = 2.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall)
                 }
@@ -238,9 +269,9 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(18.dp),
                     ) {
-                        artwork(Modifier.height(if (tv) 118.dp * size else 96.dp * size))
+                        artwork(Modifier.height(listArtHeight))
                         Column(Modifier.weight(1f)) {
-                            title()
+                            if (display.showTitles) title()
                             if (rating != null) app.reelstack.ui.components.LibraryRating(rating,
                                 Modifier.padding(top = 6.dp).testTag("library-rating-${entry.id}"))
                             // The type word used to lead this list and had to be filtered out by
@@ -248,8 +279,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                             // any more — the kind is derived from `mediaType` where the language is
                             // known — so there is nothing to filter.
                             val facts = factWords
-                                .filterNot { it.trimStart().startsWith("★") &&
-                                    entry.mediaType.equals("Movie", ignoreCase = true) }
+                                .filterNot { it.trimStart().startsWith("★") }
                                 .filterNot { it.matches(Regex("""^S\d\d+ E\d\d+$""")) }
                                 // The line under the title already carries the year for a film or a
                                 // series; repeating it two lines later reads as a mistake.

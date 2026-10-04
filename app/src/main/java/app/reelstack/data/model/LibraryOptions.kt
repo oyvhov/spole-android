@@ -39,8 +39,7 @@ enum class LibraryView { GRID, LIST }
 enum class LibraryCardSize(val scale: Float) { SMALL(.8f), MEDIUM(1f), LARGE(1.25f) }
 
 /**
- * Which image a card asks the server for. `AUTO` follows the media type — posters for films and
- * series, thumbs for episodes — which is right often enough that most libraries never change it.
+ * AUTO uses posters for films and wide artwork for series and episodes.
  */
 enum class LibraryArtType(val api: String?, val ratio: Float) {
     AUTO(null, 2f / 3f),
@@ -57,8 +56,12 @@ data class LibraryDisplay(
     val artType: LibraryArtType = LibraryArtType.AUTO,
     /** Titles under the artwork. Off gives a denser wall of covers, which some people prefer. */
     val showTitles: Boolean = true,
+    val showRatings: Boolean = true,
+    val showWatched: Boolean = true,
+    val showUnwatchedCount: Boolean = true,
 ) {
-    fun encode(): String = listOf(view.name, size.name, artType.name, showTitles).joinToString("|")
+    fun encode(): String = listOf(view.name, size.name, artType.name, showTitles,
+        showRatings, showWatched, showUnwatchedCount).joinToString("|")
 
     companion object {
         fun decode(value: String?): LibraryDisplay {
@@ -69,6 +72,9 @@ data class LibraryDisplay(
                 size = LibraryCardSize.entries.firstOrNull { it.name == parts[1] } ?: LibraryCardSize.MEDIUM,
                 artType = LibraryArtType.entries.firstOrNull { it.name == parts[2] } ?: LibraryArtType.AUTO,
                 showTitles = parts[3].toBooleanStrictOrNull() ?: true,
+                showRatings = parts.getOrNull(4)?.toBooleanStrictOrNull() ?: true,
+                showWatched = parts.getOrNull(5)?.toBooleanStrictOrNull() ?: true,
+                showUnwatchedCount = parts.getOrNull(6)?.toBooleanStrictOrNull() ?: true,
             )
         }
     }

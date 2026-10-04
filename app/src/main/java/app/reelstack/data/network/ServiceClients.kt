@@ -695,7 +695,8 @@ class MediaServerClient(
             "&Recursive=${catalogueType != null}&StartIndex=$offset&Limit=60" + filters.query() +
             (catalogueType?.let { "&IncludeItemTypes=$it" } ?: "") +
             (if (browsingCollections) "" else "&ExcludeItemTypes=BoxSet") +
-            "&CollapseBoxSetItems=false&Fields=Overview,Genres,ProviderIds,DateCreated,$LIBRARY_RATING_FIELDS&EnableUserData=true&IsMissing=false"
+            "&CollapseBoxSetItems=false&Fields=Overview,Genres,ProviderIds,DateCreated,ChildCount,RecursiveItemCount,$LIBRARY_RATING_FIELDS" +
+            "&EnableUserData=true&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Backdrop,Logo,Banner&IsMissing=false"
         val paths = if (connection.kind == ServiceKind.EMBY)
             listOf("Users/${encodePathSegment(user)}/Items?$query", "Items?$query")
         else listOf("Items?$query")
@@ -1024,6 +1025,8 @@ class MediaServerClient(
                         heroUrl = item.heroImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
                         backdropUrl = item.backdropImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
                         posterUrl = item.posterImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
+                        thumbnailUrl = item.thumbnailImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
+                        bannerUrl = item.bannerImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
                         logoUrl = item.logoItemId?.let {
                             logoUrl(connection, it, item.logoTag)
                         },

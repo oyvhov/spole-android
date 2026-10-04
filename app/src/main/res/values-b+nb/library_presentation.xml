@@ -1,0 +1,11 @@
+<resources>
+    <string name="library_next">Neste</string>
+    <string name="library_show_ratings">Vis vurderinger</string>
+    <string name="library_show_watched">Vis merke for sett</string>
+    <string name="library_show_unwatched">Vis antall usette episoder</string>
+    <string name="library_watched_description">Sett</string>
+    <plurals name="library_unwatched_description">
+        <item quantity="one">%1$d usett episode</item>
+        <item quantity="other">%1$d usette episoder</item>
+    </plurals>
+</resources>

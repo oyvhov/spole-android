@@ -6,6 +6,39 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LibraryBrowserTest {
+    @Test fun advertisedArtworkAndUnwatchedCountStayBoundToThisUser() {
+        val transport = Recording("""{"Items":[{"Id":"show","Name":"Show","Type":"Series",
+            "ChildCount":8,"ImageTags":{"Primary":"poster-v2","Thumb":"thumb-v3","Banner":"banner-v4"},
+            "UserData":{"Played":false,"UnplayedItemCount":3}}]}""")
+        val item = MediaServerClient(transport).browseLibrary(connection, "series", collectionType = "tvshows").single()
+        assertEquals(3, item.unplayedItemCount)
+        assertTrue(item.posterUrl!!.contains("/show/Images/Primary?"))
+        assertTrue(item.posterUrl!!.contains("tag=poster-v2"))
+        assertTrue(item.thumbnailUrl!!.contains("tag=thumb-v3"))
+        assertTrue(item.bannerUrl!!.contains("tag=banner-v4"))
+        assertTrue(transport.urls.single().contains("EnableUserData=true"))
+        assertTrue(transport.urls.single().contains("EnableImageTypes=Primary,Thumb,Backdrop,Logo,Banner"))
+        assertFalse(item.played)
+        val opened = item.copy(played = true, favourite = true, season = 2, episode = 3).toLibraryMedia(ServiceKind.JELLYFIN, 0, emptyList())
+        assertTrue(opened.played)
+        assertTrue(opened.favourite)
+        assertEquals(item.posterUrl, opened.posterUrl)
+        assertEquals(3, opened.unplayedItemCount)
+        assertEquals(2, opened.season)
+        assertEquals(3, opened.episode)
+    }
+
+    @Test fun absentUnwatchedCountIsNotGuessedFromTotalChildren() {
+        val items = ServicePayloadParser.libraryItems("""{"Items":[
+            {"Id":"missing","Name":"Missing","Type":"Series","ChildCount":10},
+            {"Id":"bad","Name":"Bad","Type":"Series","UserData":{"UnplayedItemCount":-1}},
+            {"Id":"done","Name":"Done","Type":"Series","UserData":{"unplayedItemCount":0,"Played":true}}
+        ]}""")
+        assertNull(items[0].unplayedItemCount)
+        assertNull(items[1].unplayedItemCount)
+        assertEquals(0, items[2].unplayedItemCount)
+        assertTrue(items[2].played)
+    }
     @Test fun embyBrowserUsesStoredProfileAndKeepsPaginationScoped() {
         val transport = Recording("""{"Items":[]}""")
         val client = MediaServerClient(transport)

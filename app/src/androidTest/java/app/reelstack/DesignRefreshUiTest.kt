@@ -290,7 +290,7 @@ class DesignRefreshUiTest {
         rule.onNodeWithTag("hub-visible-FAVOURITES").performClick()
         rule.runOnIdle {
             assertTrue(value.value.showLibraryTitle)
-            assertEquals("CONTINUE", value.value.libraryHubOrder.first())
+            assertEquals("LIBRARY_NEXT", value.value.libraryHubOrder.first())
             assertTrue("FAVOURITES" in value.value.libraryHubHidden)
         }
     }

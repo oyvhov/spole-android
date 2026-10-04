@@ -19,11 +19,11 @@
     <string name="library_size_large">Stor</string>
     <string name="library_art">Bilde</string>
     <string name="library_art_auto">Automatisk</string>
-    <string name="library_art_poster">Plakat</string>
-    <string name="library_art_thumb">Thumb</string>
+    <string name="library_art_poster">Cover</string>
+    <string name="library_art_thumb">Miniatyrbilde</string>
     <string name="library_art_banner">Banner</string>
     <string name="library_art_logo">Logo</string>
-    <string name="library_titles">Titler under bildet</string>
+    <string name="library_titles">Vis titler</string>
     <string name="library_display">Visning og størrelse</string>
     <string name="library_titles_on">På</string>
     <string name="library_titles_off">Av</string>

@@ -21,8 +21,26 @@ class LibraryDisplayTest {
             size = LibraryCardSize.LARGE,
             artType = LibraryArtType.THUMB,
             showTitles = false,
+            showRatings = false,
+            showWatched = false,
+            showUnwatchedCount = false,
         )
         assertEquals(display, LibraryDisplay.decode(display.encode()))
+    }
+
+    @Test fun `old four field preferences keep their choices and gain status defaults`() {
+        val decoded = LibraryDisplay.decode("LIST|SMALL|THUMB|false")
+        assertEquals(LibraryDisplay(LibraryView.LIST, LibraryCardSize.SMALL, LibraryArtType.THUMB, false), decoded)
+        assertEquals(true, decoded.showRatings)
+        assertEquals(true, decoded.showWatched)
+        assertEquals(true, decoded.showUnwatchedCount)
+    }
+
+    @Test fun `a partially upgraded value preserves each available switch`() {
+        val decoded = LibraryDisplay.decode("GRID|MEDIUM|POSTER|false|false|invalid")
+        assertEquals(false, decoded.showRatings)
+        assertEquals(true, decoded.showWatched)
+        assertEquals(true, decoded.showUnwatchedCount)
     }
 
     @Test

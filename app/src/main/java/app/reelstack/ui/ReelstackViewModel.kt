@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.reelstack.AppContainer
 import app.reelstack.R
+import app.reelstack.data.network.toLibraryMedia
 import app.reelstack.background.BackgroundRefreshScheduler
 import app.reelstack.data.repository.MediaSnapshotStore
 import app.reelstack.data.model.ActivityEvent
@@ -846,20 +847,25 @@ class ReelstackViewModel(
         _uiState.update { it.copy(libraryError = null,
             // Stale-while-revalidate: a visited page is useful immediately, while the request
             // below quietly confirms it against Jellyfin/Emby. New pages still show loading.
-            libraryLoading = cached == null,
+            libraryLoading = more || cached == null,
             libraryEntries = if (more) it.libraryEntries else cached?.entries ?: it.libraryEntries,
             libraryFacets = cached?.facets ?: it.libraryFacets,
             libraryOffset = if (more) it.libraryOffset else cached?.entries?.size ?: it.libraryOffset,
             libraryHasMore = if (more) it.libraryHasMore else cached?.hasMore ?: it.libraryHasMore) }
         libraryJob = viewModelScope.launch {
             try {
-                val facetJob = async(Dispatchers.IO) {
+                fun currentCatalogue() = isActive && _uiState.value.librarySource == connection.kind &&
+                    _uiState.value.libraryPath == path && _uiState.value.libraryFilters == state.libraryFilters &&
+                    _uiState.value.activeProfileId == state.activeProfileId &&
+                    _uiState.value.libraryConnection?.let {
+                        it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId
+                    } == true
+                loadLibraryPage(Dispatchers.IO, readFacets = {
                     if (path.isEmpty()) app.reelstack.data.model.LibraryFacets()
                     else if (state.libraryFacets.parentId == path.last().first) state.libraryFacets
                     else runCatching { container.mediaServerClient.libraryFacets(connection, path.last().first) }
                         .getOrDefault(app.reelstack.data.model.LibraryFacets())
-                }
-                val entries = withContext(Dispatchers.IO) {
+                }, readItems = {
                     if (path.isEmpty()) container.mediaServerClient.browseLibraries(connection).filter { container.preferencesRepository.includesLibrary(connection, it) }.map { view ->
                         app.reelstack.data.network.RemoteLibraryItem(view.id, view.name, "", null, "CollectionFolder", view.id,
                             artworkUrl = view.artworkUrl, isFolder = true, collectionType = view.collectionType)
@@ -868,10 +874,8 @@ class ReelstackViewModel(
                             container.mediaServerClient.browseLibraries(connection).firstOrNull { it.id == path.first().first }?.collectionType else null
                         container.mediaServerClient.browseLibrary(connection, path.last().first, offset, catalogueType, state.libraryFilters)
                     }
-                }
-                val facets = facetJob.await()
-                if (!isActive || _uiState.value.connections.none { it.kind == connection.kind && it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId }) return@launch
-                _uiState.update { current ->
+                }, onItems = { entries ->
+                  if (currentCatalogue()) _uiState.update { current ->
                     val merged = if (more) {
                         (current.libraryEntries + entries).distinctBy { entry -> entry.id }
                     } else {
@@ -880,16 +884,22 @@ class ReelstackViewModel(
                         (entries + (cached?.entries.orEmpty().drop(entries.size))).distinctBy { entry -> entry.id }
                     }
                     val hasMore = path.isNotEmpty() && (entries.size == 60 || (cached?.hasMore == true && !more))
-                    libraryPageCache[cacheKey] = CachedLibraryPage(merged, facets, hasMore)
-                    current.copy(libraryLoading = false, libraryFacets = facets,
+                    libraryPageCache[cacheKey] = CachedLibraryPage(merged, current.libraryFacets, hasMore)
+                    current.copy(libraryLoading = false,
                         libraryEntries = merged,
                         libraryOffset = merged.size,
                         libraryHasMore = hasMore)
-                }
+                  }
                 // The libraries this listing actually found — not the pinned shortcuts, which are a
                 // menu choice and can be empty while the page still shows every library there is.
-                if (path.isEmpty()) loadLibraryPeeks(entries.map {
+                if (currentCatalogue() && path.isEmpty()) loadLibraryPeeks(entries.map {
                     app.reelstack.data.network.RemoteLibraryView(it.id, it.title, it.collectionType, it.artworkUrl)
+                })
+                }, onFacets = { facets ->
+                    if (currentCatalogue()) {
+                        libraryPageCache[cacheKey]?.let { libraryPageCache[cacheKey] = it.copy(facets = facets) }
+                        _uiState.update { it.copy(libraryFacets = facets) }
+                    }
                 })
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (error: Exception) {
@@ -899,7 +909,8 @@ class ReelstackViewModel(
     }
 
     fun libraryBack() {
-        _uiState.update { it.copy(libraryPath = it.libraryPath.dropLast(1), libraryFilters = app.reelstack.data.model.LibraryFilters()) }
+        _uiState.update { it.copy(libraryPath = it.libraryPath.dropLast(1), libraryFilters = app.reelstack.data.model.LibraryFilters(),
+            libraryEntries = emptyList(), libraryOffset = 0, libraryHasMore = false) }
         browseLibrary()
     }
 
@@ -929,14 +940,16 @@ class ReelstackViewModel(
             // One request per library, all in flight together, and each row appears the moment its
             // own answer arrives. Waiting for the slowest library before drawing any of them is how
             // a page that is mostly ready still feels like it is loading.
-            views.map { view ->
-                async(Dispatchers.IO) { view.id to runCatching { container.mediaSyncRepository.libraryPeek(connection, view) } }
-            }.forEach { pending ->
-                val (id, loaded) = pending.await()
-                if (!isActive) return@launch
-                val items = loaded.getOrNull().orEmpty()
-                if (items.isEmpty()) return@forEach
-                _uiState.update { it.copy(libraryPeeks = it.libraryPeeks + (id to items)) }
+            kotlinx.coroutines.coroutineScope {
+                views.forEach { view -> launch {
+                    val items = withContext(Dispatchers.IO) {
+                        runCatching { container.mediaSyncRepository.libraryPeek(connection, view) }.getOrDefault(emptyList())
+                    }
+                    if (isActive && items.isNotEmpty() && _uiState.value.activeProfileId == state.activeProfileId &&
+                        _uiState.value.libraryConnection == connection) {
+                        _uiState.update { it.copy(libraryPeeks = it.libraryPeeks + (view.id to items)) }
+                    }
+                } }
             }
             if (isActive) _uiState.update { it.copy(libraryPeeksLoading = false) }
         }
@@ -1037,11 +1050,18 @@ class ReelstackViewModel(
                 }
                 return@launch
             }
+            if (_uiState.value.activeProfileId != state.activeProfileId || _uiState.value.connections.none {
+                it.kind == connection.kind && it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId
+            }) return@launch
             if (played != null) container.localPlaybackStore.forget(connection, media.remoteId)
+            val fingerprint = MediaSnapshotStore.fingerprint(listOf(connection))
+            libraryPageCache.keys.filter { it.accountFingerprint == fingerprint }.toList().forEach(libraryPageCache::remove)
             // Flags change everywhere the title appears; only the resume shelves lose the card.
             fun update(list: List<LibraryMedia>) = list.map { entry ->
                 if (entry.id != id) entry
-                else entry.copy(favourite = favourite ?: entry.favourite, played = played ?: entry.played)
+                else entry.copy(favourite = favourite ?: entry.favourite, played = played ?: entry.played,
+                    progress = if (removeFromResume) 0f else entry.progress,
+                    unplayedItemCount = if (played == true) 0 else if (played == false) null else entry.unplayedItemCount)
             }
             _uiState.update { current ->
                 val drop: (List<LibraryMedia>) -> List<LibraryMedia> =
@@ -1053,6 +1073,13 @@ class ReelstackViewModel(
                     recentSeries = update(current.recentSeries),
                     favourites = update(current.favourites).filter { it.favourite },
                     librarySearchResults = update(current.librarySearchResults),
+                    libraryDetailMedia = current.libraryDetailMedia?.let { update(listOf(it)).single() },
+                    libraryPeeks = current.libraryPeeks.mapValues { update(it.value) },
+                    libraryEntries = if (current.librarySource != media.source) current.libraryEntries else current.libraryEntries.map { entry ->
+                        if (entry.id != media.remoteId) entry else entry.copy(favourite = favourite ?: entry.favourite,
+                            played = played ?: entry.played, progress = if (removeFromResume) 0f else entry.progress,
+                            unplayedItemCount = if (played == true) 0 else if (played == false) null else entry.unplayedItemCount)
+                    },
                     globalSearch = current.globalSearch.copy(libraryResults = update(current.globalSearch.libraryResults)),
                     libraryShelves = current.libraryShelves.copy(
                         resume = drop(current.libraryShelves.resume),
@@ -1082,13 +1109,12 @@ class ReelstackViewModel(
         if (entry.isFolder && !entry.mediaType.equals("Series", ignoreCase = true)) {
             _uiState.update { it.copy(libraryPath = it.libraryPath + (entry.id to entry.title),
                 libraryCollectionType = if (it.libraryPath.isEmpty()) entry.collectionType else it.libraryCollectionType,
+                libraryEntries = emptyList(), libraryOffset = 0, libraryHasMore = false,
                 libraryFilters = app.reelstack.data.model.LibraryFilters()) }
             browseLibrary()
         } else {
             val source = _uiState.value.librarySource
-            val media = LibraryMedia("${source.name.lowercase(java.util.Locale.ROOT)}-${entry.id}", entry.title, entry.subtitle, entry.progress,
-                R.drawable.media_placeholder, source, entry.artworkUrl, entry.id,
-                entry.overview, words(entry.facts), entry.genres, entry.mediaType)
+            val media = entry.toLibraryMedia(source, R.drawable.media_placeholder, words(entry.facts))
             _uiState.update { it.copy(libraryDetailMedia = media) }
             openLibraryDetails(media.id)
         }

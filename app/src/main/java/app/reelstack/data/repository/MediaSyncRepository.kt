@@ -1,6 +1,7 @@
 package app.reelstack.data.repository
 
 import app.reelstack.R
+import app.reelstack.data.network.toLibraryMedia
 import app.reelstack.localization.LocalizedText
 import app.reelstack.data.model.ActivityEvent
 import app.reelstack.data.model.DiscoverMedia
@@ -566,40 +567,8 @@ class MediaSyncRepository(
         episode = item.episode,
     )
 
-    private fun libraryMedia(item: RemoteLibraryItem, source: ServiceKind) = LibraryMedia(
-        id = "${source.name.lowercase()}-${item.id}",
-        title = item.title,
-        subtitle = item.subtitle,
-        season = item.season,
-        episode = item.episode,
-        progress = item.progress,
-        artworkRes = R.drawable.media_placeholder,
-        source = source,
-        artworkUrl = item.artworkUrl,
-        logoUrl = item.logoUrl,
-        heroUrl = item.heroUrl,
-        backdropUrl = item.backdropUrl,
-        posterUrl = item.posterUrl,
-        remoteId = item.id,
-        overview = item.overview,
-        facts = listOf(words(mediaKind(item.mediaType))) + item.facts.map(words),
-        genres = item.genres,
-        mediaType = item.mediaType,
-        lastActivityEpochMillis = item.lastActivityEpochMillis,
-        addedAtEpochMillis = item.addedAtEpochMillis,
-        libraryId = item.libraryId,
-        seriesId = item.seriesId,
-        favourite = item.favourite,
-        played = item.played,
-        runtimeMinutes = item.runtimeMinutes,
-        childCount = item.childCount,
-        available = item.available,
-        premiereDate = item.premiereDate,
-        tmdbId = item.tmdbId,
-        criticRating = item.criticRating,
-        tmdbRating = item.tmdbRating,
-        mdblistRating = item.mdblistRating,
-    )
+    private fun libraryMedia(item: RemoteLibraryItem, source: ServiceKind) = item.toLibraryMedia(source,
+        R.drawable.media_placeholder, listOf(words(mediaKind(item.mediaType))) + item.facts.map(words))
 
     /** One series' seasons, or one season's episodes, mapped for the screen. */
     fun seasons(connection: ServiceConnection, seriesId: String): List<LibraryMedia> =
