@@ -24,5 +24,19 @@
 - APK og nøyaktig R8-mapping er frosne i `app/build/release-v1.0.0-beta2`. Dei 640 kjeldefilene er kontrollert uendra gjennom bygginga.
 - Fire FFmpeg-bibliotek og begge lisensfilene er byteidentiske med beta1. Tilhøyrande kjelde-/relenkingsarkiv er med, med SHA-256 `2b7eeba9705de0fcff66d3a04f71a811d39a9299d70e1f65728a8a8809965b21`.
 - Signert `install -r` frå beta1 til beta2 lykkast på lagra TV-profil 5564. Kode 139 og bevarte kontoar med ekte Jellyfin-/Emby-innhald er kontrollerte. Første installasjonstid er framleis 9. september 2026 kl. 20:50:58.
-- Den lagra mobilprofilen 5560 har beta16, men kald oppstart stoppa i Android med «Broken pipe» før Spole kunne opnast. Ingen data er sletta eller kontoar endra. Full nedlasting/installasjon gjennom appen er difor ikkje verifisert i denne runden; dette er ikkje ført som ein bestått oppdateringstest.
-- Offentleg metadata, digest og APK-nedlasting blir kontrollerte etter publisering.
+- Den lagra mobilprofilen 5560 starta med beta16. Android fekk mellombels «Broken pipe» og eit System UI-varsel under kald oppstart; etter venting kunne den eksisterande Spole-installasjonen opnast. Ingen data er sletta eller kontoar endra.
+
+## Offentleg release
+
+- Publisert som prerelease, ikkje draft, med nøyaktig éin universal-APK og fem assets: https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta2 . Stabil latest er ikkje endra.
+- Kjelde/tag: `16c81c1e173dfe90b9d924ea551b75660d019f5a`. `SOURCE_COMMIT.txt` peikar på denne kjelda.
+- Alle fem asset-digestar og storleikar samsvarer med dei lokale arkivfilene.
+- Uautentisert release-liste og tag-endepunkt viser beta2. Den offentleg nedlasta APK-en har same SHA-256 som bygget.
+
+## Oppdatering gjennom appen
+
+- På den lagra mobilprofilen 5560, med `0.18.0-beta16` / kode 136: Innstillingar → Notifications and updates → App updates → Check now fann `v1.0.0-beta2`.
+- «Download update» lasta ned den offentlege APK-en gjennom Spole. Etter appen sine kontrollar vart «Install update» tilgjengeleg.
+- Android sin oppdateringsdialog vart godkjend. Play Protect fullførte skanninga med «This app looks safe», og Android viste «App installed.».
+- Installert `app.reelstack` er no `1.0.0-beta2` / kode 139. Første installasjonstid er framleis 15. september 2026 kl. 10:09:51. Appen er opna att; språk, menyval og den lagra mobilkonfigurasjonen er bevarte, utan nytt førstegongsoppsett.
+- Dette er ein faktisk nedlastings-/installasjonstest gjennom appen, i tillegg til den separate `install -r`-kontrollen på TV. Ingen appdata er nullstilte.
