@@ -37,4 +37,21 @@ Den tilgjengelege ekte Seerr-sessionen er brukt til lesetest. Ordinære kontoar 
 - Endeleg signert APK er installert med `install -r` på lagra TV-profil 5564. Kontoar og ekte Jellyfin-/Emby-innhald er bevarte. Første installasjonstid er framleis 9. september 2026 kl. 20:50:58.
 - Endeleg kandidat viste 66 hendingar frå den eksisterande Seerr-kontoen. Kalenderen er kontrollert visuelt ved normal skrift og 2.0. Fjernkontrollen rullar til heile kortet med synleg fokus; premieredetaljar og Back går tilbake til same agenda/kort. Systemskrifta er sett tilbake til den opphavlege verdien 1.0.
 
-Offentleg release og oppdatering gjennom appen blir dokumenterte etter publisering. Mobilprofil 5560 er framleis på beta2 for den ekte nedlastings-/installasjonstesten.
+## Offentleg release
+
+- Publisert som prerelease, ikkje draft, med nøyaktig éin universal-APK og fem assets: https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta3 . Stabil latest er ikkje endra.
+- Kjelde/tag: `c462cf5ea509dbe8521e2e7fb153cb80cc8a009b`. `SOURCE_COMMIT.txt` peikar på same commit.
+- Alle fem asset-digestar og storleikar samsvarer med arkivfilene. SHA256SUMS dekkjer APK, mapping, FFmpeg-arkiv og kjeldepeikar.
+- Uautentisert release-liste og tag-endepunkt viser beta3. Den offentleg nedlasta APK-en er 11 490 338 byte og har same SHA-256 som det signerte bygget.
+
+## Oppdatering gjennom appen
+
+- På lagra mobilprofil 5560 med `1.0.0-beta2` / kode 139: Settings → Notifications and updates → App updates → Check now fann `v1.0.0-beta3` og dei offentlege release-notata.
+- «Download update» lasta ned APK-en gjennom Spole. «Install update» kom etter appen sine kontrollar av metadata, hash, pakke og signatur.
+- Android sin oppdateringsdialog vart godkjend. Play Protect skanna APK-en og viste «This app looks safe»; installasjonen vart deretter fullført med «App installed.».
+- Installert pakke er `1.0.0-beta3` / kode 140, sist oppdatert 5. oktober 2026 kl. 02:23:58. Første installasjonstid er framleis 15. september 2026 kl. 10:09:51.
+- Appen er opna att med det lagra engelske språket, menyvala og den eksisterande demo-/mobilkonfigurasjonen, utan nytt førstegongsoppsett. Mobilprofilen har demo-innhald; ekte Jellyfin/Emby/Seerr er kontrollerte på TV-profilen.
+- Den oppdaterte mobilkalenderen er kontrollert visuelt med demo-innhald: episodar-filteret endra agendaen og teljaren frå åtte til fire hendingar, datolinja svara på horisontalt touch-sveip, og agendaen svara på vertikalt sveip med synleg, fast lukkeknapp.
+- «Severance» opna premieredetaljar utan oppdikta avspelingsknapp. Android Back-tast gjekk tilbake til same rulleposisjon og episodeagenda; tekst- og kortplasseringane i UI-dumpen var identiske før og etter. Dette er ein faktisk Back-tast på mobil-emulatoren, ikkje ein fysisk tilbakegest.
+- Dette er ei faktisk offentleg nedlasting og Android-installasjon gjennom appen, i tillegg til den separate `install -r`-kontrollen på TV. Ingen appdata eller kontoar er nullstilte.
+- GitHub-kontrollane for både main og release-taggen fullførte med `success` på release-commit `c462cf5ea509dbe8521e2e7fb153cb80cc8a009b`.
