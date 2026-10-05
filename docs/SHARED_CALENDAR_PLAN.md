@@ -1,5 +1,7 @@
 # Trygg delt kalender · plan, ikkje implementert
 
+**Utgått 5. oktober 2026.** Brukaren har valt full fjerning av Sonarr og Radarr frå Spole, med personleg kalender gjennom Seerr og eigne Jellyfin-/Emby-bibliotek. [Den endelege erstatningsplanen](SEERR_CALENDAR_REPLACEMENT_PLAN.md) gjeld framfor resten av denne fila. Det skal ikkje byggjast eller installerast eit kalenderadapter etter planen nedanfor; teksten blir bevart som historisk bakgrunn.
+
 ## Avtalt åtferd
 
 - **Nyleg tilgjengeleg:** filmar med digital utgjevingsdato dei siste 28 dagane og stadfesta kopi i den innlogga brukarens Jellyfin-/Emby-bibliotek. Episodar må vere utgjevne i same tidsrom og liggje i biblioteket. Dato lagt til er ikkje utgjevingsdato. Kino- og fysisk dato er ikkje digital dato.

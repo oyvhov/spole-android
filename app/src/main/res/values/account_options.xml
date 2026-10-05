@@ -11,7 +11,6 @@
     <string name="account_address_for">Address for %1$s</string>
     <string name="account_companion_consent">The same username and password are sent to both addresses you choose. Seerr must be linked to this Jellyfin server. Existing accounts for these two services will be replaced.</string>
     <string name="account_http_warning">This address uses unencrypted HTTP. Prefer HTTPS.</string>
-    <string name="account_arr_key_hint">Find the API key under Settings → General → Security on the server.</string>
     <string name="account_seerr_key_hint">Find the API key under Settings → General in Seerr.</string>
     <string name="account_media_key_hint">Find the API key in the server dashboard.</string>
     <string name="account_advanced">Advanced options</string>

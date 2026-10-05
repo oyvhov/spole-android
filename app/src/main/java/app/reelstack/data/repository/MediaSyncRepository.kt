@@ -1,6 +1,7 @@
 package app.reelstack.data.repository
 
 import app.reelstack.R
+import app.reelstack.data.model.calendarIdentity
 import app.reelstack.data.network.toLibraryMedia
 import app.reelstack.localization.LocalizedText
 import app.reelstack.data.model.ActivityEvent
@@ -15,14 +16,11 @@ import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.model.ViewerAccess
 import app.reelstack.data.network.AccountProfileClient
 import app.reelstack.data.network.MediaServerClient
-import app.reelstack.data.network.QueueServiceFeed
-import app.reelstack.data.network.QueueServiceClient
 import app.reelstack.data.network.RemoteDiscoverItem
 import app.reelstack.data.network.RemoteMediaDetails
 import app.reelstack.data.network.MediaServerFeed
 import app.reelstack.data.network.RemoteLibraryItem
 import app.reelstack.data.network.RemotePlayback
-import app.reelstack.data.network.RemoteQueueItem
 import app.reelstack.data.network.RemoteRequest
 import app.reelstack.data.network.RemoteUpcomingItem
 import app.reelstack.data.network.RemoteRecommendationItem
@@ -66,6 +64,8 @@ data class MediaSyncSnapshot(
     /** Services that only answered on their alternate address, so the switch can be persisted. */
     val switchedToAlternate: Set<ServiceKind> = emptySet(),
     val upcomingError: LocalizedText? = null,
+    val calendarUndated: List<app.reelstack.data.model.CalendarTitle> = emptyList(),
+    val calendarHidden: Set<String> = emptySet(),
     val recentReleasesError: LocalizedText? = null,
 )
 
@@ -76,6 +76,13 @@ data class LibraryFeedUpdate(
     val recentMovies: List<LibraryMedia>,
     val recentSeries: List<LibraryMedia>,
     val favourites: List<LibraryMedia>,
+)
+
+data class CalendarFeedUpdate(
+    val upcoming: List<UpcomingMedia>,
+    val undated: List<app.reelstack.data.model.CalendarTitle>,
+    val hidden: Set<String>,
+    val error: LocalizedText?,
 )
 
 class MediaSyncRepository(
@@ -100,11 +107,12 @@ class MediaSyncRepository(
      */
     private val words: (LocalizedText) -> String = { it.literal.orEmpty() },
     private val mediaServerClient: MediaServerClient = MediaServerClient(),
-    private val queueServiceClient: QueueServiceClient = QueueServiceClient(),
     private val seerrServiceClient: SeerrServiceClient = SeerrServiceClient(),
     private val recommendationsClient: RecommendationsClient = RecommendationsClient(),
     private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
     private val seerrReleaseClient: SeerrReleaseClient = SeerrReleaseClient(),
+    private val calendarClient: app.reelstack.data.network.PersonalCalendarClient = app.reelstack.data.network.PersonalCalendarClient(),
+    private val calendarSelectionProvider: (ServiceConnection, String) -> app.reelstack.data.model.CalendarSelection = { _, _ -> app.reelstack.data.model.CalendarSelection() },
     private val clockMillis: () -> Long = { System.nanoTime() / 1_000_000 },
     private val routeProbe: (ServiceConnection) -> Boolean = { answersQuickly(it) },
 ) {
@@ -150,8 +158,12 @@ class MediaSyncRepository(
          */
         includeRecommendations: Boolean = true,
         onLibraryReady: (LibraryFeedUpdate) -> Unit = {},
+        onCalendarReady: (CalendarFeedUpdate) -> Unit = {},
         /** Which rows and libraries Home wants; null keeps the Library-tab selection for everything. */
         homePlan: app.reelstack.data.model.HomeFetchPlan? = null,
+        calendarSelection: app.reelstack.data.model.CalendarSelection = app.reelstack.data.model.CalendarSelection(),
+        calendarScope: String = "",
+        forceCalendar: Boolean = false,
     ): MediaSyncSnapshot = supervisorScope {
         // Choose each account's live address once, before anything is asked of it.
         val routes = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
@@ -220,9 +232,48 @@ class MediaSyncRepository(
         val warnings = mediaPayloads.mapNotNull { payload ->
             payload.feed.warnings.takeIf { it.isNotEmpty() }?.let { payload.kind to it }
         }.toMap()
-        val queuePayloads = payloads.filterIsInstance<ServicePayload.Queue>()
-        val queue = queuePayloads.flatMap { it.feed.queue }
-        val catalogueResult = configured.firstOrNull { it.kind == ServiceKind.SEERR && it.kind in successful }?.let { connection ->
+        val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
+        val verifiedSeerr = configured.firstOrNull { it.kind == ServiceKind.SEERR && identities[ServiceKind.SEERR] != null }
+        val calendarEnabled = homePlan?.layout?.isVisible(app.reelstack.data.model.HomeRowKey(app.reelstack.data.model.HomeRowKind.UPCOMING)) != false
+        var calendarHidden = emptySet<String>()
+        val calendarResult = verifiedSeerr?.takeIf { calendarEnabled }?.let { connection ->
+            try {
+                val librarySeeds = mediaPayloads.flatMap { payload ->
+                    val mediaConnection = configured.first { it.kind == payload.kind }
+                    (payload.feed.resume + payload.feed.nextUp + payload.feed.favourites).distinctBy { it.seriesId ?: it.id }.mapNotNull { item ->
+                        val id = if (item.mediaType == "Series") item.tmdbId ?: runCatching {
+                            mediaServerClient.seriesTmdbId(mediaConnection, item.id)
+                        }.getOrNull() else item.seriesId?.let { seriesId ->
+                            runCatching { mediaServerClient.seriesTmdbId(mediaConnection, seriesId) }.getOrNull()
+                        }
+                        id?.let { app.reelstack.data.model.CalendarTitle(it, "tv", item.title, item.artworkUrl) }
+                    }
+                }
+                val user = requireNotNull(identities[ServiceKind.SEERR]).id
+                var requestsFailed = false
+                val personalRequests = try { seerrServiceClient.calendarRequests(connection, user) }
+                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { requestsFailed = true; seerr?.requests.orEmpty() }
+                val requestSeeds = personalRequests.filter { it.ownerId == user && it.mediaStatus !in setOf(5, 6, 7) && it.status !in setOf(3, 4) }
+                    .mapNotNull { item -> item.remoteId?.let { app.reelstack.data.model.CalendarTitle(it, item.mediaType, item.title.orEmpty(), item.artworkUrl) } }
+                val selection = calendarSelection.titles + calendarSelectionProvider(connection, user).titles
+                calendarHidden = selection.filter { it.hidden }.mapTo(mutableSetOf()) { it.key }
+                Result.success(calendarClient.feed(connection, user, librarySeeds + requestSeeds + selection,
+                    calendarScope, forceCalendar).let { it.copy(incomplete = it.incomplete || requestsFailed) })
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { Result.failure(e) }
+        }
+        val calendarError = when {
+            calendarResult?.exceptionOrNull() is app.reelstack.data.network.CalendarAccessException -> LocalizedText(R.string.conn_session_expired)
+            verifiedSeerr == null && configured.any { it.kind == ServiceKind.SEERR } ->
+                errors[ServiceKind.SEERR] ?: LocalizedText(R.string.err_nokre_utgjevingsdatoar)
+            calendarResult?.isFailure == true || calendarResult?.getOrNull()?.incomplete == true -> LocalizedText(R.string.err_nokre_utgjevingsdatoar)
+            else -> null
+        }
+        onCalendarReady(CalendarFeedUpdate(
+            mergeReleaseItems(calendarResult?.getOrNull()?.upcoming.orEmpty().mapNotNull(::upcomingMedia)),
+            calendarResult?.getOrNull()?.undated.orEmpty(), calendarHidden, calendarError))
+        val catalogueResult = verifiedSeerr?.let { connection ->
             try { Result.success(seerrReleaseClient.feed(connection, mediaPayloads.flatMap { payload ->
                 payload.feed.releaseCandidates.map { app.reelstack.data.network.LibraryReleaseCandidate(it, payload.kind) }
             })) }
@@ -230,15 +281,13 @@ class MediaSyncRepository(
             catch (e: Exception) { Result.failure(e) }
         }
         val catalogue = catalogueResult?.getOrNull()
-        val upcoming = mergeReleaseItems(queuePayloads.flatMap { payload ->
-            payload.feed.upcoming.mapNotNull(::upcomingMedia)
-        }).sortedBy(UpcomingMedia::airDateEpochMillis)
+        val upcoming = mergeReleaseItems(calendarResult?.getOrNull()?.upcoming.orEmpty().mapNotNull(::upcomingMedia))
+            .sortedBy(UpcomingMedia::airDateEpochMillis)
         val recentReleases = mergeReleaseItems(mediaPayloads.flatMap { payload ->
             payload.feed.recentReleases.mapNotNull(::upcomingMedia)
         } + catalogue?.recent.orEmpty().mapNotNull(::upcomingMedia)).sortedByDescending(UpcomingMedia::airDateEpochMillis)
             // One latest episode per series keeps imported season batches from hiding new movies.
-            .distinctBy { "${it.mediaType.lowercase(Locale.ROOT)}:${it.title.lowercase(Locale.ROOT).trim()}" }
-        val seerr = payloads.filterIsInstance<ServicePayload.Seerr>().firstOrNull()?.feed
+            .distinctBy { it.tmdbId?.let { id -> "${it.mediaType}:$id" } ?: it.id }
         val discover = seerr?.discover.orEmpty().map(::discoverMedia)
         val recommendationResult = recommendationJob?.await() ?: Result.success(emptyList())
         val recommendationSeed = recommendationResult.getOrDefault(emptyList())
@@ -285,7 +334,6 @@ class MediaSyncRepository(
         val titleLookup = discover.associateBy { it.remoteId }
         val activity = buildList {
             seerr?.requests.orEmpty().forEach { add(requestActivity(it, titleLookup[it.remoteId])) }
-            if (access.isAdmin) queue.forEach { add(queueActivity(it)) }
         }.distinctBy { it.id }.take(30)
 
         MediaSyncSnapshot(
@@ -309,9 +357,9 @@ class MediaSyncRepository(
             recentSeries = interleave(mediaPayloads.map { payload ->
                 homeRowForServer(payload.feed.recentSeries.map { item -> libraryMedia(item, payload.kind) }, HOME_ROW_PER_SERVER)
             }),
-            upcoming = upcoming.take(30),
+            upcoming = upcoming,
             recentReleases = recentReleases.take(30),
-            incoming = if (access.isAdmin) queue.map(::incomingMedia).distinctBy { it.id } else emptyList(),
+            incoming = emptyList(),
             discover = discover,
             recommendations = recommendations,
             recommendationsError = recommendationResult.exceptionOrNull()?.let { friendlyError(ServiceKind.SEERR, it) },
@@ -322,8 +370,9 @@ class MediaSyncRepository(
             warnings = warnings,
             adminView = access.isAdmin,
             switchedToAlternate = switchedToAlternate,
-            upcomingError = if (errors.keys.any { it in setOf(ServiceKind.RADARR, ServiceKind.SONARR) })
-                LocalizedText(R.string.err_nokre_utgjevingsdatoar) else null,
+            calendarUndated = calendarResult?.getOrNull()?.undated.orEmpty(),
+            calendarHidden = calendarHidden,
+            upcomingError = calendarError,
             recentReleasesError = if (catalogueResult?.isFailure == true || catalogue?.incomplete == true ||
                 mediaPayloads.any { it.feed.releasesFailed } || errors.keys.any { it != ServiceKind.SEERR })
                 LocalizedText(R.string.err_nokre_nye_utgjevingar) else null,
@@ -542,10 +591,6 @@ class MediaSyncRepository(
                 { kind, view -> plan.includes(connection.kind, kind, view.id) }
             }),
         )
-        ServiceKind.RADARR, ServiceKind.SONARR -> ServicePayload.Queue(
-            connection.kind,
-            queueServiceClient.feed(connection, includeQueue = access.isAdmin),
-        )
         ServiceKind.SEERR -> ServicePayload.Seerr(connection.kind, seerrServiceClient.feed(connection,
             requireNotNull(access.accounts[ServiceKind.SEERR]) { "Seerr account not confirmed" }))
     }
@@ -586,22 +631,9 @@ class MediaSyncRepository(
     fun seriesNextUp(connection: ServiceConnection, seriesId: String): LibraryMedia? =
         mediaServerClient.seriesNextUp(connection, seriesId)?.let { libraryMedia(it, connection.kind) }
 
-    private fun incomingMedia(item: RemoteQueueItem) = IncomingMedia(
-        id = item.id,
-        title = item.title,
-        source = item.source,
-        status = words(item.status),
-        state = item.state,
-        artworkRes = R.drawable.media_placeholder,
-        artworkUrl = item.artworkUrl,
-        overview = item.overview,
-        facts = listOf(words(mediaKind(item.source.name))) + item.facts.map(words),
-        genres = item.genres,
-        progress = item.progress,
-    )
-
     private fun upcomingMedia(item: RemoteUpcomingItem): UpcomingMedia? {
-        val instant = parseCalendarInstant(item.dateTime) ?: return null
+        val date = runCatching { LocalDate.parse(item.dateTime.take(10)) }.getOrNull() ?: return null
+        val instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant()
         return UpcomingMedia(
             id = "${item.source.name.lowercase()}-${item.id}",
             title = item.title,
@@ -616,6 +648,9 @@ class MediaSyncRepository(
             genres = item.genres,
             mediaType = item.mediaType,
             physicalRelease = item.physicalRelease,
+            tmdbId = item.tmdbId, season = item.season, episode = item.episode,
+            releaseDate = item.dateTime.take(10), region = item.region,
+            libraryRemoteId = item.id.takeIf { item.source == ServiceKind.JELLYFIN || item.source == ServiceKind.EMBY },
         )
     }
 
@@ -657,8 +692,8 @@ class MediaSyncRepository(
      * is what makes it possible to say it in a different language without re-fetching anything.
      */
     private fun mediaKind(mediaType: String?): LocalizedText = when (mediaType?.lowercase()) {
-        "movie", "radarr" -> LocalizedText(R.string.media_kind_movie)
-        "series", "tv", "sonarr" -> LocalizedText(R.string.media_kind_series)
+        "movie" -> LocalizedText(R.string.media_kind_movie)
+        "series", "tv" -> LocalizedText(R.string.media_kind_series)
         "episode" -> LocalizedText(R.string.media_kind_episode)
         else -> LocalizedText(R.string.media_kind_video)
     }
@@ -666,20 +701,6 @@ class MediaSyncRepository(
     /** The kind, then whatever else is worth saying about it. */
     private fun mediaLine(mediaType: String?, rest: String?): String =
         listOfNotNull(words(mediaKind(mediaType)), rest?.takeIf { it.isNotBlank() }).joinToString(" · ")
-
-    private fun queueActivity(item: RemoteQueueItem) = ActivityEvent(
-        id = "activity-${item.id}",
-        title = item.title,
-        detail = LocalizedText(R.string.activity_detail_stage_raw, item.source.displayName, item.status),
-        time = LocalizedText(R.string.time_now),
-        timeEpochMillis = Instant.now().toEpochMilli(),
-        progress = item.progress,
-        complete = item.state == IncomingState.READY,
-        source = item.source,
-        artworkRes = R.drawable.media_placeholder,
-        artworkUrl = item.artworkUrl,
-        mediaType = if (item.source == ServiceKind.SONARR) "Episode" else "Movie",
-    )
 
     private fun requestActivity(request: RemoteRequest, discovered: DiscoverMedia?): ActivityEvent {
         val progress = app.reelstack.data.model.requestProgress(
@@ -722,11 +743,7 @@ class MediaSyncRepository(
         val zone = ZoneId.systemDefault()
         val dateTime = instant.atZone(zone)
         val day = dateTime.toLocalDate().format(DateTimeFormatter.ofPattern("EEE d. MMM", locale))
-        return if (source == ServiceKind.SONARR) {
-            "$day · ${dateTime.format(timeFormatter)}"
-        } else {
-            day
-        }
+        return day
     }
 
     private val timeFormatter: DateTimeFormatter =
@@ -768,7 +785,6 @@ class MediaSyncRepository(
         val kind: ServiceKind
 
         data class Media(override val kind: ServiceKind, val feed: MediaServerFeed) : ServicePayload
-        data class Queue(override val kind: ServiceKind, val feed: QueueServiceFeed) : ServicePayload
         data class Seerr(override val kind: ServiceKind, val feed: SeerrFeed) : ServicePayload
     }
 
@@ -795,7 +811,6 @@ internal fun answersQuickly(
     val path = when (connection.kind) {
         ServiceKind.JELLYFIN, ServiceKind.EMBY -> "System/Info/Public"
         ServiceKind.SEERR -> "api/v1/status"
-        ServiceKind.RADARR, ServiceKind.SONARR -> "ping"
     }
     return runCatching {
         transport.get(app.reelstack.data.network.EndpointValidator.resolve(connection.baseUrl, path), emptyMap())
@@ -803,8 +818,7 @@ internal fun answersQuickly(
 }
 
 internal fun mergeReleaseItems(items: List<UpcomingMedia>): List<UpcomingMedia> = items.distinctBy {
-    val episode = if (it.mediaType.equals("Episode", true)) Regex("S\\d+ E\\d+").find(it.subtitle)?.value ?: it.id else "movie"
-    "${it.title.lowercase(Locale.ROOT).trim()}|$episode"
+    it.calendarIdentity
 }
 
 /**

@@ -31,7 +31,8 @@ internal fun libraryRelease(item: RemoteLibraryItem, source: ServiceKind, window
     if (!item.available || !window.recent(item.premiereDate) || item.mediaType != "Episode") return null
     return RemoteUpcomingItem(item.id, item.title, item.subtitle, requireNotNull(item.premiereDate), source,
         item.artworkUrl, item.mediaType, item.overview,
-        item.facts + LocalizedText(R.string.release_in_library), item.genres)
+        item.facts + LocalizedText(R.string.release_in_library), item.genres,
+        tmdbId = item.tmdbId, season = item.season, episode = item.episode)
 }
 
 data class ReleaseCatalogue(
@@ -49,11 +50,14 @@ class SeerrReleaseClient(
 ) {
     private data class Cache(val scope: String, val at: Long, val value: ReleaseCatalogue)
     private var cache: Cache? = null
+    private data class Detail(val at: Long, val payload: String)
+    private val details = linkedMapOf<String, Detail>()
+    private var detailScope = ""
 
     suspend fun feed(connection: ServiceConnection, library: List<LibraryReleaseCandidate>): ReleaseCatalogue = supervisorScope {
         require(connection.kind == ServiceKind.SEERR)
         val candidates = library.filter { it.item.available && it.item.mediaType == "Movie" && it.item.tmdbId != null }
-            .distinctBy { it.item.tmdbId }.sortedByDescending { it.item.premiereDate }.take(60)
+            .distinctBy { it.item.tmdbId }
         if (candidates.isEmpty()) return@supervisorScope ReleaseCatalogue()
         val scope = MessageDigest.getInstance("SHA-256").digest(
             ("${connection.baseUrl}|${connection.userId}|${connection.sessionCookie}|${connection.token}|${LocalDate.now(clock)}|" +
@@ -64,12 +68,23 @@ class SeerrReleaseClient(
         }?.let { return@supervisorScope it.value }
         val window = ReleaseWindow(clock)
         val headers = if (connection.sessionCookie) seerrCookieHeaders(connection.token) else mapOf("X-Api-Key" to connection.token)
+        val viewer = MessageDigest.getInstance("SHA-256").digest(
+            "${connection.identity}|${connection.userId}|${connection.token}".toByteArray()).joinToString("") { "%02x".format(it) }
+        synchronized(details) { if (viewer != detailScope) { details.clear(); detailScope = viewer } }
         fun get(path: String): String {
+            synchronized(details) { details[path] }?.takeIf { clock.millis() - it.at in 0 until 6 * 60 * 60_000 }
+                ?.let { return it.payload }
             val response = transport.get(EndpointValidator.resolve(connection.baseUrl, "api/v1/$path"), headers)
+            if (response.statusCode in setOf(401, 403)) synchronized(details) { details.clear(); detailScope = "" }
             check(response.statusCode in 200..299) { "release dates: Seerr answered ${response.statusCode}" }
+            Json.parseToJsonElement(response.body).jsonObject
+            synchronized(details) { if (detailScope == viewer) {
+                details[path] = Detail(clock.millis(), response.body)
+                while (details.size > 2000) details.remove(details.keys.first())
+            } }
             return response.body
         }
-        val limit = Semaphore(4)
+        val limit = Semaphore(if (transport.supportsConcurrentCalls) 4 else 1)
         val results = candidates.map { candidate -> async(Dispatchers.IO) {
             limit.withPermit { safeResult {
                 val item = candidate.item
@@ -122,7 +137,7 @@ internal fun seerrReleases(payload: String, type: String, window: ReleaseWindow)
         if (!window.recent(release.toString()) && !window.upcoming(release.toString())) return emptyList()
         return listOf(RemoteUpcomingItem("movie-$id", title, premiere.year.toString(), release.toString(),
             ServiceKind.SEERR, art(root.text("posterPath")), "Movie", details.overview,
-            details.facts + LocalizedText(R.string.release_digital), genres))
+            details.facts + LocalizedText(R.string.release_digital), genres, tmdbId = id))
     }
     if (type != "tv") return emptyList()
     val episodes = listOfNotNull(root["lastEpisodeToAir"] as? JsonObject, root["nextEpisodeToAir"] as? JsonObject)

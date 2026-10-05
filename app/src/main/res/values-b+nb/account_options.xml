@@ -11,7 +11,6 @@
     <string name="account_address_for">Adresse til %1$s</string>
     <string name="account_companion_consent">Samme brukernavn og passord sendes til begge adressene du har valgt. Seerr må være knyttet til denne Jellyfin-serveren. Eksisterende kontoer på disse to tjenestene byttes ut.</string>
     <string name="account_http_warning">Denne adressen bruker HTTP uten kryptering. Bruk helst HTTPS.</string>
-    <string name="account_arr_key_hint">Du finner API-nøkkelen under Settings → General → Security på serveren.</string>
     <string name="account_seerr_key_hint">Du finner API-nøkkelen under Settings → General i Seerr.</string>
     <string name="account_media_key_hint">Du finner API-nøkkelen i kontrollpanelet til serveren.</string>
     <string name="account_advanced">Avanserte valg</string>

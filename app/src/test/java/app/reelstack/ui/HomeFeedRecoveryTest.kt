@@ -18,7 +18,7 @@ class HomeFeedRecoveryTest {
 
     @Test fun successfulEmptyFeedAndUnrelatedServiceFailuresDoNotPollLibrary() {
         assertFalse(shouldRetryHomeFeed(emptySet(), emptySet(), false, 120_000))
-        assertFalse(shouldRetryHomeFeed(setOf(ServiceKind.SEERR, ServiceKind.SONARR), emptySet(), false, 120_000))
+        assertFalse(shouldRetryHomeFeed(setOf(ServiceKind.SEERR, ServiceKind.SEERR), emptySet(), false, 120_000))
     }
 
     @Test fun aServerThatStaysDownIsAskedLessOftenEachTime() {

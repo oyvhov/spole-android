@@ -52,7 +52,6 @@ fun WelcomeScreen(
         return
     }
     val ready = state.configuredCount > 0
-    var advancedServices by rememberSaveable { mutableStateOf(false) }
     ReelPage {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -73,9 +72,7 @@ fun WelcomeScreen(
         }
         // Jellyfin leads as a filled button: connecting a real server is the point of this screen,
         // and it used to be the lowest-contrast element on it.
-        listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR).plus(
-            if (advancedServices) listOf(ServiceKind.RADARR, ServiceKind.SONARR) else emptyList()
-        ).forEach { kind ->
+        listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR).forEach { kind ->
             item(key = kind.name) {
                 val connected = state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() }
                 val primary = kind == ServiceKind.JELLYFIN && !connected && !ready
@@ -98,8 +95,6 @@ fun WelcomeScreen(
                                 ServiceKind.JELLYFIN -> stringResource(R.string.welcome_jellyfin)
                                 ServiceKind.EMBY -> stringResource(R.string.welcome_emby)
                                 ServiceKind.SEERR -> stringResource(R.string.welcome_seerr)
-                                ServiceKind.RADARR -> stringResource(R.string.welcome_radarr)
-                                ServiceKind.SONARR -> stringResource(R.string.welcome_sonarr)
                             }, color = if (primary) app.reelstack.ui.theme.Ink.copy(alpha = 0.72f)
                             else if (connected) Primary else Muted,
                                 fontSize = 12.sp, lineHeight = 16.sp)
@@ -116,15 +111,6 @@ fun WelcomeScreen(
             }
         }
         item {
-            // A disclosure for an optional path, so it stays quieter than connecting a server.
-            app.reelstack.ui.components.SpoleSecondaryButton(onClick = { advancedServices = !advancedServices },
-                colors = ButtonDefaults.textButtonColors(contentColor = Muted),
-                modifier = Modifier.heightIn(min = 48.dp)) {
-                Icon(if (advancedServices) app.reelstack.ui.components.SpoleIcons.ChevronUp else app.reelstack.ui.components.SpoleIcons.ChevronDown,
-                    null, Modifier.size(18.dp))
-                Text(if (advancedServices) stringResource(R.string.welcome_hide_admin) else stringResource(R.string.welcome_admin),
-                    modifier = Modifier.padding(start = 8.dp))
-            }
             if (ready) {
                 Button(onClick = onContinue, shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp)) {

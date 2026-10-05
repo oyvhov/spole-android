@@ -374,43 +374,6 @@ class ServiceClientsTest {
     }
 
     @Test
-    fun radarrTokenStaysInHeader() {
-        val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, "{\"records\":[]}")))
-        val connection = connection(ServiceKind.RADARR, "arr-secret")
-
-        QueueServiceClient(transport).queue(connection)
-
-        assertEquals("arr-secret", transport.lastHeaders["X-Api-Key"])
-        assertFalse(transport.lastUrl.contains("arr-secret"))
-        assertTrue(transport.lastUrl.contains("/api/v3/queue?"))
-    }
-
-    @Test
-    fun sonarrFeedLoadsQueueAndUpcomingCalendar() {
-        val now = java.time.Instant.now()
-        val future = now.plus(4, java.time.temporal.ChronoUnit.DAYS)
-        val recent = now.minus(4, java.time.temporal.ChronoUnit.DAYS)
-        val transport = RecordingTransport(
-            getResponses = mutableListOf(
-                HttpResponse(200, """{"records":[]}"""),
-                HttpResponse(200, """[
-                    {"id":3,"airDateUtc":"$future","series":{"title":"Andor"}},
-                    {"id":2,"airDateUtc":"$recent","series":{"title":"Silo"}}
-                ]"""),
-            ),
-        )
-        val connection = connection(ServiceKind.SONARR, "sonarr-secret")
-
-        val feed = QueueServiceClient(transport).feed(connection)
-
-        assertEquals("Andor", feed.upcoming.single().title)
-        assertEquals("Silo", feed.recentReleases.single().title)
-        assertTrue(transport.urls[1].contains("/api/v3/calendar?"))
-        assertTrue(transport.urls[1].contains("includeSeries=true"))
-        assertTrue(transport.headers.all { it["X-Api-Key"] == "sonarr-secret" })
-    }
-
-    @Test
     fun televisionRequestIncludesSelectedSeasons() {
         val transport = RecordingTransport(getResponses = mutableListOf(HttpResponse(200, """{"id":7,"displayName":"Maya","permissions":32}"""),
             HttpResponse(200, """{"overview":"A series","seasons":[{"seasonNumber":1},{"seasonNumber":3}]}""")), postResponse = HttpResponse(201, "{}"))

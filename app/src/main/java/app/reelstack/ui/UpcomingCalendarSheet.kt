@@ -2,12 +2,9 @@ package app.reelstack.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,228 +12,212 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
-import app.reelstack.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.reelstack.data.model.ServiceKind
-import app.reelstack.data.model.UpcomingMedia
-import app.reelstack.data.model.isMovieRelease
-import app.reelstack.ui.components.MediaArtwork
-import app.reelstack.ui.components.AppFilterRow
-import app.reelstack.ui.components.SheetToolbar
+import app.reelstack.R
+import app.reelstack.data.model.*
+import app.reelstack.ui.components.*
 import app.reelstack.ui.theme.*
-import app.reelstack.ui.theme.Text as TextColor
-import java.time.Instant
+import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** Stable filter identities; the visible label is a property, not the state. */
-enum class CalendarFilter(val labelRes: Int) {
-    ALL(R.string.calendar_all),
-    MOVIES(R.string.calendar_movies),
-    EPISODES(R.string.calendar_episodes),
+enum class CalendarFilter {
+    ALL, MOVIES, EPISODES;
+
+    val labelRes: Int get() = when (this) {
+        ALL -> R.string.calendar_all
+        MOVIES -> R.string.calendar_movies
+        EPISODES -> R.string.calendar_episodes
+    }
 }
 
 @Composable
 internal fun UpcomingCalendarSheet(
-    items: List<UpcomingMedia>,
-    onUpcomingClick: (String) -> Unit,
-    onDismiss: () -> Unit,
+    items: List<UpcomingMedia>, onUpcomingClick: (String) -> Unit, onDismiss: () -> Unit,
+    undated: List<CalendarTitle> = emptyList(), error: String? = null, loading: Boolean = false,
+    onTitleClick: (CalendarTitle) -> Unit = {},
 ) {
     val today = LocalDate.now()
-    val zone = ZoneId.systemDefault()
     val locale = LocalConfiguration.current.locales[0]
-    val filterLabels = CalendarFilter.entries.associateWith { stringResource(it.labelRes) }
-    val compactDate = remember(locale) { DateTimeFormatter.ofPattern(
-        android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMd"), locale) }
-    val fullDate = remember(locale) { DateTimeFormatter.ofPattern(
-        android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMMd"), locale) }
-    val agendaDate = remember(locale) { DateTimeFormatter.ofPattern(
-        android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEMMMMd"), locale) }
+    val density = LocalDensity.current
+    val dateFormat = remember(locale) { DateTimeFormatter.ofPattern("EEEE d. MMMM", locale) }
+    val shortFormat = remember(locale) { DateTimeFormatter.ofPattern("d. MMM", locale) }
+    val weekFormat = remember(locale) { DateTimeFormatter.ofPattern("EEE", locale) }
     var filter by rememberSaveable { mutableStateOf(CalendarFilter.ALL) }
     var selectedDay by rememberSaveable { mutableStateOf<String?>(null) }
-    val grouped = remember(items, filter, today, zone) {
-        items.filter { when (filter) {
+    var lastOpened by rememberSaveable { mutableStateOf<String?>(null) }
+    val television = LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val open: (String) -> Unit = { id -> lastOpened = id; onUpcomingClick(id) }
+    val agendaState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val resetScroll: () -> Unit = { scope.launch { agendaState.scrollToItem(0) }; Unit }
+    val labels = CalendarFilter.entries.associateWith { stringResource(it.labelRes) }
+    val grouped = remember(items, filter, today) {
+        items.filter { it.calendarDate in today..today.plusDays(28) && when (filter) {
             CalendarFilter.ALL -> true
             CalendarFilter.MOVIES -> it.isMovieRelease
             CalendarFilter.EPISODES -> !it.isMovieRelease
-        } }
-            .sortedBy { it.airDateEpochMillis }
-            .groupBy { Instant.ofEpochMilli(it.airDateEpochMillis).atZone(zone).toLocalDate() }
-            .filterKeys { !it.isBefore(today) && it.isBefore(today.plusDays(28)) }
+        } }.distinctBy { it.calendarIdentity }.sortedWith(compareBy<UpcomingMedia> { it.calendarDate }
+            .thenBy { it.title }.thenBy { it.season }.thenBy { it.episode }).groupBy { it.calendarDate }
     }
     val shown = grouped.filterKeys { selectedDay == null || it.toString() == selectedDay }
-    val agendaState = rememberLazyListState()
-    LaunchedEffect(filter, selectedDay) { agendaState.scrollToItem(0) }
+    val pending = undated.filter { when (filter) {
+        CalendarFilter.ALL -> true
+        CalendarFilter.MOVIES -> it.mediaType == "movie"
+        CalendarFilter.EPISODES -> it.mediaType == "tv"
+    } }.distinctBy { it.key }
     Column(Modifier.fillMaxSize().testTag("calendar")) {
         SheetToolbar(stringResource(R.string.calendar_title), stringResource(R.string.calendar_close), onDismiss)
-        Text(stringResource(R.string.calendar_subtitle), color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
-            modifier = Modifier.padding(horizontal = 24.dp))
-        AppFilterRow(CalendarFilter.entries, filter, { filterLabels.getValue(it) }, { filter = it },
-            Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        Text(
-            stringResource(R.string.calendar_range, today.format(compactDate), today.plusDays(27).format(compactDate)),
-            color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 24.dp, bottom = 10.dp),
-        )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.testTag("calendar-dates"),
-        ) {
-            items(28) { offset ->
+        LazyColumn(state = agendaState, modifier = Modifier.weight(1f).testTag("calendar-agenda"),
+            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item(key = "calendar-controls") {
+        Column(Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.calendar_personal), color = Muted, fontSize = 13.sp, lineHeight = 19.sp)
+            Text(stringResource(R.string.calendar_range, today.format(shortFormat), today.plusDays(28).format(shortFormat)),
+                fontSize = 21.sp, lineHeight = 29.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+            AppFilterRow(CalendarFilter.entries, filter, { labels.getValue(it) }, { filter = it; lastOpened = null; resetScroll() },
+                Modifier.padding(vertical = 10.dp))
+        }
+        }
+        item(key = "calendar-dates") {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.testTag("calendar-dates")) {
+            items(29) { offset ->
                 val date = today.plusDays(offset.toLong())
                 val count = grouped[date]?.size ?: 0
-                val isSelected = selectedDay == date.toString()
-                val isToday = date == today
-                val dateDescription = if (isToday) stringResource(R.string.calendar_today_date, date.format(fullDate)) else date.format(fullDate)
-                val releaseDescription = pluralStringResource(R.plurals.calendar_releases, count, count)
-                val dayDescription = stringResource(R.string.calendar_day_description, dateDescription, releaseDescription)
-                // The strip crosses a month boundary, so the first day of a new month says which
-                // month it belongs to instead of reading as another day of the current one.
-                val newMonth = offset > 0 && date.dayOfMonth == 1
-                Surface(
-                    onClick = { selectedDay = if (isSelected) null else date.toString() },
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (isSelected) Primary else SurfaceRaised,
-                    contentColor = if (isSelected) Ink else MaterialTheme.colorScheme.onSurface,
-                    // Today keeps a visible ring when it is not the selected day, so "now" is
-                    // always locatable in the strip.
-                    border = if (isToday && !isSelected) BorderStroke(1.5.dp, Primary) else null,
-                    modifier = Modifier.width(IntrinsicSize.Max).widthIn(min = 52.dp).testTag("calendar-day-$offset")
-                        .semantics {
-                            selected = isSelected
-                            contentDescription = dayDescription
-                        },
-                ) {
-                    Column(Modifier.padding(horizontal = 8.dp, vertical = 10.dp).widthIn(min = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            if (newMonth) date.format(DateTimeFormatter.ofPattern("MMM", locale)).removeSuffix(".")
-                            else date.format(DateTimeFormatter.ofPattern("EEE", locale)).removeSuffix("."),
-                            fontSize = 12.sp, lineHeight = 17.sp,
-                            modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            fontWeight = if (newMonth) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                        Text(date.dayOfMonth.toString(), fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                        Text(if (count > 0) count.toString() else "–", fontSize = 10.sp, lineHeight = 14.sp,
-                            color = if (isSelected) Ink else Muted,
-                            modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                val chosen = selectedDay == date.toString()
+                val description = stringResource(R.string.calendar_day_description, date.format(dateFormat),
+                    pluralStringResource(R.plurals.calendar_releases, count, count))
+                val interaction = remember { MutableInteractionSource() }
+                val shape = RoundedCornerShape(16.dp)
+                Surface(onClick = { selectedDay = if (chosen) null else date.toString(); lastOpened = null; resetScroll() },
+                    interactionSource = interaction, shape = shape, color = if (chosen) MaterialTheme.colorScheme.surfaceContainerHigh else SurfaceRaised,
+                    contentColor = app.reelstack.ui.theme.Text,
+                    border = if (chosen || offset == 0) BorderStroke(1.dp, ControlOutline) else null,
+                    modifier = Modifier.width(with(density) { 44.sp.toDp() }.coerceAtLeast(60.dp) + 24.dp)
+                        .focusOutline(interaction, shape, glow = false)
+                        .testTag("calendar-day-$offset").semantics { selected = chosen; contentDescription = description }) {
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 12.dp).widthIn(min = 56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (date.dayOfMonth == 1) date.format(DateTimeFormatter.ofPattern("MMM", locale)).removeSuffix(".")
+                            else date.format(weekFormat).removeSuffix("."), color = Muted, fontSize = 12.sp, lineHeight = 20.sp,
+                            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+                                .heightIn(min = with(density) { 20.sp.toDp() } + 2.dp))
+                        Text(date.dayOfMonth.toString(), fontSize = 22.sp, lineHeight = 33.sp, fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+                                .heightIn(min = with(density) { 33.sp.toDp() } + 2.dp))
+                        Box(Modifier.padding(top = 7.dp).height(3.dp).width(18.dp)
+                            .background(if (chosen) Primary else if (count > 0) Muted else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(2.dp)))
                     }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (selectedDay == null) grouped.values.sumOf { it.size }.let { pluralStringResource(R.plurals.calendar_releases, it, it) }
-                else shown.values.sumOf { it.size }.let { pluralStringResource(R.plurals.calendar_day_releases, it, it) },
-                color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f),
-            )
-            // A reset control that looks like the label beside it is not findable, so it becomes
-            // a chip once there is actually something to reset.
-            if (selectedDay != null) {
-                Surface(
-                    onClick = { selectedDay = null },
-                    shape = CircleShape,
-                    color = SurfaceRaised,
-                    contentColor = PrimarySoft,
-                    border = BorderStroke(1.dp, ControlOutline),
-                ) {
-                    Text(stringResource(R.string.calendar_all_days), fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 11.dp))
-                }
-            }
         }
-        // Only visible rows are composed, even for large calendars.
-        LazyColumn(
-            state = agendaState,
-            modifier = Modifier.weight(1f).testTag("calendar-agenda"),
-            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 28.dp),
-        ) {
-            if (shown.isEmpty()) {
-                item {
-                    Text(stringResource(R.string.calendar_empty), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 28.dp))
-                    Text(stringResource(R.string.calendar_empty_hint), color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 6.dp))
+        item(key = "calendar-count") {
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            val count = shown.values.sumOf { it.size }
+            Text(pluralStringResource(R.plurals.calendar_releases, count, count), color = Muted, fontSize = 12.sp,
+                lineHeight = 18.sp, modifier = Modifier.weight(1f))
+            if (selectedDay != null) TextButton(onClick = { selectedDay = null; resetScroll() }) {
+                Text(stringResource(R.string.calendar_all_days))
+            }
+            if (loading) CircularProgressIndicator(Modifier.padding(start = 10.dp).size(16.dp), color = Muted, strokeWidth = 2.dp)
+        }
+        }
+            error?.let { message -> item(key = "calendar-error") { Text(message, color = Muted, fontSize = 13.sp, lineHeight = 19.sp) } }
+            if (shown.isEmpty()) item(key = "calendar-empty") {
+                Column(Modifier.padding(vertical = 20.dp)) {
+                    Text(stringResource(R.string.calendar_empty), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.calendar_empty_hint), color = Muted, fontSize = 13.sp, lineHeight = 19.sp,
+                        modifier = Modifier.padding(top = 6.dp))
                 }
             }
-            shown.forEach { (date, dayItems) ->
+            shown.forEach { (date, events) ->
                 item(key = "date-$date") {
-                    Text(
-                        when (date) {
-                            today -> stringResource(R.string.calendar_today)
-                            today.plusDays(1) -> stringResource(R.string.calendar_tomorrow)
-                            else -> date.format(agendaDate)
-                                .replaceFirstChar { it.titlecase(locale) }
-                        },
-                        fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                    )
+                    Text(when (date) {
+                        today -> stringResource(R.string.calendar_today)
+                        today.plusDays(1) -> stringResource(R.string.calendar_tomorrow)
+                        else -> date.format(dateFormat).replaceFirstChar { it.titlecase(locale) }
+                    }, fontSize = 17.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp))
                 }
-                items(dayItems, key = { it.id }) { media -> CalendarEntry(media, onUpcomingClick) }
+                val batches = events.groupBy { it.tmdbId?.let { id -> "${it.mediaType}:$id:${it.season}" } ?: it.id }.values.toList()
+                items(batches, key = { "$date:${it.first().calendarIdentity}" }) { batch -> CalendarEntry(batch, open,
+                    restoreFocus = television && batch.any { it.id == lastOpened }) }
+            }
+            if (pending.isNotEmpty()) {
+                item(key = "calendar-pending-heading") {
+                    Text(stringResource(R.string.calendar_no_dates), fontSize = 17.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 20.dp))
+                    Text(stringResource(R.string.calendar_no_dates_hint), color = Muted, fontSize = 13.sp, lineHeight = 19.sp)
+                }
+                items(pending, key = { "pending:${it.key}" }) { title ->
+                    val interaction = remember { MutableInteractionSource() }
+                    val shape = RoundedCornerShape(16.dp)
+                    Surface(onClick = { onTitleClick(title) }, interactionSource = interaction, shape = shape, color = SurfaceRaised,
+                        contentColor = app.reelstack.ui.theme.Text,
+                        modifier = Modifier.fillMaxWidth().focusOutline(interaction, shape, false).testTag("calendar-following-${title.key}")) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(SpoleIcons.Calendar, null, Modifier.size(22.dp), tint = Muted)
+                            Text(title.title, modifier = Modifier.padding(start = 14.dp), fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun CalendarEntry(media: UpcomingMedia, onOpen: (String) -> Unit) {
-    val isMovie = media.isMovieRelease
-    val context = LocalContext.current
-    val time = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(media.airDateEpochMillis))
-    Surface(onClick = { onOpen(media.id) }, color = androidx.compose.ui.graphics.Color.Transparent) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(88.dp), contentAlignment = Alignment.CenterStart) {
-                MediaArtwork(
-                    url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
-                    contentScale = if (isMovie) ContentScale.Fit else ContentScale.Crop,
-                    modifier = Modifier.size(if (isMovie) 60.dp else 88.dp, if (isMovie) 90.dp else 54.dp)
-                        .clip(RoundedCornerShape(10.dp)).background(SurfaceRaised),
-                )
+private fun CalendarEntry(batch: List<UpcomingMedia>, onOpen: (String) -> Unit, restoreFocus: Boolean = false) {
+    val media = batch.first()
+    var expanded by rememberSaveable(media.calendarIdentity) { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(18.dp)
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(restoreFocus) { if (restoreFocus) { withFrameNanos { }; focus.requestFocus() } }
+    Column {
+        Surface(onClick = { onOpen(media.id) }, interactionSource = interaction, color = SurfaceRaised, shape = shape,
+            contentColor = app.reelstack.ui.theme.Text,
+            modifier = Modifier.fillMaxWidth().focusRequester(focus).focusOutline(interaction, shape, false).testTag("calendar-entry-${media.id}")) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                MediaArtwork(url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
+                    modifier = Modifier.width(if (media.isMovieRelease) 58.dp else 90.dp)
+                        .aspectRatio(if (media.isMovieRelease) 2f / 3f else 16f / 9f).clip(RoundedCornerShape(10.dp)),
+                    contentScale = ContentScale.Crop)
+                Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                    Text(media.title, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(if (batch.size > 1) pluralStringResource(R.plurals.calendar_batch, batch.size, batch.size) else media.subtitle,
+                        color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text(stringResource(if (media.isMovieRelease) R.string.calendar_home_release else R.string.calendar_episode_premiere),
+                        color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 5.dp))
+                }
             }
-            Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(media.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(media.subtitle.replace(" · TBA", ""), color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
-                // What kind of thing this is, then where it came from — in that order, because the
-                // first is what the reader is scanning for and the second is only provenance.
-                //
-                // Both used to be drawn in the accent colour. The project's own rule is that the
-                // accent is the action colour and never goes on a passive source name, and a
-                // calendar where every line is accent-coloured has no emphasis left to spend.
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-                    Icon(
-                        if (isMovie) app.reelstack.ui.components.SpoleIcons.Movie else app.reelstack.ui.components.SpoleIcons.Screen,
-                        contentDescription = null, tint = Muted, modifier = Modifier.size(12.dp),
-                    )
-                    Text(
-                        if (isMovie) {
-                            if (media.physicalRelease) stringResource(R.string.calendar_physical)
-                            else stringResource(R.string.calendar_home_release)
-                        } else {
-                            stringResource(R.string.calendar_kind_episode)
-                        },
-                        color = TextColor, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 5.dp),
-                    )
-                    Text(
-                        if (!isMovie && media.source == ServiceKind.SONARR) {
-                            stringResource(R.string.calendar_source_time, media.source.displayName, time)
-                        } else {
-                            media.source.displayName
-                        },
-                        color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
+        }
+        if (batch.size > 1) {
+            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("calendar-batch-${media.id}")) {
+                Text(stringResource(if (expanded) R.string.calendar_hide_episodes else R.string.calendar_show_episodes))
+            }
+            if (expanded) batch.forEach { episode ->
+                TextButton(onClick = { onOpen(episode.id) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(episode.subtitle, modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }

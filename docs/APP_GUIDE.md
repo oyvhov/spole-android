@@ -1,6 +1,6 @@
 # Getting started with Spole
 
-This guide applies to Spole 0.18.0-beta3.
+This guide applies to Spole 1.0.0-beta3.
 
 ## For viewers
 
@@ -30,7 +30,7 @@ On TV, a phone remote-control app can make text entry easier. A setup link is no
 The setup link contains the Jellyfin address and, optionally, the Seerr address. It
 does not contain passwords, access tokens or a user session. Addresses may still be
 private, so share the link with its intended recipients rather than publishing a
-screenshot. Never share Radarr, Sonarr or Seerr administrator tokens with regular users.
+screenshot. Never share Seerr administrator tokens with regular users.
 
 ## TV, tablet and phone
 
@@ -48,7 +48,7 @@ On TV, the side panel can also be hidden until you navigate to the left edge.
 - **Integrated playback:** audio and subtitle selection, file and quality selection, progress reporting and next episode. Direct playback is requested when possible, with audio-only or full server transcoding fallback when required by the device or media.
 - **TV playback controls:** seeking, audio, subtitles, next episode and playback diagnostics. The Speed action is intentionally not part of the current OSD.
 - **Offline on phone and tablet:** save a complete, directly compatible Jellyfin or Emby file from the player. **Downloads** shows its progress, Wi-Fi-only mode, pause/resume, retry and removal; a completed item plays from app-private storage. Downloads are not available on TV or in child mode.
-- **Requests and discovery:** Seerr requests plus Radarr and Sonarr upcoming content when the connected account has access.
+- **Requests and personal calendar:** Seerr requests, upcoming episodes and digital movie premieres. Home shows the next event per series; Calendar shows the full 28-day agenda, date and type filters, and expandable episode batches. Titles without dates in this period appear below the agenda. Follow or hide a movie or series from its details.
 - **Themes:** accent colours, Christmas and Halloween styling, with reduced-motion support.
 
 ## Updates and limitations
@@ -61,5 +61,12 @@ permissions. Image-based subtitles may require burn-in. Intro and credits action
 require markers from the server; Emby uses its chapter markers. Live TV, music,
 disc/ISO menus are outside this playback flow. Child mode,
 QR display for setup links and short setup codes are not implemented.
+
+Spole no longer connects directly to Sonarr or Radarr. Existing connections and keys
+are removed during the upgrade, while Jellyfin, Emby, Seerr and personal settings
+are kept. Seerr still uses its configured acquisition services on the server.
+Calendar dates describe premieres, not a promise that a file is on your server.
+Manual calendar follows are saved per profile and Seerr account on this device;
+they do not sync between phone and TV. Kids mode does not expose Seerr or the calendar.
 
 [Back to Spole](../README.md)

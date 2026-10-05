@@ -161,8 +161,6 @@ enum class ActivityFilter(val label: String, val source: ServiceKind?) {
     MINE("Mine", null),
     ALL("Alt", null),
     SEERR("Seerr", ServiceKind.SEERR),
-    RADARR("Radarr", ServiceKind.RADARR),
-    SONARR("Sonarr", ServiceKind.SONARR),
 }
 
 

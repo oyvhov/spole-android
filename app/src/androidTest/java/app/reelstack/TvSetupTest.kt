@@ -49,8 +49,8 @@ class TvSetupTest {
             }
         }
         rule.onNodeWithTag("tv-setup-SEERR").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("tv-setup-advanced").performScrollTo().performClick()
-        rule.onNodeWithTag("tv-setup-SONARR").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("tv-setup-advanced").assertDoesNotExist()
+        rule.onNodeWithTag("tv-setup-SONARR").assertDoesNotExist()
     }
     @Test fun televisionSeerrDefaultsToQuickConnectAfterAddressAndKeepsAccountAlternative() {
         val draft = mutableStateOf(ConnectionDraft(ServiceKind.SEERR, "Seerr", "https://example.com", "",

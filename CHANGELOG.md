@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta3 - personleg kalender med Seerr
+
+- Sonarr og Radarr er fjerna som direkte tilkoplingar. Oppgraderinga fjernar gamle adresser og nøklar og bevarer Jellyfin, Emby, Seerr og appvala.
+- Ny personleg kalender frå eigne seriar, favorittar, førespurnader og lokale følgjeval, med Seerr-datoar for episodar og digitale filmpremierar.
+- Luftigare datooversikt, film-/episodefilter og grupper for episodar som kjem same dag. Heim viser neste hending per serie; kalenderen viser heile perioden.
+- Følg eller skjul film og serie frå detaljane. Titlar utan dato i perioden får eiga liste, og avspeling krev ei stadfesta bibliotekskopi.
+- Kalenderen kan bli klar før den større gjennomgangen av filmutgjevingar. Paginering og mellomlager erstattar gamle avkortingar.
+
+
 ## 1.0.0-beta2 - betre bibliotek på mobil og TV
 
 - Biblioteket får eigne val for cover, miniatyr, banner, logo, rutenett og liste, med kortstorleik og brytarar for titlar, vurderingar, sett-merke og usette episodar.

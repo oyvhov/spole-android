@@ -20,6 +20,7 @@ class ConnectionRepository(
     // The application context: a row label has to be read in the language the app is set to, and
     // this repository outlives whatever happened to construct it.
     private val appContext = context.applicationContext
+    init { removeObsoleteServices(preferences, tokenStore) }
     private val tokenCache = mutableMapOf<Pair<String, ServiceKind>, String>()
     private val revision = kotlinx.coroutines.flow.MutableStateFlow(0L)
     val changes = revision.asStateFlow()

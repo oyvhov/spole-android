@@ -52,6 +52,8 @@ internal fun AppOverlayHost(
         onAddMedia = viewModel::requestMedia,
         onUpcomingClick = viewModel::openUpcomingDetails,
         onBackToCalendar = viewModel::backToCalendar,
+        onCalendarFollow = viewModel::toggleCalendarFollow,
+        onCalendarTitle = viewModel::openCalendarTitle,
         onSeerrAccount = viewModel::openSeerrAccount,
         onRequestSeason = viewModel::setRequestSeason,
         onRequestNotification = viewModel::setRequestNotification,

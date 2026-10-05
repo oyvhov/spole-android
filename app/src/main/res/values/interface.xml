@@ -51,7 +51,7 @@
     <string name="settings_series">%1$s · Series</string>
     <string name="settings_movies_note">Recently added films</string>
     <string name="settings_episodes_note">Recently added episodes</string>
-    <string name="settings_upcoming_note">Monitored releases from Radarr and Sonarr</string>
+    <string name="settings_upcoming_note">Personal premieres from Seerr</string>
     <string name="settings_updates">Notifications and updates</string>
     <string name="settings_notifications">Library notifications</string>
     <string name="settings_notifications_note">For requests you have chosen to follow</string>
@@ -131,8 +131,6 @@
     <string name="welcome_jellyfin">Library · Quick Connect or account</string>
     <string name="welcome_emby">Sign in with username and password</string>
     <string name="welcome_seerr">Discover · sign in with your Jellyfin account</string>
-    <string name="welcome_radarr">Films and upcoming releases</string>
-    <string name="welcome_sonarr">Episodes and calendar</string>
     <string name="action_connect">Connect</string>
     <string name="welcome_hide_admin">Hide server tools</string>
     <string name="welcome_admin">Server tools for administrators</string>
@@ -150,7 +148,7 @@
         <item quantity="one">%1$d of %2$d connection uses HTTP: %3$s. Use only on a network you trust.</item>
         <item quantity="other">%1$d of %2$d connections use HTTP: %3$s. Use only on a network you trust.</item>
     </plurals>
-    <string name="attribution_services">Spole is not affiliated with or endorsed by Jellyfin, Emby, Overseerr/Jellyseerr, Radarr or Sonarr. Names and trademarks belong to their respective owners.</string>
+    <string name="attribution_services">Spole is not affiliated with or endorsed by Jellyfin, Emby or Seerr. Names and trademarks belong to their respective owners.</string>
     <string name="attribution_tmdb">Discovery posters and backdrops come from TMDB. This app uses the TMDB services but is not endorsed or certified by TMDB.</string>
     <string name="attribution_libraries">Built with AndroidX, Jetpack Compose, Kotlin, OkHttp and Coil (Apache 2.0). Local audio decoding uses FFmpeg 6.1.4 (LGPL 2.1 or later); license texts are included in the app.</string>
     <string name="crash_title">Spole stopped unexpectedly</string>
@@ -281,4 +279,15 @@
     <string name="connection_active_switched_alternate">Active · switched to alternate address</string>
     <string name="connection_connected_with_warning">Connected · %1$s</string>
     <string name="connection_active_updated_now">Active · updated just now</string>
+    <string name="calendar_personal">Your series and films, one date at a time.</string>
+    <string name="calendar_follow">Follow in calendar</string>
+    <string name="calendar_unfollow">Stop following</string>
+    <string name="calendar_followed">Following in your calendar</string>
+    <string name="calendar_unfollowed">Removed from your calendar</string>
+    <string name="calendar_no_dates">No dates in this period</string>
+    <string name="calendar_no_dates_hint">Titles you follow without an announced premiere in the next 28 days.</string>
+    <string name="calendar_episode_premiere">Episode premiere</string>
+    <string name="calendar_show_episodes">Show episodes</string>
+    <string name="calendar_hide_episodes">Hide episodes</string>
+    <plurals name="calendar_batch"><item quantity="one">%1$d episodes</item><item quantity="other">%1$d episodes</item></plurals>
 </resources>

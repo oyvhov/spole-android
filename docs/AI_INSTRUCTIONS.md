@@ -2,13 +2,15 @@
 
 Dette dokumentet er arbeidsmanualen for ein AI-agent som skal utvikle, teste, feilsøke og publisere Spole. Det er skrive for dette prosjektet, ikkje som generelle Android-råd.
 
+**Frå 1.0.0-beta3:** Spole støttar berre Jellyfin, Emby og Seerr. Direkte Sonarr-/Radarr-klientar, tenestetypar og oppsett er fjerna; gamle tilkoplingar og krypterte nøklar blir migrerte bort før lasting. Personleg kalender bruker verifisert Seerr-identitet, eigne førespurnader, bibliotekfrø og lokale følgjeval. Sjå [erstatningsplanen og implementasjonsstatusen](SEERR_CALENDAR_REPLACEMENT_PLAN.md). Tenaroppsettet blir ikkje endra av appmigreringa.
+
 ## Start emulatorane med ekte data
 
 Bruk `pwsh -NoProfile -File C:\JellyBin\reelstack-android\scripts\Start-SpoleEmulators.ps1`. Skriptet startar dei eksisterande innlogga TV- og mobilprofilane, finn WSL-adressa, ventar på Android/nettverk og viser appvindauga. Det bevarer kontoar og appdata. Sjå [full oppstarts- og feilsøkingsguide](EMULATORS_WITH_REAL_DATA.md) for enkeltprofilar, loggar og kontroll av ekte innhald. Ikkje forveksle desse profilane med dei isolerte instrumenteringsprofilane.
 
 ## 1. Produktet og faste føringar
 
-Spole er ein innfødd Android-app for eit sjølvhosta mediesystem. Appen samlar Jellyfin, Emby, Seerr, Radarr og Sonarr i éi roleg og moderne oppleving.
+Spole er ein innfødd Android-app for eit sjølvhosta mediesystem. Appen samlar Jellyfin, Emby og Seerr i éi roleg og moderne oppleving.
 
 Følg desse føringane i alle endringar:
 
@@ -212,11 +214,13 @@ Ta skjermbilde berre til visuell kontroll. Ikkje legg skjermbilde med persondata
 - Adminnøklar er for oversikt/lesing når det er nødvendig, ikkje for å late som ein annan brukar sender førespurnaden.
 - Dersom Seerr-session eller CSRF-token går ut, skal brukaren få ein roleg innloggingsflyt tilbake.
 
-### Radarr og Sonarr
+### Personleg kalender
 
-- Bruk dei for søk, komande filmar/episodar, førespurnadsstatus og admin-køar der rettane tillèt det.
-- Ikkje vis kinopremiere som om tittelen er tilgjengeleg. Komandevisinga skal prioritere innhald som kan bli lasta ned/strauma.
-- Del film og serie visuelt, og vis status frå den faktiske kjelda.
+- Bruk Seerr-detaljar og sesongruter med verifisert personleg identitet. Ingen direkte Sonarr-/Radarr-kall eller ny proxy.
+- Datoar er `LocalDate`: i dag til og med 28 dagar fram. Film krev digital utgjevingstype 4; kino og fysisk dato er ikkje reserveverdiar.
+- Følgjeval er lokale per Spole-profil, stabil tenaridentitet og Seerr-brukar-ID. Skjuling overstyrer automatisk utval; ingen POST eller nye varsel ved følgje.
+- Full kalender bevarer alle episodar; Heim viser neste hending per serie. Vis delvis feil, ingen oppdikta tid eller avspelings-ID.
+- Cache og asynkrone svar må aldri krysse konto-/profilgrenser. Barnemodus skal ikkje hente eller vise Seerr-kalender.
 
 ## 6. Feilsøking av nettverk og autentisering
 

@@ -151,9 +151,5 @@ class ViewerAccessTest {
         assertTrue(feed.recentSeries.isEmpty())
         assertFalse(transport.urls.any { it.contains("Items/Latest") })
     }
-    @Test fun ordinaryCalendarDoesNotFetchSharedQueue() {
-        val transport = Transport { HttpResponse(200, "[]") }
-        QueueServiceClient(transport).feed(connection.copy(kind = ServiceKind.SONARR), includeQueue = false)
-        assertFalse(transport.urls.any { it.contains("/queue") })
-    }
+
 }

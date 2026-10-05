@@ -164,6 +164,8 @@ data class ReelstackUiState(
     val upcoming: List<UpcomingMedia> = demoUpcoming(),
     val recentReleases: List<UpcomingMedia> = demoRecentReleases(),
     val upcomingError: String? = null,
+    val calendarUndated: List<app.reelstack.data.model.CalendarTitle> = emptyList(),
+    val calendarHidden: Set<String> = emptySet(),
     val recentReleasesError: String? = null,
     val incoming: List<IncomingMedia> = demoIncoming(),
     val discover: List<DiscoverMedia> = demoDiscover(),
@@ -273,7 +275,15 @@ data class ReelstackUiState(
 
     /** Every Seerr card on screen anywhere, so details and requests work from the global search too. */
     val knownDiscoverMedia: List<DiscoverMedia>
-        get() = discover + searchResults + globalSearch.results + recommendations
+        get() = discover + searchResults + globalSearch.results + recommendations +
+            upcoming.mapNotNull { item -> item.tmdbId?.let { id ->
+                DiscoverMedia(item.id, item.title, item.subtitle, item.artworkRes, false,
+                    artworkUrl = item.artworkUrl, remoteId = id, mediaType = if (item.mediaType == "Movie") "movie" else "tv",
+                    overview = item.overview, facts = item.facts + item.dateLabel, genres = item.genres)
+            } } + calendarUndated.map { title ->
+                DiscoverMedia("calendar:${title.key}", title.title, "", R.drawable.media_placeholder, false,
+                    artworkUrl = title.artworkUrl, remoteId = title.tmdbId, mediaType = title.mediaType)
+            }
 
     /** Applies one change to a Seerr title wherever it is listed. */
     fun mapDiscoverMedia(transform: (DiscoverMedia) -> DiscoverMedia): ReelstackUiState = copy(
@@ -1216,6 +1226,7 @@ class ReelstackViewModel(
 
     fun closeSheet() {
         if (returnFromDetail()) return
+        if (_uiState.value.returnToCalendar) { backToCalendar(); return }
         detailHistory.clear()
         if (_uiState.value.requestDraft?.sending == true) return
         requestDraftJob?.cancel()
@@ -1746,6 +1757,7 @@ class ReelstackViewModel(
                 contentDetails = ContentDetails(
                     key = media.id,
                     remoteId = media.remoteId,
+                    tmdbId = media.tmdbId,
                     title = media.title,
                     eyebrow = "Bibliotek i ${media.source.displayName}",
                     subtitle = media.subtitle,
@@ -1951,6 +1963,7 @@ class ReelstackViewModel(
                 activeSheet = AppSheet.TitleDetails(media.id),
                 contentDetails = ContentDetails(
                     key = media.id,
+                    tmdbId = media.remoteId,
                     title = media.title,
                     eyebrow = appString(if (media.inLibrary) R.string.details_eyebrow_in_library else R.string.details_eyebrow_discover),
                     // The kind, then the year: the detail sheet has no type badge to carry it.
@@ -2025,19 +2038,79 @@ class ReelstackViewModel(
         openDiscoverDetails(id)
     }
 
+    fun openCalendarTitle(title: app.reelstack.data.model.CalendarTitle) {
+        if (_uiState.value.isKidMode) return
+        showLocalDetails(ContentDetails(key = "calendar:${title.key}", title = title.title,
+            eyebrow = appString(R.string.calendar_title), subtitle = "",
+            overview = appString(R.string.calendar_no_dates_hint), facts = emptyList(), genres = emptyList(),
+            artworkRes = R.drawable.media_placeholder, artworkUrl = title.artworkUrl, source = ServiceKind.SEERR,
+            mediaType = if (title.mediaType == "movie") "Movie" else "Series", tmdbId = title.tmdbId))
+        _uiState.update { it.copy(returnToCalendar = true) }
+    }
+
+    fun toggleCalendarFollow(details: ContentDetails) {
+        val state = _uiState.value
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.token.isNotBlank() } ?: return
+        val id = details.tmdbId ?: return
+        if (state.isKidMode) return
+        val type = if (details.mediaType.equals("Movie", true)) "movie" else "tv"
+        val title = app.reelstack.data.model.CalendarTitle(id, type, details.title, details.artworkUrl)
+        val fingerprint = container.mediaFingerprint(state.connections)
+        viewModelScope.launch {
+            val outcome = attempt { withContext(Dispatchers.IO) {
+                val actor = container.accountProfileClient.load(connection)
+                check(actor.id == connection.userId && actor.isPersonal)
+                check(container.mediaFingerprint(_uiState.value.connections) == fingerprint && !_uiState.value.isKidMode)
+                val store = container.calendarFollowStore
+                val scope = store.scope(container.connectionRepository.activeProfileId, connection, actor.id)
+                val existing = store.read(scope).titles.firstOrNull { it.key == title.key }
+                val automatic = state.upcoming.any { it.tmdbId == id && (if (it.mediaType == "Movie") "movie" else "tv") == type } ||
+                    state.calendarUndated.any { it.key == title.key }
+                val followed = if (existing != null) !existing.hidden else automatic
+                store.set(scope, title, !followed)
+                !followed
+            } }
+            outcome.onSuccess { followed ->
+                if (_uiState.value.activeProfileId != state.activeProfileId ||
+                    _uiState.value.connections != state.connections || _uiState.value.isKidMode) return@onSuccess
+                _uiState.update { it.copy(calendarHidden = if (followed) it.calendarHidden - title.key else it.calendarHidden + title.key,
+                    snackbar = appString(if (followed) R.string.calendar_followed else R.string.calendar_unfollowed)) }
+                homeFeed.cancelRefresh()
+                refreshLiveData(userInitiated = true)
+            }.onFailure { _uiState.update { it.copy(snackbar = appString(R.string.error_content_details)) } }
+        }
+    }
+
     fun openUpcomingDetails(id: String) {
         val recent = _uiState.value.recentReleases.firstOrNull { it.id == id }
         val media = _uiState.value.upcoming.firstOrNull { it.id == id } ?: recent ?: return
         val fromCalendar = _uiState.value.activeSheet == AppSheet.UpcomingCalendar
+        val librarySources = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
+        val allowedCopy = media.takeIf { it.libraryRemoteId != null && it.source in librarySources } ?: _uiState.value.recentReleases.firstOrNull {
+            media.tmdbId != null && it.tmdbId == media.tmdbId && it.mediaType == media.mediaType &&
+                it.season == media.season && it.episode == media.episode && it.libraryRemoteId != null && it.source in librarySources
+        }
+        if (allowedCopy != null) {
+            val library = LibraryMedia(id = allowedCopy.id, title = allowedCopy.title, subtitle = allowedCopy.subtitle,
+                artworkRes = allowedCopy.artworkRes, source = allowedCopy.source, mediaType = allowedCopy.mediaType,
+                remoteId = allowedCopy.libraryRemoteId, artworkUrl = allowedCopy.artworkUrl,
+                overview = allowedCopy.overview, facts = allowedCopy.facts, genres = allowedCopy.genres,
+                tmdbId = allowedCopy.tmdbId, season = allowedCopy.season, episode = allowedCopy.episode)
+            _uiState.update { it.copy(libraryDetailMedia = library) }
+            openLibraryDetails(library.id)
+            _uiState.update { it.copy(returnToCalendar = fromCalendar) }
+            return
+        }
         showLocalDetails(
             ContentDetails(
                 key = media.id,
+                tmdbId = media.tmdbId,
                 title = media.title,
                 eyebrow = if (recent == null) appString(R.string.details_coming_soon_source, media.source.displayName)
                     else appString(R.string.details_recent_available_source, media.source.displayName),
                 subtitle = media.subtitle,
                 overview = media.overview ?: appString(R.string.details_overview_unavailable, media.source.displayName),
-                facts = (media.facts + media.dateLabel + media.source.displayName).distinct(),
+                facts = (media.facts + media.dateLabel + media.source.displayName + listOfNotNull(media.region)).distinct(),
                 genres = media.genres,
                 artworkRes = media.artworkRes,
                 artworkUrl = media.artworkUrl,
@@ -2072,7 +2145,7 @@ class ReelstackViewModel(
                 artworkRes = media.artworkRes,
                 artworkUrl = media.artworkUrl,
                 source = media.source,
-                mediaType = if (media.source == ServiceKind.RADARR) "Movie" else "Episode",
+                mediaType = null,
                 statusTitle = media.status,
                 statusDescription = appString(R.string.queue_last_reported_state, media.source.displayName),
             ),
@@ -2104,7 +2177,7 @@ class ReelstackViewModel(
                 artworkRes = event.artworkRes ?: R.drawable.media_placeholder,
                 artworkUrl = event.artworkUrl,
                 source = event.source,
-                mediaType = if (event.source == ServiceKind.RADARR) "Movie" else null,
+                mediaType = null,
             ),
         )
     }
@@ -2924,7 +2997,7 @@ class ReelstackViewModel(
                 nextUp = emptyList(),
                 recentMovies = emptyList(),
                 recentSeries = emptyList(),
-                upcoming = emptyList(),
+                upcoming = emptyList(), calendarUndated = emptyList(), calendarHidden = emptySet(),
                 recentReleases = emptyList(),
                 incoming = emptyList(),
                 discover = emptyList(),
@@ -2965,7 +3038,7 @@ class ReelstackViewModel(
         _uiState.value = ReelstackUiState(
             signingOut = true, connections = container.connectionRepository.list(),
             sessions = emptyList(), resume = emptyList(), recentMovies = emptyList(), loadedSources = emptySet(), lastUpdatedEpochMillis = null,
-            recentSeries = emptyList(), upcoming = emptyList(), recentReleases = emptyList(),
+            recentSeries = emptyList(), upcoming = emptyList(), calendarUndated = emptyList(), calendarHidden = emptySet(), recentReleases = emptyList(),
             incoming = emptyList(), discover = emptyList(), recommendations = emptyList(), activity = emptyList(),
             notificationsEnabled = container.preferencesRepository.notificationsEnabled,
             wifiOnly = container.preferencesRepository.wifiOnly,
@@ -3020,7 +3093,7 @@ class ReelstackViewModel(
                 favourites = it.favourites.filterNot { item -> item.source == kind },
                 recentMovies = it.recentMovies.filterNot { item -> item.source == kind },
                 recentSeries = it.recentSeries.filterNot { item -> item.source == kind },
-                upcoming = emptyList(),
+                upcoming = emptyList(), calendarUndated = emptyList(), calendarHidden = emptySet(),
                 recentReleases = emptyList(),
                 discover = emptyList(),
                 recommendations = emptyList(),
@@ -3106,7 +3179,7 @@ private fun initialState(container: AppContainer): ReelstackUiState {
     val connections = container.connectionRepository.list()
     val configuredKinds = connections.filter { it.baseUrl.isNotBlank() }.mapTo(mutableSetOf()) { it.kind }
     val hasMediaServer = configuredKinds.any { it == ServiceKind.JELLYFIN || it == ServiceKind.EMBY }
-    val hasQueueService = configuredKinds.any { it == ServiceKind.RADARR || it == ServiceKind.SONARR }
+    val hasQueueService = ServiceKind.SEERR in configuredKinds
     val hasSeerr = ServiceKind.SEERR in configuredKinds
 
     return ReelstackUiState(

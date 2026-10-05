@@ -67,15 +67,6 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
             tag = "tv-service-SEERR",
         ) { onConnection(it.kind) }
     }
-    val advanced = state.connections.filter { it.kind in setOf(ServiceKind.RADARR, ServiceKind.SONARR) && state.canEditConnection(it.kind) }
-    if (advanced.isNotEmpty()) {
-        SettingsGroup("Bibliotektenester", "Tilkoplingar for komande innhald og nedlastingsstatus")
-        advanced.forEach { connection ->
-            SettingsServiceRow(connection, warning = state.serviceWarnings[connection.kind], tag = "tv-service-${connection.kind}") {
-                onConnection(connection.kind)
-            }
-        }
-    }
     SettingsGroup("Denne eininga")
     SignOutAllSetting(state, onSignOutAll)
     PrivacyCard(state)

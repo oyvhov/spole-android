@@ -151,6 +151,8 @@ fun ReelstackSheets(
     onAddMedia: (String) -> Unit,
     onUpcomingClick: (String) -> Unit,
     onBackToCalendar: () -> Unit = {},
+    onCalendarFollow: (ContentDetails) -> Unit = {},
+    onCalendarTitle: (app.reelstack.data.model.CalendarTitle) -> Unit = {},
     onSeerrAccount: () -> Unit = {},
     onRequestSeason: (Int, Boolean) -> Unit = { _, _ -> },
     onRequestNotification: (Boolean) -> Unit = {},
@@ -233,15 +235,18 @@ fun ReelstackSheets(
             configuration.screenHeightDp.toFloat()).useSideBySideMedia
     val openingDetails = remember(state.contentDetails?.key) { state.contentDetails }
     val cinematicPhone = useMobileCinematicDetails(openingDetails) && phoneDetails
+    val returnFromTitle: () -> Boolean = {
+        if (onDetailBack()) true else if (state.returnToCalendar) { onBackToCalendar(); true } else false
+    }
     StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss,
         fullScreen = tvDetails,
         expanded = phoneDetails,
         onCloseStarted = { if (connectionDraft?.simpleSetup == true) onCancelConnection() },
-        onBack = if (sheet is AppSheet.TitleDetails) onDetailBack else null) { entered, closing, close ->
+        onBack = if (sheet is AppSheet.TitleDetails) returnFromTitle else null) { entered, closing, close ->
         // Toolbar close and the remote Back use the same detail-history step.  A normal title
         // still closes exactly as before once there is no parent episode to restore.
         val closeOrReturn = {
-            if (sheet is AppSheet.TitleDetails && onDetailBack()) Unit else close()
+            if (sheet is AppSheet.TitleDetails && returnFromTitle()) Unit else close()
         }
         val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
         Box(Modifier.fillMaxSize().testTag("sheet-viewport")) {
@@ -266,14 +271,14 @@ fun ReelstackSheets(
                 is AppSheet.TitleDetails -> state.contentDetails?.let { details ->
                     androidx.compose.runtime.key(details.key) {
                         RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
-                            onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered,
+                            onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered, onCalendarFollow = onCalendarFollow,
                             onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason, onEpisodeSeries = onEpisodeSeries,
                             onOfflineDownload = onOfflineDownload,
                             onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle, onEpisodeClick = onEpisodeClick)
                     }
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
-                    UpcomingCalendarSheet(state.upcoming, onUpcomingClick, close)
+                    UpcomingCalendarSheet(state.upcoming, onUpcomingClick, close, undated = state.calendarUndated, error = state.upcomingError, loading = state.isRefreshing, onTitleClick = onCalendarTitle)
                 }
                 is AppSheet.ConnectionEditor -> connectionDraft?.let {
                     if (it.simpleSetup) CombinedSetupSheet(it, onConnectionUrlChange,
@@ -370,7 +375,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?, String) -> Unit = { _, _, _, _, _ -> },
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
-    onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {}) {
+    onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
+    onCalendarFollow: (ContentDetails) -> Unit = {}) {
     val details = state.contentDetails ?: return
     // Freeze the opening artwork and title. Late metadata must not replace or resize the hero.
     val opening = remember(details.key) { details }
@@ -419,7 +425,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     val actions: @Composable () -> Unit = {
         TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed,
             onSeries = if (mediaType == "Episode" && state.seriesBrowse.seriesId.isNotBlank()) onEpisodeSeries else null,
-            onOfflineDownload = onOfflineDownload,
+            onOfflineDownload = onOfflineDownload, onCalendarFollow = onCalendarFollow,
             includePlayback = tv,
             seriesFocus = seriesLinkFocus,
             modifier = Modifier.onFocusChanged { if (tv && it.hasFocus && scroll.value > 0) {
@@ -579,7 +585,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 if (details.libraryAvailable) Icon(app.reelstack.ui.components.SpoleIcons.Movie, null, tint = Primary, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 else Icon(app.reelstack.ui.components.SpoleIcons.Clock, null, tint = Muted, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                    Text(if (discoverMedia != null) app.reelstack.localization.localizedSeerrStatus(discoverMedia.seerrStatus, discoverMedia.inLibrary, discoverMedia.requested) else title, color = PrimarySoft, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (discoverMedia?.seerrStatus != null) app.reelstack.localization.localizedSeerrStatus(discoverMedia.seerrStatus, discoverMedia.inLibrary, discoverMedia.requested) else title, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
                     details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
                 }
             }
@@ -716,7 +722,7 @@ private fun SourceMark(kind: ServiceKind, modifier: Modifier = Modifier) {
 }
 
 /**
- * Says where this title came from and what it is right now — "Nyleg tilgjengeleg · Radarr",
+ * Says where this title came from and what it is right now — "Nyleg tilgjengeleg · Jellyfin",
  * "Bibliotek i Jellyfin", "I biblioteket ditt". The screens build that line for every sheet, and
  * both headers used to drop it and print the bare service name instead, so a title opened from
  * Kjem snart looked the same as one opened from Nedlastingar.
@@ -758,6 +764,7 @@ private fun TitleActionRow(
     onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?, String) -> Unit = { _, _, _, _, _ -> },
     seriesFocus: FocusRequester? = null,
     includePlayback: Boolean = true,
+    onCalendarFollow: (ContentDetails) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
@@ -789,6 +796,22 @@ private fun TitleActionRow(
             // TV keeps Play with the other actions. Mobile pins Play outside this scrolling row.
             if (includePlayback) IntegratedPlaybackButton(state, details,
                 if (television) Modifier else Modifier.fillMaxWidth(), audioIndex, subtitleIndex, versionId)
+            if (!state.isKidMode && details.tmdbId != null &&
+                state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie && it.userId.isNotBlank() } &&
+                (details.mediaType?.lowercase() in setOf("movie", "series", "tv") ||
+                    details.mediaType.equals("Episode", true) && details.source == ServiceKind.SEERR)) {
+                val type = if (details.mediaType.equals("Movie", true)) "movie" else "tv"
+                val key = "$type:${details.tmdbId}"
+                val following = key !in state.calendarHidden && (state.upcoming.any {
+                    it.tmdbId == details.tmdbId && (if (it.mediaType.equals("Movie", true)) "movie" else "tv") == type
+                } ||
+                    state.calendarUndated.any { it.key == key })
+                TextButton(onClick = { onCalendarFollow(details) }, modifier = Modifier.heightIn(min = 48.dp).testTag("detail-calendar-follow")) {
+                    Icon(app.reelstack.ui.components.SpoleIcons.Calendar, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(if (following) R.string.calendar_unfollow else R.string.calendar_follow))
+                }
+            }
             details.trailerUrl?.let { trailer ->
                 app.reelstack.ui.components.TrailerPreview(trailer, details.title)
             }
@@ -1194,8 +1217,6 @@ private fun TrackChooser(label: String, tag: String, options: List<Pair<Int, Str
 private fun exampleAddress(kind: ServiceKind): String = when (kind) {
     ServiceKind.JELLYFIN, ServiceKind.EMBY -> "http://192.168.1.20:8096"
     ServiceKind.SEERR -> "http://192.168.1.20:5055"
-    ServiceKind.RADARR -> "http://192.168.1.20:7878"
-    ServiceKind.SONARR -> "http://192.168.1.20:8989"
 }
 
 /**
@@ -1689,7 +1710,6 @@ internal fun ConnectionEditorSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
             Text(stringResource(when (draft.kind) {
-                ServiceKind.RADARR, ServiceKind.SONARR -> R.string.account_arr_key_hint
                 ServiceKind.SEERR -> R.string.account_seerr_key_hint
                 else -> R.string.account_media_key_hint
             }), color = Muted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp))

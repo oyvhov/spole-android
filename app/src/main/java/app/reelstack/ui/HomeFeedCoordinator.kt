@@ -178,7 +178,8 @@ internal class HomeFeedCoordinator(
                     favourites = if (hasMediaServer) cached.favourites else current.favourites,
                     recentMovies = if (hasMediaServer) cached.recentMovies else current.recentMovies,
                     recentSeries = if (hasMediaServer) cached.recentSeries else current.recentSeries,
-                    upcoming = if (hasQueueService) cached.upcoming else current.upcoming,
+                    // Personal calendar interests are shown only after this session is verified.
+                    upcoming = emptyList(),
                     recentReleases = if (hasQueueService) cached.recentReleases else current.recentReleases,
                     incoming = if (hasQueueService) cached.incoming else current.incoming,
                     discover = if (hasSeerr) cached.discover else current.discover,
@@ -265,6 +266,12 @@ internal class HomeFeedCoordinator(
                         connections = readState().connections,
                         includeRecommendations = layout.isVisible(HomeRowKey(HomeRowKind.RECOMMENDATIONS)),
                         homePlan = HomeFetchPlan(layout, container.homeLibraries(readState().connections)),
+                        calendarScope = container.connectionRepository.activeProfileId, forceCalendar = userInitiated,
+                        onCalendarReady = { update -> updateState { current ->
+                            if (container.mediaFingerprint(current.connections) != refreshFingerprint) current
+                            else current.copy(upcoming = update.upcoming, calendarUndated = update.undated,
+                                calendarHidden = update.hidden, upcomingError = update.error?.text(container.appContext))
+                        } },
                         onLibraryReady = { update ->
                             if (firstRow.getAndSet(false)) app.reelstack.data.network.PerfLog.milestone("home first-rows ${update.source}", started)
                             updateLibraryRow(refreshFingerprint, update)
@@ -405,6 +412,8 @@ internal class HomeFeedCoordinator(
             recentSeries = snapshot.recentSeries,
             recentReleases = snapshot.recentReleases,
             upcoming = snapshot.upcoming,
+            calendarUndated = snapshot.calendarUndated,
+            calendarHidden = snapshot.calendarHidden,
             recentReleasesError = snapshot.recentReleasesError?.text(container.appContext),
             upcomingError = snapshot.upcomingError?.text(container.appContext),
             incoming = snapshot.incoming,
@@ -484,6 +493,6 @@ internal class HomeFeedCoordinator(
     private companion object {
         val MEDIA_SERVERS = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
         val RECOMMENDATIONS_ROW = HomeRowKey(HomeRowKind.RECOMMENDATIONS)
-        val QUEUE_SERVERS = setOf(ServiceKind.RADARR, ServiceKind.SONARR)
+        val QUEUE_SERVERS = setOf(ServiceKind.SEERR)
     }
 }

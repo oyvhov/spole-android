@@ -53,7 +53,6 @@ class AccountProfileClient(
         return when (connection.kind) {
             ServiceKind.JELLYFIN, ServiceKind.EMBY -> jellyfinAccount(connection, root)
             ServiceKind.SEERR -> seerrAccount(connection, root)
-            ServiceKind.RADARR, ServiceKind.SONARR -> serviceError(R.string.err_kontotypen_ikkje_stotta)
         }
     }
 

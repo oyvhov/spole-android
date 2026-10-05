@@ -176,11 +176,11 @@ class HomeMediaRowsTest {
 
     @Test fun legacyDownloadPreferenceDoesNotShowSeparateQueue() {
         val state = ReelstackUiState(
-            connections = listOf(connection(ServiceKind.SONARR)), adminView = true,
+            connections = listOf(connection(ServiceKind.SEERR)), adminView = true,
             sessions = emptyList(), recentMovies = emptyList(), recentSeries = emptyList(), upcoming = emptyList(),
             incoming = listOf(
-                IncomingMedia("same-download", "Episode 1", ServiceKind.SONARR, "Lastar ned 40 %", IncomingState.DOWNLOADING, R.drawable.media_placeholder, progress = 40),
-                IncomingMedia("same-download", "Episode 2", ServiceKind.SONARR, "Lastar ned 40 %", IncomingState.DOWNLOADING, R.drawable.media_placeholder, progress = 40),
+                IncomingMedia("same-download", "Episode 1", ServiceKind.SEERR, "Lastar ned 40 %", IncomingState.DOWNLOADING, R.drawable.media_placeholder, progress = 40),
+                IncomingMedia("same-download", "Episode 2", ServiceKind.SEERR, "Lastar ned 40 %", IncomingState.DOWNLOADING, R.drawable.media_placeholder, progress = 40),
             ),
             homeSections = setOf(HomeSection.DOWNLOADS),
         )

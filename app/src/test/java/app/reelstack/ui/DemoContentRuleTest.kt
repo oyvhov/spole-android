@@ -33,6 +33,5 @@ class DemoContentRuleTest {
         // Seerr alone is not a media server, but it still means the household has set Spole up —
         // so the film shelves stay empty rather than inventing a library.
         assertEquals(emptyList<String>(), demoContent(setOf(ServiceKind.SEERR), servedByRealService = false, demo = demo))
-        assertEquals(emptyList<String>(), demoContent(setOf(ServiceKind.RADARR), servedByRealService = false, demo = demo))
     }
 }

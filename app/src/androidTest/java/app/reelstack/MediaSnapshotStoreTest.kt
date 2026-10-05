@@ -110,7 +110,7 @@ class MediaSnapshotStoreTest {
                     dateLabel = "I går",
                     airDateEpochMillis = Instant.parse("2026-09-03T20:00:00Z").toEpochMilli(),
                     artworkRes = R.drawable.desert_arrival,
-                    source = ServiceKind.RADARR,
+                    source = ServiceKind.SEERR,
                     artworkUrl = "https://media.example/poster.jpg",
                     mediaType = "Movie",
                 ),

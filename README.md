@@ -13,12 +13,12 @@
   <a href="https://github.com/oyvhov/spole-android/issues">Report an issue</a>
 </p>
 
-Spole is a native Android client that brings Jellyfin, Emby, Seerr, Radarr and Sonarr
+Spole is a native Android client that brings Jellyfin, Emby and Seerr
 into one focused experience. Browse each media server as its own library, play from
 Jellyfin or Emby, and track your requests from Seerr.
 
 **Active beta development.** The latest public APK is
-[0.18.0-beta13](https://github.com/oyvhov/spole-android/releases/tag/v0.18.0-beta13).
+[1.0.0-beta3](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta3).
 It is signed for in-place updates over earlier Spole beta releases. The source for
 this build is available on [main](https://github.com/oyvhov/spole-android/tree/main).
 Pre-release builds are published under [Releases](https://github.com/oyvhov/spole-android/releases).
@@ -70,7 +70,7 @@ seasonal screens for all three form factors](docs/images/devices/README.md#chris
 - **Cinematic detail pages.** Backdrops, clearlogos, seasons, episodes, cast, age ratings, runtime and estimated finish time are presented in an Infuse-inspired TV layout.
 - **Visual ratings.** TMDB and Rotten Tomatoes ratings use their visual marks when the server provides the data, with ratings kept on one clear line.
 - **Remote-first TV navigation.** The interface, menus and playback controls are built around predictable D-pad focus and short actions.
-- **Requests and discovery.** Browse Seerr, request movies or seasons, follow request status, and see upcoming Radarr and Sonarr items when your account has access.
+- **Requests and personal calendar.** Browse Seerr, request movies or seasons, follow request status, and track upcoming episodes and digital movie premieres. Follow or hide titles in your own calendar, with a 28-day agenda and grouped episode batches.
 - **Themes.** Personalise accent colours, seasonal Christmas and Halloween themes, home rows and TV side-panel options.
 - **In-app updates.** Spole can check a published APK on GitHub and verify it before Android asks to install the update.
 
@@ -83,8 +83,7 @@ does not bundle the large demo backdrops used during earlier development builds.
 | --- | --- |
 | **Jellyfin** | Library browsing, separate Continue Watching, favourites, playback, audio and subtitle selection, and Quick Connect or password login. |
 | **Emby** | Library browsing, separate Continue Watching, favourites, playback, audio and subtitle selection, and server or password login. |
-| **Seerr** | Discover titles, request movies and seasons, and follow your own request status. |
-| **Radarr / Sonarr** | Upcoming content and download status when the connected account has access. |
+| **Seerr** | Discovery, personal requests and reported download progress, episode dates and digital movie premieres. |
 
 All services are optional. You need your own servers and accounts; Spole does not
 provide media. Your account permissions determine what you can view and do.
@@ -101,7 +100,7 @@ provide media. Your account permissions determine what you can view and do.
 1. Download the APK from [Releases](https://github.com/oyvhov/spole-android/releases) and install it on Android 8.0 or newer.
 2. Select **Get started**. Open or paste a setup link from your server administrator, or enter the server addresses manually.
 3. Use **Approve on phone** with Quick Connect, or sign in with a username and password.
-4. Connect Seerr, Emby, Radarr or Sonarr separately when you want those services in the app.
+4. Connect Seerr or Emby separately when you want those services in the app.
 
 Other sign-in methods are available under **Other sign-in methods**. A demo mode is
 also available for trying the interface without connecting a server.

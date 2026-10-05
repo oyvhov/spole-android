@@ -31,7 +31,6 @@ import app.reelstack.ui.theme.*
 internal fun TvWelcomeScreen(state: ReelstackUiState, onConnect: (ServiceKind) -> Unit,
     onContinue: () -> Unit, modifier: Modifier = Modifier) {
     val ready = state.configuredCount > 0
-    var advanced by rememberSaveable { mutableStateOf(false) }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocus() }
     BoxWithConstraints(modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp)) {
@@ -52,9 +51,7 @@ internal fun TvWelcomeScreen(state: ReelstackUiState, onConnect: (ServiceKind) -
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (ready) TvSetupAction(stringResource(R.string.welcome_open), onContinue,
                     Modifier.focusRequester(first).testTag("tv-setup-continue"), primary = true)
-                listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR).plus(
-                    if (advanced) listOf(ServiceKind.RADARR, ServiceKind.SONARR) else emptyList()
-                ).forEach { kind ->
+                listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR).forEach { kind ->
                     val connected = state.connections.any { it.kind == kind && it.baseUrl.isNotBlank() }
                     val interaction = remember { MutableInteractionSource() }
                     val shape = RoundedCornerShape(16.dp)
@@ -72,16 +69,12 @@ internal fun TvWelcomeScreen(state: ReelstackUiState, onConnect: (ServiceKind) -
                                     ServiceKind.JELLYFIN -> R.string.tv_setup_jellyfin
                                     ServiceKind.EMBY -> R.string.welcome_emby
                                     ServiceKind.SEERR -> R.string.tv_setup_seerr
-                                    ServiceKind.RADARR -> R.string.welcome_radarr
-                                    ServiceKind.SONARR -> R.string.welcome_sonarr
                                 }), color = Muted, fontSize = 14.sp, lineHeight = 19.sp)
                             }
                             if (connected) Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null, tint = Success)
                         }
                     }
                 }
-                TvSetupAction(stringResource(if (advanced) R.string.welcome_hide_admin else R.string.welcome_admin),
-                    { advanced = !advanced }, Modifier.testTag("tv-setup-advanced"))
                 if (!ready) TvSetupAction(stringResource(R.string.welcome_demo), onContinue, Modifier.testTag("tv-setup-demo"))
             }
         }

@@ -81,34 +81,6 @@ class MediaLineTest {
         assertTrue(literals.contains("★ 8.4"))
     }
 
-    @Test fun aDiscReleaseIsAFlagNotASentence() {
-        // The calendar used to decide this by comparing the availability text against the nynorsk
-        // words "Fysisk utgjeving", which made every other language a digital release.
-        val physical = ServicePayloadParser.upcoming(
-            """[{"id":1,"title":"Ein film","physicalRelease":"2026-09-12T00:00:00Z"}]""",
-            ServiceKind.RADARR,
-        ).single()
-        val digital = ServicePayloadParser.upcoming(
-            """[{"id":2,"title":"Ein annan","digitalRelease":"2026-09-12T00:00:00Z"}]""",
-            ServiceKind.RADARR,
-        ).single()
-
-        assertTrue(physical.physicalRelease)
-        assertFalse(digital.physicalRelease)
-        assertTrue(physical.facts.any { it.resId == R.string.release_physical })
-        assertTrue(digital.facts.any { it.resId == R.string.release_digital })
-    }
-
-    @Test fun theDownloadQueueSaysWhichStateItIsIn() {
-        val downloading = ServicePayloadParser.queue(
-            """[{"id":"1","title":"Ein film","status":"downloading","size":100,"sizeleft":25}]""",
-            ServiceKind.RADARR,
-        ).single()
-
-        assertEquals(R.string.queue_downloading_percent, downloading.status.resId)
-        assertEquals(listOf<Any>(75), downloading.status.args)
-    }
-
     @Test fun nothingAParserProducedIsAHardcodedSentence() {
         // The rule, stated once. A fact is either a resource this app owns or text a server sent;
         // there is no third kind, and a literal that is not server text is the bug this guards.

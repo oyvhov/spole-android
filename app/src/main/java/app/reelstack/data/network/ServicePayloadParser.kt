@@ -2,7 +2,6 @@ package app.reelstack.data.network
 
 import app.reelstack.R
 import app.reelstack.localization.LocalizedText
-import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.ServiceKind
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -111,19 +110,6 @@ data class RemoteLibraryView(
     val artworkUrl: String? = null,
 )
 
-data class RemoteQueueItem(
-    val id: String,
-    val title: String,
-    val source: ServiceKind,
-    val status: LocalizedText,
-    val state: IncomingState,
-    val progress: Int?,
-    val artworkUrl: String?,
-    val overview: String? = null,
-    val facts: List<LocalizedText> = emptyList(),
-    val genres: List<String> = emptyList(),
-)
-
 data class RemoteUpcomingItem(
     val id: String,
     val title: String,
@@ -143,6 +129,10 @@ data class RemoteUpcomingItem(
      * language.
      */
     val physicalRelease: Boolean = false,
+    val tmdbId: Int? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    val region: String? = null,
 )
 
 data class RemoteDiscoverItem(
@@ -407,92 +397,6 @@ object ServicePayloadParser {
                 played = userData?.get("Played")?.jsonPrimitive?.booleanOrNull == true ||
                     userData?.get("played")?.jsonPrimitive?.booleanOrNull == true,
             )
-        }
-    }
-
-    fun queue(payload: String, source: ServiceKind): List<RemoteQueueItem> {
-        require(source == ServiceKind.RADARR || source == ServiceKind.SONARR)
-        val root = json.parseToJsonElement(payload)
-        val records = when (root) {
-            is JsonArray -> root
-            is JsonObject -> root.array("records")
-            else -> JsonArray(emptyList())
-        }
-        return records.mapNotNull { record -> (record as? JsonObject)?.let { queueItem(it, source) } }
-    }
-
-    fun upcoming(payload: String, source: ServiceKind, notBefore: Instant? = null): List<RemoteUpcomingItem> {
-        require(source == ServiceKind.RADARR || source == ServiceKind.SONARR)
-        val root = json.parseToJsonElement(payload)
-        val items = when (root) {
-            is JsonArray -> root
-            is JsonObject -> root.array("records")
-            else -> JsonArray(emptyList())
-        }
-        return items.mapNotNull { element ->
-            val item = element as? JsonObject ?: return@mapNotNull null
-            if (source == ServiceKind.RADARR) {
-                val id = item.int("id")?.toString() ?: return@mapNotNull null
-                val title = item.string("title") ?: return@mapNotNull null
-                val digitalRelease = item.string("digitalRelease")
-                val physicalRelease = item.string("physicalRelease")
-                // A disc release and a digital one are different facts, so they travel as
-                // different flags rather than as two sentences one of them is then compared against.
-                val release = listOfNotNull(
-                    digitalRelease?.let { it to false },
-                    physicalRelease?.let { it to true },
-                ).firstOrNull { (date, _) ->
-                    notBefore == null || calendarInstant(date)?.let { !it.isBefore(notBefore) } == true
-                } ?: return@mapNotNull null
-                val (dateTime, isPhysical) = release
-                val availability =
-                    LocalizedText(if (isPhysical) R.string.release_physical else R.string.release_digital)
-                val year = item.int("year")
-                RemoteUpcomingItem(
-                    id = id,
-                    title = title,
-                    subtitle = year?.toString().orEmpty(),
-                    dateTime = dateTime,
-                    source = source,
-                    artworkUrl = secureArtwork(item, "poster"),
-                    mediaType = "Movie",
-                    overview = item.string("overview"),
-                    facts = listOfNotNull(
-                        year?.let { LocalizedText.raw(it.toString()) },
-                        item.int("runtime")?.takeIf { it > 0 }?.let { LocalizedText(R.string.media_minutes, it) },
-                        availability,
-                    ),
-                    genres = stringArray(item, "genres"),
-                    physicalRelease = isPhysical,
-                )
-            } else {
-                val id = item.int("id")?.toString() ?: return@mapNotNull null
-                val series = item.obj("series")
-                val title = series?.string("title") ?: item.string("seriesTitle") ?: return@mapNotNull null
-                val season = item.int("seasonNumber")
-                val episode = item.int("episodeNumber")
-                val episodeTitle = item.string("title")
-                val episodeNumber = if (season != null && episode != null) {
-                    "S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"
-                } else null
-                RemoteUpcomingItem(
-                    id = id,
-                    title = title,
-                    subtitle = listOfNotNull(episodeNumber, episodeTitle).joinToString(" · "),
-                    dateTime = item.string("airDateUtc") ?: item.string("airDate") ?: return@mapNotNull null,
-                    source = source,
-                    artworkUrl = series?.let { secureArtwork(it, "fanart") }
-                        ?: secureArtwork(item, "fanart"),
-                    mediaType = "Episode",
-                    overview = series?.string("overview") ?: item.string("overview"),
-                    facts = listOfNotNull(
-                        series?.int("year")?.let { LocalizedText.raw(it.toString()) },
-                        series?.int("runtime")?.takeIf { it > 0 }?.let { LocalizedText(R.string.media_minutes, it) },
-                        series?.string("network")?.let { LocalizedText.raw(it) },
-                    ),
-                    genres = series?.let { stringArray(it, "genres") }.orEmpty(),
-                )
-            }
         }
     }
 
@@ -825,48 +729,6 @@ object ServicePayloadParser {
         )
     }
 
-    private fun queueItem(item: JsonObject, source: ServiceKind): RemoteQueueItem? {
-        val media = item.obj(if (source == ServiceKind.RADARR) "movie" else "series")
-        val title = media?.string("title") ?: item.string("title") ?: return null
-        // Sonarr can expose several episode rows from one season pack with the same downloadId.
-        // The queue record id is the row identity; preferring downloadId produced duplicate Compose
-        // keys exactly while a multi-episode download was active.
-        val id = item.string("id") ?: item.string("downloadId") ?: "$title-${item.hashCode()}"
-        val size = item.long("size") ?: 0L
-        val sizeLeft = item.long("sizeleft") ?: item.long("sizeLeft") ?: size
-        val progress = if (size > 0L) (((size - sizeLeft).coerceAtLeast(0L).toDouble() / size) * 100).roundToInt().coerceIn(0, 100) else null
-        val rawStatus = item.string("status").orEmpty().lowercase()
-        val trackedState = item.string("trackedDownloadState").orEmpty().lowercase()
-        val state = when {
-            rawStatus == "completed" || trackedState == "importpending" -> IncomingState.READY
-            rawStatus == "downloading" || rawStatus == "queued" -> IncomingState.DOWNLOADING
-            else -> IncomingState.REQUESTED
-        }
-        val status = when (state) {
-            IncomingState.READY -> LocalizedText(R.string.queue_ready_for_import)
-            IncomingState.DOWNLOADING ->
-                progress?.let { LocalizedText(R.string.queue_downloading_percent, it) }
-                    ?: LocalizedText(R.string.queue_downloading)
-            IncomingState.REQUESTED -> LocalizedText(R.string.queue_waiting)
-        }
-        val artwork = media?.let(::secureArtwork)
-        return RemoteQueueItem(
-            id = "${source.name.lowercase()}-$id",
-            title = title,
-            source = source,
-            status = status,
-            state = state,
-            progress = progress,
-            artworkUrl = artwork,
-            overview = media?.string("overview"),
-            facts = listOfNotNull(
-                media?.int("year")?.let { LocalizedText.raw(it.toString()) },
-                progress?.let { LocalizedText.raw("$it %") },
-            ),
-            genres = media?.let { stringArray(it, "genres") }.orEmpty(),
-        )
-    }
-
     private fun JsonElement.asArray(): JsonArray = this as? JsonArray ?: JsonArray(emptyList())
     private fun JsonObject.string(key: String): String? = this[key]?.jsonPrimitive?.contentOrNull
     private fun JsonObject.int(key: String): Int? = this[key]?.jsonPrimitive?.intOrNull
@@ -974,17 +836,6 @@ object ServicePayloadParser {
             ?: runCatching {
                 LocalDate.parse(value.take(10)).atStartOfDay(ZoneId.systemDefault()).toInstant()
             }.getOrNull()
-
-    private fun secureArtwork(item: JsonObject, preferredType: String = "poster"): String? {
-        val images = item.array("images").mapNotNull { it as? JsonObject }
-        val image = images.firstOrNull { it.string("coverType").equals(preferredType, ignoreCase = true) }
-            ?: images.firstOrNull { candidate ->
-                candidate.string("coverType") == "poster" || candidate.string("coverType") == "fanart"
-            }
-        return image
-            ?.let { it.string("remoteUrl") ?: it.string("url") }
-            ?.takeIf { url -> url.startsWith("https://", ignoreCase = true) }
-    }
 
     /** Case-insensitive lookup, because Jellyfin and Emby disagree about capitalisation. */
     private fun JsonObject?.tag(type: String): String? =

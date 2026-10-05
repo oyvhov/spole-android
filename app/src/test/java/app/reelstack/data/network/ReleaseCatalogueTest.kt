@@ -33,7 +33,7 @@ class ReleaseCatalogueTest {
                     error("Refresh must not write")
             }
             val repo = MediaSyncRepository(mediaServerClient = MediaServerClient(transport),
-                queueServiceClient = QueueServiceClient(transport), seerrServiceClient = SeerrServiceClient(transport),
+                calendarClient = PersonalCalendarClient(transport), seerrServiceClient = SeerrServiceClient(transport),
                 recommendationsClient = RecommendationsClient(transport, "https://feed.example/items"),
                 accountProfileClient = AccountProfileClient(transport = transport), seerrReleaseClient = SeerrReleaseClient(transport))
             val state = repo.refresh(listOf(
@@ -140,8 +140,7 @@ class ReleaseCatalogueTest {
         for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
             val transport = FixtureTransport(useToday = true)
             val repo = MediaSyncRepository(
-                mediaServerClient = MediaServerClient(transport, includeLibrary = { _, view -> view.id != "kids" }), queueServiceClient = QueueServiceClient(transport),
-                seerrServiceClient = SeerrServiceClient(transport),
+                mediaServerClient = MediaServerClient(transport, includeLibrary = { _, view -> view.id != "kids" }), calendarClient = PersonalCalendarClient(transport), seerrServiceClient = SeerrServiceClient(transport),
                 recommendationsClient = RecommendationsClient(transport, "https://feed.example/items"),
                 accountProfileClient = AccountProfileClient(transport = transport),
                 seerrReleaseClient = SeerrReleaseClient(transport),
@@ -157,7 +156,7 @@ class ReleaseCatalogueTest {
             assertTrue(state.incoming.isEmpty())
             assertTrue(state.activity.isEmpty())
             assertTrue(transport.urls.none { "ParentId=kids" in it || "/queue" in it || "/api/v3/" in it })
-            assertTrue(transport.urls.any { "SortBy=PremiereDate" in it && "ParentId=allowed" in it })
+            assertTrue(transport.urls.any { "SortBy=DateCreated" in it && "ParentId=allowed" in it })
             assertNull(state.upcomingError)
         }
     }
@@ -174,7 +173,7 @@ class ReleaseCatalogueTest {
                 "auth/me" in url -> """{"id":7,"displayName":"Person","jellyfinUserId":"media-user","permissions":32}"""
                 url.endsWith("Users/Me") || url.endsWith("Users/media-user") -> """{"Id":"media-user","Name":"Person","Policy":{"IsAdministrator":false}}"""
                 "/Views" in url || "/UserViews" in url -> """{"Items":[{"Id":"kids","Name":"Barneserier","CollectionType":"tvshows"},{"Id":"allowed","Name":"Media","CollectionType":"mixed"}]}"""
-                "SortBy=PremiereDate" in url && "IncludeItemTypes=Movie" in url -> """{"Items":[{"Id":"new","Name":"Ny lokal film","Type":"Movie","PremiereDate":"${today.minusDays(30)}","ProviderIds":{"Tmdb":"1"}}]}"""
+                "SortBy=DateCreated" in url && "IncludeItemTypes=Movie" in url -> """{"Items":[{"Id":"new","Name":"Ny lokal film","Type":"Movie","PremiereDate":"${today.minusDays(30)}","ProviderIds":{"Tmdb":"1"}}]}"""
                 "discover/movies?" in url -> """{"results":[{"id":1,"title":"Ny film","mediaType":"movie"}]}"""
                 "/movie/1" in url -> movie(today.minusDays(2).toString(), premiere = today.minusDays(30).toString())
                 "/request?" in url -> """{"results":[]}"""

@@ -7,8 +7,6 @@ enum class ServiceKind(val displayName: String) {
     JELLYFIN("Jellyfin"),
     EMBY("Emby"),
     SEERR("Seerr"),
-    RADARR("Radarr"),
-    SONARR("Sonarr"),
 }
 
 enum class ConnectionState {
@@ -179,10 +177,16 @@ data class UpcomingMedia(
     val mediaType: String = "Video",
     /** A disc release rather than a digital one. See RemoteUpcomingItem for why this is a flag. */
     val physicalRelease: Boolean = false,
+    val tmdbId: Int? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    val releaseDate: String? = null,
+    val region: String? = null,
+    val libraryRemoteId: String? = null,
 )
 
 val UpcomingMedia.isMovieRelease: Boolean
-    get() = mediaType.equals("Movie", true) || (mediaType == "Video" && source == ServiceKind.RADARR)
+    get() = mediaType.equals("Movie", true)
 
 enum class IncomingState {
     DOWNLOADING,
@@ -279,6 +283,7 @@ data class ContentDetails(
     val artworkRes: Int,
     /** The server id is retained for actions taken after navigating between episode and series. */
     val remoteId: String? = null,
+    val tmdbId: Int? = null,
     val artworkUrl: String? = null,
     val source: ServiceKind? = null,
     val mediaType: String? = null,

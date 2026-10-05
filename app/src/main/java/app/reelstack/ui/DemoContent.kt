@@ -107,10 +107,10 @@ private fun demoRelease(recent: Boolean): List<UpcomingMedia> {
     return (demoTitles.filterNot { it.series }.take(4) + demoTitles.filter { it.series }.take(4)).mapIndexed { index, title ->
         val offset = if (recent) -index.toLong() else index.toLong()
         UpcomingMedia("${if (recent) "released" else "upcoming"}-${title.key}", title.title, title.media().subtitle,
-            when (offset) { 0L -> "I dag · 20:00"; 1L -> "I morgon · 20:00"; -1L -> "I går · 20:00"
+            when (offset) { 0L -> "I dag"; 1L -> "I morgon"; -1L -> "I går"
                 else -> today.plusDays(offset).format(java.time.format.DateTimeFormatter.ofPattern("d. MMM", java.util.Locale.forLanguageTag("nn"))) },
-            today.plusDays(offset).atTime(20, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
-            title.art, if (title.series) ServiceKind.SONARR else ServiceKind.RADARR, overview = title.description, facts = title.media().facts,
+            today.plusDays(offset).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            title.art, ServiceKind.SEERR, overview = title.description, facts = title.media().facts,
             genres = listOf(title.genre), mediaType = if (title.series) "Episode" else "Movie")
     }
 }
@@ -119,7 +119,7 @@ internal fun demoRecentReleases() = demoRelease(true)
 
 internal fun demoIncoming() = demoTitles.take(5).mapIndexed { index, title ->
     val state = listOf(IncomingState.DOWNLOADING, IncomingState.REQUESTED, IncomingState.READY)[index % 3]
-    IncomingMedia("incoming-${title.key}", title.title, ServiceKind.RADARR,
+    IncomingMedia("incoming-${title.key}", title.title, ServiceKind.SEERR,
         when (state) { IncomingState.DOWNLOADING -> "Lastar ned 68 %"; IncomingState.REQUESTED -> "Førespurd"; IncomingState.READY -> "I biblioteket" },
         state, title.art, overview = title.description, progress = if (state == IncomingState.DOWNLOADING) 68 else null)
 }
@@ -131,6 +131,6 @@ internal fun demoActivity() = demoTitles.take(8).mapIndexed { index, title ->
         if (index < 4) app.reelstack.localization.LocalizedText.plural(R.plurals.time_minutes_ago, 2 + index * 8)
         else app.reelstack.localization.LocalizedText(R.string.time_yesterday),
         complete = index % 3 == 2,
-        progress = if (index % 3 == 1) 42 else null, source = if (index % 3 == 0) ServiceKind.SEERR else ServiceKind.RADARR,
+        progress = if (index % 3 == 1) 42 else null, source = if (index % 3 == 0) ServiceKind.SEERR else ServiceKind.SEERR,
         artworkRes = title.art, mediaType = "Movie")
 }

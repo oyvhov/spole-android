@@ -54,7 +54,7 @@ class RedirectAndBusyTest {
     }
 
     @Test fun missingLocationStillExplainsItself() {
-        assertEquals(R.string.err_vidaresending_ukjend, redirectMessage(ServiceKind.SONARR, null).resId)
+        assertEquals(R.string.err_vidaresending_ukjend, redirectMessage(ServiceKind.SEERR, null).resId)
     }
 
     @Test fun connectionTestReportsTheRedirectRatherThanAStatusNumber() {
@@ -87,9 +87,9 @@ class RedirectAndBusyTest {
 
     @Test fun busyWithoutARetryAfterDoesNotInventOne() {
         for (value in listOf<Long?>(null, 0)) {
-            val message = busyMessage(ServiceKind.RADARR, value)
+            val message = busyMessage(ServiceKind.SEERR, value)
             assertEquals(R.string.err_mellombels_oppteken, message.resId)
-            assertEquals(listOf<Any>("Radarr"), message.args)
+            assertEquals(listOf<Any>("Seerr"), message.args)
         }
     }
 

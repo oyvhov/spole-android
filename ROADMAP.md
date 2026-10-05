@@ -1,5 +1,17 @@
 # Spole — veikart mot 1.0
 
+## Personleg kalender — levert i 1.0.0-beta3
+
+**Sonarr og Radarr skal fjernast heilt frå Spole.** Jellyfin/Emby leverer personleg bibliotektilgjenge, og Seerr leverer førespurnader, rapportert framdrift og komande episode-/digitale filmdatoar. Den personlege kalenderen erstattar dei direkte kalenderintegrasjonane; den tidlegare planen om eit kalenderadapter utgår.
+
+Gjennomføring, omfang og avgrensingar ligg i [planen for full fjerning](docs/SEERR_CALENDAR_REPLACEMENT_PLAN.md), med faktisk testgrunnlag i [verifiseringsrapporten](docs/VERIFICATION_v1.0.0-beta3.md). Dette gjeld appen; Seerr sin automatiske henting på tenaren blir ikkje erstatta. Eldre statusbolkar nedanfor er historisk bakgrunn der dei kjem i konflikt med denne leveransen.
+
+- [x] Bygg personleg kalender og følgjeval med stabile ID-ar, ekte datoar og bibliotektilgjenge.
+- [x] Integrer Heim, datooversikt, detaljar og eksisterande personleg førespurnadsstatus.
+- [x] Migrer gamle konto-/cacheformat og fjern alle direkte Sonarr-/Radarr-integrasjonar.
+- [ ] Utvid praktisk kontroll til ein ekstra ekte ordinær Seerr-konto og fysisk telefon/TV.
+- [ ] Seinare: synkronisering av manuelle følgjeval, særskild følgje av spesialepisodar og kalenderpåminningar.
+
 ## 0.17.1 — Grunnfeste
 
 Milepåle oppretta 17. september 2026 etter [full gjennomgang av app og kode](docs/REVIEW_2026-09-17.md)
@@ -129,10 +141,9 @@ Jellyfin-, Emby- og Seerr-kontoane — på nynorsk og på engelsk.
 
 Dette er alt eg ikkje kan gjere frå ei økt, med grunnen:
 
-1. **Kople til Radarr eller Sonarr på review-kontoen** (blokkerer kalenderen). Utan dei har
-   «Kjem snart» null oppføringar, og skiljet mellom filmutgjeving og episode kan berre kontrollerast
-   mot testdata. Datoane, daggruppene og den dempa kjelda er kontrollerte på både nynorsk og
-   engelsk.
+1. **Verifiser ny kalender med eksisterande Jellyfin/Emby og Seerr.** Behovet for å kople til
+   Radarr eller Sonarr utgår etter retninga frå 5. oktober. Lesetest, datadekning og migrering
+   blir utførte som del av [erstatningsplanen](docs/SEERR_CALENDAR_REPLACEMENT_PLAN.md).
 2. **Bruk ein 12-timarsklokke-profil éin gong.** Klokkeslettet følgjer no systemvalet
    (`is24HourFormat`), men review-eininga står på 24 timar, så 12-timarsvegen er berre
    einingstesta.
@@ -206,7 +217,7 @@ Ny kjeldebolk: [Breitt innhald og ekte Google TV-test](docs/WIDE_CONTENT_TV_PASS
 - **Ingen obligatorisk Spole-backend eller ny Spole-konto.** Appen brukar tenestene brukaren allereie har.
 - **Personleg først.** Seerr-identiteten styrer førespurnader. Vanlege brukarar ser seg og sitt; administratorfunksjonar krev verifiserte rettar. Klientfiltrering erstattar ikkje tilgangskontroll på tenaren.
 - **Innhald før administrasjon.** Ikkje eit eige nedlastingskontrollpanel. Framdrift høyrer heime i førespurnaden ho gjeld.
-- **Presise datakjelder.** «Nyleg tilgjengeleg» betyr nyleg digital utgjeving og stadfesta kopi i biblioteka dine. «Kjem snart» kjem frå Radarr/Sonarr, ikkje frå popularitetslister.
+- **Presise datakjelder.** «Nyleg tilgjengeleg» betyr nyleg digital utgjeving og stadfesta kopi i biblioteka dine. Den nye personlege «Kjem snart» skal bruke episode-/digitale filmdatoar frå Seerr, avgrensa av bibliotek, eigne førespurnader og følgjeval.
 - **Heim kan tilpassast.** Eigne film- og episoderader for Jellyfin og Emby, med separate brytarar. Dei valde barne-TV-biblioteka skal framleis haldast utanfor Heim; dette er ikkje foreldrekontroll for heile appen.
 - **Anbefalingar er redaksjonelle.** GitHub-katalogen er kjelda, med bibliotekstatus før ein opnar detaljane. Ikkje kamuflerte Seerr-tilrådingar eller ein ny sosial backend.
 - **Eit tydeleg visuelt særpreg.** Matte flater, gode bilete, roleg typografi og presis rørsle. Ingen ny merkevare eller full redesign for kvar versjon.
@@ -254,10 +265,10 @@ Små feilrettingar kan publiserast mellom milepålane. Kritiske feil i tilgang, 
 - [ ] Test manglande sesongar, delvis tilgjengelege seriar, komande episodar og seriar som held fram. Behald «følg utan ny førespurnad» og unngå duplikat. Ikkje lov automatisk framtidig innhenting utan stadfesting.
 - [ ] Vis bibliotekstatus på anbefalingar før detaljopning, med sikre ID-treff, tydeleg ukjend status og robust handtering når GitHub-katalogen ikkje kan hentast.
 - [ ] Test «Nyleg tilgjengeleg» med digital dato innanfor 28 dagar og faktisk bibliotektilgang. Gamle filmar som nett er importerte, skal ikkje bli nye utgjevingar. Manglande dato skal ikkje diktast opp.
-- [ ] Kontroller «Kjem snart» mot verkelege Radarr-/Sonarr-data: heimeutgjevingar, episodar, tidssoner, ukjende datoar og delvis tenarsvikt. Kinodato er ikkje heimeutgjeving.
+- [ ] Kontroller den nye «Kjem snart» mot verkelege Seerr-data og eigne bibliotek: digitale filmutgjevingar, episodar, datopresisjon, ukjende datoar og delvis tenarsvikt. Kinodato er ikkje heimeutgjeving. Sjå [erstatningsplanen](docs/SEERR_CALENDAR_REPLACEMENT_PLAN.md).
 - [ ] Test varsel med løyve på/av, appen lukka, batterisparing og kontobyte. Bilete er valfritt; privat innhald skal ikkje eksponerast unødig på låseskjermen.
 
-**Ferdig når:** Ein vanleg brukar kan finne ein serie, velje ein manglande sesong, følgje framdrifta og finne innhaldet att utan Radarr-/Sonarr-nøklar. Kalender utan slike tilkoplingar er eit separat sidespor. Varsel blir omtala som periodisk kontroll, ikkje garantert sanntids-push.
+**Ferdig når:** Ein vanleg brukar kan finne ein serie, velje ein manglande sesong, følgje framdrifta og finne innhaldet att gjennom Seerr og sitt eige bibliotek. Kalender utan direkte Sonarr-/Radarr-tilkoplingar er no ei avtalt leveranse. Varsel blir omtala som periodisk kontroll, ikkje garantert sanntids-push.
 
 Verkelege førespurnader kan starte nedlastingar. Slike testar skal bruke eigargodkjende testtitlar og kontoar; dette veikartet er ikkje løyve til å endre produksjonsbiblioteka.
 
@@ -403,15 +414,15 @@ Oppdatert testgrunnlag: isolerte UI-/regeltestar og faktisk videodekoding på Go
 
 Grunnlag: [TV-navigasjon](https://developer.android.com/training/tv/get-started/navigation) og [Android TV-kvalitetskrav](https://developer.android.com/docs/quality-guidelines/tv-app-quality).
 
-## Valfritt sidespor: trygg delt kalender
+## Personleg kalender gjennom Seerr
 
-**Status: planlagt, ikkje implementert og ikkje eit obligatorisk 1.0-krav.**
+**Status: avtalt 5. oktober 2026, ikkje implementert.** Denne leveransen erstattar det tidlegare sidesporet om eit delt kalenderadapter.
 
-Målet er kalender for vanlege Seerr-brukarar utan å distribuere administratornøklar til Radarr/Sonarr. Først må ein prototype dokumentere korleis personleg innlogging, tilbakekalla tilgang og innhaldsavgrensingar kan handhevast på tenaren. Vi skal ikkje føresetje at Seerr gir alle nødvendige bibliotekrettar.
+Målet er å fjerne Sonarr og Radarr heilt frå Spole. Kalenderen viser titlar frå brukarens bibliotek, eigne førespurnader og kalenderfølgjeval, med datoar frå Seerr. Bibliotektilgjenge blir kontrollert mot brukarens Jellyfin-/Emby-konto; ein premieredato lovar ikkje at tittelen kjem på tenaren den dagen.
 
-Ei eventuell løysing blir ein liten, sjølvhosta, lesebeskytta adapter hos tenareigaren: faste datakjelder, minimalt med metadata, tidsavgrensa mellomlager og ingen brukarstyrte vilkårlege oppstraumsadresser. Ho krev eiga godkjenning før utrulling. Spole skal fungere utan henne, og private kalenderdata skal ikkje leggjast i ein offentleg GitHub-fil.
+Ingen ny Spole-backend eller kalenderadapter blir bygd. Seerr sin automatiske henting på tenaren er ei eiga avhengigheit og blir ikkje erstatta av appen.
 
-Sjå [eigen plan for delt kalender](docs/SHARED_CALENDAR_PLAN.md).
+Sjå [endeleg plan for kalender og full fjerning](docs/SEERR_CALENDAR_REPLACEMENT_PLAN.md).
 
 ## Andre utvidingar etter 1.0 — prioritert kandidatliste
 

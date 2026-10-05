@@ -24,6 +24,7 @@ class AppContainer(context: Context) {
         deviceId = deviceId,
     )
     val preferencesRepository = AppPreferencesRepository(appContext)
+    val calendarFollowStore = app.reelstack.data.repository.CalendarFollowStore(appContext)
     val mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId, includeLibrary = preferencesRepository::includesLibrary)
     // The repository formats dates; it should do so in the language the app is set to, which is not
     // always the device's.
@@ -34,6 +35,9 @@ class AppContainer(context: Context) {
         use24HourClock = android.text.format.DateFormat.is24HourFormat(appContext),
         words = { it.text(appContext) },
         mediaServerClient = mediaServerClient,
+        calendarSelectionProvider = { connection, userId ->
+            calendarFollowStore.read(calendarFollowStore.scope(connectionRepository.activeProfileId, connection, userId))
+        },
     )
     val sessionSocket = app.reelstack.data.network.JellyfinSessionSocket(deviceId = deviceId)
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
@@ -55,7 +59,8 @@ class AppContainer(context: Context) {
             // Home reads the libraries chosen for its rows, not the ones listed in the Library tab.
             preferencesRepository.homeLibrariesFingerprint(connections) +
             "|profile=" + connectionRepository.activeProfileId +
-            "|lang=" + app.reelstack.localization.AppLanguages.selected(appContext).tag
+            "|lang=" + app.reelstack.localization.AppLanguages.selected(appContext).tag +
+            "|calendar=" + calendarFollowStore.revision
 
     /** Home's library choice for each media server that has an address in [connections]. */
     fun homeLibraries(connections: List<app.reelstack.data.model.ServiceConnection>) =

@@ -272,7 +272,6 @@ class AccountProfileClientTest {
         val transport = RecordingTransport()
         val client = AccountProfileClient(transport = transport)
 
-        assertTrue(runCatching { client.load(seerr.copy(kind = ServiceKind.RADARR)) }.isFailure)
         assertTrue(runCatching { client.load(seerr.copy(token = "")) }.isFailure)
         assertTrue(transport.urls.isEmpty())
     }

@@ -15,9 +15,9 @@ import java.time.ZoneId
 class CalendarAndSheetTest {
     @get:Rule val rule = createComposeRule()
     private fun release(id: String, source: ServiceKind, offset: Long = 0) = UpcomingMedia(
-        id = id, title = id, subtitle = if (source == ServiceKind.SONARR) "S03 E10 · Ny episode" else "Film · 2026",
+        id = id, title = id, subtitle = if (source == ServiceKind.SEERR) "S03 E10 · Ny episode" else "Film · 2026",
         dateLabel = "I dag", airDateEpochMillis = LocalDate.now().plusDays(offset).atTime(20, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-        artworkRes = R.drawable.media_placeholder, source = source,
+        artworkRes = R.drawable.media_placeholder, source = source, mediaType = if (id.startsWith("Film")) "Movie" else "Episode",
     )
 
     @Test fun englishCalendarUsesPluralCountsAndKeepsSelectedDayAcrossLanguageChange() {
@@ -29,19 +29,19 @@ class CalendarAndSheetTest {
                 androidx.compose.ui.platform.LocalContext provides localized,
                 androidx.compose.ui.platform.LocalConfiguration provides localized.resources.configuration,
             ) {
-                ReelstackTheme { UpcomingCalendarSheet(listOf(release("Episode", ServiceKind.SONARR, 1)), {}, {}) }
+                ReelstackTheme { UpcomingCalendarSheet(listOf(release("Episode", ServiceKind.SEERR, 1)), {}, {}) }
             }
         }
         rule.onNodeWithContentDescription("Close calendar").assertIsDisplayed()
         rule.onNodeWithText("1 release").assertIsDisplayed()
         rule.onNodeWithText("Episodes").performClick()
         rule.onNodeWithTag("calendar-day-1").performClick().assertIsSelected()
-        rule.onNodeWithText("1 release this day").assertIsDisplayed()
+        rule.onNodeWithText("1 release").assertIsDisplayed()
         rule.onNodeWithText("Tomorrow").assertIsDisplayed()
         rule.runOnIdle { language.value = app.reelstack.localization.AppLanguage.NYNORSK }
         rule.onNodeWithContentDescription("Lukk kalenderen").assertIsDisplayed()
         rule.onNodeWithTag("calendar-day-1").assertIsSelected()
-        rule.onNodeWithText("1 utgjeving denne dagen").assertIsDisplayed()
+        rule.onNodeWithText("1 utgjeving").assertIsDisplayed()
         rule.onNodeWithText("I morgon").assertIsDisplayed()
     }
 
@@ -60,15 +60,15 @@ class CalendarAndSheetTest {
         rule.onNodeWithContentDescription("Lukk kalenderen").assertIsDisplayed()
         rule.onNodeWithTag("calendar-day-0").performClick().assertIsSelected()
         rule.onNodeWithText("Alle dagar").assertIsDisplayed().performClick()
-        rule.onNodeWithText("Ingen planlagde utgjevingar").assertIsDisplayed()
         val dateTexts = rule.onAllNodes(hasAnyAncestor(hasTestTag("calendar-day-0")) and
             SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult), useUnmergedTree = true)
         org.junit.Assert.assertTrue(dateTexts.fetchSemanticsNodes().isNotEmpty())
         repeat(dateTexts.fetchSemanticsNodes().size) { index ->
             val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
             dateTexts[index].performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            layouts.forEach { org.junit.Assert.assertFalse("Date text clipped: ${it.layoutInput.text} ${it.size}", it.hasVisualOverflow) }
+            layouts.forEach { org.junit.Assert.assertFalse("Date text clipped: ${it.layoutInput.text} ${it.size}; width=${it.didOverflowWidth}, height=${it.didOverflowHeight}", it.hasVisualOverflow) }
         }
+        rule.onNodeWithText("Ingen planlagde utgjevingar").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun calendarFiltersDatesTypesAndOpensExactEpisode() {
@@ -76,7 +76,7 @@ class CalendarAndSheetTest {
         rule.setContent {
             ReelstackTheme {
                 UpcomingCalendarSheet(
-                    listOf(release("Film A", ServiceKind.RADARR), release("Episode A", ServiceKind.SONARR), release("Episode B", ServiceKind.SONARR, 1)),
+                    listOf(release("Film A", ServiceKind.SEERR), release("Episode A", ServiceKind.SEERR), release("Episode B", ServiceKind.SEERR, 1)),
                     { opened = it }, {},
                 )
             }
@@ -100,7 +100,7 @@ class CalendarAndSheetTest {
         var closed = false
         rule.setContent {
             ReelstackTheme {
-                UpcomingCalendarSheet(listOf(release("Old", ServiceKind.RADARR, -1), release("Future", ServiceKind.SONARR, 28)), {}, { closed = true })
+                UpcomingCalendarSheet(listOf(release("Old", ServiceKind.SEERR, -1), release("Future", ServiceKind.SEERR, 29)), {}, { closed = true })
             }
         }
         rule.onNodeWithText("Ingen planlagde utgjevingar").assertIsDisplayed()
@@ -111,7 +111,8 @@ class CalendarAndSheetTest {
     }
 
     @Test fun asyncDetailsDoNotMoveSheetViewport() {
-        val details = ContentDetails(key = "movie", title = "Film", eyebrow = "Radarr", subtitle = "2026", artworkRes = R.drawable.media_placeholder, mediaType = "movie", loading = true)
+        assumeTouchDetails()
+        val details = ContentDetails(key = "movie", title = "Film", eyebrow = "Seerr", subtitle = "2026", artworkRes = R.drawable.media_placeholder, mediaType = "movie", loading = true)
         val state = mutableStateOf(ReelstackUiState(activeSheet = AppSheet.TitleDetails("movie"), contentDetails = details))
         rule.setContent {
             ReelstackTheme {
@@ -125,6 +126,7 @@ class CalendarAndSheetTest {
             }
         }
         rule.waitForIdle()
+        rule.waitUntil(timeoutMillis = 10_000) { runCatching { rule.onNodeWithTag("sheet-viewport").fetchSemanticsNode() }.isSuccess }
         val before = rule.onNodeWithTag("sheet-viewport").fetchSemanticsNode().boundsInRoot
         rule.runOnIdle { state.value = state.value.copy(contentDetails = details.copy(loading = false, overview = "Ein lang omtale med mykje informasjon. ".repeat(50))) }
         rule.waitForIdle()
@@ -143,6 +145,7 @@ class CalendarAndSheetTest {
     }
 
     @Test fun largeTextKeepsCompleteSynopsisReadableWithoutResizingSheet() {
+        assumeTouchDetails()
         val overview = "Ei forteljing som skal kunne lesast i sin heilskap. ".repeat(8)
         rule.setContent {
             androidx.compose.runtime.CompositionLocalProvider(
@@ -173,7 +176,7 @@ class CalendarAndSheetTest {
     @Test fun calendarRetainsDateAndFilterAfterTitleDetailsAndHasExplicitClose() {
         val state = mutableStateOf(ReelstackUiState(
             activeSheet = AppSheet.UpcomingCalendar,
-            upcoming = listOf(release("Episode A", ServiceKind.SONARR), release("Episode B", ServiceKind.SONARR, 1), release("Film B", ServiceKind.RADARR, 1)),
+            upcoming = listOf(release("Episode A", ServiceKind.SEERR), release("Episode B", ServiceKind.SEERR, 1), release("Film B", ServiceKind.SEERR, 1)),
         ))
         var closed = false
         rule.setContent {
@@ -185,7 +188,7 @@ class CalendarAndSheetTest {
                     onConnectionPasswordChange = {}, onTestAndSaveConnection = {}, onRemoveConnection = {}, onAddMedia = {},
                     onUpcomingClick = { id -> state.value = state.value.copy(
                         activeSheet = AppSheet.TitleDetails(id), returnToCalendar = true,
-                        contentDetails = ContentDetails(id, id, "Sonarr", "S03 E10", artworkRes = R.drawable.media_placeholder, mediaType = "Episode"),
+                        contentDetails = ContentDetails(id, id, "Seerr", "S03 E10", artworkRes = R.drawable.media_placeholder, mediaType = "Episode"),
                     ) },
                     onBackToCalendar = { state.value = state.value.copy(activeSheet = AppSheet.UpcomingCalendar, returnToCalendar = false) },
                 )
@@ -193,15 +196,33 @@ class CalendarAndSheetTest {
         }
         rule.onNodeWithText("Episodar").performClick()
         rule.onNodeWithTag("calendar-day-1").performClick()
+        rule.onNodeWithTag("calendar-agenda").performScrollToNode(hasText("Episode B"))
         rule.onNodeWithText("Episode B").performClick()
         rule.onNodeWithText("S03 E10").assertIsDisplayed()
-        rule.onNodeWithText("Kalender").performClick()
+        rule.onNode(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.Dismiss))
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.Dismiss) { it() }
+        rule.waitUntil(timeoutMillis = 5_000) { state.value.activeSheet == AppSheet.UpcomingCalendar }
         rule.onNodeWithText("Episode B").assertIsDisplayed()
         rule.onNodeWithText("Episode A").assertDoesNotExist()
         rule.onNodeWithText("Film B").assertDoesNotExist()
         rule.onNodeWithText("Episode B").performClick()
-        rule.onNodeWithContentDescription("Lukk detaljane").performClick()
+        val configuration = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration
+        if (configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) pressSystemBack()
+        else rule.onNodeWithContentDescription("Lukk detaljane").performClick()
+        rule.waitUntil(timeoutMillis = 5_000) { state.value.activeSheet == AppSheet.UpcomingCalendar }
+        rule.onNodeWithContentDescription("Lukk kalenderen").performClick()
         rule.waitUntil(timeoutMillis = 3_000) { closed } // Allow for a busy emulator while the exit animation settles.
         assertEquals(true, closed)
+    }
+
+    private fun assumeTouchDetails() {
+        val configuration = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration
+        org.junit.Assume.assumeFalse(configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
+    }
+
+    private fun pressSystemBack() {
+        androidx.test.espresso.Espresso.pressBack()
     }
 }

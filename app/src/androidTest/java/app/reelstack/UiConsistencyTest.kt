@@ -18,6 +18,7 @@ class UiConsistencyTest {
     @get:Rule val rule = createComposeRule()
 
     @Test fun personalActivityShowsReadyTitlesAndRequestsInProgress() {
+        assumeTouchLayout()
         rule.setContent {
             ReelstackTheme {
                 androidx.compose.runtime.key("personal-activity-filter") {
@@ -34,7 +35,7 @@ class UiConsistencyTest {
         rule.onNodeWithTag("activity-personal-ALL").performScrollTo().performClick()
         rule.onNodeWithText("Klar for filmkveld").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("På veg heim").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithContentDescription("Framdrift: Førespurd").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Framdrift: Førespurd").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun activityFiltersSourceAndOpensExactTitle() {
@@ -42,26 +43,26 @@ class UiConsistencyTest {
         rule.setContent {
             ReelstackTheme {
                 ActivityScreen(ReelstackUiState(activity = listOf(
-                    ActivityEvent("one", "Film A", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_requested), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_now), source = ServiceKind.SEERR),
-                    ActivityEvent("two", "Film B", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_downloading), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_now), source = ServiceKind.RADARR),
+                    ActivityEvent("one", "Film A", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_requested), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_now), source = ServiceKind.JELLYFIN),
+                    ActivityEvent("two", "Film B", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_downloading), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_now), source = ServiceKind.SEERR),
                 )), PaddingValues(0.dp), { opened = it })
             }
         }
         rule.onNodeWithTag("activity-scope").performClick()
-        rule.onNodeWithText("Radarr").performClick()
+        rule.onNodeWithText("Seerr").performClick()
         rule.onNodeWithText("Film A").assertDoesNotExist()
         rule.onNodeWithText("Film B").performClick()
         assertEquals("two", opened)
         rule.onNodeWithTag("activity-scope").performClick()
-        rule.onNodeWithText("Sonarr").performClick()
-        rule.onNodeWithText("Ingen hendingar her enno").assertIsDisplayed()
-        rule.onNodeWithTag("activity-scope").performClick()
+        rule.onNodeWithText("Sonarr").assertDoesNotExist()
+        rule.onNodeWithText("Radarr").assertDoesNotExist()
         rule.onNodeWithText("Alt").performClick()
         rule.onNodeWithText("Film A").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun settingsToggleHasOneActionAndShowsLibraryNotifications() {
+        assumeTouchLayout()
         val changes = mutableListOf<app.reelstack.data.model.HomeLayout>()
         rule.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(androidx.compose.ui.unit.DpSize(412.dp, 900.dp))) {
@@ -83,5 +84,11 @@ class UiConsistencyTest {
         rule.onNodeWithTag("settings-back").performClick()
         rule.onNodeWithTag("settings-category-UPDATES").performScrollTo().performClick()
         rule.onNodeWithText("Bibliotekvarsel").performScrollTo().assertIsDisplayed()
+    }
+
+    private fun assumeTouchLayout() {
+        val configuration = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration
+        org.junit.Assume.assumeFalse(configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
     }
 }

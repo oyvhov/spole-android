@@ -47,7 +47,7 @@ class SeasonWatchRepositoryTest {
         val scope = repository.scope(connection, "7")
         context.getSharedPreferences("request_follows", 0).edit().remove(scope).commit()
         try {
-            assertTrue(connections.get(ServiceKind.SONARR).token.isEmpty())
+            assertTrue(ServiceKind.entries.none { it.name in setOf("SONARR", "RADARR") })
             block(repository, transport, connection, scope, DiscoverMedia("series", "Testserie", "Serie", 0, false, remoteId = 42, mediaType = "tv"))
             assertEquals(0, transport.writes)
             assertFalse(transport.reads.any { it.contains("sonarr", ignoreCase = true) })

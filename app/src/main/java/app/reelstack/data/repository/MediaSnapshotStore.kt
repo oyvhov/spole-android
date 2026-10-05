@@ -15,6 +15,7 @@ import app.reelstack.data.repository.cache.CacheMetaRow
 import app.reelstack.data.repository.cache.CacheSection
 import app.reelstack.data.repository.cache.CachedMediaRow
 import java.security.MessageDigest
+import kotlinx.serialization.json.*
 
 data class CachedMediaSnapshot(
     val sessions: List<PlaybackSession>,
@@ -95,12 +96,12 @@ class MediaSnapshotStore(context: Context) {
 
     /** One page of a library rail, without reading the rows before it. */
     fun libraryPage(fingerprint: String, section: CacheSection, limit: Int, offset: Int): List<LibraryMedia> =
-        runCatching { dao.page(fingerprint, section.name, limit, offset).map(::toLibrary) }
+        runCatching { dao.page(fingerprint, section.name, limit, offset).filter { known(it.source) }.map(::toLibrary) }
             .getOrDefault(emptyList())
 
     /** One page of a discovery rail. Used by "load more" once the first page is exhausted. */
     fun discoverPage(fingerprint: String, section: CacheSection, limit: Int, offset: Int): List<DiscoverMedia> =
-        runCatching { dao.page(fingerprint, section.name, limit, offset).map(::toDiscover) }
+        runCatching { dao.page(fingerprint, section.name, limit, offset).filter { known(it.source) }.map(::toDiscover) }
             .getOrDefault(emptyList())
 
     fun clear() {
@@ -114,7 +115,7 @@ class MediaSnapshotStore(context: Context) {
         libraryPage(fingerprint, section, PAGE_LIMIT, 0)
 
     private fun upcoming(fingerprint: String, section: CacheSection): List<UpcomingMedia> =
-        runCatching { dao.page(fingerprint, section.name, PAGE_LIMIT, 0).map(::toUpcoming) }
+        runCatching { dao.page(fingerprint, section.name, dao.count(fingerprint, section.name).coerceAtLeast(1), 0).filter { known(it.source) }.map(::toUpcoming) }
             .getOrDefault(emptyList())
 
     private fun discover(fingerprint: String, section: CacheSection) =
@@ -135,7 +136,7 @@ class MediaSnapshotStore(context: Context) {
         }
 
     private fun upcomingRows(fingerprint: String, section: CacheSection, items: List<UpcomingMedia>) =
-        items.take(CACHE_ITEM_LIMIT).mapIndexed { index, item ->
+        items.mapIndexed { index, item ->
             row(fingerprint, section, index, item.id, item.title, item.subtitle, item.source, item.mediaType).copy(
                 artworkUrl = item.artworkUrl,
                 overview = item.overview,
@@ -143,6 +144,12 @@ class MediaSnapshotStore(context: Context) {
                 genres = item.genres.joinToString(SEPARATOR),
                 dateLabel = item.dateLabel,
                 airDateEpochMillis = item.airDateEpochMillis,
+                libraryMetadata = buildJsonObject {
+                    item.tmdbId?.let { put("tmdb", it) }; item.season?.let { put("season", it) }
+                    item.episode?.let { put("episode", it) }; item.releaseDate?.let { put("date", it) }
+                    item.region?.let { put("region", it) }
+                    item.libraryRemoteId?.let { put("libraryId", it) }
+                }.toString(),
             )
         }
 
@@ -208,7 +215,15 @@ class MediaSnapshotStore(context: Context) {
         facts = row.facts.split(SEPARATOR).filter(String::isNotBlank),
         genres = row.genres.split(SEPARATOR).filter(String::isNotBlank),
         mediaType = row.mediaType,
+        tmdbId = calendarMeta(row)["tmdb"]?.jsonPrimitive?.intOrNull,
+        season = calendarMeta(row)["season"]?.jsonPrimitive?.intOrNull,
+        episode = calendarMeta(row)["episode"]?.jsonPrimitive?.intOrNull,
+        releaseDate = calendarMeta(row)["date"]?.jsonPrimitive?.contentOrNull,
+        region = calendarMeta(row)["region"]?.jsonPrimitive?.contentOrNull,
+        libraryRemoteId = calendarMeta(row)["libraryId"]?.jsonPrimitive?.contentOrNull,
     )
+
+    private fun calendarMeta(row: CachedMediaRow) = runCatching { Json.parseToJsonElement(row.libraryMetadata).jsonObject }.getOrDefault(JsonObject(emptyMap()))
 
     private fun toDiscover(row: CachedMediaRow) = DiscoverMedia(
         id = row.id,
@@ -226,7 +241,8 @@ class MediaSnapshotStore(context: Context) {
         genres = row.genres.split(SEPARATOR).filter(String::isNotBlank),
     )
 
-    private fun kind(name: String) = ServiceKind.entries.firstOrNull { it.name == name } ?: ServiceKind.JELLYFIN
+    private fun known(name: String) = ServiceKind.entries.any { it.name == name }
+    private fun kind(name: String) = requireNotNull(ServiceKind.entries.firstOrNull { it.name == name })
 
     // A previous build translated cached text back into nynorsk on the way out — a table of
     // "Today" -> "I dag" and "Direct play" -> "Direkteavspeling". That was the only way to keep a
@@ -245,7 +261,7 @@ class MediaSnapshotStore(context: Context) {
         /** Bump when the feed rules change, so an older copy is dropped instead of shown. */
         // Resume artwork now includes the server's wide Thumb image. Drop the old cached poster
         // URLs so the first screen cannot briefly show the old tiny, letterboxed artwork.
-        private const val SCHEMA = 6
+        private const val SCHEMA = 7
 
         /**
          * Identifies the exact set of signed-in services a cached feed belongs to. Any change of

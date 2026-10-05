@@ -63,12 +63,6 @@ data class MediaServerFeed(
     val releaseCandidates: List<RemoteLibraryItem> = emptyList(),
 )
 
-data class QueueServiceFeed(
-    val queue: List<RemoteQueueItem>,
-    val upcoming: List<RemoteUpcomingItem>,
-    val recentReleases: List<RemoteUpcomingItem> = emptyList(),
-)
-
 data class ServiceAuthentication(
     val accessToken: String,
     val userId: String,
@@ -249,7 +243,6 @@ class ServiceConnectionTester(
             ServiceKind.JELLYFIN -> ServiceProbe("System/Info", "Authorization")
             ServiceKind.EMBY -> ServiceProbe("System/Info", "X-Emby-Token")
             ServiceKind.SEERR -> ServiceProbe("api/v1/auth/me", "X-Api-Key")
-            ServiceKind.RADARR, ServiceKind.SONARR -> ServiceProbe("api/v3/system/status", "X-Api-Key")
         }
         val endpoint = EndpointValidator.resolve(connection.baseUrl, probe.path)
         lateinit var response: HttpResponse
@@ -788,22 +781,29 @@ class MediaServerClient(
 
         if (relevant.isEmpty()) return emptyList()
         val groups = concurrently(relevant.flatMap { view -> listOf("Movie", "Episode").filter { view.supports(it) }.map { view to it } }) { (view, type) ->
-            // A movie can reach digital months after cinema. Query candidates, then verify the
-            // actual digital date through Seerr. Episodes use their own air date directly.
-            val start = if (type == "Movie") window.today.minusYears(1) else window.start
+            val dateQuery = if (type == "Episode") "&MinPremiereDate=${window.start}&MaxPremiereDate=${window.today}T23:59:59Z" else ""
             val query = "ParentId=${encodePathSegment(view.id)}&Recursive=true&IncludeItemTypes=$type" +
-                "&SortBy=PremiereDate&SortOrder=Descending&Limit=60&IsMissing=false&IsVirtualUnaired=false" +
-                "&MinPremiereDate=$start&MaxPremiereDate=${window.today}T23:59:59Z" +
+                "&SortBy=DateCreated&SortOrder=Descending&Limit=100&IsMissing=false&IsVirtualUnaired=false" + dateQuery +
                 "&Fields=Overview,Genres,ProviderIds,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&EnableUserData=false"
-            runCatching {
-                val paths = if (connection.kind == ServiceKind.JELLYFIN) {
-                    listOf("Items?UserId=$userId&$query", "Users/$userId/Items?$query")
-                } else listOf("Users/$userId/Items?$query")
-                getItems(connection, paths, preferEpisodeStill = type.equals("Episode", ignoreCase = true))
-            }.getOrNull()
+            // Walk all pages. PremiereDate is theatrical for films and cannot select digital releases.
+            val items = mutableListOf<RemoteLibraryItem>()
+            var offset = 0
+            do {
+                val paths = if (connection.kind == ServiceKind.JELLYFIN)
+                    listOf("Items?UserId=$userId&$query&StartIndex=$offset", "Users/$userId/Items?$query&StartIndex=$offset")
+                else listOf("Users/$userId/Items?$query&StartIndex=$offset")
+                val page = getItems(connection, paths, preferEpisodeStill = type == "Episode")
+                val fresh = page.filter { item -> items.none { it.id == item.id } }
+                items += fresh
+                offset += page.size
+            } while (page.size >= 100 && fresh.isNotEmpty())
+            items.toList()
         }.filterNotNull()
         if (groups.isEmpty()) serviceError(R.string.err_kunne_ikkje_hente_nye_utgjevingar)
-        return groups.flatten().distinctBy(RemoteLibraryItem::id).filter { it.available }
+        val allowed = groups.flatten().distinctBy(RemoteLibraryItem::id).filter { it.available }
+        val parents = allowed.filter { it.mediaType == "Episode" }.mapNotNull { it.seriesId }.distinct()
+            .associateWith { series -> runCatching { seriesTmdbId(connection, series) }.getOrNull() }
+        return allowed.map { if (it.mediaType == "Episode") it.copy(tmdbId = parents[it.seriesId]) else it }
     }
 
     fun setPaused(connection: ServiceConnection, sessionId: String, paused: Boolean) {
@@ -1062,7 +1062,7 @@ class MediaServerClient(
             ServiceKind.EMBY -> userId?.let {
                 listOf("Users/$it/Items/Latest?$query&EnableUserData=true")
             }.orEmpty()
-            ServiceKind.SEERR, ServiceKind.RADARR, ServiceKind.SONARR -> serviceError(R.string.err_medietenaren_ikkje_stotta)
+            ServiceKind.SEERR -> emptyList()
         }
     }
 
@@ -1133,56 +1133,6 @@ class MediaServerClient(
         const val RESUME_ITEM_LIMIT = 12
         const val LIBRARY_PEEK_LIMIT = 14
         const val SEARCH_ITEM_LIMIT = 24
-    }
-}
-
-class QueueServiceClient(
-    private val transport: JsonHttpTransport = HttpTransport(),
-) {
-    fun queue(connection: ServiceConnection): List<RemoteQueueItem> {
-        require(connection.kind == ServiceKind.RADARR || connection.kind == ServiceKind.SONARR)
-        val response = transport.get(
-            EndpointValidator.resolve(
-                connection.baseUrl,
-                "api/v3/queue?page=1&pageSize=20&sortDirection=descending&includeUnknownMovieItems=true&includeUnknownSeriesItems=true",
-            ),
-            headers(connection),
-        )
-        response.requireSuccess(connection.kind)
-        return ServicePayloadParser.queue(response.body, connection.kind)
-    }
-
-    fun feed(connection: ServiceConnection, includeQueue: Boolean = true): QueueServiceFeed {
-        val queue = if (includeQueue) queue(connection) else emptyList()
-        // The calendar powers both "Kjem snart" and the date-based release rail. Keep a finite
-        // history window so an old library title can never reappear as newly available.
-        val now = Instant.now()
-        val windowStart = now.minus(28, ChronoUnit.DAYS)
-        val start = encode(windowStart.toString())
-        val end = encode(now.plus(28, ChronoUnit.DAYS).toString())
-        val options = if (connection.kind == ServiceKind.SONARR) {
-            "&includeSeries=true&includeEpisodeImages=true"
-        } else {
-            ""
-        }
-        val response = transport.get(
-            EndpointValidator.resolve(
-                connection.baseUrl,
-                "api/v3/calendar?start=$start&end=$end&unmonitored=false$options",
-            ),
-            headers(connection),
-        )
-        response.requireSuccess(connection.kind)
-        val releases = ServicePayloadParser.upcoming(response.body, connection.kind, windowStart)
-        return QueueServiceFeed(
-            queue = queue,
-            upcoming = releases.filter { release ->
-                ServicePayloadParser.calendarInstant(release.dateTime)?.let { !it.isBefore(now) } == true
-            },
-            recentReleases = releases.filter { release ->
-                ServicePayloadParser.calendarInstant(release.dateTime)?.let { it.isBefore(now) } == true
-            },
-        )
     }
 }
 
@@ -1320,6 +1270,23 @@ class SeerrServiceClient(
         return ServicePayloadParser.requests(response.body)
     }
 
+    /** All personal request pages are needed to seed a complete calendar. Never use the admin queue. */
+    fun calendarRequests(connection: ServiceConnection, userId: String): List<RemoteRequest> {
+        require(connection.kind == ServiceKind.SEERR && userId.toIntOrNull()?.let { it > 0 } == true)
+        val collected = mutableListOf<RemoteRequest>()
+        var offset = 0
+        do {
+            val response = transport.get(EndpointValidator.resolve(connection.baseUrl,
+                "api/v1/request?take=100&skip=$offset&sort=added&requestedBy=${encode(userId)}"), headers(connection))
+            response.requireSuccess(connection.kind)
+            val page = ServicePayloadParser.requests(response.body)
+            val fresh = page.filter { item -> collected.none { it.id == item.id } }
+            collected += fresh
+            offset += page.size
+        } while (page.size >= 100 && fresh.isNotEmpty())
+        return collected.filter { it.ownerId == userId }
+    }
+
     /** Personal history is paged only on demand; the background follow poll stays bounded. */
     fun requestHistory(connection: ServiceConnection, userId: String, offset: Int = 0): RequestHistoryPage {
         require(connection.kind == ServiceKind.SEERR && connection.sessionCookie)
@@ -1452,7 +1419,6 @@ private fun headers(
     )
     ServiceKind.EMBY -> mapOf("X-Emby-Token" to connection.token)
     ServiceKind.SEERR -> if (connection.sessionCookie) seerrCookieHeaders(connection.token) else mapOf("X-Api-Key" to connection.token)
-    ServiceKind.RADARR, ServiceKind.SONARR -> mapOf("X-Api-Key" to connection.token)
 }
 
 /**

@@ -50,7 +50,7 @@
     <string name="settings_series">%1$s · Seriar</string>
     <string name="settings_movies_note">Nyleg lagde til filmar</string>
     <string name="settings_episodes_note">Nyleg lagde til episodar</string>
-    <string name="settings_upcoming_note">Overvaka utgjevingar frå Radarr og Sonarr</string>
+    <string name="settings_upcoming_note">Personlege premieredatoar frå Seerr</string>
     <string name="settings_updates">Varsel og oppdatering</string>
     <string name="settings_notifications">Bibliotekvarsel</string>
     <string name="settings_notifications_note">For førespurnader du har valt å følgje</string>
@@ -130,8 +130,6 @@
     <string name="welcome_jellyfin">Bibliotek · Quick Connect eller konto</string>
     <string name="welcome_emby">Logg inn med brukarnamn og passord</string>
     <string name="welcome_seerr">Oppdag · logg inn med Jellyfin-konto</string>
-    <string name="welcome_radarr">Filmar, utgjevingar og nedlastingar</string>
-    <string name="welcome_sonarr">Episodar, kalender og nedlastingar</string>
     <string name="action_connect">Kople til</string>
     <string name="welcome_hide_admin">Skjul tenarverktøy</string>
     <string name="welcome_admin">Tenarverktøy for administratorar</string>
@@ -149,7 +147,7 @@
         <item quantity="one">%1$d av %2$d tilkopling brukar HTTP: %3$s. Bruk berre på eit nett du stolar på.</item>
         <item quantity="other">%1$d av %2$d tilkoplingar brukar HTTP: %3$s. Bruk berre på eit nett du stolar på.</item>
     </plurals>
-    <string name="attribution_services">Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby, Overseerr/Jellyseerr, Radarr eller Sonarr. Namna og merka tilhøyrer prosjekta sine eigarar.</string>
+    <string name="attribution_services">Spole er ikkje tilknytt eller godkjend av Jellyfin, Emby eller Seerr. Namna og merka tilhøyrer prosjekta sine eigarar.</string>
     <string name="attribution_tmdb">Plakatar og bakgrunnsbilete for oppdaging kjem frå TMDB. Denne appen brukar TMDB-tenestene, men er ikkje godkjend eller sertifisert av TMDB.</string>
     <string name="attribution_libraries">Bygd med AndroidX, Jetpack Compose, Kotlin, OkHttp og Coil (Apache 2.0). Lokal lyddekoding brukar FFmpeg 6.1.4 (LGPL 2.1 eller seinare); lisenstekstane følgjer appen.</string>
     <string name="crash_title">Spole stoppa uventa sist</string>
@@ -280,4 +278,15 @@
     <string name="connection_active_switched_alternate">Aktiv · bytta til den andre adressa</string>
     <string name="connection_connected_with_warning">Tilkopla · %1$s</string>
     <string name="connection_active_updated_now">Aktiv · oppdatert no</string>
+    <string name="calendar_personal">Seriane og filmane dine, ein dato om gongen.</string>
+    <string name="calendar_follow">Følg i kalenderen</string>
+    <string name="calendar_unfollow">Slutt å følgje</string>
+    <string name="calendar_followed">Følgjer i kalenderen din</string>
+    <string name="calendar_unfollowed">Fjerna frå kalenderen din</string>
+    <string name="calendar_no_dates">Ingen datoar i perioden</string>
+    <string name="calendar_no_dates_hint">Titlar du følgjer utan annonsert premiere dei neste 28 dagane.</string>
+    <string name="calendar_episode_premiere">Episodepremiere</string>
+    <string name="calendar_show_episodes">Vis episodane</string>
+    <string name="calendar_hide_episodes">Skjul episodane</string>
+    <plurals name="calendar_batch"><item quantity="one">%1$d episodar</item><item quantity="other">%1$d episodar</item></plurals>
 </resources>

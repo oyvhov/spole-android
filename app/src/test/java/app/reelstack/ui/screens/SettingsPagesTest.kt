@@ -116,7 +116,7 @@ class SettingsPagesTest {
         node("library-title").performClick()
         rule.runOnIdle {
             assertTrue("FAVOURITES" in options.libraryHubHidden)
-            assertEquals("CONTINUE", options.libraryHubOrder.first())
+            assertEquals("LIBRARY_NEXT", options.libraryHubOrder.first())
             assertTrue(options.showLibraryTitle)
         }
         done()

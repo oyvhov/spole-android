@@ -16,7 +16,7 @@
     <string name="calendar_tomorrow">Tomorrow</string>
     <string name="calendar_source_time">%1$s · %2$s</string>
     <string name="calendar_physical">Physical release</string>
-    <string name="calendar_home_release">Home release</string>
+    <string name="calendar_home_release">Digital premiere</string>
     <plurals name="calendar_releases">
         <item quantity="one">%1$d release</item>
         <item quantity="other">%1$d releases</item>

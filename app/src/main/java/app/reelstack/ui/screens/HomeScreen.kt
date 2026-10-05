@@ -213,8 +213,8 @@ fun HomeScreen(
     val mediaSources = configuredMediaSources.ifEmpty {
         (state.recentMovies + state.recentSeries).map(LibraryMedia::source).distinct()
     }
-    val hasQueueConnection = state.connections.any {
-        it.baseUrl.isNotBlank() && (it.kind == ServiceKind.RADARR || it.kind == ServiceKind.SONARR)
+    val hasCalendarConnection = state.connections.any {
+        it.baseUrl.isNotBlank() && it.kind == ServiceKind.SEERR
     }
     // Recommendations, releases and the calendar arrive with the whole refresh. Until the first
     // one (or the cache) they wait in a skeleton; after that a refresh updates them in place.
@@ -469,17 +469,17 @@ fun HomeScreen(
                             modifier = Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom),
                         )
                         if (state.upcoming.isEmpty()) {
-                            // Only Radarr and Sonarr fill this row. Without them it has nothing to
+                            // Seerr supplies the personal calendar. Without it there is nothing to
                             // wait for, and a 226 dp skeleton used to collapse into one line.
-                            if (feedFirstLoad && hasQueueConnection) {
+                            if (feedFirstLoad && hasCalendarConnection) {
                                 UpcomingSkeleton()
                             } else {
-                                EmptySectionLine(state.upcomingError ?: if (!hasQueueConnection)
+                                EmptySectionLine(state.upcomingError ?: if (!hasCalendarConnection)
                                     stringResource(R.string.home_calendar_disconnected)
                                 else stringResource(R.string.home_upcoming_empty))
                             }
                         } else {
-                            UpcomingRail(state.upcoming, onUpcomingClick)
+                            UpcomingRail(app.reelstack.data.model.calendarHomeItems(state.upcoming), onUpcomingClick)
                             state.upcomingError?.let { EmptySectionLine(it) }
                         }
                     }
@@ -983,7 +983,7 @@ internal fun resumeRailIsWide(format: String?): Boolean = format != "POSTER"
  * The sync writes [UpcomingMedia.dateLabel] once and the snapshot store keeps it, so a label that
  * said "I dag" when it was written still said "I dag" the next morning — which is why the day word
  * left the repository. It belongs here, where the clock is actually read. Anything the label
- * already carries after the separator is an airtime and is kept, so a Sonarr row still reads
+ * already carries after the separator is an airtime and is kept, so an episode row still reads
  * "I morgon · 21:00" rather than losing the time along with the date.
  *
  * A row with no usable timestamp keeps the date it was given; inventing "today" for an unknown

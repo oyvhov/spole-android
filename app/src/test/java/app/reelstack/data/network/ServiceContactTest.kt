@@ -62,15 +62,15 @@ class ServiceContactTest {
     }
 
     @Test fun theConnectionTestNamesTheServiceItCouldNotReach() {
-        val transport = Failing(UnknownHostException("radarr.tunet"))
+        val transport = Failing(UnknownHostException("seerr.tunet"))
         val call = {
             ServiceConnectionTester(transport).test(
-                ServiceConnection(ServiceKind.RADARR, "Radarr", "https://radarr.example", "key"),
+                ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "key"),
             )
         }
         assertEquals(app.reelstack.R.string.err_kontakt_sjekk_adresse, message(call))
-        assertEquals("Radarr", args(call))
-        assertFalse(args(call).contains("radarr.tunet"))
+        assertEquals("Seerr", args(call))
+        assertFalse(args(call).contains("seerr.tunet"))
     }
 
     /** A reverse proxy that answers 200 with an HTML error page must not leak parser text. */
@@ -96,7 +96,7 @@ class ServiceContactTest {
             message { JellyfinAuthenticationClient(transport).authenticate("https://jellyfin.example", "me", "s") },
         )
         val result = ServiceConnectionTester(transport)
-            .test(ServiceConnection(ServiceKind.SONARR, "Sonarr", "https://sonarr.example", "key"))
+            .test(ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "key"))
         assertFalse(result.success)
         assertEquals(app.reelstack.R.string.conn_key_refused, result.message.resId)
     }
@@ -107,7 +107,7 @@ class ServiceContactTest {
             override fun post(url: String, headers: Map<String, String>, jsonBody: String) = error("unused")
         }
         val result = ServiceConnectionTester(transport)
-            .test(ServiceConnection(ServiceKind.RADARR, "Radarr", "https://radarr.example", "key"))
+            .test(ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "key"))
         assertTrue(result.success)
         assertEquals(app.reelstack.R.string.conn_ok_version, result.message.resId)
         assertEquals(listOf<Any>("4.0.0"), result.message.args)

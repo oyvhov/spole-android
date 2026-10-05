@@ -17,8 +17,6 @@ fun ServiceLogo(
         ServiceKind.JELLYFIN -> R.drawable.ic_service_jellyfin
         ServiceKind.EMBY -> R.drawable.ic_service_emby
         ServiceKind.SEERR -> R.drawable.ic_service_seerr
-        ServiceKind.RADARR -> R.drawable.ic_service_radarr
-        ServiceKind.SONARR -> R.drawable.ic_service_sonarr
     }
     Image(
         painter = painterResource(drawable),
