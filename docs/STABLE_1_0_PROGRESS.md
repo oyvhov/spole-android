@@ -16,7 +16,7 @@ funksjonsutvidingar. Kontrollen legg vekt på bygg, relevante regresjonstestar o
 | Tidleg heimlasting | Personlege rader ventar på avklart Seerr-identitet. Verifisert vanleg mediekonto kan vise ordinære bibliotekmetadata medan kontrollen ventar. | Forseinka identitet, mismatch og separat Seerr-svikt. |
 | Offline | Aktiv nettransport blir kontrollert. Cachen bevarer ferdige filmar, men nye data må halde seg under 32 GiB/80 prosent av volumet og etterlate minst 512 MiB ledig. | Nettbyte, plassmangel, pause og gjenopptaking. |
 | Design og språk | Kompakt hero utan kunst, konsekvent arkverktøylinje, språkressursar for foreldreval og verdstema. | Mobil/TV, tre språk og skriftstorleik 2.0. |
-| CI | Einingstestar, lint og bygg på push/PR. Korte smoketestar på éin telefon ved PR; utvalde regresjonstestar for telefon/TV ved manuell køyring før release. Jev er valfri rådgjeving berre på manuelt aktiverte køyringar. | Lokal kontroll og første CI-køyring. |
+| CI | Einingstestar, lint og bygg på branch-push/PR, utan eit ekstra tag-bygg. Korte smoketestar på éin telefon ved PR; utvalde regresjonstestar for telefon/TV ved manuell køyring før release. Jev er valfri rådgjeving berre på manuelt aktiverte køyringar. | Lokal kontroll og første GitHub-køyring består; ingen Jev-kall. |
 
 ## Testresultat
 
@@ -84,8 +84,9 @@ teken vare på før bygging.
 FFmpeg-kjelder er arkiverte saman. Signert oppgradering på review-TV bevarte kontoar og val.
 Kort ekte Jellyfin-/Emby-avspeling viste 1080p AVC og EAC3 5.1 gjennom FFmpeg utan registrerte
 lydavbrot eller droppa bilete i dei observerte prøvene. Offline-integrasjonsprøva består med
-pause/gjenopptaking, avspeling utan tenar og profil-/kontobyte. Offentleg oppdatering er under
-kontroll; endelege resultat ligg i
+pause/gjenopptaking, avspeling utan tenar og profil-/kontobyte. Offentleg oppdatering frå beta4
+gjennom appen består på review-mobilen. Den publiserte beta5 har kontrollert offentleg digest;
+endelege resultat ligg i
 [beta5-verifiseringa](VERIFICATION_v1.0.0-beta5.md).
 
 ### Prov for tryggleiksrettingane
@@ -125,5 +126,5 @@ Vidare oppdeling av skjerm- og ViewModel-ansvar skal skje med regresjonstestar f
 
 Før stabil 1.0 står kort fysisk mobil-/TV-prøve og lengre prøving av undertekstar, nettbyte og
 offlinebruk att. Passordgjenoppretting er gjennomgått i koden; ei prøve med eit ekte vaksenpassord
-står att. CI er kontrollert lokalt; den endra GitHub-workflowen er enno ikkje køyrd på GitHub.
-Beta5 har høgare versjonskode og si eiga verifikasjonsfil, og er ei testutgåve.
+står att. CI er kontrollert lokalt, og den første GitHub-køyringa består.
+Beta5 er publisert med høgare versjonskode og si eiga verifikasjonsfil, og er ei testutgåve.
