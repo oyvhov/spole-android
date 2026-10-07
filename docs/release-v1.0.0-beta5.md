@@ -14,4 +14,4 @@ Same pakkenamn og signatur som tidlegare; produksjonskode 142.
 - Nøktern CI: bygg, lint og einingstestar; korte mobilprøver på PR og utvalde mobil-/TV-regresjonstestar før release. Jev er berre valfri rådgjeving ved manuell aktivering.
 
 Dette er ei testutgåve. Fysisk mobil-/TV-prøve og lengre prøving av nettbrot og offlinebruk står att.
-Sjå [verifiseringa](VERIFICATION_v1.0.0-beta5.md) og [status mot stabil 1.0](STABLE_1_0_PROGRESS.md).
+Sjå [verifiseringa](https://github.com/oyvhov/spole-android/blob/main/docs/VERIFICATION_v1.0.0-beta5.md) og [status mot stabil 1.0](https://github.com/oyvhov/spole-android/blob/main/docs/STABLE_1_0_PROGRESS.md).

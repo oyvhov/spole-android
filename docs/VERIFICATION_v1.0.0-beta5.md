@@ -23,11 +23,16 @@ Test-APK-en vart bygd på nytt for offline-integrasjonsprøva; produksjonskjelda
 | --- | --- |
 | Pakke / versjon | `app.reelstack` / `1.0.0-beta5` / kode `142` |
 | APK-storleik | 11 564 130 byte |
-| APK SHA-256 | `2131fbe2396da14e8b29829fca1907ee013fff7e714426b26106d22430870423` |
+| Kandidat før kjeldefrysing, SHA-256 | `2131fbe2396da14e8b29829fca1907ee013fff7e714426b26106d22430870423` |
 | Signatur SHA-256 | `36fa94f03494f326053bdcc3d7253994950652d282e6db681cc33270b5f51a10` |
 | Android | minimum 26, target 36; ikkje debuggable |
 | FFmpeg-arkiv | 30 790 595 byte; SHA-256 `2b7eeba9705de0fcff66d3a04f71a811d39a9299d70e1f65728a8a8809965b21` |
 | Lokal arkivering | `app/build/release-v1.0.0-beta5/`, med tilhøyrande R8-mapping |
+
+Slutt-APK-en blir pakka etter release-commit fordi Android-byggverktøyet legg commit-ID-en i
+`META-INF/version-control-info.textproto`. Den upakka koden, ressursane og R8-mappinga er like.
+Endeleg APK-digest og kjeldecommit blir førte i `SHA256SUMS.txt` og `SOURCE_COMMIT.txt` før
+opplasting, og i denne rapporten etter publisering.
 
 Den signerte beta5 vart installert med `-r` over kandidaten på review-TV 5564. Kontoar og val
 vart bevarte. Ekte Jellyfin- og Emby-filer viste 1080p AVC-bilete og EAC3 5.1 gjennom den

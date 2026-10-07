@@ -4,6 +4,7 @@ name: Bygg og test
 # 0.15.1 vart tagga og publiserte utan nokon gong å nå main, så CI såg ingenting av dei.
 on:
   push:
+    branches: ['**'] # The branch push already verifies a release; do not repeat it for the tag.
   pull_request:
   workflow_dispatch:
 
