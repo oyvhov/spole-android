@@ -95,6 +95,7 @@ object OfflineDownloadRuntime {
     @Volatile private var database: StandaloneDatabaseProvider? = null
     @Volatile private var cache: SimpleCache? = null
     private val changeCount = kotlinx.coroutines.flow.MutableStateFlow(0)
+    internal const val STOP_REASON_WIFI = 7_403
 
     /** Ticks whenever Media3 reports a job added, changed or removed. */
     val changes: kotlinx.coroutines.flow.StateFlow<Int> = changeCount
@@ -132,6 +133,10 @@ object OfflineDownloadRuntime {
     private fun build(context: Context): DownloadManager {
         val upstream = OkHttpDataSource.Factory(HttpTransport.sharedClient)
         val authenticated = ResolvingDataSource.Factory(upstream) { dataSpec ->
+            if (!offlineNetworkAllowed(context, app.reelstack.data.repository.AppPreferencesRepository(context).wifiOnly)) {
+                throw java.io.IOException("offline network requirements not met")
+            }
+            checkSpace(context)
             val connection = connectionFor(context, dataSpec.uri, dataSpec.key)
                 ?: throw java.io.IOException("offline media route is no longer available")
             // A job keeps the address it was queued on. When Spole has since moved this account to
@@ -140,7 +145,27 @@ object OfflineDownloadRuntime {
             dataSpec.withUri(uri)
                 .withRequestHeaders(MediaPlaybackClient(deviceId = DeviceIdentity.get(context)).headers(connection))
         }
-        return DownloadManager(context, database(context), cache(context), authenticated, Executors.newFixedThreadPool(2)).apply {
+        val bounded = androidx.media3.datasource.DataSource.Factory {
+            object : androidx.media3.datasource.DataSource {
+                private val delegate = authenticated.createDataSource()
+                private var sinceCheck = 0
+                override fun addTransferListener(listener: androidx.media3.datasource.TransferListener) = delegate.addTransferListener(listener)
+                override fun open(spec: androidx.media3.datasource.DataSpec): Long {
+                    val length = delegate.open(spec)
+                    try { checkSpace(context, length.coerceAtLeast(0)) }
+                    catch (failure: Exception) { delegate.close(); throw failure }
+                    return length
+                }
+                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                    if (sinceCheck >= 4 * 1024 * 1024) { checkSpace(context); sinceCheck = 0 }
+                    return delegate.read(buffer, offset, length).also { if (it > 0) sinceCheck += it }
+                }
+                override fun getUri() = delegate.uri
+                override fun getResponseHeaders() = delegate.responseHeaders
+                override fun close() = delegate.close()
+            }
+        }
+        return DownloadManager(context, database(context), cache(context), bounded, Executors.newFixedThreadPool(2)).apply {
             maxParallelDownloads = 1
             minRetryCount = 3
             // Media3 keeps requirements in memory only. Reading the setting here restores it after
@@ -150,13 +175,50 @@ object OfflineDownloadRuntime {
             addListener(object : DownloadManager.Listener {
                 override fun onDownloadChanged(manager: DownloadManager, download: Download, finalException: Exception?) {
                     changeCount.value++
+                    if (download.state == Download.STATE_QUEUED) refreshNetworkPolicy(context, manager)
                 }
                 override fun onDownloadRemoved(manager: DownloadManager, download: Download) {
                     changeCount.value++
                 }
             })
+            val downloadManager = this
+            val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+            connectivity?.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: android.net.Network, capabilities: android.net.NetworkCapabilities) {
+                    refreshNetworkPolicy(context, downloadManager)
+                }
+                override fun onLost(network: android.net.Network) { refreshNetworkPolicy(context, downloadManager) }
+            }, android.os.Handler(applicationLooper))
+            refreshNetworkPolicy(context, this)
         }
     }
+
+    internal fun refreshNetworkPolicy(context: Context, instance: DownloadManager? = manager) {
+        val current = instance ?: return
+        android.os.Handler(current.applicationLooper).post {
+            // A damaged index must not crash the foreground UI; the data source enforces the same policy.
+            runCatching {
+            val allowed = offlineNetworkAllowed(context, app.reelstack.data.repository.AppPreferencesRepository(context).wifiOnly)
+            current.downloadIndex.getDownloads().use { cursor ->
+                while (cursor.moveToNext()) {
+                    val download = cursor.download
+                    if (!allowed && download.stopReason == Download.STOP_REASON_NONE && download.state != Download.STATE_COMPLETED) {
+                        current.setStopReason(download.request.id, STOP_REASON_WIFI)
+                    } else if (allowed && download.stopReason == STOP_REASON_WIFI) current.setStopReason(download.request.id, Download.STOP_REASON_NONE)
+                }
+            }
+            }
+        }
+    }
+
+    private fun checkSpace(context: Context, additional: Long = 0) {
+        val volume = android.os.StatFs(context.filesDir.absolutePath)
+        if (!OfflineSpacePolicy.allows(cache(context).cacheSpace, volume.availableBytes, volume.totalBytes, additional)) {
+            throw java.io.IOException("offline storage budget exceeded")
+        }
+    }
+
+    internal fun hasSpace(context: Context): Boolean = runCatching { checkSpace(context); true }.getOrDefault(false)
 
     private fun connectionFor(context: Context, uri: Uri, cacheKey: String?): ServiceConnection? {
         val candidate = uri.toString()
@@ -180,6 +242,7 @@ class OfflineDownloadRepository(private val context: Context) {
     fun enqueue(request: OfflineDownloadRequest): OfflineRefusal? {
         val refusal = request.candidate.offlineRefusal()
         if (refusal != null) return refusal
+        if (!OfflineDownloadRuntime.hasSpace(appContext)) return OfflineRefusal.STORAGE_LIMIT
         val directUrl = runCatching { safePlaybackUrl(request.connection.baseUrl, request.candidate.directDownloadUrl) }
             .recoverCatching { safePlaybackUrl(request.connection.alternateUrl, request.candidate.directDownloadUrl) }
             .getOrElse { return OfflineRefusal.MISSING_DIRECT_FILE }
@@ -221,17 +284,21 @@ class OfflineDownloadRepository(private val context: Context) {
 
     fun pauseAll() = DownloadService.sendPauseDownloads(appContext, OfflineDownloadService::class.java, false)
     fun resumeAll() = DownloadService.sendResumeDownloads(appContext, OfflineDownloadService::class.java, false)
-    fun onlyWifi(enabled: Boolean) = DownloadService.sendSetRequirements(
+    fun onlyWifi(enabled: Boolean) {
+        DownloadService.sendSetRequirements(
         appContext,
         OfflineDownloadService::class.java,
         offlineRequirements(enabled),
         false,
-    )
+        )
+        OfflineDownloadRuntime.refreshNetworkPolicy(appContext)
+    }
     fun pause(id: String) = DownloadService.sendSetStopReason(
         appContext, OfflineDownloadService::class.java, id, STOP_REASON_USER_PAUSED, false,
     )
     fun resume(id: String) = DownloadService.sendSetStopReason(
-        appContext, OfflineDownloadService::class.java, id, Download.STOP_REASON_NONE, false,
+        appContext, OfflineDownloadService::class.java, id,
+        if (offlineNetworkAllowed(appContext, app.reelstack.data.repository.AppPreferencesRepository(appContext).wifiOnly)) Download.STOP_REASON_NONE else OfflineDownloadRuntime.STOP_REASON_WIFI, false,
     )
     fun retry(id: String): Boolean {
         val request = downloads().firstOrNull { it.request.id == id }?.request ?: return false
@@ -390,7 +457,7 @@ internal fun offlineRebasedUrl(connection: ServiceConnection, url: String): Stri
 }
 
 internal fun offlineRequirements(wifiOnly: Boolean) =
-    Requirements(if (wifiOnly) Requirements.NETWORK_UNMETERED else Requirements.NETWORK)
+    Requirements(Requirements.NETWORK) // Transport type is enforced separately, including unmetered cellular.
 
 private data class OfflineScope(val profile: String, val service: String)
 

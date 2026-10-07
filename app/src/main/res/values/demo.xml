@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="demo_story_odyssey">A soldier follows the stars home through an unknown landscape. A difficult choice awaits at the end of the journey.</string>
+    <string name="demo_story_nordlys">A lighthouse keeper returns to the coast. A letter from the past changes everything he thought he knew about his family.</string>
+    <string name="demo_story_desember">Unexpected snowfall brings old friends together in a cabin. Quiet evenings and Christmas preparations give them a fresh start.</string>
+    <string name="demo_story_huset">An inherited diary leads two siblings back to an abandoned house. Each night, another window lights up.</string>
+    <string name="demo_story_bestilling">A small restaurant gets one last chance when an unexpected guest orders dinner for the whole village.</string>
+    <string name="demo_story_midnatt">The last bus passes the same house three times. One passenger decides to get off.</string>
+    <string name="demo_story_blaatime">A photographer searches for the perfect light along the coast and discovers a community he did not know he missed.</string>
+    <string name="demo_story_vinterveg">A father and daughter set out on a winter journey. A closed mountain pass sends them on an unexpected detour.</string>
+    <string name="demo_story_signalet">A research team discovers a signal beneath the sand on a distant planet. The answer comes from their own future.</string>
+    <string name="demo_story_bordet">Three generations meet for Sunday dinner. The recipes are familiar, but none of them returns home quite the same.</string>
+    <string name="demo_story_severance">Employees have separated their memories of work from life outside. Then the two worlds begin to overlap.</string>
+    <string name="demo_story_kystvakta">A small investigation team follows the trail of a missing ship. Everyone along the coast knows each other, but nobody knows everything.</string>
+    <string name="demo_story_desemberdagar">A family takes over a mountain lodge just before Christmas. Every guest brings a story they did not expect.</string>
+    <string name="demo_story_etasjen">A new employee finds a door missing from the floor plan. Her colleagues insist that the floor does not exist.</string>
+    <string name="demo_story_service">A chef takes over the family restaurant. The chaos in the kitchen is easier to manage than the people around him.</string>
+    <string name="demo_story_spor">An old disappearance resurfaces in the archives. The investigator finds a pattern stretching across generations.</string>
+    <string name="demo_story_leia">A journey along the coast, from busy harbours to small communities where the sea still sets the rhythm of daily life.</string>
+    <string name="demo_story_vinterlys">When the dark season comes, a small hotel opens its doors to travellers and neighbours who need a place to stay.</string>
+    <string name="demo_story_horizon">A crew follows a signal to the edge of known space.</string>
+    <string name="demo_living_room">Living room TV</string>
+    <string name="demo_tablet">Tablet</string>
+</resources>

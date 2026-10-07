@@ -20,7 +20,7 @@ data class OfflineMediaCandidate(
 )
 
 enum class OfflineRefusal {
-    LIVE_TV, DISC_IMAGE, DRM, TRANSCODE_REQUIRED, INCOMPLETE_FILE, UNSUPPORTED_SERVICE, MISSING_DIRECT_FILE,
+    LIVE_TV, DISC_IMAGE, DRM, TRANSCODE_REQUIRED, INCOMPLETE_FILE, UNSUPPORTED_SERVICE, MISSING_DIRECT_FILE, STORAGE_LIMIT,
 }
 
 fun OfflineMediaCandidate.offlineRefusal(): OfflineRefusal? = when {

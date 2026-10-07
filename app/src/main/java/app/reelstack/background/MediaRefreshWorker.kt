@@ -17,6 +17,8 @@ class MediaRefreshWorker(
 ) : CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
         val container = AppContainer(applicationContext)
+        if (!app.reelstack.offline.offlineNetworkAllowed(applicationContext, container.preferencesRepository.wifiOnly)) return giveUpOrRetry()
+        val owner = container.connectionRepository.captureSession()
         val connections = container.connectionRepository.list()
         val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
         if (configured.isEmpty()) return Result.success()
@@ -34,11 +36,12 @@ class MediaRefreshWorker(
                 // The cached snapshot is what Home opens with, so it has to hold the same rows.
                 homePlan = app.reelstack.data.model.HomeFetchPlan(layout,
                     container.homeLibraries(connections)),
+                calendarScope = owner.profileId,
             )
         }.getOrElse { return giveUpOrRetry() }
 
         // A refresh started before sign-out must never publish the previous account's feed.
-        if (isStopped || container.mediaFingerprint(container.connectionRepository.list()) != fingerprint) return Result.success()
+        if (isStopped || !container.connectionRepository.isCurrent(owner) || container.mediaFingerprint(container.connectionRepository.list()) != fingerprint) return Result.success()
         if (snapshot.successfulServices.isNotEmpty() && snapshot.errors.isEmpty()) {
             runCatching {
                 container.mediaSnapshotStore.save(
@@ -78,7 +81,7 @@ object BackgroundRefreshScheduler {
 
     fun schedule(context: Context, wifiOnly: Boolean) {
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
         val request = PeriodicWorkRequestBuilder<MediaRefreshWorker>(30, TimeUnit.MINUTES)
             .setConstraints(constraints)

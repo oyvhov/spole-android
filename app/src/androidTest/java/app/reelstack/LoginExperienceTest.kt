@@ -98,19 +98,26 @@ class LoginExperienceTest {
 
     @Test fun companionLoginIsOptInAndShowsDestinationAndConsent() {
         val value = mutableStateOf(draft(ServiceKind.JELLYFIN))
+        var submitted = 0
         rule.setContent { ReelstackTheme {
-            ConnectionEditorSheet(value.value, true, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+            ConnectionEditorSheet(value.value, true, {}, {}, {}, {}, {}, {}, {}, {}, { submitted++ }, {},
                 onCompanionLoginChange = { enabled, url -> value.value = value.value.copy(alsoConnect = enabled, companionUrl = url) })
         } }
         assertFalse(value.value.alsoConnect)
         rule.onNodeWithText("Adresse til Seerr").assertDoesNotExist()
+        rule.onNodeWithTag("connection-submit").assertDoesNotExist()
         rule.onNodeWithText("Endre").performClick()
         rule.onNodeWithText("Hald fram").performScrollTo().performClick()
         rule.onNodeWithText("Logg inn på Seerr òg").performScrollTo().performClick()
         rule.onNodeWithText("Adresse til Seerr").performScrollTo().performTextInput("https://seerr.example")
         assertTrue(value.value.alsoConnect)
         assertEquals("https://seerr.example", value.value.companionUrl)
-        rule.onNodeWithText("Logg inn på begge").performScrollTo().assertIsDisplayed()
+        val submit = rule.onNodeWithText("Logg inn på begge")
+        val configuration = InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration
+        if ((configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) !=
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) submit.performScrollTo()
+        submit.assertIsDisplayed().performClick()
+        assertEquals(1, submitted)
     }
 
     @Test fun quickConnectCopiesOnlyVisibleCodeNotSecret() {

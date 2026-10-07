@@ -189,4 +189,16 @@ class ProfileViewModelTest {
         assertEquals(1, viewModel.uiState.value.profiles.size)
         assertEquals("", viewModel.uiState.value.profiles[0].id)
     }
+
+    @Test fun `PIN cannot be disabled without verification or from a child profile`() {
+        pinSecurity.setPin("4321")
+        assertFalse(viewModel.clearPinProtection("1111"))
+        assertTrue(pinSecurity.isPinConfigured())
+        connectionRepository.activeProfileId = "child"
+        assertFalse(viewModel.clearPinProtection("4321"))
+        assertTrue(pinSecurity.isPinConfigured())
+        connectionRepository.activeProfileId = ""
+        assertTrue(viewModel.clearPinProtection("4321"))
+        assertFalse(pinSecurity.isPinConfigured())
+    }
 }

@@ -136,7 +136,7 @@ fun KidsHomeScreen(
                         onClick = onRetry,
                         modifier = Modifier.padding(24.dp).heightIn(min = 64.dp)
                     ) {
-                        Text("Prøv igjen")
+                        Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_retry))
                     }
                 }
             }
@@ -231,7 +231,7 @@ fun KidsHomeScreen(
 
         if (favourites.isNotEmpty()) {
             fullWidthItem(columns) {
-                KidsSectionTitle("Favorittar", accent = Color(world.glow))
+                KidsSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_filter_favourites), accent = Color(world.glow))
             }
             fullWidthItem(columns) {
                 LazyRow(
@@ -248,7 +248,7 @@ fun KidsHomeScreen(
 
         if (suggestions.isNotEmpty()) {
             fullWidthItem(columns) {
-                KidsSectionTitle("Forslag", accent = Color(world.glow))
+                KidsSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_suggestions), accent = Color(world.glow))
             }
             fullWidthItem(columns) {
                 LazyRow(

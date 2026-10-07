@@ -684,6 +684,21 @@ class JellyfinPlayerTest {
         waitFor { snapshot(scenario).error?.contains("Kontoen er endra") == true }
         assertFalse(snapshot(scenario).playing)
     }
+    @Test fun backgroundPlayerStaysRevokedAfterSwitchingAwayAndBack() = exercise { scenario, _, connections ->
+        playing(scenario)
+        scenario.moveToState(Lifecycle.State.CREATED)
+        try {
+            connections.activeProfileId = "synthetic-child"
+            connections.activeProfileId = ""
+            scenario.moveToState(Lifecycle.State.RESUMED)
+            waitFor { snapshot(scenario).error?.contains("Kontoen er endra") == true }
+            scenario.onActivity { it.model.toggle() }
+            assertFalse(snapshot(scenario).playing)
+            assertEquals("Spole", snapshot(scenario).title)
+            assertEquals("", snapshot(scenario).itemId)
+            scenario.onActivity { assertEquals(0, it.model.player.mediaItemCount) }
+        } finally { connections.activeProfileId = "" }
+    }
     @Test fun resumeRequiresChoiceAndUsesTheSavedPosition() = exercise(resumeMs=8000, autoResume=false) { scenario,server,_ ->
         waitFor { snapshot(scenario).awaitingResume }
         assertFalse(snapshot(scenario).playing)

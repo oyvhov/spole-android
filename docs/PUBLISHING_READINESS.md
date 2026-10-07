@@ -1,5 +1,8 @@
 # Publiseringsklar? — gjennomgang av Spole 0.13.3
 
+Gjeldande 1.0-krav og resultat ligg i [Spole stabil 1.0](STABLE_1_0_PROGRESS.md).
+Rapporten under er historisk og stadfestar ikkje at dagens bygg er klart for stabil publisering.
+
 Gjennomgang av `C:/JellyBin/reelstack-android` slik koden stod ved commit `1669b5e`: versionCode 38,
 versionName 0.13.3, pakke `app.reelstack`, minSdk 26, targetSdk 36.
 

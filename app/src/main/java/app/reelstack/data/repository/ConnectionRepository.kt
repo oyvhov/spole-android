@@ -25,13 +25,61 @@ class ConnectionRepository(
     private val revision = kotlinx.coroutines.flow.MutableStateFlow(0L)
     val changes = revision.asStateFlow()
 
+    private val session = kotlinx.coroutines.flow.MutableStateFlow(
+        SessionScope(activeProfileId, MediaSnapshotStore.fingerprint(list()), 0),
+    )
+    val sessionScope = session.asStateFlow()
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "session_generation" || key == "active_profile_id" || key?.endsWith(".user_id") == true || key?.endsWith(".url") == true) {
+            synchronized(tokenCache) { tokenCache.clear() }
+            captureSession()
+        }
+    }
+    init { preferences.registerOnSharedPreferenceChangeListener(preferenceListener) }
+
+    @Synchronized fun captureSession(): SessionScope {
+        val profile = activeProfileId
+        val fingerprint = MediaSnapshotStore.fingerprint(list(profile))
+        val previous = session.value
+        val persistedGeneration = preferences.getLong("session_generation", 0)
+        if (previous.profileId != profile || previous.accountFingerprint != fingerprint) {
+            session.value = SessionScope(profile, fingerprint, maxOf(previous.generation + 1, persistedGeneration))
+        } else if (persistedGeneration > previous.generation) {
+            session.value = previous.copy(generation = persistedGeneration)
+        }
+        return session.value
+    }
+    @Synchronized private fun signalSessionChange() {
+        synchronized(tokenCache) { tokenCache.clear() }
+        preferences.edit { putLong("session_generation", maxOf(preferences.getLong("session_generation", 0), session.value.generation) + 1) }
+        captureSession()
+    }
+    fun isCurrent(owner: SessionScope): Boolean = captureSession() == owner
+
+    /** Keep synchronous local writes within the checked generation, including a profile switch race. */
+    @Synchronized fun <T> withCurrentSession(owner: SessionScope, write: () -> T): T? =
+        if (isCurrent(owner)) write() else null
+
+    /** Verify once and write linked accounts as a single guarded operation to the captured profile. */
+    @Synchronized fun saveIfCurrent(owner: SessionScope, connections: List<ServiceConnection>): Boolean {
+        return saveAndCaptureIfCurrent(owner, connections) != null
+    }
+
+    /** The returned generation belongs to this commit, even if another login follows it. */
+    @Synchronized fun saveAndCaptureIfCurrent(owner: SessionScope, connections: List<ServiceConnection>): SessionScope? {
+        if (!isCurrent(owner)) return null
+        connections.forEach { save(it, owner.profileId) }
+        return captureSession()
+    }
+
     var activeProfileId: String
         get() = preferences.getString("active_profile_id", "").orEmpty()
-        set(value) {
+        set(value) = synchronized(this) {
             val sanitized = value.trim()
             if (activeProfileId == sanitized) return
             preferences.edit { putString("active_profile_id", sanitized) }
             revision.value++
+            signalSessionChange()
         }
 
     val isKidMode: Boolean get() = activeProfileId.isNotBlank()
@@ -93,7 +141,7 @@ class ConnectionRepository(
         )
     }
 
-    fun save(connection: ServiceConnection, profileId: String = activeProfileId) {
+    @Synchronized fun save(connection: ServiceConnection, profileId: String = activeProfileId) {
         val prefix = prefixFor(connection.kind, profileId)
         val normalized = EndpointValidatorFacade.normalize(connection.baseUrl)
         val alternate = connection.alternateUrl.takeIf(String::isNotBlank)
@@ -115,9 +163,10 @@ class ConnectionRepository(
             tokenCache[profileId to connection.kind] = connection.token
         }
         revision.value++
+        if (profileId == activeProfileId) signalSessionChange()
     }
 
-    fun delete(kind: ServiceKind, profileId: String = activeProfileId) {
+    @Synchronized fun delete(kind: ServiceKind, profileId: String = activeProfileId) {
         val prefix = prefixFor(kind, profileId)
         preferences.edit {
             remove("$prefix.name")
@@ -132,6 +181,7 @@ class ConnectionRepository(
             tokenCache.remove(profileId to kind)
         }
         revision.value++
+        if (profileId == activeProfileId) signalSessionChange()
     }
 
     /**

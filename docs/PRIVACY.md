@@ -1,6 +1,6 @@
 # Privacy in Spole
 
-Last updated: September 16, 2026. Applies to Spole 0.17.0-beta09 and newer.
+Last updated: October 7, 2026. Describes the implementation being prepared after 1.0.0-beta4.
 
 Spole is a client for media services that you operate yourself. The developer has no
 central server, account system or database for Spole users. There is nowhere for us
@@ -10,31 +10,38 @@ to collect your media data, and we do not do so.
 
 - Spole sends media requests only to the server addresses that you provide.
 - Nothing is sent to the developer. There is no analytics, tracking or advertising.
-- Credentials are stored encrypted on the device and do not leave it through Spole.
-- In addition to your own servers, the app can contact TMDB for artwork and GitHub for the update catalogue. Those services receive the request and your IP address, not your identity or account credentials.
+- Credentials are stored encrypted and sent only to the service being authenticated.
+- The app can contact TMDB for artwork and GitHub for recommendations and updates. Optional Emby Connect sign-in also contacts Emby Connect.
 
 ## What is stored on the device
 
 | Data | Location | Encrypted |
 | --- | --- | --- |
 | Access tokens and Seerr sessions | App-private storage | Yes, with Android Keystore (AES-GCM) |
-| Server addresses, user IDs and preferences | App-private storage | No; these are not secrets |
+| Server addresses, user IDs and preferences | App-private storage | No |
 | A random device ID | App-private storage | No |
 | Cached titles and artwork URLs | App-private SQLite database | No |
+| Projected calendar and release metadata | Account-scoped app-private SQLite cache | No; used for up to six hours |
+| Local playback progress awaiting reconciliation | Account-scoped app-private storage | No |
+| Download catalogue and private media labels | App-private storage | Yes, Android Keystore |
+| Downloaded original media files | App-private Media3 cache | No |
 | Crash report, if created | App-private file | No; addresses and tokens are removed |
 
-App-private storage is readable only by Spole. Access tokens are also excluded from
+App-private storage is protected by Android’s app sandbox. Access tokens are also excluded from
 cloud backup and device transfer so they do not follow an installation to a new device.
 
 **Passwords are never stored.** They are sent once to the service you sign in to; Spole
 then keeps the access token returned by that service.
 
-**Playback sessions, queues and the activity feed are not written to disk.** Only titles
-and artwork URLs are cached so that Home has something to display while the first refresh runs.
+Live playback sessions, shared queues and the activity feed are not saved in the dashboard cache.
+Titles, artwork URLs and selected metadata are cached. A separate local progress journal lets
+Spole reconcile playback after a network failure. Artwork authentication uses request headers;
+the upgrade clears older dashboard rows that contained Emby token URLs.
+Expired projected metadata is discarded on reads and removed from disk on the next cache write.
 
 ## What is sent, and where
 
-**To your own servers** (Jellyfin, Emby, Seerr, Radarr and Sonarr): your sign-in,
+**To your own servers** (Jellyfin, Emby and Seerr): your sign-in,
 search terms, requests and a device ID so the server can show "Spole on Android" in
 its device list. What these servers log depends on your own configuration.
 
@@ -42,8 +49,14 @@ its device list. What these servers log depends on your own configuration.
 the selected Jellyfin or Emby server. The item ID, playback session, position,
 pause/stop events and selected tracks are sent back to that same server under your
 account so it can save progress. Android receives title and playback state through a
-local media session for system and headset controls. Video is buffered in memory; the
-player does not store a downloaded movie file or a permanent playback log.
+local media session for system and headset controls. Streaming buffers are temporary.
+When you explicitly choose an offline download, Spole stores the original media file privately
+until you remove it or sign out of its account. The local progress journal is used for
+reconciliation, including progress from offline playback.
+
+**To `connect.emby.media`:** only when you choose Emby Connect sign-in. Your Emby Connect
+credentials are sent to Emby Connect to obtain the linked server list. Media playback then
+uses the selected Emby server. This flow is optional; local server sign-in remains available.
 
 **To `image.tmdb.org`:** poster and backdrop URLs that the app requests for artwork.
 TMDB sees your IP address and the image requested. No account information or access
@@ -70,8 +83,9 @@ Emby so they can distinguish this installation from other devices in their devic
 It is not a hardware ID. It is random, unique to the installation and removed when the
 app is uninstalled.
 
-Installations from before 0.14.0 keep the ID they already had so an update does not
-create a duplicate device entry on the server.
+Existing saved device IDs are preserved. A connected legacy installation without a saved ID
+can migrate its previous Android ID once, so an update does not create a duplicate server entry.
+Fresh installations use a random ID.
 
 ## Crash reports
 

@@ -112,7 +112,7 @@ class MediaSyncRepository(
     private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
     private val seerrReleaseClient: SeerrReleaseClient = SeerrReleaseClient(),
     private val calendarClient: app.reelstack.data.network.PersonalCalendarClient = app.reelstack.data.network.PersonalCalendarClient(),
-    private val calendarSelectionProvider: (ServiceConnection, String) -> app.reelstack.data.model.CalendarSelection = { _, _ -> app.reelstack.data.model.CalendarSelection() },
+    private val calendarSelectionProvider: (String, ServiceConnection, String) -> app.reelstack.data.model.CalendarSelection = { _, _, _ -> app.reelstack.data.model.CalendarSelection() },
     private val clockMillis: () -> Long = { System.nanoTime() / 1_000_000 },
     private val routeProbe: (ServiceConnection) -> Boolean = { answersQuickly(it) },
 ) {
@@ -181,7 +181,9 @@ class MediaSyncRepository(
         val mediaJobs = configured.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }
             .associate { connection -> connection.kind to async(kotlinx.coroutines.Dispatchers.IO) {
                 val profile = profileJobs[connection.kind]?.await()
-                val seerr = profileJobs[ServiceKind.SEERR]?.takeIf { it.isCompleted }?.await()
+                val seerrJob = profileJobs[ServiceKind.SEERR]
+                val identityReady = seerrJob == null || seerrJob.isCompleted
+                val seerr = seerrJob?.takeIf { it.isCompleted }?.await()
                 val ownAccess = ViewerAccess(true, buildMap {
                     profile?.let { put(connection.kind, it) }
                     seerr?.let { put(ServiceKind.SEERR, it) }
@@ -189,11 +191,15 @@ class MediaSyncRepository(
                 val result = fetchWithFailover(connection, ownAccess, homePlan)
                 val feed = (result.first.getOrNull() as? ServicePayload.Media)?.feed
                 if (profile != null && feed != null) {
+                    val personalReady = identityReady && ownAccess.ownMediaUser(connection.kind) != null
                     fun mapped(items: List<RemoteLibraryItem>, cap: Int) =
                         homeRowForServer(items.map { libraryMedia(it, connection.kind) }, cap)
-                    onLibraryReady(LibraryFeedUpdate(connection.kind, mapped(feed.resume, HOME_RESUME_PER_SERVER),
-                        mapped(feed.nextUp, HOME_ROW_PER_SERVER), mapped(feed.recentMovies, HOME_ROW_PER_SERVER),
-                        mapped(feed.recentSeries, HOME_ROW_PER_SERVER), mapped(feed.favourites, HOME_ROW_PER_SERVER)))
+                    // Ordinary library metadata may arrive early; personal rows require the resolved link.
+                    if (personalReady || !identityReady && !profile.isAdmin) onLibraryReady(LibraryFeedUpdate(connection.kind,
+                        if (personalReady) mapped(feed.resume, HOME_RESUME_PER_SERVER) else emptyList(),
+                        if (personalReady) mapped(feed.nextUp, HOME_ROW_PER_SERVER) else emptyList(),
+                        mapped(feed.recentMovies, HOME_ROW_PER_SERVER), mapped(feed.recentSeries, HOME_ROW_PER_SERVER),
+                        if (personalReady) mapped(feed.favourites, HOME_ROW_PER_SERVER) else emptyList()))
                 }
                 result
             } }
@@ -256,7 +262,7 @@ class MediaSyncRepository(
                     catch (e: Exception) { requestsFailed = true; seerr?.requests.orEmpty() }
                 val requestSeeds = personalRequests.filter { it.ownerId == user && it.mediaStatus !in setOf(5, 6, 7) && it.status !in setOf(3, 4) }
                     .mapNotNull { item -> item.remoteId?.let { app.reelstack.data.model.CalendarTitle(it, item.mediaType, item.title.orEmpty(), item.artworkUrl) } }
-                val selection = calendarSelection.titles + calendarSelectionProvider(connection, user).titles
+                val selection = calendarSelection.titles + calendarSelectionProvider(calendarScope, connection, user).titles
                 calendarHidden = selection.filter { it.hidden }.mapTo(mutableSetOf()) { it.key }
                 Result.success(calendarClient.feed(connection, user, librarySeeds + requestSeeds + selection,
                     calendarScope, forceCalendar).let { it.copy(incomplete = it.incomplete || requestsFailed) })

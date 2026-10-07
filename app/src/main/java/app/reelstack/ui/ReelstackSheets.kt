@@ -1513,8 +1513,8 @@ internal fun ConnectionEditorSheet(
     }
     // The remote must land somewhere on every step. Dropping focus here used to leave the
     // second step looking dead until something happened to be pressed.
-    LaunchedEffect(credentialsStep, discovered.isNotEmpty()) {
-        if (!television || configured) return@LaunchedEffect
+    LaunchedEffect(credentialsStep, reauthenticating, discovered.isNotEmpty()) {
+        if (!television || (configured && !reauthenticating)) return@LaunchedEffect
         androidx.compose.runtime.withFrameNanos { }
         // Without a server to offer, the toolbar keeps the first focus it already takes on remote
         // entry; one press down reaches the address field without the cursor running behind it.
@@ -1820,7 +1820,7 @@ internal fun ConnectionEditorSheet(
         }
         }
     }
-    if (television && credentialsStep && !configured) {
+    if (television && credentialsStep && (!configured || reauthenticating)) {
         val accountStep = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) &&
             draft.authMode == ConnectionAuthMode.ACCOUNT
         Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp, vertical = 12.dp)) {

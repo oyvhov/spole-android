@@ -117,7 +117,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         val preferredAudio = intent.getIntExtra(AUDIO_INDEX, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
         val preferredSubtitle = intent.getIntExtra(SUBTITLE_INDEX, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
         val preferredSource = intent.getStringExtra(SOURCE_ID)?.takeIf { it.isNotBlank() && it.length <= 128 }
-        val kids = intent.getBooleanExtra(KIDS_MODE, false)
+        val kids = (application as ReelstackApplication).container.connectionRepository.isKidMode
         model.kidsMode = kids
         // Covers Back during the first frame too; the screen's menu handler takes precedence later.
         onBackPressedDispatcher.addCallback(this) { if (!model.back()) finish() }
@@ -135,7 +135,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                     kids = kids,
                     onExternal = {
                         // Handing the stream to another app is the back door out of kids mode.
-                        if (kids) return@PlayerScreen
+                        if (kids || (application as ReelstackApplication).container.connectionRepository.isKidMode) return@PlayerScreen
                         model.background()
                         model.fallbackUrl()?.let { url -> NativeClientLauncher.open(this, url, NativeClientLauncher.resolve(this, url).packageName) }
                     }, onResume = model::resume, onRotate = {

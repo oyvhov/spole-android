@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0-beta5 - avgrensa minnebruk og tryggare profilbyte
+
+- Kalender og filmutgjevingar bruker fire arbeidarar og projisert metadata med avgrensa minne- og diskcache.
+- Emby-bilete og Jellyfin-socket bruker autentiseringsheader. Oppgraderinga ryddar eldre bilettoken frå dashboard-cache.
+- Kontobyte tilbakekallar gamle jobbar og spelarar. Deaktivering av PIN krev rett kode, og sein innlogging kan ikkje skrive til ein annan profil.
+- Wi-Fi-valet kontrollerer nettransporten og tillèt kabel. Nye nedlastingar har eit lagringsbudsjett og bevarer ledig plass.
+- Kompakt bibliotekhero når kunst manglar, jamn lukkeknapp i ark og språkressursar for foreldreval og barnemeny.
+- Demo-omtalar, sesongtekst, datoar og framdrift følgjer språkvalet på nynorsk, bokmål og engelsk.
+- TV viser innloggingsknappen òg når ein endrar ei eksisterande tilkopling.
+- Nøktern CI: bygg, lint og einingstestar; kort telefonkontroll på PR og utvalde telefon-/TV-regresjonstestar manuelt før release. Jev er valfri rådgjeving berre ved manuelt aktiverte køyringar.
+
+Verifisering og attståande releaseprøver: [status for stabil 1.0](docs/STABLE_1_0_PROGRESS.md).
+
 ## 1.0.0-beta4 - finn tenarane på nettet og enklare innlogging med fjernkontroll
 
 - Første skjerm leitar etter Jellyfin- og Emby-tenarar på det lokale nettet og viser dei som store kort. På TV får første tenar fokus, og ein vald Jellyfin-tenar opnar «Godkjenn på mobilen» utan at noko må skrivast.

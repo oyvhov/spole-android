@@ -8,10 +8,10 @@ Brukaren sine mediedata, personlege sjåarvanar, tenar-adresser og tilgangstoken
 
 ## Avgjerd
 1. **Inga telemetri eller sporing:** Spole samlar ikkje inn bruksdata, krasjloggar eller analysedata til nokon sentral tenar. Det finst ingen Spole-skykonto eller sporingstie-in.
-2. **Direkte samband:** Kommunikasjon skjer utelukkande direkte mellom klienten og dei lokale eller private tenarane brukaren sjølv konfigurerer (Jellyfin, Emby, Seerr, Radarr, Sonarr).
-3. **Trygg lokal nøkkellagring:** Tilgangstoken og passord blir lagra kryptert lokalt på eininga via Android Keystore og `EncryptedSharedPreferences` (`EncryptedTokenStore`). Klartekstpassord blir aldri lagra permanent etter fullført innlogging.
+2. **Direkte mediesamband:** Jellyfin, Emby og Seerr blir kontakta direkte. Valfri Emby Connect-innlogging, TMDB-kunst og GitHub-tilrådingar/oppdateringar er dokumenterte i `PRIVACY.md`.
+3. **Trygg lokal nøkkellagring:** Tilgangstoken, sessionar og offline-katalog blir krypterte med AES-GCM og Android Keystore gjennom `EncryptedTokenStore`. Passord blir ikkje lagra. Metadata og mediefiler ligg i app-private lager; bilettoken blir sende som header og skal ikkje lagrast i metadata-adresser.
 4. **Offentlege oppdateringskallar:** Sjekk etter app-oppdateringar skjer direkte mot GitHub si opne API utan token eller personidentifikatorar.
 
 ## Konsekvensar
-- Fullt personvern for sluttbrukaren i eige heimenettverk.
+- Tenaren eig tilgangsrettane; Spole avgrensar lokale data og handlingar til aktiv konto og profil.
 - Dersom feilsøking krev loggar, må brukaren sjølv hente ut eller inspisere lokale feilmeldingar.

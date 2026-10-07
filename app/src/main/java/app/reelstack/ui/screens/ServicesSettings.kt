@@ -30,11 +30,11 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
     val child = state.profiles.firstOrNull { it.id == editingChild && it.isKid }
     if (child != null) {
         androidx.activity.compose.BackHandler { editingChild = null }
-        SettingsActionRow("Tilbake til tenestene dine", "", "child-settings-back", SpoleIcons.ArrowBack) { editingChild = null }
+        SettingsActionRow(stringResource(R.string.services_back), "", "child-settings-back", SpoleIcons.ArrowBack) { editingChild = null }
         ChildProfileSettings(child, state.pinConfigured, onRequestPinSetup, onDisablePin)
         return
     }
-    SettingsGroup("Bibliotek og avspeling", "Kontoen din hos kvar teneste")
+    SettingsGroup(stringResource(R.string.services_media_title), stringResource(R.string.services_media_hint))
     listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY).filter { state.canEditConnection(it) }.forEach { kind ->
         val connection = state.connections.firstOrNull { it.kind == kind } ?: return@forEach
         SettingsServiceRow(
@@ -46,18 +46,18 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
         ) { onConnection(kind) }
     }
     val children = state.profiles.filter { it.isKid }
-    SettingsGroup("Barneprofilar", "Trykk på eit barn for å velje utsjånad og avspeling.")
+    SettingsGroup(stringResource(R.string.services_children_title), stringResource(R.string.services_children_hint))
     if (children.isNotEmpty()) {
         children.forEach { profile ->
             val options = rememberKidsPreferences(profile.id)
             val services = state.allProfileConnections[profile.id].orEmpty()
                 .filter { it.token.isNotBlank() }.joinToString { it.kind.displayName }
-            SettingsActionRow(profile.name, "${options.world.title} · ${services.ifBlank { "Treng innlogging" }}",
+            SettingsActionRow(profile.name, "${options.world.localizedTitle()} · ${services.ifBlank { stringResource(R.string.services_needs_login) }}",
                 "child-settings-${profile.id}", SpoleIcons.Kids) { editingChild = profile.id }
         }
     }
-    SettingsActionRow("Legg til barneprofil", "Kople til barnet sin eigen Jellyfin- eller Emby-konto", "settings-add-child", SpoleIcons.Kids, onAddProfile)
-    SettingsGroup("Oppdaging og ønskeliste", "Finn og førespør nye filmar og seriar")
+    SettingsActionRow(stringResource(R.string.services_add_child), stringResource(R.string.services_add_child_hint), "settings-add-child", SpoleIcons.Kids, onAddProfile)
+    SettingsGroup(stringResource(R.string.services_discovery_title), stringResource(R.string.services_discovery_hint))
     state.connections.firstOrNull { it.kind == ServiceKind.SEERR }?.takeIf { state.canEditConnection(it.kind) }?.let {
         SettingsServiceRow(
             connection = it,
@@ -67,7 +67,7 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
             tag = "tv-service-SEERR",
         ) { onConnection(it.kind) }
     }
-    SettingsGroup("Denne eininga")
+    SettingsGroup(stringResource(R.string.services_device))
     SignOutAllSetting(state, onSignOutAll)
     PrivacyCard(state)
 }
@@ -88,27 +88,27 @@ private fun ChildProfileSettings(
         WorldLandscape(options.world, Modifier.size(88.dp))
         Column(Modifier.weight(1f)) {
             Text(profile.name, style = MaterialTheme.typography.headlineMedium)
-            Text("Barneprofil · eigne val på denne eininga", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.child_options_note), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    SettingsGroup("Utsjånad", "Vel ei verd som passar barnet.")
+    SettingsGroup(stringResource(R.string.child_appearance_title), stringResource(R.string.child_appearance_hint))
     KidsWorldPicker(options, { change(options.copy(world = it)) })
-    SettingsToggleRow("Barnet kan endre utsjånad", "Vis «Mi verd» i barneprofilen. Avspeling og kontoval er berre for vaksne.",
+    SettingsToggleRow(stringResource(R.string.child_allow_appearance), stringResource(R.string.child_allow_appearance_hint),
         options.allowAppearance, "child-allow-appearance") { change(options.copy(allowAppearance = it)) }
-    SettingsToggleRow("Vis landskap og pynt", "Eit roleg bakteppe rundt historiene", options.decorations,
+    SettingsToggleRow(stringResource(R.string.child_decorations), stringResource(R.string.child_decorations_hint), options.decorations,
         "child-decorations") { change(options.copy(decorations = it)) }
-    SettingsToggleRow("Biblioteksnamn under bilete", "Tilrådd på mobil og nettbrett – gjer biblioteket tydeleg",
+    SettingsToggleRow(stringResource(R.string.child_library_titles), stringResource(R.string.child_library_titles_hint),
         options.libraryTitlesBelow, "child-library-titles-below") { change(options.copy(libraryTitlesBelow = it)) }
-    SettingsToggleRow("Rolege overgangar", "Slå av rørsle og fokusanimasjonar", options.reduceMotion,
+    SettingsToggleRow(stringResource(R.string.child_reduce_motion), stringResource(R.string.child_reduce_motion_hint), options.reduceMotion,
         "child-reduce-motion") { change(options.copy(reduceMotion = it)) }
-    SettingsGroup("Avspeling", "Desse vala gjeld berre ${profile.name}.")
-    SettingsToggleRow("Spel neste episode automatisk", "Av som standard. Barnet kan alltid starte neste episode sjølv.",
+    SettingsGroup(stringResource(R.string.child_playback_title), stringResource(R.string.child_playback_hint, profile.name))
+    SettingsToggleRow(stringResource(R.string.child_autoplay), stringResource(R.string.child_autoplay_hint),
         options.autoplay, "child-autoplay") { change(options.copy(autoplay = it)) }
     if (options.autoplay) {
-        SettingsChoiceRow("Pause etter", "${options.episodeLimit} episodar", "child-episode-limit") {
+        SettingsChoiceRow(stringResource(R.string.child_pause_after), androidx.compose.ui.res.pluralStringResource(R.plurals.child_pause_episodes, options.episodeLimit, options.episodeLimit), "child-episode-limit") {
             change(options.copy(episodeLimit = options.episodeLimit % 3 + 1))
         }
-        Text("Etter grensa ventar neste episode på eit trykk. Dette er ikkje ei dagleg tidsgrense.",
+        Text(stringResource(R.string.child_pause_note),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     SettingsToggleRow(
@@ -131,15 +131,15 @@ private fun ChildProfileSettings(
     }
     val languages = listOf(SubtitleLanguage.NORWEGIAN, SubtitleLanguage.ENGLISH, SubtitleLanguage.SERVER, SubtitleLanguage.NONE)
     val languageTitle = when (options.subtitles) {
-        SubtitleLanguage.NORWEGIAN -> "Norsk"
-        SubtitleLanguage.ENGLISH -> "Engelsk"
-        SubtitleLanguage.NONE -> "Ingen undertekstar"
-        else -> "Tenaren sitt val"
+        SubtitleLanguage.NORWEGIAN -> stringResource(R.string.child_subtitle_norwegian)
+        SubtitleLanguage.ENGLISH -> stringResource(R.string.child_subtitle_english)
+        SubtitleLanguage.NONE -> stringResource(R.string.child_subtitle_none)
+        else -> stringResource(R.string.child_subtitle_server)
     }
-    SettingsChoiceRow("Undertekstar", languageTitle, "child-subtitles") {
+    SettingsChoiceRow(stringResource(R.string.child_subtitles), languageTitle, "child-subtitles") {
         change(options.copy(subtitles = languages[(languages.indexOf(options.subtitles) + 1) % languages.size]))
     }
-    SettingsGroup("Innhald og tilgang")
+    SettingsGroup(stringResource(R.string.child_access_title))
     var confirmDisablePin by rememberSaveable { mutableStateOf(false) }
     SettingsToggleRow(
         stringResource(R.string.kids_pin_required_title),
@@ -166,9 +166,9 @@ private fun ChildProfileSettings(
             },
         )
     }
-    Text("Bibliotek og aldersgrenser blir styrte av barnet sin eigen konto i Jellyfin eller Emby. Spole viser innhaldet den kontoen har tilgang til.",
+    Text(stringResource(R.string.child_access_note),
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Text("PIN-koden vernar vegen tilbake til vaksenprofilen. Endringane her påverkar ikkje kontoane eller innstillingane til andre barn.",
+    Text(stringResource(R.string.child_pin_note),
         modifier = Modifier.padding(top = 8.dp, bottom = 24.dp), style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

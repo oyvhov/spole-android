@@ -45,7 +45,8 @@ data class CachedMediaSnapshot(
  * replayed from disk. Only artwork-and-title rows are kept.
  */
 class MediaSnapshotStore(context: Context) {
-    private val dao = CacheDatabase.get(context).cacheDao()
+    private val database = CacheDatabase.get(context)
+    private val dao = database.cacheDao()
     val changes = kotlinx.coroutines.flow.MutableStateFlow(0L)
 
     fun save(snapshot: MediaSyncSnapshot, fingerprint: String) {
@@ -108,6 +109,7 @@ class MediaSnapshotStore(context: Context) {
         runCatching {
             dao.clearRows()
             dao.clearMeta()
+            database.catalogueMetadataDao().clear()
         }
     }
 

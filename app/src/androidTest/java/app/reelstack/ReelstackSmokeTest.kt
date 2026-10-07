@@ -1,6 +1,7 @@
 package app.reelstack
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -21,9 +22,29 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.ExternalResource
+import androidx.test.platform.app.InstrumentationRegistry
+import app.reelstack.data.model.HomeSection
+import app.reelstack.data.model.ServiceKind
 
 class ReelstackSmokeTest {
-    @get:Rule
+    // The persistent test AVD may contain a previous suite's loopback account or hidden rows.
+    // Prepare only this debug fixture, before the activity creates its ViewModel.
+    @get:Rule(order = 0)
+    val fixture = object : ExternalResource() {
+        override fun before() {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val container = (instrumentation.targetContext.applicationContext as ReelstackApplication).container
+            instrumentation.runOnMainSync {
+                container.preferencesRepository.onboardingCompleted = false
+                container.preferencesRepository.visibleHomeSections = HomeSection.entries.toSet()
+                container.connectionRepository.activeProfileId = ""
+                ServiceKind.entries.forEach(container.connectionRepository::delete)
+            }
+        }
+    }
+
+    @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Before
@@ -45,9 +66,12 @@ class ReelstackSmokeTest {
     @Test
     fun homeScreenShowsCoreMediaState() {
         composeRule.onNodeWithText("Spole").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-feed").performScrollToNode(hasText("Spelar no"))
         composeRule.onNodeWithText("Spelar no").assertIsDisplayed()
         composeRule.onNodeWithText("Førehandsvising").assertDoesNotExist()
-        composeRule.onAllNodesWithText("Severance")[0].assertIsDisplayed()
+        composeRule.onNodeWithTag("home-feed").performScrollToNode(hasTestTag("resume-card-resume-severance"))
+        composeRule.onNodeWithTag("resume-card-resume-severance").assertIsDisplayed()
+        composeRule.onNodeWithTag("resume-card-resume-severance").assert(hasText("Severance"))
     }
 
     @Test
@@ -55,8 +79,9 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithTag("home-feed").performScrollToNode(hasText("Kalender"))
         composeRule.onNodeWithText("Kalender").performScrollTo().assertIsDisplayed().performClick()
 
-        composeRule.onNodeWithText("Filmar heime og nye episodar")
-            .assertIsDisplayed()
+        composeRule.onNodeWithTag("calendar").assertIsDisplayed()
+        composeRule.onNodeWithText(composeRule.activity.getString(R.string.calendar_personal)).assertIsDisplayed()
+        composeRule.onNodeWithTag("calendar-day-0").assertIsDisplayed()
     }
 
     @Test

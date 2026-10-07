@@ -9,9 +9,10 @@ Ein familie deler ofte éin TV i stova. Barn skal ha eit enkelt, trygt og morosa
 ## Avgjerd
 1. **Full dataisolasjon mellom profilar:**
    - Kvar profil (hovudkonto og barnekontoar) har sine eigne, heilt separate tilgangstoken og innstillingar i `ConnectionRepository`.
-   - Ved profilbyte blir alt minne og cache for førre profil nullstilt momentant, slik at vakseninnhald aldri ligg att i minnet.
+   - `SessionScope` bind skjermar, arbeid og spelarar til profil, kontofingeravtrykk og generasjon. Byte bort og tilbake tilbakekallar også tidlegare arbeid. Gamle skjermtilstandar og avspelingskjelder skal tømmast; privat offline-lagring blir bevart for eigarprofilen.
+   - Innlogging lagrar mot ein fanga profil gjennom ei kontrollert samla skriving. Foreldre-PIN må stadfestast før vanleg deaktivering; gjenoppretting krev verifisert vaksenkonto og uendra session.
 2. **Kryptografisk herda PIN med PBKDF2-HMAC-SHA256:**
-   - Retur frå barnemodus krev ein 4-sifra foreldre-PIN.
+   - Retur frå barnemodus krev den konfigurerte 4-sifra foreldre-PIN-en. PIN-vernet er valfritt og skal ikkje forvekslast med Android-skjermfesting.
    - For å motstå rå makt (brute-force) på dei berre 10 000 moglege kombinasjonane, nyttar Spole `PBKDF2WithHmacSHA256` med 100 000 iterasjonar og unikt 16-byte salt per lagring. V2 lagrar kostnaden med posten: ein gyldig eldre V2-PIN på 10 000 iterasjonar blir re-hasha til gjeldande kostnad etter vellukka kontroll, utan å bryte rollback til eldre V2-bygg.
    - Versjonert format gjer at eldre SHA-256-kodar automatisk og transparent blir migrerte ved første godkjende innlogging.
 3. **Feil-lukka (fail-closed) tilgangskontroll:**

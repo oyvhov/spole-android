@@ -54,8 +54,8 @@
     <string name="settings_updates">Varsel og oppdatering</string>
     <string name="settings_notifications">Bibliotekvarsel</string>
     <string name="settings_notifications_note">For førespurnader du har valt å følgje</string>
-    <string name="settings_wifi">Synkroniser berre på Wi-Fi</string>
-    <string name="settings_wifi_note">Bakgrunnsoppdatering på Wi-Fi</string>
+    <string name="settings_wifi">Berre Wi-Fi eller kabel</string>
+    <string name="settings_wifi_note">Bakgrunnsoppdatering og nedlastingar ventar på mobildata</string>
     <string name="notice_wifi_policy_updated">Wi-Fi-valet er endra</string>
     <string name="settings_about">Om appen</string>
     <string name="image_cache_clear">Tøm biletbuffer</string>

@@ -25,7 +25,9 @@ object DeviceIdentity {
             .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
         preferences.getString(KEY, null)?.takeIf(String::isNotBlank)?.let { return it }
 
-        val identity = legacyIdentity(context) ?: UUID.randomUUID().toString()
+        val existingConnections = context.getSharedPreferences("reelstack_connections", Context.MODE_PRIVATE)
+            .all.any { (key, value) -> key.endsWith(".url") && value is String && value.isNotBlank() }
+        val identity = (if (existingConnections) legacyIdentity(context) else null) ?: UUID.randomUUID().toString()
         preferences.edit { putString(KEY, identity) }
         return identity
     }

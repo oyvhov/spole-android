@@ -19,7 +19,7 @@
     <string name="offline_summary_paused">%1$d paused</string>
     <string name="offline_summary_size">%1$s stored privately in Spole</string>
     <string name="offline_summary_empty">No local files yet</string>
-    <string name="offline_wifi">Wi-Fi only</string>
+    <string name="offline_wifi">Wi-Fi or Ethernet only</string>
     <string name="offline_wifi_note">Downloads wait while you are using mobile data.</string>
     <string name="offline_empty_title">Nothing downloaded</string>
     <string name="offline_empty_note">Open the details for a movie, series or episode on your phone, then choose download there.</string>

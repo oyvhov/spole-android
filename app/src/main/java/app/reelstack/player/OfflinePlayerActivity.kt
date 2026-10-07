@@ -100,6 +100,8 @@ class OfflinePlayerActivity : app.reelstack.localization.LocalizedActivity() {
         }
     }
 
+    override fun onResume() { super.onResume(); if (::model.isInitialized) model.foreground() }
+
     override fun onStop() {
         if (::model.isInitialized && !isChangingConfigurations) model.background()
         super.onStop()
@@ -138,6 +140,7 @@ class OfflinePlayerActivity : app.reelstack.localization.LocalizedActivity() {
 }
 
 private class OfflinePlayerModel(private val container: app.reelstack.AppContainer) : ViewModel() {
+    private val owner = container.connectionRepository.captureSession()
     private val mutable = MutableStateFlow(PlayerScreenState())
     val state = mutable.asStateFlow()
     private var source: OfflinePlaybackSource? = null
@@ -170,6 +173,7 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    if (!ensureSession()) return
                     if (localAudioFallback.tryEnable(error)) {
                         // A platform decoder that claimed the track and then failed: hand the same
                         // local file to the bundled decoder, from the same position.
@@ -192,6 +196,9 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
 
     init {
         viewModelScope.launch {
+            container.connectionRepository.sessionScope.collect { if (it != owner) ensureSession() }
+        }
+        viewModelScope.launch {
             while (isActive) {
                 if (source != null) mutable.update { current ->
                     current.copy(positionMs = player.currentPosition.coerceAtLeast(0),
@@ -203,12 +210,13 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
     }
 
     fun open(downloadId: String) {
+        if (!ensureSession()) return
         viewModelScope.launch {
             val activeProfile = container.connectionRepository.activeProfileId
             val resolved = withContext(Dispatchers.IO) { container.offlineDownloads.playbackSource(activeProfile, downloadId) }
             // The profile may have changed while the local database was read. Refuse rather than
             // briefly opening an adult file after a switch to a child profile.
-            if (resolved == null || activeProfile != container.connectionRepository.activeProfileId) {
+            if (resolved == null || !container.connectionRepository.isCurrent(owner)) {
                 mutable.update { it.copy(busy = false, error = appString(R.string.offline_playback_unavailable)) }
                 return@launch
             }
@@ -236,6 +244,7 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
     }
 
     fun toggle() {
+        if (!ensureSession()) return
         if (player.playbackState == Player.STATE_ENDED) {
             player.seekTo(0)
             player.play()
@@ -243,11 +252,13 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
     }
 
     fun seek(positionMs: Long) {
+        if (!ensureSession()) return
         player.seekTo(positionMs.coerceIn(0, state.value.durationMs.coerceAtLeast(0)))
         mutable.update { it.copy(positionMs = player.currentPosition.coerceAtLeast(0), ended = false) }
     }
 
     fun retry() = source?.let { open(it.id) }
+    fun foreground() { ensureSession() }
 
     fun background() {
         player.pause()
@@ -255,6 +266,7 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
     }
 
     private fun record(completed: Boolean) {
+        if (!container.connectionRepository.isCurrent(owner)) return
         val offline = source ?: return
         val connection = container.connectionRepository.list().firstOrNull {
             it.kind == offline.service && it.token.isNotBlank() && offlineServiceHash(it) == offline.serviceScope
@@ -270,6 +282,14 @@ private class OfflinePlayerModel(private val container: app.reelstack.AppContain
 
     private fun appString(@androidx.annotation.StringRes id: Int): String =
         app.reelstack.localization.AppLanguages.wrap(container.appContext).getString(id)
+
+    private fun ensureSession(): Boolean {
+        if (container.connectionRepository.isCurrent(owner)) return true
+        source = null
+        player.stop(); player.clearMediaItems()
+        mutable.value = PlayerScreenState(busy = false, error = appString(R.string.offline_playback_unavailable))
+        return false
+    }
 
     override fun onCleared() {
         record(completed = player.playbackState == Player.STATE_ENDED)

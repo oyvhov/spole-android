@@ -6,11 +6,7 @@ import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.*
 import java.security.MessageDigest
 import java.time.Clock
@@ -47,12 +43,11 @@ data class LibraryReleaseCandidate(val item: RemoteLibraryItem, val source: Serv
 class SeerrReleaseClient(
     private val transport: JsonHttpTransport = HttpTransport(),
     private val clock: Clock = Clock.systemDefaultZone(),
+    metadataStore: CatalogueMetadataStore? = null,
 ) {
     private data class Cache(val scope: String, val at: Long, val value: ReleaseCatalogue)
     private var cache: Cache? = null
-    private data class Detail(val at: Long, val payload: String)
-    private val details = linkedMapOf<String, Detail>()
-    private var detailScope = ""
+    private val details = ProjectedMetadataCache(store = metadataStore)
 
     suspend fun feed(connection: ServiceConnection, library: List<LibraryReleaseCandidate>): ReleaseCatalogue = supervisorScope {
         require(connection.kind == ServiceKind.SEERR)
@@ -70,23 +65,16 @@ class SeerrReleaseClient(
         val headers = if (connection.sessionCookie) seerrCookieHeaders(connection.token) else mapOf("X-Api-Key" to connection.token)
         val viewer = MessageDigest.getInstance("SHA-256").digest(
             "${connection.identity}|${connection.userId}|${connection.token}".toByteArray()).joinToString("") { "%02x".format(it) }
-        synchronized(details) { if (viewer != detailScope) { details.clear(); detailScope = viewer } }
+        details.select(viewer)
         fun get(path: String): String {
-            synchronized(details) { details[path] }?.takeIf { clock.millis() - it.at in 0 until 6 * 60 * 60_000 }
-                ?.let { return it.payload }
+            details.get(viewer, path, clock.millis())?.let { return it }
             val response = transport.get(EndpointValidator.resolve(connection.baseUrl, "api/v1/$path"), headers)
-            if (response.statusCode in setOf(401, 403)) synchronized(details) { details.clear(); detailScope = "" }
+            if (response.statusCode in setOf(401, 403)) details.clear(viewer)
             check(response.statusCode in 200..299) { "release dates: Seerr answered ${response.statusCode}" }
-            Json.parseToJsonElement(response.body).jsonObject
-            synchronized(details) { if (detailScope == viewer) {
-                details[path] = Detail(clock.millis(), response.body)
-                while (details.size > 2000) details.remove(details.keys.first())
-            } }
-            return response.body
+            return details.put(viewer, path, clock.millis(), response.body)
         }
-        val limit = Semaphore(if (transport.supportsConcurrentCalls) 4 else 1)
-        val results = candidates.map { candidate -> async(Dispatchers.IO) {
-            limit.withPermit { safeResult {
+        val results = boundedMap(candidates, if (transport.supportsConcurrentCalls) 4 else 1) { candidate ->
+            safeResult {
                 val item = candidate.item
                 seerrReleases(get("movie/${item.tmdbId}"), "movie", window).filter { window.recent(it.dateTime) }.map { release ->
                     release.copy(id = item.id, source = candidate.source, title = item.title, subtitle = item.subtitle,
@@ -94,8 +82,8 @@ class SeerrReleaseClient(
                         overview = item.overview ?: release.overview,
                         facts = release.facts + LocalizedText(R.string.release_in_library))
                 }
-            } }
-        } }.awaitAll()
+            }
+        }
         val all = results.flatMap { it.getOrDefault(emptyList()) }.distinctBy { it.id }
         val result = ReleaseCatalogue(
             upcoming = all.filter { window.upcoming(it.dateTime) }.sortedBy { it.dateTime },

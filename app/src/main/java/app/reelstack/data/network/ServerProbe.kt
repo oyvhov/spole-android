@@ -14,6 +14,17 @@ data class PublicServerInfo(
     val id: String,
     val name: String,
     val baseUrl: String,
+    val version: String = "",
+) {
+    val capabilities: ServerCapabilities get() = ServerCapabilities(kind, version)
+}
+
+/** Version is diagnostic evidence. Optional features remain unknown until their routes answer. */
+data class ServerCapabilities(
+    val kind: DiscoveredServerKind,
+    val version: String,
+    val quickConnectEnabled: Boolean? = null,
+    val authenticatedNotifications: Boolean? = null,
 )
 
 /**
@@ -28,7 +39,7 @@ internal fun parsePublicServerInfo(baseUrl: String, body: String): PublicServerI
     val product = text("ProductName").orEmpty().lowercase()
     val kind = if ("jellyfin" in product) DiscoveredServerKind.JELLYFIN else DiscoveredServerKind.EMBY
     val name = text("ServerName")?.takeIf { it.isNotEmpty() } ?: baseUrl
-    return PublicServerInfo(kind, id, name, baseUrl)
+    return PublicServerInfo(kind, id, name, baseUrl, text("Version").orEmpty())
 }
 
 /**

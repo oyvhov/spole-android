@@ -153,9 +153,9 @@ internal fun KidsWorldPicker(options: KidsPreferences, onChange: (KidsWorld) -> 
                         .testTag("kids-world-${world.name}")) {
                         WorldLandscape(world, Modifier.fillMaxWidth().height(100.dp))
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(world.title, Modifier.weight(1f), color = Color.White,
+                            Text(world.localizedTitle(), Modifier.weight(1f), color = Color.White,
                                 style = MaterialTheme.typography.titleMedium)
-                            if (world == options.world) Icon(SpoleIcons.DoneCircle, "Valt", tint = MaterialTheme.colorScheme.primary,
+                            if (world == options.world) Icon(SpoleIcons.DoneCircle, androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_world_selected), tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp))
                         }
                     }
@@ -164,3 +164,13 @@ internal fun KidsWorldPicker(options: KidsPreferences, onChange: (KidsWorld) -> 
         }
     }
 }
+
+@Composable
+internal fun KidsWorld.localizedTitle(): String = androidx.compose.ui.res.stringResource(when (this) {
+    KidsWorld.SPACE -> app.reelstack.R.string.kids_world_space
+    KidsWorld.OCEAN -> app.reelstack.R.string.kids_world_ocean
+    KidsWorld.FOREST -> app.reelstack.R.string.kids_world_forest
+    KidsWorld.AURORA -> app.reelstack.R.string.kids_world_aurora
+    KidsWorld.SUNSET -> app.reelstack.R.string.kids_world_sunset
+    KidsWorld.CINEMA -> app.reelstack.R.string.kids_world_cinema
+})

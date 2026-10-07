@@ -19,6 +19,7 @@ import app.reelstack.ui.ReelstackUiState
  * directly without changing [app.reelstack.ui.screens.HomeScreen].
  */
 data class HomeUiState(
+    val sessionScope: app.reelstack.data.repository.SessionScope? = null,
     val activeSheet: AppSheet? = null,
     val connections: List<ServiceConnection> = emptyList(),
     val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
@@ -51,6 +52,7 @@ data class HomeUiState(
 
 /** Transitional adapter while the remaining screen state still belongs to the root ViewModel. */
 fun ReelstackUiState.toHomeUiState(): HomeUiState = HomeUiState(
+    sessionScope = sessionScope,
     activeSheet = activeSheet,
     connections = connections,
     accounts = accounts,

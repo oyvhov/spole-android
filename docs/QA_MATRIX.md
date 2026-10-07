@@ -1,5 +1,12 @@
 # Spole — testmatrise og oppstart av veikartet
 
+## Gjeldande kontroll mot stabil 1.0
+
+Den aktive statusen ligg i [Spole stabil 1.0](STABLE_1_0_PROGRESS.md). Tabellen og tala nedanfor
+er historikk frå september 2026. TV-flata og nynorsk/bokmål/engelsk er no bygde; fysisk
+tilgjengekontroll og full releaseakseptanse må framleis dokumenterast mot det aktuelle bygget.
+Frå beta3 brukar kalenderen Seerr, ikkje direkte Radarr-/Sonarr-klientar.
+
 Oppretta 8. september, oppdatert 9. september 2026. Første dokumentasjonsrunde brukte 0.15.1 / 43, commit `265321c`. Nattrunden implementerer appfunksjonar i **0.16.0-alpha01 / 44**. [Gjeldande veikart](../ROADMAP.md).
 
 ## Nyaste oppfølging — minimerbar sidemeny, alpha04 / 47

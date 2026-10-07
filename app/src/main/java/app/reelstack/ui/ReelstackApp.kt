@@ -123,6 +123,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val homeState by viewModel.homeUiState.collectAsStateWithLifecycle()
     val discoverState by viewModel.discoverUiState.collectAsStateWithLifecycle()
+    // A retained projection can be a frame behind the root after an account change.
+    if (homeState.sessionScope != state.sessionScope || discoverState.sessionScope != state.sessionScope) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { }
+        return
+    }
     val applicationContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     if (state.signingOut) {
         BackHandler { }

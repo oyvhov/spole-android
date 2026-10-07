@@ -5,9 +5,10 @@ name: Bygg og test
 on:
   push:
   pull_request:
-  schedule:
-    - cron: '0 4 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 # A second push to the same branch makes the first run irrelevant.
 concurrency:
@@ -44,11 +45,36 @@ jobs:
       - name: Sjekk språkressursar
         run: python3 scripts/check-translations.py
 
-      - name: Einingstestar og lint
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug
+      - name: Einingstestar, lint og bygg
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
 
-      - name: Byggkontroll
-        run: ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
+      # Optional advice on an explicitly enabled manual run. Ordinary CI never calls Jev.
+      # Never send PR data or expose a key to a PR.
+      - name: Rådgjevande Jev-kontroll av testfeil
+        if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.JEV_ENABLED == 'true'
+        continue-on-error: true
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          JEV_ENABLED: ${{ vars.JEV_ENABLED }}
+        shell: bash
+        run: |
+          jev_args=()
+          if [[ "$JEV_ENABLED" == 'true' && -n "$TYPESAFE_API_KEY" ]]; then
+            jev_args+=(--live)
+          fi
+          python3 scripts/jev-review.py --junit app/build/test-results/testDebugUnitTest \
+            --max-calls 10 --github-summary "${jev_args[@]}"
+
+      - name: Lagre Jev-rapport
+        if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.JEV_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jev-rapport
+          path: |
+            app/build/jev-review/report.md
+            app/build/jev-review/report.json
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Bygg usignert release for lokal signering
         if: github.event_name == 'workflow_dispatch'
@@ -74,9 +100,14 @@ jobs:
           retention-days: 14
 
   instrumentation-tests:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    runs-on: macos-13
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        surface: ${{ fromJSON(github.event_name == 'pull_request' && '["phone"]' || '["phone", "tv"]') }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -88,13 +119,35 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
       - name: Gjer wrapperen køyrbar
         run: chmod +x ./gradlew
+      - name: Aktiver KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       - name: Run Android Instrumented Tests on Isolated Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          target: google_apis
+          api-level: 36
+          target: ${{ matrix.surface == 'tv' && 'google-tv' || 'google_apis' }}
+          profile: ${{ matrix.surface == 'tv' && 'tv_1080p' || 'pixel_7' }}
           arch: x86_64
           force-avd-creation: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim
-          script: ./gradlew --no-daemon connectedDebugAndroidTest
-
+          script: |
+            if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
+              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.ReelstackSmokeTest,app.reelstack.SheetInteractionTest,app.reelstack.LoginExperienceTest'
+            elif [[ '${{ matrix.surface }}' == 'tv' ]]; then
+              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.LoginExperienceTest,app.reelstack.ProfileSessionBoundaryTest,app.reelstack.TvNavigationIntegrationTest,app.reelstack.WatchNextTest,app.reelstack.JellyfinPlayerTest#accountReplacementStopsOldPlayer,app.reelstack.JellyfinPlayerTest#backgroundPlayerStaysRevokedAfterSwitchingAwayAndBack'
+            else
+              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.ReelstackSmokeTest,app.reelstack.SheetInteractionTest,app.reelstack.LoginExperienceTest,app.reelstack.LinkedLoginTest,app.reelstack.ProfileSessionBoundaryTest,app.reelstack.RequestHistoryFlowTest,app.reelstack.OfflineDownloadsUiTest,app.reelstack.OfflinePlaybackIntegrationTest'
+            fi
+      - name: Lagre Android-testresultat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.surface }}-36
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 14

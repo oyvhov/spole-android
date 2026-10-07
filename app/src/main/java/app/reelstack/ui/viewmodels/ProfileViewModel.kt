@@ -57,9 +57,17 @@ class ProfileViewModel(
     )
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch { connectionRepository.changes.collect { loadProfiles() } }
+    }
+
+    // The composition root owns this instance rather than a separate ViewModelStore.
+    fun close() { viewModelScope.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
+
     fun loadProfiles() {
         val profiles = connectionRepository.listProfiles()
-        val allConnections = profiles.associate { it.id to connectionRepository.list(it.id) }
+        val allConnections = if (connectionRepository.isKidMode) emptyMap()
+            else profiles.associate { it.id to connectionRepository.list(it.id) }
         _uiState.update {
             it.copy(
                 profiles = profiles,
@@ -99,7 +107,7 @@ class ProfileViewModel(
         switchProfileNow(profile.id, onSwitchSuccess)
     }
 
-    fun switchProfileNow(profileId: String, onSwitchSuccess: (profileId: String) -> Unit) {
+    private fun switchProfileNow(profileId: String, onSwitchSuccess: (profileId: String) -> Unit) {
         connectionRepository.activeProfileId = profileId
         _uiState.update {
             it.copy(
@@ -121,6 +129,7 @@ class ProfileViewModel(
         onSetupComplete: () -> Unit = {},
     ) {
         if (isSetup) {
+            if (connectionRepository.isKidMode || pinSecurity.isPinConfigured()) return
             pinSecurity.setPin(pin)
             _uiState.update { it.copy(pinConfigured = true, pinError = null, pinLockoutSeconds = 0) }
             if (switchAfterSetup) switchProfileNow(targetProfileId, onSwitchSuccess)
@@ -158,49 +167,17 @@ class ProfileViewModel(
         }
     }
 
-    fun clearPinProtection() {
+    fun clearPinProtection(pin: String): Boolean {
+        if (connectionRepository.isKidMode) return false
+        val result = pinSecurity.verifyPin(pin)
+        if (result !is PinResult.Success) {
+            _uiState.update { it.copy(pinError = appContext.getString(R.string.profile_wrong_pin),
+                pinLockoutSeconds = pinSecurity.remainingLockoutSeconds()) }
+            return false
+        }
         pinSecurity.clearPin()
         _uiState.update { it.copy(pinConfigured = false, pinError = null, pinLockoutSeconds = 0) }
-    }
-
-    fun recoverPinWithPassword(
-        password: String,
-        targetProfileId: String,
-        onSwitchSuccess: (profileId: String) -> Unit,
-    ) {
-        val primaryServer = connectionRepository.list("").firstOrNull {
-            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
-                it.token.isNotBlank() && it.userId.isNotBlank()
-        }
-        if (primaryServer == null) {
-            _uiState.update {
-                it.copy(pinError = "Vaksenkontoen må vere tilkopla for å nullstille koden.")
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            val success = withContext(ioDispatcher) {
-                runCatching {
-                    val authentication = when (primaryServer.kind) {
-                        ServiceKind.JELLYFIN -> jellyfinAuthClient.authenticate(primaryServer.baseUrl, primaryServer.name, password)
-                        ServiceKind.EMBY -> embyAuthClient.authenticate(primaryServer.baseUrl, primaryServer.name, password)
-                        else -> error("Ikkje-støtta teneste")
-                    }
-                    authentication.userId == primaryServer.userId
-                }.getOrDefault(false)
-            }
-
-            if (success) {
-                pinSecurity.clearPin()
-                _uiState.update { it.copy(pinConfigured = false, pinError = null, pinLockoutSeconds = 0) }
-                switchProfileNow(targetProfileId, onSwitchSuccess)
-            } else {
-                _uiState.update {
-                    it.copy(pinError = appContext.getString(R.string.err_feil_brukarnamn_eller_passord))
-                }
-            }
-        }
+        return true
     }
 
     fun openAddProfileSheet(availableServers: List<ServiceConnection>) {
@@ -226,7 +203,8 @@ class ProfileViewModel(
         userId: String?,
         onSwitchSuccess: (profileId: String) -> Unit,
     ) {
-        if (username.isBlank()) return
+        if (username.isBlank() || connectionRepository.isKidMode) return
+        val owner = connectionRepository.captureSession()
         viewModelScope.launch {
             _uiState.update { it.copy(loadingPublicUsers = true, addProfileError = null) }
             val authResult = withContext(ioDispatcher) {
@@ -251,7 +229,8 @@ class ProfileViewModel(
                 return@launch
             }
 
-            val finalUserId = userId ?: auth.userId
+            if (!connectionRepository.isCurrent(owner)) return@launch
+            val finalUserId = auth.userId
             val finalAvatarUrl = avatarUrl ?: "${serverConnection.baseUrl.trimEnd('/')}/Users/$finalUserId/Images/Primary"
             val kidConnection = serverConnection.copy(
                 token = auth.accessToken,
@@ -267,6 +246,7 @@ class ProfileViewModel(
     }
 
     fun deleteKidProfile(profile: UserProfile) {
+        if (connectionRepository.isKidMode) return
         connectionRepository.deleteProfile(profile.id)
         loadProfiles()
     }

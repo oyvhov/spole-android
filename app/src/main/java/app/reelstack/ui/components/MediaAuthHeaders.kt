@@ -34,7 +34,7 @@ internal object MediaAuthHeaders {
         val connection = (context.applicationContext as? ReelstackApplication)
             ?.container?.connectionRepository?.get(source) ?: return null
         if (connection.token.isBlank()) return null
-        if (!url.startsWith("${connection.baseUrl.trimEnd('/')}/")) return null
+        if (!app.reelstack.data.network.artworkBelongsTo(connection.baseUrl, url)) return null
 
         val key = Key(source, connection.baseUrl, connection.token)
         cached?.let { (cachedKey, headers) -> if (cachedKey == key) return headers }

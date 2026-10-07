@@ -4,8 +4,6 @@ import app.reelstack.R
 import app.reelstack.data.model.*
 import app.reelstack.localization.LocalizedText
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.*
 import java.time.Clock
 import java.time.LocalDate
@@ -23,10 +21,9 @@ class CalendarAccessException : java.io.IOException("Calendar session is no long
 class PersonalCalendarClient(
     private val transport: JsonHttpTransport = HttpTransport(),
     private val clock: Clock = Clock.systemDefaultZone(),
+    metadataStore: CatalogueMetadataStore? = null,
 ) {
-    private data class Cached(val at: Long, val payload: String)
-    private val cache = linkedMapOf<String, Cached>()
-    private var currentScope = ""
+    private val cache = ProjectedMetadataCache(store = metadataStore)
 
     suspend fun feed(connection: ServiceConnection, userId: String, candidates: List<CalendarTitle>,
         scopeSalt: String = "", force: Boolean = false): PersonalCalendarFeed = supervisorScope {
@@ -34,39 +31,28 @@ class PersonalCalendarClient(
         val scope = MessageDigest.getInstance("SHA-256").digest(
             "${connection.identity}|$userId|${connection.token}|$scopeSalt".toByteArray()
         ).joinToString("") { "%02x".format(it) }
-        synchronized(cache) { if (currentScope != scope) { cache.clear(); currentScope = scope } }
+        cache.select(scope)
         val headers = if (connection.sessionCookie) seerrCookieHeaders(connection.token) else mapOf("X-Api-Key" to connection.token)
         val today = LocalDate.now(clock)
         val incomplete = java.util.concurrent.atomic.AtomicBoolean(false)
         fun get(path: String): JsonObject {
-            val key = "$scope:$path"
-            val cached = synchronized(cache) { cache[key] }?.takeIf { !force && clock.millis() - it.at in 0 until 6 * 60 * 60_000 }
-            val body = cached?.payload ?: transport.get(EndpointValidator.resolve(connection.baseUrl, "api/v1/$path"), headers).let { response ->
+            val body = (if (force) null else cache.get(scope, path, clock.millis())) ?: transport.get(EndpointValidator.resolve(connection.baseUrl, "api/v1/$path"), headers).let { response ->
                 if (response.statusCode in setOf(401, 403)) {
-                    synchronized(cache) { cache.clear(); currentScope = "" }; throw CalendarAccessException()
+                    cache.clear(scope); throw CalendarAccessException()
                 }
                 check(response.statusCode in 200..299) { "Calendar metadata unavailable" }
-                Json.parseToJsonElement(response.body).jsonObject
-                synchronized(cache) {
-                    if (currentScope == scope) {
-                        cache[key] = Cached(clock.millis(), response.body)
-                        while (cache.size > 2000) cache.remove(cache.keys.first())
-                    }
-                }
-                response.body
+                cache.put(scope, path, clock.millis(), response.body)
             }
             return Json.parseToJsonElement(body).jsonObject
         }
         val candidatesByKey = candidates.filter { it.tmdbId > 0 && it.mediaType in setOf("movie", "tv") }.groupBy { it.key }
         val selected = candidatesByKey.values.mapNotNull { entries -> entries.firstOrNull()?.takeUnless { entries.any(CalendarTitle::hidden) } }
-        val permits = Semaphore(if (transport.supportsConcurrentCalls) 4 else 1)
-        val results = selected.map { title -> async(Dispatchers.IO) {
-            permits.withPermit {
+        val results = boundedMap(selected, if (transport.supportsConcurrentCalls) 4 else 1) { title ->
                 try {
                     val root = get("${title.mediaType}/${title.tmdbId}")
                     check(root.number("id") == title.tmdbId) { "Calendar metadata identity does not match" }
                     // Blocked metadata cannot leak back through an earlier personal follow.
-                    if (((root["mediaInfo"] as? JsonObject)?.get("status") as? JsonPrimitive)?.intOrNull == 6) return@withPermit emptyList<RemoteUpcomingItem>() to null
+                    if (((root["mediaInfo"] as? JsonObject)?.get("status") as? JsonPrimitive)?.intOrNull == 6) return@boundedMap emptyList<RemoteUpcomingItem>() to null
                     val display = title.copy(title = root.text("name") ?: root.text("title") ?: title.title,
                         artworkUrl = art(root.text("posterPath")) ?: title.artworkUrl)
                     val items = if (title.mediaType == "movie") {
@@ -99,8 +85,7 @@ class PersonalCalendarClient(
                 } catch (e: CancellationException) { throw e }
                 catch (e: CalendarAccessException) { throw e }
                 catch (e: Exception) { incomplete.set(true); emptyList<RemoteUpcomingItem>() to title }
-            }
-        } }.awaitAll()
+        }
         PersonalCalendarFeed(results.flatMap { it.first }.distinctBy { it.id }.sortedBy { it.dateTime },
             results.mapNotNull { it.second }, incomplete.get())
     }

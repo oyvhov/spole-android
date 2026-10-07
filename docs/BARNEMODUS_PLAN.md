@@ -1,5 +1,16 @@
 # Barnemodus · arbeidsplan
 
+## Gjeldande kjerne mot stabil 1.0 · 7. oktober 2026
+
+Barnet sin eigen Jellyfin-/Emby-konto eig innhaldsrettane. PIN er valfri og vernar vegen tilbake
+til vaksenprofilen; deaktivering krev rett kode eller stadfesta vaksenpassord. Profil- og kontobyte
+tilbakekallar gamle jobbar og spelarar. Foreldreval, verdstema og barnemeny skal følgje språkvalet.
+
+Leggetid er ei lokal familierutine. Daglege skjermtidskvotar og skjermfesting er seinare arbeid,
+og dei eldre krava om obligatorisk PIN eller kioskvern er ikkje release-portar for 1.0.
+Verifisering og attståande prøver ligg i [status for stabil 1.0](STABLE_1_0_PROGRESS.md).
+Statushakar nedanfor blir berre endra når dei konkrete akseptansekrava er prøvde.
+
 ## Ny retning · 19. september 2026
 
 Brukaren har bede om ei full omarbeiding for **5–10 år**, særleg på TV. Denne retninga
@@ -88,7 +99,7 @@ Dette er den viktigaste forenklinga i planen. Ikkje legg admin-kall inn att.
 | BM-9 | Verdsromlaget | ◐ Stjernehimmel og tom tilstand | BM-6 |
 | BM-10 | Nettverksinnstramming | ☐ Ikkje starta | BM-5 |
 | BM-11 | Skjermfesting | ☐ Ikkje starta | BM-4 |
-| BM-12 | Tid og leggjetid | ◐ Leggjetid er koda, ikkje einingstesta | BM-8 |
+| BM-12 | Tid og leggjetid | ◐ Lokal leggetid har einingstestar; fysisk spelarprøve står att | BM-8 |
 | BM-13 | TV-tilpassing | ◐ Fokus og tilbake-regel | BM-6 |
 
 Statusverdiar: `☐ Ikkje starta` · `◐ Delvis` · `☑ Ferdig og verifisert`

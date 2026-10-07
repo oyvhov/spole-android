@@ -12,3 +12,4 @@ captures/
 signing.properties
 .spole-signing/
 .artifacts/
+__pycache__/

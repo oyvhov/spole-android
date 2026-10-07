@@ -242,10 +242,10 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                             onClick = { appearanceOpen = false },
                             modifier = Modifier.heightIn(min = 64.dp)
                         ) {
-                            Text("Tilbake til historiene")
+                            Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_back_stories))
                         }
-                        Text("Mi verd", style = MaterialTheme.typography.headlineLarge)
-                        Text("Vel ein stad du likar. Historiene dine blir med.", color = Muted)
+                        Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_my_world), style = MaterialTheme.typography.headlineLarge)
+                        Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_world_hint), color = Muted)
                         KidsWorldPicker(options, onChange = { preferences.saveAppearance(state.activeProfileId, it, options.decorations) })
                         app.reelstack.ui.components.SettingsToggleRow(
                             "Pynt i verda mi", "Planetar, bølgjer og landskap",
@@ -395,7 +395,7 @@ internal fun KidsProfileButton(
 }
 
 /**
- * Child profile dialog offering instant access to "Mi verd" (theme/landscape picker)
+ * Child profile dialog offering instant access to androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_my_world) (theme/landscape picker)
  * without requiring a PIN, while respecting the parent's optional adult-mode PIN choice.
  */
 @Composable
@@ -456,13 +456,13 @@ internal fun KidsProfileDialog(
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = if (name.isBlank()) "Barneprofil" else name,
+                        text = if (name.isBlank()) androidx.compose.ui.res.stringResource(app.reelstack.R.string.profile_role_kid) else name,
                         color = Color.White,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "Verd: ${world.title}",
+                        text = androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_world_label, world.localizedTitle()),
                         color = glow,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
@@ -504,13 +504,13 @@ internal fun KidsProfileDialog(
                         )
                         Column {
                             Text(
-                                "Mi verd",
+                                androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_my_world),
                                 color = if (appFocused) Color(0xFF101211) else Color.White,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "Vel fargar, stjerner og landskap",
+                                stringResource(app.reelstack.R.string.kids_world_customize_hint),
                                 color = if (appFocused) Color(0xFF101211).copy(alpha = 0.85f) else Muted,
                                 fontSize = 13.sp,
                             )
@@ -548,13 +548,13 @@ internal fun KidsProfileDialog(
                         )
                         Column {
                             Text(
-                                "Byt profil",
+                                stringResource(app.reelstack.R.string.kids_switch_profile),
                                 color = if (switchFocused) Color(0xFF101211) else Color.White,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                if (pinConfigured) "Gå ut av barnemodus (krev PIN)" else "Gå ut av barnemodus",
+                                stringResource(if (pinConfigured) app.reelstack.R.string.kids_exit_pin_hint else app.reelstack.R.string.kids_exit_hint),
                                 color = if (switchFocused) Color(0xFF101211).copy(alpha = 0.85f) else Muted,
                                 fontSize = 13.sp,
                             )
@@ -567,7 +567,7 @@ internal fun KidsProfileDialog(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 ) {
-                    Text("Lukk")
+                    Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.action_close))
                 }
             }
         }

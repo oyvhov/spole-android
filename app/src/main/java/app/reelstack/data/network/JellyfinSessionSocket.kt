@@ -41,6 +41,8 @@ class JellyfinSessionSocket(
             // perfectly healthy socket between them.
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .pingInterval(30, TimeUnit.SECONDS)
+            .followRedirects(false)
+            .followSslRedirects(false)
             .build()
     },
 ) {
@@ -62,7 +64,8 @@ class JellyfinSessionSocket(
     ): Connection? {
         if (connection.kind != ServiceKind.JELLYFIN || connection.token.isBlank()) return null
         val address = socketAddress(connection) ?: return null
-        val request = Request.Builder().url(address).build()
+        val request = Request.Builder().url(address)
+            .header("Authorization", jellyfinAuthorization(deviceId, connection.token)).build()
         var closed = false
 
         val socket = client.newWebSocket(request, object : WebSocketListener() {
@@ -110,7 +113,7 @@ class JellyfinSessionSocket(
         val resolved = runCatching {
             EndpointValidator.resolve(
                 connection.baseUrl,
-                "socket?api_key=${escape(connection.token)}&deviceId=${escape(deviceId)}",
+                "socket?deviceId=${escape(deviceId)}",
             )
         }.getOrNull() ?: return null
         return when {
@@ -150,7 +153,7 @@ class JellyfinSessionSocket(
         }
     }
 
-    /** A token belongs in a query value, not in whatever characters it happens to contain. */
+    /** Encode the device identifier as one query value. Credentials are only in the header. */
     private fun escape(value: String): String =
         java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 

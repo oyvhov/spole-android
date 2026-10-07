@@ -85,10 +85,10 @@ fun KidsEpisodesScreen(
         }
         if (!browse.loading && browse.episodes.isEmpty()) {
             Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Vi fann ingen episodar her", style = MaterialTheme.typography.titleLarge)
-                Text("Prøv igjen, eller vel ein annan sesong.", color = Muted)
+                Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_no_episodes), style = MaterialTheme.typography.titleLarge)
+                Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_no_episodes_hint), color = Muted)
                 app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry,
-                    modifier = Modifier.heightIn(min = 64.dp)) { Text("Prøv igjen") }
+                    modifier = Modifier.heightIn(min = 64.dp)) { Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.kids_retry)) }
             }
         }
 

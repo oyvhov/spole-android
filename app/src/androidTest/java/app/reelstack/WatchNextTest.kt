@@ -35,6 +35,13 @@ class WatchNextTest {
             assertFalse(published.second.contains(account.token))
             assertFalse(published.second.contains(account.baseUrl))
             assertFalse(published.second.contains(account.userId))
+            try {
+                container.connectionRepository.activeProfileId = "synthetic-watch-next-child"
+                assertTrue(container.watchNextSync.sync())
+                assertTrue("Adult Watch Next rows remain after switching profile", owned().isEmpty())
+            } finally { container.connectionRepository.activeProfileId = "" }
+            assertTrue(container.watchNextSync.sync())
+            assertEquals(1, owned().size)
             container.localPlaybackStore.record(storedAccount, movie, 600_000, 600_000, true)
             assertTrue(container.watchNextSync.sync())
             assertTrue(owned().isEmpty())

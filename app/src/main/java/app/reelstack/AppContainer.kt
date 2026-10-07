@@ -39,8 +39,12 @@ class AppContainer(context: Context) {
         use24HourClock = android.text.format.DateFormat.is24HourFormat(appContext),
         words = { it.text(appContext) },
         mediaServerClient = mediaServerClient,
-        calendarSelectionProvider = { connection, userId ->
-            calendarFollowStore.read(calendarFollowStore.scope(connectionRepository.activeProfileId, connection, userId))
+        calendarClient = app.reelstack.data.network.PersonalCalendarClient(metadataStore =
+            app.reelstack.data.repository.cache.CacheDatabase.get(appContext).catalogueStore()),
+        seerrReleaseClient = app.reelstack.data.network.SeerrReleaseClient(metadataStore =
+            app.reelstack.data.repository.cache.CacheDatabase.get(appContext).catalogueStore()),
+        calendarSelectionProvider = { profileId, connection, userId ->
+            calendarFollowStore.read(calendarFollowStore.scope(profileId, connection, userId))
         },
     )
     val sessionSocket = app.reelstack.data.network.JellyfinSessionSocket(deviceId = deviceId)

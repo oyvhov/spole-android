@@ -37,7 +37,7 @@ internal fun SheetToolbar(
     }
     Row(
         Modifier.fillMaxWidth().testTag("sheet-toolbar").padding(start = 20.dp, end = 12.dp,
-            top = if (compact) 0.dp else 8.dp, bottom = if (compact) 0.dp else 8.dp),
+            top = 0.dp, bottom = 8.dp),
         verticalAlignment = Alignment.Top,
     ) {
         if (page) {

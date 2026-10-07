@@ -20,26 +20,33 @@ class ReelstackApplication : Application(), coil3.SingletonImageLoader.Factory {
      * recently used covers warm, a larger shared disk cache avoids re-fetching, and cache-control
      * keeps reused images local when the server allows it.
      */
-    override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader =
-        coil3.ImageLoader.Builder(context)
+    override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader {
+        // This namespace belonged to token-bearing artwork URLs. It contains only disposable
+        // artwork; account storage, progress and offline media live elsewhere.
+        val legacy = context.cacheDir.resolve("coil3_image_cache")
+        check(legacy.canonicalFile.parentFile == context.cacheDir.canonicalFile)
+        if (legacy.exists()) runCatching { legacy.deleteRecursively() }
+        return coil3.ImageLoader.Builder(context)
             .memoryCache {
                 coil3.memory.MemoryCache.Builder()
                     .maxSizePercent(
                         context,
-                        if (context.resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK == Configuration.UI_MODE_TYPE_TELEVISION) 0.40 else 0.30,
+                        0.20,
                     )
+                    .maxSizeBytes(minOf(32L * 1024 * 1024, (Runtime.getRuntime().maxMemory() * 0.20).toLong()))
                     .build()
             }
             .diskCache {
                 coil3.disk.DiskCache.Builder()
-                    .directory(cacheDir.resolve("coil3_image_cache").toOkioPath())
+                    .directory(context.cacheDir.resolve("coil3_image_cache_v2").toOkioPath())
                     .maxSizeBytes(256L * 1024 * 1024)
                     .build()
             }
             .components {
-                add(coil3.network.okhttp.OkHttpNetworkFetcherFactory())
+                add(coil3.network.okhttp.OkHttpNetworkFetcherFactory(callFactory = { app.reelstack.data.network.HttpTransport.sharedClient }))
             }
             .build()
+    }
 
     override fun onCreate() {
         super.onCreate()

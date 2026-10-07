@@ -24,7 +24,7 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w960dp-h540dp-television-xhdpi", application = app.reelstack.SheetTestApplication::class)
+@Config(sdk = [34], qualifiers = "nn-rNO-w960dp-h540dp-television-xhdpi", application = app.reelstack.SheetTestApplication::class)
 class KidsComposeTest {
 
     @get:Rule
@@ -117,7 +117,24 @@ class KidsComposeTest {
     }
 
     @Test
-    @Config(qualifiers = "w960dp-h1200dp-television-xhdpi")
+    @Config(qualifiers = "en-rUS-w960dp-h540dp-television-xhdpi")
+    fun kidsProfileDialogUsesEnglishForAllActions() = assertLocalizedProfileDialog("My world", "Switch profile", "Leave child mode (PIN required)")
+
+    @Test
+    @Config(qualifiers = "nb-rNO-w960dp-h540dp-television-xhdpi")
+    fun kidsProfileDialogUsesBokmalForAllActions() = assertLocalizedProfileDialog("Min verden", "Bytt profil", "Gå ut av barnemodus (krever PIN)")
+
+    private fun assertLocalizedProfileDialog(world: String, switch: String, hint: String) {
+        composeTestRule.setContent {
+            KidsProfileDialog("Eilev", null, KidsWorld.OCEAN, onAppearance = {}, onSwitchProfile = {}, onDismiss = {}, pinConfigured = true)
+        }
+        composeTestRule.onNodeWithText(world).assertIsDisplayed()
+        composeTestRule.onNodeWithText(switch).assertIsDisplayed()
+        composeTestRule.onNodeWithText(hint).assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "nn-rNO-w960dp-h1200dp-television-xhdpi")
     fun kidsHomeScreen_rendersFavouritesAndSuggestionsShelves_andOmitsFillerText() {
         val favItem = TestFixtures.sampleMedia(id = "fav-1", title = "Pippi Langstrømpe")
         val sugItem = TestFixtures.sampleMedia(id = "sug-1", title = "Postmann Pat")

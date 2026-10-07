@@ -9,6 +9,7 @@ import app.reelstack.ui.ReelstackUiState
 
 /** Everything the Discover tab and the global-search destination may render. */
 data class DiscoverUiState(
+    val sessionScope: app.reelstack.data.repository.SessionScope? = null,
     val connections: List<ServiceConnection> = emptyList(),
     val accounts: Map<ServiceKind, ServiceAccount> = emptyMap(),
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
@@ -34,6 +35,7 @@ data class DiscoverUiState(
 
 /** Transitional adapter while query ownership still belongs to the composition root. */
 fun ReelstackUiState.toDiscoverUiState(): DiscoverUiState = DiscoverUiState(
+    sessionScope = sessionScope,
     connections = connections,
     accounts = accounts,
     accountErrors = accountErrors,

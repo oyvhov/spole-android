@@ -20,6 +20,27 @@ import org.junit.Test
  */
 class SessionSocketTest {
 
+    @Test fun handshakeUsesAHeaderAndFailureRestoresPolling() {
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        val received = java.util.concurrent.CopyOnWriteArrayList<Pair<String, String>>()
+        server.createContext("/jellyfin/socket") { exchange ->
+            received += exchange.requestURI.toString() to exchange.requestHeaders.getFirst("Authorization").orEmpty()
+            exchange.sendResponseHeaders(401, -1); exchange.close()
+        }
+        server.start()
+        val lost = java.util.concurrent.CountDownLatch(1)
+        var channel: JellyfinSessionSocket.Connection? = null
+        try {
+            channel = JellyfinSessionSocket("device id").connect(
+                connection(baseUrl = "http://127.0.0.1:${server.address.port}/jellyfin"), {}, lost::countDown)
+            org.junit.Assert.assertTrue(lost.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            val (path, header) = received.single()
+            assertEquals("/jellyfin/socket?deviceId=device%20id", path)
+            org.junit.Assert.assertFalse(path.contains("abc"))
+            org.junit.Assert.assertTrue(header.contains("Token=\"abc\""))
+        } finally { channel?.close(); server.stop(0) }
+    }
+
     private val socket = JellyfinSessionSocket(deviceId = "device") { OkHttpClient() }
 
     private fun connection(

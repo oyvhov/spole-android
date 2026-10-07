@@ -122,7 +122,8 @@ class WatchNextActivity : android.app.Activity() {
         if (container.preferencesRepository.personalization.watchNextEnabled && connection != null &&
             uri?.scheme == "spole" && uri.host == "watch-next" && parts.size == 2 &&
             parts[0] == MediaSnapshotStore.fingerprint(listOf(connection)) && parts[1].matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
-            JellyfinPlayerActivity.open(this, parts[1], source = connection.kind)
+            JellyfinPlayerActivity.open(this, parts[1], source = connection.kind,
+                kidsMode = container.connectionRepository.isKidMode)
         }
         finish()
     }

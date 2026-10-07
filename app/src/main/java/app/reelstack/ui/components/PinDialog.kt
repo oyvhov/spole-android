@@ -278,7 +278,7 @@ fun PinEntrySheet(
                     .heightIn(min = 48.dp)
                     .testTag("pin-close-button"),
             ) {
-                Text("Avbryt")
+                Text(stringResource(R.string.account_cancel))
             }
 
             if (onForgotPin != null && lockoutSeconds == 0) {
@@ -327,7 +327,7 @@ fun PinEntrySheet(
             },
             dismissButton = {
                 TextButton(onClick = { showForgotDialog = false }) {
-                    Text("Avbryt", color = Muted)
+                    Text(stringResource(R.string.account_cancel), color = Muted)
                 }
             },
         )
@@ -348,7 +348,7 @@ private fun PinKeyButton(
 
     Box(
         modifier = modifier
-            .height(58.dp)
+            .heightIn(min = 58.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale

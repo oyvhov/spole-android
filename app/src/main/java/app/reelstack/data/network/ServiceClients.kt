@@ -787,13 +787,24 @@ class MediaServerClient(
                 "&Fields=Overview,Genres,ProviderIds,PrimaryImageAspectRatio,$LIBRARY_RATING_FIELDS&EnableImages=true&EnableUserData=false"
             // Walk all pages. PremiereDate is theatrical for films and cannot select digital releases.
             val items = mutableListOf<RemoteLibraryItem>()
+            val seen = hashSetOf<String>()
+            val budget = CataloguePageBudget()
             var offset = 0
             do {
+                budget.next()
                 val paths = if (connection.kind == ServiceKind.JELLYFIN)
                     listOf("Items?UserId=$userId&$query&StartIndex=$offset", "Users/$userId/Items?$query&StartIndex=$offset")
                 else listOf("Users/$userId/Items?$query&StartIndex=$offset")
                 val page = getItems(connection, paths, preferEpisodeStill = type == "Episode")
-                val fresh = page.filter { item -> items.none { it.id == item.id } }
+                if (Thread.currentThread().isInterrupted) throw kotlinx.coroutines.CancellationException()
+                val fresh = page.filter { seen.add(it.id) }.map { item ->
+                    // A film release seed needs identity, date and artwork, not every library detail.
+                    // Full details are fetched on demand; retaining all overviews caused heap pressure.
+                    if (type == "Movie") item.copy(overview = null, facts = emptyList(), genres = emptyList(),
+                        heroUrl = null, posterUrl = null, backdropUrl = null, thumbnailUrl = null, bannerUrl = null, logoUrl = null,
+                        heroImagePath = null, posterImagePath = null, backdropImagePath = null, thumbnailImagePath = null,
+                        bannerImagePath = null, logoItemId = null) else item
+                }
                 items += fresh
                 offset += page.size
             } while (page.size >= 100 && fresh.isNotEmpty())
@@ -1094,8 +1105,7 @@ class MediaServerClient(
                 "Items/${encodePathSegment(itemId)}/Images/Thumb?maxWidth=$DEFAULT_THUMB_MAX_WIDTH&quality=$ARTWORK_QUALITY"
             } else {
                 "Items/${encodePathSegment(itemId)}/Images/Primary?maxWidth=$DEFAULT_PRIMARY_MAX_WIDTH&quality=$ARTWORK_QUALITY"
-            } + tagParameter(tag) +
-                (if (connection.kind == ServiceKind.EMBY && connection.token.isNotBlank()) "&api_key=${encodePathSegment(connection.token)}" else ""),
+            } + tagParameter(tag),
         )
 
     private fun verifyConnection(connection: ServiceConnection) {
@@ -1274,13 +1284,17 @@ class SeerrServiceClient(
     fun calendarRequests(connection: ServiceConnection, userId: String): List<RemoteRequest> {
         require(connection.kind == ServiceKind.SEERR && userId.toIntOrNull()?.let { it > 0 } == true)
         val collected = mutableListOf<RemoteRequest>()
+        val seen = hashSetOf<Int>()
+        val budget = CataloguePageBudget()
         var offset = 0
         do {
+            budget.next()
             val response = transport.get(EndpointValidator.resolve(connection.baseUrl,
                 "api/v1/request?take=100&skip=$offset&sort=added&requestedBy=${encode(userId)}"), headers(connection))
             response.requireSuccess(connection.kind)
             val page = ServicePayloadParser.requests(response.body)
-            val fresh = page.filter { item -> collected.none { it.id == item.id } }
+            if (Thread.currentThread().isInterrupted) throw kotlinx.coroutines.CancellationException()
+            val fresh = page.filter { seen.add(it.id) }
             collected += fresh
             offset += page.size
         } while (page.size >= 100 && fresh.isNotEmpty())

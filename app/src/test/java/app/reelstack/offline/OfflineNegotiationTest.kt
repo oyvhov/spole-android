@@ -81,8 +81,9 @@ class OfflineNegotiationTest {
         assertNull(offlineRebasedUrl(account, "http://192.168.1.20:8096/Videos/movie/stream.mkv"))
     }
 
-    @Test fun wifiOnlyMeansAnUnmeteredNetwork() {
-        assertTrue(offlineRequirements(wifiOnly = true).isUnmeteredNetworkRequired)
+    @Test fun schedulerRequiresConnectivityWhileTransportPolicyChoosesWifiOrEthernet() {
+        assertFalse(offlineRequirements(wifiOnly = true).isUnmeteredNetworkRequired)
+        assertTrue(offlineRequirements(wifiOnly = true).isNetworkRequired)
         assertFalse(offlineRequirements(wifiOnly = false).isUnmeteredNetworkRequired)
         assertTrue(offlineRequirements(wifiOnly = false).isNetworkRequired)
     }

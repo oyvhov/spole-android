@@ -19,7 +19,7 @@
     <string name="offline_summary_paused">%1$d på pause</string>
     <string name="offline_summary_size">%1$s lagret privat i Spole</string>
     <string name="offline_summary_empty">Ingen lokale filer ennå</string>
-    <string name="offline_wifi">Bare Wi-Fi</string>
+    <string name="offline_wifi">Bare Wi-Fi eller kabel</string>
     <string name="offline_wifi_note">Nedlastinger venter mens du bruker mobildata.</string>
     <string name="offline_empty_title">Ingenting er lastet ned</string>
     <string name="offline_empty_note">Åpne detaljene for en film, serie eller episode på telefonen, og velg nedlasting der.</string>

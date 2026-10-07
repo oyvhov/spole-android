@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="demo_story_odyssey">En soldat følger stjernene hjem gjennom et ukjent landskap. Ved reisens slutt venter et vanskelig valg.</string>
+    <string name="demo_story_nordlys">En fyrvokter vender hjem til kysten. Et brev fra fortiden endrer alt han trodde han visste om familien.</string>
+    <string name="demo_story_desember">Et uventet snøfall samler gamle venner på en hytte. Mellom juleforberedelser og stille kvelder får de en ny start.</string>
+    <string name="demo_story_huset">En arvet dagbok fører to søsken tilbake til et forlatt hus. Hver natt lyser et nytt vindu.</string>
+    <string name="demo_story_bestilling">En liten restaurant får en siste sjanse når en uventet gjest bestiller middag til hele bygda.</string>
+    <string name="demo_story_midnatt">Den siste bussen kjører forbi det samme huset tre ganger. En passasjer bestemmer seg for å gå av.</string>
+    <string name="demo_story_blaatime">En fotograf leter etter det perfekte lyset langs kysten og finner et fellesskap han ikke visste han savnet.</string>
+    <string name="demo_story_vinterveg">Far og datter legger ut på en lang vinterreise. En stengt fjellovergang sender dem på en uventet omvei.</string>
+    <string name="demo_story_signalet">Et forskerlag oppdager et signal under sanden på en fjern planet. Svaret kommer fra deres egen fremtid.</string>
+    <string name="demo_story_bordet">Tre generasjoner møtes til søndagsmiddag. Oppskriftene er de samme, men ingen kommer hjem som før.</string>
+    <string name="demo_story_severance">Ansatte har delt minnene sine mellom arbeid og livet utenfor. Så begynner de to sidene å lekke over i hverandre.</string>
+    <string name="demo_story_kystvakta">Et lite etterforskningsteam følger sporene etter et forsvunnet skip. Langs kysten kjenner alle hverandre, men ingen vet alt.</string>
+    <string name="demo_story_desemberdagar">En familie tar over en fjellstue rett før jul. Hver gjest har med seg en historie de ikke hadde ventet.</string>
+    <string name="demo_story_etasjen">En nyansatt finner en dør som ikke står på plantegningen. Kollegene hennes hevder at etasjen ikke finnes.</string>
+    <string name="demo_story_service">En kokk tar over familierestauranten. Kaoset på kjøkkenet er lettere å styre enn folkene rundt ham.</string>
+    <string name="demo_story_spor">En gammel forsvinningssak dukker opp igjen i arkivet. Etterforskeren finner et mønster som strekker seg over flere generasjoner.</string>
+    <string name="demo_story_leia">En reise langs kysten, fra travle havner til små samfunn der havet fortsatt setter rytmen i hverdagen.</string>
+    <string name="demo_story_vinterlys">Når mørketiden kommer, åpner et lite hotell dørene for både reisende og naboer som trenger et sted å være.</string>
+    <string name="demo_story_horizon">Et mannskap følger et signal til kanten av det kjente rommet.</string>
+    <string name="demo_living_room">TV i stua</string>
+    <string name="demo_tablet">Nettbrett</string>
+</resources>

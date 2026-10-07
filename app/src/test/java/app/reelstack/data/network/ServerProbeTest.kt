@@ -15,7 +15,7 @@ class ServerProbeTest {
     @Test
     fun jellyfinAndEmbyAreToldApart() {
         assertEquals(
-            PublicServerInfo(DiscoveredServerKind.JELLYFIN, "4f1c0d2a", "Stova", "http://192.168.1.20:8097"),
+            PublicServerInfo(DiscoveredServerKind.JELLYFIN, "4f1c0d2a", "Stova", "http://192.168.1.20:8097", "12.1.0"),
             parsePublicServerInfo("http://192.168.1.20:8097", jellyfin),
         )
         assertEquals(DiscoveredServerKind.EMBY, parsePublicServerInfo("http://192.168.1.20:8096", emby)?.kind)

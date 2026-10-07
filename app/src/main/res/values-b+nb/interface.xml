@@ -54,8 +54,8 @@
     <string name="settings_updates">Varsler og oppdatering</string>
     <string name="settings_notifications">Bibliotekvarsler</string>
     <string name="settings_notifications_note">For forespørsler du har valgt å følge</string>
-    <string name="settings_wifi">Synkroniser bare på Wi-Fi</string>
-    <string name="settings_wifi_note">Bakgrunnsoppdatering på Wi-Fi</string>
+    <string name="settings_wifi">Bare Wi-Fi eller kabel</string>
+    <string name="settings_wifi_note">Bakgrunnsoppdatering og nedlastinger venter på mobildata</string>
     <string name="notice_wifi_policy_updated">Wi-Fi-valget er endret</string>
     <string name="settings_about">Om appen</string>
     <string name="image_cache_clear">Tøm biletbuffer</string>

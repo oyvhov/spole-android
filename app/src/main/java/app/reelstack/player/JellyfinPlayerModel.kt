@@ -149,6 +149,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         capabilities = deviceCapabilities::snapshot, sourceSupported = deviceCapabilities::canDirectPlay,
         videoSupported = deviceCapabilities::canDecodeVideo)
     private var connection: ServiceConnection? = null
+    private val owner = container.connectionRepository.captureSession()
     private var serviceKind = ServiceKind.JELLYFIN
     private var seerrConnection: ServiceConnection? = null
     private var userId = ""
@@ -421,6 +422,9 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private val mediaSession = androidx.media3.session.MediaSession.Builder(container.appContext, player).build()
 
     init {
+        viewModelScope.launch {
+            container.connectionRepository.sessionScope.collect { if (it != owner) ensureSession() }
+        }
         reporter.launch {
             for (event in reports) {
                 val failed = runCatching { client.report(event.connection, event.plan, event.event, event.position, event.paused) }.isFailure
@@ -497,6 +501,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      */
     fun open(id: String, audio: Int? = null, subtitle: Int? = null, sourceId: String? = null,
         source: ServiceKind = ServiceKind.JELLYFIN) {
+        if (!ensureSession()) return
+        kidsMode = owner.kidsMode
         if (rootId.isNotEmpty()) return
         require(source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
         if (isKidsBedtimeReached()) {
@@ -514,6 +520,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     }
 
     private fun sameAccount(): Boolean {
+        if (!container.connectionRepository.isCurrent(owner)) return false
         val c = connection ?: return false
         val saved = container.connectionRepository.get(serviceKind)
         val seerr = container.connectionRepository.get(ServiceKind.SEERR)
@@ -525,6 +532,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var openStartedNanos = 0L
 
     private fun loadRoot() {
+        if (!ensureSession()) return
         openStartedNanos = System.nanoTime()
         request?.cancel()
         mutable.update { it.copy(busy = true, error = null) }
@@ -648,6 +656,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
 
     private fun prepare(position: Long, audio: Int? = null, subtitle: Int? = null, mode: PlaybackCompatibility = compatibility, autoplay: Boolean = true,
     ) {
+        if (!ensureSession()) return
         val c = connection ?: return
         val item = selected ?: return
         val previous = plan?.takeIf { it.item.id == item.id }
@@ -868,11 +877,13 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         mutable.update { it.copy(quality = bitrate) }; prepare(player.currentPosition, autoplay = autoplay)
     }
     fun toggle() {
+        if (!ensureSession()) return
         if (state.value.error != null || state.value.busy && plan == null) return
         if (player.playbackState == Player.STATE_ENDED) { prepare(0); return }
         if (player.playWhenReady) player.pause() else player.play()
     }
     fun seek(position: Long) {
+        if (!ensureSession()) return
         if (plan == null) return
         val target = position.coerceIn(0, state.value.durationMs.coerceAtLeast(0))
         mutable.update { it.copy(positionMs = target, ended = false) }
@@ -883,8 +894,15 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         player.seekTo(target)
     }
     fun background() { foreground = false; countdownJob?.cancel(); player.pause(); if (started) report("/Progress") }
-    fun foreground() { foreground = true; if (state.value.ended) startNextEpisodeCountdown() }
-    fun fallbackUrl(): String? = connection?.let { safePlaybackUrl(it.baseUrl, "web/index.html") + "#!/details?id=${enc(selected?.id ?: rootId)}" }
+    fun foreground() { if (!ensureSession()) return; foreground = true; if (state.value.ended) startNextEpisodeCountdown() }
+    fun fallbackUrl(): String? = if (ensureSession()) connection?.let { safePlaybackUrl(it.baseUrl, "web/index.html") + "#!/details?id=${enc(selected?.id ?: rootId)}" } else null
+
+    private fun ensureSession(): Boolean {
+        if (container.connectionRepository.isCurrent(owner)) return true
+        request?.cancel(); generation++; stopCurrent(); connection = null
+        mutable.value = PlayerScreenState(busy = false, error = container.appString(R.string.player_err_account_changed))
+        return false
+    }
 
     private fun report(event: String) {
         val c = connection ?: return

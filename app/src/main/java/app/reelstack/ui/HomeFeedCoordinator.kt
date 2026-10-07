@@ -115,6 +115,7 @@ internal class HomeFeedCoordinator(
 
     suspend fun refreshPlayback() {
         if (refreshJob?.isActive == true) return
+        val owner = container.connectionRepository.captureSession()
         val connections = readState().connections
         if (connections.none { it.token.isNotBlank() && it.kind in MEDIA_SERVERS }) return
         val sessions = withContext(Dispatchers.IO) {
@@ -123,7 +124,7 @@ internal class HomeFeedCoordinator(
         // Never put a response from an account that has since signed out back on screen.
         updateState { current ->
             when {
-                current.connections != connections || refreshJob?.isActive == true -> current
+                !container.connectionRepository.isCurrent(owner) || current.connections != connections || refreshJob?.isActive == true -> current
                 current.sessions == sessions -> current
                 else -> current.copy(sessions = sessions)
             }
@@ -157,15 +158,17 @@ internal class HomeFeedCoordinator(
     /** Hydrates a profile-scoped feed before the network response arrives. */
     fun hydrateCachedFeed() {
         val seedConnections = readState().connections
+        val owner = container.connectionRepository.captureSession()
+        val fingerprint = container.mediaFingerprint(seedConnections)
         if (seedConnections.none { it.baseUrl.isNotBlank() && it.token.isNotBlank() }) return
         cancelCacheLoad()
         cacheLoadJob = scope.launch(Dispatchers.IO) {
             val cached = runCatching {
-                container.mediaSnapshotStore.read(container.mediaFingerprint(seedConnections))
+                container.mediaSnapshotStore.read(fingerprint)
             }.getOrNull()
-            if (!isActive || cached == null) return@launch
+            if (!isActive || !container.connectionRepository.isCurrent(owner) || cached == null) return@launch
             updateState { current ->
-                if (current.connections != seedConnections) return@updateState current
+                if (!container.connectionRepository.isCurrent(owner) || current.connections != seedConnections) return@updateState current
                 val configuredKinds = seedConnections.filter { it.baseUrl.isNotBlank() }
                     .mapTo(mutableSetOf()) { it.kind }
                 val hasMediaServer = configuredKinds.any { it in MEDIA_SERVERS }
@@ -254,6 +257,7 @@ internal class HomeFeedCoordinator(
         }
 
         val refreshFingerprint = container.mediaFingerprint(state.connections)
+        val refreshOwner = container.connectionRepository.captureSession()
         lastFeedAttemptMillis = android.os.SystemClock.elapsedRealtime()
         updateState { it.copy(isRefreshing = true) }
         refreshJob = scope.launch {
@@ -261,18 +265,19 @@ internal class HomeFeedCoordinator(
             val firstRow = java.util.concurrent.atomic.AtomicBoolean(true)
             val outcome = attempt {
                 val snapshot = withContext(Dispatchers.IO) {
-                    val layout = readState().effectiveHomeLayout
+                    val layout = state.effectiveHomeLayout
                     container.mediaSyncRepository.refresh(
-                        connections = readState().connections,
+                        connections = state.connections,
                         includeRecommendations = layout.isVisible(HomeRowKey(HomeRowKind.RECOMMENDATIONS)),
-                        homePlan = HomeFetchPlan(layout, container.homeLibraries(readState().connections)),
-                        calendarScope = container.connectionRepository.activeProfileId, forceCalendar = userInitiated,
+                        homePlan = state.homeFetchPlan(),
+                        calendarScope = refreshOwner.profileId, forceCalendar = userInitiated,
                         onCalendarReady = { update -> updateState { current ->
-                            if (container.mediaFingerprint(current.connections) != refreshFingerprint) current
+                            if (!container.connectionRepository.isCurrent(refreshOwner) || container.mediaFingerprint(current.connections) != refreshFingerprint) current
                             else current.copy(upcoming = update.upcoming, calendarUndated = update.undated,
                                 calendarHidden = update.hidden, upcomingError = update.error?.text(container.appContext))
                         } },
-                        onLibraryReady = { update ->
+                        onLibraryReady = libraryReady@ { update ->
+                            if (!container.connectionRepository.isCurrent(refreshOwner)) return@libraryReady
                             if (firstRow.getAndSet(false)) app.reelstack.data.network.PerfLog.milestone("home first-rows ${update.source}", started)
                             updateLibraryRow(refreshFingerprint, update)
                         },
@@ -287,7 +292,7 @@ internal class HomeFeedCoordinator(
                 }
                 return@launch
             }
-            if (!isActive || container.mediaFingerprint(readState().connections) != refreshFingerprint) return@launch
+            if (!isActive || !container.connectionRepository.isCurrent(refreshOwner) || container.mediaFingerprint(readState().connections) != refreshFingerprint) return@launch
             if (snapshot.switchedToAlternate.isNotEmpty()) {
                 attempt {
                     withContext(Dispatchers.IO) {
@@ -348,20 +353,23 @@ internal class HomeFeedCoordinator(
         val unreadable = state.connections.filter {
             it.baseUrl.isNotBlank() && it.state == ConnectionState.ERROR
         }
+        val demoContext = app.reelstack.localization.AppLanguages.wrap(container.appContext)
+        val allowDemo = state.connections.none { it.baseUrl.isNotBlank() }
+        fun <T> content(demo: () -> List<T>): List<T> = if (allowDemo) demo() else emptyList()
         updateState {
             it.copy(
-                sessions = demoSessions(),
-                resume = demoResume(),
-                nextUp = demoNextUp(),
-                favourites = demoFavourites(),
-                recentMovies = demoRecentMovies(),
-                recentSeries = demoRecentSeries(),
-                upcoming = demoUpcoming(),
-                recentReleases = demoRecentReleases(),
-                incoming = demoIncoming(),
-                discover = demoDiscover(),
-                recommendations = demoRecommendations(),
-                activity = demoActivity(),
+                sessions = content { demoSessions(demoContext) },
+                resume = content { demoResume(demoContext) },
+                nextUp = content { demoNextUp(demoContext) },
+                favourites = content { demoFavourites(demoContext) },
+                recentMovies = content { demoRecentMovies(demoContext) },
+                recentSeries = content { demoRecentSeries(demoContext) },
+                upcoming = content { demoUpcoming(demoContext) },
+                recentReleases = content { demoRecentReleases(demoContext) },
+                incoming = content { demoIncoming(demoContext) },
+                discover = content { demoDiscover(demoContext) },
+                recommendations = content { demoRecommendations(demoContext) },
+                activity = content(::demoActivity),
                 isRefreshing = false,
                 liveSession = false,
                 liveLibrary = false,

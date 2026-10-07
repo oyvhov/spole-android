@@ -181,11 +181,15 @@ private fun MobileHeroPage(
 ) {
     val context = LocalContext.current
     val featureInteraction = remember { MutableInteractionSource() }
+    val heroUrl = app.reelstack.data.network.mobileHeroArtworkUrl(selected)
+    var artworkFailed by remember(selected.id, heroUrl) { mutableStateOf(false) }
+    val hasArtwork = !artworkFailed && (!heroUrl.isNullOrBlank() ||
+        selected.remoteId == null && selected.artworkRes != 0 && selected.artworkRes != R.drawable.media_placeholder)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 450.dp)
+            .heightIn(min = if (hasArtwork) 450.dp else 240.dp)
             .background(Ink)
             .clickable(
                 interactionSource = featureInteraction,
@@ -214,6 +218,7 @@ private fun MobileHeroPage(
                 protectAspectRatio = false,
                 alignment = Alignment.TopCenter,
                 crossfadeDurationMillis = 0,
+                onError = { artworkFailed = true },
             )
 
             // ── 2. Cinematic ambient scrims ──────────────────────────────────────
@@ -267,7 +272,7 @@ private fun MobileHeroPage(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(top = topInset)
+                .padding(top = if (hasArtwork) topInset else (topInset - 72.dp).coerceAtLeast(64.dp))
                 .padding(horizontal = ReelLayout.Gutter, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {

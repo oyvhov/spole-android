@@ -1,10 +1,57 @@
 package app.reelstack.data.network
 
 import app.reelstack.data.model.*
+import kotlinx.coroutines.async
 import org.junit.Assert.*
 import org.junit.Test
 
 class ViewerAccessTest {
+    @Test fun delayedSeerrIdentityCannotPublishPersonalRowsAndCalendarUsesTheCapturedProfile() = kotlinx.coroutines.runBlocking {
+        val releaseIdentity = java.util.concurrent.CountDownLatch(1)
+        val earlyReady = java.util.concurrent.CountDownLatch(1)
+        val early = java.util.concurrent.CopyOnWriteArrayList<app.reelstack.data.repository.LibraryFeedUpdate>()
+        var calendarProfile: String? = null
+        val transport = object : JsonHttpTransport {
+            override val supportsConcurrentCalls = true
+            override fun get(url: String, headers: Map<String, String>): HttpResponse {
+                val body = when {
+                    url.contains("auth/me") -> {
+                        check(releaseIdentity.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                        """{"id":7,"jellyfinUserId":"different","permissions":32}"""
+                    }
+                    url.endsWith("Users/Me") -> """{"Id":"own","Name":"Person","Policy":{"IsAdministrator":false}}"""
+                    url.contains("UserViews") || url.contains("/Views") -> """{"Items":[{"Id":"films","Name":"Films","CollectionType":"movies"}]}"""
+                    url.endsWith("/Sessions") -> "[]"
+                    url.contains("/api/v1/") -> """{"results":[]}"""
+                    else -> """{"Items":[{"Id":"one","Name":"Own film","Type":"Movie","UserData":{"PlaybackPositionTicks":10000000,"IsFavorite":true}}],"TotalRecordCount":1}"""
+                }
+                return HttpResponse(200, body)
+            }
+            override fun post(url: String, headers: Map<String, String>, jsonBody: String) = error("Read-only fixture")
+        }
+        val repository = app.reelstack.data.repository.MediaSyncRepository(
+            mediaServerClient = MediaServerClient(transport), accountProfileClient = AccountProfileClient(transport = transport),
+            seerrServiceClient = SeerrServiceClient(transport), routeProbe = { true },
+            calendarSelectionProvider = { profile, _, _ -> calendarProfile = profile; CalendarSelection() },
+        )
+        val load = async(kotlinx.coroutines.Dispatchers.IO) {
+            repository.refresh(listOf(connection, ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "cookie", "7", sessionCookie = true)),
+                includeRecommendations = false, calendarScope = "captured-adult",
+                onLibraryReady = { early += it; earlyReady.countDown() })
+        }
+        try {
+            assertTrue(earlyReady.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            assertTrue(early.single().recentMovies.isNotEmpty())
+            assertTrue(early.single().resume.isEmpty())
+            assertTrue(early.single().nextUp.isEmpty())
+            assertTrue(early.single().favourites.isEmpty())
+        } finally { releaseIdentity.countDown() }
+        val resolved = load.await()
+        assertTrue(resolved.resume.isEmpty())
+        assertTrue(resolved.favourites.isEmpty())
+        assertEquals("captured-adult", calendarProfile)
+    }
+
     @Test fun playbackRefreshReadsFreshProgressWithoutFetchingLibraryAndPreservesPrivacy() = kotlinx.coroutines.runBlocking {
         var position = 10000000L
         val transport = Transport { url -> HttpResponse(200, when {

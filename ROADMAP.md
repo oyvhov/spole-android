@@ -1,5 +1,15 @@
 # Spole — veikart mot 1.0
 
+## Stabil 1.0 — arbeid etter beta4
+
+Gjeldande implementasjon, testresultat og dei attståande releaseprøvene ligg i
+[status for stabil 1.0](docs/STABLE_1_0_PROGRESS.md). Prioriteten er minnebruk, kontogrenser,
+trygg oppgradering og ein ferdig barnekjerne med dagens design. Vanleg CI køyrer bygg, lint og
+einingstestar, med korte PR-smoketestar og manuell telefon-/TV-kontroll før release.
+
+Statusbolkane nedanfor er historiske. Nye funksjonar som casting, SyncPlay og daglege
+skjermtidskvotar kjem etter at kjernen er verifisert.
+
 ## Personleg kalender — levert i 1.0.0-beta3
 
 **Sonarr og Radarr skal fjernast heilt frå Spole.** Jellyfin/Emby leverer personleg bibliotektilgjenge, og Seerr leverer førespurnader, rapportert framdrift og komande episode-/digitale filmdatoar. Den personlege kalenderen erstattar dei direkte kalenderintegrasjonane; den tidlegare planen om eit kalenderadapter utgår.
@@ -22,7 +32,7 @@ seier kva ho gjer. Ingen nye funksjonar.
 
 Ein milepåle er ferdig når akseptansekravet er dokumentert oppfylt, ikkje når koden er skriven.
 
-Tredje arbeidsrunde er gjord 17. september: **598 einingstestar bestod, 0 lint-feil med
+Historisk resultat frå tredje arbeidsrunde 17. september: **598 einingstestar bestod, 0 lint-feil med
 `HardcodedText` sett til `error`**, katalogen er på **1208 nøklar × 3 språk**, og det finst ikkje
 lenger ein einaste norsk strenglitteral i `app/src/main/java`. GF-1 og GF-6 er ferdige. Ein signert
 release er installert over produksjonspakka på `emulator-5564` og kontrollert med dei ekte

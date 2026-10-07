@@ -1,28 +1,39 @@
-# Viewer access in 0.10.0
+# Kontogrenser i Spole
 
-The app's global administrator experience requires the ADMIN bit from Seerr's fresh `/api/v1/auth/me` response. A Jellyfin administrator token alone does not enable it. Ordinary users remain personal even when Seerr grants REQUEST_VIEW or MANAGE_REQUESTS: this is deliberately stricter than Seerr's general overview permissions.
+Gjeldande kode etter 1.0.0-beta4. Testgrunnlag og attståande prøver ligg i
+[status for stabil 1.0](STABLE_1_0_PROGRESS.md). Adminvisinga krev ADMIN-retten frå Seerr sitt
+ferske `/api/v1/auth/me`-svar. Ein Jellyfin-administrator åleine opnar ikkje adminvisinga.
+REQUEST_VIEW eller MANAGE_REQUESTS gir heller ikkje ein vanleg brukar andre sine personlege rader.
 
-## Data boundaries
+## Identitet og data
 
 Frå 0.16.0: Ei stadfesta personleg Jellyfin-/Emby-innlogging gir framleis tilgang til eige bibliotek og eigne økter når Seerr er nede. Manglande Seerr-profil gir aldri adminvising eller andre brukarar sine økter. Når begge profilar er tilgjengelege, blir kjende identitetskonfliktar framleis avviste. Manglande medieprofil gir ikkje tilgang på grunnlag av eit namn eller ein gjetta brukar-ID.
 
-- Jellyfin/Emby identities come from `/Users/Me`, not a connection name or manually entered profile ID. Sessions are filtered by exact `UserId` before mapping artwork or rendering. Equal display names never establish ownership.
-- A linked Seerr Jellyfin ID must match the Jellyfin identity for a non-administrator. A shared media-admin account cannot stand in for a different ordinary user. If the necessary identity cannot be verified, sessions are empty.
-- Verified Seerr administrators can obtain the server's session overview through an administrator media connection or a server API key. The media server still determines what its credential permits.
-- Ordinary Seerr request feeds send `requestedBy` and filter the returned owner again. Personal Activity uses the account-scoped request tracker, not the shared Radarr/Sonarr queue.
-- Shared `/queue` calls are skipped entirely for ordinary users. Release calendars are still fetched. Calendar dates are release information, not evidence that a user downloaded something.
-- A request rechecks the actual actor, movie/TV request permissions and season eligibility before writing. Administrator API keys cannot submit personal requests. Remote playback commands recheck that the selected session is still visible to the current viewer.
-- Account replacement/removal cancels the old refresh and clears the previous feed. Shared activity, queue and sessions are not saved in the dashboard cache. Startup does not restore an unverified dashboard; library refresh failures do not preserve a previous access scope.
-- Ordinary configured Seerr users do not see shared Emby/Radarr/Sonarr connection editors. Stored secrets are not prefilled for an unverified administrator.
+- Jellyfin-identiteten kjem frå `Users/Me`; Emby bruker den autentiserte `User.Id` og `Users/{Id}`. Namn og manuelt innskrivne ID-ar stadfestar ikkje eigarskap. Økter blir filtrerte etter eksakt `UserId` før mapping og vising.
+- Ein vanleg brukar sin kjende Seerr-kopling må samsvare med mediekontoen. Ein delt admin-konto kan ikkje opptre som ein annan person. Manglande medieidentitet gir tomme personlege rader.
+- Tidleg heimlasting held att hald fram, neste episode og favorittar medan Seerr-identiteten ventar. Vanlege bibliotekmetadata kan bli klare tidleg for ein verifisert mediebrukar. Ein kjend identitetskonflikt blir avvist; separat Seerr-svikt tek ikkje bort eit verifisert eige bibliotek.
+- Ein stadfesta Seerr-administrator kan hente øktoversikt gjennom ein mediekonto med nødvendige rettar. Medietenaren avgjer framleis kva tilgangsteiknet tillèt.
+- Personlege førespurnader sender `requestedBy` og filtrerer eigaren i svaret på nytt. Aktivitet og følgjeval er kontoavgrensa. Spole har ingen direkte Sonarr-/Radarr-klientar.
+- Delte køkall blir hoppa over for vanlege brukarar. Kalenderen bruker eigne førespurnader, bibliotekfrø og lokale følgjeval. Ein utgjevingsdato seier ikkje at brukaren har lasta ned noko.
+- Ei førespurnad stadfestar aktør, film-/serierett og sesongval før skriving. Admin-API-nøklar kan ikkje sende personlege førespurnader. Fjernkontroll av avspeling stadfestar at økta framleis er synleg.
+- Profil, kontoavtrykk og generasjon eig arbeid og skjermtilstand. Kontobyte tilbakekallar gamle jobbar og spelarar, også ved byte bort og tilbake. Gamle heim-/søkprojeksjonar blir haldne att til eigarskapen samsvarar. Innlogging skriv til profilen som starta operasjonen.
+- Delte køar, aktivitet og aktive økter blir ikkje lagra i dashboard-cache. Ny konto får ikkje den førre kontoen sitt mellomlager. Personlege innstillingar viser ikkje lagra nøklar i innloggingsfelt.
 
-## Library exclusions
+## Bibliotek og barn
 
-Recent-media queries use allowed library parent IDs only. Normalized exact names excluded are Barneserier, Barneseriar, Barne-TV, Barne-Tv Serier and Barne-TV Seriar. The last two naming patterns were checked against the user's actual Jellyfin/Emby views. Barnefilmar and unrelated libraries are not excluded. No server libraries, permissions or media files are changed. Empty/failed library discovery never triggers an unscoped library query.
+Bibliotekspørringar bruker dei tillatne bibliotek-ID-ane og brukaren sine val per rad og teneste.
+Heim og Bibliotek har separate bibliotekval. Biblioteksnamn er ikkje tilgangskontroll; tom eller
+feila bibliotekoppdaging opnar ikkje ei uavgrensa spørring.
 
-This is a named-library exclusion for the Home feeds, not parental-control enforcement. Seerr discovery and global release calendars are not filtered by genre or age rating.
+Barnemodus bruker barnet sin eigen Jellyfin-/Emby-konto. Tenaren eig bibliotek- og aldersrettane;
+Spole skriv ikkje admin-policy eller filtrerer etter sjanger som erstatning for kontorettar.
+Valfri PIN vernar vegen til vaksenprofilen. Deaktivering krev rett PIN eller stadfesta
+passordgjenoppretting for vaksenkontoen. Leggetid er ei lokal familierutine, ikkje kioskvern.
 
-## Limits and deployment
+## Avgrensingar
 
-Client-side filtering is not a substitute for server authorization. Do not distribute administrator API keys to ordinary users or treat a client holding such a key as a secure multi-tenant gateway. A hardened shared deployment should use personal server credentials or a server-side service that limits access. Seerr remains authoritative for approval rules, quotas and final request acceptance. Unknown identities fail closed; the app does not guess a user's identity across independent Emby and Jellyfin installations.
+Bruk personlege tenarkontoar. Ein klient med ein delt adminnøkkel kan ikkje erstatte
+serverautorisasjon. Seerr eig godkjenningsreglar, kvotar og endeleg aksept av førespurnader.
+Spole gjettar ikkje identitet mellom uavhengige Emby- og Jellyfin-installasjonar.
 
-References: [Seerr permissions](https://github.com/seerr-team/seerr/blob/develop/server/lib/permissions.ts), [Seerr request routes](https://github.com/seerr-team/seerr/blob/develop/server/routes/request.ts), [Jellyfin session controller](https://github.com/jellyfin/jellyfin/blob/master/Jellyfin.Api/Controllers/SessionController.cs).
+Tenarkontraktar: [Seerr-rettar](https://github.com/seerr-team/seerr/blob/develop/server/lib/permissions.ts), [Seerr-førespurnader](https://github.com/seerr-team/seerr/blob/develop/server/routes/request.ts), [Jellyfin-økter](https://github.com/jellyfin/jellyfin/blob/master/Jellyfin.Api/Controllers/SessionController.cs).
