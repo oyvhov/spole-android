@@ -159,6 +159,9 @@ fun ReelstackSheets(
     onConfirmRequest: () -> Unit = {},
     onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
     onImportSetupLink: (String) -> Unit = {},
+    onPickServer: (app.reelstack.data.network.DiscoveredServer) -> Unit = {},
+    onConfirmAddress: ((() -> Unit)?) -> Unit = {},
+    onPickLoginUser: (app.reelstack.data.network.PublicUser) -> Unit = {},
     onConnectionAlternateUrlChange: (String) -> Unit = {},
     onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> },
     onFavourite: (String, Boolean) -> Unit = { _, _ -> },
@@ -284,10 +287,15 @@ fun ReelstackSheets(
                     if (it.simpleSetup) CombinedSetupSheet(it, onConnectionUrlChange,
                         { url -> onCompanionLoginChange(true, url) }, onTestAndSaveConnection, close,
                         onConnectionAuthModeChange, onConnectionUsernameChange, onConnectionPasswordChange,
-                        { enabled -> onCompanionLoginChange(enabled, it.companionUrl) }, onImportSetupLink)
+                        { enabled -> onCompanionLoginChange(enabled, it.companionUrl) }, onImportSetupLink,
+                        onPickUser = onPickLoginUser)
                     else ConnectionEditorSheet(
                         draft = it,
                         configured = state.connections.firstOrNull { item -> item.kind == it.kind }?.baseUrl?.isNotBlank() == true,
+                        discovered = state.discoveredServers.filter { server -> server.kind.name == it.kind.name },
+                        onPickServer = onPickServer,
+                        onConfirmAddress = onConfirmAddress,
+                        onPickUser = onPickLoginUser,
                         onDismiss = close,
                         onNameChange = onConnectionNameChange,
                         onUrlChange = onConnectionUrlChange,
@@ -1457,6 +1465,10 @@ internal fun ConnectionEditorSheet(
     onCompanionLoginChange: (Boolean, String) -> Unit = { _, _ -> },
     onAlternateUrlChange: (String) -> Unit = {},
     setupLink: String? = null,
+    discovered: List<app.reelstack.data.network.DiscoveredServer> = emptyList(),
+    onPickServer: (app.reelstack.data.network.DiscoveredServer) -> Unit = {},
+    onConfirmAddress: ((() -> Unit)?) -> Unit = { it?.invoke() },
+    onPickUser: (app.reelstack.data.network.PublicUser) -> Unit = {},
 ) {
     val shareContext = LocalContext.current
     val invalidAddressMessage = stringResource(R.string.error_enter_valid_url)
@@ -1470,16 +1482,51 @@ internal fun ConnectionEditorSheet(
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val continueInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val focus = LocalFocusManager.current
+    val firstServerFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val stepTwoFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val passwordFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    var touched by remember { mutableStateOf(false) }
+    val mediaServer = draft.kind == ServiceKind.JELLYFIN || draft.kind == ServiceKind.EMBY
     val nextStep: () -> Unit = {
         runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
-            .onSuccess {
-                onUrlChange(it)
-                if (television && !configured && draft.kind == ServiceKind.SEERR) onAuthModeChange(ConnectionAuthMode.QUICK_CONNECT)
-                credentialsStep = true; focus.clearFocus()
+            .onSuccess { normalized ->
+                addressError = null
+                if (mediaServer) {
+                    // A bare LAN address ("192.168.1.20") is left as typed: the view model tries
+                    // the usual ports over HTTP before HTTPS. Anything else is settled here and
+                    // only checked for being the right kind of server.
+                    val bareLocal = !draft.url.contains("://") &&
+                        app.reelstack.data.network.serverAddressCandidates(draft.url).firstOrNull()?.startsWith("http://") == true
+                    if (!bareLocal) onUrlChange(normalized)
+                    onConfirmAddress { credentialsStep = true }
+                } else {
+                    onUrlChange(normalized)
+                    if (television && !configured && draft.kind == ServiceKind.SEERR) onAuthModeChange(ConnectionAuthMode.QUICK_CONNECT)
+                    credentialsStep = true
+                }
             }
             .onFailure { addressError = it.readableMessage(shareContext) ?: invalidAddressMessage }
     }
-    Column(Modifier.fillMaxSize()) {
+    // A server picked from the network has nothing left to confirm in the address step.
+    LaunchedEffect(draft.addressResolved, draft.url) {
+        if (draft.addressResolved && !configured && mediaServer) credentialsStep = true
+    }
+    // The remote must land somewhere on every step. Dropping focus here used to leave the
+    // second step looking dead until something happened to be pressed.
+    LaunchedEffect(credentialsStep, discovered.isNotEmpty()) {
+        if (!television || configured) return@LaunchedEffect
+        androidx.compose.runtime.withFrameNanos { }
+        // Without a server to offer, the toolbar keeps the first focus it already takes on remote
+        // entry; one press down reaches the address field without the cursor running behind it.
+        runCatching {
+            if (credentialsStep) stepTwoFocus.requestFocus()
+            else if (!touched && discovered.isNotEmpty()) firstServerFocus.requestFocus()
+        }
+    }
+    Column(Modifier.fillMaxSize().onPreviewKeyEvent {
+        if (it.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) touched = true
+        false
+    }) {
         SheetToolbar(if (configured) draft.kind.displayName else stringResource(R.string.login_service, draft.kind.displayName), stringResource(R.string.action_close), onDismiss)
     Column(
         Modifier.weight(1f).testTag("connection-scroll").verticalScroll(rememberScrollState())
@@ -1576,37 +1623,52 @@ internal fun ConnectionEditorSheet(
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
         Spacer(Modifier.height(10.dp))
         if (!credentialsStep) {
+            if (!configured && discovered.isNotEmpty()) {
+                Text(stringResource(R.string.login_found_on_network), color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
+                    fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 20.dp)) {
+                    discovered.forEachIndexed { index, server ->
+                        app.reelstack.ui.components.DiscoveredServerCard(server, { onPickServer(server) },
+                            if (index == 0) Modifier.focusRequester(firstServerFocus) else Modifier)
+                    }
+                }
+            }
+            val shownError = addressError ?: draft.error
             OutlinedTextField(
                 value = draft.url, onValueChange = { addressError = null; onUrlChange(it) },
                 label = { Text(stringResource(R.string.login_address)) }, placeholder = { Text(exampleAddress(draft.kind)) },
-                supportingText = { Text(addressError ?: stringResource(R.string.login_address_detail)) },
-                isError = addressError != null,
+                supportingText = { Text(shownError ?: stringResource(if (mediaServer) R.string.setup_manual_note else R.string.login_address_detail)) },
+                isError = shownError != null,
                 singleLine = true, shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                 keyboardOptions = KeyboardOptions(
                     capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
                     autoCorrectEnabled = false,
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Next,
+                    // On a television the remote walks across this field on its way to the button;
+                    // the keyboard opens when OK is pressed, not every time focus passes by.
+                    showKeyboardOnFocus = !television,
                 ),
                 keyboardActions = KeyboardActions(onNext = { nextStep() }),
                 modifier = Modifier.fillMaxWidth().testTag("connection-url"),
             )
             // Material hides the placeholder until the field has focus, so the example that
             // people actually need has to live outside the field. Tapping it fills the field.
-            AddressExamples(draft.kind, enabled = !draft.saving) { addressError = null; onUrlChange(it) }
-            Button(onClick = nextStep, enabled = draft.url.isNotBlank(), interactionSource = continueInteraction,
+            // Media servers are found on the network instead: a made-up LAN address that fills
+            // the field is a stop the remote has to pass, and it leads nowhere.
+            if (mediaServer) Text(stringResource(R.string.login_example_detail, draft.kind.displayName),
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 10.dp))
+            else AddressExamples(draft.kind, enabled = !draft.saving) { addressError = null; onUrlChange(it) }
+            // Never disabled: a disabled button cannot take focus, and the remote would skip past
+            // the one control it is looking for. An empty address is answered with a message.
+            Button(onClick = nextStep, interactionSource = continueInteraction,
                 shape = RoundedCornerShape(14.dp),
-                // Material's default disabled fill is 12 % of onSurface, which on this page is
-                // indistinguishable from a container. An outline keeps it readable as a button
-                // that is waiting for input.
-                colors = ButtonDefaults.buttonColors(
-                    disabledContainerColor = SurfaceRaised,
-                    disabledContentColor = Muted,
-                ),
-                border = if (draft.url.isBlank()) androidx.compose.foundation.BorderStroke(1.dp, app.reelstack.ui.theme.ControlOutline) else null,
                 modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 54.dp)
                     .focusOutline(continueInteraction, RoundedCornerShape(14.dp)).testTag("connection-continue")) {
-                Text(stringResource(R.string.login_continue), fontWeight = FontWeight.Bold)
+                if (draft.resolvingAddress) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp,
+                    modifier = Modifier.size(18.dp).padding(end = 0.dp))
+                Text(stringResource(if (draft.resolvingAddress) R.string.setup_resolving else R.string.login_continue),
+                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = if (draft.resolvingAddress) 10.dp else 0.dp))
             }
             return@Column
         }
@@ -1638,10 +1700,16 @@ internal fun ConnectionEditorSheet(
         val usesQuickConnect = supportsJellyfinLogin && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
         if (usesQuickConnect) QuickConnectPanel(draft)
         if (usesAccount) {
+            if (draft.loginUsers.isNotEmpty()) Box(Modifier.padding(top = 12.dp)) {
+                LoginUserChoices(draft, onPickUser = { user ->
+                    onPickUser(user)
+                    if (user.hasPassword) runCatching { passwordFocus.requestFocus() }
+                }, firstFocus = stepTwoFocus)
+            }
             OutlinedTextField(
                 value = draft.username, onValueChange = onUsernameChange,
                 label = { Text(stringResource(R.string.login_username)) }, enabled = !draft.saving, singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, showKeyboardOnFocus = !television),
                 keyboardActions = KeyboardActions(onNext = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }),
                 shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -1662,7 +1730,7 @@ internal fun ConnectionEditorSheet(
                     if (!draft.saving && draft.username.isNotBlank()) { focus.clearFocus(); onTestAndSave() }
                 }),
                 shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp).focusRequester(passwordFocus),
             )
             Text(if (draft.kind == ServiceKind.SEERR) stringResource(R.string.login_seerr_account_hint)
                 else stringResource(R.string.login_local_account_hint, draft.kind.displayName),
@@ -1753,25 +1821,32 @@ internal fun ConnectionEditorSheet(
         }
     }
     if (television && credentialsStep && !configured) {
+        val accountStep = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) &&
+            draft.authMode == ConnectionAuthMode.ACCOUNT
         Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp, vertical = 12.dp)) {
-            ConnectionSubmit(draft) { focus.clearFocus(); onTestAndSave() }
+            // With names to pick from, the first name takes the remote; otherwise the action does.
+            // A text field is never the landing spot: its cursor runs with no keyboard in view.
+            ConnectionSubmit(draft, if (accountStep && draft.loginUsers.isNotEmpty()) Modifier
+                else Modifier.focusRequester(stepTwoFocus)) { onTestAndSave() }
         }
     }
     }
 }
 
 @Composable
-private fun ConnectionSubmit(draft: ConnectionDraft, onSubmit: () -> Unit) {
+private fun ConnectionSubmit(draft: ConnectionDraft, modifier: Modifier = Modifier, onSubmit: () -> Unit) {
     val usesQuickConnect = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR) && draft.authMode == ConnectionAuthMode.QUICK_CONNECT
     val usesAccount = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
         Button(
             onClick = { onSubmit() },
             interactionSource = interaction,
-            enabled = !draft.saving && (usesQuickConnect || if (usesAccount) draft.username.isNotBlank() else draft.token.isNotBlank()),
+            // Only a request in flight disables it. An empty user name or token is answered by the
+            // view model with a message; a disabled button would simply be skipped by the remote.
+            enabled = !draft.saving,
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp)
+            modifier = modifier.fillMaxWidth().padding(top = 18.dp).heightIn(min = 56.dp)
                 .focusOutline(interaction, RoundedCornerShape(14.dp)).testTag("connection-submit"),
         ) {
             if (draft.saving) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))

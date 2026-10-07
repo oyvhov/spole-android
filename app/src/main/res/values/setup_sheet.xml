@@ -14,4 +14,25 @@
     <string name="setup_seerr_hint">https://seerr.yourdomain.com</string>
     <string name="setup_username">User name</string>
     <string name="setup_password">Password</string>
+    <string name="setup_discovery_heading">Servers on your network</string>
+    <string name="setup_discovery_searching">Looking for Jellyfin and Emby…</string>
+    <string name="setup_discovery_none">No Jellyfin or Emby server answered on this network. Enter the address, or search again.</string>
+    <string name="setup_discovery_rescan">Search again</string>
+    <string name="setup_discovery_server_detail">%1$s · %2$s</string>
+    <string name="setup_discovery_sign_in">Sign in</string>
+    <string name="setup_discovery_tv_hint">Spole looks for servers in the house. Choose one with the remote, then approve the sign-in on your phone.</string>
+    <string name="setup_manual_title">Enter the address</string>
+    <string name="setup_manual_note">For example 192.168.1.20 or jellyfin.example.com</string>
+    <string name="setup_resolving">Looking for the server…</string>
+    <string name="setup_server_not_found">No Jellyfin or Emby server answered at %1$s. Check the address, and add the port if the server does not use %2$d.</string>
+    <string name="setup_server_wrong_kind">“%1$s” is a %2$s server, not %3$s.</string>
+    <string name="setup_enter_server_address">Enter the address of your %1$s server.</string>
+    <string name="setup_seerr_found">Seerr answered on the same machine, so its address is filled in.</string>
+    <string name="setup_heading_sign_in_to">Sign in to %1$s</string>
+    <string name="setup_use_password">User name and password</string>
+    <string name="setup_cancel">Cancel</string>
+    <string name="setup_change_server">Change server</string>
+    <string name="login_pick_user">Choose a user</string>
+    <string name="login_found_on_network">Found on your network</string>
+    <string name="setup_journey_description">Three steps: pick the server Spole finds on your network, approve on your phone with a code, and watch.</string>
 </resources>

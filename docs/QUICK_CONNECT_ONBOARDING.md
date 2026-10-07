@@ -1,5 +1,9 @@
 # Enkel oppstart med Jellyfin og Seerr
 
+Frå 6. oktober 2026 startar oppsettet med tenarar funne på nettet, og Seerr er av som standard.
+Sjå [oppstart med tenarar på nettet](ONBOARDING_DISCOVERY_2026-10-06.md); den går framfor det som
+står om første skjerm og adressefelt under.
+
 Levert i [Spole 0.16.0-alpha24](archive/releases/release-v0.16.0-alpha24.md).
 Sjå [release-verifikasjon](archive/releases/VERIFICATION_v0.16.0-alpha24.md) for publisering og oppdatering.
 

@@ -14,4 +14,25 @@
     <string name="setup_seerr_hint">https://seerr.dittdomene.no</string>
     <string name="setup_username">Brukarnamn</string>
     <string name="setup_password">Passord</string>
+    <string name="setup_discovery_heading">Tenarar på nettverket</string>
+    <string name="setup_discovery_searching">Leitar etter Jellyfin og Emby …</string>
+    <string name="setup_discovery_none">Ingen Jellyfin- eller Emby-tenar svara på dette nettet. Skriv inn adressa, eller søk på nytt.</string>
+    <string name="setup_discovery_rescan">Søk på nytt</string>
+    <string name="setup_discovery_server_detail">%1$s · %2$s</string>
+    <string name="setup_discovery_sign_in">Logg inn</string>
+    <string name="setup_discovery_tv_hint">Spole leitar etter tenarar i huset. Vel ein med fjernkontrollen, og godkjenn innlogginga på mobilen.</string>
+    <string name="setup_manual_title">Skriv inn adressa</string>
+    <string name="setup_manual_note">Til dømes 192.168.1.20 eller jellyfin.dittdomene.no</string>
+    <string name="setup_resolving">Leitar etter tenaren …</string>
+    <string name="setup_server_not_found">Ingen Jellyfin- eller Emby-tenar svara på %1$s. Sjekk adressa, og ta med porten om tenaren ikkje brukar %2$d.</string>
+    <string name="setup_server_wrong_kind">«%1$s» er ein %2$s-tenar, ikkje %3$s.</string>
+    <string name="setup_enter_server_address">Skriv inn adressa til %1$s-tenaren.</string>
+    <string name="setup_seerr_found">Seerr svara på same maskin, så adressa er fylt inn.</string>
+    <string name="setup_heading_sign_in_to">Logg inn på %1$s</string>
+    <string name="setup_use_password">Brukarnamn og passord</string>
+    <string name="setup_cancel">Avbryt</string>
+    <string name="setup_change_server">Byt tenar</string>
+    <string name="login_pick_user">Vel brukar</string>
+    <string name="login_found_on_network">Funne på nettverket</string>
+    <string name="setup_journey_description">Tre steg: vel tenaren Spole finn på nettet, godkjenn på mobilen med ein kode, og sjå.</string>
 </resources>

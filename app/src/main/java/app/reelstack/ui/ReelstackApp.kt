@@ -378,6 +378,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     onConnect = { viewModel.openSheet(AppSheet.ConnectionEditor(it)) },
                     onContinue = viewModel::completeOnboarding,
                     onCombined = viewModel::openCombinedSetup,
+                    onPickServer = viewModel::pickDiscoveredServer,
+                    onRescanServers = viewModel::discoverServers,
                 )
             } else {
             SharedTransitionLayout {

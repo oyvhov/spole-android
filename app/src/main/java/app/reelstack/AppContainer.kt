@@ -20,6 +20,10 @@ class AppContainer(context: Context) {
     val seerrAuthenticationClient = app.reelstack.data.network.SeerrAuthenticationClient()
     val embyAuthenticationClient = app.reelstack.data.network.EmbyAuthenticationClient(deviceId = deviceId)
     val embyConnectClient = app.reelstack.data.network.EmbyConnectClient()
+    val serverDiscovery by lazy {
+        app.reelstack.data.network.LanServerDiscovery({ app.reelstack.data.network.lanBroadcastTargets(appContext) })
+    }
+    val serverProbe = app.reelstack.data.network.ServerProbe()
     val jellyfinAuthenticationClient = JellyfinAuthenticationClient(
         deviceId = deviceId,
     )

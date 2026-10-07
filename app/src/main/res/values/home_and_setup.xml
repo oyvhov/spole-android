@@ -24,8 +24,6 @@
     <string name="server_address_example">https://spole.example.com</string>
     <string name="welcome_headline">Welcome to Spole</string>
     <string name="welcome_subtitle">Your films and series, gathered in one place.</string>
-    <string name="welcome_get_started">Get started</string>
-    <string name="welcome_get_started_note">Jellyfin · Seerr optional</string>
     <string name="welcome_setup_hint">Use the setup link or the addresses you were given by whoever shares the library with you.</string>
     <string name="welcome_other_methods">Other ways to sign in</string>
     <string name="setup_making_code">Creating a code…</string>

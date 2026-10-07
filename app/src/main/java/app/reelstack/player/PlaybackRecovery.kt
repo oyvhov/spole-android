@@ -107,6 +107,23 @@ internal fun recoverablePlaybackFailure(error: PlaybackException, transcoding: B
     return recoverablePlaybackFailure(error.errorCode, http?.responseCode, transcoding)
 }
 
+/** Quick stream retries an episode gets before it stops and asks. */
+internal const val NETWORK_RECOVERY_LIMIT = 2
+
+/** Media played after a retry that proves the connection came back. */
+internal const val STABLE_PLAYBACK_MS = 60_000L
+
+/**
+ * Retries still counted against this episode once playback has reached [positionMs].
+ *
+ * A drop that the stream recovered from and then played through for a minute is over. Counting it
+ * meant a long episode over a tunnel stopped for good on its third short drop, however far apart
+ * they were. A stream that fails again where it stood keeps the count, so a dead connection still
+ * gives up.
+ */
+internal fun networkRecoveriesSpent(spent: Int, retriedAtMs: Long, positionMs: Long): Int =
+    if (spent > 0 && positionMs - retriedAtMs >= STABLE_PLAYBACK_MS) 0 else spent
+
 internal fun recoverablePlaybackFailure(errorCode: Int, httpStatus: Int?, transcoding: Boolean): Boolean {
     if (httpStatus != null) return httpStatus in setOf(408, 429, 500, 502, 503, 504) ||
         (transcoding && httpStatus == 404)

@@ -106,6 +106,17 @@ data class ConnectionDraft(
     val quickConnectWaiting: Boolean = false,
     val error: String? = null,
     val warning: String? = null,
+    /** The server's own name once it has answered, e.g. "Stova". Empty until then. */
+    val serverName: String = "",
+    /** [url] is an address that answered as a server of [kind]; nothing needs guessing any more. */
+    val addressResolved: Boolean = false,
+    val resolvingAddress: Boolean = false,
+    /** Seerr answered next to the chosen LAN server, so its address was filled in for the user. */
+    val seerrFound: Boolean = false,
+    /** Users the server lists on its sign-in screen; picking one saves typing a name with a remote. */
+    val loginUsers: List<app.reelstack.data.network.PublicUser> = emptyList(),
+    /** Started from the first-run server list: a successful sign-in goes straight home. */
+    val finishOnboarding: Boolean = false,
 )
 
 data class ReelstackUiState(
@@ -131,6 +142,9 @@ data class ReelstackUiState(
     val isKidMode: Boolean = false,
     val publicUsers: List<app.reelstack.data.network.PublicUser> = emptyList(),
     val loadingPublicUsers: Boolean = false,
+    /** Jellyfin and Emby servers that answered the LAN broadcast, best first. */
+    val discoveredServers: List<app.reelstack.data.network.DiscoveredServer> = emptyList(),
+    val discoveringServers: Boolean = false,
     val pinConfigured: Boolean = false,
     val pinError: String? = null,
     val pinLockoutSeconds: Int = 0,
@@ -419,6 +433,8 @@ class ReelstackViewModel(
     private val detailHistory = ArrayDeque<EpisodeReturn>()
     private var quickConnectJob: Job? = null
     private var connectionJob: Job? = null
+    private var discoveryJob: Job? = null
+    private var addressJob: Job? = null
     private var trackingJob: Job? = null
     private var historyJob: Job? = null
     private var requestDraftJob: Job? = null
@@ -477,6 +493,9 @@ class ReelstackViewModel(
     )
 
     init {
+        // A first-run television should already know the servers in the house when the remote
+        // reaches the first card. The broadcast is a single packet per network and stops by itself.
+        if (_uiState.value.showOnboarding) discoverServers()
         viewModelScope.launch {
             container.localPlaybackStore.changes.collect {
                 _uiState.update { it.copy(resume = localResume(it.resume, it.connections), nextUp = localNextUp(it.nextUp, it.connections)) }
@@ -1139,13 +1158,148 @@ class ReelstackViewModel(
     fun cancelConnectionSetup() {
         connectionJob?.cancel()
         quickConnectJob?.cancel()
+        addressJob?.cancel()
     }
 
     fun openCombinedSetup() {
         // First-run only: never silently replace an existing service account.
         if (!_uiState.value.showOnboarding || _uiState.value.configuredCount > 0) return
         openSheet(AppSheet.ConnectionEditor(ServiceKind.JELLYFIN))
-        updateDraft { copy(simpleSetup = true, alsoConnect = true, authMode = ConnectionAuthMode.QUICK_CONNECT) }
+        // Seerr starts off. It used to start on, which put a second address field in front of a
+        // remote before anyone could press "Godkjenn på mobilen" — for a service many homes
+        // do not run. A chosen LAN server fills it in when Seerr answers beside it.
+        updateDraft { copy(simpleSetup = true, alsoConnect = false, authMode = ConnectionAuthMode.QUICK_CONNECT) }
+    }
+
+    /** Ask the network for Jellyfin and Emby. Keeps the last answer on screen while it asks again. */
+    fun discoverServers() {
+        discoveryJob?.cancel()
+        _uiState.update { it.copy(discoveringServers = true) }
+        discoveryJob = viewModelScope.launch {
+            var latest = _uiState.value.discoveredServers
+            runCatching {
+                container.serverDiscovery.discover().collect { found ->
+                    if (found.isNotEmpty()) {
+                        latest = found
+                        _uiState.update { it.copy(discoveredServers = found) }
+                    }
+                }
+            }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            _uiState.update { it.copy(discoveringServers = false, discoveredServers = latest) }
+        }
+    }
+
+    /**
+     * Start signing in to a server that answered on the network: its address is already known to
+     * work, so the address step is skipped and the remote lands on the sign-in choice.
+     */
+    fun pickDiscoveredServer(server: app.reelstack.data.network.DiscoveredServer) {
+        val kind = when (server.kind) {
+            app.reelstack.data.network.DiscoveredServerKind.JELLYFIN -> ServiceKind.JELLYFIN
+            app.reelstack.data.network.DiscoveredServerKind.EMBY -> ServiceKind.EMBY
+        }
+        val firstRun = _uiState.value.showOnboarding && _uiState.value.configuredCount == 0
+        if (kind == ServiceKind.JELLYFIN && firstRun) openCombinedSetup() else openSheet(AppSheet.ConnectionEditor(kind))
+        if (connectionDraft.value?.kind != kind) return
+        updateDraft {
+            copy(url = server.address, serverName = server.name, addressResolved = true, error = null, finishOnboarding = firstRun,
+                warning = if (EndpointValidator.isCleartext(server.address)) appString(R.string.warn_cleartext_http) else null)
+        }
+        if (kind == ServiceKind.EMBY || connectionDraft.value?.authMode == ConnectionAuthMode.ACCOUNT) loadLoginUsers()
+        if (kind == ServiceKind.JELLYFIN && connectionDraft.value?.simpleSetup == true) {
+            addressJob?.cancel()
+            addressJob = viewModelScope.launch {
+                val seerr = withContext(Dispatchers.IO) { container.serverProbe.seerrBeside(server.address) } ?: return@launch
+                updateDraft {
+                    if (url != server.address || alsoConnect || companionUrl.isNotBlank()) this
+                    else copy(companionUrl = seerr, alsoConnect = true, seerrFound = true)
+                }
+            }
+        }
+    }
+
+    /**
+     * Turn what was typed into an address that really answers as this kind of server, then carry
+     * on with [then]. "192.168.1.20" becomes `http://192.168.1.20:8096` when that is where the
+     * server is; an Emby address in the Jellyfin flow is named as such instead of failing later.
+     */
+    fun confirmConnectionAddress(then: (() -> Unit)? = null) = confirmConnectionAddress(keepBusy = false, then = then)
+
+    /**
+     * [keepBusy] is for sign-in: the draft stays `saving` from the press of the button until the
+     * sign-in itself has finished, so the form never looks idle in between the two steps.
+     */
+    private fun confirmConnectionAddress(keepBusy: Boolean, then: (() -> Unit)?) {
+        val draft = connectionDraft.value ?: return
+        if (draft.resolvingAddress || draft.saving) return
+        if (draft.addressResolved || draft.kind !in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) { then?.invoke(); return }
+        if (draft.url.isBlank()) {
+            updateDraft { copy(error = appString(R.string.setup_enter_server_address, draft.kind.displayName)) }
+            return
+        }
+        val candidates = app.reelstack.data.network.serverAddressCandidates(draft.url)
+        if (candidates.isEmpty()) {
+            val reason = runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }.exceptionOrNull()
+            updateDraft { copy(error = reason?.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url)) }
+            return
+        }
+        updateDraft { copy(resolvingAddress = true, saving = keepBusy, error = null) }
+        addressJob?.cancel()
+        addressJob = viewModelScope.launch {
+            val typed = draft.url
+            val found = container.serverProbe.firstAnswering(candidates)
+            val current = connectionDraft.value
+            if (current == null || current.url != typed || current.kind != draft.kind) return@launch
+            val expected = if (draft.kind == ServiceKind.EMBY) app.reelstack.data.network.DiscoveredServerKind.EMBY
+                else app.reelstack.data.network.DiscoveredServerKind.JELLYFIN
+            val explicit = typed.contains("://")
+            when {
+                // A complete address is the owner's own decision. The probe has short timeouts;
+                // the sign-in that follows has normal ones and names its own failure.
+                found == null && explicit -> {
+                    val normalized = runCatching { EndpointValidator.normalizeBaseUrl(typed) }.getOrNull()
+                    if (normalized == null) updateDraft { copy(resolvingAddress = false, saving = false, error = appString(R.string.error_enter_valid_url)) }
+                    else {
+                        updateDraft { copy(url = normalized, addressResolved = true, resolvingAddress = false) }
+                        then?.invoke()
+                    }
+                }
+                found == null -> updateDraft { copy(resolvingAddress = false, saving = false,
+                    error = appString(R.string.setup_server_not_found, typed.trim(), app.reelstack.data.network.DEFAULT_HTTP_PORT)) }
+                found.kind != expected -> updateDraft { copy(resolvingAddress = false, saving = false,
+                    error = appString(R.string.setup_server_wrong_kind, found.name, kindName(found.kind), draft.kind.displayName)) }
+                else -> {
+                    updateDraft { copy(url = found.baseUrl, serverName = found.name, addressResolved = true, resolvingAddress = false,
+                        warning = if (EndpointValidator.isCleartext(found.baseUrl)) appString(R.string.warn_cleartext_http) else null) }
+                    if (draft.kind == ServiceKind.EMBY || draft.authMode == ConnectionAuthMode.ACCOUNT) loadLoginUsers()
+                    then?.invoke()
+                }
+            }
+        }
+    }
+
+    private fun kindName(kind: app.reelstack.data.network.DiscoveredServerKind) = when (kind) {
+        app.reelstack.data.network.DiscoveredServerKind.JELLYFIN -> ServiceKind.JELLYFIN.displayName
+        app.reelstack.data.network.DiscoveredServerKind.EMBY -> ServiceKind.EMBY.displayName
+    }
+
+    /** The server's own sign-in list. Empty when it hides its users, which Jellyfin often does. */
+    private fun loadLoginUsers() {
+        val draft = connectionDraft.value ?: return
+        if (!draft.addressResolved || draft.kind !in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) return
+        viewModelScope.launch {
+            val users = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (draft.kind == ServiceKind.EMBY) container.embyAuthenticationClient.publicUsers(draft.url)
+                    else container.jellyfinAuthenticationClient.publicUsers(draft.url)
+                }.getOrDefault(emptyList())
+            }
+            updateDraft { if (url == draft.url) copy(loginUsers = users) else this }
+        }
+    }
+
+    fun pickLoginUser(user: app.reelstack.data.network.PublicUser) = updateDraft {
+        copy(username = user.name, password = "", error = null)
     }
 
     fun importSetupLink(value: String) {
@@ -1197,7 +1351,12 @@ class ReelstackViewModel(
                 warning = existing.baseUrl.takeIf(String::isNotBlank)?.let {
                     if (EndpointValidator.isCleartext(it)) appString(R.string.warn_cleartext_http) else null
                 },
+                // A saved address has already signed in once; probing it again before a fresh
+                // sign-in would only add a way to fail on a slow mobile network.
+                addressResolved = existing.baseUrl.isNotBlank(),
             )
+            if (existing.baseUrl.isBlank() && existing.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+                !_uiState.value.discoveringServers) discoverServers()
         }
         _uiState.update { it.copy(activeSheet = sheet, returnToCalendar = false) }
     }
@@ -1233,6 +1392,7 @@ class ReelstackViewModel(
         _uiState.update { it.copy(requestDraft = null) }
         connectionJob?.cancel()
         quickConnectJob?.cancel()
+        addressJob?.cancel()
         seasonsJob?.cancel()
         episodesJob?.cancel()
         _uiState.update { it.copy(activeSheet = null, contentDetails = null, returnToCalendar = false,
@@ -2669,12 +2829,18 @@ class ReelstackViewModel(
     fun updateConnectionName(value: String) = updateDraft { copy(name = value, error = null) }
     fun updateConnectionUrl(value: String) {
         quickConnectJob?.cancel()
+        addressJob?.cancel()
         updateDraft {
             copy(
                 url = value,
                 quickConnectCode = null,
                 quickConnectWaiting = false,
                 error = null,
+                // Any edit makes the address a guess again, until it answers.
+                addressResolved = addressResolved && value == url,
+                resolvingAddress = false,
+                serverName = if (value == url) serverName else "",
+                loginUsers = if (value == url) loginUsers else emptyList(),
                 warning = runCatching {
                     if (value.isNotBlank() && EndpointValidator.isCleartext(value)) {
                         appString(R.string.warn_cleartext_http)
@@ -2697,6 +2863,7 @@ class ReelstackViewModel(
                 error = null,
             )
         }
+        if (value == ConnectionAuthMode.ACCOUNT && connectionDraft.value?.loginUsers.isNullOrEmpty()) loadLoginUsers()
     }
     fun updateConnectionUsername(value: String) = updateDraft { copy(username = value, error = null) }
     fun updateConnectionPassword(value: String) = updateDraft { copy(password = value, error = null) }
@@ -2704,12 +2871,21 @@ class ReelstackViewModel(
         copy(alsoConnect = enabled, companionUrl = url, error = null)
     }
 
-    fun testAndSaveConnection() {
+    fun testAndSaveConnection() = testAndSaveConnection(resumed = false)
+
+    /** [resumed]: called by the address step, which has kept the draft `saving` on purpose. */
+    private fun testAndSaveConnection(resumed: Boolean) {
         val draft = connectionDraft.value ?: return
-        if (draft.saving || (draft.simpleSetup && draft.quickConnectWaiting)) return
+        if ((draft.saving && !resumed) || draft.resolvingAddress || (draft.simpleSetup && draft.quickConnectWaiting)) return
+        if (draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && !draft.addressResolved) {
+            confirmConnectionAddress(keepBusy = true) { testAndSaveConnection(resumed = true) }
+            return
+        }
+        // Every early answer below hands the form back, including after the address step.
+        fun fail(message: String) = updateDraft { copy(saving = false, error = message) }
         val normalizedUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.url) }
             .getOrElse {
-                updateDraft { copy(error = it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url)) }
+                fail(it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url))
                 return
             }
         val useJellyfinAccount = draft.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.SEERR, ServiceKind.EMBY) && draft.authMode == ConnectionAuthMode.ACCOUNT
@@ -2717,7 +2893,7 @@ class ReelstackViewModel(
         if (useQuickConnect) {
             if (draft.simpleSetup && draft.alsoConnect) {
                 val companionUrl = runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
-                    updateDraft { copy(error = appString(R.string.error_check_seerr_url)) }
+                    fail(appString(R.string.error_check_seerr_url))
                     return
                 }
                 startQuickConnect(draft.copy(companionUrl = companionUrl), normalizedUrl)
@@ -2727,26 +2903,26 @@ class ReelstackViewModel(
             return
         }
         if (useJellyfinAccount && draft.username.isBlank()) {
-            updateDraft { copy(error = appString(R.string.error_enter_username)) }
+            fail(appString(R.string.error_enter_username))
             return
         }
         if (!useJellyfinAccount && draft.token.isBlank()) {
-            updateDraft { copy(error = appString(R.string.error_enter_token)) }
+            fail(appString(R.string.error_enter_token))
             return
         }
         val alternateUrl = draft.alternateUrl.takeIf(String::isNotBlank)?.let { entered ->
             runCatching { EndpointValidator.normalizeBaseUrl(entered) }.getOrElse {
-                updateDraft { copy(error = appString(R.string.error_check_alternate_url, it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url))) }
+                fail(appString(R.string.error_check_alternate_url, it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url)))
                 return
             }
         }.orEmpty()
         if (alternateUrl.isNotBlank() && alternateUrl == normalizedUrl) {
-            updateDraft { copy(error = appString(R.string.error_alternate_same_url)) }
+            fail(appString(R.string.error_alternate_same_url))
             return
         }
         val companionUrl = if (useJellyfinAccount && draft.alsoConnect && draft.kind != ServiceKind.EMBY) {
             runCatching { EndpointValidator.normalizeBaseUrl(draft.companionUrl) }.getOrElse {
-                updateDraft { copy(error = appString(R.string.error_check_companion_url, it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url))) }
+                fail(appString(R.string.error_check_companion_url, it.readableMessage(container.appContext) ?: appString(R.string.error_enter_valid_url)))
                 return
             }
         } else null
@@ -2804,7 +2980,7 @@ class ReelstackViewModel(
                 }
             } else null
             verifyAndSaveConnection(candidate, companion)
-            if (draft.simpleSetup && _uiState.value.activeSheet == null) completeOnboarding()
+            if ((draft.simpleSetup || draft.finishOnboarding) && _uiState.value.activeSheet == null) completeOnboarding()
         }
     }
 
@@ -2907,7 +3083,7 @@ class ReelstackViewModel(
                 }
             } else null
             verifyAndSaveConnection(candidate, companion)
-            if (draft.simpleSetup && _uiState.value.activeSheet == null) completeOnboarding()
+            if ((draft.simpleSetup || draft.finishOnboarding) && _uiState.value.activeSheet == null) completeOnboarding()
         }
     }
 

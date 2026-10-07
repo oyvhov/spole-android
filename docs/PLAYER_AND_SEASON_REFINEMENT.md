@@ -9,7 +9,9 @@ Lokal vidareutvikling. Ikkje publisert som ny automatisk oppdatering.
 - Avspelingslesing og formatforhandling toler opptil to nye forsøk ved mellombelse
   nettverksfeil og HTTP 408/429/500/502/503/504. Lange Retry-After-verdiar blir ikkje ignorerte.
   Framdriftsrapportering blir ikkje repetert av denne mekanismen.
-- Media3 kan starte ei ny forhandling opptil to gonger ved nettverksbrot. Ein 404 kan
+- Media3 kan starte ei ny forhandling opptil to gonger ved nettverksbrot. Frå 1.0.0-beta4 blir
+  eit brot som har spelt vidare i eitt minutt etter nytt forsøk, ikkje rekna med lenger. Då
+  stoppar ikkje ein lang episode over tunnel på tredje korte brot. Ein 404 kan
   prøvast på nytt for ein omkoda straum, ikkje for ei manglande direktefil. Løyvefeil
   blir aldri skjulte av ein endelaus retry-løkke. Posisjon, spor og kvalitetsval blir bevarte.
 - Ein mellombels Seerr-feil stoppar ikkje ein ferskt stadfesta personleg mediekonto.

@@ -169,8 +169,8 @@ class SheetInteractionTest {
             rule.runOnIdle { state.value = route }
             rule.waitForIdle()
             rule.onAllNodesWithTag("sheet-close").assertCountEquals(1)
-            assertEquals(frame, bounds("sheet-viewport"))
-            assertEquals(close, bounds("sheet-close"))
+            assertEquals("frame on ${route.activeSheet}", frame, bounds("sheet-viewport"))
+            assertEquals("close on ${route.activeSheet}", close, bounds("sheet-close"))
         }
     }
 

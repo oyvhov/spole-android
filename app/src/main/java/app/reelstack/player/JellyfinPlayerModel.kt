@@ -165,6 +165,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     /** How far down the fallback ladder this item has been pushed. Reset when another is chosen. */
     private var compatibility = PlaybackCompatibility.DIRECT
     private var networkRecoveries = 0
+    /** Where the last stream retry picked up; a minute played past it clears the count. */
+    private var networkRecoveryPosition = 0L
     private var foreground = true
     private var request: Job? = null
     private var recoveryJob: Job? = null
@@ -330,9 +332,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             return
         }
         // Retry transient transport failures without changing codecs or picture quality.
-        if (source != null && plan != null && sameAccount() && networkRecoveries < 2 &&
+        networkRecoveries = networkRecoveriesSpent(networkRecoveries, networkRecoveryPosition, position)
+        if (source != null && plan != null && sameAccount() && networkRecoveries < NETWORK_RECOVERY_LIMIT &&
             recoverablePlaybackFailure(error, plan?.direct == false)) {
             networkRecoveries++
+            networkRecoveryPosition = position
             val ticket = generation
             mutable.update { it.copy(busy = true, error = null,
                 fallback = playbackFallbackLabel(error, "RETRY_STREAM")) }

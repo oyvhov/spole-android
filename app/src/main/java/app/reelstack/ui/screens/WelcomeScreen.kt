@@ -36,13 +36,17 @@ fun WelcomeScreen(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
     onCombined: () -> Unit = {},
+    onPickServer: (app.reelstack.data.network.DiscoveredServer) -> Unit = {},
+    onRescanServers: () -> Unit = {},
 ) {
     var otherMethods by rememberSaveable { mutableStateOf(false) }
     androidx.activity.compose.BackHandler(enabled = otherMethods && state.configuredCount == 0 && state.activeSheet == null) {
         otherMethods = false
     }
     if (state.configuredCount == 0 && !otherMethods) {
-        SimpleWelcomeScreen(onCombined, { otherMethods = true }, modifier)
+        SimpleWelcomeScreen(onCombined, { otherMethods = true }, modifier,
+            discovered = state.discoveredServers, discovering = state.discoveringServers,
+            onPickServer = onPickServer, onRescan = onRescanServers)
         return
     }
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and

@@ -17,8 +17,6 @@
     <string name="server_address_example">https://spole.eksempel.no</string>
     <string name="welcome_headline">Velkommen til Spole</string>
     <string name="welcome_subtitle">Filmene og seriene dine, samlet på ett sted.</string>
-    <string name="welcome_get_started">Kom i gang</string>
-    <string name="welcome_get_started_note">Jellyfin · Seerr valgfritt</string>
     <string name="welcome_setup_hint">Bruk oppsettslenken eller adressene du har fått fra den som deler biblioteket med deg.</string>
     <string name="welcome_other_methods">Andre innloggingsmåter</string>
     <string name="setup_making_code">Lager kode…</string>

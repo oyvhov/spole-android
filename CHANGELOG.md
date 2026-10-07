@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta4 - finn tenarane på nettet og enklare innlogging med fjernkontroll
+
+- Første skjerm leitar etter Jellyfin- og Emby-tenarar på det lokale nettet og viser dei som store kort. På TV får første tenar fokus, og ein vald Jellyfin-tenar opnar «Godkjenn på mobilen» utan at noko må skrivast.
+- Ei skriven adresse som `192.168.1.20` blir prøvd med Jellyfin- og Emby-portane før innlogging. Ei Emby-adresse i Jellyfin-flyten får namnet sitt i feilmeldinga.
+- Emby-brukarar som tenaren viser, blir viste som val. Seerr på same maskin blir fylt inn automatisk på lokalnettet.
+- Startknappar og «Logg inn» er aldri grå på TV, startfokus hamnar aldri i eit tekstfelt, og brytarar og «Endre» har synleg fokusring.
+- Velkomstskjermen på TV viser ein roleg animasjon utan tekst: tenar, godkjenning på mobilen og TV-en som slår seg på.
+- Avspeling som har kome seg etter eit nettverksbrot og spelt vidare eitt minutt, tel ikkje lenger mot neste brot. Ein lang episode over tunnel stoppar ikkje på tredje korte brot.
+
+
 ## 1.0.0-beta3 - personleg kalender med Seerr
 
 - Sonarr og Radarr er fjerna som direkte tilkoplingar. Oppgraderinga fjernar gamle adresser og nøklar og bevarer Jellyfin, Emby, Seerr og appvala.

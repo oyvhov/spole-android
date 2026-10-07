@@ -98,6 +98,8 @@ class ReelstackSmokeTest {
 
         composeRule.onNodeWithText("Tenaradresse").performTextInput("https://media.example.com")
         composeRule.onNodeWithText("Hald fram").performClick()
+        // A media server address is tried before the sign-in step; one that does not answer still goes on.
+        composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("Quick Connect").fetchSemanticsNodes().isNotEmpty() }
 
         composeRule.onNodeWithText("Quick Connect").assertIsDisplayed()
         composeRule.onNodeWithText("Start Quick Connect").performScrollTo().assertIsDisplayed()

@@ -45,14 +45,15 @@ class CombinedSetupUiTest {
         rule.onNodeWithTag("setup-combined").assertDoesNotExist()
     }
 
-    @Test fun addressesRequiredBeforeContinueAndRetryPreservesThem() {
+    @Test fun startStaysReachableWhileEmptyAndRetryPreservesAddresses() {
+        // The button used to be disabled until both addresses were typed. A disabled button
+        // cannot take focus, so the remote skipped it; the view model now answers an empty field.
         var draft by mutableStateOf(ConnectionDraft(ServiceKind.JELLYFIN, "Jellyfin", "", "", simpleSetup = true, alsoConnect = true))
         var starts = 0
         rule.setContent { ReelstackTheme { StableSheetDialog(true, {}) { _, _, _ -> CombinedSetupSheet(draft,
             { draft = draft.copy(url = it) }, { draft = draft.copy(companionUrl = it) }, { starts++ }, {}) } } }
-        rule.onNodeWithTag("setup-start").assertIsNotEnabled()
+        rule.onNodeWithTag("setup-start").performScrollTo().assertIsEnabled()
         enter("setup-jellyfin-url", "https://media.example")
-        rule.onNodeWithTag("setup-start").assertIsNotEnabled()
         enter("setup-seerr-url", "https://requests.example")
         rule.onNodeWithTag("setup-start").performScrollTo().performClick()
         assertEquals(1, starts)
@@ -70,12 +71,12 @@ class CombinedSetupUiTest {
                 onUsername = { draft = draft.copy(username = it) }, onPassword = { draft = draft.copy(password = it) },
                 onSeerrEnabled = { draft = draft.copy(alsoConnect = it) }) }
         } } }
-        rule.onNodeWithTag("setup-start").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("setup-start").performScrollTo().assertIsEnabled()
         rule.onNodeWithTag("setup-seerr-enabled").performScrollTo().performClick()
         rule.onNodeWithTag("setup-seerr-url").assertDoesNotExist()
         rule.onNodeWithTag("setup-start").performScrollTo().assertIsEnabled()
         rule.onNodeWithTag("setup-method").performScrollTo().performClick()
-        rule.onNodeWithTag("setup-start").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("setup-start").performScrollTo().assertIsEnabled()
         enter("setup-username", "viewer")
         rule.onNodeWithTag("setup-password").performScrollTo().assertExists()
         rule.onNodeWithTag("setup-start").performScrollTo().assertIsEnabled()
@@ -100,6 +101,70 @@ class CombinedSetupUiTest {
         assertEquals(0, starts)
         rule.onNodeWithTag("setup-edit-addresses").performScrollTo().performClick()
         rule.onNodeWithTag("setup-jellyfin-url").assert(hasSetTextAction())
+    }
+
+    private val stova = app.reelstack.data.network.DiscoveredServer(
+        app.reelstack.data.network.DiscoveredServerKind.JELLYFIN, "4f1c0d2a", "Stova", "http://192.168.1.20:8097")
+
+    private fun television() = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        .getSystemService(android.app.UiModeManager::class.java).currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+
+    @Test fun serverOnTheNetworkIsListedAndTakesTheRemote() {
+        var picked: app.reelstack.data.network.DiscoveredServer? = null
+        rule.setContent { ReelstackTheme { androidx.compose.material3.Surface {
+            WelcomeScreen(ReelstackUiState(discoveredServers = listOf(stova)), {}, {}, onPickServer = { picked = it })
+        } } }
+        val card = rule.onNodeWithTag("setup-server-4f1c0d2a").assertIsDisplayed()
+        rule.onNodeWithText("Stova").assertIsDisplayed()
+        rule.onNodeWithText("Jellyfin · 192.168.1.20:8097").assertIsDisplayed()
+        if (television()) card.assertIsFocused().performKeyInput { pressKey(Key.Enter) } else card.performClick()
+        assertEquals(stova, picked)
+        rule.onNodeWithTag("setup-combined").assertExists()
+    }
+
+    @Test fun emptyNetworkSaysSoAndOffersAnotherSearch() {
+        var rescans = 0
+        rule.setContent { ReelstackTheme { androidx.compose.material3.Surface {
+            WelcomeScreen(ReelstackUiState(), {}, {}, onRescanServers = { rescans++ })
+        } } }
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        rule.onNodeWithText(context.getString(app.reelstack.R.string.setup_discovery_none)).assertIsDisplayed()
+        rule.onNodeWithTag("setup-rescan").performScrollTo().performClick()
+        assertEquals(1, rescans)
+        // The quiet three-step picture belongs to the two-pane television screen and reads as one sentence.
+        if (television()) rule.onNodeWithTag("setup-journey").assertExists()
+            .assert(hasContentDescription(context.getString(app.reelstack.R.string.setup_journey_description)))
+    }
+
+    @Test fun pickedServerOpensOnApprovalWithNothingToType() {
+        var closed = 0
+        var starts = 0
+        rule.setContent { ReelstackTheme { StableSheetDialog(true, {}) { _, _, _ ->
+            CombinedSetupSheet(ConnectionDraft(ServiceKind.JELLYFIN, "Jellyfin", stova.address, "", simpleSetup = true,
+                authMode = ConnectionAuthMode.QUICK_CONNECT, serverName = "Stova", addressResolved = true),
+                {}, {}, { starts++ }, { closed++ })
+        } } }
+        rule.onNodeWithText("Logg inn på Stova").assertIsDisplayed()
+        rule.onNodeWithTag("setup-jellyfin-url").assert(!hasSetTextAction())
+        val start = rule.onNodeWithTag("setup-start")
+        if (television()) start.assertIsFocused().performKeyInput { pressKey(Key.Enter) } else start.performScrollTo().performClick()
+        assertEquals(1, starts)
+        rule.onNodeWithTag("setup-change-server").performScrollTo().performClick()
+        assertEquals(1, closed)
+    }
+
+    @Test fun usersTheServerListsFillInTheName() {
+        val users = listOf(app.reelstack.data.network.PublicUser("u1", "Kari", hasPassword = true),
+            app.reelstack.data.network.PublicUser("u2", "Åse", hasPassword = true))
+        var draft by mutableStateOf(ConnectionDraft(ServiceKind.JELLYFIN, "Jellyfin", stova.address, "", simpleSetup = true,
+            authMode = ConnectionAuthMode.ACCOUNT, addressResolved = true, serverName = "Stova", loginUsers = users))
+        rule.setContent { ReelstackTheme { StableSheetDialog(true, {}) { _, _, _ ->
+            CombinedSetupSheet(draft, {}, {}, {}, {}, onUsername = { draft = draft.copy(username = it) },
+                onPickUser = { draft = draft.copy(username = it.name) })
+        } } }
+        rule.onNodeWithTag("login-user-u2").performScrollTo().performClick()
+        assertEquals("Åse", draft.username)
+        rule.onNodeWithTag("login-user-u2").assertIsSelected()
     }
 
     @Test fun welcomeAtDoubleFontSizeKeepsBothChoicesReachable() {

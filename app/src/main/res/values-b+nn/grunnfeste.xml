@@ -17,8 +17,6 @@
     <string name="server_address_example">https://spole.dømet.no</string>
     <string name="welcome_headline">Velkomen til Spole</string>
     <string name="welcome_subtitle">Filmane og seriane dine, samla på éin stad.</string>
-    <string name="welcome_get_started">Kom i gang</string>
-    <string name="welcome_get_started_note">Jellyfin · Seerr valfritt</string>
     <string name="welcome_setup_hint">Bruk oppsettslenkja eller adressene du har fått frå den som deler biblioteket med deg.</string>
     <string name="welcome_other_methods">Andre innloggingsmåtar</string>
     <string name="setup_making_code">Lagar kode…</string>
