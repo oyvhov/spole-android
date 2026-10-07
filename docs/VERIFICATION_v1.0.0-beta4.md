@@ -75,3 +75,33 @@ Køyrde klasse for klasse med `pm clear` før kvar klasse. Ekte profilar 5560/55
   kringkasting.
 - Gjenopprettinga etter nettverksbrot er dekt av einingstestar og to syntetiske spelartestar, ikkje
   av eit ekte tunnelbrot.
+
+## Offentleg release
+
+- Publisert som prerelease, ikkje draft, med nøyaktig éin universal-APK og fem assets:
+  https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta4 . Stabil latest er ikkje endra.
+- Kjelde/tag: `7e9fbc4a4ab6ea300a0e7739adcd5db331f7c65d`. `SOURCE_COMMIT.txt` peikar på same commit.
+- Alle fem asset-digestar og storleikar i kladden samsvarte med arkivfilene. SHA256SUMS dekkjer APK,
+  mapping, FFmpeg-arkiv og kjeldepeikar.
+- Den uautentiserte release-lista viser beta4 med `draft=false` og APK-digest
+  `sha256:96acc653…9f2d`. Den offentleg nedlasta APK-en er 11 517 334 byte og har same SHA-256 som
+  det signerte bygget.
+- GitHub-kontrollane på release-commit-en feila i versjonssjekken: `README.md` nemnde framleis
+  beta3. Appkjelda og APK-en var ikkje rørte. README og release-oppskrifta er retta i ein etterfølgjande
+  dokumentasjonscommit. Taggen er ikkje flytta.
+
+## Oppdatering gjennom appen
+
+- På lagra mobilprofil 5560 med `1.0.0-beta3` / kode 140, starta med `-gpu swiftshader`:
+  Settings → Notifications and updates viste alt «Spole v1.0.0-beta4 is ready» frå den automatiske
+  sjekken. App updates → Check now viste `v1.0.0-beta4` med dei offentlege release-notata.
+- «Download update» lasta ned APK-en gjennom Spole. «Install update» kom etter appen sine kontrollar.
+- Android sin oppdateringsdialog vart godkjend. Play Protect bad om skanning; installasjonen vart
+  fullført med «Install without scanning», så APK-en vart ikkje send til Google. Android viste
+  «App installed.».
+- Installert pakke er `1.0.0-beta4` / kode 141, sist oppdatert 7. oktober 2026 kl. 09:26:18. Første
+  installasjonstid er framleis 15. september 2026 kl. 10:09:51.
+- Appen opna att med det lagra engelske språket og den eksisterande demo-/mobilkonfigurasjonen, utan
+  nytt førstegongsoppsett. Ekte Jellyfin/Seerr er kontrollerte på TV-profilen etter `install -r`.
+- Dette er ei faktisk offentleg nedlasting og Android-installasjon gjennom appen, i tillegg til den
+  separate `install -r`-kontrollen på TV. Ingen appdata eller kontoar er nullstilte.

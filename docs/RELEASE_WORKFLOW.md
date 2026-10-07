@@ -21,7 +21,7 @@ Alpha/beta/rc skal merkast som prerelease og ikkje erstatte den stabile `latest`
 
 1. Les `git status`, diff og gjeldande prosjektinstruksar. Ta vare på eksisterande arbeid; ikkje bruk reset/clean for å få eit reint bygg.
 2. Kontroller siste publiserte release, lokale taggar og noverande `versionCode`. Vel ei ubrukt, høgare utgåve.
-3. Oppdater `app/build.gradle.kts`, `CHANGELOG.md`, release-notat og verifikasjonsrapport. Release-notata må beskrive det som faktisk blir publisert.
+3. Oppdater `app/build.gradle.kts`, `CHANGELOG.md`, lenkja til siste APK i `README.md`, release-notat og verifikasjonsrapport. Release-notata må beskrive det som faktisk blir publisert. Køyr `python3 scripts/check-release-consistency.py` (i WSL på denne maskina) før commit; CI stoppar på same sjekk.
 4. Gå gjennom alle endringar som skal med, også endringar som låg i arbeidsmappa frå før. Ikkje publiser ufrosne endringar medan ein annan prosess framleis skriv til kjelda.
 5. Ingen signeringsfiler, passord, kontoar, emulator-data eller skjermbilete med ekte persondata skal leggjast til Git eller release-assets.
 
