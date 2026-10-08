@@ -1,0 +1,4 @@
+# Packaged into the APK byte for byte. A Windows checkout must not turn them into CRLF,
+# or the same source builds an APK that differs from the last release.
+playback-ffmpeg/licenses/*.txt text eol=lf
+playback-ffmpeg/src/main/assets/**/*.txt text eol=lf

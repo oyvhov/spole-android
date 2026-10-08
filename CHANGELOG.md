@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta6 - sesongpynt i to nivå og Halloween i biblioteket
+
+- Sesongtema kan følgje kalenderen: Halloween frå 20. oktober til 1. november og jul frå 1. desember til 13. januar. Fargane du har valt sjølv, blir verande lagra og kjem tilbake etter sesongen.
+- Pynten har nivåa «Av», «Litt» og «Mykje». «Litt» gir logo, helsing og ein figur på tidslinja og i lastehjulet. «Mykje» legg til glør eller snø, scener og ein edderkopp i TV-menyen når fjernkontrollen ligg i ro.
+- Halloween får ei eiga side i biblioteket med titlar tenaren har merkt «halloween», og deretter skrekkfilmar. Barneprofilar får berre dei merkte titlane, og jul brukar «christmas». Inngangen er ei rad i TV-menyen og helsinga på Heim.
+- Knotten på tidslinja i spelaren er eit gresskar eller snøfnugg i sesongen, med same storleik og plass.
+- Små påskeegg: sju raske trykk på Spole-logoen, eller ↑↑↓↓←→←→ på fjernkontrollen.
+- Pyntescena i menyen legg seg ikkje lenger over Innstillingar når menyen er lang.
+
 ## 1.0.0-beta5 - avgrensa minnebruk og tryggare profilbyte
 
 - Kalender og filmutgjevingar bruker fire arbeidarar og projisert metadata med avgrensa minne- og diskcache.
