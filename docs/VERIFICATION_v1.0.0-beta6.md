@@ -45,4 +45,30 @@ versjon, notat og linjeskift i lisensfiler endra.
 - Signert APK er installert med `install -r` over beta5 på lagra mobilprofil 5560. Versjonen vart
   `1.0.0-beta6` / 143, sist oppdatert 8. oktober 2026 kl. 19:52:48. Første installasjonstid er
   framleis 15. september 2026 kl. 10:09:51, og appen opna rett på heimesida utan nytt oppsett.
-- TV-profilen 5564 står på beta5 for den ekte oppdateringa gjennom appen.
+- TV-profilen 5564 vart halden på beta5 til den ekte oppdateringa gjennom appen, sjå under.
+
+## Offentleg release
+
+- Publisert som prerelease, ikkje draft, med nøyaktig éin universal-APK og fem assets:
+  https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta6 . Stabil latest er ikkje endra.
+- Kjelde/tag: `759b5191d98773336683adbec19e2a0afd2b687d`, ein fast-forward av `main` frå beta5.
+  `SOURCE_COMMIT.txt` peikar på same commit.
+- Alle fem asset-digestar og storleikar i kladden samsvarte med arkivfilene.
+- Den uautentiserte release-lista viser beta6 med `draft=false` og APK-digest `sha256:2c8a0b43…0e3e`.
+  Den offentleg nedlasta APK-en er 11 589 490 byte og har same SHA-256 som det signerte bygget.
+
+## Oppdatering gjennom appen
+
+- På lagra TV-profil 5564 med `1.0.0-beta5` / kode 142: Innstillingar → Varsel og oppdatering →
+  Appoppdateringar → Sjekk no fann `v1.0.0-beta6` med dei offentlege release-notata.
+- «Last ned oppdatering» lasta ned APK-en gjennom Spole. «Installer oppdatering» kom etter appen sine
+  kontrollar. Android sin oppdateringsdialog vart godkjend og melde «App installed.». Play Protect
+  spurde ikkje på TV-profilen.
+- Installert pakke er `1.0.0-beta6` / kode 143, sist oppdatert 8. oktober 2026 kl. 19:55:59. Første
+  installasjonstid er framleis 9. september 2026 kl. 20:50:58.
+- Appen opna att på heimesida med den eksisterande Seerr-profilen og «Sjå vidare» frå Jellyfin og Emby,
+  utan nytt oppsett. Sesongtemaet stod framleis på «Heile året».
+- Dette er ei faktisk offentleg nedlasting og Android-installasjon gjennom appen, i tillegg til den
+  separate `install -r`-kontrollen på mobilprofilen. Ingen appdata eller kontoar er nullstilte.
+- GitHub-kontrollane på release-commit `759b519` fullførte med `success` både for `main` og for greina
+  `sesongpynt` (bygg, lint og einingstestar; instrumenteringsjobben er manuell og vart hoppa over).
