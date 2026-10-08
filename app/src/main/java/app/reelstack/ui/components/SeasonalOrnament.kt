@@ -26,8 +26,8 @@ import kotlinx.coroutines.delay
  * This is the one place in Spole that exists purely because it is nice, so it is also the one place
  * that has to be easy to switch off and impossible to get in the way. It draws snow crystals and
  * sparks over the right-hand artwork, below every control, carries no semantics for a
- * screen reader, and stops entirely when the mood is not seasonal, when the ornament is switched
- * off. Reduced motion and lightweight TV mode retain the static illustration but stop particles
+ * screen reader, and stops entirely when the mood is not seasonal or decorations are below FULL
+ * («Mykje»). Reduced motion and lightweight TV mode retain the static illustration but stop particles
  * and floating ghosts. The drawing clock is limited to roughly twenty updates per second.
  *
  * The particles are generated once from a fixed seed, so the drift is the same every time the
@@ -37,7 +37,7 @@ import kotlinx.coroutines.delay
 internal fun SeasonalOrnament(modifier: Modifier = Modifier) {
     val personalization = LocalPersonalization.current
     val season = Season.of(personalization)
-    if (season == Season.NONE || !personalization.seasonalOrnament) return
+    if (season == Season.NONE || personalization.seasonalDecor != app.reelstack.data.model.SeasonalDecor.FULL) return
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
 
     val flakes = remember(season) {

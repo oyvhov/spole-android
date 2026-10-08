@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -15,26 +17,32 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.Season
+import app.reelstack.data.model.SeasonalDecor
+import app.reelstack.data.model.daysUntilPeak
 import app.reelstack.data.model.Personalization
 import app.reelstack.ui.theme.LocalPersonalization
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Decorations stay inside the mark's existing slot, so changing season never moves a label. */
+/**
+ * Decorations stay inside the mark's existing slot, so changing season never moves a label. Seven
+ * quick taps on the mark spin the reel back; see [SpoleEggs].
+ */
 @Composable
 internal fun SpoleBrandMark(modifier: Modifier = Modifier, contentDescription: String? = null,
     options: Personalization = LocalPersonalization.current) {
     val season = Season.of(options)
-    Box(modifier) {
+    Box(modifier.rewindOnSevenTaps()) {
         Image(painterResource(R.drawable.spole_mark), contentDescription, Modifier.matchParentSize(),
             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary))
-        if (options.seasonalOrnament && season != Season.NONE) Canvas(Modifier.matchParentSize()
+        if (options.seasonalDecor != SeasonalDecor.OFF && season != Season.NONE) Canvas(Modifier.matchParentSize()
             .testTag("brand-season-$season").clearAndSetSemantics { }) {
             if (season == Season.CHRISTMAS) {
                 val w = size.width
@@ -59,15 +67,34 @@ internal fun SpoleBrandMark(modifier: Modifier = Modifier, contentDescription: S
     }
 }
 
-/** A compact seasonal illustration, also used as the live theme preview in settings. */
+/**
+ * A compact seasonal illustration, also used as the live theme preview in settings.
+ *
+ * On Home it is a door as well: [LocalOpenSeasonShelf] (or [onOpen]) leads to the season's shelf, which is what
+ * «Finn julefilmen din» always promised. A countdown joins the note in the last month before the
+ * night itself. With decorations off it shows only as a preview in settings.
+ */
 @Composable
-internal fun SeasonalThemeBanner(modifier: Modifier = Modifier, options: Personalization = LocalPersonalization.current) {
+internal fun SeasonalThemeBanner(modifier: Modifier = Modifier, options: Personalization = LocalPersonalization.current,
+    onOpen: (() -> Unit)? = null, preview: Boolean = false) {
     val season = Season.of(options)
-    if (season == Season.NONE) return
-    Surface(modifier.fillMaxWidth().testTag("season-banner-$season"), shape = RoundedCornerShape(20.dp),
-        color = Color(options.visualTheme.raised)) {
+    if (season == Season.NONE || (!preview && options.seasonalDecor == SeasonalDecor.OFF)) return
+    val shelf = LocalOpenSeasonShelf.current
+    val door = if (preview) null else onOpen ?: shelf?.let { open -> { open(season) } }
+    val today = remember { java.time.LocalDate.now() }
+    val days = season.daysUntilPeak(today)
+    val countdown = when {
+        days == null -> null
+        days == 0 -> stringResource(if (season == Season.CHRISTMAS) R.string.season_christmas_today else R.string.season_halloween_tonight)
+        else -> pluralStringResource(if (season == Season.CHRISTMAS) R.plurals.season_christmas_countdown
+            else R.plurals.season_halloween_countdown, days, days)
+    }
+    val note = stringResource(if (season == Season.CHRISTMAS) R.string.season_christmas_note else R.string.season_halloween_note)
+    val shape = RoundedCornerShape(20.dp)
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val content: @Composable () -> Unit = {
         Box(Modifier.heightIn(min = 110.dp)) {
-            if (options.seasonalOrnament) Canvas(Modifier.matchParentSize().clearAndSetSemantics { }) {
+            if (options.seasonalDecor != SeasonalDecor.OFF) Canvas(Modifier.matchParentSize().clearAndSetSemantics { }) {
                 drawSeasonScene(season, 0f, true)
             }
             Row(Modifier.padding(20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -76,17 +103,28 @@ internal fun SeasonalThemeBanner(modifier: Modifier = Modifier, options: Persona
                 Column(Modifier.weight(1f).padding(end = 72.dp)) {
                     Text(stringResource(if (season == Season.CHRISTMAS) R.string.season_christmas_greeting else R.string.season_halloween_greeting),
                         style = MaterialTheme.typography.titleLarge)
-                    Text(stringResource(if (season == Season.CHRISTMAS) R.string.season_christmas_note else R.string.season_halloween_note),
+                    Text(listOfNotNull(countdown, note).joinToString(" "),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (door != null) Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(if (season == Season.CHRISTMAS) R.string.season_open_christmas else R.string.season_open_halloween),
+                            style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Icon(SpoleIcons.ChevronRight, null, Modifier.padding(start = 2.dp).size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }
     }
+    if (door != null) Surface(onClick = door, modifier = modifier.fillMaxWidth().clip(shape)
+        .focusOutline(interaction, shape).testTag("season-banner-$season"), shape = shape,
+        color = Color(options.visualTheme.raised), interactionSource = interaction, content = content)
+    else Surface(modifier.fillMaxWidth().testTag("season-banner-$season"), shape = shape,
+        color = Color(options.visualTheme.raised), content = content)
 }
 
 /** Static artwork reused from the seasonal theme; no timers, image fetches or blur layers. */
 @Composable
-internal fun SeasonalBackdrop(modifier: Modifier = Modifier, menu: Boolean = false) {
+internal fun SeasonalBackdrop(modifier: Modifier = Modifier, menu: Boolean = false, menuClearAbove: () -> Float = { 0f }) {
     val options = LocalPersonalization.current
     val season = Season.of(options)
     if (season == Season.NONE) return
@@ -95,11 +133,17 @@ internal fun SeasonalBackdrop(modifier: Modifier = Modifier, menu: Boolean = fal
         // The page and hero fade must share exactly the same background colour.
         if (menu) drawRect(Brush.linearGradient(listOf(tint.copy(alpha = .22f),
             Color.Transparent, tint.copy(alpha = .08f))))
-        if (options.seasonalOrnament) {
-            // Decoration stays at the edge, away from menu labels and the reading column.
-            val menuTop = size.height - 100.dp.toPx()
-            if (menu) withTransform({ translate(0f, menuTop) }) {
-                drawSeasonScene(season, 0f, true)
+        // The tint is the mood's colour and stays; the scene is decoration and is FULL only.
+        if (options.seasonalDecor == SeasonalDecor.FULL) {
+            // Decoration stays at the edge, away from menu labels and the reading column. In the
+            // menu it starts below the last control: a menu with the season's row or a few pinned
+            // libraries reaches the bottom, and a web across Settings is only in the way. Without
+            // room under the controls the scene is left out.
+            val menuTop = maxOf(size.height - 100.dp.toPx(), menuClearAbove() + 8.dp.toPx())
+            if (menu) {
+                if (menuTop <= size.height - 56.dp.toPx()) withTransform({ translate(0f, menuTop) }) {
+                    drawSeasonScene(season, 0f, true)
+                }
             } else drawSeasonScene(season, 0f, true)
         }
     }
@@ -188,7 +232,7 @@ internal fun DrawScope.drawSeasonScene(season: Season, time: Float, prominent: B
     }
 }
 
-private fun DrawScope.drawPumpkin(center: Offset, radius: Float) {
+internal fun DrawScope.drawPumpkin(center: Offset, radius: Float) {
     drawLine(Color(0xFF71925A), center - Offset(0f, radius * .65f), center - Offset(-radius * .12f, radius * 1.1f), radius * .15f)
     for (i in -1..1) drawOval(Color(if (i == 0) 0xFFE99A40 else 0xFFD17A32),
         center + Offset(radius * (i * .42f - .58f), -radius * .7f), Size(radius * 1.16f, radius * 1.4f))
@@ -242,7 +286,7 @@ private fun DrawScope.drawGhost(center: Offset, width: Float, opacity: Float) {
     }
 }
 
-private fun DrawScope.drawSpider(center: Offset, radius: Float) {
+internal fun DrawScope.drawSpider(center: Offset, radius: Float) {
     val tint = Color(0xFFB7A1CE)
     repeat(4) { index ->
         for (side in listOf(-1f, 1f)) {

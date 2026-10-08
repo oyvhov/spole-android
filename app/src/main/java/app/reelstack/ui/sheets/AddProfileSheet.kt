@@ -191,7 +191,7 @@ private fun LoadingPanel() {
         modifier = Modifier.fillMaxWidth().height(180.dp),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator(color = Primary, modifier = Modifier.size(36.dp))
+        app.reelstack.ui.components.SeasonalSpinner(Modifier.size(36.dp), color = Primary)
     }
 }
 

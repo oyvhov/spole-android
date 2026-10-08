@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.ui.components.SpoleIcons
+import app.reelstack.ui.components.drawTimelineHandle
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.focusScale
 
@@ -103,7 +104,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     }
 
     if (!shown) {
-        if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp),
+        if (state.busy) app.reelstack.ui.components.SeasonalSpinner(Modifier.align(Alignment.Center).size(28.dp),
             color = Color.White.copy(alpha = .7f), strokeWidth = 2.dp)
         if (seekPreview != null) Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
             .testTag("player-seek-feedback"), shape = RoundedCornerShape(12.dp), color = Color.Black.copy(alpha = .76f)) {
@@ -185,11 +186,12 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
             val trackHeight = if (kids) (if (timelineFocused) 9.dp else 7.dp) else (if (timelineFocused) 8.dp else 6.dp)
             Box(Modifier.fillMaxWidth().height(trackHeight).background(Color.White.copy(alpha = .28f), RoundedCornerShape(4.dp)))
             Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(trackHeight).background(Color.White, RoundedCornerShape(4.dp)))
-            Canvas(Modifier.matchParentSize()) {
+            val handleSeason = app.reelstack.ui.components.touchSeason()
+            Canvas(Modifier.matchParentSize().testTag("player-timeline-handle-$handleSeason")) {
                 val radius = if (kids) (if (timelineFocused) 12.dp.toPx() else 10.dp.toPx())
                     else (if (timelineFocused) 11.dp.toPx() else 6.dp.toPx())
-                drawCircle(Color.White, radius, androidx.compose.ui.geometry.Offset(
-                    (size.width * progress).coerceIn(radius, size.width.coerceAtLeast(radius * 2) - radius), size.height / 2))
+                drawTimelineHandle(handleSeason, androidx.compose.ui.geometry.Offset(
+                    (size.width * progress).coerceIn(radius, size.width.coerceAtLeast(radius * 2) - radius), size.height / 2), radius)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

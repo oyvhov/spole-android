@@ -70,6 +70,7 @@ internal fun SettingsIconBadge(
 
 internal fun hasSettingsPreview(value: Any?): Boolean = value is VisualTheme || value is AccentPalette ||
     value is ArtworkCorners || value is ArtworkSize || value is FocusStyle || value is Season ||
+    value is app.reelstack.data.model.SeasonChoice || value is app.reelstack.data.model.SeasonalDecor ||
     value is LibraryArtType || value is LibraryView || value is LibraryCardSize
 
 /** Small, literal previews of the actual option, not additional controls or spoken content. */
@@ -140,6 +141,42 @@ internal fun SettingsOptionPreview(value: Any?) {
                     drawCircle(colors.onSurface.copy(alpha = .6f), 2f * unit, Offset(12f * unit, 12f * unit))
                     drawCircle(colors.onSurface.copy(alpha = .6f), 2f * unit, Offset(52f * unit, 32f * unit))
                 }
+            }
+            is app.reelstack.data.model.SeasonChoice -> {
+                val halloween = Color(Season.HALLOWEEN.swatch)
+                val christmas = Color(Season.CHRISTMAS.swatch)
+                when (value) {
+                    app.reelstack.data.model.SeasonChoice.CALENDAR -> {
+                        // Both seasons side by side on a page: the calendar decides between them.
+                        card(0f, 0f, 64f, 44f, 7f, colors.onSurfaceVariant.copy(alpha = .12f))
+                        card(10f, 6f, 44f, 5f, 2f, colors.onSurfaceVariant.copy(alpha = .4f))
+                        drawCircle(halloween, 8f * unit, Offset(23f * unit, 26f * unit))
+                        drawCircle(christmas, 8f * unit, Offset(41f * unit, 26f * unit))
+                    }
+                    else -> {
+                        val swatch = Color(when (value) {
+                            app.reelstack.data.model.SeasonChoice.CHRISTMAS -> Season.CHRISTMAS.swatch
+                            app.reelstack.data.model.SeasonChoice.HALLOWEEN -> Season.HALLOWEEN.swatch
+                            else -> Season.NONE.swatch
+                        })
+                        card(0f, 0f, 64f, 44f, 7f, swatch.copy(alpha = .15f))
+                        drawCircle(swatch, 11f * unit, Offset(32f * unit, 22f * unit))
+                        if (value != app.reelstack.data.model.SeasonChoice.NONE) {
+                            drawCircle(colors.onSurface.copy(alpha = .6f), 2f * unit, Offset(12f * unit, 12f * unit))
+                            drawCircle(colors.onSurface.copy(alpha = .6f), 2f * unit, Offset(52f * unit, 32f * unit))
+                        }
+                    }
+                }
+            }
+            is app.reelstack.data.model.SeasonalDecor -> {
+                // The same card with nothing, one figure, or a scatter: how much there is, literally.
+                card(0f, 0f, 64f, 44f, 7f, colors.onSurfaceVariant.copy(alpha = .12f))
+                card(6f, 30f, 30f, 4f, 2f, colors.onSurfaceVariant.copy(alpha = .4f))
+                if (value != app.reelstack.data.model.SeasonalDecor.OFF)
+                    drawCircle(colors.primary, 5f * unit, Offset(48f * unit, 13f * unit))
+                if (value == app.reelstack.data.model.SeasonalDecor.FULL) listOf(
+                    Offset(14f, 9f), Offset(28f, 16f), Offset(38f, 6f), Offset(56f, 30f), Offset(44f, 38f), Offset(20f, 20f),
+                ).forEach { drawCircle(colors.primary.copy(alpha = .6f), 1.6f * unit, it * unit) }
             }
         }
     }

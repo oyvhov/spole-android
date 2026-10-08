@@ -9,6 +9,8 @@ import app.reelstack.data.network.toLibraryMedia
 import app.reelstack.background.BackgroundRefreshScheduler
 import app.reelstack.data.repository.MediaSnapshotStore
 import app.reelstack.data.model.ActivityEvent
+import app.reelstack.data.model.shelf
+import app.reelstack.data.model.shelfId
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.ContentDetails
 import app.reelstack.data.model.canRequest
@@ -894,13 +896,16 @@ class ReelstackViewModel(
                     _uiState.value.libraryConnection?.let {
                         it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId
                     } == true
+                val seasonShelf = app.reelstack.data.model.seasonOfShelfId(path.lastOrNull()?.first)
+                    ?.shelf(state.isKidMode)
                 loadLibraryPage(Dispatchers.IO, readFacets = {
-                    if (path.isEmpty()) app.reelstack.data.model.LibraryFacets()
+                    if (path.isEmpty() || seasonShelf != null) app.reelstack.data.model.LibraryFacets()
                     else if (state.libraryFacets.parentId == path.last().first) state.libraryFacets
                     else runCatching { container.mediaServerClient.libraryFacets(connection, path.last().first) }
                         .getOrDefault(app.reelstack.data.model.LibraryFacets())
                 }, readItems = {
-                    if (path.isEmpty()) container.mediaServerClient.browseLibraries(connection).filter { container.preferencesRepository.includesLibrary(connection, it) }.map { view ->
+                    if (seasonShelf != null) container.mediaServerClient.seasonShelf(connection, seasonShelf, state.libraryFilters)
+                    else if (path.isEmpty()) container.mediaServerClient.browseLibraries(connection).filter { container.preferencesRepository.includesLibrary(connection, it) }.map { view ->
                         app.reelstack.data.network.RemoteLibraryItem(view.id, view.name, "", null, "CollectionFolder", view.id,
                             artworkUrl = view.artworkUrl, isFolder = true, collectionType = view.collectionType)
                     } else {
@@ -917,7 +922,7 @@ class ReelstackViewModel(
                         // return to a scrolled library does not throw away the user's position.
                         (entries + (cached?.entries.orEmpty().drop(entries.size))).distinctBy { entry -> entry.id }
                     }
-                    val hasMore = path.isNotEmpty() && (entries.size == 60 || (cached?.hasMore == true && !more))
+                    val hasMore = path.isNotEmpty() && seasonShelf == null && (entries.size == 60 || (cached?.hasMore == true && !more))
                     libraryPageCache[cacheKey] = CachedLibraryPage(merged, current.libraryFacets, hasMore)
                     current.copy(libraryLoading = false,
                         libraryEntries = merged,
@@ -992,7 +997,8 @@ class ReelstackViewModel(
     private fun loadLibraryShelves() {
         val state = _uiState.value
         val path = state.libraryPath
-        val library = path.singleOrNull()
+        // A season's shelf spans every library, so there is no single library to be half-way through.
+        val library = path.singleOrNull()?.takeIf { app.reelstack.data.model.seasonOfShelfId(it.first) == null }
         if (library == null) {
             shelfJob?.cancel()
             if (state.libraryShelves != app.reelstack.data.model.LibraryShelves()) {
@@ -2626,7 +2632,24 @@ class ReelstackViewModel(
         if (!_uiState.value.requestHistory.loaded) loadRequestHistory(false)
     }
 
+    /**
+     * A season's shelf, opened from the greeting on Home or the season's row in the menu. It is a
+     * library page like any other, so the grid, the remote's focus, details and Back all come
+     * with it; only the listing is the season's own. See [app.reelstack.data.model.shelf].
+     */
+    fun openSeasonShelf(season: app.reelstack.data.model.Season) {
+        if (season == app.reelstack.data.model.Season.NONE) return
+        val title = appString(if (season == app.reelstack.data.model.Season.CHRISTMAS) R.string.theme_season_christmas
+            else R.string.theme_season_halloween)
+        _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(season.shelfId() to title),
+            libraryCollectionType = null, libraryFilters = app.reelstack.data.model.LibraryFilters(),
+            libraryFacets = app.reelstack.data.model.LibraryFacets(), libraryEntries = emptyList(),
+            libraryOffset = 0, libraryHasMore = false) }
+        browseLibrary()
+    }
+
     fun openLibraryShortcut(id: String) {
+        app.reelstack.data.model.seasonOfShelfId(id)?.let { openSeasonShelf(it); return }
         val shortcut = _uiState.value.libraryShortcuts.firstOrNull { it.first == id } ?: return
         _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shortcut), libraryCollectionType = null,
             libraryFilters = app.reelstack.data.model.LibraryFilters(), libraryFacets = app.reelstack.data.model.LibraryFacets()) }

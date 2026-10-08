@@ -697,6 +697,33 @@ class MediaServerClient(
     }
 
     /**
+     * A season's shelf across every library the profile can see: the titles tagged for it first,
+     * then its genre. Two queries rather than one, because the Items API combines Tags and Genres
+     * with AND. Sixty of each makes a shelf, not a catalogue, so the page does not grow on scroll.
+     * The library page's own filters and sort apply to both.
+     */
+    fun seasonShelf(connection: ServiceConnection, shelf: app.reelstack.data.model.SeasonShelf,
+        filters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters()): List<RemoteLibraryItem> {
+        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
+        val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
+        require(!user.isNullOrBlank()) { "caller must pass a profile id" }
+        fun items(filter: String): List<RemoteLibraryItem> {
+            val query = "userId=${encodePathSegment(user)}&Recursive=true&IncludeItemTypes=Movie,Series" +
+                "&ExcludeItemTypes=BoxSet&CollapseBoxSetItems=false&StartIndex=0&Limit=60" + filters.query() + filter +
+                "&Fields=Overview,Genres,ProviderIds,DateCreated,ChildCount,RecursiveItemCount,$LIBRARY_RATING_FIELDS" +
+                "&EnableUserData=true&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Backdrop,Logo,Banner&IsMissing=false"
+            val paths = if (connection.kind == ServiceKind.EMBY)
+                listOf("Users/${encodePathSegment(user)}/Items?$query", "Items?$query")
+            else listOf("Items?$query")
+            return getItems(connection, paths)
+        }
+        fun anyOf(values: List<String>) = java.net.URLEncoder.encode(values.joinToString("|"), "UTF-8")
+        val tagged = if (shelf.tags.isEmpty()) emptyList() else items("&Tags=${anyOf(shelf.tags)}")
+        val genre = if (shelf.genres.isEmpty()) emptyList() else items("&Genres=${anyOf(shelf.genres)}")
+        return (tagged + genre).distinctBy { it.id }
+    }
+
+    /**
      * The seasons of a series and the episodes of a season.
      *
      * A series page that can only say "choose an episode" and then hand the job to the player is a

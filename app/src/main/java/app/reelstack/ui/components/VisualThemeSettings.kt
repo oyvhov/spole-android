@@ -173,30 +173,44 @@ internal fun <T> ThemeChoice(title: String, selected: T, options: List<T>, prefi
 internal fun VisualThemeSettings(value: Personalization, onChange: (Personalization) -> Unit,
     artwork: List<LibraryMedia> = emptyList()) {
     val television = isTelevision()
+    // [value] is what the screen shows, so during a calendar season it carries the season's colours.
+    // The mood and accent rows edit what is stored underneath, and say so by showing it.
+    val stored = value.withoutCalendarSeason()
+    val choice = SeasonChoice.of(value)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (Season.of(value) != Season.NONE) SeasonalThemeBanner(options = value)
+        if (Season.of(value) != Season.NONE) SeasonalThemeBanner(options = value, preview = true)
         ThemePreview(value, artwork)
         // A season is a pairing, not a background: red on a red ground is not Christmas, it is a
         // warning. This row sets the mood and the accent together, and the two rows under it still
         // let anyone pull them apart again.
         SettingsGroup(stringResource(R.string.refine_group_colours))
-        ThemeChoice(stringResource(R.string.settings_season_title), Season.of(value), Season.entries, "season",
+        ThemeChoice(stringResource(R.string.settings_season_title), choice, SeasonChoice.entries, "season",
             { stringResource(when (it) {
-                Season.NONE -> R.string.theme_season_none
-                Season.CHRISTMAS -> R.string.theme_season_christmas
-                Season.HALLOWEEN -> R.string.theme_season_halloween
-            }) }, { Color(it.swatch) }) { onChange(it.applyTo(value)) }
-        if (Season.of(value) != Season.NONE) SettingsToggleRow(stringResource(R.string.theme_ornament),
-            stringResource(R.string.theme_ornament_hint), value.seasonalOrnament, "theme-ornament") {
-            onChange(value.copy(seasonalOrnament = it))
-        }
-        ThemeChoice(stringResource(R.string.theme_background), value.visualTheme, VisualTheme.entries, "mood",
+                SeasonChoice.NONE -> R.string.theme_season_none
+                SeasonChoice.CALENDAR -> R.string.theme_season_calendar
+                SeasonChoice.CHRISTMAS -> R.string.theme_season_christmas
+                SeasonChoice.HALLOWEEN -> R.string.theme_season_halloween
+            }) }) { onChange(it.applyTo(value)) }
+        if (choice == SeasonChoice.CALENDAR) SeasonCalendarNote(value)
+        if (choice != SeasonChoice.NONE) ThemeChoice(stringResource(R.string.theme_decor), value.seasonalDecor,
+            SeasonalDecor.entries, "decor", { stringResource(when (it) {
+                SeasonalDecor.OFF -> R.string.theme_decor_off
+                SeasonalDecor.CALM -> R.string.theme_decor_calm
+                SeasonalDecor.FULL -> R.string.theme_decor_full
+            }) }) { onChange(value.copy(seasonalDecor = it)) }
+        if (choice != SeasonChoice.NONE) Text(stringResource(when (value.seasonalDecor) {
+            SeasonalDecor.OFF -> R.string.theme_decor_off_hint
+            SeasonalDecor.CALM -> R.string.theme_decor_calm_hint
+            SeasonalDecor.FULL -> R.string.theme_decor_full_hint
+        }), Modifier.padding(horizontal = 16.dp).testTag("theme-decor-hint"),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ThemeChoice(stringResource(R.string.theme_background), stored.visualTheme, VisualTheme.entries, "mood",
             { stringResource(when(it) {
                 VisualTheme.FOREST -> R.string.theme_forest; VisualTheme.MIDNIGHT -> R.string.theme_midnight
                 VisualTheme.CINEMA -> R.string.theme_cinema; VisualTheme.PLUM -> R.string.theme_plum
                 VisualTheme.NOEL -> R.string.theme_noel; VisualTheme.HALLOWEEN -> R.string.theme_halloween
             }) }, { Color(it.surface) }) { onChange(value.copy(visualTheme = it)) }
-        ThemeChoice(stringResource(R.string.personal_accent), value.accent, AccentPalette.entries, "accent",
+        ThemeChoice(stringResource(R.string.personal_accent), stored.accent, AccentPalette.entries, "accent",
             { stringResource(when(it) {
                 AccentPalette.LIME -> R.string.personal_lime; AccentPalette.OCEAN -> R.string.personal_ocean
                 AccentPalette.IRIS -> R.string.personal_iris; AccentPalette.CORAL -> R.string.personal_coral
@@ -234,7 +248,8 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
         app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onChange(value.copy(accent = AccentPalette.LIME, artworkSize = ArtworkSize.STANDARD,
             visualTheme = VisualTheme.FOREST, artworkCorners = ArtworkCorners.SOFT,
             focusStyle = if (television) FocusStyle.BOLD else FocusStyle.WHITE,
-            highContrast = false, seasonalOrnament = true, reduceMotion = false)) },
+            highContrast = false, seasonalDecor = SeasonalDecor.FULL, seasonCalendar = false, seasonOverlay = null,
+            reduceMotion = false)) },
             modifier = Modifier.testTag("appearance-reset")) { Text(stringResource(R.string.personal_reset)) }
     }
 }
@@ -328,4 +343,20 @@ internal fun ThemePreview(value: Personalization, artwork: List<LibraryMedia> = 
                 style = MaterialTheme.typography.bodySmall)
         }
     }
+}
+
+/** Under «Etter kalenderen»: which season is on and until when, or when they come. */
+@Composable
+private fun SeasonCalendarNote(value: Personalization) {
+    val today = remember { java.time.LocalDate.now() }
+    val season = Season.of(value).takeIf { value.seasonOverlay != null } ?: Season.NONE
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val pattern = stringResource(R.string.theme_season_date_pattern)
+    val text = season.calendarEnd(today)?.let { end ->
+        stringResource(R.string.theme_season_calendar_now,
+            stringResource(if (season == Season.CHRISTMAS) R.string.theme_season_christmas else R.string.theme_season_halloween),
+            end.format(java.time.format.DateTimeFormatter.ofPattern(pattern, locale)))
+    } ?: stringResource(R.string.theme_season_calendar_hint)
+    Text(text, Modifier.padding(horizontal = 16.dp).testTag("season-calendar-note"),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

@@ -79,7 +79,7 @@ fun KidsEpisodesScreen(
 
         if (browse.loading && browse.episodes.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Primary, modifier = Modifier.size(44.dp))
+                app.reelstack.ui.components.SeasonalSpinner(Modifier.size(44.dp), color = Primary)
             }
             return@Column
         }

@@ -77,7 +77,7 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
     selected?.let { person ->
         Text(person.name, style = MaterialTheme.typography.titleMedium)
         when {
-            loading -> androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp))
+            loading -> SeasonalSpinner(Modifier.size(24.dp))
             failed -> Text(stringResource(R.string.error_content_details), color = Muted)
             titles.isEmpty() -> Text(stringResource(R.string.person_no_titles), color = Muted)
             else -> LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

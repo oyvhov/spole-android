@@ -111,7 +111,7 @@ fun KidsHomeScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 if (loading) {
-                    androidx.compose.material3.CircularProgressIndicator(color = Color(world.glow))
+                    app.reelstack.ui.components.SeasonalSpinner(color = Color(world.glow))
                     Text(
                         "Finn fram historiene dine …",
                         Modifier.padding(24.dp),

@@ -98,11 +98,38 @@ class MobileSettingsTest {
                 assertEquals(AccentPalette.PUMPKIN, repository.personalization.accent)
             }
             rule.onNodeWithTag("brand-season-HALLOWEEN").assertExists()
-            rule.onNodeWithTag("theme-ornament").performScrollTo().performClick()
+            // «Litt» keeps the mark's ghost; «Av» leaves the colours alone.
+            rule.onNodeWithTag("theme-choice-decor").performScrollTo().performClick()
+            rule.onNodeWithTag("decor-CALM").performScrollTo().performClick()
+            rule.runOnIdle { assertEquals(SeasonalDecor.CALM, repository.personalization.seasonalDecor) }
+            rule.onNodeWithTag("brand-season-HALLOWEEN").assertExists()
+            rule.onNodeWithTag("theme-choice-decor").performScrollTo().performClick()
+            rule.onNodeWithTag("decor-OFF").performScrollTo().performClick()
             rule.onNodeWithTag("brand-season-HALLOWEEN").assertDoesNotExist()
+            rule.runOnIdle { assertEquals(VisualTheme.HALLOWEEN, repository.personalization.visualTheme) }
             rule.onNodeWithTag("theme-choice-season").performScrollTo().performClick()
             rule.onNodeWithTag("season-NONE").performScrollTo().performClick()
-            rule.onNodeWithTag("theme-ornament").assertDoesNotExist()
+            rule.onNodeWithTag("theme-choice-decor").assertDoesNotExist()
+            rule.runOnIdle { assertEquals(VisualTheme.FOREST, repository.personalization.visualTheme) }
+        } finally { rule.runOnIdle { repository.personalization = original } }
+    }
+
+    /** The calendar keeps the stored colours: whatever it lays over them is never written back. */
+    @Test fun followingTheCalendarKeepsTheChosenColoursStored() {
+        val original = repository.personalization
+        try {
+            repository.personalization = Personalization(visualTheme = VisualTheme.MIDNIGHT, accent = AccentPalette.OCEAN)
+            host()
+            rule.onNodeWithTag("settings-category-APPEARANCE").performClick()
+            rule.onNodeWithTag("theme-choice-season").performScrollTo().performClick()
+            rule.onNodeWithTag("season-CALENDAR").performScrollTo().performClick()
+            rule.runOnIdle {
+                assertTrue(repository.personalization.seasonCalendar)
+                assertEquals(VisualTheme.MIDNIGHT, repository.personalization.visualTheme)
+                assertEquals(AccentPalette.OCEAN, repository.personalization.accent)
+            }
+            rule.onNodeWithTag("season-calendar-note").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithTag("theme-choice-decor").performScrollTo().assertIsDisplayed()
         } finally { rule.runOnIdle { repository.personalization = original } }
     }
     @Test fun doubleTextCanReachAllGroupsAndChangePlaybackTime() {

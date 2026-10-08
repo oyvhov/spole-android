@@ -14,6 +14,10 @@ Breie nettbrett held på kategoriane i sida. TV held på sitt eige oppsett og fo
 
 ## Jul og Halloween
 
+> Frå 8. oktober 2026 har pynten to nivå, sesongen kan følgje kalenderen, og han opnar ei eiga side i
+> biblioteket. Sjå [SEASONAL_DECOR_2026-10-08.md](SEASONAL_DECOR_2026-10-08.md). Brytaren
+> «Sesongpynt» nedanfor er erstatta av vala «Av», «Litt» og «Mykje».
+
 Begge temaa fanst frå før som kombinasjonar av bakgrunn og aksentfarge. Dei har no fått meir synleg særpreg:
 
 - **Jul:** nisselue på Spole-logoen, granbar, varme julelys, stjerner og snø over toppfeltet. Mobilframsida har ei eiga julehelsing med illustrasjon.

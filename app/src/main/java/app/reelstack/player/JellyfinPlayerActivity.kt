@@ -67,6 +67,7 @@ import app.reelstack.ReelstackApplication
 import app.reelstack.ui.theme.ReelstackTheme
 import app.reelstack.ui.components.NativeClientLauncher
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.drawTimelineHandle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -532,7 +533,7 @@ fun PlayerScreen(
                                     .semantics { if (state.busy) stateDescription = preparingLabel }
                                     .testTag("player-toggle")) {
                                 // Buffering changes only the contents of this fixed icon slot.
-                                if (state.busy) CircularProgressIndicator(Modifier.size(24.dp).testTag("player-buffering"),
+                                if (state.busy) app.reelstack.ui.components.SeasonalSpinner(Modifier.size(24.dp).testTag("player-buffering"),
                                     color = Color.White, strokeWidth = 2.dp)
                                 else Icon(if (state.playing || state.playWhenReady && !state.ended) app.reelstack.ui.components.SpoleIcons.Pause else app.reelstack.ui.components.SpoleIcons.PlaySimple,
                                     if (state.playing || state.playWhenReady && !state.ended) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(28.dp))
@@ -566,10 +567,15 @@ fun PlayerScreen(
                             // A child drags this with a whole finger, not a fingertip, so the kid
                             // timeline is a 7 dp track with a 20 dp handle rather than 4 and 12.
                             thumb = {
-                                Box(
+                                val handleSeason = app.reelstack.ui.components.touchSeason()
+                                if (handleSeason == app.reelstack.data.model.Season.NONE) Box(
                                     Modifier.size(if (kids) 20.dp else 12.dp)
                                         .background(Color.White.copy(alpha = if (state.busy) .5f else 1f), CircleShape),
-                                )
+                                ) else androidx.compose.foundation.Canvas(Modifier.size(if (kids) 20.dp else 14.dp)
+                                    .graphicsLayer { alpha = if (state.busy) .5f else 1f }
+                                    .testTag("player-timeline-handle-$handleSeason")) {
+                                    drawTimelineHandle(handleSeason, center, size.minDimension / 2f)
+                                }
                             },
                             track = {
                                 SliderDefaults.Track(

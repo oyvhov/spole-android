@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import app.reelstack.ui.ReelstackApp
 import app.reelstack.ui.ReelstackViewModel
 import app.reelstack.ui.theme.ReelstackTheme
@@ -30,6 +31,12 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
         // service, which is why this is here and not in Application.onCreate.
         val offline = (application as ReelstackApplication).container.offlineDownloads
         lifecycleScope.launch(Dispatchers.IO) { offline.resumeUnfinished() }
+    }
+
+    /** Reports touches to [app.reelstack.ui.components.SpoleEggs]; keys are reported in [setContent]. */
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) app.reelstack.ui.components.SpoleEggs.touch()
+        return super.dispatchTouchEvent(event)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -57,6 +64,13 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     factory = ReelstackViewModel.Factory(container),
                 )
                 activeViewModel = reelstackViewModel
+                // Every key on its way to the focused control passes here first. It is only
+                // reported, never handled, so the remote works exactly as it did. See SpoleEggs.
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
+                    .onPreviewKeyEvent { app.reelstack.ui.components.SpoleEggs.key(it.nativeKeyEvent); false }) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    app.reelstack.ui.components.LocalOpenSeasonShelf provides reelstackViewModel::openSeasonShelf,
+                ) {
                 app.reelstack.ui.StartupReveal(reelstackViewModel) {
                     // Kids mode is a separate shell beside the adult app, not a condition inside
                     // it: no rail, no tabs, no detail sheet. Branching here is what keeps that
@@ -72,6 +86,10 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                             else ReelstackApp(viewModel = reelstackViewModel)
                         }
                     }
+                }
+                }
+                // Over everything and touching nothing; see SpoleEggs.
+                app.reelstack.ui.components.SpoleRewindOverlay()
                 }
                 androidx.compose.runtime.LaunchedEffect(pendingSetupLink) {
                     pendingSetupLink?.let(reelstackViewModel::importSetupLink)

@@ -130,11 +130,15 @@ data class Personalization(
     val focusStyle: FocusStyle = FocusStyle.WHITE,
     val highContrast: Boolean = false,
     /**
-     * The falling snow and the drifting embers. On by default when a seasonal mood is chosen,
-     * because the mood is the whole reason anyone chose it; off is one switch away, and the
-     * animation stops on its own when the system has animations turned down.
+     * How much of a season shows beyond its colours. FULL by default when a seasonal mood is
+     * chosen, because the mood is the whole reason anyone chose it; CALM and OFF are one choice
+     * away, and everything that moves stops on its own when animations are turned down.
      */
-    val seasonalOrnament: Boolean = true,
+    val seasonalDecor: SeasonalDecor = SeasonalDecor.FULL,
+    /** Lay the calendar's season over the stored mood while it runs. See [seasonal]. */
+    val seasonCalendar: Boolean = false,
+    /** Set only on what the screen shows while the calendar's season covers the stored mood. Never stored. */
+    val seasonOverlay: SeasonOverlay? = null,
     val subtitleStyle: SubtitleStyle = SubtitleStyle.CLEAN,
     val preferredSubtitleLanguage: SubtitleLanguage = SubtitleLanguage.NORWEGIAN,
     val fallbackSubtitleLanguage: SubtitleLanguage = SubtitleLanguage.ENGLISH,
@@ -196,6 +200,49 @@ enum class Season(val swatch: Long) {
             VisualTheme.NOEL -> CHRISTMAS
             VisualTheme.HALLOWEEN -> HALLOWEEN
             else -> NONE
+        }
+    }
+}
+
+/**
+ * How much of a season shows beyond its colours.
+ *
+ * CALM is a season you notice without it asking for anything: the mark, the greeting, a pumpkin or
+ * a snowflake where the timeline handle was, the buffering wheel. FULL adds everything that moves
+ * or fills an edge: snow and embers over the artwork, the scenes in the menu and in sheets, and the
+ * spider that comes down the menu when the remote has been left alone. OFF keeps the colours only.
+ */
+enum class SeasonalDecor { OFF, CALM, FULL;
+    companion object {
+        /** Before the levels, a single switch: on was everything there was, which is now FULL. */
+        fun decode(value: String?, legacyOrnament: Boolean = true) =
+            entries.firstOrNull { it.name == value } ?: if (legacyOrnament) FULL else OFF
+    }
+}
+
+/** The season row in Appearance: none, a fixed season, or whatever the calendar says. */
+enum class SeasonChoice { NONE, CALENDAR, CHRISTMAS, HALLOWEEN;
+
+    /**
+     * Only a seasonal mood is ever replaced. Someone on MIDNIGHT with an ocean accent who picks
+     * «Heile året» or the calendar keeps MIDNIGHT; the calendar lays its season over it while it runs.
+     */
+    fun applyTo(value: Personalization): Personalization {
+        val stored = value.withoutCalendarSeason()
+        val plain = if (Season.of(stored) != Season.NONE) Season.NONE.applyTo(stored) else stored
+        return when (this) {
+            NONE -> plain.copy(seasonCalendar = false)
+            CALENDAR -> plain.copy(seasonCalendar = true)
+            CHRISTMAS -> Season.CHRISTMAS.applyTo(stored).copy(seasonCalendar = false)
+            HALLOWEEN -> Season.HALLOWEEN.applyTo(stored).copy(seasonCalendar = false)
+        }
+    }
+
+    companion object {
+        fun of(value: Personalization): SeasonChoice = if (value.seasonCalendar) CALENDAR else when (Season.of(value)) {
+            Season.NONE -> NONE
+            Season.CHRISTMAS -> CHRISTMAS
+            Season.HALLOWEEN -> HALLOWEEN
         }
     }
 }

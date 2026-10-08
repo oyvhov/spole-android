@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme_season_calendar">Etter kalenderen</string>
+    <string name="theme_season_calendar_hint">Halloween fra 20. oktober til 1. november, jul fra 1. desember til 13. januar. Ellers fargene du har valgt.</string>
+    <string name="theme_season_calendar_now">%1$s er på til %2$s. Så kommer fargene du har valgt, tilbake.</string>
+    <string name="theme_season_date_pattern">d. MMMM</string>
+    <string name="theme_decor">Pynt</string>
+    <string name="theme_decor_off">Av</string>
+    <string name="theme_decor_calm">Litt</string>
+    <string name="theme_decor_full">Mye</string>
+    <string name="theme_decor_off_hint">Bare fargene. Ingen figurer og ingen hilsen på Hjem.</string>
+    <string name="theme_decor_calm_hint">Lue eller spøkelse på logoen, hilsenen på Hjem og et gresskar eller snøfnugg på tidslinjen i spilleren. Ingenting beveger seg.</string>
+    <string name="theme_decor_full_hint">Alt fra «Litt», og i tillegg snø eller glør over bildene, scener i menyen og en edderkopp som firer seg ned når fjernkontrollen ligger i ro.</string>
+    <plurals name="season_halloween_countdown">
+        <item quantity="one">%d dag til halloween.</item>
+        <item quantity="other">%d dager til halloween.</item>
+    </plurals>
+    <plurals name="season_christmas_countdown">
+        <item quantity="one">%d dag til julaften.</item>
+        <item quantity="other">%d dager til julaften.</item>
+    </plurals>
+    <string name="season_halloween_tonight">I kveld er det halloween.</string>
+    <string name="season_christmas_today">I dag er det julaften.</string>
+    <string name="season_open_halloween">Halloween i biblioteket</string>
+    <string name="season_open_christmas">Jul i biblioteket</string>
+    <string name="egg_rewind">Spoler tilbake …</string>
+</resources>

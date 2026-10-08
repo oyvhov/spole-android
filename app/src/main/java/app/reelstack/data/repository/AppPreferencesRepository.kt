@@ -5,6 +5,7 @@ import androidx.core.content.edit
 import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.requiredMenu
 import app.reelstack.data.model.decodeHomeSections
+import app.reelstack.data.model.withoutCalendarSeason
 import kotlinx.serialization.json.*
 
 class AppPreferencesRepository(context: Context) {
@@ -92,14 +93,18 @@ class AppPreferencesRepository(context: Context) {
             artworkCorners = app.reelstack.data.model.ArtworkCorners.decode(preferences.getString("artwork_corners", null)),
             focusStyle = app.reelstack.data.model.FocusStyle.decode(preferences.getString("focus_style", null), television),
             highContrast = preferences.getBoolean("high_contrast", false),
-            seasonalOrnament = preferences.getBoolean("seasonal_ornament", true),
+            seasonalDecor = app.reelstack.data.model.SeasonalDecor.decode(preferences.getString("seasonal_decor", null),
+                preferences.getBoolean("seasonal_ornament", true)),
+            seasonCalendar = preferences.getBoolean("season_calendar", false),
             showLibraryCardNames = preferences.getBoolean("library_card_names", true),
             watchNextEnabled = preferences.getBoolean("watch_next_enabled", false),
             subtitleStyle = app.reelstack.data.model.SubtitleStyle.entries.firstOrNull { it.name == preferences.getString("subtitle_style", null) } ?: app.reelstack.data.model.SubtitleStyle.CLEAN,
             preferredSubtitleLanguage = app.reelstack.data.model.SubtitleLanguage.decode(preferences.getString("subtitle_language", null), app.reelstack.data.model.SubtitleLanguage.NORWEGIAN),
             fallbackSubtitleLanguage = app.reelstack.data.model.SubtitleLanguage.decode(preferences.getString("subtitle_fallback", null), app.reelstack.data.model.SubtitleLanguage.ENGLISH),
         )
-        set(value) = preferences.edit {
+        set(shown) = preferences.edit {
+            // Screens save what they were shown; the calendar's season must not be stored with it.
+            val value = shown.withoutCalendarSeason()
             putString("app_label", value.appLabel.trim().take(24).ifBlank { "Spole" })
             putString("accent_palette", value.accent.name)
             putString("artwork_size", value.artworkSize.name)
@@ -135,7 +140,8 @@ class AppPreferencesRepository(context: Context) {
             putString("artwork_corners", value.artworkCorners.name)
             putString("focus_style", value.focusStyle.name)
             putBoolean("high_contrast", value.highContrast)
-            putBoolean("seasonal_ornament", value.seasonalOrnament)
+            putString("seasonal_decor", value.seasonalDecor.name)
+            putBoolean("season_calendar", value.seasonCalendar)
             putBoolean("library_card_names", value.showLibraryCardNames)
             putBoolean("watch_next_enabled", value.watchNextEnabled)
             putString("subtitle_style", value.subtitleStyle.name)
@@ -144,7 +150,7 @@ class AppPreferencesRepository(context: Context) {
             // Switches that no longer exist. Their behaviour is now fixed, so a stale "off" must
             // not survive in the file where a later version could read it again.
             listOf("hero_rotate", "hero_logo", "hero_compact", "library_hub", "show_upcoming_episodes",
-                "show_ratings", "show_quality").forEach(::remove)
+                "show_ratings", "show_quality", "seasonal_ornament").forEach(::remove)
         }
 
     fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
@@ -153,7 +159,7 @@ class AppPreferencesRepository(context: Context) {
                     "menu_downloads", "home_search_bar",
                     "show_next_up", "combine_continue", "show_hero", "slow_startup",
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",
-                    "seasonal_ornament", "show_next_episode", "next_episode_lead", "auto_play_next_episode",
+                    "seasonal_decor", "season_calendar", "show_next_episode", "next_episode_lead", "auto_play_next_episode",
                     "next_episode_delay", "show_playback_mode_in_osd", "lightweight_tv", "detail_backdrop", "show_media_info",
                     "start_in_library", "reduce_motion", "home_row_formats", "library_title", "library_cards_wide", "library_hub_order", "library_hub_hidden", "library_order", "library_hidden", "subtitle_language", "subtitle_fallback")) onChange(personalization)
         }
