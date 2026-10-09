@@ -924,13 +924,23 @@ class ReelstackViewModel(
                     } == true
                 val seasonShelf = smartShelfOfPath(path.lastOrNull()?.first)
                     ?.forViewer(state.isKidMode)
+                // A shelf page not seen in this session starts from what it held last time.
+                if (seasonShelf != null && cached == null && !more) {
+                    val remembered = withContext(Dispatchers.IO) {
+                        runCatching { container.mediaServerClient.smartShelf(connection, seasonShelf, cachedOnly = true) }
+                            .getOrDefault(emptyList())
+                    }
+                    if (remembered.isNotEmpty() && currentCatalogue() && _uiState.value.libraryEntries.isEmpty()) {
+                        _uiState.update { it.copy(libraryEntries = remembered) }
+                    }
+                }
                 loadLibraryPage(Dispatchers.IO, readFacets = {
                     if (path.isEmpty() || seasonShelf != null) app.reelstack.data.model.LibraryFacets()
                     else if (state.libraryFacets.parentId == path.last().first) state.libraryFacets
                     else runCatching { container.mediaServerClient.libraryFacets(connection, path.last().first) }
                         .getOrDefault(app.reelstack.data.model.LibraryFacets())
                 }, readItems = {
-                    if (seasonShelf != null) container.mediaServerClient.smartShelf(connection, seasonShelf, state.libraryFilters)
+                    if (seasonShelf != null) container.mediaServerClient.smartShelf(connection, seasonShelf)
                     else if (path.isEmpty()) container.mediaServerClient.browseLibraries(connection).filter { container.preferencesRepository.includesLibrary(connection, it) }.map { view ->
                         app.reelstack.data.network.RemoteLibraryItem(view.id, view.name, "", null, "CollectionFolder", view.id,
                             artworkUrl = view.artworkUrl, isFolder = true, collectionType = view.collectionType)
@@ -2702,12 +2712,21 @@ class ReelstackViewModel(
         if (missing.isEmpty()) return
         smartPeekJob?.cancel()
         smartPeekJob = operationScope.launch {
+            // What the tiles held last time first, so their posters are there before the server answers.
+            val remembered = withContext(Dispatchers.IO) {
+                missing.associate { shelf -> shelf.id to runCatching {
+                    container.mediaServerClient.smartShelf(connection, shelf.forViewer(state.isKidMode), limit = 4, cachedOnly = true)
+                }.getOrDefault(emptyList()) }.filterValues { it.isNotEmpty() }
+            }
+            if (remembered.isNotEmpty() && isActive && _uiState.value.activeProfileId == state.activeProfileId) {
+                _uiState.update { it.copy(smartShelfPeeks = remembered + it.smartShelfPeeks) }
+            }
             kotlinx.coroutines.coroutineScope {
                 missing.forEach { shelf -> launch {
                     val items = withContext(Dispatchers.IO) {
                         runCatching { container.mediaServerClient.smartShelf(connection, shelf.forViewer(state.isKidMode), limit = 4) }
-                            .getOrDefault(emptyList())
-                    }
+                            .getOrNull()
+                    } ?: return@launch
                     if (isActive && _uiState.value.activeProfileId == state.activeProfileId && _uiState.value.libraryConnection == connection) {
                         _uiState.update { it.copy(smartShelfPeeks = it.smartShelfPeeks + (shelf.id to items)) }
                     }
@@ -2739,16 +2758,31 @@ class ReelstackViewModel(
             val last = homeShelfLoads[key.id]
             if (!force && last != null && last.first == signature && now - last.second < HOME_SHELF_STALE_MILLIS) return@forEach
             homeShelfLoads[key.id] = signature to now
+            val viewer = shelf.forViewer(state.isKidMode)
             operationScope.launch {
-                val items = withContext(Dispatchers.IO) {
-                    runCatching {
-                        container.mediaSyncRepository.smartShelfMedia(connection, shelf.forViewer(state.isKidMode), HOME_SHELF_LIMIT)
-                    }.getOrNull()
-                }
-                if (!isActive) return@launch
-                if (items == null) { homeShelfLoads.remove(key.id); return@launch }
-                if (_uiState.value.activeProfileId == state.activeProfileId) {
-                    _uiState.update { it.copy(homeShelfMedia = it.homeShelfMedia + (key.id to items)) }
+                var loaded = false
+                try {
+                    // The row as it was last time, at once; the server's answer replaces it below.
+                    if (key.id !in _uiState.value.homeShelfMedia) {
+                        val remembered = withContext(Dispatchers.IO) {
+                            runCatching { container.mediaSyncRepository.smartShelfMedia(connection, viewer, HOME_SHELF_LIMIT, cachedOnly = true) }
+                                .getOrDefault(emptyList())
+                        }
+                        if (remembered.isNotEmpty() && _uiState.value.activeProfileId == state.activeProfileId) {
+                            _uiState.update { it.copy(homeShelfMedia = mapOf(key.id to remembered) + it.homeShelfMedia) }
+                        }
+                    }
+                    val items = withContext(Dispatchers.IO) {
+                        runCatching { container.mediaSyncRepository.smartShelfMedia(connection, viewer, HOME_SHELF_LIMIT) }.getOrNull()
+                    } ?: return@launch
+                    if (_uiState.value.activeProfileId == state.activeProfileId) {
+                        _uiState.update { it.copy(homeShelfMedia = it.homeShelfMedia + (key.id to items)) }
+                    }
+                    loaded = true
+                } finally {
+                    // A load that failed or was cancelled half-way, by a profile check or a new refresh,
+                    // must not count as done, or the row would wait out the whole ten minutes empty.
+                    if (!loaded && homeShelfLoads[key.id]?.first == signature) homeShelfLoads.remove(key.id)
                 }
             }
         }
@@ -2761,9 +2795,12 @@ class ReelstackViewModel(
      */
     fun openSmartShelfEditor(id: String? = null, template: String? = null) {
         val existing = id?.let(::smartShelf)
+        // A shelf someone makes is one they want to see: on Home as well as in the library, and from
+        // today. A template lends its rule; its season stays with the built-in shelf.
         val draft = existing ?: template?.let { name -> SmartShelfPresets.all.firstOrNull { it.id == name } }
-            ?.let { it.copy(id = newSmartShelfId(), name = smartShelfTitle(it), preset = false) }
-            ?: SmartShelf(id = newSmartShelfId())
+            ?.let { it.copy(id = newSmartShelfId(), name = smartShelfTitle(it), preset = false,
+                period = app.reelstack.data.model.SmartShelfPeriod.ALWAYS, onHome = true) }
+            ?: SmartShelf(id = newSmartShelfId(), onHome = true)
         _uiState.update { it.copy(smartShelfEditor = app.reelstack.data.model.SmartShelfEditor(draft, isNew = existing == null)) }
         loadCatalogueFacets()
         previewSmartShelf()
@@ -2787,7 +2824,7 @@ class ReelstackViewModel(
         val editor = _uiState.value.smartShelfEditor ?: return
         val preset = SmartShelfPresets.all.firstOrNull { it.id == template } ?: return
         updateSmartShelfDraft(editor.draft.copy(name = editor.draft.name.ifBlank { smartShelfTitle(preset) },
-            icon = preset.icon, tags = preset.tags, genres = preset.genres, kinds = preset.kinds, period = preset.period,
+            icon = preset.icon, tags = preset.tags, genres = preset.genres, kinds = preset.kinds,
             matchAll = preset.matchAll))
     }
 
@@ -2810,6 +2847,21 @@ class ReelstackViewModel(
         _uiState.update { it.copy(smartShelves = stored, smartShelfPeeks = it.smartShelfPeeks - shelf.id) }
         loadHomeShelves()
         openSmartShelf(shelf.id)
+    }
+
+    /**
+     * Changes a shelf's order from its own page. It is saved with the shelf, so the page, its tile
+     * and its Home row agree, and asked of the server again, which does the sorting.
+     */
+    fun setSmartShelfSort(id: String, sort: app.reelstack.data.model.SmartShelfSort) {
+        val state = _uiState.value
+        val shelf = smartShelf(id)?.takeIf { it.sort != sort } ?: return
+        val stored = state.smartShelves.withShelf(shelf.copy(sort = sort))
+        container.preferencesRepository.setSmartShelves(state.activeProfileId, stored)
+        libraryPageCache.clear()
+        _uiState.update { it.copy(smartShelves = stored, smartShelfPeeks = it.smartShelfPeeks - id) }
+        if (SmartShelf.idOfPath(state.libraryPath.lastOrNull()?.first) == id) browseLibrary()
+        loadHomeShelves()
     }
 
     /** The owner's own shelf goes; a preset goes back to how it came. */
@@ -3106,6 +3158,9 @@ class ReelstackViewModel(
         container.offlineDownloads.onlyWifi(enabled)
         _uiState.update { it.copy(wifiOnly = enabled, snackbar = appString(R.string.notice_wifi_policy_updated)) }
     }
+
+    /** Called while Home is on screen, so a shelf row that has nothing yet is asked for. */
+    fun showHomeShelves() = loadHomeShelves()
 
     fun setHomeLayout(layout: app.reelstack.data.model.HomeLayout) {
         homeFeed.setLayout(layout)
@@ -3462,7 +3517,7 @@ class ReelstackViewModel(
             try {
                 val committed = withContext(Dispatchers.IO) {
                     val savedScope = checkNotNull(container.connectionRepository.saveAndCaptureIfCurrent(owner, listOfNotNull(candidate, companion)))
-                    container.mediaSnapshotStore.clear(); container.localPlaybackStore.clear()
+                    container.mediaSnapshotStore.clear(); container.shelfAnswerCache.clear(); container.localPlaybackStore.clear()
                     savedScope
                 }
                 check(container.connectionRepository.isCurrent(committed))
@@ -3535,7 +3590,7 @@ class ReelstackViewModel(
             // An authentication write already executing on IO may finish despite cancellation.
             container.connectionRepository.signOutAll(profileId)
             boundSession = container.connectionRepository.captureSession()
-            withContext(Dispatchers.IO) { container.mediaSnapshotStore.clear(); container.localPlaybackStore.clear() }
+            withContext(Dispatchers.IO) { container.mediaSnapshotStore.clear(); container.shelfAnswerCache.clear(); container.localPlaybackStore.clear() }
             _uiState.update { it.copy(sessionScope = boundSession, signingOut = false, showOnboarding = true) }
         }
     }
@@ -3561,7 +3616,7 @@ class ReelstackViewModel(
         val remaining = container.connectionRepository.list()
         val signedOutEverywhere = remaining.none { it.baseUrl.isNotBlank() }
         if (signedOutEverywhere) container.preferencesRepository.onboardingCompleted = false
-        container.mediaSnapshotStore.clear(); container.localPlaybackStore.clear()
+        container.mediaSnapshotStore.clear(); container.shelfAnswerCache.clear(); container.localPlaybackStore.clear()
         _uiState.update {
             it.copy(
                 libraryChoicesOpen = false, libraryChoices = emptyList(), libraryShortcuts = emptyList(), libraryIcons = emptyMap(), libraryFacets = app.reelstack.data.model.LibraryFacets(), libraryFilters = app.reelstack.data.model.LibraryFilters(), libraryDetailMedia = null, libraryEntries = emptyList(), libraryPath = emptyList(), libraryLoading = false, libraryHasMore = false, libraryError = null,

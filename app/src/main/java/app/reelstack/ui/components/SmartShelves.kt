@@ -69,6 +69,8 @@ internal interface SmartShelfActions {
     fun close()
     /** Asks the server for its genres and tags again, after it did not answer. */
     fun retryFacets()
+    /** Saves the order a shelf's page shows. */
+    fun sort(id: String, sort: app.reelstack.data.model.SmartShelfSort) {}
 }
 
 internal val LocalSmartShelfActions = staticCompositionLocalOf<SmartShelfActions?> { null }

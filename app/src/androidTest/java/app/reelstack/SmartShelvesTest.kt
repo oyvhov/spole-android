@@ -12,6 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.ForcedSize
@@ -19,6 +25,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
@@ -47,6 +54,7 @@ import app.reelstack.data.model.SmartShelf
 import app.reelstack.data.model.SmartShelfEditor
 import app.reelstack.data.model.SmartShelfKinds
 import app.reelstack.data.model.SmartShelfPresets
+import app.reelstack.data.model.SmartShelfSort
 import app.reelstack.data.model.libraryShelves
 import app.reelstack.data.network.RemoteLibraryItem
 import app.reelstack.ui.ReelstackUiState
@@ -88,6 +96,8 @@ class SmartShelvesTest {
         override fun close() {}
         var retried = 0
         override fun retryFacets() { retried++ }
+        var sorted: Pair<String, SmartShelfSort>? = null
+        override fun sort(id: String, sort: SmartShelfSort) { sorted = id to sort }
     }
 
     @Test fun aShelfShowsFilmsAndSeriesApart() {
@@ -98,9 +108,127 @@ class SmartShelvesTest {
         } } }
         rule.onNodeWithTag("smart-shelf-page").assertExists()
         rule.onNodeWithTag("smart-shelf-movies").assertIsDisplayed()
-        rule.onNodeWithTag("smart-shelf-series").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("smart-shelf-counts").assertTextContains("2", substring = true)
-        rule.onNodeWithTag("smart-item-s1").performScrollTo().assertIsDisplayed()
+        // Through the grid, as a remote or a finger would go; on a television the page starts with
+        // focus on «Overrask meg» at the top, which a semantic scroll of one node would fight.
+        rule.onNodeWithTag("smart-shelf-page").performScrollToNode(hasTestTag("smart-item-s1"))
+        rule.onNodeWithTag("smart-shelf-series").assertExists()
+        rule.onNodeWithTag("smart-item-s1").assertIsDisplayed()
+    }
+
+    private val noNumber = SemanticsMatcher("shows no number") { node ->
+        node.config.getOrElse(SemanticsProperties.Text) { emptyList() }.none { text -> text.any(Char::isDigit) }
+    }
+
+    /**
+     * The top holds the shelf's name and its two actions, and nothing to read past: no label over the
+     * name, no rule, no line of counts. The counts stand once, on the filter, not again on the sections.
+     */
+    @Test fun theTopHoldsOnlyTheNameAndTheActions() {
+        shelfPage(listOf(item("m1", "Movie"), item("s1", "Series"), item("m2", "Movie")))
+        rule.onNodeWithTag("smart-shelf-title").assertIsDisplayed()
+        rule.onNodeWithTag("smart-shelf-counts").assertDoesNotExist()
+        rule.onNodeWithTag("smart-shelf-rule").assertDoesNotExist()
+        rule.onAllNodes(hasAnyAncestor(hasTestTag("smart-shelf-hero")) and hasText("smart", substring = true, ignoreCase = true))
+            .assertCountEquals(0)
+        rule.onNodeWithTag("smart-view-MOVIES").assertTextContains("2", substring = true)
+        rule.onNodeWithTag("smart-shelf-movies").assert(noNumber)
+    }
+
+    /** A television screen shows the whole first row of covers on arrival, under the top of the page. */
+    @Test fun theFirstCoversAreInViewOnArrival() {
+        if (!InstrumentationTvCheck.isTelevision()) return
+        val state = ReelstackUiState(connections = listOf(connection), libraryPath = listOf(SmartShelfPresets.halloween.pathId to "Halloween"),
+            libraryEntries = List(20) { item("m$it", "Movie") } + List(5) { item("s$it", "Series") })
+        rule.setContent { DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(960.dp, 540.dp))) {
+            ReelstackTheme { CompositionLocalProvider(LocalSmartShelfActions provides Recorder()) { LibraryScreen(state, {}, {}, {}) } }
+        } }
+        rule.waitForIdle()
+        val page = rule.onNodeWithTag("smart-shelf-page").fetchSemanticsNode().boundsInRoot
+        val cover = rule.onNodeWithTag("smart-item-m0").fetchSemanticsNode().boundsInRoot
+        val posterBottom = cover.top + cover.width * 3f / 2f
+        assertTrue("The first poster ends at $posterBottom; the page ends at ${page.bottom}", posterBottom <= page.bottom)
+    }
+
+    private fun shelfPage(entries: List<RemoteLibraryItem>, actions: Recorder = Recorder(), opened: (String) -> Unit = {}) {
+        val state = ReelstackUiState(connections = listOf(connection), libraryPath = listOf(SmartShelfPresets.halloween.pathId to "Halloween"),
+            libraryEntries = entries)
+        rule.setContent { ReelstackTheme { CompositionLocalProvider(LocalSmartShelfActions provides actions) {
+            LibraryScreen(state, {}, opened, {})
+        } } }
+    }
+
+    /** Films or series alone is one choice away, with the count beside each. */
+    @Test fun theFilterShowsFilmsOrSeriesAlone() {
+        shelfPage(listOf(item("m1", "Movie"), item("s1", "Series"), item("m2", "Movie")))
+        rule.onNodeWithTag("smart-view-ALL").assertIsSelected()
+        rule.onNodeWithTag("smart-view-SERIES").assertTextContains("1", substring = true).performClick()
+        rule.onNodeWithTag("smart-item-s1").assertExists()
+        rule.onNodeWithTag("smart-item-m1").assertDoesNotExist()
+        rule.onNodeWithTag("smart-shelf-movies").assertDoesNotExist()
+        rule.onNodeWithTag("smart-view-MOVIES").performClick()
+        rule.onNodeWithTag("smart-item-m2").assertExists()
+        rule.onNodeWithTag("smart-item-s1").assertDoesNotExist()
+    }
+
+    /** A shelf of one kind has nothing to choose between, so the choice is not offered. */
+    @Test fun oneKindOffersNoFilter() {
+        shelfPage(listOf(item("m1", "Movie"), item("m2", "Movie")))
+        rule.onNodeWithTag("smart-view-ALL").assertDoesNotExist()
+        rule.onNodeWithTag("smart-shelf-sort").assertExists()
+    }
+
+    @Test fun theOrderIsChosenOnThePageAndSaved() {
+        val actions = Recorder()
+        shelfPage(listOf(item("m1", "Movie"), item("s1", "Series")), actions)
+        rule.onNodeWithTag("smart-shelf-sort").performClick()
+        rule.onNodeWithTag("smart-sort-ADDED").performClick()
+        rule.runOnIdle { assertEquals("halloween" to SmartShelfSort.ADDED, actions.sorted) }
+    }
+
+    /** Watched titles step aside on request, and a shelf seen to the end says so and offers them back. */
+    @Test fun watchedTitlesCanBeHidden() {
+        shelfPage(listOf(item("m1", "Movie").copy(played = true), item("m2", "Movie")))
+        rule.onNodeWithTag("smart-hide-watched").performClick()
+        rule.onNodeWithTag("smart-item-m1").assertDoesNotExist()
+        rule.onNodeWithTag("smart-item-m2").assertExists()
+    }
+
+    @Test fun surpriseOpensATitleNotSeenYet() {
+        var opened: String? = null
+        shelfPage(listOf(item("seen", "Movie").copy(played = true), item("fresh", "Movie")), opened = { opened = it })
+        rule.onNodeWithTag("smart-shelf-surprise").performClick()
+        rule.runOnIdle { assertEquals("fresh", opened) }
+    }
+
+    /**
+     * Down a column with the remote stays in that column, however far the shelf runs past the screen,
+     * and back up at the top the whole of it returns, not only the row of buttons.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun theRemoteGoesStraightDownAColumnAndBackToTheTop() {
+        if (!InstrumentationTvCheck.isTelevision()) return
+        shelfPage(List(40) { item("m$it", "Movie") })
+        rule.waitForIdle()
+        val heroTop = rule.onNodeWithTag("smart-shelf-hero").fetchSemanticsNode().boundsInRoot.top
+        val third = rule.onNodeWithTag("smart-item-m2")
+        third.performSemanticsAction(SemanticsActions.RequestFocus)
+        third.assertIsFocused()
+        val left = third.fetchSemanticsNode().boundsInRoot.left
+        repeat(4) { step ->
+            rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionDown) }
+            rule.waitForIdle()
+            val focused = rule.onNode(isFocused()).fetchSemanticsNode()
+            assertEquals("Press ${step + 1} down left the column", left, focused.boundsInRoot.left, 1f)
+        }
+        repeat(7) {
+            rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionUp) }
+            rule.waitForIdle()
+        }
+        assertTrue("Focus did not reach the shelf's buttons", listOf("smart-shelf-surprise", "smart-shelf-edit")
+            .any { tag -> runCatching { rule.onNodeWithTag(tag).assertIsFocused() }.isSuccess })
+        assertEquals("The top of the page came back only in part", heroTop,
+            rule.onNodeWithTag("smart-shelf-hero").fetchSemanticsNode().boundsInRoot.top, 1f)
+        rule.onNodeWithTag("smart-shelf-sort").assertIsDisplayed()
     }
 
     /** The covers are a size down from the library grid: more of a shelf on screen at once. */

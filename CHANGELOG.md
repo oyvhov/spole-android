@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta8 - roleg side for ei hylle og hyller som kjem fram med ein gong
+
+- Sida for ei hylle opnar på hylla sjølv: bakgrunnsbilete frå titlane, ei vifte av plakatar på breie skjermar, namnet, «Overrask meg» og «Endre». Toppen har ingen ekstra tekst; tala står på filteret.
+- Filter for filmar og seriar, sortering som blir lagra på hylla, «Skjul sette» og eit «Ny»-merke på titlar frå dei siste 14 dagane.
+- Hyller blir teikna med ein gong frå det siste svaret frå tenaren, og det ferske svaret tek over etterpå.
+- Ei ny hylle står på framsida med ein gong. Ei hylle frå ein mal startar på «Heile året», og byggjaren seier når ein seinare periode byrjar.
+- Raske trykk opp og ned på fjernkontrollen held kolonna i alle rutenett, også i biblioteket og barnemodus.
+- Biblioteksfiltera påverkar ikkje lenger hyllene, og ned frå ein brytar i Tilpass-radene går til knappane i same rad.
+
 ## 1.0.0-beta7 - smarte hyller i biblioteket og på framsida
 
 - Smarte hyller: ein regel av stikkord og sjangrar frå tenaren, på tvers av alle bibliotek. «Eller» tek med alt som har eitt av dei, «Både stikkord og sjanger» berre titlar med begge.

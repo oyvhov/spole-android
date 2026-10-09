@@ -319,6 +319,8 @@ class MediaServerClient(
      * that times out looks the same as a server with nothing to offer.
      */
     private val patientTransport: JsonHttpTransport = transport,
+    /** The last answer to each shelf question, so a shelf is drawn at once; see [ShelfAnswerCache]. */
+    private val shelfCache: ShelfAnswerCache? = null,
 ) {
     fun sessions(connection: ServiceConnection, access: ViewerAccess = localAccess(connection)): List<RemotePlayback> {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
@@ -743,9 +745,14 @@ class MediaServerClient(
      * not grow on scroll; a peek for the library page asks for a handful. The shelf's own kinds and
      * «unwatched only» narrow both answers, and so do the page's filters and sort.
      */
+    /**
+     * The titles a smart shelf's rule gives, in the shelf's own order. The library page's filters
+     * play no part: a shelf has its own, and one left over from a library would narrow it unseen.
+     * With [cachedOnly] nothing is asked: the answer is the one this device was last given for the
+     * same question, or empty when there is none.
+     */
     fun smartShelf(connection: ServiceConnection, shelf: app.reelstack.data.model.SmartShelf,
-        filters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters(),
-        limit: Int = 60): List<RemoteLibraryItem> {
+        limit: Int = 60, cachedOnly: Boolean = false): List<RemoteLibraryItem> {
         require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
         if (!shelf.hasRule) return emptyList()
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
@@ -753,20 +760,30 @@ class MediaServerClient(
         fun items(filter: String): List<RemoteLibraryItem> {
             val query = "userId=${encodePathSegment(user)}&Recursive=true&IncludeItemTypes=${shelf.kinds.itemTypes}" +
                 "&ExcludeItemTypes=BoxSet&CollapseBoxSetItems=false&StartIndex=0&Limit=${limit.coerceIn(1, 200)}" +
-                filters.query() + (if (shelf.unwatched) "&IsPlayed=false" else "") + filter +
+                shelfOrder(shelf.sort) + (if (shelf.unwatched) "&IsPlayed=false" else "") + filter +
                 "&Fields=Overview,Genres,ProviderIds,DateCreated,ChildCount,RecursiveItemCount,$LIBRARY_RATING_FIELDS" +
                 "&EnableUserData=true&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Backdrop,Logo,Banner&IsMissing=false"
             val paths = if (connection.kind == ServiceKind.EMBY)
                 listOf("Users/${encodePathSegment(user)}/Items?$query", "Items?$query")
             else listOf("Items?$query")
-            return getItems(connection, paths, via = patientTransport)
+            // The server address is part of the key; the path already names the profile and the question.
+            fun key(path: String) = connection.baseUrl.trimEnd('/') + "/" + path
+            if (cachedOnly) return paths.firstNotNullOfOrNull { shelfCache?.read(key(it)) }
+                ?.let { runCatching { libraryItemsOf(connection, it) }.getOrNull() }.orEmpty()
+            return getItems(connection, paths, via = patientTransport) { path, body -> shelfCache?.write(key(path), body) }
         }
         fun anyOf(values: List<String>) = java.net.URLEncoder.encode(values.joinToString("|"), "UTF-8")
         // The server ands its filters, so «a tag and a genre» is one question and «either» is two.
         if (shelf.requiresBoth) return items("&Tags=${anyOf(shelf.tags)}&Genres=${anyOf(shelf.genres)}")
         val tagged = if (shelf.tags.isEmpty()) emptyList() else items("&Tags=${anyOf(shelf.tags)}")
         val genre = if (shelf.genres.isEmpty()) emptyList() else items("&Genres=${anyOf(shelf.genres)}")
-        return (tagged + genre).distinctBy { it.id }
+        // Two answers, each in order; together they are put in the shelf's order again.
+        return (tagged + genre).distinctBy { it.id }.inShelfOrder(shelf.sort)
+    }
+
+    private fun shelfOrder(sort: app.reelstack.data.model.SmartShelfSort): String {
+        val by = sort.sortBy?.let { "$it,SortName" } ?: "SortName"
+        return "&SortBy=${java.net.URLEncoder.encode(by, "UTF-8")}&SortOrder=${if (sort.descending) "Descending" else "Ascending"}"
     }
 
     /**
@@ -1119,7 +1136,7 @@ class MediaServerClient(
     }
 
     private fun getItems(connection: ServiceConnection, paths: List<String>, preferEpisodeStill: Boolean = false,
-        via: JsonHttpTransport = transport): List<RemoteLibraryItem> {
+        via: JsonHttpTransport = transport, onAnswer: ((path: String, body: String) -> Unit)? = null): List<RemoteLibraryItem> {
         require(paths.isNotEmpty()) { "library request needs a profile id" }
         var lastResponse: HttpResponse? = null
         var authenticationFailure: HttpResponse? = null
@@ -1130,20 +1147,9 @@ class MediaServerClient(
             )
             lastResponse = response
             when (response.statusCode) {
-                in 200..299 -> return ServicePayloadParser.libraryItems(response.body, preferEpisodeStill).map { item ->
-                    item.copy(
-                        artworkUrl = item.artworkItemId?.let {
-                            artworkUrl(connection, it, item.artworkImageType, item.artworkTag)
-                        },
-                        heroUrl = item.heroImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
-                        backdropUrl = item.backdropImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
-                        posterUrl = item.posterImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
-                        thumbnailUrl = item.thumbnailImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
-                        bannerUrl = item.bannerImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
-                        logoUrl = item.logoItemId?.let {
-                            logoUrl(connection, it, item.logoTag)
-                        },
-                    )
+                in 200..299 -> {
+                    onAnswer?.invoke(path, response.body)
+                    return libraryItemsOf(connection, response.body, preferEpisodeStill)
                 }
                 401, 403 -> authenticationFailure = authenticationFailure ?: response
                 else -> Unit // Try another route when this server version or profile needs one.
@@ -1152,6 +1158,24 @@ class MediaServerClient(
         (authenticationFailure ?: lastResponse)?.requireSuccess(connection.kind)
         return emptyList()
     }
+
+    /** A server's item list with every image address made whole for [connection]. */
+    private fun libraryItemsOf(connection: ServiceConnection, body: String, preferEpisodeStill: Boolean = false): List<RemoteLibraryItem> =
+        ServicePayloadParser.libraryItems(body, preferEpisodeStill).map { item ->
+            item.copy(
+                artworkUrl = item.artworkItemId?.let {
+                    artworkUrl(connection, it, item.artworkImageType, item.artworkTag)
+                },
+                heroUrl = item.heroImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
+                backdropUrl = item.backdropImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
+                posterUrl = item.posterImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
+                thumbnailUrl = item.thumbnailImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
+                bannerUrl = item.bannerImagePath?.let { EndpointValidator.resolve(connection.baseUrl, it) },
+                logoUrl = item.logoItemId?.let {
+                    logoUrl(connection, it, item.logoTag)
+                },
+            )
+        }
 
     private fun latestPaths(
         kind: ServiceKind,

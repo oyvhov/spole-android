@@ -88,4 +88,19 @@
     <string name="smart_icon_documentary">Documentary</string>
     <string name="smart_icon_music">Music</string>
     <string name="smart_icon_sport">Sport</string>
+    <string name="smart_shelf_surprise">Surprise me</string>
+    <string name="smart_shelf_view_all">All</string>
+    <string name="smart_shelf_sort_title">Sort the shelf</string>
+    <string name="smart_shelf_hide_watched">Hide watched</string>
+    <string name="smart_shelf_all_watched">You have watched everything on this shelf.</string>
+    <string name="smart_shelf_show_watched">Show watched</string>
+    <string name="smart_shelf_new_badge">New</string>
+    <string name="smart_sort_rule">By the rule</string>
+    <string name="smart_sort_rule_hint">Titles with a tag first, then the genres</string>
+    <string name="smart_sort_added">Recently added</string>
+    <string name="smart_sort_newest">Newest first</string>
+    <string name="smart_sort_title">Title (A–Z)</string>
+    <string name="smart_sort_rating">Highest rated</string>
+    <string name="smart_shelf_period_waits">The «%1$s» period starts on %2$s. Until then the shelf is only in the library.</string>
+    <string name="smart_shelf_date_pattern">d MMMM</string>
 </resources>

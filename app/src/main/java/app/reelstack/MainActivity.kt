@@ -78,6 +78,8 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                         override fun delete(id: String) = reelstackViewModel.deleteSmartShelf(id)
                         override fun close() = reelstackViewModel.closeSmartShelfEditor()
                         override fun retryFacets() = reelstackViewModel.retryCatalogueFacets()
+                        override fun sort(id: String, sort: app.reelstack.data.model.SmartShelfSort) =
+                            reelstackViewModel.setSmartShelfSort(id, sort)
                     }
                 }
                 androidx.compose.runtime.CompositionLocalProvider(

@@ -2,6 +2,7 @@ package app.reelstack.ui.components
 
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
@@ -13,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -64,12 +66,16 @@ internal fun LayoutEditorRow(
             }
         } }
     }
+    // Down from the switch goes to this row's own buttons first. Left to itself, a remote went from the
+    // switch to the arrows on the right and on to the next row, and a button on the left was never reached.
+    val optionsEntry = remember { androidx.compose.ui.focus.FocusRequester() }
     Column(Modifier.fillMaxWidth()
         .testTag("$prefix-row-$id").padding(horizontal = 10.dp, vertical = 6.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val interaction = remember { MutableInteractionSource() }
             val inner = RoundedCornerShape(8.dp)
             Row(Modifier.weight(1f).heightIn(min = 48.dp).then(switchFocus?.let { Modifier.focusRequester(it) } ?: Modifier)
+                .then(if (options != null && !oneLine) Modifier.focusProperties { down = optionsEntry } else Modifier)
                 .settingsSurface(interaction, inner)
                 .toggleable(visible, role = Role.Switch, interactionSource = interaction, indication = LocalIndication.current,
                     onValueChange = onVisibleChange)
@@ -93,7 +99,8 @@ internal fun LayoutEditorRow(
         // weight split the line in two and broke "Alle bibliotek" over two lines.
         if (!oneLine) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
-            if (options != null) options() else Spacer(Modifier.width(0.dp))
+            if (options != null) Row(Modifier.weight(1f, fill = false).focusRequester(optionsEntry).focusGroup(),
+                verticalAlignment = Alignment.CenterVertically) { options() } else Spacer(Modifier.width(0.dp))
             arrows()
         }
     }

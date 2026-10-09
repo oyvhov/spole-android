@@ -1,13 +1,12 @@
 package app.reelstack.data.network
 
 import app.reelstack.data.model.ConnectionState
-import app.reelstack.data.model.LibraryFilters
-import app.reelstack.data.model.LibraryWatched
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.SmartShelf
 import app.reelstack.data.model.SmartShelfKinds
 import app.reelstack.data.model.SmartShelfPresets
+import app.reelstack.data.model.SmartShelfSort
 import java.net.URLDecoder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -64,10 +63,50 @@ class SmartShelfQueryTest {
         assertTrue(transport.requested.all { "IncludeItemTypes=Series&" in it && "IsPlayed=false" in it })
     }
 
-    @Test fun theLibraryFiltersStillApply() {
-        MediaServerClient(transport = transport, deviceId = "d").smartShelf(jellyfin,
-            SmartShelfPresets.halloween, LibraryFilters(watched = LibraryWatched.UNWATCHED))
-        assertTrue(transport.requested.all { "IsPlayed=false" in it })
+    /** The shelf's own order is asked of the server, and the library page's sort plays no part. */
+    @Test fun theShelfsOwnOrderIsAskedOfTheServer() {
+        MediaServerClient(transport = transport, deviceId = "d").smartShelf(jellyfin, SmartShelfPresets.halloween)
+        assertTrue(transport.requested.all { "SortBy=SortName&SortOrder=Ascending" in it })
+        transport.requested.clear()
+        MediaServerClient(transport = transport, deviceId = "d")
+            .smartShelf(jellyfin, SmartShelfPresets.halloween.copy(sort = SmartShelfSort.ADDED))
+        assertTrue(transport.requested.all { "SortBy=DateCreated,SortName&SortOrder=Descending" in it })
+        assertTrue(transport.requested.none { it.split("SortBy=").size > 2 })
+    }
+
+    /** «A tag or a genre» is two sorted answers; together they are sorted again, not tag-first. */
+    @Test fun twoAnswersAreSortedTogether() {
+        val dated = Scripted { url ->
+            when {
+                "Tags=halloween" in url -> items("""{"Id":"old","Name":"Old","Type":"Movie","DateCreated":"2020-01-01T00:00:00Z"}""")
+                "Genres=Horror|Skrekk" in url -> items("""{"Id":"new","Name":"New","Type":"Movie","DateCreated":"2026-10-01T00:00:00Z"}""")
+                else -> null
+            }
+        }
+        val added = MediaServerClient(transport = dated, deviceId = "d")
+            .smartShelf(jellyfin, SmartShelfPresets.halloween.copy(sort = SmartShelfSort.ADDED))
+        assertEquals(listOf("new", "old"), added.map { it.id })
+        val rule = MediaServerClient(transport = dated, deviceId = "d").smartShelf(jellyfin, SmartShelfPresets.halloween)
+        assertEquals(listOf("old", "new"), rule.map { it.id })
+    }
+
+    /** A shelf is drawn from its last answer at once; asking only the cache sends nothing. */
+    @Test fun theLastAnswerIsKeptAndCanBeReadWithoutAsking() {
+        val memory = object : ShelfAnswerCache {
+            val entries = mutableMapOf<String, String>()
+            override fun read(key: String) = entries[key]
+            override fun write(key: String, body: String) { entries[key] = body }
+            override fun clear() = entries.clear()
+        }
+        val client = MediaServerClient(transport = transport, deviceId = "d", shelfCache = memory)
+        assertTrue(client.smartShelf(jellyfin, SmartShelfPresets.halloween, cachedOnly = true).isEmpty())
+        assertTrue(transport.requested.isEmpty())
+        val fresh = client.smartShelf(jellyfin, SmartShelfPresets.halloween)
+        val asked = transport.requested.size
+        assertEquals(fresh.map { it.id }, client.smartShelf(jellyfin, SmartShelfPresets.halloween, cachedOnly = true).map { it.id })
+        assertEquals(asked, transport.requested.size)
+        // Another server's answers are its own.
+        assertTrue(client.smartShelf(jellyfin.copy(baseUrl = "https://other.example"), SmartShelfPresets.halloween, cachedOnly = true).isEmpty())
     }
 
     /** The server ands its filters: «a tag and a genre» is one question with both in it. */

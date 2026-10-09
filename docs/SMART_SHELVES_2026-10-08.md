@@ -59,6 +59,56 @@ biblioteket, på framsida og i sidemenyen, kvar for seg. Halloween og jul er fer
   og innhaldet startar med same innrykk som før. Valet er behalde: Google TV har ikkje eit vanleg
   tilgjengeval for å slå av animasjonar.
 
+## Etter beta7 (9. oktober)
+
+- **Hylla kom ikkje på framsida.** Tre grunnar, alle retta:
+  - Ei ny hylle hadde «På framsida» av. Ei hylle ein lagar sjølv, er no på både i biblioteket og på framsida.
+  - Ei hylle frå ein mal arva perioden til malen. Ei Halloween-hylle laga 9. oktober venta difor til
+    20. oktober. Ei eiga hylle startar no på «Heile året», og malen gir berre regelen. Vel ein ein
+    periode som ikkje har byrja, seier byggjaren når hylla kjem på framsida og i menyen.
+  - Ei lasting som vart avbroten, til dømes av ein profilsjekk ved oppstart, vart rekna som ferdig, så
+    rada venta ti minutt tom. No tel berre ei fullført lasting, og framsida ber sjølv om radene når ho visest.
+- **Plakatane på flisa, rada og sida vart henta på nytt kvar gong.** Bileta låg i Coil sin diskbuffer,
+  men kva titlar hylla hadde, vart spurt om frå tenaren ved kvar opning, og ein stor katalog brukar
+  sekund på svaret. Det siste svaret på kvar hyllespørjing ligg no i ei fil i app-bufferen
+  (`FileShelfAnswerCache`, namngitt med ein hash og haldt i 14 dagar). Flis, Home-rad og side blir
+  teikna frå det med ein gong, og tenaren sitt ferske svar tek over etterpå. Bufferen blir tømd med
+  resten av mediebufferen ved utlogging.
+- **Ny side for ei hylle:**
+  - **Toppfelt:** bakgrunnsbilete frå ein av titlane under to mjuke skuggar, ei vifte av tre plakatar på
+    breie skjermar, namnet og dei to knappane. Ikkje noko meir å lese: merket «Smart hylle», regelen
+    som brikker og tellelinja vart tekne bort etter første utkast, fordi toppen hadde seks rader før
+    første plakat. Regelen står i byggjaren. Toppfeltet er lågare, og på TV syner første plakatrad
+    under det. På mobil står tilbakepila på same linje som namnet.
+  - **Overrask meg** opnar ein tilfeldig tittel du ikkje har sett.
+  - **Filter:** Alt, Filmar og Seriar med tal, når hylla har begge slaga. Tala står berre her, ikkje
+    i bolkoverskriftene «Filmar» og «Seriar».
+  - **Sortering:** etter regelen, nyleg lagt til, nyaste først, tittel A–Å eller best vurdert. Valet blir
+    lagra på hylla og gjeld òg flisa og rada på framsida. Tenaren sorterer, så «Nyleg lagt til» er dei
+    nyaste i heile katalogen. «Eller» er to svar som blir sorterte saman att.
+  - **Skjul sette** tek sette titlar bort. Når alt er sett, seier sida det og tilbyr å vise dei att.
+  - **Ny:** titlar lagde til dei siste 14 dagane får eit merke.
+  - På TV startar fokus på «Overrask meg» med heile toppfeltet synleg. Første tittel er eitt trykk ned.
+  - Sida rullar berre når fokus treng det, og då med ein glimt av neste rad under. TV-ens eigen
+    rulling dreg fokus mot ein tredjedel av skjermen og kutta toppfeltet. Den første versjonen som
+    rulla «akkurat nok», let fokus hoppe til første kolonne når neste rad låg heilt utanfor. Glimten
+    held neste rad utlagd, så ned går rett ned same kolonne.
+  - Opp att til filterrada eller toppfeltet rullar heile toppen fram att. Unntaket er ein topp som er
+    høgare enn skjermen, til dømes med største tekst. Då held vanleg rulling den fokuserte knappen synleg.
+    Rullinga mot toppen går føre knappen si eiga «vis meg»-rulling, som elles stoppa sida halvvegs med
+    «Smart hylle» kutta. Går fokus ned att før ho er ferdig, stoppar ho.
+- **Biblioteksfiltera påverkar ikkje lenger hyllene.** Hyllespørjinga sende standardsorteringa frå
+  biblioteksida med. Ho har no berre sin eigen regel og si eiga sortering.
+- **Fjernkontrollen i redigeringsradene:** ned frå brytaren i ei rad med ekstra knappar («Ny smart hylle»,
+  «I sidemenyen», bibliotekval på framsida) gjekk forbi knappane til neste rad. Ned går no til knappane først.
+- **Raske trykk opp og ned held kolonna i alle rutenett.** Med raske trykk ned frå tredje kolonne
+  hamna fokus i første. Det gjaldt òg det vanlege biblioteket, ikkje berre hyllesida. Eit trykk kom
+  fram før rullinga, til ei rad som ikkje var lagd ut. Compose legg då ut rada ein tittel om gongen og
+  gir fokus til den første. `Modifier.steadyRemoteRows` ser kvar fokus er. Eit trykk går med ein gong når
+  rada bak er lagd ut, og ventar elles til rullinga har henta ho fram. Berre eitt trykk ventar om
+  gongen, så ein knapp som blir halden inne, stoppar når han blir sleppt. Gjeld bibliotek, smarte
+  hyller, søk, Oppdag, Aktivitet, førespurnadshistorikk og dei tre rutenetta i barnemodus.
+
 ## Emby
 
 - Emby er ei vanleg kjelde: hyller, sida for ei hylle, Home-rader og byggjaren verkar mot Emby òg,
@@ -118,6 +168,36 @@ biblioteket, på framsida og i sidemenyen, kvar for seg. Halloween og jul er fer
   fint. Han hadde krasja alle med Halloween-malen frå 20. oktober. Einingstestane bygger ikkje
   ViewModel og såg det ikkje. Feltet står no over `init`, og ei Halloween-hylle på framsida starta
   appen utan krasj.
+
+### Etter beta7
+
+- Einingstestar: 959, 0 feil, 1 hoppa over. Nye: `ShelfAnswerCacheTest`, `ShelfBringIntoViewTest` og
+  fleire i `SmartShelfTest` og `SmartShelfQueryTest`.
+- Lint: 0 feil, 185 åtvaringar, same som før.
+- Isolert TV 5566:
+
+  | Testklasse | Resultat |
+  | --- | --- |
+  | `SmartShelvesTest` | 21/21 |
+  | `SteadyRemoteRowsTest` | 1/1 |
+  | `LibraryPresentationUiTest`, `LibraryBrowserUiTest` | 9/9, 3/3 |
+  | `DesignRefreshUiTest` | 22/22 |
+  | `HomeMediaRowsTest`, `SeasonalTouchesTest` | 6/6, 8/8 |
+  | `SetupAndDiscoverTest`, `UiConsistencyTest`, `ViewerExperienceTest` | 5/5, 3/3, 3/3 |
+  | `FocusOutlineTest`, `TvNavigationIntegrationTest` | 3/3, 2/2 |
+
+- Dei andre klassane feila likt med debug- og testbygget frå 8. oktober, som er eldre enn endringa:
+  - `RequestHistoryUiTest` 4/7: `performScrollTo` finn ikkje knappar rutenettet ikkje har lagt ut.
+  - `ActivityAdaptiveTest` 3/4 i dette bygget og 5/6 i det eldre: tilbaketrekkingsmenyen tek ikkje imot trykk.
+  - `HomeSearchNavigationTest` 0/4: `@Before` kjem ikkje til Heim på TV.
+- Ekte data på TV-profil 5564, med signert bygg:
+  - Ei hylle frå Halloween-malen opna med heile toppfeltet synleg og fokus på «Overrask meg».
+  - Seks trykk ned i tredje kolonne heldt kolonna, med neste rad synleg under. Opp att kom heile
+    toppfeltet fram. Same gjekk med raske trykk, både på hyllesida og i Filmar-biblioteket. I Filmar
+    hoppa fokus før rettinga til første kolonne.
+  - Testhylla vart sletta. Profilen køyrer att den offisielle beta7-APK-en, med same SHA-256 som arkivet.
+- Barnemodus-rutenetta har ingen UI-test. Dei har fått same tillegg som dei andre, og
+  `SteadyRemoteRowsTest` prøver sjølve åtferda.
 
 ## Avgrensingar
 

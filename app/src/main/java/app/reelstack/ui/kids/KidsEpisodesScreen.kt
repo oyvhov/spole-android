@@ -47,6 +47,7 @@ import app.reelstack.ui.KidsBrowse
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.steadyRemoteRows
 import app.reelstack.ui.theme.*
 import coil3.compose.AsyncImage
 
@@ -92,9 +93,11 @@ fun KidsEpisodesScreen(
             }
         }
 
+        val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
-            modifier = Modifier.fillMaxSize(),
+            state = grid,
+            modifier = Modifier.fillMaxSize().steadyRemoteRows(grid),
             contentPadding = contentPadding,
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),

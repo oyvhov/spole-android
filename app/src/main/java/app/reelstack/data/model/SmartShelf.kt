@@ -45,6 +45,8 @@ data class SmartShelf(
      * and horror is the Halloween horror, not every horror film. Ignored while one side is empty.
      */
     val matchAll: Boolean = false,
+    /** The order of the shelf's titles: on its page, on its Home row and on its tile alike. */
+    val sort: SmartShelfSort = SmartShelfSort.RULE,
     /** One of [SmartShelfPresets]; a preset can be changed and reset, never deleted. */
     val preset: Boolean = false,
 ) {
@@ -79,6 +81,7 @@ data class SmartShelf(
         put("inLibrary", inLibrary)
         put("onHome", onHome)
         put("matchAll", matchAll)
+        put("sort", sort.name)
         put("preset", preset)
     }
 
@@ -109,6 +112,7 @@ data class SmartShelf(
                 onHome = (value["onHome"] as? JsonPrimitive)?.booleanOrNull
                     ?: (value["preset"] as? JsonPrimitive)?.booleanOrNull ?: false,
                 matchAll = (value["matchAll"] as? JsonPrimitive)?.booleanOrNull ?: false,
+                sort = SmartShelfSort.entries.firstOrNull { it.name == text("sort") } ?: SmartShelfSort.RULE,
                 preset = (value["preset"] as? JsonPrimitive)?.booleanOrNull ?: false,
             )
         }
@@ -124,6 +128,19 @@ data class SmartShelf(
 
 enum class SmartShelfIcon { STAR, HEART, PUMPKIN, SNOWFLAKE, CALENDAR, MOVIE, SCREEN, KIDS, ANIMATION, DOCUMENTARY, MUSIC, SPORT }
 
+/**
+ * How a shelf orders its titles. The server does the sorting, so «Nyleg lagt til» is the newest of the
+ * whole catalogue and not of the first sixty titles it happened to send. [RULE] keeps the rule's own
+ * order: titles with a tag first, then those with a genre, each in title order.
+ */
+enum class SmartShelfSort(val sortBy: String?, val descending: Boolean) {
+    RULE(null, false),
+    ADDED("DateCreated", true),
+    NEWEST("PremiereDate,ProductionYear", true),
+    TITLE("SortName", false),
+    RATING("CommunityRating", true),
+}
+
 /** Films, series or both. A shelf that holds both still shows them apart. */
 enum class SmartShelfKinds(val itemTypes: String) { BOTH("Movie,Series"), MOVIES("Movie"), SERIES("Series") }
 
@@ -134,6 +151,12 @@ enum class SmartShelfKinds(val itemTypes: String) { BOTH("Movie,Series"), MOVIES
  */
 enum class SmartShelfPeriod {
     ALWAYS, HALLOWEEN, CHRISTMAS, ADVENT, EASTER;
+
+    /** The first day of the next run, from [date]; today while it runs, null for [ALWAYS]. */
+    fun nextStart(date: LocalDate): LocalDate? = when (this) {
+        ALWAYS -> null
+        else -> generateSequence(date) { it.plusDays(1) }.take(400).firstOrNull(::isActive)
+    }
 
     fun isActive(date: LocalDate): Boolean = when (this) {
         ALWAYS -> true

@@ -13,7 +13,7 @@ class SmartShelfTest {
     @Test fun aShelfSurvivesBeingStored() {
         val shelf = SmartShelf("u-1", name = "Hundefilmar", icon = SmartShelfIcon.HEART, tags = listOf("dog", "puppy"),
             genres = listOf("Family"), kinds = SmartShelfKinds.MOVIES, unwatched = true, period = SmartShelfPeriod.EASTER, inMenu = true,
-            matchAll = true, inLibrary = false, onHome = true)
+            matchAll = true, inLibrary = false, onHome = true, sort = SmartShelfSort.RATING)
         assertEquals(listOf(shelf, SmartShelfPresets.halloween), SmartShelf.decodeAll(SmartShelf.encodeAll(listOf(shelf, SmartShelfPresets.halloween))))
     }
 
@@ -125,6 +125,15 @@ class SmartShelfTest {
         assertTrue(old.first { it.id == "halloween" }.onHome)
         assertFalse(old.first { it.id == "u-9" }.onHome)
         assertTrue(old.all { it.inLibrary })
+    }
+
+    /** A period that has not begun says when it does, so the builder can tell the owner. */
+    @Test fun aPeriodKnowsWhenItNextBegins() {
+        assertEquals(day(10, 20), SmartShelfPeriod.HALLOWEEN.nextStart(day(10, 9)))
+        assertEquals(day(10, 25), SmartShelfPeriod.HALLOWEEN.nextStart(day(10, 25)))
+        assertEquals(day(12, 1), SmartShelfPeriod.ADVENT.nextStart(day(10, 9)))
+        assertEquals(day(3, 21, 2027), SmartShelfPeriod.EASTER.nextStart(day(6, 1)))
+        assertNull(SmartShelfPeriod.ALWAYS.nextStart(day(6, 1)))
     }
 
     @Test fun aChildsShelfLeavesHorrorOutButKeepsTheRest() {

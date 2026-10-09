@@ -24,6 +24,7 @@ import app.reelstack.R
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.network.RemoteLibraryView
 import app.reelstack.ui.components.SpoleIcons
+import app.reelstack.ui.components.steadyRemoteRows
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.Text as KidsText
@@ -83,9 +84,11 @@ internal fun KidsLibraryScreen(
             }
         }
 
+        val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
-            modifier = Modifier.fillMaxSize(),
+            state = grid,
+            modifier = Modifier.fillMaxSize().steadyRemoteRows(grid),
             contentPadding = contentPadding,
             horizontalArrangement = Arrangement.spacedBy(if (tablet) 18.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(if (tablet) 20.dp else 16.dp),

@@ -146,6 +146,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     // editor, so it lives here rather than on any one of those pages.
     val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
     if (shelfActions != null) state.smartShelfEditor?.let { app.reelstack.ui.screens.SmartShelfEditorDialog(it, shelfActions) }
+    // Home asks for its shelf rows whenever it is shown, so a row never waits for the next refresh.
+    val homeShelfRowCount = state.homeShelfRows.size
+    LaunchedEffect(state.selectedTab, homeShelfRowCount, state.activeProfileId) {
+        if (state.selectedTab == AppTab.HOME && homeShelfRowCount > 0) viewModel.showHomeShelves()
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
     var appReadyForBackgroundWork by remember { mutableStateOf(false) }

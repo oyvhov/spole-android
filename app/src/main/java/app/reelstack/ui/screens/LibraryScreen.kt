@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.contentDescription
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.steadyRemoteRows
 
 @Composable
 fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
@@ -136,7 +137,8 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             columns = if (listView) GridCells.Fixed(1) else GridCells.Adaptive(cell),
             contentPadding = PaddingValues(pageGutter),
             horizontalArrangement = Arrangement.spacedBy(if (tv) 20.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("library-browser")) {
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+                .steadyRemoteRows(grid).testTag("library-browser")) {
             item(key = "heading", span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.focusProperties { if (tv && (showShelves || state.libraryEntries.isNotEmpty())) down = firstContent },
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {

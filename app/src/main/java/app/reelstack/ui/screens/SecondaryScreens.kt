@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalContext
+import app.reelstack.ui.components.steadyRemoteRows
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -334,7 +335,7 @@ fun DiscoverScreen(
         contentPadding = screenPadding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.fillMaxSize().testTag("discover-grid"),
+        modifier = Modifier.fillMaxSize().steadyRemoteRows(gridState).testTag("discover-grid"),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
@@ -820,14 +821,15 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     val wideActivity = app.reelstack.ui.theme.LocalTabletCanvas.current && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.6f
     val tvActivity = wideActivity && (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
         android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val activityGrid = rememberLazyGridState()
     // The same cell and gap as Discover, from the one place that decides it.
-    LazyVerticalGrid(columns = GridCells.Adaptive(posterCell()),
+    LazyVerticalGrid(columns = GridCells.Adaptive(posterCell()), state = activityGrid,
         horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(if (tvActivity) 16.dp else 28.dp),
         // The television branch used to ignore the padding it was handed and use a flat 24 dp,
         // which put the second row of cards against the bottom bezel.
         contentPadding = if (tvActivity) PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp,
             bottom = 24.dp + contentPadding.calculateBottomPadding()) else screenPadding(contentPadding),
-        modifier = Modifier.fillMaxSize().testTag("activity-feed")) {
+        modifier = Modifier.fillMaxSize().steadyRemoteRows(activityGrid).testTag("activity-feed")) {
         item(span = { GridItemSpan(maxLineSpan) }) {
           Column(Modifier.fillMaxWidth().testTag("activity-heading-block")) {
             val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }

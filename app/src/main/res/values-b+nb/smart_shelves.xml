@@ -88,4 +88,19 @@
     <string name="smart_icon_documentary">Dokumentar</string>
     <string name="smart_icon_music">Musikk</string>
     <string name="smart_icon_sport">Sport</string>
+    <string name="smart_shelf_surprise">Overrask meg</string>
+    <string name="smart_shelf_view_all">Alt</string>
+    <string name="smart_shelf_sort_title">Sorter hylla</string>
+    <string name="smart_shelf_hide_watched">Skjul sette</string>
+    <string name="smart_shelf_all_watched">Du har sett alt på hylla.</string>
+    <string name="smart_shelf_show_watched">Vis sette</string>
+    <string name="smart_shelf_new_badge">Ny</string>
+    <string name="smart_sort_rule">Etter regelen</string>
+    <string name="smart_sort_rule_hint">Titler med stikkord først, så sjangrene</string>
+    <string name="smart_sort_added">Nylig lagt til</string>
+    <string name="smart_sort_newest">Nyeste først</string>
+    <string name="smart_sort_title">Tittel (A–Å)</string>
+    <string name="smart_sort_rating">Best vurdert</string>
+    <string name="smart_shelf_period_waits">Perioden «%1$s» begynner %2$s. Inntil da står hylla bare i biblioteket.</string>
+    <string name="smart_shelf_date_pattern">d. MMMM</string>
 </resources>

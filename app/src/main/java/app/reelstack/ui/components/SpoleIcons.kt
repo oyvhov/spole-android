@@ -356,6 +356,15 @@ object SpoleIcons {
         moveTo(5.6f, 18.6f); lineTo(3.4f, 16.6f); lineTo(1.8f, 18.8f)
     }
 
+    /** Two crossing paths ending in arrows: a title chosen at random. */
+    val Shuffle = glyph("Shuffle") {
+        moveTo(3f, 7f); lineTo(6.5f, 7f); curveTo(11f, 7f, 13f, 17f, 17.5f, 17f); lineTo(20.5f, 17f)
+        moveTo(3f, 17f); lineTo(6.5f, 17f); curveTo(8.6f, 17f, 9.9f, 15.4f, 10.9f, 13.6f)
+        moveTo(13.1f, 10.4f); curveTo(14.1f, 8.6f, 15.4f, 7f, 17.5f, 7f); lineTo(20.5f, 7f)
+        moveTo(18f, 4.5f); lineTo(20.5f, 7f); lineTo(18f, 9.5f)
+        moveTo(18f, 14.5f); lineTo(20.5f, 17f); lineTo(18f, 19.5f)
+    }
+
     val Star = glyph("Star") {
         moveTo(12f, 3.5f); lineTo(14.6f, 9.1f); lineTo(20.5f, 9.9f)
         lineTo(16.2f, 14.1f); lineTo(17.3f, 20.2f); lineTo(12f, 17.3f)
