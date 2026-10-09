@@ -83,3 +83,31 @@ ikkje kontrollert på ein telefonskjerm.
   - Testhylla vart sletta. Biblioteket, sidemenyen og framsida er utan hylla, som før.
   - Under testen spurde Android om USB-feilsøking for ein ukjend nøkkel frå ein adb-tenar på
     Windows-sida. Førespurnaden vart avvist, og tilgangane på eininga er uendra.
+
+## Offentleg release
+
+- Publisert som prerelease, ikkje draft, med nøyaktig éin universal-APK og fem assets:
+  https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta8 . Stabil latest er ikkje endra.
+- Kjelde/tag: `17bc0823d87a212ff41138740d03f74a1a746d79`, ein fast-forward av `main` frå beta7.
+  `SOURCE_COMMIT.txt` peikar på same commit.
+- Alle fem asset-digestar og storleikar i kladden samsvarte med arkivfilene.
+- Den uautentiserte release-lista viser beta8 med `draft=false`, `prerelease=true` og APK-digest
+  `sha256:91873ee7…a3db`. Den offentleg nedlasta APK-en er 11 769 614 byte og har same SHA-256 som det
+  signerte bygget.
+- GitHub-kontrollen «Bygg og test» på `main` for `17bc082` fullførte med `success`.
+
+## Oppdatering gjennom appen
+
+- **Isolert TV-profil 5566** (offisiell `1.0.0-beta7` / 144):
+  - Innstillingar → Varsel og oppdatering → Appoppdateringar → Sjekk no fann `v1.0.0-beta8`
+    (nedlasting 11,2 MB) med dei offentlege release-notata.
+  - «Last ned oppdatering» → «Installer oppdatering» gjekk gjennom appen sine kontrollar. Android
+    spurde «Do you want to update this app?», og etter «Update» meldte han «App installed.» Play Protect
+    spurde ikkje.
+  - Installert pakke er `1.0.0-beta8` / kode 145, sist oppdatert 9. oktober 2026 kl. 17:10:08. Første
+    installasjonstid er framleis 19. september 2026 kl. 14:51:26.
+  - «Open» starta appen på Heim, og krasjloggen var tom.
+- Kontoar og preferansar over ein ekte oppdatering er kontrollerte på TV-profilen 5564 med `install -r`
+  (sjå over). Den har ekte Jellyfin- og Emby-kontoar.
+- Mobilprofilen 5560 er ikkje oppdatert. Play Protect stoppar installasjonen der (sjå beta7), og
+  profilen står framleis på ei eldre utgåve.
