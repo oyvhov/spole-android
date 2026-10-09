@@ -79,7 +79,13 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
     }
     val hubLabels = mapOf("FEATURE" to stringResource(R.string.refine_group_hero),
         "LIBRARY_NEXT" to stringResource(R.string.library_next),
-        "FAVOURITES" to stringResource(R.string.home_favourites), "LIBRARIES" to stringResource(R.string.refine_library_shelves))
+        "FAVOURITES" to stringResource(R.string.home_favourites), "LIBRARIES" to stringResource(R.string.refine_library_shelves),
+        app.reelstack.data.model.SMART_SHELVES_SECTION to stringResource(R.string.smart_shelves_title))
+    val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
+    val noShelves = remember(state.smartShelves) {
+        app.reelstack.data.model.libraryShelves(state.smartShelves, java.time.LocalDate.now()).isEmpty()
+    }
+    val shelvesEmpty = stringResource(R.string.smart_shelves_editor_empty)
     val hubOrder = libraryHubOrder(options.libraryHubOrder)
     val hubHidden = libraryHubHidden(options.libraryHubHidden)
     val connection = state.libraryConnection
@@ -167,8 +173,21 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
                     itemsIndexed(hubOrder, key = { _, id -> "hub-$id" }) { index, id ->
                         val shown = id !in hubHidden
                         val focus = remember(id) { listOf(FocusRequester(), FocusRequester()) }
+                        val smart = id == app.reelstack.data.model.SMART_SHELVES_SECTION
+                        // The library page keeps no empty frame for smart shelves, so a first one starts here.
+                        val newShelf: (@Composable RowScope.() -> Unit)? = if (!smart || shelfActions == null || connection == null) null else { {
+                            val newInteraction = remember { MutableInteractionSource() }
+                            TextButton(onClick = { close(); shelfActions.edit() }, interactionSource = newInteraction,
+                                modifier = Modifier.focusOutline(newInteraction, CircleShape).testTag("library-editor-new-shelf")) {
+                                Icon(SpoleIcons.Add, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.smart_shelf_new), style = MaterialTheme.typography.labelLarge)
+                            }
+                        } }
                         LayoutEditorRow(
-                            prefix = "hub", id = id, title = hubLabels.getValue(id), subtitle = if (shown) "" else hidden,
+                            prefix = "hub", id = id, title = hubLabels.getValue(id),
+                            subtitle = when { !shown -> hidden; smart && noShelves -> shelvesEmpty; else -> "" },
+                            options = newShelf,
                             visible = shown, canMoveUp = index > 0, canMoveDown = index < hubOrder.lastIndex,
                             upFocus = focus[0], downFocus = focus[1],
                             switchFocus = firstFocus.takeIf { firstRow == "hub-$id" },

@@ -91,21 +91,10 @@ class SeasonCalendarTest {
         assertNull(Season.NONE.daysUntilPeak(day(10, 25)))
     }
 
-    @Test fun aChildsHalloweenShelfHasTheTagOnly() {
-        assertEquals(listOf("Horror", "Skrekk"), Season.HALLOWEEN.shelf(kids = false)?.genres)
-        assertEquals(emptyList<String>(), Season.HALLOWEEN.shelf(kids = true)?.genres)
-        assertEquals(listOf("halloween"), Season.HALLOWEEN.shelf(kids = true)?.tags)
-        assertEquals(listOf("christmas"), Season.CHRISTMAS.shelf(kids = false)?.tags)
-        assertNull(Season.NONE.shelf(kids = false))
-    }
-
-    @Test fun aShelfIdNamesItsSeasonAndNothingElse() {
-        assertEquals(Season.HALLOWEEN, seasonOfShelfId(Season.HALLOWEEN.shelfId()))
-        assertEquals(Season.CHRISTMAS, seasonOfShelfId(Season.CHRISTMAS.shelfId()))
-        assertNull(seasonOfShelfId(Season.NONE.shelfId()))
-        assertNull(seasonOfShelfId("f137a2dd21bbc1b99aa5c0f6bf02a805"))
-        assertNull(seasonOfShelfId("spole-season-EASTER"))
-        assertNull(seasonOfShelfId(null))
+    @Test fun aSeasonOpensItsPresetShelf() {
+        assertEquals(SmartShelfPresets.halloween.pathId, Season.HALLOWEEN.shelfId())
+        assertEquals(SmartShelfPresets.christmas.pathId, Season.CHRISTMAS.shelfId())
+        assertNull(Season.NONE.shelfId())
     }
 
     /** Before the levels there was one switch, and on was everything: now FULL. */

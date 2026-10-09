@@ -9,8 +9,10 @@ import app.reelstack.data.network.toLibraryMedia
 import app.reelstack.background.BackgroundRefreshScheduler
 import app.reelstack.data.repository.MediaSnapshotStore
 import app.reelstack.data.model.ActivityEvent
-import app.reelstack.data.model.shelf
-import app.reelstack.data.model.shelfId
+import app.reelstack.data.model.SmartShelf
+import app.reelstack.data.model.SmartShelfPresets
+import app.reelstack.data.model.mergedSmartShelves
+import app.reelstack.data.model.withShelf
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.ContentDetails
 import app.reelstack.data.model.canRequest
@@ -211,6 +213,13 @@ data class ReelstackUiState(
      */
     val libraryPeeks: Map<String, List<LibraryMedia>> = emptyMap(),
     val libraryPeeksLoading: Boolean = false,
+    /** This profile's own smart shelves and changed presets. See [app.reelstack.data.model.mergedSmartShelves]. */
+    val smartShelves: List<app.reelstack.data.model.SmartShelf> = emptyList(),
+    /** A few titles per shelf for its tile in the library, keyed by shelf id. */
+    val smartShelfPeeks: Map<String, List<app.reelstack.data.network.RemoteLibraryItem>> = emptyMap(),
+    val smartShelfEditor: app.reelstack.data.model.SmartShelfEditor? = null,
+    /** The titles of each smart shelf's row on Home, keyed by [app.reelstack.data.model.HomeRowKey.id]. */
+    val homeShelfMedia: Map<String, List<LibraryMedia>> = emptyMap(),
     /** The open series' seasons and the episodes of the season being looked at. */
     val seriesBrowse: app.reelstack.data.model.SeriesBrowse = app.reelstack.data.model.SeriesBrowse(),
     /** Why the last watched/favourite/remove press did nothing. Cleared on the next attempt. */
@@ -316,7 +325,14 @@ data class ReelstackUiState(
 
     /** The layout Home renders: the saved one, or the one the older fields describe. */
     val effectiveHomeLayout: app.reelstack.data.model.HomeLayout
-        get() = homeLayout ?: app.reelstack.data.model.HomeLayout.fromLegacy(homeRowOrder, homeSections, showNextUp = true)
+        get() = (homeLayout ?: app.reelstack.data.model.HomeLayout.fromLegacy(homeRowOrder, homeSections, showNextUp = true))
+            .withShelfRows(homeShelfRows)
+
+    /** The Home rows smart shelves have today: one per shelf and per media server with an address. */
+    val homeShelfRows: List<app.reelstack.data.model.HomeRowKey>
+        get() = app.reelstack.data.model.homeShelves(smartShelves, java.time.LocalDate.now()).flatMap { shelf ->
+            homeMediaSources.map { app.reelstack.data.model.HomeRowKey.shelfRow(it, shelf.id) }
+        }
 
     /** Media servers that have an address, and so rows of their own on Home. */
     val homeMediaSources: List<ServiceKind>
@@ -424,6 +440,16 @@ class ReelstackViewModel(
     private var libraryJob: Job? = null
     private var shelfJob: Job? = null
     private var peekJob: Job? = null
+    private var smartPeekJob: Job? = null
+    private var smartPreviewJob: Job? = null
+    private var smartFacetsJob: Job? = null
+    private var catalogueFacets: Pair<String, app.reelstack.data.model.CatalogueFacets>? = null
+    /**
+     * What each Home row of a smart shelf was last loaded with, so a row is only asked again when it
+     * changed or went stale. Declared here, above the init block: the first refresh runs from init,
+     * and a property declared after it is still null by then.
+     */
+    private val homeShelfLoads = mutableMapOf<String, Pair<String, Long>>()
     // Two handles, not one. Loading the seasons ends by opening the first of them, and a single
     // handle meant that call cancelled the very coroutine it was running inside — correct today
     // only because nothing suspends between the cancel and the relaunch, which is not a property
@@ -776,7 +802,7 @@ class ReelstackViewModel(
                 libraryEntries = emptyList(),
                 libraryFacets = app.reelstack.data.model.LibraryFacets(),
                 libraryShelves = app.reelstack.data.model.LibraryShelves(),
-                libraryPeeks = emptyMap(),
+                libraryPeeks = emptyMap(), smartShelfPeeks = emptyMap(),
                 libraryPeeksLoading = false,
                 libraryOffset = 0,
                 libraryHasMore = false,
@@ -800,7 +826,7 @@ class ReelstackViewModel(
         libraryPageCache.clear()
         _uiState.update { it.copy(selectedLibrarySource = source,
             libraryPath = emptyList(), libraryCollectionType = null, libraryEntries = emptyList(),
-            libraryPeeks = emptyMap(), libraryPeeksLoading = false,
+            libraryPeeks = emptyMap(), smartShelfPeeks = emptyMap(), libraryPeeksLoading = false,
             libraryShelves = app.reelstack.data.model.LibraryShelves(),
             libraryFilters = app.reelstack.data.model.LibraryFilters(),
             libraryFacets = app.reelstack.data.model.LibraryFacets(),
@@ -896,15 +922,15 @@ class ReelstackViewModel(
                     _uiState.value.libraryConnection?.let {
                         it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId
                     } == true
-                val seasonShelf = app.reelstack.data.model.seasonOfShelfId(path.lastOrNull()?.first)
-                    ?.shelf(state.isKidMode)
+                val seasonShelf = smartShelfOfPath(path.lastOrNull()?.first)
+                    ?.forViewer(state.isKidMode)
                 loadLibraryPage(Dispatchers.IO, readFacets = {
                     if (path.isEmpty() || seasonShelf != null) app.reelstack.data.model.LibraryFacets()
                     else if (state.libraryFacets.parentId == path.last().first) state.libraryFacets
                     else runCatching { container.mediaServerClient.libraryFacets(connection, path.last().first) }
                         .getOrDefault(app.reelstack.data.model.LibraryFacets())
                 }, readItems = {
-                    if (seasonShelf != null) container.mediaServerClient.seasonShelf(connection, seasonShelf, state.libraryFilters)
+                    if (seasonShelf != null) container.mediaServerClient.smartShelf(connection, seasonShelf, state.libraryFilters)
                     else if (path.isEmpty()) container.mediaServerClient.browseLibraries(connection).filter { container.preferencesRepository.includesLibrary(connection, it) }.map { view ->
                         app.reelstack.data.network.RemoteLibraryItem(view.id, view.name, "", null, "CollectionFolder", view.id,
                             artworkUrl = view.artworkUrl, isFolder = true, collectionType = view.collectionType)
@@ -934,6 +960,7 @@ class ReelstackViewModel(
                 if (currentCatalogue() && path.isEmpty()) loadLibraryPeeks(entries.map {
                     app.reelstack.data.network.RemoteLibraryView(it.id, it.title, it.collectionType, it.artworkUrl)
                 })
+                if (currentCatalogue() && path.isEmpty()) loadSmartShelfPeeks()
                 }, onFacets = { facets ->
                     if (currentCatalogue()) {
                         libraryPageCache[cacheKey]?.let { libraryPageCache[cacheKey] = it.copy(facets = facets) }
@@ -998,7 +1025,7 @@ class ReelstackViewModel(
         val state = _uiState.value
         val path = state.libraryPath
         // A season's shelf spans every library, so there is no single library to be half-way through.
-        val library = path.singleOrNull()?.takeIf { app.reelstack.data.model.seasonOfShelfId(it.first) == null }
+        val library = path.singleOrNull()?.takeIf { app.reelstack.data.model.SmartShelf.idOfPath(it.first) == null }
         if (library == null) {
             shelfJob?.cancel()
             if (state.libraryShelves != app.reelstack.data.model.LibraryShelves()) {
@@ -1482,6 +1509,7 @@ class ReelstackViewModel(
         seasonsJob?.cancel(); episodesJob?.cancel(); requestDraftJob?.cancel(); historyJob?.cancel()
         connectionJob?.cancel(); quickConnectJob?.cancel(); addressJob?.cancel(); discoveryJob?.cancel()
         libraryPageCache.clear(); detailHistory.clear(); episodeReturn = null; preparingOfflineIds.clear()
+        homeShelfLoads.clear()
         connectionDraft.value = null
         val profileId = next.profileId
         val connections = container.connectionRepository.list(profileId)
@@ -2638,18 +2666,231 @@ class ReelstackViewModel(
      * with it; only the listing is the season's own. See [app.reelstack.data.model.shelf].
      */
     fun openSeasonShelf(season: app.reelstack.data.model.Season) {
-        if (season == app.reelstack.data.model.Season.NONE) return
-        val title = appString(if (season == app.reelstack.data.model.Season.CHRISTMAS) R.string.theme_season_christmas
-            else R.string.theme_season_halloween)
-        _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(season.shelfId() to title),
+        SmartShelfPresets.of(season)?.let { openSmartShelf(it.id) }
+    }
+
+    /** A shelf of this profile's, or a preset as it comes. */
+    private fun smartShelf(id: String): SmartShelf? = mergedSmartShelves(_uiState.value.smartShelves).firstOrNull { it.id == id }
+
+    private fun smartShelfOfPath(pathId: String?): SmartShelf? = SmartShelf.idOfPath(pathId)?.let(::smartShelf)
+
+    private fun smartShelfTitle(shelf: SmartShelf): String =
+        shelf.name.ifBlank { app.reelstack.ui.components.smartShelfPresetName(shelf.id)?.let(::appString).orEmpty() }
+
+    /**
+     * A smart shelf is a library page like any other, so details, Back and the remote's focus all
+     * come with it; only the listing is the shelf's own question to the server.
+     */
+    fun openSmartShelf(id: String) {
+        val shelf = smartShelf(id) ?: return
+        _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shelf.pathId to smartShelfTitle(shelf)),
             libraryCollectionType = null, libraryFilters = app.reelstack.data.model.LibraryFilters(),
             libraryFacets = app.reelstack.data.model.LibraryFacets(), libraryEntries = emptyList(),
             libraryOffset = 0, libraryHasMore = false) }
         browseLibrary()
     }
 
+    /**
+     * A few titles for each shelf's tile on the library page, all asked for together. A shelf that
+     * found nothing keeps an empty answer, so it is not asked again until it changes.
+     */
+    private fun loadSmartShelfPeeks() {
+        val state = _uiState.value
+        val connection = state.libraryConnection ?: return
+        val missing = app.reelstack.data.model.libraryShelves(state.smartShelves, java.time.LocalDate.now())
+            .filter { it.hasRule && it.id !in state.smartShelfPeeks }
+        if (missing.isEmpty()) return
+        smartPeekJob?.cancel()
+        smartPeekJob = operationScope.launch {
+            kotlinx.coroutines.coroutineScope {
+                missing.forEach { shelf -> launch {
+                    val items = withContext(Dispatchers.IO) {
+                        runCatching { container.mediaServerClient.smartShelf(connection, shelf.forViewer(state.isKidMode), limit = 4) }
+                            .getOrDefault(emptyList())
+                    }
+                    if (isActive && _uiState.value.activeProfileId == state.activeProfileId && _uiState.value.libraryConnection == connection) {
+                        _uiState.update { it.copy(smartShelfPeeks = it.smartShelfPeeks + (shelf.id to items)) }
+                    }
+                } }
+            }
+        }
+    }
+
+    /**
+     * Fills the Home rows smart shelves have. Every row asks for itself and appears when its own
+     * answer arrives; a hidden row asks for nothing, and a row that fails keeps what it showed.
+     */
+    private fun loadHomeShelves(force: Boolean = false) {
+        val state = _uiState.value
+        val layout = state.effectiveHomeLayout
+        val rows = state.homeShelfRows
+        val shelves = app.reelstack.data.model.homeShelves(state.smartShelves, java.time.LocalDate.now()).associateBy { it.id }
+        val rowIds = rows.mapTo(mutableSetOf()) { it.id }
+        if (state.homeShelfMedia.keys.any { it !in rowIds }) {
+            _uiState.update { it.copy(homeShelfMedia = it.homeShelfMedia.filterKeys { key -> key in rowIds }) }
+        }
+        val now = android.os.SystemClock.elapsedRealtime()
+        rows.filter(layout::isVisible).forEach { key ->
+            val shelf = shelves[key.shelf] ?: return@forEach
+            val connection = state.connections.firstOrNull {
+                it.kind == key.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+            } ?: return@forEach
+            val signature = shelf.encode().toString() + "|" + connection.baseUrl + "|" + connection.userId + "|" + state.isKidMode
+            val last = homeShelfLoads[key.id]
+            if (!force && last != null && last.first == signature && now - last.second < HOME_SHELF_STALE_MILLIS) return@forEach
+            homeShelfLoads[key.id] = signature to now
+            operationScope.launch {
+                val items = withContext(Dispatchers.IO) {
+                    runCatching {
+                        container.mediaSyncRepository.smartShelfMedia(connection, shelf.forViewer(state.isKidMode), HOME_SHELF_LIMIT)
+                    }.getOrNull()
+                }
+                if (!isActive) return@launch
+                if (items == null) { homeShelfLoads.remove(key.id); return@launch }
+                if (_uiState.value.activeProfileId == state.activeProfileId) {
+                    _uiState.update { it.copy(homeShelfMedia = it.homeShelfMedia + (key.id to items)) }
+                }
+            }
+        }
+    }
+
+    /**
+     * The shelf builder. [id] edits a shelf; [template] starts a new one from a preset's rule; neither
+     * starts empty. A new shelf from a template is the owner's own and keeps nothing of the preset
+     * but its rule, icon and period.
+     */
+    fun openSmartShelfEditor(id: String? = null, template: String? = null) {
+        val existing = id?.let(::smartShelf)
+        val draft = existing ?: template?.let { name -> SmartShelfPresets.all.firstOrNull { it.id == name } }
+            ?.let { it.copy(id = newSmartShelfId(), name = smartShelfTitle(it), preset = false) }
+            ?: SmartShelf(id = newSmartShelfId())
+        _uiState.update { it.copy(smartShelfEditor = app.reelstack.data.model.SmartShelfEditor(draft, isNew = existing == null)) }
+        loadCatalogueFacets()
+        previewSmartShelf()
+    }
+
+    private fun newSmartShelfId() = "u-" + java.util.UUID.randomUUID().toString().take(8)
+
+    /** Every change asks the server again, a moment after the last one, what the shelf would hold. */
+    fun updateSmartShelfDraft(draft: SmartShelf) {
+        val editor = _uiState.value.smartShelfEditor ?: return
+        if (editor.draft == draft) return
+        val ruleChanged = editor.draft.tags != draft.tags || editor.draft.genres != draft.genres ||
+            editor.draft.kinds != draft.kinds || editor.draft.unwatched != draft.unwatched ||
+            editor.draft.requiresBoth != draft.requiresBoth
+        _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(draft = draft)) }
+        if (ruleChanged) previewSmartShelf(delayMillis = 350)
+    }
+
+    /** Starts the rule over from a preset, keeping a name the owner has already typed. */
+    fun applySmartShelfTemplate(template: String) {
+        val editor = _uiState.value.smartShelfEditor ?: return
+        val preset = SmartShelfPresets.all.firstOrNull { it.id == template } ?: return
+        updateSmartShelfDraft(editor.draft.copy(name = editor.draft.name.ifBlank { smartShelfTitle(preset) },
+            icon = preset.icon, tags = preset.tags, genres = preset.genres, kinds = preset.kinds, period = preset.period,
+            matchAll = preset.matchAll))
+    }
+
+    fun closeSmartShelfEditor() {
+        smartPreviewJob?.cancel()
+        smartFacetsJob?.cancel()
+        _uiState.update { it.copy(smartShelfEditor = null) }
+    }
+
+    fun saveSmartShelf() {
+        val state = _uiState.value
+        val editor = state.smartShelfEditor ?: return
+        val trimmed = editor.draft.copy(name = editor.draft.name.trim().take(40))
+        if (!trimmed.hasRule) return
+        val shelf = if (!trimmed.preset && trimmed.name.isBlank()) trimmed.copy(name = appString(R.string.smart_shelf_untitled)) else trimmed
+        val stored = state.smartShelves.withShelf(shelf)
+        container.preferencesRepository.setSmartShelves(state.activeProfileId, stored)
+        libraryPageCache.clear()
+        closeSmartShelfEditor()
+        _uiState.update { it.copy(smartShelves = stored, smartShelfPeeks = it.smartShelfPeeks - shelf.id) }
+        loadHomeShelves()
+        openSmartShelf(shelf.id)
+    }
+
+    /** The owner's own shelf goes; a preset goes back to how it came. */
+    fun deleteSmartShelf(id: String) {
+        val state = _uiState.value
+        val shelf = smartShelf(id) ?: return
+        val stored = state.smartShelves.filterNot { it.id == id }
+        container.preferencesRepository.setSmartShelves(state.activeProfileId, stored)
+        libraryPageCache.clear()
+        closeSmartShelfEditor()
+        _uiState.update { it.copy(smartShelves = stored, smartShelfPeeks = it.smartShelfPeeks - id,
+            homeShelfMedia = it.homeShelfMedia.filterKeys { key -> app.reelstack.data.model.HomeRowKey.parse(key)?.shelf != id }) }
+        // A deleted shelf takes its Home rows out of the saved layout; a preset only goes back to how it came.
+        if (!shelf.preset) _uiState.value.homeLayout?.takeIf { layout -> layout.order.any { it.shelf == id } }
+            ?.let { homeFeed.setLayout(it.withoutShelf(id)) }
+        val showing = SmartShelf.idOfPath(state.libraryPath.lastOrNull()?.first) == id
+        if (showing && shelf.preset) openSmartShelf(id)
+        else if (showing) {
+            _uiState.update { it.copy(libraryPath = emptyList(), libraryEntries = emptyList(), libraryOffset = 0, libraryHasMore = false) }
+            browseLibrary()
+        }
+    }
+
+    fun retryCatalogueFacets() {
+        catalogueFacets = null
+        loadCatalogueFacets()
+    }
+
+    private fun loadCatalogueFacets() {
+        val connection = _uiState.value.libraryConnection ?: return
+        val key = connection.baseUrl + "|" + connection.userId
+        catalogueFacets?.takeIf { it.first == key }?.let { (_, facets) ->
+            _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(facets = facets, facetsLoading = false)) }
+            return
+        }
+        _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(facetsLoading = true, facetsFailed = false)) }
+        smartFacetsJob?.cancel()
+        smartFacetsJob = operationScope.launch {
+            val outcome = withContext(Dispatchers.IO) { runCatching { container.mediaServerClient.catalogueFacets(connection) } }
+            val facets = outcome.getOrNull()
+            if (!isActive) return@launch
+            if (facets != null && (facets.genres.isNotEmpty() || facets.tags.isNotEmpty())) catalogueFacets = key to facets
+            _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(
+                facets = facets ?: app.reelstack.data.model.CatalogueFacets(), facetsLoading = false, facetsFailed = facets == null,
+                facetsError = outcome.exceptionOrNull()?.let { (it.message ?: it::class.java.simpleName).take(140) })) }
+        }
+    }
+
+    private fun previewSmartShelf(delayMillis: Long = 0) {
+        val state = _uiState.value
+        val draft = state.smartShelfEditor?.draft ?: return
+        val connection = state.libraryConnection
+        smartPreviewJob?.cancel()
+        if (connection == null || !draft.hasRule) {
+            _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(previewMovies = null, previewSeries = null,
+                previewCapped = false, previewLoading = false)) }
+            return
+        }
+        _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(previewLoading = true)) }
+        smartPreviewJob = operationScope.launch {
+            kotlinx.coroutines.delay(delayMillis)
+            val items = withContext(Dispatchers.IO) {
+                runCatching { container.mediaServerClient.smartShelf(connection, draft.forViewer(state.isKidMode)) }.getOrNull()
+            }
+            if (!isActive) return@launch
+            _uiState.update { current ->
+                val editor = current.smartShelfEditor ?: return@update current
+                val same = editor.draft.tags == draft.tags && editor.draft.genres == draft.genres &&
+                    editor.draft.kinds == draft.kinds && editor.draft.unwatched == draft.unwatched &&
+                    editor.draft.requiresBoth == draft.requiresBoth
+                if (!same) return@update current
+                current.copy(smartShelfEditor = editor.copy(previewLoading = false,
+                    previewSeries = items?.count { it.mediaType.equals("Series", ignoreCase = true) },
+                    previewMovies = items?.count { !it.mediaType.equals("Series", ignoreCase = true) },
+                    previewCapped = (items?.size ?: 0) >= 60))
+            }
+        }
+    }
+
     fun openLibraryShortcut(id: String) {
-        app.reelstack.data.model.seasonOfShelfId(id)?.let { openSeasonShelf(it); return }
+        SmartShelf.idOfPath(id)?.let { openSmartShelf(it); return }
         val shortcut = _uiState.value.libraryShortcuts.firstOrNull { it.first == id } ?: return
         _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shortcut), libraryCollectionType = null,
             libraryFilters = app.reelstack.data.model.LibraryFilters(), libraryFacets = app.reelstack.data.model.LibraryFacets()) }
@@ -2837,6 +3078,7 @@ class ReelstackViewModel(
     fun returnedToApp() {
         synchronizeSession()
         homeFeed.returnedToApp()
+        loadHomeShelves()
         if (_uiState.value.selectedTab == AppTab.DOWNLOADS) refreshOfflineDownloads()
     }
 
@@ -2844,7 +3086,10 @@ class ReelstackViewModel(
 
     fun retryIncompleteHomeFeed() = homeFeed.retryIncompleteFeed()
 
-    fun refreshLiveData(userInitiated: Boolean = false) = homeFeed.refresh(userInitiated)
+    fun refreshLiveData(userInitiated: Boolean = false) {
+        homeFeed.refresh(userInitiated)
+        loadHomeShelves(force = userInitiated)
+    }
 
     fun setNotifications(enabled: Boolean) {
         container.preferencesRepository.notificationsEnabled = enabled
@@ -2862,7 +3107,11 @@ class ReelstackViewModel(
         _uiState.update { it.copy(wifiOnly = enabled, snackbar = appString(R.string.notice_wifi_policy_updated)) }
     }
 
-    fun setHomeLayout(layout: app.reelstack.data.model.HomeLayout) = homeFeed.setLayout(layout)
+    fun setHomeLayout(layout: app.reelstack.data.model.HomeLayout) {
+        homeFeed.setLayout(layout)
+        // A shelf row that was switched on has nothing to show until it has been asked.
+        loadHomeShelves()
+    }
 
     fun setHomeLibraries(kind: ServiceKind, choice: app.reelstack.data.model.HomeLibraryChoice) {
         val connection = _uiState.value.connections.firstOrNull { it.kind == kind && it.baseUrl.isNotBlank() } ?: return
@@ -3391,6 +3640,9 @@ class ReelstackViewModel(
     private companion object {
         const val QUICK_CONNECT_POLL_INTERVAL_MS = 3_000L
         const val QUICK_CONNECT_MAX_POLLS = 60
+        /** Titles on a smart shelf's Home row, and how long they are trusted before the row asks again. */
+        const val HOME_SHELF_LIMIT = 24
+        const val HOME_SHELF_STALE_MILLIS = 10 * 60_000L
     }
 
     private fun isTelevision(): Boolean =
@@ -3428,6 +3680,7 @@ private fun initialState(container: AppContainer): ReelstackUiState {
         connections = connections,
         activeProfileId = container.connectionRepository.activeProfileId,
         searchHistory = container.preferencesRepository.searchHistory(container.connectionRepository.activeProfileId),
+        smartShelves = container.preferencesRepository.smartShelves(container.connectionRepository.activeProfileId),
         profiles = container.connectionRepository.listProfiles(),
         allProfileConnections = if (owner.kidsMode) emptyMap() else container.connectionRepository.listProfiles().associate { it.id to container.connectionRepository.list(it.id) },
         isKidMode = container.connectionRepository.isKidMode,

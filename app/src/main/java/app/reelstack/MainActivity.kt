@@ -68,8 +68,21 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                 // reported, never handled, so the remote works exactly as it did. See SpoleEggs.
                 androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
                     .onPreviewKeyEvent { app.reelstack.ui.components.SpoleEggs.key(it.nativeKeyEvent); false }) {
+                val shelfActions = androidx.compose.runtime.remember(reelstackViewModel) {
+                    object : app.reelstack.ui.components.SmartShelfActions {
+                        override fun open(id: String) = reelstackViewModel.openSmartShelf(id)
+                        override fun edit(id: String?, template: String?) = reelstackViewModel.openSmartShelfEditor(id, template)
+                        override fun update(draft: app.reelstack.data.model.SmartShelf) = reelstackViewModel.updateSmartShelfDraft(draft)
+                        override fun applyTemplate(template: String) = reelstackViewModel.applySmartShelfTemplate(template)
+                        override fun save() = reelstackViewModel.saveSmartShelf()
+                        override fun delete(id: String) = reelstackViewModel.deleteSmartShelf(id)
+                        override fun close() = reelstackViewModel.closeSmartShelfEditor()
+                        override fun retryFacets() = reelstackViewModel.retryCatalogueFacets()
+                    }
+                }
                 androidx.compose.runtime.CompositionLocalProvider(
                     app.reelstack.ui.components.LocalOpenSeasonShelf provides reelstackViewModel::openSeasonShelf,
+                    app.reelstack.ui.components.LocalSmartShelfActions provides shelfActions,
                 ) {
                 app.reelstack.ui.StartupReveal(reelstackViewModel) {
                     // Kids mode is a separate shell beside the adult app, not a condition inside

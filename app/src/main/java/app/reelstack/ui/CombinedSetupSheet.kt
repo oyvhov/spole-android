@@ -80,10 +80,10 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
                 Text(stringResource(R.string.setup_have_link))
             }
             if (importing) {
-                OutlinedTextField(setupLink, { setupLink = it }, Modifier.fillMaxWidth().testTag("setup-link"),
-                    label = { Text(stringResource(R.string.setup_paste_link)) }, shape = buttonShape, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false,
-                        showKeyboardOnFocus = !television))
+                // Every field here is one the remote walks past; see RemoteTextField.
+                app.reelstack.ui.components.RemoteTextField(setupLink, { setupLink = it }, television, ImeAction.Done,
+                    Modifier.fillMaxWidth().testTag("setup-link"), label = stringResource(R.string.setup_paste_link),
+                    keyboardType = KeyboardType.Uri, autoCorrect = false, shape = buttonShape)
                 SpoleSecondaryButton(onClick = { onImport(setupLink); importing = false; setupLink = "" },
                     modifier = Modifier.fillMaxWidth().testTag("setup-import")) { Text(stringResource(R.string.setup_use_addresses)) }
             }
@@ -108,14 +108,14 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
                     }
                 }
             }
-            if (editingAddresses) OutlinedTextField(draft.url, onJellyfin,
+            if (editingAddresses) app.reelstack.ui.components.RemoteTextField(draft.url, onJellyfin, television,
+                if (draft.alsoConnect) ImeAction.Next else ImeAction.Go,
                 Modifier.fillMaxWidth().focusRequester(urlFocus).testTag("setup-jellyfin-url"),
-                shape = buttonShape,
-                label = { Text(stringResource(R.string.setup_jellyfin_address)) }, placeholder = { Text(stringResource(R.string.setup_jellyfin_hint)) },
-                supportingText = { Text(stringResource(R.string.setup_manual_note)) },
-                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false,
-                    imeAction = if (draft.alsoConnect) ImeAction.Next else ImeAction.Go, showKeyboardOnFocus = !television),
-                keyboardActions = KeyboardActions(onGo = { onStart() }))
+                label = stringResource(R.string.setup_jellyfin_address), placeholder = stringResource(R.string.setup_jellyfin_hint),
+                supportingText = stringResource(R.string.setup_manual_note),
+                keyboardType = KeyboardType.Uri, autoCorrect = false, shape = buttonShape,
+                // Next keeps its own move to the Seerr field; Go starts.
+                onImeAction = if (draft.alsoConnect) null else { { onStart() } })
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.setup_also_seerr))
@@ -128,12 +128,10 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
                 }, Modifier.focusOutline(switchInteraction, RoundedCornerShape(50)).testTag("setup-seerr-enabled"),
                     interactionSource = switchInteraction)
             }
-            if (draft.alsoConnect && editingAddresses) OutlinedTextField(draft.companionUrl, onSeerr, Modifier.fillMaxWidth().testTag("setup-seerr-url"),
-                shape = buttonShape,
-                label = { Text(stringResource(R.string.setup_seerr_address)) }, placeholder = { Text(stringResource(R.string.setup_seerr_hint)) },
-                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false,
-                    imeAction = ImeAction.Go, showKeyboardOnFocus = !television),
-                keyboardActions = KeyboardActions(onGo = { onStart() }))
+            if (draft.alsoConnect && editingAddresses) app.reelstack.ui.components.RemoteTextField(draft.companionUrl, onSeerr,
+                television, ImeAction.Go, Modifier.fillMaxWidth().testTag("setup-seerr-url"),
+                label = stringResource(R.string.setup_seerr_address), placeholder = stringResource(R.string.setup_seerr_hint),
+                keyboardType = KeyboardType.Uri, autoCorrect = false, shape = buttonShape, onImeAction = { onStart() })
             if (editingAddresses || account) Text(stringResource(if (account) R.string.setup_account_note else
                 R.string.setup_approve_note),
                 style = MaterialTheme.typography.bodyMedium)
@@ -142,10 +140,9 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
                     onPickUser(user)
                     runCatching { if (user.hasPassword) passwordFocus.requestFocus() else startFocus.requestFocus() }
                 })
-                OutlinedTextField(draft.username, onUsername, Modifier.fillMaxWidth().testTag("setup-username"),
-                    label = { Text(stringResource(R.string.setup_username)) }, shape = buttonShape, singleLine = true,
-                    keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Next,
-                        showKeyboardOnFocus = !television))
+                app.reelstack.ui.components.RemoteTextField(draft.username, onUsername, television, ImeAction.Next,
+                    Modifier.fillMaxWidth().testTag("setup-username"), label = stringResource(R.string.setup_username),
+                    autoCorrect = false, shape = buttonShape)
                 OutlinedTextField(draft.password, onPassword, Modifier.fillMaxWidth().focusRequester(passwordFocus).testTag("setup-password"),
                     label = { Text(stringResource(R.string.setup_password)) }, shape = buttonShape, singleLine = true,
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),

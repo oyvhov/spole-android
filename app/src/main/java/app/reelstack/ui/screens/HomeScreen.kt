@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -202,6 +203,7 @@ fun HomeScreen(
     }
     val showTopRefreshIndicator = state.isRefreshing && showTopRefreshIndicatorByUser
     val layout = state.homeLayout
+    val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
     val configuredMediaSources = state.connections
         .filter { connection ->
             connection.baseUrl.isNotBlank() &&
@@ -424,6 +426,22 @@ fun HomeScreen(
                             }
                         }
                 }
+                // A smart shelf's own row, per server like «Nye filmar»: titles the rule gives, and a way into all of them.
+                if (row.kind == HomeRowKind.SMART_SHELF && source != null && source in mediaSources && shelfActions != null) {
+                    val shelf = app.reelstack.data.model.mergedSmartShelves(state.smartShelves).firstOrNull { it.id == row.shelf }
+                    val items = state.homeShelfMedia[row.id].orEmpty()
+                    if (shelf != null && items.isNotEmpty()) item(key = "smart-shelf-${row.id}") {
+                        Column(Modifier.testTag("home-shelf-${row.id}")) {
+                            MediaSectionTitle(app.reelstack.ui.components.smartShelfName(shelf), source,
+                                Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                            LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions)
+                            Box(Modifier.padding(top = 4.dp)) {
+                                app.reelstack.ui.components.AppNavigationChip(stringResource(R.string.design_browse_all),
+                                    "home-shelf-all-${row.id}") { shelfActions.open(shelf.id) }
+                            }
+                        }
+                    }
+                }
                 if (row.kind == HomeRowKind.RECOMMENDATIONS) {
                     item(key = "recommendations") {
                         SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = ReelLayout.SectionTop, bottom = 4.dp))
@@ -575,6 +593,29 @@ private fun mediaEmptyMessage(state: HomeUiState, source: ServiceKind, emptyMess
 @Composable
 private fun mediaEndInset() = if (app.reelstack.ui.theme.LocalMediaEdgeToEdge.current) ReelLayout.Gutter else 0.dp
 
+/** The first card lines up with the titles; see [shelfBleed] for why the start is padding, not margin. */
+@Composable
+private fun shelfPadding() = PaddingValues(start = ReelLayout.Gutter, end = mediaEndInset())
+
+/**
+ * A shelf reaches back into the page gutter and pads its start by the same amount.
+ *
+ * A focused card on television grows by six percent and draws its ring around that. A shelf clips
+ * at its own edge, so the first card in a row was cut off right against the side menu, title and
+ * all. It only showed with «Rolege overgangar» off, because that is what turns the growth on.
+ * Scrolled cards now also slide out under the gutter instead of stopping short of it.
+ */
+private fun Modifier.shelfBleed(): Modifier = layout { measurable, constraints ->
+    if (!constraints.hasBoundedWidth) {
+        val child = measurable.measure(constraints)
+        return@layout layout(child.width, child.height) { child.placeRelative(0, 0) }
+    }
+    val margin = ReelLayout.Gutter.roundToPx()
+    val width = constraints.maxWidth + margin
+    val child = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+    layout(constraints.maxWidth, child.height) { child.placeRelative(-margin, 0) }
+}
+
 /** One size for every section heading on Home. */
 @Composable
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
@@ -622,7 +663,7 @@ internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Mod
 
 @Composable
 private fun RecommendationRail(items: List<DiscoverMedia>, onClick: (String) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(items, key = DiscoverMedia::id) { media ->
             RecommendationCard(media) { onClick(media.id) }
         }
@@ -701,7 +742,7 @@ private fun NowPlayingRail(
         // 16:9 at the card's own minimum height, and it follows the artwork-size preference like
         // every other rail. The old 480 dp was sized for a horizontal plate that no longer exists.
         val width = 324.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
-        LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(sessions, key = PlaybackSession::key) { session ->
                 app.reelstack.ui.components.CompactSessionCard(session, pendingSessionKey == session.key,
                     controlsLocked = pendingSessionKey != null, onOpen = { onOpen(session.key) },
@@ -722,7 +763,7 @@ private fun NowPlayingRail(
         )
         return
     }
-    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items(sessions, key = PlaybackSession::key) { session ->
             NowPlayingCard(
                 session = session,
@@ -882,7 +923,7 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
     val titleLines = if (isTelevision()) 2 else if (items.any { it.title.length > if (chosenWide) 26 else 15 }) 2 else 1
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide, libraryDisplay = libraryDisplay)
-    LazyRow(state = railState, modifier = Modifier.fillMaxWidth().testTag("library-rail"), contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(state = railState, modifier = Modifier.shelfBleed().testTag("library-rail"), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             LibraryCard(
                 media = media,
@@ -916,7 +957,7 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     val nextActions = actions.withoutResumeRemoval()
-    LazyRow(state = railState, contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(state = railState, modifier = Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
             ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30,
                 actions = if (resumeIds == null || media.id in resumeIds) actions else nextActions,
@@ -1284,7 +1325,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
 
 @Composable
 private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             UpcomingCard(media, revealDelay = index.coerceAtMost(2) * 30) { onClick(media.id) }
         }
@@ -1293,7 +1334,7 @@ private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) 
 
 @Composable
 private fun RecentReleaseRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             UpcomingCard(media, revealDelay = index.coerceAtMost(2) * 30, recent = true) { onClick(media.id) }
         }

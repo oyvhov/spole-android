@@ -1,9 +1,17 @@
 package app.reelstack.data.model
 
-/** Older devices stored two sections. Keep their first position and combine visibility on read. */
-fun libraryHubOrder(order: List<String>): List<String> = (order + DEFAULT_LIBRARY_HUB)
-    .map { if (it == "CONTINUE" || it == "NEXT") "LIBRARY_NEXT" else it }
-    .distinct().filter { it in DEFAULT_LIBRARY_HUB }
+/**
+ * Older devices stored two sections. Keep their first position and combine visibility on read.
+ * An order saved before smart shelves existed gets them just above the library shelves, where a
+ * new install has them, rather than at the very end of the page.
+ */
+fun libraryHubOrder(order: List<String>): List<String> {
+    val known = order.map { if (it == "CONTINUE" || it == "NEXT") "LIBRARY_NEXT" else it }
+        .distinct().filter { it in DEFAULT_LIBRARY_HUB }
+    val withShelves = if (SMART_SHELVES_SECTION in known || "LIBRARIES" !in known) known
+        else known.toMutableList().apply { add(indexOf("LIBRARIES"), SMART_SHELVES_SECTION) }
+    return (withShelves + DEFAULT_LIBRARY_HUB).distinct()
+}
 
 fun libraryHubHidden(hidden: Set<String>): Set<String> =
     (hidden - setOf("CONTINUE", "NEXT")) +

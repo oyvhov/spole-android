@@ -87,6 +87,15 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     onShelfOpen: (String) -> Unit, cardActions: MediaCardActions?, onCustomize: () -> Unit,
     sourcePicker: @Composable () -> Unit) {
     BackHandler(state.libraryPath.isNotEmpty() && state.activeSheet == null) { onBack() }
+    val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
+    // A smart shelf has its own page: films and series apart, on smaller covers than this grid.
+    val smartShelf = app.reelstack.data.model.SmartShelf.idOfPath(state.libraryPath.lastOrNull()?.first)?.let { id ->
+        app.reelstack.data.model.mergedSmartShelves(state.smartShelves).firstOrNull { it.id == id }
+    }
+    if (smartShelf != null) {
+        SmartShelfPage(state, smartShelf, onOpen, onBack, onEdit = { shelfActions?.edit(smartShelf.id) }, onRetry = { onLoad(false) })
+        return
+    }
     val connected = state.libraryConnection != null
     val tv = LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val pageGutter = if (tv) 32.dp else app.reelstack.ui.theme.ReelLayout.Gutter

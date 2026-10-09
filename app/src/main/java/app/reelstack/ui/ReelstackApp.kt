@@ -142,6 +142,10 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         return
     }
     val connectionDraft by viewModel.connectionDraft.collectAsStateWithLifecycle()
+    // The shelf builder opens from the library, from Home's layout and from the library's own
+    // editor, so it lives here rather than on any one of those pages.
+    val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
+    if (shelfActions != null) state.smartShelfEditor?.let { app.reelstack.ui.screens.SmartShelfEditorDialog(it, shelfActions) }
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
     var appReadyForBackgroundWork by remember { mutableStateOf(false) }
@@ -351,6 +355,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     },
                     shortcuts = state.libraryShortcuts,
                     libraryIcons = state.libraryIcons,
+                    smartShelves = remember(state.smartShelves) {
+                        app.reelstack.data.model.menuShelves(state.smartShelves, java.time.LocalDate.now())
+                    },
                     selectedLibraryId = state.libraryPath.firstOrNull()?.first.takeIf { state.selectedTab == AppTab.LIBRARY },
                     onLibrarySelect = { id ->
                         focusManager.clearFocus()
@@ -653,6 +660,7 @@ internal fun ReelstackNavigationRail(
     isKidMode: Boolean = false,
     modifier: Modifier = Modifier,
     compactTouch: Boolean = false,
+    smartShelves: List<app.reelstack.data.model.SmartShelf> = emptyList(),
 ) = AppNavigationRail(
     selectedTab = selectedTab,
     onSelect = onSelect,
@@ -666,6 +674,7 @@ internal fun ReelstackNavigationRail(
     isKidMode = isKidMode,
     modifier = modifier,
     compactTouch = compactTouch,
+    smartShelves = smartShelves,
 )
 
 /** Children only add the safe area that the scaffold has not already applied. */

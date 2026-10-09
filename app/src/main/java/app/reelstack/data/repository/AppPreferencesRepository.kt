@@ -254,6 +254,17 @@ class AppPreferencesRepository(context: Context) {
         return "search_history_" + digest.joinToString("") { "%02x".format(it) }
     }
 
+    /** A profile's own smart shelves and changed presets. Presets nobody has touched are not stored. */
+    fun smartShelves(profileId: String): List<app.reelstack.data.model.SmartShelf> =
+        app.reelstack.data.model.SmartShelf.decodeAll(preferences.getString(smartShelvesKey(profileId), null))
+
+    fun setSmartShelves(profileId: String, shelves: List<app.reelstack.data.model.SmartShelf>) {
+        preferences.edit { putString(smartShelvesKey(profileId), app.reelstack.data.model.SmartShelf.encodeAll(shelves)) }
+    }
+
+    private fun smartShelvesKey(profileId: String): String =
+        "smart_shelves_" + searchHistoryKey(profileId).removePrefix("search_history_")
+
     /**
      * Every Home row, per server, in order and with its switch. The first read carries the older
      * row order, section switches and next-up switch over; after that this key is the one truth.

@@ -13,6 +13,7 @@ import app.reelstack.data.model.canRequestType
 import app.reelstack.data.model.isExcludedHomeLibrary
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -312,6 +313,12 @@ class MediaServerClient(
     private val transport: JsonHttpTransport = HttpTransport(),
     private val deviceId: String = "homereel-android",
     private val includeLibrary: (ServiceConnection, RemoteLibraryView) -> Boolean = { _, view -> !isExcludedHomeLibrary(view.name) },
+    /**
+     * For the shelf builder's big questions. Asking a whole catalogue for its genres, or for every
+     * title with a tag, can take longer than the nine seconds a Home row is given, and a question
+     * that times out looks the same as a server with nothing to offer.
+     */
+    private val patientTransport: JsonHttpTransport = transport,
 ) {
     fun sessions(connection: ServiceConnection, access: ViewerAccess = localAccess(connection)): List<RemotePlayback> {
         require(connection.kind == ServiceKind.JELLYFIN || connection.kind == ServiceKind.EMBY)
@@ -334,6 +341,9 @@ class MediaServerClient(
     /** In parallel when the transport allows it, otherwise exactly in order as before. */
     private fun <T, R> concurrently(items: List<T>, block: (T) -> R): List<R> =
         if (transport.supportsConcurrentCalls) parallelMap(items, block) else items.map(block)
+
+    private fun <T, R> concurrentlyPatient(items: List<T>, block: (T) -> R): List<R> =
+        if (patientTransport.supportsConcurrentCalls) parallelMap(items, block) else items.map(block)
 
     private fun <A, B> concurrentPair(first: () -> A, second: () -> B): Pair<A, B> =
         if (transport.supportsConcurrentCalls) parallelPair(first, second) else first() to second()
@@ -658,14 +668,44 @@ class MediaServerClient(
         require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && parentId.isNotBlank())
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
         require(!user.isNullOrBlank())
-        val response = transport.get(EndpointValidator.resolve(connection.baseUrl,
-            "Items/Filters?userId=${encodePathSegment(user)}&ParentId=${encodePathSegment(parentId)}"), headers(connection, deviceId))
-        response.requireSuccess(connection.kind)
-        val root = Json.parseToJsonElement(response.body).jsonObject
-        fun values(key: String) = (root[key] as? kotlinx.serialization.json.JsonArray).orEmpty()
-            .mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf(String::isNotBlank) }.distinct()
-        return app.reelstack.data.model.LibraryFacets(parentId, values("Genres").sorted(),
-            values("Years").filter { it.toIntOrNull() in 1800..2200 }.sortedDescending())
+        // Emby leaves `Items/Filters` unanswered, which is why its genre filter was missing; see serverFacets.
+        val facets = serverFacets(connection,
+            "userId=${encodePathSegment(user)}&ParentId=${encodePathSegment(parentId)}&Recursive=true", transport, wantTags = false)
+        return app.reelstack.data.model.LibraryFacets(parentId, facets.genres.distinct().sorted(),
+            facets.years.distinct().filter { it.toIntOrNull() in 1800..2200 }.sortedDescending())
+    }
+
+    private data class ServerFacets(val genres: List<String>, val tags: List<String>, val years: List<String>)
+
+    /**
+     * The genres, tags and years behind one query. Servers differ in which question they answer:
+     * Jellyfin answers `Items/Filters`; Emby leaves it unanswered and answers `Items/Filters2`, and
+     * its plain `Genres` and `Tags` lists. The first that gives something is used, the plain lists fill
+     * in what it lacked, and when nothing answers the last reason is thrown so a caller can show it.
+     */
+    private fun serverFacets(connection: ServiceConnection, query: String, via: JsonHttpTransport,
+        wantTags: Boolean): ServerFacets {
+        var failure: Throwable? = null
+        fun read(path: String): JsonObject? = runCatching {
+            val response = via.get(EndpointValidator.resolve(connection.baseUrl, "$path?$query"), headers(connection, deviceId))
+            if (response.statusCode !in 200..299) throw IllegalStateException("$path: HTTP ${response.statusCode}")
+            Json.parseToJsonElement(response.body).jsonObject
+        }.onFailure { failure = it }.getOrNull()
+        fun names(root: JsonObject, key: String) = (root[key] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { element ->
+            when (element) {
+                is kotlinx.serialization.json.JsonPrimitive -> element.content
+                is JsonObject -> (element["Name"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                else -> null
+            }?.trim()?.takeIf(String::isNotBlank)
+        }
+        fun filters(path: String) = read(path)?.let { ServerFacets(names(it, "Genres"), names(it, "Tags"), names(it, "Years")) }
+            ?.takeIf { it.genres.isNotEmpty() || it.tags.isNotEmpty() }
+        fun plain(path: String) = read(path)?.let { names(it, "Items") }?.takeIf { it.isNotEmpty() }
+        val first = filters("Items/Filters") ?: filters("Items/Filters2")
+        val genres = first?.genres?.takeIf { it.isNotEmpty() } ?: plain("Genres")
+        val tags = if (!wantTags) first?.tags else first?.tags?.takeIf { it.isNotEmpty() } ?: plain("Tags")
+        if (genres == null && tags.isNullOrEmpty()) throw (failure ?: IllegalStateException("No genres or tags"))
+        return ServerFacets(genres.orEmpty(), tags.orEmpty(), first?.years.orEmpty())
     }
 
     fun browseLibrary(connection: ServiceConnection, parentId: String, offset: Int = 0, collectionType: String? = null,
@@ -697,30 +737,64 @@ class MediaServerClient(
     }
 
     /**
-     * A season's shelf across every library the profile can see: the titles tagged for it first,
-     * then its genre. Two queries rather than one, because the Items API combines Tags and Genres
-     * with AND. Sixty of each makes a shelf, not a catalogue, so the page does not grow on scroll.
-     * The library page's own filters and sort apply to both.
+     * A smart shelf across every library the profile can see: the tagged titles first, then the
+     * genres. Two queries rather than one, because the Items API combines Tags and Genres with AND
+     * and a shelf means either. [limit] of each makes a shelf, not a catalogue, so the page does
+     * not grow on scroll; a peek for the library page asks for a handful. The shelf's own kinds and
+     * «unwatched only» narrow both answers, and so do the page's filters and sort.
      */
-    fun seasonShelf(connection: ServiceConnection, shelf: app.reelstack.data.model.SeasonShelf,
-        filters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters()): List<RemoteLibraryItem> {
+    fun smartShelf(connection: ServiceConnection, shelf: app.reelstack.data.model.SmartShelf,
+        filters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters(),
+        limit: Int = 60): List<RemoteLibraryItem> {
         require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
+        if (!shelf.hasRule) return emptyList()
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
         require(!user.isNullOrBlank()) { "caller must pass a profile id" }
         fun items(filter: String): List<RemoteLibraryItem> {
-            val query = "userId=${encodePathSegment(user)}&Recursive=true&IncludeItemTypes=Movie,Series" +
-                "&ExcludeItemTypes=BoxSet&CollapseBoxSetItems=false&StartIndex=0&Limit=60" + filters.query() + filter +
+            val query = "userId=${encodePathSegment(user)}&Recursive=true&IncludeItemTypes=${shelf.kinds.itemTypes}" +
+                "&ExcludeItemTypes=BoxSet&CollapseBoxSetItems=false&StartIndex=0&Limit=${limit.coerceIn(1, 200)}" +
+                filters.query() + (if (shelf.unwatched) "&IsPlayed=false" else "") + filter +
                 "&Fields=Overview,Genres,ProviderIds,DateCreated,ChildCount,RecursiveItemCount,$LIBRARY_RATING_FIELDS" +
                 "&EnableUserData=true&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Backdrop,Logo,Banner&IsMissing=false"
             val paths = if (connection.kind == ServiceKind.EMBY)
                 listOf("Users/${encodePathSegment(user)}/Items?$query", "Items?$query")
             else listOf("Items?$query")
-            return getItems(connection, paths)
+            return getItems(connection, paths, via = patientTransport)
         }
         fun anyOf(values: List<String>) = java.net.URLEncoder.encode(values.joinToString("|"), "UTF-8")
+        // The server ands its filters, so «a tag and a genre» is one question and «either» is two.
+        if (shelf.requiresBoth) return items("&Tags=${anyOf(shelf.tags)}&Genres=${anyOf(shelf.genres)}")
         val tagged = if (shelf.tags.isEmpty()) emptyList() else items("&Tags=${anyOf(shelf.tags)}")
         val genre = if (shelf.genres.isEmpty()) emptyList() else items("&Genres=${anyOf(shelf.genres)}")
         return (tagged + genre).distinctBy { it.id }
+    }
+
+    /**
+     * Every genre and tag among the films and series the profile can see, for the shelf builder.
+     *
+     * Asked one library at a time and all together. The same question about the whole server is one
+     * request that reads every title, and on a large catalogue it outlasts any sensible timeout.
+     * The server's own lists, so a shelf is put together by choosing, not by typing on a remote.
+     * A library that does not answer is left out; the shelf builder only fails when none does.
+     */
+    fun catalogueFacets(connection: ServiceConnection): app.reelstack.data.model.CatalogueFacets {
+        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
+        val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
+        require(!user.isNullOrBlank())
+        val libraries = libraryViews(connection, encodePathSegment(user)).filter {
+            it.collectionType?.lowercase(Locale.ROOT) in setOf(null, "", "movies", "tvshows", "tv", "mixed")
+        }
+        fun facets(parentId: String?): Result<Pair<List<String>, List<String>>> = runCatching {
+            val scope = parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty()
+            serverFacets(connection, "userId=${encodePathSegment(user)}&IncludeItemTypes=Movie,Series&Recursive=true$scope",
+                patientTransport, wantTags = true).let { it.genres to it.tags }
+        }
+        val answers = if (libraries.isEmpty()) listOf(facets(null)) else concurrentlyPatient(libraries) { facets(it.id) }
+        val good = answers.mapNotNull { it.getOrNull() }
+        if (good.isEmpty()) answers.firstNotNullOfOrNull { it.exceptionOrNull() }?.let { throw it }
+        fun merged(pick: (Pair<List<String>, List<String>>) -> List<String>) = good.flatMap(pick)
+            .distinctBy { it.lowercase(Locale.ROOT) }.sortedBy { it.lowercase(Locale.ROOT) }
+        return app.reelstack.data.model.CatalogueFacets(merged { it.first }, merged { it.second })
     }
 
     /**
@@ -1044,12 +1118,13 @@ class MediaServerClient(
         return interleave(successfulGroups).distinctBy(RemoteLibraryItem::id).take(LATEST_ITEM_LIMIT)
     }
 
-    private fun getItems(connection: ServiceConnection, paths: List<String>, preferEpisodeStill: Boolean = false): List<RemoteLibraryItem> {
+    private fun getItems(connection: ServiceConnection, paths: List<String>, preferEpisodeStill: Boolean = false,
+        via: JsonHttpTransport = transport): List<RemoteLibraryItem> {
         require(paths.isNotEmpty()) { "library request needs a profile id" }
         var lastResponse: HttpResponse? = null
         var authenticationFailure: HttpResponse? = null
         paths.forEach { path ->
-            val response = transport.get(
+            val response = via.get(
                 EndpointValidator.resolve(connection.baseUrl, path),
                 headers(connection, deviceId),
             )

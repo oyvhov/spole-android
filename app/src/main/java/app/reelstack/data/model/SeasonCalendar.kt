@@ -70,24 +70,5 @@ fun Season.daysUntilPeak(date: LocalDate): Int? {
     return ChronoUnit.DAYS.between(date, peak).toInt().takeIf { it in 0..31 }
 }
 
-/**
- * A season's shelf in the library: titles the server has tagged for it, then a genre.
- *
- * Jellyfin and Emby keep TMDB keywords as tags, so «halloween» and «christmas» find the films made
- * for the night, family films included. Horror follows for Halloween, under both the English and the
- * Norwegian name a library's metadata language may give it. A child's shelf has the tag only.
- */
-data class SeasonShelf(val season: Season, val tags: List<String>, val genres: List<String>)
-
-fun Season.shelf(kids: Boolean): SeasonShelf? = when (this) {
-    Season.HALLOWEEN -> SeasonShelf(this, listOf("halloween"), if (kids) emptyList() else listOf("Horror", "Skrekk"))
-    Season.CHRISTMAS -> SeasonShelf(this, listOf("christmas"), emptyList())
-    Season.NONE -> null
-}
-
-/** The library path id of a season's shelf. It never collides with a server id, which has no dash prefix. */
-fun Season.shelfId(): String = "spole-season-$name"
-
-fun seasonOfShelfId(id: String?): Season? =
-    id?.removePrefix("spole-season-")?.takeIf { it != id }?.let { name -> Season.entries.firstOrNull { it.name == name } }
-        ?.takeIf { it != Season.NONE }
+/** The library path id of a season's shelf: its preset among the smart shelves. See [SmartShelfPresets]. */
+fun Season.shelfId(): String? = SmartShelfPresets.of(this)?.pathId

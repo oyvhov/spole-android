@@ -84,6 +84,7 @@ internal fun AppNavigationRail(
     isKidMode: Boolean = false,
     modifier: Modifier = Modifier,
     compactTouch: Boolean = false,
+    smartShelves: List<app.reelstack.data.model.SmartShelf> = emptyList(),
 ) {
     if (compactTouch) {
         AppCompactTouchNavigation(selectedTab, onSelect, isKidMode, modifier)
@@ -131,7 +132,9 @@ internal fun AppNavigationRail(
             // television this is the way in: Home there opens on artwork, not on the greeting.
             val season = app.reelstack.ui.components.touchSeason()
             val seasonId = season.takeIf { it != app.reelstack.data.model.Season.NONE }?.shelfId()
-            val pinned = shortcuts.map { it.first } + listOfNotNull(seasonId)
+            // Smart shelves the owner put in the menu, while their period runs; never the season's twice.
+            val shelfRows = smartShelves.filter { it.pathId != seasonId }
+            val pinned = shortcuts.map { it.first } + listOfNotNull(seasonId) + shelfRows.map { it.pathId }
             menu
                 .filterNot { isKidMode && it == AppTab.SETTINGS.name }
                 .mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
@@ -142,6 +145,13 @@ internal fun AppNavigationRail(
                         { onLibrarySelect(seasonId) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
                             .then(if (selectedLibraryId == seasonId) Modifier.focusRequester(selectedFocus) else Modifier)
                             .testTag("wide-season-$season"))
+                    if (item.tab == AppTab.SETTINGS) shelfRows.forEach { shelf ->
+                        NavigationControl(app.reelstack.ui.components.smartShelfName(shelf), shelf.icon.vector(),
+                            selectedLibraryId == shelf.pathId, { onLibrarySelect(shelf.pathId) }, labelAlpha, Role.Tab,
+                            Modifier.width(width - 24.dp)
+                                .then(if (selectedLibraryId == shelf.pathId) Modifier.focusRequester(selectedFocus) else Modifier)
+                                .testTag("wide-shelf-${shelf.id}"))
+                    }
                     if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
                         NavigationControl(name, (libraryIcons[id] ?: LibraryIcon.LIBRARY).vector(), selectedLibraryId == id,
                             { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)

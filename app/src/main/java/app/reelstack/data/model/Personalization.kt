@@ -150,7 +150,10 @@ data class Personalization(
 
 enum class SubtitleStyle { CLEAN, CINEMA, HIGH_CONTRAST, LARGE }
 
-val DEFAULT_LIBRARY_HUB = listOf("FEATURE", "LIBRARY_NEXT", "FAVOURITES", "LIBRARIES")
+val DEFAULT_LIBRARY_HUB = listOf("FEATURE", "LIBRARY_NEXT", "FAVOURITES", SMART_SHELVES_SECTION, "LIBRARIES")
+
+/** The library page's row of smart shelves, which shows only while it has a shelf on it. */
+const val SMART_SHELVES_SECTION = "SMART_SHELVES"
 val DEFAULT_MENU = listOf("HOME", "LIBRARY", "DISCOVER", "ACTIVITY", "SETTINGS")
 fun Personalization.requiredMenu(): Set<String> =
     setOf("HOME", "SETTINGS") + if (startInLibrary) setOf("LIBRARY") else emptySet()

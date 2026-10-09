@@ -45,7 +45,9 @@ class HomeEditorActions(
 /** The rows the editor lists: shared rows always, a server's rows once it has an address. */
 internal fun editableHomeRows(state: ReelstackUiState): List<HomeRowKey> {
     val sources = state.homeMediaSources.ifEmpty { if (state.configuredCount == 0) HOME_MEDIA_SOURCES else emptyList() }
-    return state.effectiveHomeLayout.order.filter { it.source == null || it.source in sources }
+    // A shelf's row is listed while the shelf has one today; the order remembers the others.
+    val shelfRows = state.homeShelfRows.toSet()
+    return state.effectiveHomeLayout.order.filter { (it.source == null || it.source in sources) && (it.shelf == null || it in shelfRows) }
 }
 
 /** The single entry in settings for everything about which rows Home shows. */
@@ -84,6 +86,7 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
     }
     val selectedSource = sources.firstOrNull { it.name == filter }
     var detailRow by remember { mutableStateOf<HomeRowKey?>(null) }
+    val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
     // Home has a feature only on a television or a tablet-sized window, and the search line only on
     // a phone, so each switch is offered only where it changes something.
     val largeCanvas = isTelevision() || windowLayoutPolicy().useTabletCanvas
@@ -134,13 +137,26 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
                         val focus = remember(row.id) { listOf(FocusRequester(), FocusRequester()) }
                         val insideContinue = row.kind == HomeRowKind.NEXT_UP && options.combineContinueWatching &&
                             layout.isVisible(HomeRowKey(HomeRowKind.CONTINUE_WATCHING, row.source))
+                        val shelfName = row.shelf?.let { id -> app.reelstack.data.model.mergedSmartShelves(state.smartShelves)
+                            .firstOrNull { it.id == id } }?.let { app.reelstack.ui.components.smartShelfName(it) }
                         HomeLayoutRow(
                             row = row,
+                            title = shelfName ?: homeRowKindTitle(row.kind),
                             visible = layout.isVisible(row),
                             note = if (insideContinue) stringResource(R.string.home_layout_in_continue,
                                 "«${stringResource(R.string.home_continue)}»") else null,
-                            libraries = if (row.kind.usesLibraries && row.source != null)
-                                librarySummary(row, state.homeLibraries[row.source], state.homeLibraryViews[row.source]) else null,
+                            libraries = when {
+                                row.kind.usesLibraries && row.source != null ->
+                                    librarySummary(row, state.homeLibraries[row.source], state.homeLibraryViews[row.source])
+                                // A shelf's row has no libraries to choose; its card format is the one thing to set.
+                                row.shelf != null -> stringResource(R.string.library_art) + ": " + stringResource(when (
+                                    homeRowFormat(options.homeRowFormats, row.id)) {
+                                    "POSTER" -> R.string.library_art_poster
+                                    "THUMB" -> R.string.library_art_thumb
+                                    else -> R.string.library_art_auto
+                                })
+                                else -> null
+                            },
                             canMoveUp = index > 0,
                             canMoveDown = index < shown.lastIndex,
                             upFocus = focus[0],
@@ -153,6 +169,20 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
                             },
                             onOpen = { detailRow = row },
                         )
+                    }
+                    // Shelves put themselves on Home from their own builder; this is the way to it from here.
+                    if (shelfActions != null && filter == FILTER_ALL && state.homeMediaSources.isNotEmpty()) item(key = "home-layout-shelves") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                            SettingsGroup(stringResource(R.string.smart_shelves_title))
+                            Text(stringResource(R.string.smart_shelves_home_hint), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            SpoleSecondaryButton(onClick = { onDismiss(); shelfActions.edit() },
+                                modifier = Modifier.testTag("home-layout-new-shelf")) {
+                                Icon(SpoleIcons.Add, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.smart_shelf_new))
+                            }
+                        }
                     }
                     item(key = "home-layout-options") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
@@ -197,6 +227,7 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
 @Composable
 private fun HomeLayoutRow(
     row: HomeRowKey,
+    title: String,
     visible: Boolean,
     note: String?,
     libraries: String?,
@@ -208,7 +239,6 @@ private fun HomeLayoutRow(
     onMove: (Int) -> Unit,
     onOpen: () -> Unit,
 ) {
-    val title = homeRowKindTitle(row.kind)
     val subtitle = listOfNotNull(
         row.source?.displayName ?: stringResource(R.string.home_layout_shared),
         stringResource(R.string.home_layout_hidden).takeIf { !visible },
@@ -260,7 +290,9 @@ private fun HomeRowDetailDialog(
     onDismiss: () -> Unit,
 ) {
     val source = row.source ?: return
-    val title = "${homeRowKindTitle(row.kind)} · ${source.displayName}"
+    val shelfName = row.shelf?.let { id -> app.reelstack.data.model.mergedSmartShelves(state.smartShelves)
+        .firstOrNull { it.id == id } }?.let { app.reelstack.ui.components.smartShelfName(it) }
+    val title = "${shelfName ?: homeRowKindTitle(row.kind)} · ${source.displayName}"
     val options = LocalPersonalization.current
     val choice = state.homeLibraries[source] ?: HomeLibraryChoice()
     val included = choice.included[row.kind]
@@ -268,10 +300,10 @@ private fun HomeRowDetailDialog(
     SpoleChoiceDialog(stringResource(R.string.home_layout_row_settings, title), onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).testTag("home-layout-detail"),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.home_layout_libraries_hint), style = MaterialTheme.typography.bodySmall,
+            if (row.kind.usesLibraries) Text(stringResource(R.string.home_layout_libraries_hint), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp))
             val offered = views?.let { libraryOptions(row.kind, it) }
-            when {
+            if (row.kind.usesLibraries) when {
                 views == null && state.homeLibraryViewsLoading -> Column(Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -303,7 +335,7 @@ private fun HomeRowDetailDialog(
                 }
             }
             if (row.kind in setOf(HomeRowKind.CONTINUE_WATCHING, HomeRowKind.NEXT_UP, HomeRowKind.FAVOURITES,
-                    HomeRowKind.NEW_MOVIES, HomeRowKind.NEW_SERIES)) {
+                    HomeRowKind.NEW_MOVIES, HomeRowKind.NEW_SERIES, HomeRowKind.SMART_SHELF)) {
                 ThemeChoice(stringResource(R.string.library_art), homeRowFormat(options.homeRowFormats, row.id) ?: "AUTO",
                     listOf("AUTO", "POSTER", "THUMB"), "row-format-${row.id}", {
                         stringResource(when (it) {
@@ -328,4 +360,5 @@ internal fun homeRowKindTitle(kind: HomeRowKind): String = stringResource(when (
     HomeRowKind.RECOMMENDATIONS -> R.string.home_recommendations
     HomeRowKind.RECENT_RELEASES -> R.string.home_recent_releases
     HomeRowKind.UPCOMING -> R.string.home_upcoming
+    HomeRowKind.SMART_SHELF -> R.string.smart_shelves_title
 })
