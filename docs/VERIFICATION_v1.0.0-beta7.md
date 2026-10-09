@@ -74,8 +74,30 @@ Mobilprofilen 5562 er ikkje køyrd. Han hadde full lagring.
 
 ## Offentleg release
 
-Fyllast ut etter publisering.
+- Publisert som prerelease, ikkje draft, med nøyaktig éin universal-APK og fem assets:
+  https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta7 . Stabil latest er ikkje endra.
+- Kjelde/tag: `cdd14dae812062ea62d15bf963690af8050c227d`, ein fast-forward av `main` frå beta6.
+  `SOURCE_COMMIT.txt` peikar på same commit.
+- Alle fem asset-digestar og storleikar i kladden samsvarte med arkivfilene.
+- Den uautentiserte release-lista viser beta7 med `draft=false`, `prerelease=true` og APK-digest
+  `sha256:5acf2dcc…f830`. Den offentleg nedlasta APK-en er 11 746 646 byte og har same SHA-256 som det
+  signerte bygget.
+- GitHub-kontrollen «Bygg og test» på `main` for `cdd14da` fullførte med `success`.
 
 ## Oppdatering gjennom appen
 
-Fyllast ut etter publisering.
+- **Mobilprofil 5560** (`1.0.0-beta6`): Settings → Notifications and updates → App updates → Check now
+  fann `v1.0.0-beta7` med dei offentlege release-notata. «Download update» lasta ned APK-en, og «Install
+  update» kom etter appen sine kontrollar. Android sin oppdateringsdialog vart godkjend.
+  - Google Play Protect bad då om å sende appen til Google for skanning («Scan app»). Det er brukaren
+    sitt val, så installasjonen vart avbroten med «Don't install app».
+  - Profilen står framleis på `1.0.0-beta6`. Ingen appdata er endra.
+- **Isolert TV-profil 5566** (`0.17.0-beta30` → offisiell beta6-APK med `install -r`):
+  - Ved opning varsla appen sjølv «Spole v1.0.0-beta7 er klar». «Sjå oppdatering» → «Last ned
+    oppdatering» → «Installer oppdatering» gjekk gjennom appen sine kontrollar.
+  - Android meldte «App installed.» Play Protect spurde ikkje på TV-profilen.
+  - Installert pakke er `1.0.0-beta7` / kode 144, sist oppdatert 9. oktober 2026 kl. 09:58:40. Første
+    installasjonstid er framleis 19. september 2026 kl. 14:51:26.
+  - Appen opna på Heim utan krasj.
+- Kontoar og preferansar over ein ekte oppdatering er kontrollerte på TV-profilen 5564 med `install -r`
+  (sjå over). Den har ekte Jellyfin- og Emby-kontoar.
