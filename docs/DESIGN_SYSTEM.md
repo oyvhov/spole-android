@@ -1,5 +1,25 @@
 # Spole design system
 
+## Kort og TV-fokus · 8. oktober 2026
+
+- «Spelar no» bruker same kort på mobil og breie flater: eit heilt cover i ein førehandsreservert
+  84 × 126 dp plass, med kjelde, to tittellinjer, episode og brukar ved sida av. Stor skrift og
+  smale kort stablar innhaldet. Framdrift er nøytral; pause/hald fram er lime og har eiga treffflate.
+- Overskrifter på innhaldsrader har 22 dp over og 10 dp under. Tittelfelt i hald-fram-rader held
+  av to linjer, slik at lange titlar og metadata får ei jamn plassering.
+- Biblioteket si «Neste»-rad bruker eit liggjande kort med bilde ved sida av teksten på breie
+  flater med normal skrift. Stor skrift og telefon bruker den vanlege, stabla kortforma.
+- Aktivitet viser eitt cover for sesongførespurnader med same verifiserte medie-ID, kvalitet og
+  førespurnadstype. Ein kompakt veljar opnar sesongvala med kvar sin status; detaljar, varsel og
+  tilbaketrekking gjeld berre den valde førespurnaden. Filtrering skjer før gruppering. Filmar og
+  ukjende ID-ar blir ikkje slått saman. Teljarane tel framleis førespurnader, ikkje cover.
+- Vanleg TV-fokus har 2 dp strek og ein svak glød; valet «kraftig» held 4 dp strek. Fokusløft er
+  1,035 og fell bort ved reduserte rørsler. Ei namnmerking kan visast ved eit fokusert ikon i ein
+  samanfalda TV-meny, utan å ta fjernkontrollfokus eller flytte sida.
+- Toppfeltet tek litt mindre høgd på mobil og TV. TV viser ein kort omtale ved normal skrift;
+  innhaldet og handlingane kan framleis vekse med skriftstorleiken. Tomme reserveverdiar som
+  «TBA» og «N/A» fell bort frå episodeomtalen.
+
 ## Søk og avspelingsval · visuelt utkast 29. september 2026
 
 Sjå [søk, filter, avspelingsval og tomtilstandar](SEARCH_MENUS_VISUAL_REVIEW_2026-09-29.md).
@@ -109,7 +129,7 @@ i staden for å setje `fontSize` direkte.
 Bibliotek. `headlineSmall` er ikkje ein sidetittel. Etiketten øverst i TV-menyen er ei
 kolonneoverskrift og brukar `titleLarge`, same nivå som alle andre seksjonsoverskrifter.
 
-**Seksjonsrytme.** `ReelLayout.SectionTop` (26 dp) og `ReelLayout.SectionBottom` (13 dp) eig
+**Seksjonsrytme.** `ReelLayout.SectionTop` (22 dp) og `ReelLayout.SectionBottom` (10 dp) eig
 avstanden over og under kvar seksjonsoverskrift. Heim brukte 24/25/28 over og 4/12/13 under for
 overskrifter på same nivå; forskjellane var ikkje valde.
 

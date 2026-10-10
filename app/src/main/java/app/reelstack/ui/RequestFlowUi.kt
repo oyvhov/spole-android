@@ -254,6 +254,7 @@ fun TrackedRequestCard(
     cancelling: Boolean = false,
     showActions: Boolean = true,
     detailsEnabled: Boolean = true,
+    requestChoices: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var confirmCancel by rememberSaveable(item.key) { mutableStateOf(false) }
@@ -294,8 +295,9 @@ fun TrackedRequestCard(
                   }
                   Column(Modifier.fillMaxWidth().padding(top = 9.dp)) {
                         Text(item.title, color = TextColor, fontSize = 15.sp,
-                            lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
+                            lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, minLines = 2, maxLines = 2,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        if (requestChoices != null) requestChoices() else {
                         Text((if (item.seasons.isEmpty()) stringResource(R.string.flow_film) else stringResource(R.string.flow_season_numbers, item.seasons.sorted().joinToString(", "))) +
                             (if (item.is4k) " · 4K" else ""), color = Muted,
                             fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 4.dp))
@@ -323,6 +325,7 @@ fun TrackedRequestCard(
                                 fontSize = 13.sp, lineHeight = 18.sp,
                                 modifier = Modifier.padding(start = 6.dp),
                             )
+                        }
                         }
                     }
                     // Under the card, not on top of the artwork. As a circle in the poster's

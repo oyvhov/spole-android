@@ -179,7 +179,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     }
     // Reserve room for the first shelf's heading, artwork and captions at normal text size.
     // Large text can grow the scene instead of clipping its controls.
-    val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } * .52f
+    val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } * .44f
     val sceneHeight = maxOf(if (television) televisionHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
         reservedText + if (compactTelevision) 80.dp else 130.dp)
     val featureSize = if (television) Modifier.heightIn(min = sceneHeight) else Modifier.height(sceneHeight)
@@ -244,7 +244,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         }
         Column(Modifier.align(if (television) Alignment.CenterStart else Alignment.TopStart)
             .fillMaxWidth(if (television && density.fontScale >= 1.5f) .82f else .54f).padding(
-            vertical = if (television) 32.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
+            vertical = if (television) 24.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
             horizontal = if (television) 40.dp else 28.dp,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
           // Compose the bounded caption stack ahead of time: logos are ready and the actions
@@ -302,7 +302,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             )
             // Films use the metadata row below for facts. Episodes keep their readable title here,
             // so season and episode numbers are shown once and in the same language everywhere.
-            val name = episodeTitle(title.subtitle, title.episode)
+            val name = readableMediaText(episodeTitle(title.subtitle, title.episode)).orEmpty()
             val episodeCaption = if (compactTelevision) listOf(numbers, name).filter(String::isNotBlank).joinToString(" · ") else name
             if (episodeCaption.isNotBlank()) Text(episodeCaption,
                 color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
@@ -310,10 +310,12 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 maxLines = if (compactTelevision) 1 else 2,
                 overflow = TextOverflow.Ellipsis)
             HeroMetadataRow(title)
-            Text(title.overview.orEmpty(), color = Color.White.copy(alpha = .78f),
+            readableMediaText(title.overview)?.let { overview -> Text(overview, color = Color.White.copy(alpha = .78f),
                 fontSize = if (compactTelevision) 13.sp else 14.sp,
                 lineHeight = if (compactTelevision) 17.sp else 20.sp,
-                minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                minLines = if (television) 1 else 2,
+                maxLines = if (television && density.fontScale < 1.6f) 1 else 2, overflow = TextOverflow.Ellipsis)
+            }
            }
            } }
           }

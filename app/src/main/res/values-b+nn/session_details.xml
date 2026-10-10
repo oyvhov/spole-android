@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="session_ended">Avspelinga er avslutta</string>
+    <string name="session_ended_description">Denne eininga spelar ikkje lenger. Ny avspeling kjem fram automatisk.</string>
+    <string name="session_update_unavailable">Kan ikkje oppdatere avspelinga</string>
+    <string name="session_update_retry">Vi prøver igjen automatisk.</string>
+</resources>

@@ -169,8 +169,14 @@ class SheetInteractionTest {
             rule.runOnIdle { state.value = route }
             rule.waitForIdle()
             rule.onAllNodesWithTag("sheet-close").assertCountEquals(1)
-            assertEquals("frame on ${route.activeSheet}", frame, bounds("sheet-viewport"))
-            assertEquals("close on ${route.activeSheet}", close, bounds("sheet-close"))
+            val nextFrame = bounds("sheet-viewport")
+            val nextClose = bounds("sheet-close")
+            // Phone title pages deliberately use 96% height; reading sheets use 82%. Compare the
+            // close target relative to its frame, rather than requiring those pages to be equal.
+            assertEquals("width on ${route.activeSheet}", frame.width, nextFrame.width)
+            assertEquals(close.size, nextClose.size)
+            assertEquals(frame.right - close.right, nextFrame.right - nextClose.right, 1f)
+            assertEquals(close.top - frame.top, nextClose.top - nextFrame.top, 1f)
         }
     }
 

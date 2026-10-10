@@ -811,6 +811,7 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
     }
     val unresolved = personalRequests.filterNot { it.hasTitleMetadata }
     val resolved = personalRequests.filter { it.hasTitleMetadata }
+    val requestGroups = remember(resolved) { app.reelstack.data.model.groupActivityRequests(resolved) }
     val events = state.activity.filter { event ->
         sourceFilter == ActivityFilter.ALL || event.source == sourceFilter.source
     }
@@ -958,15 +959,10 @@ fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDet
                     color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 18.dp))
               }
             }
-            items(resolved, key = { "follow-${it.key}" }) { request ->
-              Box(if (request.key == resolved.firstOrNull()?.key) Modifier.focusRequester(firstActivity) else Modifier) {
-                app.reelstack.ui.TrackedRequestCard(
-                    request,
-                    { onDetails(request.key) },
-                    { onNotify(request.key, it) },
-                    onCancel = { onCancelRequest(request.key) },
-                    cancelling = request.key in state.cancellingRequestKeys,
-                )
+            items(requestGroups, key = { "follow-${it.key}" }) { group ->
+              Box(if (group.key == requestGroups.firstOrNull()?.key) Modifier.focusRequester(firstActivity) else Modifier) {
+                app.reelstack.ui.components.ActivityRequestCard(group, onDetails, onNotify,
+                    onCancelRequest, state.cancellingRequestKeys)
               }
             }
         } else if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {

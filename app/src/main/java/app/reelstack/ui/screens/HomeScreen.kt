@@ -310,7 +310,6 @@ fun HomeScreen(
                             media = featured,
                             onOpen = onLibraryClick,
                             modifier = Modifier
-                                .padding(bottom = 6.dp)
                                 .cinematicBleed(ReelLayout.Gutter),
                             header = {
                                 HomeHeader(
@@ -333,11 +332,20 @@ fun HomeScreen(
                     HomeSearchEntry(onSearchClick, searchTransitionModifier)
                 }
             }
+            // Claim the smaller gap only when an actual section is registered after the mobile hero.
+            // Empty/hidden rows must not consume it, and optional search keeps its own spacing.
+            var belowMobileHero = featured != null && !tablet && !showSearch
+            fun nextSectionTop(regular: androidx.compose.ui.unit.Dp = ReelLayout.SectionTop): androidx.compose.ui.unit.Dp {
+                val top = if (belowMobileHero) ReelLayout.MobileHeroSectionTop else regular
+                belowMobileHero = false
+                return top
+            }
             layout.order.filter(layout::isVisible).forEach { row ->
                 val source = row.source
                 if (row.kind == HomeRowKind.NOW_PLAYING && state.sessions.isNotEmpty()) {
+                    val sectionTop = nextSectionTop()
                     item(key = "now-playing") {
-                            Row(Modifier.fillMaxWidth().padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
+                            Row(Modifier.fillMaxWidth().padding(top = sectionTop, bottom = ReelLayout.SectionBottom, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
                                 SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
                                 // A count is status, not an action, so it stays out of the accent colour.
                                 if (state.sessions.size > 1) Text(androidx.compose.ui.res.pluralStringResource(app.reelstack.R.plurals.home_playback_count, state.sessions.size, state.sessions.size),
@@ -358,10 +366,11 @@ fun HomeScreen(
                     // a skeleton at every refresh and lose it again, and the page jumped twice.
                     val firstLoad = state.isRefreshing && state.configuredCount > 0 && source !in state.loadedSources
                     if (items.isNotEmpty() || incomplete || firstLoad) {
+                        val sectionTop = nextSectionTop(if (television && featured != null) 14.dp else ReelLayout.SectionTop)
                         item(key = "continue-watching-${source.name}") {
                             Column(Modifier.testTag("continue-watching-${source.name}")) {
                                 MediaSectionTitle(stringResource(if (combine(source)) R.string.tv_continue_combined else R.string.home_continue), source, Modifier.padding(
-                                    top = if (television && featured != null) 14.dp else ReelLayout.SectionTop,
+                                    top = sectionTop,
                                     bottom = ReelLayout.SectionBottom,
                                 ))
                                 if (items.isEmpty() && firstLoad) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
@@ -375,25 +384,32 @@ fun HomeScreen(
                 // something, and then keeps what they starred in one place, per server.
                 if (row.kind == HomeRowKind.FAVOURITES && source != null) {
                     val items = state.favourites.filter { it.source == source }
-                    if (items.isNotEmpty()) item(key = "favourites-${source.name}") {
+                    if (items.isNotEmpty()) {
+                      val sectionTop = nextSectionTop()
+                      item(key = "favourites-${source.name}") {
                         MediaSectionTitle(stringResource(R.string.home_favourites), source,
-                            Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                            Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
                         LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions)
+                      }
                     }
                 }
                 if (row.kind == HomeRowKind.NEXT_UP && source != null && !combine(source)) {
                     val items = nextRows[source].orEmpty()
-                    if (items.isNotEmpty()) item(key = "next-up-${source.name}") {
+                    if (items.isNotEmpty()) {
+                      val sectionTop = nextSectionTop()
+                      item(key = "next-up-${source.name}") {
                         Column(Modifier.testTag("next-up-${source.name}")) {
-                            MediaSectionTitle(stringResource(R.string.tv_next_up), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                            MediaSectionTitle(stringResource(R.string.tv_next_up), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
                             // Next up has no resume point of its own; the other two writes still apply.
                             ResumeRail(items, onLibraryClick, cardActions.withoutResumeRemoval(), rowKey = row.id)
                         }
+                      }
                     }
                 }
                 if (row.kind == HomeRowKind.NEW_MOVIES && source != null && source in mediaSources) {
+                        val sectionTop = nextSectionTop()
                         item(key = "recent-movies-${source.name}") {
-                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
                             val items = state.recentMovies.filter { it.source == source }
                             if (items.isEmpty()) {
                                 if (state.isRefreshing && source !in state.loadedSources) {
@@ -407,8 +423,9 @@ fun HomeScreen(
                         }
                 }
                 if (row.kind == HomeRowKind.NEW_SERIES && source != null && source in mediaSources) {
+                        val sectionTop = nextSectionTop()
                         item(key = "recent-series-${source.name}") {
-                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom))
+                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
                             val items = state.recentSeries.filter { it.source == source }
                             if (items.isEmpty()) {
                                 if (state.isRefreshing && source !in state.loadedSources) {
@@ -425,8 +442,9 @@ fun HomeScreen(
                         }
                 }
                 if (row.kind == HomeRowKind.RECOMMENDATIONS) {
+                    val sectionTop = nextSectionTop()
                     item(key = "recommendations") {
-                        SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = ReelLayout.SectionTop, bottom = 4.dp))
+                        SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = sectionTop, bottom = 4.dp))
                         Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                             modifier = Modifier.padding(bottom = 12.dp))
                         if (state.recommendations.isEmpty() && feedFirstLoad) {
@@ -439,8 +457,9 @@ fun HomeScreen(
                     }
                 }
                 if (row.kind == HomeRowKind.RECENT_RELEASES) {
+                    val sectionTop = nextSectionTop()
                     item(key = "recent-releases") {
-                        Column(Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom)) {
+                        Column(Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom)) {
                             SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
                             Text(
                                 stringResource(R.string.home_releases_note),
@@ -463,10 +482,11 @@ fun HomeScreen(
                     }
                 }
                 if (row.kind == HomeRowKind.UPCOMING) {
+                    val sectionTop = nextSectionTop()
                     item(key = "upcoming") {
                         UpcomingSectionTitle(
                             onCalendarClick = onCalendarClick,
-                            modifier = Modifier.padding(top = ReelLayout.SectionTop, bottom = ReelLayout.SectionBottom),
+                            modifier = Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                         )
                         if (state.upcoming.isEmpty()) {
                             // Seerr supplies the personal calendar. Without it there is nothing to
@@ -698,9 +718,8 @@ private fun NowPlayingRail(
     onPlaybackToggle: (String) -> Unit,
 ) {
     if (LocalTabletCanvas.current) {
-        // 16:9 at the card's own minimum height, and it follows the artwork-size preference like
-        // every other rail. The old 480 dp was sized for a horizontal plate that no longer exists.
-        val width = 324.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+        // A cover and two readable title lines share one frame on every source.
+        val width = 360.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
         LazyRow(contentPadding = PaddingValues(end = mediaEndInset()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(sessions, key = PlaybackSession::key) { session ->
                 app.reelstack.ui.components.CompactSessionCard(session, pendingSessionKey == session.key,
@@ -744,128 +763,7 @@ private fun NowPlayingCard(
     onOpen: () -> Unit,
     onPlaybackToggle: () -> Unit,
     modifier: Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.985f else 1f,
-        animationSpec = spring(stiffness = 420f, dampingRatio = 0.72f),
-        label = "now-playing-press",
-    )
-    val animatedProgress by animateFloatAsState(
-        targetValue = session.progress,
-        animationSpec = spring(stiffness = 100f, dampingRatio = 0.82f),
-        label = "playback-progress",
-    )
-
-    val shape = RoundedCornerShape(20.dp)
-    Box(
-        // Minimum, not fixed: a locked height drops the quality line at a large font scale.
-        modifier = modifier
-            .heightIn(min = 292.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .clip(shape)
-            .focusOutline(interactionSource, shape)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = app.reelstack.ui.components.mediaCardIndication(),
-                onClick = onOpen,
-            ),
-    ) {
-        // matchParentSize keeps artwork and scrim out of the height measurement, so the text
-        // column below decides how tall the card is once the font scale grows.
-        MediaArtwork(
-            url = session.artworkUrl,
-            fallbackRes = app.reelstack.ui.demoSessionArtwork(session),
-            contentDescription = stringResource(R.string.session_watching,
-                app.reelstack.ui.components.sessionWho(session), session.title),
-            contentScale = ContentScale.Crop,
-            source = session.source,
-            modifier = Modifier.matchParentSize(),
-        )
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(
-                    0f to Color(0x5204050A),
-                    0.44f to Color(0x7704050A),
-                    1f to Color(0xF5080710),
-                ),
-            ),
-        )
-
-        Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp)) {
-            Text(
-                "${session.userName} · ${session.deviceName}",
-                color = PrimarySoft,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp, lineHeight = 17.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(session.title, color = Color.White, fontSize = 29.sp, lineHeight = 31.sp, letterSpacing = (-1.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            // The same "Sesong 6 - Ep 13" every shelf and every detail page writes. This card built
-            // its own "S06 E13" in the parser, so one screen showed a title two ways at once.
-            Text(app.reelstack.ui.components.episodeLine(session.season, session.episode, session.subtitle),
-                color = app.reelstack.ui.theme.Muted, fontSize = 15.sp, lineHeight = 20.sp,
-                modifier = Modifier.padding(top = 2.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(13.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LinearProgressIndicator(
-                    progress = { animatedProgress },
-                    color = Primary,
-                    trackColor = app.reelstack.ui.theme.SurfaceRaised,
-                    drawStopIndicator = {},
-                    gapSize = 0.dp,
-                    modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
-                )
-                Text(app.reelstack.ui.components.sessionTimeLeft(session), color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 12.dp))
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
-                Column(Modifier.weight(1f).padding(end = 6.dp)) {
-                    Text(app.reelstack.ui.components.sessionMethod(session), color = TextColor, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(session.quality, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp)
-                }
-                Surface(
-                    onClick = onPlaybackToggle,
-                    enabled = !controlsLocked,
-                    shape = CircleShape,
-                    color = Primary,
-                    contentColor = app.reelstack.ui.theme.Ink,
-                    shadowElevation = 0.dp,
-                    modifier = Modifier.size(52.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (pending) {
-                            CircularProgressIndicator(
-                                color = app.reelstack.ui.theme.Ink,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(23.dp),
-                            )
-                        } else {
-                            AnimatedContent(session.paused, label = "play-pause") { paused ->
-                                Icon(
-                                    if (paused) app.reelstack.ui.components.SpoleIcons.Play else app.reelstack.ui.components.SpoleIcons.Pause,
-                                    contentDescription = stringResource(if (paused) R.string.home_resume_playback else R.string.home_pause_playback),
-                                    modifier = Modifier.size(26.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.width(8.dp))
-                IconButton(
-                    onClick = onOpen,
-                    modifier = Modifier.size(52.dp).background(SurfaceRaised.copy(alpha = 0.92f), CircleShape),
-                ) {
-                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, contentDescription = stringResource(R.string.home_playback_details), tint = TextColor)
-                }
-            }
-        }
-    }
-}
+) = app.reelstack.ui.components.CompactSessionCard(session, pending, controlsLocked, onOpen, onPlaybackToggle, modifier)
 
 @Composable
 internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean, rowKey: String? = null, actions: MediaCardActions? = null,
@@ -908,11 +806,16 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
  */
 @Composable
 internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null, rowKey: String? = null,
-    resumeIds: Set<String>? = null) {
+    resumeIds: Set<String>? = null, compact: Boolean = false) {
     val format = homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)
     val chosenWide = resumeRailIsWide(format)
-    // One TV title line puts the episode immediately below it, without an empty reserved line.
-    val titleLines = if (isTelevision()) 1 else 2
+    val titleLines = 2
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val window = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    val wideWindow = with(density) {
+        app.reelstack.ui.layout.WindowLayoutPolicy(window.width.toDp().value, window.height.toDp().value).useTabletCanvas
+    }
+    val inline = compact && (isTelevision() || LocalTabletCanvas.current || wideWindow) && density.fontScale < 1.6f
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     val nextActions = actions.withoutResumeRemoval()
@@ -920,7 +823,7 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
             ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30,
                 actions = if (resumeIds == null || media.id in resumeIds) actions else nextActions,
-                wide = chosenWide, showSeriesYear = resumeIds == null) { onClick(media.id) }
+                wide = chosenWide, showSeriesYear = resumeIds == null, compact = inline) { onClick(media.id) }
         }
     }
 }
@@ -1036,100 +939,68 @@ data class MediaCardActions(
 
 @Composable
 private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
-    actions: MediaCardActions? = null, wide: Boolean, showSeriesYear: Boolean = true, onClick: () -> Unit) {
-    val artworkHeight = ReelLayout.EpisodeHeight * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+    actions: MediaCardActions? = null, wide: Boolean, showSeriesYear: Boolean = true,
+    compact: Boolean = false, onClick: () -> Unit) {
+    val artworkHeight = (if (compact) 72.dp else ReelLayout.EpisodeHeight) *
+        app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val frameRatio = if (wide) 16f / 9f else 2f / 3f
-    val cardWidth = artworkHeight * frameRatio
+    val cardWidth = if (compact) 340.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+        else artworkHeight * frameRatio
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val focused by interactionSource.collectIsFocusedAsState()
+    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
     var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
-        targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
-        label = "resume-card-reveal",
-    )
-    val focused by interactionSource.collectIsFocusedAsState()
-    // Focus lifts the card; press dips it. Two signals, one number.
-    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
+        if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
+        tween(durationMillis = 240, delayMillis = revealDelay), label = "resume-card-reveal")
     var menuOpen by remember(media.id) { mutableStateOf(false) }
     val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
     val resumeLabel = if (percent > 0) stringResource(R.string.home_resume_description, media.title, percent)
         else "${media.title}, ${media.subtitle}"
-    Column(
-        modifier = Modifier
-            .width(cardWidth)
-            .zIndex(if (focused) 10f else 0f)
-            .graphicsLayer {
-                alpha = reveal
-                translationY = (1f - reveal) * 30f
-                scaleX = scale
-                scaleY = scale
-            }
-            .tvCardPress(onClick, actions?.let { { menuOpen = true } })
-            .combinedClickable(
-                interactionSource = interactionSource,
-                indication = app.reelstack.ui.components.mediaCardIndication(),
-                onClick = onClick,
-                onClickLabel = resumeLabel,
-                // Holding the card is the one gesture a remote and a finger share, so the options
-                // cost no focus stop on television and no visible clutter anywhere.
-                onLongClick = actions?.let { { menuOpen = true } },
-                onLongClickLabel = stringResource(R.string.library_card_options, media.title),
-            )
-            // Plain `semantics`, deliberately. `mergeDescendants = true` here starts a *second*
-            // merging root under the clickable node, and the name lands on a child that a screen
-            // reader never focuses; without it the property merges into the clickable node's own
-            // config, which is the node that takes focus. Checked both ways with `uiautomator dump`
-            // on the TV emulator.
-            .semantics { contentDescription = resumeLabel; role = Role.Button }
-            .testTag("resume-card-${media.id}"),
-    ) {
+    Column(Modifier.width(cardWidth).zIndex(if (focused) 10f else 0f)
+        .graphicsLayer { alpha = reveal; translationY = (1f - reveal) * 30f; scaleX = scale; scaleY = scale }
+        .tvCardPress(onClick, actions?.let { { menuOpen = true } })
+        .combinedClickable(interactionSource = interactionSource,
+            indication = app.reelstack.ui.components.mediaCardIndication(), onClick = onClick,
+            onClickLabel = resumeLabel, onLongClick = actions?.let { { menuOpen = true } },
+            onLongClickLabel = stringResource(R.string.library_card_options, media.title))
+        .semantics { contentDescription = resumeLabel; role = Role.Button }
+        .testTag("resume-card-${media.id}")) {
         if (actions != null) MediaCardMenu(media, actions, menuOpen, onDetails = onClick) { menuOpen = false }
-        val isEpisode = media.mediaType.equals("Episode", ignoreCase = true) || (media.season != null && media.episode != null)
-        Box(Modifier.fillMaxWidth().height(artworkHeight).clip(RoundedCornerShape(ReelLayout.ArtworkCorner))
-            .focusOutline(interactionSource, RoundedCornerShape(ReelLayout.ArtworkCorner))) {
-            app.reelstack.ui.components.RailArtwork(
-                url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode = isEpisode),
-                contentDescription = null,
-                frameRatio = frameRatio,
-                fallbackRes = media.artworkRes,
-                source = media.source,
-                modifier = Modifier.fillMaxSize(),
-                // A resume card is already a fixed 16:9 frame. If a server sends a portrait
-                // fallback, crop it to the frame rather than shrinking it into a black/blurred
-                // island that looks like a missing thumbnail.
-                fitMismatched = false,
-            )
-            // How far in you are is the whole point of this rail, so it sits on the artwork
-            // rather than competing with the title for a line of its own.
-            if (percent > 0) Box(
-                Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp)
-                    .background(Color.Black.copy(alpha = 0.55f)),
-            ) {
-                Box(Modifier.fillMaxWidth((media.progress ?: 0f).coerceIn(0f, 1f)).fillMaxHeight().background(Primary))
+        val artwork: @Composable () -> Unit = {
+            val isEpisode = media.mediaType.equals("Episode", true) || (media.season != null && media.episode != null)
+            val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
+            Box(Modifier.fillMaxWidth().height(artworkHeight).clip(shape).focusOutline(interactionSource, shape)) {
+                app.reelstack.ui.components.RailArtwork(
+                    url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode),
+                    contentDescription = null, frameRatio = frameRatio, fallbackRes = media.artworkRes,
+                    source = media.source, modifier = Modifier.fillMaxSize(), fitMismatched = false)
+                if (percent > 0) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp)
+                    .background(Color.Black.copy(alpha = .55f))) {
+                    Box(Modifier.fillMaxWidth((media.progress ?: 0f).coerceIn(0f, 1f)).fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.onSurface))
+                }
             }
         }
-        Text(
-            media.title,
-            color = TextColor,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            lineHeight = 19.sp,
-            maxLines = titleLines,
-            minLines = if (isTelevision()) titleLines else 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 9.dp),
-        )
-        if (showSeriesYear || !media.mediaType.equals("Series", true)) Text(
-            app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle),
-            color = Muted,
-            fontSize = 12.sp,
-            maxLines = 2,
-            lineHeight = 17.sp,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 2.dp),
-        )
+        val caption: @Composable () -> Unit = {
+            Text(media.title, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+                lineHeight = 19.sp, minLines = titleLines, maxLines = titleLines,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("resume-title-${media.id}"))
+            if (showSeriesYear || !media.mediaType.equals("Series", true)) Text(
+                app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle),
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+        }
+        if (compact) Row(Modifier.testTag("compact-resume-${media.id}"),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.width(artworkHeight * frameRatio)) { artwork() }
+            Column(Modifier.weight(1f)) { caption() }
+        } else {
+            artwork()
+            Column(Modifier.padding(top = 9.dp)) { caption() }
+        }
     }
 }
 
@@ -1266,7 +1137,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             maxLines = titleLines,
             overflow = TextOverflow.Ellipsis,
             // Library captions sit directly below the image, without a reserved empty line.
-            minLines = if (libraryDisplay == null && isTelevision()) titleLines else 1,
+            minLines = if (libraryDisplay == null) titleLines else 1,
             modifier = Modifier.padding(top = 9.dp),
         )
         if (libraryDisplay == null || !media.mediaType.equals("Series", true)) Text(

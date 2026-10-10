@@ -172,6 +172,7 @@ data class ReelstackUiState(
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
     val loadingAccounts: Set<ServiceKind> = emptySet(),
     val sessions: List<PlaybackSession> = demoSessions(),
+    val playbackUnavailableSources: Set<ServiceKind> = emptySet(),
     val resume: List<LibraryMedia> = demoResume(),
     val nextUp: List<LibraryMedia> = emptyList(),
     val favourites: List<LibraryMedia> = emptyList(),
@@ -2803,7 +2804,8 @@ class ReelstackViewModel(
 
     fun closeSessionChannel() = homeFeed.closeSessionChannel()
 
-    suspend fun refreshPlayback() = homeFeed.refreshPlayback()
+    suspend fun refreshPlayback(sources: Set<ServiceKind> = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) =
+        homeFeed.refreshPlayback(sources)
 
     private fun localResume(items: List<LibraryMedia>, connections: List<ServiceConnection>): List<LibraryMedia> =
         homeFeed.localResume(items, connections)

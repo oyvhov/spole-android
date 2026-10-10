@@ -153,7 +153,7 @@ internal fun MobileLibraryFeature(
                     if (motion) pager.animateScrollToPage(index + 1, animationSpec = tween(350))
                     else pager.scrollToPage(index + 1)
                 } },
-                topInset = with(density) { headerHeight.toDp() } + 96.dp,
+                topInset = with(density) { headerHeight.toDp() } + 72.dp,
                 parallaxOffset = parallaxOffset,
                 modifier = if (page == pager.currentPage) Modifier else Modifier.clearAndSetSemantics {},
             )
@@ -189,7 +189,7 @@ private fun MobileHeroPage(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = if (hasArtwork) 450.dp else 240.dp)
+            .heightIn(min = if (hasArtwork) 390.dp else 240.dp)
             .background(Ink)
             .clickable(
                 interactionSource = featureInteraction,
@@ -273,7 +273,8 @@ private fun MobileHeroPage(
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .padding(top = if (hasArtwork) topInset else (topInset - 72.dp).coerceAtLeast(64.dp))
-                .padding(horizontal = ReelLayout.Gutter, vertical = 18.dp),
+                .padding(start = ReelLayout.Gutter, end = ReelLayout.Gutter, top = 18.dp,
+                    bottom = if (titles.size > 1) 0.dp else 18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val title = selected
@@ -336,7 +337,7 @@ private fun MobileHeroPage(
                             .fillMaxWidth(0.48f)
                             .height(3.dp)
                             .clip(RoundedCornerShape(1.5.dp)),
-                        color = Primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         trackColor = Color.White.copy(alpha = 0.25f),
                     )
                 }

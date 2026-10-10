@@ -175,7 +175,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             if (showShelves) item(key = "shelves", span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(bottom = 8.dp).focusRequester(firstContent)) {
                     LibraryShelfTitle(stringResource(R.string.library_next), cardActions != null)
-                    ResumeRail(nextItems, onShelfOpen, cardActions, resumeIds = shelfResume.map { it.id }.toSet())
+                    ResumeRail(nextItems, onShelfOpen, cardActions, resumeIds = shelfResume.map { it.id }.toSet(), compact = true)
                 }
             }
             if (!connected) item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.library_connect)) }
@@ -348,7 +348,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
 /** A shelf heading, with the gesture hint on the first one only. */
 @Composable
 private fun LibraryShelfTitle(title: String, hint: Boolean) {
-    Column(Modifier.padding(top = app.reelstack.ui.theme.ReelLayout.SectionTop, bottom = app.reelstack.ui.theme.ReelLayout.SectionBottom)) {
+    Column(Modifier.padding(top = 4.dp, bottom = app.reelstack.ui.theme.ReelLayout.SectionBottom)) {
         Text(title, color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleLarge)
         if (hint) Text(stringResource(R.string.library_card_hint),
             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,

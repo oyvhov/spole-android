@@ -40,8 +40,9 @@ object ReelLayout {
      * One rhythm for every section heading on a page. Home used to mix 24/25/28 above and
      * 4/12/13 below for headings at the same level; the differences were nobody's decision.
      */
-    val SectionTop = 26.dp
-    val SectionBottom = 13.dp
+    val SectionTop = 22.dp
+    val SectionBottom = 10.dp
+    val MobileHeroSectionTop = 8.dp
     val ArtworkCorner: androidx.compose.ui.unit.Dp @Composable get() = LocalPersonalization.current.artworkCorners.radius.dp
     val PosterWidth = 132.dp
     val PosterHeight = 198.dp

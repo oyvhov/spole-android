@@ -68,6 +68,45 @@ class ActivityAdaptiveTest {
         assertFalse(cancelled)
     }
 
+    @Test fun groupedSeasonsOpenTheSelectedRequestAndRecoverAfterItLeavesTheFilter() {
+        val first = request.copy(mediaId = 42, mediaType = "tv", seasons = setOf(1, 2, 3, 4),
+            stage = RequestStage.REQUESTED, requestId = 11)
+        val second = first.copy(key = "second", seasons = setOf(5), stage = RequestStage.DOWNLOADING,
+            percent = 27, requestId = 12)
+        var current by mutableStateOf(state.copy(trackedRequests = listOf(first, second)))
+        var opened = ""
+        rule.setContent { ReelstackTheme { ActivityScreen(current, PaddingValues(0.dp), { opened = it }) } }
+        rule.onNodeWithTag("tracked-request-first").assertExists()
+        rule.onNodeWithTag("tracked-request-second").assertDoesNotExist()
+        rule.onNodeWithTag("activity-request-selector-first").performScrollTo().performClick()
+        rule.onNodeWithTag("activity-request-choice-second").performClick()
+        assertEquals("", opened)
+        rule.onNodeWithTag("tracked-details-second").performScrollTo().performClick()
+        assertEquals("second", opened)
+        rule.runOnIdle { current = current.copy(trackedRequests = listOf(first)) }
+        rule.onNodeWithTag("activity-request-choice-second").assertDoesNotExist()
+        rule.onNodeWithTag("tracked-details-first").performScrollTo().performClick()
+        assertEquals("first", opened)
+    }
+
+    @Test fun groupedSeasonControlsRemainReachableAtDoubleTextSize() {
+        val first = request.copy(mediaId = 42, mediaType = "tv", seasons = setOf(1, 2, 3, 4), stage = RequestStage.REQUESTED)
+        val second = first.copy(key = "second", seasons = setOf(5))
+        var opened = ""
+        rule.setContent {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(412.dp, 900.dp))) {
+                DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(2f)) {
+                    ReelstackTheme { ActivityScreen(state.copy(trackedRequests = listOf(first, second)),
+                        PaddingValues(0.dp), { opened = it }) }
+                }
+            }
+        }
+        rule.onNodeWithTag("activity-request-selector-first").performScrollTo().assertIsDisplayed().performClick()
+        rule.onNodeWithTag("activity-request-choice-second").performScrollTo().assertIsDisplayed().performClick()
+        rule.onNodeWithTag("tracked-details-second").performScrollTo().performClick()
+        assertEquals("second", opened)
+    }
+
     @Test fun fullScreenDetailsKeepGeometryAndCloseWithoutMovingBackground() {
         var open by mutableStateOf(true)
         var detail by mutableStateOf("Kort tekst")

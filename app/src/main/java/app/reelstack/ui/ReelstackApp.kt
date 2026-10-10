@@ -9,6 +9,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onKeyEvent
 import app.reelstack.data.model.touchMenu
+import app.reelstack.data.model.ServiceKind
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.animation.AnimatedContent
@@ -193,11 +194,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         fun watching(current: ReelstackUiState) =
             current.selectedTab == AppTab.HOME || current.activeSheet is AppSheet.SessionDetails
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
-            // Jellyfin will tell us when playback changes, so ask it to. While that channel is open
-            // the loop is a safety net rather than the source of truth; when it is not — an older
-            // server, a proxy that strips upgrades — nothing is lost but the saving, and the old
-            // cadence comes straight back. A lost channel is retried at most once a minute.
+            // Each server owns its clock: Jellyfin's doorbell cannot slow down Emby. Opening or
+            // switching a playback sheet wakes the loop immediately, including from Home.
             var lastChannelAttempt = Long.MIN_VALUE / 2
+            val schedule = PlaybackRefreshSchedule()
+            var previousSessionKey: String? = null
             try {
                 while (true) {
                     if (!watching(viewModel.uiState.value)) {
@@ -211,15 +212,28 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         viewModel.openSessionChannel()
                     }
                     if (viewModel.uiState.value.selectedTab == AppTab.HOME) viewModel.retryIncompleteHomeFeed()
-                    viewModel.refreshPlayback()
-                    val interval = when {
-                        viewModel.sessionChannelLive.value -> 60_000L
-                        viewModel.uiState.value.sessions.isEmpty() -> 15_000L
-                        else -> 5_000L
+                    val current = viewModel.uiState.value
+                    val sessionKey = (current.activeSheet as? AppSheet.SessionDetails)?.sessionKey
+                    val sources = current.connections.filter {
+                        it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.token.isNotBlank()
+                    }.mapTo(linkedSetOf()) { it.kind }
+                    val due = if (sessionKey != null && sessionKey != previousSessionKey) sources
+                        else schedule.due(sources, viewModel.sessionChannelLive.value, sessionKey != null, now)
+                    previousSessionKey = sessionKey
+                    if (due.isNotEmpty()) {
+                        viewModel.refreshPlayback(due)
+                        schedule.refreshed(due, android.os.SystemClock.elapsedRealtime())
                     }
-                    // Leaving Home ends the wait early, so the channel closes when nobody looks.
+                    val push = viewModel.sessionChannelLive.value
+                    val interval = schedule.waitMillis(sources, push, sessionKey != null,
+                        android.os.SystemClock.elapsedRealtime())
+                    // Network work stays in the foreground and a socket loss restores polling.
                     kotlinx.coroutines.withTimeoutOrNull(interval) {
-                        viewModel.uiState.first { !watching(it) }
+                        kotlinx.coroutines.flow.combine(viewModel.uiState, viewModel.sessionChannelLive) { next, live ->
+                            !watching(next) || live != push ||
+                                (next.activeSheet as? AppSheet.SessionDetails)?.sessionKey != sessionKey ||
+                                next.connections != current.connections
+                        }.first { it }
                     }
                 }
             } finally {

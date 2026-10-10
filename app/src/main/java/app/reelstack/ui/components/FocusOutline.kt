@@ -35,7 +35,7 @@ internal fun mediaCardIndication(): androidx.compose.foundation.Indication? {
  * one available. Every television interface people already know — the Google TV launcher included —
  * lifts the focused card as well, because size reads at a distance where a two-pixel edge does not.
  *
- * Deliberately small: 1.06 is enough to see and small enough that a row does not shove its
+ * Deliberately small: 1.035 is enough to see and small enough that a row does not shove its
  * neighbours around. Press still wins, so a card that is being clicked dips under the finger, and
  * reduced motion drops the scaling entirely and leaves the outline and shadow to do the work.
  */
@@ -45,7 +45,7 @@ internal fun focusScale(focused: Boolean, pressed: Boolean): Float {
     val target = when {
         pressed && motion -> 0.985f
         !motion -> 1f
-        focused -> 1.06f
+        focused -> 1.035f
         else -> 1f
     }
     val scale by animateFloatAsState(target, tween(if (motion) 140 else 0), label = "focus-scale")
@@ -60,12 +60,12 @@ internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow
     val alphaState = animateFloatAsState(if (focused) 1f else 0f, tween(if (motion) 140 else 0), label = "focus-outline")
     val style = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle
     val color = if (style == app.reelstack.data.model.FocusStyle.ACCENT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-    val strokeWidthDp = if (style == app.reelstack.data.model.FocusStyle.BOLD) 4.5.dp else 2.5.dp
+    val strokeWidthDp = if (style == app.reelstack.data.model.FocusStyle.BOLD) 4.dp else 2.dp
 
     return this.drawWithCache {
         val strokeWidthPx = strokeWidthDp.toPx()
-        val glowStrokeWidthPx = strokeWidthPx + 3.dp.toPx()
-        val shadowStrokeWidthPx = strokeWidthPx + 6.dp.toPx()
+        val glowStrokeWidthPx = strokeWidthPx + 1.dp.toPx()
+        val shadowStrokeWidthPx = strokeWidthPx + 4.dp.toPx()
         val borderStroke = Stroke(width = strokeWidthPx)
         val glowStroke = Stroke(width = glowStrokeWidthPx)
         val shadowStroke = Stroke(width = shadowStrokeWidthPx)
@@ -85,7 +85,7 @@ internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow
                 )
                 drawOutline(
                     outline = outline,
-                    brush = SolidColor(color.copy(alpha = 0.40f * alpha)),
+                    brush = SolidColor(color.copy(alpha = 0.18f * alpha)),
                     style = glowStroke,
                 )
                 }

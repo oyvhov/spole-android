@@ -19,6 +19,28 @@ import org.junit.Test
 @OptIn(ExperimentalTestApi::class)
 class WideNavigationSettingsTest {
     @get:Rule val rule = createComposeRule()
+
+    @Test fun collapsedTvFocusShowsItsNameWithoutTakingRemoteFocus() {
+        lateinit var inputMode: androidx.compose.ui.input.InputModeManager
+        rule.setContent {
+            val config = android.content.res.Configuration(androidx.compose.ui.platform.LocalConfiguration.current).apply {
+                uiMode = (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK.inv()) or android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+            }
+            inputMode = androidx.compose.ui.platform.LocalInputModeManager.current
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides config) {
+                ReelstackTheme { ReelstackNavigationRail(AppTab.HOME, {}, expanded = false) }
+            }
+        }
+        rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        rule.onNodeWithTag("wide-tab-HOME").performSemanticsAction(SemanticsActions.RequestFocus)
+        rule.waitUntil(3000) { rule.onAllNodesWithTag("navigation-focus-label").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("navigation-focus-label").assertIsDisplayed()
+        rule.onNodeWithTag("wide-tab-HOME").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+        rule.onNodeWithTag("wide-tab-LIBRARY").assertIsFocused()
+        rule.waitUntil(3000) { rule.onAllNodesWithTag("navigation-focus-label").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("navigation-focus-label").assertTextEquals("Bibliotek")
+        rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
+    }
     @Test fun expandedNavigationSupportsDpadAndClickSelection() {
         var selected by mutableStateOf(AppTab.HOME)
         lateinit var inputMode: androidx.compose.ui.input.InputModeManager

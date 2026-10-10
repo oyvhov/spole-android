@@ -2,7 +2,6 @@ package app.reelstack.ui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -13,122 +12,100 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.PlaybackSession
-import app.reelstack.ui.theme.*
-// The warm-white token shares its name with the Material Text composable; alias it like HomeScreen.
-import app.reelstack.ui.theme.Text as TextColor
+import app.reelstack.ui.theme.Ink
+import app.reelstack.ui.theme.Muted
+import app.reelstack.ui.theme.ReelLayout
+import app.reelstack.ui.theme.Primary
+import app.reelstack.ui.theme.SurfaceRaised
 
-/**
- * A live session on a wide screen: useful context, not a second full-width hero.
- *
- * This used to be a grey `SurfaceRaised` plate with a 128 dp thumbnail beside a text column, which
- * made it the only thing on Home that looked like a card — Continue watching, the library rails and
- * Activity are all borderless artwork on the page ground. Two more things followed from the plate:
- * every card was as tall as its own text, so a row of them had ragged bottoms, and the progress bar
- * sat at a different height in each one.
- *
- * Now it is the phone hero at rail scale — artwork, scrim, text over the bottom — so the row reads
- * as part of the same feed. Every line is single-line, so all cards in a rail measure the same at
- * any font scale, and the progress bar is pinned to the artwork's bottom edge exactly as it is on a
- * Continue watching card.
- */
+/** A complete cover beside readable context. Geometry never depends on the decoded image. */
 @Composable
 internal fun CompactSessionCard(session: PlaybackSession, pending: Boolean, controlsLocked: Boolean,
     onOpen: () -> Unit, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
     val toggleInteraction = remember { MutableInteractionSource() }
     val progress by animateFloatAsState(session.progress.coerceIn(0f, 1f), label = "compact-session-progress")
-    val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
-    Box(
-        // Minimum, not fixed: the four text lines must be able to grow with the font scale. They
-        // grow together, because every card holds the same number of single lines.
-        modifier
-            .heightIn(min = 182.dp)
-            .clip(shape)
-            .focusOutline(interaction, shape)
-            .clickable(interactionSource = interaction, indication = mediaCardIndication(),
-                onClickLabel = stringResource(R.string.details_playback), onClick = onOpen)
-            .testTag("compact-session-${session.key}"),
-    ) {
-        MediaArtwork(session.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = app.reelstack.ui.demoSessionArtwork(session), ContentScale.Crop, source = session.source)
-        // Legibility only. The same three-stop ramp the phone card uses, so a session looks the
-        // same on both form factors.
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(
-                    0f to Color(0x4204050A),
-                    0.42f to Color(0x7A04050A),
-                    1f to Color(0xF5080710),
-                ),
-            ),
-        )
-
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        "${session.userName} · ${session.deviceName}",
-                        color = PrimarySoft, style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        session.title, color = TextColor, style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 3.dp),
-                    )
-                    Text(
-                        // "Sesong 6 - Ep 13", the same words as every other card on the screen.
-                        episodeLine(session.season, session.episode, session.subtitle),
-                        color = Muted, style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
-                    )
+    val shape = RoundedCornerShape(12.dp)
+    Column(modifier.clip(shape).focusOutline(interaction, shape, glow = false)
+        .clickable(interactionSource = interaction, indication = mediaCardIndication(),
+            onClickLabel = stringResource(R.string.details_playback), onClick = onOpen)
+        .testTag("compact-session-${session.key}").padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val beside = maxWidth >= 280.dp && LocalDensity.current.fontScale < 1.6f
+            val artwork: @Composable () -> Unit = {
+                Box(Modifier.width(84.dp).height(126.dp).testTag("compact-session-art-${session.key}")) {
+                    MediaArtwork(session.artworkUrl, null, Modifier.fillMaxSize().clip(RoundedCornerShape(ReelLayout.ArtworkCorner)),
+                        fallbackRes = app.reelstack.ui.demoSessionArtwork(session),
+                        contentScale = ContentScale.Fit, source = session.source)
                 }
-                // Playback stays its own focusable action, separate from opening the details.
-                Surface(
-                    onClick = onToggle,
-                    enabled = !controlsLocked && !pending,
-                    shape = CircleShape,
-                    color = Primary,
-                    contentColor = Ink,
-                    interactionSource = toggleInteraction,
-                    shadowElevation = 0.dp,
-                    modifier = Modifier.size(48.dp).focusOutline(toggleInteraction, CircleShape)
-                        .testTag("compact-session-toggle-${session.key}"),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (pending) CircularProgressIndicator(Modifier.size(21.dp), color = Ink, strokeWidth = 2.dp)
-                        else AnimatedContent(session.paused, label = "compact-play-pause") { paused ->
-                            Icon(
-                                if (paused) app.reelstack.ui.components.SpoleIcons.Play else app.reelstack.ui.components.SpoleIcons.Pause,
-                                stringResource(if (paused) R.string.player_play else R.string.player_pause),
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
+            }
+            if (beside) Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                artwork()
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SessionCardCaption(session, Modifier.fillMaxWidth())
+                    SessionCardFooter(session, pending, controlsLocked, progress, onToggle, toggleInteraction)
+                }
+            } else Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                artwork()
+                SessionCardCaption(session, Modifier.fillMaxWidth())
+                SessionCardFooter(session, pending, controlsLocked, progress, onToggle, toggleInteraction)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionCardFooter(session: PlaybackSession, pending: Boolean, controlsLocked: Boolean,
+    progress: Float, onToggle: () -> Unit, toggleInteraction: MutableInteractionSource) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LinearProgressIndicator(progress = { progress }, color = MaterialTheme.colorScheme.onSurface,
+            trackColor = SurfaceRaised, drawStopIndicator = {}, gapSize = 0.dp,
+            modifier = Modifier.fillMaxWidth().height(3.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(sessionTimeLeft(session), color = Muted, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f))
+            Surface(onClick = onToggle, enabled = !controlsLocked && !pending, shape = CircleShape,
+                color = Primary, contentColor = Ink, interactionSource = toggleInteraction,
+                shadowElevation = 0.dp,
+                modifier = Modifier.size(48.dp).focusOutline(toggleInteraction, CircleShape, glow = false)
+                    .testTag("compact-session-toggle-${session.key}")) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (pending) CircularProgressIndicator(Modifier.size(21.dp), color = Ink, strokeWidth = 2.dp)
+                    else AnimatedContent(session.paused, label = "compact-play-pause") { paused ->
+                        Icon(if (paused) SpoleIcons.Play else SpoleIcons.Pause,
+                            stringResource(if (paused) R.string.home_resume_playback else R.string.home_pause_playback),
+                            modifier = Modifier.size(24.dp))
                     }
                 }
             }
-            Text(
-                sessionTimeLeft(session), color = Muted, style = MaterialTheme.typography.bodySmall,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp),
-            )
         }
+    }
+}
 
-        // How far in the session is, on the artwork's own bottom edge — the same place a Continue
-        // watching card puts it, rather than a separate row that shifts with the text above it.
-        Box(
-            Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp)
-                .background(Color.Black.copy(alpha = 0.55f)),
-        ) {
-            Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(Primary))
+@Composable
+private fun SessionCardCaption(session: PlaybackSession, modifier: Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        session.source?.let { source ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ServiceSymbol(source, Modifier.size(14.dp))
+                Text(source.displayName, color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
         }
+        Text(session.title, style = MaterialTheme.typography.titleMedium, minLines = 2, maxLines = 2,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("compact-session-title-${session.key}"))
+        Text(sessionSubtitle(session), color = Muted, style = MaterialTheme.typography.bodySmall,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text("${sessionWho(session)} · ${sessionDevice(session)}", color = Muted,
+            style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

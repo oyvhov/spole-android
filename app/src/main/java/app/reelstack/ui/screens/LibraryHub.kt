@@ -100,7 +100,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         if (!leadingHero && section == "FEATURE" && large && featured.isNotEmpty()) item("feature") { hero() }
         if (section == "LIBRARY_NEXT" && nextItems.isNotEmpty()) item("next") {
             HubShelf(stringResource(R.string.library_next)) {
-                ResumeRail(nextItems, onTitle, actions, resumeIds = resume.map { it.id }.toSet())
+                ResumeRail(nextItems, onTitle, actions, resumeIds = resume.map { it.id }.toSet(), compact = true)
             }
         }
         if (section == "FAVOURITES" && state.favourites.any { it.source == state.librarySource }) item("favourites") {

@@ -36,6 +36,14 @@ fun sessionWho(session: PlaybackSession): String =
 fun sessionDevice(session: PlaybackSession): String =
     session.deviceName.ifBlank { stringResource(R.string.session_unknown_device) }
 
+/** A server's raw Movie/Series/Episode value is a type, not an English subtitle. */
+@Composable
+internal fun sessionSubtitle(session: PlaybackSession): String =
+    if (session.season == null && session.episode == null &&
+        session.subtitle.lowercase() in setOf("movie", "series", "episode", "video")) {
+        stringResource(mediaKindRes(session.subtitle))
+    } else episodeLine(session.season, session.episode, session.subtitle)
+
 /**
  * The word for a kind of title.
  *

@@ -182,6 +182,7 @@ fun ReelstackSheets(
     onAddKidUser: (app.reelstack.data.network.PublicUser, String) -> Unit = { _, _ -> },
     onAddKidManual: (String, String, String?) -> Unit = { _, _, _ -> },
     onDetailBack: () -> Boolean = { false },
+    onSessionSelected: (String) -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     // The profile menu is an anchored popup owned by the shell. Falling through to the dialog here
@@ -256,7 +257,7 @@ fun ReelstackSheets(
         Column(Modifier.fillMaxSize()) {
             if (!tvDetails && !cinematicPhone && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails)) {
                 SheetToolbar(
-                    title = if (sheet is AppSheet.SessionDetails) stringResource(R.string.details_playback) else "",
+                    title = if (sheet is AppSheet.SessionDetails) stringResource(R.string.home_now_playing) else "",
                     closeDescription = stringResource(R.string.details_close), onClose = closeOrReturn, enabled = !closing,
                     onBack = if (state.returnToCalendar) onBackToCalendar else null,
                     page = tvDetails,
@@ -270,7 +271,10 @@ fun ReelstackSheets(
                 AppSheet.RequestComposer -> RequestComposer(state, onRequestSeason, onRequestNotification,
                     onConfirmRequest, close, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount,
                     onSeasonWatch = onSeasonWatch, entered = entered)
-                is AppSheet.SessionDetails -> SessionSheet(state, sheet.sessionKey, onPlaybackToggle, detailScroll)
+                is AppSheet.SessionDetails -> SessionDetailsContent(state.sessions, sheet.sessionKey,
+                    state.pendingSessionKey, state.configuredCount == 0, detailScroll,
+                    onPlaybackToggle, onSessionSelected,
+                    unavailable = state.playbackUnavailableSources.any { sheet.sessionKey.startsWith("${it.name}:") })
                 is AppSheet.TitleDetails -> state.contentDetails?.let { details ->
                     androidx.compose.runtime.key(details.key) {
                         RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
@@ -1321,131 +1325,6 @@ private fun DetailPill(text: String) {
     )
 }
 
-@Composable
-private fun SessionSheet(state: ReelstackUiState, sessionKey: String, onPlaybackToggle: (String) -> Unit, scroll: ScrollState) {
-    val session = state.sessions.firstOrNull { it.key == sessionKey } ?: return
-    Column(
-        Modifier.testTag("session-scroll").verticalScroll(scroll).padding(start = 18.dp, end = 18.dp, bottom = 34.dp),
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth().height(286.dp).clip(RoundedCornerShape(28.dp)),
-        ) {
-            MediaArtwork(
-                url = session.artworkUrl,
-                fallbackRes = demoSessionArtwork(session),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                source = session.source,
-                modifier = Modifier.fillMaxSize(),
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        0f to Color(0x26090711),
-                        0.48f to Color(0x18090711),
-                        1f to Color(0xF20A0711),
-                    ),
-                ),
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
-                    .clip(CircleShape).background(app.reelstack.ui.theme.SurfaceRaised)
-                    .padding(horizontal = 11.dp, vertical = 7.dp),
-            ) {
-                Box(Modifier.size(7.dp).background(Primary, CircleShape))
-                Text(
-                    stringResource(if (session.paused) R.string.session_paused else R.string.session_playing_now),
-                    color = Color.White,
-                    fontSize = 12.sp, lineHeight = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 7.dp),
-                )
-            }
-            Column(
-                modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp, vertical = 18.dp),
-            ) {
-                Text(
-                    "${session.source?.displayName ?: "Medietenar"} · ${session.userName} · ${session.deviceName}".uppercase(),
-                    color = PrimarySoft,
-                    fontSize = 12.sp, lineHeight = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    session.title,
-                    color = Color.White,
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                Text(session.subtitle, color = app.reelstack.ui.theme.Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
-                LinearProgressIndicator(
-                    progress = { session.progress.coerceIn(0f, 1f) },
-                    color = Primary,
-                    trackColor = Color(0x45FFFFFF),
-                    // Material draws a dot at the far end by default, which reads as a second
-                    // position marker on a bar that already shows where playback is.
-                    drawStopIndicator = {},
-                    gapSize = 0.dp,
-                    modifier = Modifier.fillMaxWidth().padding(top = 13.dp).height(4.dp).clip(CircleShape),
-                )
-            }
-        }
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = SurfaceRaised,
-            modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 14.dp),
-            ) {
-                SessionMetric(stringResource(R.string.details_playback), app.reelstack.ui.components.sessionMethod(session), Modifier.weight(1f))
-                SessionMetric("Kvalitet", session.quality, Modifier.weight(1f))
-                // The value already ends in "att"; repeating it in the label read as "att att".
-                SessionMetric(stringResource(R.string.remote_time_left), pluralStringResource(R.plurals.session_minutes, session.remainingMinutes, session.remainingMinutes), Modifier.weight(1f))
-            }
-        }
-        Button(
-            onClick = { onPlaybackToggle(session.key) },
-            enabled = state.pendingSessionKey == null,
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = app.reelstack.ui.theme.Ink),
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 58.dp),
-        ) {
-            if (state.pendingSessionKey == session.key) {
-                CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                Text(stringResource(R.string.remote_sending_command), modifier = Modifier.padding(start = 8.dp))
-            } else {
-                AnimatedContent(
-                    targetState = session.paused,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
-                    label = "playback-action",
-                ) { paused ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(if (paused) app.reelstack.ui.components.SpoleIcons.Play else app.reelstack.ui.components.SpoleIcons.Pause, contentDescription = null)
-                        Text(stringResource(if (paused) R.string.remote_resume else R.string.remote_pause), modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SessionMetric(label: String, value: String, modifier: Modifier) {
-    Column(modifier.padding(horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label.uppercase(), color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
-        Text(
-            value,
-            color = app.reelstack.ui.theme.Text,
-            fontSize = 12.sp, lineHeight = 17.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            maxLines = 2, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 3.dp),
-        )
-    }
-}
 
 
 @Composable

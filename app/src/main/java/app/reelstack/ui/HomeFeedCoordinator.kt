@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Owns Home's server feed and the lightweight playback notification channel.
@@ -42,6 +44,8 @@ internal class HomeFeedCoordinator(
     private var refreshJob: Job? = null
     private var cacheLoadJob: Job? = null
     private var playbackJob: Job? = null
+    private val playbackLock = Mutex()
+    private var playbackRevision = 0L
     private var sessionChannel: app.reelstack.data.network.JellyfinSessionSocket.Connection? = null
     private val sessionChannelState = MutableStateFlow(false)
     private var lastFeedAttemptMillis = -60_000L
@@ -95,7 +99,7 @@ internal class HomeFeedCoordinator(
                 connection = connection,
                 onChanged = {
                     if (playbackJob?.isActive != true) {
-                        playbackJob = scope.launch { refreshPlayback() }
+                        playbackJob = scope.launch { refreshPlayback(setOf(ServiceKind.JELLYFIN)) }
                     }
                 },
                 onLost = {
@@ -113,20 +117,23 @@ internal class HomeFeedCoordinator(
         sessionChannelState.value = false
     }
 
-    suspend fun refreshPlayback() {
-        if (refreshJob?.isActive == true) return
+    suspend fun refreshPlayback(sources: Set<ServiceKind> = MEDIA_SERVERS) = playbackLock.withLock {
         val owner = container.connectionRepository.captureSession()
         val connections = readState().connections
-        if (connections.none { it.token.isNotBlank() && it.kind in MEDIA_SERVERS }) return
-        val sessions = withContext(Dispatchers.IO) {
-            container.mediaSyncRepository.refreshPlayback(connections)
+        val requested = sources.intersect(MEDIA_SERVERS)
+        if (connections.none { it.token.isNotBlank() && it.kind in requested }) return@withLock
+        val result = withContext(Dispatchers.IO) {
+            container.mediaSyncRepository.refreshPlaybackResult(connections, requested)
         }
+        playbackRevision++
         // Never put a response from an account that has since signed out back on screen.
         updateState { current ->
             when {
-                !container.connectionRepository.isCurrent(owner) || current.connections != connections || refreshJob?.isActive == true -> current
-                current.sessions == sessions -> current
-                else -> current.copy(sessions = sessions)
+                !container.connectionRepository.isCurrent(owner) || current.connections != connections -> current
+                else -> current.copy(
+                    sessions = mergePlaybackSessions(current.sessions, result.sessions, requested),
+                    playbackUnavailableSources = (current.playbackUnavailableSources - requested) + result.unavailableSources,
+                )
             }
         }
     }
@@ -175,7 +182,8 @@ internal class HomeFeedCoordinator(
                 val hasQueueService = configuredKinds.any { it in QUEUE_SERVERS }
                 val hasSeerr = ServiceKind.SEERR in configuredKinds
                 current.copy(
-                    sessions = if (hasMediaServer) cached.sessions else current.sessions,
+                    // Playback is live-only; a disk snapshot must not erase a fresh session list.
+                    sessions = current.sessions,
                     resume = if (hasMediaServer) localResume(cached.resume, current.connections) else current.resume,
                     nextUp = if (hasMediaServer) localNextUp(cached.nextUp, current.connections) else current.nextUp,
                     favourites = if (hasMediaServer) cached.favourites else current.favourites,
@@ -258,6 +266,7 @@ internal class HomeFeedCoordinator(
 
         val refreshFingerprint = container.mediaFingerprint(state.connections)
         val refreshOwner = container.connectionRepository.captureSession()
+        val revisionAtStart = playbackRevision
         lastFeedAttemptMillis = android.os.SystemClock.elapsedRealtime()
         updateState { it.copy(isRefreshing = true) }
         refreshJob = scope.launch {
@@ -302,7 +311,8 @@ internal class HomeFeedCoordinator(
             }
             val refreshedConnections = if (snapshot.switchedToAlternate.isEmpty()) null
             else runCatching { container.connectionRepository.list() }.getOrNull()
-            updateState { current -> applySnapshot(current, snapshot, refreshedConnections, userInitiated) }
+            updateState { current -> applySnapshot(current, snapshot, refreshedConnections, userInitiated,
+                keepLivePlayback = playbackRevision != revisionAtStart) }
             retryAttempts = if (snapshot.errors.keys.any { it in MEDIA_SERVERS } ||
                 snapshot.warnings.keys.any { it in MEDIA_SERVERS }) retryAttempts else 0
             // The rows are on screen first; the copy for the next start follows. A disk-full cache
@@ -392,6 +402,7 @@ internal class HomeFeedCoordinator(
         snapshot: app.reelstack.data.repository.MediaSyncSnapshot,
         refreshedConnections: List<ServiceConnection>?,
         userInitiated: Boolean,
+        keepLivePlayback: Boolean,
     ): ReelstackUiState {
         val connectionsNow = refreshedConnections ?: current.connections
         val configuredKinds = connectionsNow.filter { it.baseUrl.isNotBlank() }
@@ -408,7 +419,9 @@ internal class HomeFeedCoordinator(
         }
         return current.copy(
             adminView = snapshot.adminView,
-            sessions = snapshot.sessions,
+            sessions = if (keepLivePlayback) current.sessions else snapshot.sessions,
+            playbackUnavailableSources = if (keepLivePlayback) current.playbackUnavailableSources
+                else snapshot.errors.keys.intersect(MEDIA_SERVERS),
             resume = localResume(snapshot.resume, connectionsNow),
             nextUp = localNextUp(snapshot.nextUp, connectionsNow),
             favourites = snapshot.favourites,

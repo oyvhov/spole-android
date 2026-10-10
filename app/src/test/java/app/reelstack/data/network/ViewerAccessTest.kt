@@ -71,6 +71,42 @@ class ViewerAccessTest {
         assertTrue(transport.urls.none { it.contains("/Items") || it.contains("/request") || it.contains("/discover") })
         assertEquals(0, transport.writes)
     }
+    @Test fun embyPollKeepsTheSharedIdentityRulesWithoutFetchingJellyfinSessions() = kotlinx.coroutines.runBlocking {
+        val transport = Transport { url -> HttpResponse(200, when {
+            url.contains("auth/me") -> """{"id":7,"jellyfinUserId":"own","permissions":32}"""
+            url.endsWith("Sessions") -> payload
+            else -> """{"Id":"own","Name":"Person","Policy":{"IsAdministrator":false}}"""
+        }) }
+        val repository = app.reelstack.data.repository.MediaSyncRepository(
+            mediaServerClient = MediaServerClient(transport), accountProfileClient = AccountProfileClient(transport = transport),
+        )
+        val connections = listOf(connection, connection.copy(kind = ServiceKind.EMBY, baseUrl = "https://emby.example", userId = "own"),
+            ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "cookie", sessionCookie = true))
+        val sessions = repository.refreshPlayback(connections, setOf(ServiceKind.EMBY))
+        assertEquals(listOf("mine"), sessions.map { it.sessionId })
+        assertEquals(ServiceKind.EMBY, sessions.single().source)
+        assertTrue(transport.urls.any { it.contains("auth/me") })
+        assertEquals(listOf("https://emby.example/Sessions"), transport.urls.filter { it.endsWith("Sessions") })
+    }
+
+    @Test fun aFailedPlaybackReadIsNotReportedAsAConfirmedStop() = kotlinx.coroutines.runBlocking {
+        var failed = true
+        val transport = Transport { url ->
+            if (url.endsWith("Sessions")) HttpResponse(if (failed) 503 else 200, "[]")
+            else HttpResponse(200, """{"Id":"own","Name":"Person","Policy":{"IsAdministrator":false}}""")
+        }
+        val repository = app.reelstack.data.repository.MediaSyncRepository(
+            mediaServerClient = MediaServerClient(transport), accountProfileClient = AccountProfileClient(transport = transport),
+        )
+        val first = repository.refreshPlaybackResult(listOf(connection))
+        assertTrue(first.sessions.isEmpty())
+        assertEquals(setOf(ServiceKind.JELLYFIN), first.unavailableSources)
+        failed = false
+        val next = repository.refreshPlaybackResult(listOf(connection))
+        assertTrue(next.sessions.isEmpty())
+        assertTrue(next.unavailableSources.isEmpty())
+    }
+
     @Test fun playbackChecksReuseConfirmedAccountsUntilTheyExpire() = kotlinx.coroutines.runBlocking {
         var now = 0L
         val transport = Transport { url -> HttpResponse(200, when {

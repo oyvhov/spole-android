@@ -41,6 +41,7 @@ class LibraryPresentationUiTest {
     private val context get() = rule.activity
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://media.example", "fixture", userId = "me")
     private val prefs get() = AppPreferencesRepository(context)
+    private lateinit var focus: androidx.compose.ui.focus.FocusManager
     private lateinit var input: androidx.compose.ui.input.InputModeManager
 
     /** Synthetic local artwork makes bitmap loading deterministic; no real accounts or network. */
@@ -86,6 +87,7 @@ class LibraryPresentationUiTest {
     private fun show(state: ReelstackUiState, tv: Boolean, actions: MediaCardActions? = null) {
         rule.setContent {
             input = androidx.compose.ui.platform.LocalInputModeManager.current
+            focus = androidx.compose.ui.platform.LocalFocusManager.current
             val config = Configuration(LocalConfiguration.current).apply {
                 uiMode = (uiMode and Configuration.UI_MODE_TYPE_MASK.inv()) or
                     if (tv) Configuration.UI_MODE_TYPE_TELEVISION else Configuration.UI_MODE_TYPE_NORMAL
@@ -108,15 +110,22 @@ class LibraryPresentationUiTest {
 
     @Test fun tvSeriesHaveUniformWideFramesAndStableRemoteFocus() = withDefaults("review-tv-series") {
         show(state("review-tv-series", true), true)
+        // Measure the resting frames; keyboard mode can focus the first card while its lift starts.
+        rule.runOnIdle { focus.clearFocus(force = true) }
+        rule.mainClock.advanceTimeBy(300)
+        rule.waitForIdle()
         val first = rule.onNodeWithTag("library-art-review-0", true).getUnclippedBoundsInRoot()
         val second = rule.onNodeWithTag("library-art-review-1", true).getUnclippedBoundsInRoot()
         assertEquals(16f / 9f, (first.right - first.left).value / (first.bottom - first.top).value, .015f)
-        assertEquals(first.top, second.top)
-        assertEquals(first.bottom, second.bottom)
+        // Adaptive grid cells share any remaining pixel between columns.
+        assertEquals(first.top.value, second.top.value, 1f)
+        assertEquals(first.bottom.value, second.bottom.value, 1f)
         val card = rule.onNodeWithTag("library-item-review-0")
         card.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
         card.assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         rule.onNodeWithTag("library-item-review-1").assertIsFocused()
+        rule.mainClock.advanceTimeBy(300)
+        rule.waitForIdle()
         assertEquals(first, rule.onNodeWithTag("library-art-review-0", true).getUnclippedBoundsInRoot())
         rule.onNodeWithTag("library-unwatched-review-1", true).assertIsDisplayed()
         rule.onAllNodesWithText("2026").assertCountEquals(0)
@@ -283,5 +292,16 @@ class LibraryPresentationUiTest {
         rule.onNodeWithContentDescription(context.getString(R.string.action_close)).performClick()
         rule.onNodeWithTag("resume-card-current").performSemanticsAction(SemanticsActions.OnLongClick) { it() }
         rule.onNodeWithTag("card-remove-resume").assertIsDisplayed()
+    }
+
+    @Test fun tvLibraryNextIsCompactWithoutTheHomePageLocals() = withDefaults("review-next-tv") {
+        val episode = LibraryMedia("current", "Ei serie med ein lang tittel", "S1 - E2", .4f,
+            R.drawable.media_placeholder, ServiceKind.JELLYFIN, mediaType = "Episode")
+        val content = state("review-next-tv", true).copy(libraryShelves =
+            LibraryShelves("review-next-tv", listOf(episode), emptyList()))
+        show(content, true)
+        rule.onNodeWithTag("compact-resume-current", true).assertExists()
+        val card = rule.onNodeWithTag("resume-card-current").fetchSemanticsNode().boundsInRoot
+        assertTrue(card.height < 120 * rule.density.density)
     }
 }

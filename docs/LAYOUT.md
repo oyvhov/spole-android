@@ -8,11 +8,28 @@ av plassen og kan rullast uavhengig. Andre popupoverskrifter, nettbrett og
 TV-detaljar held på oppsettet sitt.
 Sjå [detaljvising på mobil](MOBILE_DETAILS_2026-10-01.md).
 
+Visuell presisering (8. oktober 2026): «Spelar no»-korta har eit heilt cover med `Fit`, og teksten
+ligg ved sida av ved normal skrift. Stor skrift stablar innhaldet. Toppfeltet er lågare, og
+hald-fram-rader held av to tittellinjer. «Neste» i Bibliotek bruker kompakte bilde-/tekstrader på
+TV og breie vindauge; skriftstorleik 2.0 bruker den romslegare, stabla forma. TV-fokus har svakare
+glød og mindre løft. Eit fokusert ikon i ein samanfalda meny kan vise namnet utan å ta fokus.
+Sesongførespurnader i Aktivitet deler cover når medie-ID, kvalitet og type er like. Ein veljar
+viser dei opphavlege førespurnadene og statusane; handlingar gjeld berre valt førespurnads-ID.
+
+Kontroll 8. oktober 2026: 62 relevante einingstestar og 37 Android-testar bestod; lint hadde
+0 feil, 189 åtvaringar og 1 hint. Det signerte lokale bygget vart installert med `-r` på dei lagra
+review-profilane. TV vart kontrollert med ekte Jellyfin-, Emby- og Seerr-innhald; mobilen brukte
+sin eksisterande, eksplisitte demomodus. Heim, Bibliotek, sesongval med fjernkontroll og
+«Spelar no»-visinga vart kontrollerte med skriftstorleik 2.0. Begge einingane fekk tilbake 1.0.
+Ingen aktive tenarøkter var tilgjengelege under denne gjennomgangen; ekte øktbilde vart
+kontrollerte 7. oktober, og dei nye korta vart kontrollerte med demo og isolerte Android-testar.
+Bygget er ein lokal review-APK med versjon 1.0.0-beta5 (142). Skjermbilete ligg berre lokalt.
+
 Current override (alpha13): every width threshold lives in `WindowLayoutPolicy` —
 `useSideBySideMedia` 600, `useNavigationRail` 640, `useInlineHeader` 680, `useCenteredDialog` 840,
 `useTabletCanvas` 900, `expandSidebarByDefault` 1000 dp. A screen never writes its own dp
-comparison. Section headings on a page use `ReelLayout.SectionTop` (26 dp) and
-`ReelLayout.SectionBottom` (13 dp); page titles are `displaySmall` everywhere. Loading skeletons
+comparison. Section headings on a page use `ReelLayout.SectionTop` (22 dp) and
+`ReelLayout.SectionBottom` (10 dp); page titles are `displaySmall` everywhere. Loading skeletons
 take their colour from the theme and their corners from `ReelLayout.ArtworkCorner`. This supersedes
 the threshold numbers quoted below.
 
@@ -103,3 +120,22 @@ Skjuling gjeld både botnmeny og sidemeny med ein gong.
 Prefer Norwegian Seerr descriptions, with an English fallback when the translation is empty. Translate known series-status labels into Nynorsk. Counts and networks appear only when supplied by the service. Account-scoped, bounded metadata caching avoids repeated request-title lookups; current availability still comes from fresh request responses.
 
 Authenticated UI checks are read-only: no playback changes, requests or deletes. Keep screenshots and account data local. Run destructive storage/instrumentation tests only on a separate clean emulator, and update the authenticated emulator in place with the established signing key.
+
+## «Spelar no» — popup og direkte oppdatering
+
+Popupen viser ekte tenarbilete i sitt eige format, med `Fit` og utan tekst over coveret.
+Biletplassen, lukkeknappen og pause-/hald fram-knappen held seg i ro når bilete og metadata kjem inn.
+Valet mellom fleire økter ligg øvst. Ved skriftstorleik 2.0 ligg metadata under kvarandre og
+innhaldet kan rullast, medan handlinga ligg fast nedst. Ein avslutta økt får ein tomtilstand;
+eit mislukka nettverkskall får ei melding om automatisk nytt forsøk.
+
+Emby blir sjekka kvart tredje sekund når Heim er synleg, òg når ingen spelar, og begge tenestene
+kvart andre sekund i avspelingspopupen. Opning eller byte av økt utløyser ein sjekk med ein gong.
+Jellyfin sine direktevarsel gjeld berre Jellyfin. Framsidelasting og diskcache skal ikkje
+overskrive nyare økter. Kontrollen brukar dei eksisterande verifiserte konto- og tilgangsreglane.
+Nettverkstida kjem i tillegg til sjekkintervallet. Bakgrunnsappen pollar ikkje avspelingar.
+
+Kontroll 7. oktober 2026: ekte Jellyfin- og Emby-økter og cover vart viste på den lagra TV-profilen.
+Emby sitt automatiske episodebyte oppdaterte innhaldet medan popupen var open. Start, stopp,
+pause, byte av økt, nytt forsøk og stor skrift blir også kontrollerte på den isolerte testeininga.
+Skjermbilete med persondata ligg berre lokalt i den ignorerte byggmappa.

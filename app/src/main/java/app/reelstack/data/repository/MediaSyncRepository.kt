@@ -41,6 +41,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
 
+data class PlaybackRefreshResult(
+    val sessions: List<PlaybackSession>,
+    val unavailableSources: Set<ServiceKind>,
+)
+
 data class MediaSyncSnapshot(
     val sessions: List<PlaybackSession>,
     val recentMovies: List<LibraryMedia>,
@@ -119,8 +124,8 @@ class MediaSyncRepository(
     private class Identities(val key: List<String>, val accounts: Map<ServiceKind, app.reelstack.data.model.ServiceAccount>, val atMillis: Long)
 
     /**
-     * The accounts the last full refresh confirmed. The playback check runs every five seconds
-     * while something plays, and it used to load three profiles before each sessions call. The
+     * The accounts the last refresh confirmed. Frequent playback checks used to load three
+     * profiles before each sessions call. The
      * server still decides what each account may see; this only avoids asking who we are again.
      */
     @Volatile private var identities: Identities? = null
@@ -130,7 +135,15 @@ class MediaSyncRepository(
         .map { "${it.kind}|${it.identity}|${it.userId}|${it.token}" }.sorted()
 
     /** Refresh only playback, retaining the same server-verified visibility rules as a full sync. */
-    suspend fun refreshPlayback(connections: List<ServiceConnection>): List<PlaybackSession> = supervisorScope {
+    suspend fun refreshPlayback(
+        connections: List<ServiceConnection>,
+        sources: Set<ServiceKind> = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
+    ): List<PlaybackSession> = refreshPlaybackResult(connections, sources).sessions
+
+    suspend fun refreshPlaybackResult(
+        connections: List<ServiceConnection>,
+        sources: Set<ServiceKind> = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
+    ): PlaybackRefreshResult = supervisorScope {
         val configured = connections.filter { it.baseUrl.isNotBlank() && it.token.isNotBlank() }
         val key = identityKey(configured)
         val known = identities?.takeIf { it.key == key && clockMillis() - it.atMillis < IDENTITY_TTL_MILLIS }?.accounts
@@ -139,13 +152,17 @@ class MediaSyncRepository(
             .mapNotNull { it.await() }.toMap()
             .also { loaded -> if (loaded.size == key.size) identities = Identities(key, loaded, clockMillis()) }
         val access = ViewerAccess(configured.any { it.kind == ServiceKind.SEERR }, accounts)
-        configured.filter { it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY }
+        val results = configured.filter { it.kind in sources && it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }
             .map { connection -> async {
-                runCatching { mediaServerClient.sessions(connection, access).map { playbackSession(it, connection.kind) } }
+                connection.kind to runCatching { mediaServerClient.sessions(connection, access).map { playbackSession(it, connection.kind) } }
                     // A refused or failed call may mean the account changed: confirm it next time.
                     .onFailure { identities = null }
-                    .getOrDefault(emptyList())
-            } }.awaitAll().flatten().distinctBy { it.key }
+            } }.awaitAll()
+        val identityUnavailable = configured.any { it.kind in IDENTITY_SERVICES && accounts[it.kind] == null }
+        PlaybackRefreshResult(
+            sessions = results.flatMap { it.second.getOrDefault(emptyList()) }.distinctBy { it.key },
+            unavailableSources = results.filter { identityUnavailable || it.second.isFailure }.mapTo(mutableSetOf()) { it.first },
+        )
     }
 
     suspend fun refresh(

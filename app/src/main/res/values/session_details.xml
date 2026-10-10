@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="session_ended">Playback has ended</string>
+    <string name="session_ended_description">This device is no longer playing. New playback will appear automatically.</string>
+    <string name="session_update_unavailable">Unable to update playback</string>
+    <string name="session_update_retry">We will try again automatically.</string>
+</resources>
