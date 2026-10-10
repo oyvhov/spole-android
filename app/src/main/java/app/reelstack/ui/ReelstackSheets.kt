@@ -1513,23 +1513,18 @@ internal fun ConnectionEditorSheet(
                 }
             }
             val shownError = addressError ?: draft.error
-            OutlinedTextField(
+            // On a television the remote walks across this field on its way to the button; the
+            // keyboard opens when OK is pressed, not every time focus passes by (RemoteTextField).
+            app.reelstack.ui.components.RemoteTextField(
                 value = draft.url, onValueChange = { addressError = null; onUrlChange(it) },
-                label = { Text(stringResource(R.string.login_address)) }, placeholder = { Text(exampleAddress(draft.kind)) },
-                supportingText = { Text(shownError ?: stringResource(if (mediaServer) R.string.setup_manual_note else R.string.login_address_detail)) },
-                isError = shownError != null,
-                singleLine = true, shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
-                    autoCorrectEnabled = false,
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Next,
-                    // On a television the remote walks across this field on its way to the button;
-                    // the keyboard opens when OK is pressed, not every time focus passes by.
-                    showKeyboardOnFocus = !television,
-                ),
-                keyboardActions = KeyboardActions(onNext = { nextStep() }),
+                television = television, imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth().testTag("connection-url"),
+                label = stringResource(R.string.login_address), placeholder = exampleAddress(draft.kind),
+                supportingText = shownError ?: stringResource(if (mediaServer) R.string.setup_manual_note else R.string.login_address_detail),
+                isError = shownError != null,
+                keyboardType = KeyboardType.Uri, capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                autoCorrect = false, shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                onImeAction = { nextStep() },
             )
             // Material hides the placeholder until the field has focus, so the example that
             // people actually need has to live outside the field. Tapping it fills the field.
@@ -1585,13 +1580,13 @@ internal fun ConnectionEditorSheet(
                     if (user.hasPassword) runCatching { passwordFocus.requestFocus() }
                 }, firstFocus = stepTwoFocus)
             }
-            OutlinedTextField(
+            app.reelstack.ui.components.RemoteTextField(
                 value = draft.username, onValueChange = onUsernameChange,
-                label = { Text(stringResource(R.string.login_username)) }, enabled = !draft.saving, singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, showKeyboardOnFocus = !television),
-                keyboardActions = KeyboardActions(onNext = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }),
-                shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                television = television, imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                label = stringResource(R.string.login_username), enabled = !draft.saving,
+                shape = RoundedCornerShape(14.dp), colors = connectionFieldColors(),
+                onImeAction = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) },
             )
             OutlinedTextField(
                 value = draft.password, onValueChange = onPasswordChange,

@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
@@ -26,6 +28,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,8 +51,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import app.reelstack.R
 import app.reelstack.data.model.LibraryIcon
+import app.reelstack.data.model.shelfId
 import app.reelstack.data.model.touchMenu
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.shelfIcon
 import app.reelstack.ui.components.vector
 
 @Composable
@@ -77,6 +84,7 @@ internal fun AppNavigationRail(
     isKidMode: Boolean = false,
     modifier: Modifier = Modifier,
     compactTouch: Boolean = false,
+    smartShelves: List<app.reelstack.data.model.SmartShelf> = emptyList(),
 ) {
     if (compactTouch) {
         AppCompactTouchNavigation(selectedTab, onSelect, isKidMode, modifier)
@@ -93,7 +101,12 @@ internal fun AppNavigationRail(
     val brandInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Box(modifier.width(width).fillMaxHeight().clip(RoundedCornerShape(0.dp))
         .testTag("side-navigation").background(app.reelstack.ui.theme.Surface)) {
-        app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize(), menu = true)
+        // Where the controls end, measured from the rail's own top, so the season's scene starts below them.
+        var railTop by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+        var controlsEnd by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+        app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize()
+            .onGloballyPositioned { railTop = it.positionInWindow().y }, menu = true, menuClearAbove = { controlsEnd - railTop })
+        app.reelstack.ui.components.SeasonalIdleSpider(Modifier.matchParentSize())
         Column(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).requiredWidth(200.dp).fillMaxHeight()
             .onFocusChanged { if (tv) onFocusWithin(it.hasFocus) }
             .focusProperties { onEnter = { if (tv) selectedFocus.requestFocus() } }.focusGroup()
@@ -115,20 +128,42 @@ internal fun AppNavigationRail(
             }
             // Downloads have no television or kid-mode presentation, and join the menu only on request.
             val menu = app.reelstack.ui.theme.LocalPersonalization.current.touchMenu(television = tv, kidMode = isKidMode)
+            // During a season its shelf joins the library shortcuts, first among them. On a
+            // television this is the way in: Home there opens on artwork, not on the greeting.
+            val season = app.reelstack.ui.components.touchSeason()
+            val seasonId = season.takeIf { it != app.reelstack.data.model.Season.NONE }?.shelfId()
+            // Smart shelves the owner put in the menu, while their period runs; never the season's twice.
+            val shelfRows = smartShelves.filter { it.pathId != seasonId }
+            val pinned = shortcuts.map { it.first } + listOfNotNull(seasonId) + shelfRows.map { it.pathId }
             menu
                 .filterNot { isKidMode && it == AppTab.SETTINGS.name }
                 .mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
+                    if (item.tab == AppTab.SETTINGS && seasonId != null) NavigationControl(
+                        stringResource(if (season == app.reelstack.data.model.Season.CHRISTMAS) R.string.theme_season_christmas
+                            else R.string.theme_season_halloween),
+                        season.shelfIcon(), selectedLibraryId == seasonId,
+                        { onLibrarySelect(seasonId) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
+                            .then(if (selectedLibraryId == seasonId) Modifier.focusRequester(selectedFocus) else Modifier)
+                            .testTag("wide-season-$season"))
+                    if (item.tab == AppTab.SETTINGS) shelfRows.forEach { shelf ->
+                        NavigationControl(app.reelstack.ui.components.smartShelfName(shelf), shelf.icon.vector(),
+                            selectedLibraryId == shelf.pathId, { onLibrarySelect(shelf.pathId) }, labelAlpha, Role.Tab,
+                            Modifier.width(width - 24.dp)
+                                .then(if (selectedLibraryId == shelf.pathId) Modifier.focusRequester(selectedFocus) else Modifier)
+                                .testTag("wide-shelf-${shelf.id}"))
+                    }
                     if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
                         NavigationControl(name, (libraryIcons[id] ?: LibraryIcon.LIBRARY).vector(), selectedLibraryId == id,
                             { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
                                 .then(if (selectedLibraryId == id) Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-library-$id"))
                     }
                     NavigationControl(stringResource(item.label), item.icon, selectedTab == item.tab &&
-                        (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }),
+                        (item.tab != AppTab.LIBRARY || selectedLibraryId !in pinned),
                         { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
-                            .then(if (selectedTab == item.tab && (item.tab != AppTab.LIBRARY || shortcuts.none { it.first == selectedLibraryId }))
+                            .then(if (selectedTab == item.tab && (item.tab != AppTab.LIBRARY || selectedLibraryId !in pinned))
                                 Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-tab-${item.tab.name}"))
                 }
+            Spacer(Modifier.height(0.dp).onGloballyPositioned { controlsEnd = it.positionInWindow().y })
         }
     }
 }

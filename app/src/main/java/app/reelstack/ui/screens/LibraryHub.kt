@@ -35,6 +35,9 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     onTitle: (String) -> Unit, actions: MediaCardActions?, onRetry: () -> Unit,
     onCustomize: () -> Unit = {}, sourcePicker: @Composable () -> Unit = {}) {
     val options = LocalPersonalization.current
+    val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
+    val today = remember { java.time.LocalDate.now() }
+    val smartShelves = remember(state.smartShelves, today) { app.reelstack.data.model.libraryShelves(state.smartShelves, today) }
     val libraries = state.libraryEntries.filter { it.id !in options.libraryHidden }.sortedBy { options.libraryOrder.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
     val libraryIds = libraries.map { it.id }.toSet()
     val resume = state.resume.filter { state.configuredCount == 0 || it.source == state.librarySource }
@@ -97,6 +100,15 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
             }
         }
         sections.forEach { section ->
+        // The owner's smart shelves all year and the presets while they run. With none, the row
+        // is not there at all; a first shelf is made from «Tilpass biblioteksida».
+        if (section == app.reelstack.data.model.SMART_SHELVES_SECTION && shelfActions != null &&
+            state.libraryConnection != null && smartShelves.isNotEmpty()) item("smart-shelves") {
+            HubShelf(stringResource(R.string.smart_shelves_title)) {
+                app.reelstack.ui.components.SmartShelfRow(smartShelves, state.smartShelfPeeks, state.librarySource,
+                    onOpen = { shelfActions.open(it) }, onNew = { shelfActions.edit() })
+            }
+        }
         if (!leadingHero && section == "FEATURE" && large && featured.isNotEmpty()) item("feature") { hero() }
         if (section == "LIBRARY_NEXT" && nextItems.isNotEmpty()) item("next") {
             HubShelf(stringResource(R.string.library_next)) {

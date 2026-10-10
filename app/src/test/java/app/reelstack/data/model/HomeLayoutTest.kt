@@ -63,6 +63,36 @@ class HomeLayoutTest {
         assertNull(HomeLayout.decode("not json"))
     }
 
+    /** A shelf's row is keyed by its server and the shelf, and it arrives above the newest titles. */
+    @Test fun aShelfRowSurvivesStorageAndKeepsItsPlace() {
+        val row = HomeRowKey.shelfRow(ServiceKind.JELLYFIN, "halloween")
+        assertEquals("SMART_SHELF:JELLYFIN:halloween", row.id)
+        assertEquals(row, HomeRowKey.parse(row.id))
+        assertEquals(HomeRowKey.shelfRow(ServiceKind.EMBY, "u-1b"), HomeRowKey.parse("SMART_SHELF:EMBY:u-1b"))
+        assertNull(HomeRowKey.parse("SMART_SHELF"))
+        assertNull(HomeRowKey.parse("SMART_SHELF:JELLYFIN"))
+        assertNull(HomeRowKey.parse("SMART_SHELF:SEERR:halloween"))
+
+        val placed = HomeLayout.DEFAULT.withShelfRows(listOf(row))
+        assertEquals(HomeRowKind.NEW_MOVIES, placed.order[placed.order.indexOf(row) + 1].kind)
+        assertEquals(placed, placed.withShelfRows(listOf(row)))
+
+        // Moved, hidden and stored: both come back as they were left.
+        val moved = placed.moved(row, -1, placed.order).withVisible(row, false)
+        val back = HomeLayout.decode(moved.encode())!!
+        assertEquals(moved.order, back.order)
+        assertFalse(back.isVisible(row))
+        // A shelf that was deleted takes its rows with it.
+        assertTrue(back.withoutShelf("halloween").order.none { it.shelf != null })
+        assertEquals(HomeLayout.DEFAULT.order, back.withoutShelf("halloween").order)
+    }
+
+    @Test fun shelfRowsTakeNoLibraryChoice() {
+        assertFalse(HomeRowKind.SMART_SHELF.usesLibraries)
+        assertTrue(HomeLibraryChoice.decode("""{"SMART_SHELF":["a"]}""")!!.included.isEmpty())
+        assertTrue(HomeRowKind.SMART_SHELF !in HomeLibraryChoice.fromLibrarySelection(setOf("a")).included)
+    }
+
     @Test fun rowKeysRejectAServerOnAGlobalRowAndTheReverse() {
         assertEquals(embySeries, HomeRowKey.parse("NEW_SERIES:EMBY"))
         assertNull(HomeRowKey.parse("NEW_SERIES"))

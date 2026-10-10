@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.RequestHistoryState
 import app.reelstack.ui.TrackedRequestCard
+import app.reelstack.ui.components.steadyRemoteRows
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -30,9 +31,11 @@ fun RequestHistoryScreen(state: RequestHistoryState, onDetails: (String) -> Unit
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     // The same cell as Oppdag and Aktivitet. This grid had its own 160 dp, which on a 1080p set
     // came out as four columns whose captions fell off the bottom edge.
-    LazyVerticalGrid(columns = GridCells.Adaptive(posterCell()),
+    val grid = rememberLazyGridState()
+    LazyVerticalGrid(columns = GridCells.Adaptive(posterCell()), state = grid,
         contentPadding = PaddingValues(24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.fillMaxSize().testTag("request-history")) {
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        modifier = Modifier.fillMaxSize().steadyRemoteRows(grid).testTag("request-history")) {
         item(key = "heading", span = { GridItemSpan(maxLineSpan) }) {
             val count: @Composable () -> Unit = {
                 Text(if (state.total != null) pluralStringResource(R.plurals.history_count_total, state.total, state.items.size, state.total)

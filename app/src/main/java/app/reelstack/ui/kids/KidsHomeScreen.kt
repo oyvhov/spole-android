@@ -51,6 +51,7 @@ import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.cinematicBleed
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.steadyRemoteRows
 import app.reelstack.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -111,7 +112,7 @@ fun KidsHomeScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 if (loading) {
-                    androidx.compose.material3.CircularProgressIndicator(color = Color(world.glow))
+                    app.reelstack.ui.components.SeasonalSpinner(color = Color(world.glow))
                     Text(
                         "Finn fram historiene dine …",
                         Modifier.padding(24.dp),
@@ -153,9 +154,11 @@ fun KidsHomeScreen(
         else -> 116.dp
     }
 
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
-        modifier = modifier.fillMaxSize().testTag("kids-home"),
+        state = grid,
+        modifier = modifier.fillMaxSize().steadyRemoteRows(grid).testTag("kids-home"),
         contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),

@@ -68,6 +68,28 @@ class MediaRefinementTest {
         assertTrue(art.left >= page.left && art.right <= page.right)
     }
 
+    /**
+     * A focused card on television grows by six percent. The shelf used to start at the gutter and
+     * clip there, so the first card lost its left edge and the start of its title against the side
+     * menu. The shelf now reaches the page edge and pads its first card back to the gutter.
+     */
+    @Test fun theFirstCardHasRoomToGrowInsideItsShelf() {
+        var gutter = 0f
+        rule.setContent { DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(960.dp, 540.dp))) {
+            gutter = with(androidx.compose.ui.platform.LocalDensity.current) { app.reelstack.ui.theme.ReelLayout.Gutter.toPx() }
+            ReelstackTheme { HomeScreen(ReelstackUiState(connections = listOf(connection),
+                homeSections = setOf(HomeSection.JELLYFIN_SERIES), sessions = emptyList(), resume = emptyList(),
+                recentSeries = (1..3).map { LibraryMedia("item-$it", "Episode $it", "S01 E01", artworkRes = R.drawable.media_placeholder,
+                    source = ServiceKind.JELLYFIN, mediaType = "Episode") }), PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}) }
+        } }
+        rule.onNodeWithTag("library-rail").performScrollTo()
+        val page = rule.onNodeWithTag("home-feed").fetchSemanticsNode().boundsInRoot
+        val rail = rule.onNodeWithTag("library-rail").fetchSemanticsNode().boundsInRoot
+        val art = rule.onNodeWithTag("library-artwork-item-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals("The shelf reaches the page edge", page.left, rail.left, 1f)
+        assertTrue("The first card still starts at the gutter", art.left >= page.left + gutter - 1f)
+    }
+
     @Test fun failedResumeFeedHasExplanationInsteadOfDisappearing() {
         rule.setContent { ReelstackTheme { HomeScreen(ReelstackUiState(connections = listOf(connection),
             homeSections = setOf(HomeSection.CONTINUE_WATCHING), sessions = emptyList(), resume = emptyList(),

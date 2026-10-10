@@ -46,6 +46,9 @@ data class HomeUiState(
     val homeRowOrder: List<HomeRow> = HomeRow.entries,
     /** Every row per server, in order and with its switch: what Home actually renders. */
     val homeLayout: app.reelstack.data.model.HomeLayout = app.reelstack.data.model.HomeLayout.fromLegacy(homeRowOrder, homeSections, showNextUp = true),
+    /** The smart shelves with a row on Home, and the titles each row holds, keyed by the row's id. */
+    val smartShelves: List<app.reelstack.data.model.SmartShelf> = emptyList(),
+    val homeShelfMedia: Map<String, List<LibraryMedia>> = emptyMap(),
 ) {
     val configuredCount: Int get() = connections.count { it.baseUrl.isNotBlank() }
 }
@@ -77,6 +80,8 @@ fun ReelstackUiState.toHomeUiState(): HomeUiState = HomeUiState(
     homeSections = homeSections,
     homeRowOrder = homeRowOrder,
     homeLayout = effectiveHomeLayout,
+    smartShelves = smartShelves,
+    homeShelfMedia = homeShelfMedia,
 )
 
 /** Prefer a verified personal identity, never the owner represented by a shared API key. */

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme_season_calendar">Follow the calendar</string>
+    <string name="theme_season_calendar_hint">Halloween from 20 October to 1 November, Christmas from 1 December to 13 January. Your own colours the rest of the year.</string>
+    <string name="theme_season_calendar_now">%1$s is on until %2$s. Then your own colours come back.</string>
+    <string name="theme_season_date_pattern">d MMMM</string>
+    <string name="theme_decor">Decorations</string>
+    <string name="theme_decor_off">Off</string>
+    <string name="theme_decor_calm">A little</string>
+    <string name="theme_decor_full">A lot</string>
+    <string name="theme_decor_off_hint">Colours only. No figures and no greeting on Home.</string>
+    <string name="theme_decor_calm_hint">A hat or a ghost on the logo, the greeting on Home and a pumpkin or a snowflake on the player\'s timeline. Nothing moves.</string>
+    <string name="theme_decor_full_hint">Everything in «A little», plus snow or embers over the artwork, scenes in the menu and a spider that lets itself down when the remote is left alone.</string>
+    <plurals name="season_halloween_countdown">
+        <item quantity="one">%d day to Halloween.</item>
+        <item quantity="other">%d days to Halloween.</item>
+    </plurals>
+    <plurals name="season_christmas_countdown">
+        <item quantity="one">%d day to Christmas Eve.</item>
+        <item quantity="other">%d days to Christmas Eve.</item>
+    </plurals>
+    <string name="season_halloween_tonight">Halloween is tonight.</string>
+    <string name="season_christmas_today">It is Christmas Eve.</string>
+    <string name="season_open_halloween">Halloween in your library</string>
+    <string name="season_open_christmas">Christmas in your library</string>
+    <string name="egg_rewind">Rewinding …</string>
+</resources>

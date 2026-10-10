@@ -356,6 +356,15 @@ object SpoleIcons {
         moveTo(5.6f, 18.6f); lineTo(3.4f, 16.6f); lineTo(1.8f, 18.8f)
     }
 
+    /** Two crossing paths ending in arrows: a title chosen at random. */
+    val Shuffle = glyph("Shuffle") {
+        moveTo(3f, 7f); lineTo(6.5f, 7f); curveTo(11f, 7f, 13f, 17f, 17.5f, 17f); lineTo(20.5f, 17f)
+        moveTo(3f, 17f); lineTo(6.5f, 17f); curveTo(8.6f, 17f, 9.9f, 15.4f, 10.9f, 13.6f)
+        moveTo(13.1f, 10.4f); curveTo(14.1f, 8.6f, 15.4f, 7f, 17.5f, 7f); lineTo(20.5f, 7f)
+        moveTo(18f, 4.5f); lineTo(20.5f, 7f); lineTo(18f, 9.5f)
+        moveTo(18f, 14.5f); lineTo(20.5f, 17f); lineTo(18f, 19.5f)
+    }
+
     val Star = glyph("Star") {
         moveTo(12f, 3.5f); lineTo(14.6f, 9.1f); lineTo(20.5f, 9.9f)
         lineTo(16.2f, 14.1f); lineTo(17.3f, 20.2f); lineTo(12f, 17.3f)
@@ -490,6 +499,36 @@ object SpoleIcons {
     val ChevronDown = glyph("ChevronDown") { moveTo(6.5f, 9.5f); lineTo(12f, 15f); lineTo(17.5f, 9.5f) }
     val ChevronUp = glyph("ChevronUp") { moveTo(6.5f, 14.5f); lineTo(12f, 9f); lineTo(17.5f, 14.5f) }
     val ChevronRight = glyph("ChevronRight") { moveTo(9.5f, 5.5f); lineTo(15f, 12f); lineTo(9.5f, 18.5f) }
+
+    /** The Halloween shelf in the menu: a round body, two ribs and a curled stem, in the same ink. */
+    val Pumpkin = glyph("Pumpkin") {
+        moveTo(12f, 7f); quadTo(11.8f, 4.6f, 12.8f, 3.2f)
+        // The leaf is what makes it a pumpkin and not an onion at 24 dp.
+        moveTo(12.4f, 5.2f); quadTo(15.2f, 2.9f, 17.4f, 4.9f); quadTo(14.8f, 6.5f, 12.4f, 5.2f)
+        moveTo(12f, 7f); curveTo(17f, 6f, 21f, 8.5f, 21f, 13.5f)
+        curveTo(21f, 18.5f, 17f, 21f, 12f, 21f); curveTo(7f, 21f, 3f, 18.5f, 3f, 13.5f)
+        curveTo(3f, 8.5f, 7f, 6f, 12f, 7f); close()
+        moveTo(8.8f, 7.4f); quadTo(6.6f, 14f, 8.8f, 20.6f)
+        moveTo(15.2f, 7.4f); quadTo(17.4f, 14f, 15.2f, 20.6f)
+    }
+
+    /** The Christmas shelf: six arms, each with a small fork near its end. */
+    val Snowflake = glyph("Snowflake") {
+        repeat(6) { arm ->
+            val angle = Math.toRadians(arm * 60.0 - 90.0)
+            val dx = kotlin.math.cos(angle).toFloat()
+            val dy = kotlin.math.sin(angle).toFloat()
+            moveTo(12f, 12f); lineTo(12f + dx * 9f, 12f + dy * 9f)
+            val fork = 5.6f
+            val baseX = 12f + dx * fork
+            val baseY = 12f + dy * fork
+            for (side in listOf(-1f, 1f)) {
+                val turn = angle + side * Math.toRadians(40.0)
+                moveTo(baseX, baseY)
+                lineTo(baseX + kotlin.math.cos(turn).toFloat() * 3f, baseY + kotlin.math.sin(turn).toFloat() * 3f)
+            }
+        }
+    }
     val ArrowBack = glyph("ArrowBack") {
         moveTo(19f, 12f); lineTo(5f, 12f)
         moveTo(10.5f, 6.5f); lineTo(5f, 12f); lineTo(10.5f, 17.5f)

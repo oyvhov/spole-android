@@ -7,9 +7,19 @@ import org.junit.Test
 
 class LibraryPresentationTest {
     @Test fun `two old library sections migrate to the first position of one Next section`() {
-        assertEquals(listOf("FAVOURITES", "LIBRARY_NEXT", "FEATURE", "LIBRARIES"),
+        assertEquals(listOf("FAVOURITES", "LIBRARY_NEXT", "FEATURE", "SMART_SHELVES", "LIBRARIES"),
             libraryHubOrder(listOf("FAVOURITES", "NEXT", "FEATURE", "CONTINUE", "LIBRARIES")))
-        assertEquals(listOf("FEATURE", "LIBRARY_NEXT", "FAVOURITES", "LIBRARIES"), libraryHubOrder(emptyList()))
+        assertEquals(listOf("FEATURE", "LIBRARY_NEXT", "FAVOURITES", "SMART_SHELVES", "LIBRARIES"), libraryHubOrder(emptyList()))
+    }
+
+    /** A saved order from before smart shelves puts them above the library shelves; a moved row stays put. */
+    @Test fun `smart shelves join an old order above the library shelves`() {
+        assertEquals(listOf("SMART_SHELVES", "LIBRARIES", "FEATURE", "LIBRARY_NEXT", "FAVOURITES"),
+            libraryHubOrder(listOf("LIBRARIES", "FEATURE", "LIBRARY_NEXT", "FAVOURITES")))
+        assertEquals(listOf("SMART_SHELVES", "FEATURE", "LIBRARY_NEXT", "FAVOURITES", "LIBRARIES"),
+            libraryHubOrder(listOf("SMART_SHELVES", "FEATURE", "LIBRARY_NEXT", "FAVOURITES", "LIBRARIES")))
+        assertEquals(listOf("FEATURE", "SMART_SHELVES", "LIBRARIES", "LIBRARY_NEXT", "FAVOURITES"),
+            libraryHubOrder(listOf("FEATURE", "LIBRARIES", "LIBRARY_NEXT", "FAVOURITES")))
     }
 
     @Test fun `Next stays visible if one old section was visible and remembers new hiding`() {

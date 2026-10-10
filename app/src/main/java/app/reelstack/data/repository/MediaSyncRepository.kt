@@ -451,6 +451,11 @@ class MediaSyncRepository(
         List<LibraryMedia> =
         mediaServerClient.libraryPeek(connection, view).map { libraryMedia(it, connection.kind) }
 
+    /** The titles a smart shelf's rule gives on one server, mapped for a Home row. */
+    fun smartShelfMedia(connection: ServiceConnection, shelf: app.reelstack.data.model.SmartShelf, limit: Int,
+        cachedOnly: Boolean = false): List<LibraryMedia> =
+        mediaServerClient.smartShelf(connection, shelf, limit = limit, cachedOnly = cachedOnly).map { libraryMedia(it, connection.kind) }
+
     /** One library's own shelves, already mapped for the screen. */
     fun libraryShelves(connection: ServiceConnection, view: app.reelstack.data.network.RemoteLibraryView):
         Pair<List<LibraryMedia>, List<LibraryMedia>> {

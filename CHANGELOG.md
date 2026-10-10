@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.0.0-beta8 - roleg side for ei hylle og hyller som kjem fram med ein gong
+
+- Sida for ei hylle opnar på hylla sjølv: bakgrunnsbilete frå titlane, ei vifte av plakatar på breie skjermar, namnet, «Overrask meg» og «Endre». Toppen har ingen ekstra tekst; tala står på filteret.
+- Filter for filmar og seriar, sortering som blir lagra på hylla, «Skjul sette» og eit «Ny»-merke på titlar frå dei siste 14 dagane.
+- Hyller blir teikna med ein gong frå det siste svaret frå tenaren, og det ferske svaret tek over etterpå.
+- Ei ny hylle står på framsida med ein gong. Ei hylle frå ein mal startar på «Heile året», og byggjaren seier når ein seinare periode byrjar.
+- Raske trykk opp og ned på fjernkontrollen held kolonna i alle rutenett, også i biblioteket og barnemodus.
+- Biblioteksfiltera påverkar ikkje lenger hyllene, og ned frå ein brytar i Tilpass-radene går til knappane i same rad.
+
+## 1.0.0-beta7 - smarte hyller i biblioteket og på framsida
+
+- Smarte hyller: ein regel av stikkord og sjangrar frå tenaren, på tvers av alle bibliotek. «Eller» tek med alt som har eitt av dei, «Både stikkord og sjanger» berre titlar med begge.
+- Sida for ei hylle viser filmar og seriar kvar for seg, med mindre omslag enn biblioteket elles.
+- Byggjaren startar frå malar (Halloween, Jul, Julekalender, Påskekrim), tilbyr sjangrar og stikkord frå tenaren som brikker og viser kor mange titlar regelen gir.
+- Plassering per hylle: biblioteket, ei eiga rad på framsida per tenar og sidemenyen på TV og nettbrett. Rada på framsida kan flyttast, skjulast og få eige kortformat; raden «Smarte hyller» kan flyttast og skjulast på biblioteksida.
+- Malane kjem fram av seg sjølv i perioden sin, også på framsida.
+- Emby får sjangrar i byggjaren og biblioteksfilteret og forslag til stikkord, sjølv om Emby ikkje svarar på den vanlege filterlista.
+- På TV ventar tastaturet på OK i hyllebyggjaren og oppsettet av tenarar, og opp/ned går alltid ut av tekstfeltet.
+- Første kort i ei rad på framsida blir ikkje lenger skore av mot sidemenyen når «Rolege overgangar» er av.
+
+## 1.0.0-beta6 - sesongpynt i to nivå og Halloween i biblioteket
+
+- Sesongtema kan følgje kalenderen: Halloween frå 20. oktober til 1. november og jul frå 1. desember til 13. januar. Fargane du har valt sjølv, blir verande lagra og kjem tilbake etter sesongen.
+- Pynten har nivåa «Av», «Litt» og «Mykje». «Litt» gir logo, helsing og ein figur på tidslinja og i lastehjulet. «Mykje» legg til glør eller snø, scener og ein edderkopp i TV-menyen når fjernkontrollen ligg i ro.
+- Halloween får ei eiga side i biblioteket med titlar tenaren har merkt «halloween», og deretter skrekkfilmar. Barneprofilar får berre dei merkte titlane, og jul brukar «christmas». Inngangen er ei rad i TV-menyen og helsinga på Heim.
+- Knotten på tidslinja i spelaren er eit gresskar eller snøfnugg i sesongen, med same storleik og plass.
+- Små påskeegg: sju raske trykk på Spole-logoen, eller ↑↑↓↓←→←→ på fjernkontrollen.
+- Pyntescena i menyen legg seg ikkje lenger over Innstillingar når menyen er lang.
+
 ## 1.0.0-beta5 - avgrensa minnebruk og tryggare profilbyte
 
 - Kalender og filmutgjevingar bruker fire arbeidarar og projisert metadata med avgrensa minne- og diskcache.

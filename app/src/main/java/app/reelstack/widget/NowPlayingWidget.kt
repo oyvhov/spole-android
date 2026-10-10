@@ -14,6 +14,7 @@ import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.ViewerAccess
 import app.reelstack.data.network.RemotePlayback
+import app.reelstack.data.model.seasonal
 import app.reelstack.data.repository.AppPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -132,6 +133,7 @@ class NowPlayingWidget : AppWidgetProvider() {
      */
     private fun RemoteViews.applyTheme(context: Context) {
         val personalization = AppPreferencesRepository(context.applicationContext).personalization
+            .seasonal(java.time.LocalDate.now())
         val mood = personalization.visualTheme
         setInt(R.id.widget_plate, "setColorFilter", mood.surface.toInt())
         setTextColor(R.id.widget_primary, WIDGET_TEXT)

@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.ui.components.DiscoverSkeleton
 import app.reelstack.ui.components.SpoleIcons
+import app.reelstack.ui.components.steadyRemoteRows
 import app.reelstack.ui.state.GlobalSearchUiState
 import app.reelstack.ui.theme.ControlOutline
 import app.reelstack.ui.theme.Ink
@@ -157,6 +158,7 @@ fun GlobalSearchScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = Modifier.fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+                    .steadyRemoteRows(grid)
                     .testTag("global-search-results"),
             ) {
                 if (query.length < 2) {

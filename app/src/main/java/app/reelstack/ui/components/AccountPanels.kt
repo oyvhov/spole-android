@@ -124,7 +124,7 @@ private fun SettingsAccountPanel(state: ReelstackUiState, source: ServiceKind, c
                 // Every row in this card puts its action in the same place: trailing, on the row.
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (loading) {
-                        CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+                        SeasonalSpinner(Modifier.size(24.dp), color = Primary, strokeWidth = 2.dp)
                     } else {
                         ServiceSymbol(source, Modifier.size(24.dp))
                     }
@@ -215,7 +215,7 @@ fun RequestIdentity(state: ReelstackUiState, onSignIn: () -> Unit, compact: Bool
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (loading) {
-                        CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                        SeasonalSpinner(Modifier.size(20.dp), color = Primary, strokeWidth = 2.dp)
                     }
                     Text(
                         when {

@@ -22,10 +22,16 @@ enum class HomeRowKind(val perSource: Boolean) {
     RECOMMENDATIONS(false),
     RECENT_RELEASES(false),
     UPCOMING(false),
+
+    /**
+     * A smart shelf's titles, once per server and per shelf: «Halloween · Jellyfin». The shelf is
+     * part of the row's key, since the rows come and go with the shelves the reader has made.
+     */
+    SMART_SHELF(true),
     ;
 
     /** Whether the reader can choose which of a server's libraries feed this row. */
-    val usesLibraries: Boolean get() = perSource
+    val usesLibraries: Boolean get() = perSource && this != SMART_SHELF
 
     /**
      * Rows that cost requests and nothing else. Continue watching and next up are always read,
@@ -45,13 +51,24 @@ enum class HomeRowKind(val perSource: Boolean) {
 /** The media servers that get their own Home rows, in the order a new layout lists them. */
 val HOME_MEDIA_SOURCES: List<ServiceKind> = listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
 
-data class HomeRowKey(val kind: HomeRowKind, val source: ServiceKind? = null) {
+data class HomeRowKey(val kind: HomeRowKind, val source: ServiceKind? = null, val shelf: String? = null) {
     /** Stable across versions: stored in preferences and used as the per-row format key. */
-    val id: String get() = if (source == null) kind.name else "${kind.name}:${source.name}"
+    val id: String get() = when {
+        shelf != null -> "${kind.name}:${source?.name}:$shelf"
+        source == null -> kind.name
+        else -> "${kind.name}:${source.name}"
+    }
 
     companion object {
+        fun shelfRow(source: ServiceKind, shelfId: String) = HomeRowKey(HomeRowKind.SMART_SHELF, source, shelfId)
+
         fun parse(id: String): HomeRowKey? {
-            val kind = HomeRowKind.entries.firstOrNull { it.name == id.substringBefore(':') } ?: return null
+            if (id.startsWith("${HomeRowKind.SMART_SHELF.name}:")) {
+                val parts = id.split(':', limit = 3)
+                val source = HOME_MEDIA_SOURCES.firstOrNull { it.name == parts.getOrNull(1) } ?: return null
+                return parts.getOrNull(2)?.takeIf(String::isNotBlank)?.let { shelfRow(source, it) }
+            }
+            val kind = HomeRowKind.entries.firstOrNull { it.name == id.substringBefore(':') && it != HomeRowKind.SMART_SHELF } ?: return null
             val source = id.substringAfter(':', "").takeIf(String::isNotEmpty)
                 ?.let { name -> HOME_MEDIA_SOURCES.firstOrNull { it.name == name } ?: return null }
             return if (kind.perSource == (source != null)) HomeRowKey(kind, source) else null
@@ -85,6 +102,22 @@ fun homeRowFormat(formats: Map<String, String>, rowKey: String?): String? {
 data class HomeLayout(val order: List<HomeRowKey>, val hidden: Set<HomeRowKey> = emptySet()) {
 
     fun isVisible(key: HomeRowKey): Boolean = key !in hidden
+
+    /**
+     * Adds the rows of the shelves that have one now. A shelf seen for the first time comes in just
+     * above the newest titles, where a season's films belong, and keeps the place it is moved to;
+     * a row for a shelf that has none today stays in [order] and takes its place back with the shelf.
+     */
+    fun withShelfRows(rows: List<HomeRowKey>): HomeLayout {
+        val missing = rows.filterNot { it in order }
+        if (missing.isEmpty()) return this
+        val at = order.indexOfFirst { it.kind == HomeRowKind.NEW_MOVIES }.takeIf { it >= 0 } ?: order.size
+        return copy(order = order.take(at) + missing + order.drop(at))
+    }
+
+    /** Drops every row of one shelf, for a shelf that was deleted. */
+    fun withoutShelf(shelfId: String): HomeLayout =
+        copy(order = order.filterNot { it.shelf == shelfId }, hidden = hidden.filterNotTo(mutableSetOf()) { it.shelf == shelfId })
 
     fun withVisible(key: HomeRowKey, visible: Boolean): HomeLayout =
         copy(hidden = if (visible) hidden - key else hidden + key)
@@ -124,10 +157,14 @@ data class HomeLayout(val order: List<HomeRowKey>, val hidden: Set<HomeRowKey> =
 
         val DEFAULT = HomeLayout(ALL_KEYS)
 
-        /** Drops unknown rows, removes repeats and appends rows a newer version introduced. */
+        /**
+         * Drops unknown rows, removes repeats and appends rows a newer version introduced. A smart
+         * shelf's row is known by its shape: shelves are the reader's own, so no list can name them.
+         */
         fun normalized(order: List<HomeRowKey>, hidden: Set<HomeRowKey>): HomeLayout {
-            val known = order.distinct().filter { it in ALL_KEYS }
-            return HomeLayout(known + ALL_KEYS.filterNot { it in known }, hidden.filterTo(mutableSetOf()) { it in ALL_KEYS })
+            fun known(key: HomeRowKey) = key in ALL_KEYS || key.shelf != null
+            val kept = order.distinct().filter(::known)
+            return HomeLayout(kept + ALL_KEYS.filterNot { it in kept }, hidden.filterTo(mutableSetOf(), ::known))
         }
 
         fun decode(saved: String?): HomeLayout? = runCatching {

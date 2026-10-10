@@ -29,7 +29,12 @@ class AppContainer(context: Context) {
     )
     val preferencesRepository = AppPreferencesRepository(appContext)
     val calendarFollowStore = app.reelstack.data.repository.CalendarFollowStore(appContext)
-    val mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId, includeLibrary = preferencesRepository::includesLibrary)
+    /** Smart shelves' last answers, so a tile, a Home row or a shelf page is drawn at once. Cleared with the feed cache. */
+    val shelfAnswerCache = app.reelstack.data.network.FileShelfAnswerCache(java.io.File(appContext.cacheDir, "smart-shelves"))
+    val mediaServerClient = app.reelstack.data.network.MediaServerClient(deviceId = deviceId, includeLibrary = preferencesRepository::includesLibrary,
+        // Shelf questions read a whole catalogue; a Home row's nine seconds is too short for some servers.
+        patientTransport = app.reelstack.data.network.HttpTransport(connectTimeoutMs = 7_000, readTimeoutMs = 40_000),
+        shelfCache = shelfAnswerCache)
     // The repository formats dates; it should do so in the language the app is set to, which is not
     // always the device's.
     val mediaSyncRepository = MediaSyncRepository(
