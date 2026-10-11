@@ -20,8 +20,6 @@
     <string name="smart_shelf_rule_genres">Sjanger: %1$s</string>
     <string name="smart_shelf_rule_any">Stikkord: %1$s eller sjanger: %2$s</string>
     <string name="smart_shelf_rule_all">Stikkord: %1$s og sjanger: %2$s</string>
-    <string name="smart_shelf_short_any">%1$s eller %2$s</string>
-    <string name="smart_shelf_short_all">%1$s og %2$s</string>
     <string name="smart_shelf_rule_unwatched">Bare usett</string>
     <string name="smart_shelf_and">" og "</string>
     <plurals name="smart_shelf_movies_count">
@@ -42,12 +40,10 @@
     <string name="smart_shelf_genres">Sjangre</string>
     <string name="smart_shelf_no_genres">Serveren sendte ingen sjangre.</string>
     <string name="smart_shelf_tags">Stikkord</string>
-    <string name="smart_shelf_tags_hint">Stikkordene kommer fra TMDB via serveren, for eksempel «halloween» eller «christmas calendar». Ett av stikkordene er nok.</string>
     <string name="smart_shelf_tag_search">Søk i stikkord</string>
     <string name="smart_shelf_tag_suggestions">Forslag fra biblioteket ditt</string>
     <string name="smart_shelf_tag_add">Legg til «%1$s»</string>
     <string name="smart_shelf_no_tags">Ingen flere stikkord passer.</string>
-    <string name="smart_shelf_genres_hint">Én av sjangrene er nok. La alle være av for å bruke bare stikkord.</string>
     <string name="smart_shelf_match">Hva må en tittel ha?</string>
     <string name="smart_shelf_match_any">Stikkord eller sjanger</string>
     <string name="smart_shelf_match_all">Både stikkord og sjanger</string>
@@ -55,7 +51,6 @@
     <string name="smart_shelf_unwatched">Bare det du ikke har sett</string>
     <string name="smart_shelf_unwatched_hint">Titler du har sett ferdig, kommer ikke med på hylla.</string>
     <string name="smart_shelf_period">Når</string>
-    <string name="smart_shelf_period_hint">Med en periode kommer hylla i sidemenyen bare mens perioden varer: halloween fra 20. oktober til 1. november, jul fra 1. desember til 13. januar, advent fram til julaften og påske fra palmesøndag til 2. påskedag.</string>
     <string name="smart_shelf_place">Hvor skal hylla vises?</string>
     <string name="smart_shelf_in_library">I biblioteket</string>
     <string name="smart_shelf_in_library_hint">Hylla står som en flis under Smarte hyller på bibliotekssiden.</string>
@@ -103,4 +98,8 @@
     <string name="smart_sort_rating">Best vurdert</string>
     <string name="smart_shelf_period_waits">Perioden «%1$s» begynner %2$s. Inntil da står hylla bare i biblioteket.</string>
     <string name="smart_shelf_date_pattern">d. MMMM</string>
+    <string name="smart_shelf_see_all">Se alle</string>
+    <string name="smart_shelf_more_genres">Flere sjangere (%1$d)</string>
+    <string name="smart_shelf_short_date_pattern">d. MMM</string>
+    <string name="smart_shelf_period_range">%1$s · %2$s–%3$s</string>
 </resources>

@@ -20,8 +20,6 @@
     <string name="smart_shelf_rule_genres">Genre: %1$s</string>
     <string name="smart_shelf_rule_any">Tags: %1$s or genre: %2$s</string>
     <string name="smart_shelf_rule_all">Tags: %1$s and genre: %2$s</string>
-    <string name="smart_shelf_short_any">%1$s or %2$s</string>
-    <string name="smart_shelf_short_all">%1$s and %2$s</string>
     <string name="smart_shelf_rule_unwatched">Unwatched only</string>
     <string name="smart_shelf_and">" and "</string>
     <plurals name="smart_shelf_movies_count">
@@ -42,12 +40,10 @@
     <string name="smart_shelf_genres">Genres</string>
     <string name="smart_shelf_no_genres">The server sent no genres.</string>
     <string name="smart_shelf_tags">Tags</string>
-    <string name="smart_shelf_tags_hint">Tags come from TMDB through the server, for example «halloween» or «christmas calendar». One of the tags is enough.</string>
     <string name="smart_shelf_tag_search">Search tags</string>
     <string name="smart_shelf_tag_suggestions">Suggestions from your library</string>
     <string name="smart_shelf_tag_add">Add «%1$s»</string>
     <string name="smart_shelf_no_tags">No more tags match.</string>
-    <string name="smart_shelf_genres_hint">One of the genres is enough. Leave them all off to use tags only.</string>
     <string name="smart_shelf_match">What must a title have?</string>
     <string name="smart_shelf_match_any">A tag or a genre</string>
     <string name="smart_shelf_match_all">Both a tag and a genre</string>
@@ -55,7 +51,6 @@
     <string name="smart_shelf_unwatched">Only what you have not seen</string>
     <string name="smart_shelf_unwatched_hint">Titles you have finished are left off the shelf.</string>
     <string name="smart_shelf_period">When</string>
-    <string name="smart_shelf_period_hint">With a period, the shelf joins the side menu only while it runs: Halloween from 20 October to 1 November, Christmas from 1 December to 13 January, Advent until Christmas Eve and Easter from Palm Sunday to Easter Monday.</string>
     <string name="smart_shelf_place">Where should the shelf appear?</string>
     <string name="smart_shelf_in_library">In the library</string>
     <string name="smart_shelf_in_library_hint">The shelf is a tile under Smart shelves on the library page.</string>
@@ -103,4 +98,8 @@
     <string name="smart_sort_rating">Highest rated</string>
     <string name="smart_shelf_period_waits">The «%1$s» period starts on %2$s. Until then the shelf is only in the library.</string>
     <string name="smart_shelf_date_pattern">d MMMM</string>
+    <string name="smart_shelf_see_all">See all</string>
+    <string name="smart_shelf_more_genres">More genres (%1$d)</string>
+    <string name="smart_shelf_short_date_pattern">d MMM</string>
+    <string name="smart_shelf_period_range">%1$s · %2$s–%3$s</string>
 </resources>

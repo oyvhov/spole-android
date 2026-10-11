@@ -6,15 +6,12 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,7 +29,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -47,11 +43,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
+import app.reelstack.data.model.LibraryArtType
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.SmartShelf
 import app.reelstack.data.model.SmartShelfIcon
 import app.reelstack.data.model.SmartShelfKinds
 import app.reelstack.data.model.SmartShelfPeriod
+import app.reelstack.data.model.libraryArtworkUrl
+import app.reelstack.data.model.librarySizedArtwork
 import app.reelstack.data.network.RemoteLibraryItem
 import app.reelstack.ui.standardGenreResource
 
@@ -123,18 +122,6 @@ internal fun smartShelfPeriodLabel(period: SmartShelfPeriod): String = stringRes
     SmartShelfPeriod.EASTER -> R.string.smart_shelf_period_easter
 })
 
-/**
- * What a tile says under its name: the tags and genres, without the words around them. With both,
- * «eller» or «og» stays, since that decides what is on the shelf.
- */
-@Composable
-internal fun smartShelfShortRule(shelf: SmartShelf): String {
-    val genres = app.reelstack.data.model.distinctGenres(shelf.genres).map { genreLabel(it) }.distinct()
-    if (!shelf.combinesBoth) return (shelf.tags + genres).take(3).joinToString(" · ")
-    return stringResource(if (shelf.requiresBoth) R.string.smart_shelf_short_all else R.string.smart_shelf_short_any,
-        shelf.tags.take(2).joinToString(" · "), genres.take(2).joinToString(" · "))
-}
-
 /** The rule in one line: what it looks for, and what narrows it. */
 @Composable
 internal fun smartShelfRule(shelf: SmartShelf): String {
@@ -157,8 +144,8 @@ internal fun smartShelfRule(shelf: SmartShelf): String {
 /**
  * The library page's row of smart shelves, with a tile to make a new one at the end.
  *
- * A tile shows a few of the shelf's own posters fanned out over a wash of the accent colour, so a
- * shelf reads as what it holds rather than as a folder icon with a name under it.
+ * A tile is made of the shelf's own posters, so a shelf reads as what it holds rather than as a
+ * folder icon with a name under it.
  */
 @Composable
 internal fun SmartShelfRow(shelves: List<SmartShelf>, peeks: Map<String, List<RemoteLibraryItem>>, source: ServiceKind,
@@ -176,53 +163,51 @@ internal fun SmartShelfRow(shelves: List<SmartShelf>, peeks: Map<String, List<Re
 }
 
 @Composable
-private fun tileWidth() = if (isTelevision()) 232.dp else 196.dp
+private fun tileWidth() = if (isTelevision()) 240.dp else 220.dp
 
+/** How many posters stand side by side on a tile. Three portrait posters fill a two-to-one tile exactly. */
+private const val TILE_POSTERS = 3
+
+/**
+ * A tile is the shelf's own posters: three of them standing side by side fill it edge to edge, and
+ * the name stands on a shade along the bottom. Nothing else is written on it; the rule is in the
+ * builder. A slot without a poster keeps the accent's wash, so a shelf with no art still has a tile.
+ * The tile is two to one, and only grows for a name that needs two lines at a large text size.
+ */
 @Composable
 private fun SmartShelfTile(shelf: SmartShelf, items: List<RemoteLibraryItem>, source: ServiceKind, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(12.dp)
     val name = smartShelfName(shelf)
-    val accent = MaterialTheme.colorScheme.primary
+    val colors = MaterialTheme.colorScheme
     val scale = focusScale(focused, false)
-    Box(Modifier.width(tileWidth()).aspectRatio(1.55f)
+    val width = tileWidth()
+    val posters = items.mapNotNull { libraryArtworkUrl(it, LibraryArtType.POSTER) }.distinct().take(TILE_POSTERS)
+    Box(Modifier.width(width).heightIn(min = width / 2)
         .graphicsLayer { scaleX = scale; scaleY = scale }
         .clip(shape)
-        .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceVariant)))
+        .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceVariant)))
         .focusOutline(interaction, shape)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .semantics { contentDescription = name }
         .testTag("smart-shelf-${shelf.id}")) {
-        // The fan: up to three posters leaning out from the right edge, the nearest one upright.
-        val posters = items.mapNotNull { item ->
-            app.reelstack.data.model.libraryArtworkUrl(item, app.reelstack.data.model.LibraryArtType.POSTER)
-        }.take(3)
-        Box(Modifier.fillMaxHeight().fillMaxWidth(.52f).align(Alignment.CenterEnd)) {
-            posters.reversed().forEachIndexed { index, url ->
-                val depth = posters.size - 1 - index
-                Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight(.72f).aspectRatio(2f / 3f)
-                    .offset(x = (-8 - depth * 22).dp, y = (depth * 4).dp)
-                    .graphicsLayer { rotationZ = (depth - 1) * -7f + 4f }
-                    .shadow(8.dp, RoundedCornerShape(8.dp), clip = false)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surface)) {
-                    MediaArtwork(app.reelstack.data.model.librarySizedArtwork(url, 240), null, Modifier.fillMaxSize(), source = source)
-                }
+        Row(Modifier.matchParentSize()) {
+            posters.forEach { url ->
+                MediaArtwork(librarySizedArtwork(url, 240), null, Modifier.weight(1f).fillMaxHeight(), source = source)
             }
+            if (posters.size < TILE_POSTERS) Spacer(Modifier.weight((TILE_POSTERS - posters.size).toFloat()))
         }
-        // The name sits on a soft shade from the left, readable over any poster.
-        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-            0f to MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .94f), .55f to Color.Transparent)))
-        Column(Modifier.align(Alignment.BottomStart).padding(14.dp).fillMaxWidth(if (posters.isEmpty()) .9f else .5f),
-            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(Modifier.size(34.dp).background(accent.copy(alpha = .18f), CircleShape), contentAlignment = Alignment.Center) {
-                Icon(shelf.icon.vector(), null, Modifier.size(20.dp), tint = accent)
-            }
-            Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            // Two lines, so «eller» or «og» and the genre after it are not lost to the ellipsis.
-            Text(smartShelfShortRule(shelf), style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (posters.isEmpty()) Icon(shelf.icon.vector(), null, Modifier.align(Alignment.Center).size(36.dp),
+            tint = colors.onSurfaceVariant.copy(alpha = .5f))
+        // The shade rises from the bottom, so the name reads over any poster and the tops stay clear.
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+            0f to Color.Transparent, .4f to Color.Transparent, 1f to colors.background.copy(alpha = .94f))))
+        Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(shelf.icon.vector(), null, Modifier.size(18.dp), tint = colors.onSurface)
+            Text(name, style = MaterialTheme.typography.titleMedium, color = colors.onSurface, maxLines = 2,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).testTag("smart-shelf-name-${shelf.id}"))
         }
     }
 }

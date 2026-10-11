@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta10 - smarte hyller med meir plakat og mindre tekst
+
+- Flisa for ei hylle i biblioteket er tre plakatar som fyller henne kant til kant, med namnet på éi linje nedst. Undertittelen er borte.
+- Rada på framsida har hylleikonet framfor tittelen og sluttar i eit «Sjå alle»-kort i staden for ein knapp under rada.
+- På mobil står filteret, sorteringa og «Skjul sette» på hyllesida på éi rad som rullar sidelengs.
+- Byggjaren har mista forklaringsavsnitta. Periodane viser datoane sine i brikkene, og lange sjangerlister faldar seg bak «Fleire sjangrar».
+
 ## 1.0.0-beta9 - tettare mobilframside og tydelegare avspelingskort
 
 - Mindre luft mellom hero-prikkane og den første innhaldsrada på mobil. Dei andre radene held sin vanlege avstand, og karusellprikkane har framleis 48 dp treffflate.
