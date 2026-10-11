@@ -44,15 +44,50 @@ held same minimumshøgd som beta8. Treffflatene er framleis 48 dp. Ved 2.0 er kn
 metadata lesbare; lange radoverskrifter blir avkorta etter den eksisterande regelen.
 Skriftstorleiken vart sett tilbake til 1.0 etter kontrollen.
 
-TV-profilen 5564 med ekte kontoar blir halden på offentleg beta8 fram til den nye releasen er
-publisert, for å prøve den faktiske nedlastings- og installasjonsflyten gjennom appen.
+## Signert produksjonsartefakt
 
-## Signert produksjonsartefakt og offentleg oppdatering
+- Kjelde/tag: `6915bdfd07f6db86e03f33d72b31374053d86289`.
+  `SOURCE_COMMIT.txt` og APK-en sin `version-control-info.textproto` peikar på same commit.
+- `assembleRelease` etter kjeldefrys avslutta med `BUILD SUCCESSFUL`, kode 0.
+  Alle APK-oppføringar utanom commitmetadata og signeringsmetadata er byteidentiske med
+  det testa bygget; R8-mappinga er også identisk. Ingen runtime-endringar vart gjorde etter testane.
+- Universal-APK: 11 771 926 byte. `app.reelstack`, kode 146, `1.0.0-beta9`, minSdk 26,
+  targetSdk 36, ikkje debuggable, med arm64-v8a, armeabi-v7a, x86 og x86_64.
+- APK SHA-256: `41472e9689602e9655f6c2ad3b87c204fe20559cb89721a364a1b2f07e61e936`.
+- Sertifikat SHA-256: `36fa94f03494f326053bdcc3d7253994950652d282e6db681cc33270b5f51a10`.
+- R8-mapping: 95 384 656 byte, SHA-256
+  `7665f62740496be170ef2afc7d42ccefeb56430f4095f1556a0447eb2b6c8bb5`.
+- Dei fire `libffmpegJNI.so`-filene og begge FFmpeg-lisensane er byteidentiske med offentleg
+  beta8. Kjelde- og relenkingsarkivet frå same native-bygg er 30 790 595 byte, SHA-256
+  `2b7eeba9705de0fcff66d3a04f71a811d39a9299d70e1f65728a8a8809965b21`.
+- Den endelege arkiv-APK-en er installert med `install -r` på mobilprofilen 5560. Versjon 146
+  er stadfesta; første installasjonstid er framleis 15. september 2026, og demovalet, språket
+  og den lagra framsida er bevarte.
 
-APK, mapping og kjeldecommit blir arkiverte etter at kjelda er frose. Signatur, metadata,
-GitHub-digest, offentleg nedlasting og oppdatering frå beta8 blir dokumenterte her etter
-publisering. FFmpeg-koden er uendra; kjelde- og relenkingsarkivet frå det same native-bygget
-blir lagt ved releasen.
+## Offentleg release og oppdatering gjennom appen
+
+- [Beta9](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta9) er publisert som
+  prerelease, ikkje draft, med éin universal-APK og fem assets: APK, mapping, `SHA256SUMS.txt`,
+  `SOURCE_COMMIT.txt` og FFmpeg-kjeldearkivet. Stabil latest er ikkje endra.
+- Alle fem asset-storleikar og GitHub-digestar vart kontrollerte i kladden før publisering.
+  Den uautentiserte offentlege release-lista viser same APK-digest. Den offentleg nedlasta
+  APK-en er 11 771 926 byte og har same SHA-256 som den signerte arkivfila.
+- Den lagra TV-profilen 5564 vart halden på offentleg beta8 / kode 145 til publisering.
+  Innstillingar → Varsel og oppdatering → Appoppdateringar → Sjekk no fann beta9 og release-notata.
+  «Last ned oppdatering» gjekk vidare til «Installer oppdatering» etter appen sine kontrollar.
+  Android viste «Do you want to update this app?» og deretter «App installed.» etter «Update».
+- «Open» opna beta9 med ekte Jellyfin- og Emby-rader, lasta kunst og den lagra profilen.
+  Installert versjon er 146 / `1.0.0-beta9`; første installasjonstid er framleis
+  9. september 2026 kl. 20:50:58. Nynorsk, «Heile året», bakgrunn «Midnatt · djup blå» og lime
+  er bevarte. Tenestepanelet viser framleis Jellyfin og Emby som tilkopla.
+  «Sjekk automatisk» og «Testutgåver» er framleis på. Ingen appkrasj finst i TV-eininga sin
+  krasjbuffer etter oppdateringa.
+- Ingen aktiv avspeling vart vist ved denne sluttkontrollen. Start/stopp av ekte tenarøkter
+  vart difor ikkje prøvd på nytt; popup- og oppdateringslogikken er dekt av testane over.
+- GitHub [«Bygg og test»](https://github.com/oyvhov/spole-android/actions/runs/38098418326)
+  for releasecommit fullførte med `success`. Vanleg branch-bygg køyrde versjons- og språkkontroll,
+  einingstestar, lint og debug-bygg. Ingen ekstra manuell bygg-, instrumenterings- eller Jev-køyring
+  er starta. UI-testane i tabellen over vart køyrde lokalt på dei isolerte profilane.
 
 Detaljerte lokale loggar og skjermbilete ligg i den ignorerte byggmappa; kontoopplysningar blir
 ikkje publiserte.
