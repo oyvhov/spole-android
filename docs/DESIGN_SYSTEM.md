@@ -1,5 +1,16 @@
 # Spole design system
 
+## Overgangen frå mobilhero · 11. oktober 2026
+
+Karusellprikkane held 48 dp treffflate, men har ikkje ekstra botnluft etter treffflata.
+Den første innhaldsrada etter mobilheroen bruker `MobileHeroSectionTop` (8 dp). Tomme eller
+skjulte rader tek ikkje denne plassen. Seinare rader bruker den vanlege seksjonsavstanden.
+Ein einsleg hero utan prikkar held 18 dp under handlingane. Minimumshøgda på kunst og
+avstandane mellom tittel, metadata og knappar blir bevarte. Kunstfeltet held 450 dp minimum
+som den offentlege beta8; det er lufta under prikkane som blir redusert.
+Namn ved samanfalda TV-menyikon blir berre viste når appvindauget har fokus, slik at dei fell
+bort medan ein dialog eller installatøren er aktiv.
+
 ## Kort og TV-fokus · 8. oktober 2026
 
 - «Spelar no» bruker same kort på mobil og breie flater: eit heilt cover i ein førehandsreservert

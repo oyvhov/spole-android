@@ -1,5 +1,10 @@
 # Spole layout
 
+Mobilpresisering (11. oktober 2026): overgangen frå karusellprikkane til den første synlege
+innhaldsrada har 8 dp seksjonsluft, utan ekstra botnmarg frå heroen. Den 48 dp store treffflata
+til prikkane blir bevara. Seinare rader og breie flater held den vanlege avstanden. Eit valfritt
+søkefelt tek sin eigen plass, og tomme eller skjulte rader skal ikkje bruke opp det kompakte mellomrommet.
+
 Mobilpresisering (1. oktober 2026): telefonens titteldetaljar bruker eit fast
 96 %-ark med kunst heilt ut til kantane, tittel/serielogo på ein mørk overgang og
 sentrerte metadata. Lukkeknappen ligg fast over kunsten, utan generisk overskrift.

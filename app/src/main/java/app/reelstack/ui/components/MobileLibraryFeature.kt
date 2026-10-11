@@ -189,7 +189,7 @@ private fun MobileHeroPage(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = if (hasArtwork) 390.dp else 240.dp)
+            .heightIn(min = if (hasArtwork) 450.dp else 240.dp)
             .background(Ink)
             .clickable(
                 interactionSource = featureInteraction,

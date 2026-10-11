@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -57,10 +58,11 @@ internal fun NavigationControl(
     val focused by interaction.collectIsFocusedAsState()
     val television = app.reelstack.ui.components.isTelevision()
     val collapsed = labelAlpha < .05f
+    val windowActive = LocalWindowInfo.current.isWindowFocused
     var showFocusLabel by remember { mutableStateOf(false) }
-    LaunchedEffect(focused, collapsed, television) {
+    LaunchedEffect(focused, collapsed, television, windowActive) {
         showFocusLabel = false
-        if (focused && collapsed && television) {
+        if (focused && collapsed && television && windowActive) {
             kotlinx.coroutines.delay(220)
             showFocusLabel = true
         }
@@ -81,7 +83,7 @@ internal fun NavigationControl(
                 .requiredWidth(106.dp).graphicsLayer { alpha = labelAlpha }
                 .clearAndSetSemantics {})
     }
-    if (focused && collapsed && showFocusLabel) {
+    if (focused && collapsed && windowActive && showFocusLabel) {
         val offset = with(LocalDensity.current) { 64.dp.roundToPx() }
         Popup(alignment = Alignment.CenterStart, offset = IntOffset(offset, 0),
             properties = PopupProperties(focusable = false)) {

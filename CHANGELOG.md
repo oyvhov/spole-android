@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta9 - tettare mobilframside og tydelegare avspelingskort
+
+- Mindre luft mellom hero-prikkane og den første innhaldsrada på mobil. Dei andre radene held sin vanlege avstand, og karusellprikkane har framleis 48 dp treffflate.
+- «Spelar no» viser heile cover ved sida av teksten. Popupen har stabile bilde- og handlingsfelt, val mellom økter og lesbar vising med stor skrift.
+- Heim sjekkar Emby-avspelingar kvart tredje sekund, også når ingen spelar. Avspelingspopupen sjekkar begge tenestene kvart andre sekund. Nettverksfeil får nytt forsøk, og sein framsidelasting kan ikkje overskrive nyare økter.
+- Mindre toppfelt på TV, jamnare tittellinjer og ei kompakt «Neste»-rad i biblioteket på breie flater. Mobilbiletet held same minimumshøgd som i beta8.
+- Sesongførespurnader med same medie-ID deler cover i Aktivitet. Sesongveljaren viser kvar sin status; detaljar, varsel og tilbaketrekking gjeld den valde førespurnaden.
+- Rolegare TV-fokus og namn ved fokuserte ikon i ein samanfalda sidemeny.
+
 ## 1.0.0-beta8 - roleg side for ei hylle og hyller som kjem fram med ein gong
 
 - Sida for ei hylle opnar på hylla sjølv: bakgrunnsbilete frå titlane, ei vifte av plakatar på breie skjermar, namnet, «Overrask meg» og «Endre». Toppen har ingen ekstra tekst; tala står på filteret.
