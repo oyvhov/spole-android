@@ -96,3 +96,31 @@ installasjonstid er framleis 9. september 2026, og appen starta på Heim med ekt
   beta8-bileta etter at eit fjernkontrollskript gjekk feil; ingen var endra.
 - Mobilbreidd (412 dp) er prøvd i Android-testane over, ikkje på ein telefon. Skjermbilete ligg
   berre lokalt.
+
+## Offentleg release
+
+- Publisert som prerelease, ikkje draft, med nøyaktig éin universal-APK og fem assets:
+  https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta10 . Stabil latest er ikkje endra.
+- Kjelde/tag: `8c561659bf55158c8bc0b35df8b42cb1ea17294e`, ein fast-forward av `main` frå beta9.
+  `SOURCE_COMMIT.txt` peikar på same commit.
+- Alle fem asset-digestar og storleikar i kladden samsvarte med arkivfilene.
+- Den uautentiserte release-lista viser beta10 med `draft=false`, `prerelease=true` og APK-digest
+  `sha256:10d1eb68…4630`. Den offentleg nedlasta APK-en er 11 786 702 byte og har same SHA-256 som det
+  signerte bygget.
+- GitHub-kontrollen «Bygg og test» på `main` for `8c56165` fullførte med `success`.
+
+## Oppdatering gjennom appen
+
+- **Isolert TV-profil 5566**, først sett til den offisielle beta9-APK-en frå GitHub (same SHA-256 som
+  release-digesten, `install -r` over beta8):
+  - Ved opning varsla appen sjølv «Spole v1.0.0-beta10 er klar». «Sjå oppdatering» opna panelet med
+    `v1.0.0-beta10`, «Nedlasting · 11,2 MB» og dei offentlege release-notata.
+  - «Last ned oppdatering» → «Installer oppdatering» gjekk gjennom appen sine kontrollar. Android
+    spurde «Do you want to update this app?», og etter «Update» meldte han «App installed.» Play
+    Protect spurde ikkje.
+  - Installert pakke er `1.0.0-beta10` / kode 147, sist oppdatert 12. oktober 2026 kl. 01:03:27.
+    Første installasjonstid er framleis 19. september 2026 kl. 14:51:26.
+  - «Open» starta appen på Heim, og krasjloggen var tom.
+- Kontoar og preferansar over ein ekte oppdatering er kontrollerte på TV-profilen 5564 med `install -r`
+  (sjå over). Den har ekte Jellyfin- og Emby-kontoar.
+- Mobilprofilen 5560 er ikkje oppdatert; Play Protect stoppar installasjonen der (sjå beta7).
