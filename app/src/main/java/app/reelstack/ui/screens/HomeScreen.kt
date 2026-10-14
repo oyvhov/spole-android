@@ -1,6 +1,7 @@
 package app.reelstack.ui.screens
 
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.vector
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.playableNow
 
@@ -451,13 +452,12 @@ fun HomeScreen(
                       val sectionTop = nextSectionTop()
                       item(key = "smart-shelf-${row.id}") {
                         Column(Modifier.testTag("home-shelf-${row.id}")) {
+                            // The shelf's own icon marks the row as a shelf; the way into all of it is the row's last card.
                             MediaSectionTitle(app.reelstack.ui.components.smartShelfName(shelf), source,
-                                Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
-                            LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions)
-                            Box(Modifier.padding(top = 4.dp)) {
-                                app.reelstack.ui.components.AppNavigationChip(stringResource(R.string.design_browse_all),
-                                    "home-shelf-all-${row.id}") { shelfActions.open(shelf.id) }
-                            }
+                                Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom), leading = shelf.icon.vector())
+                            LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions,
+                                seeAll = RailSeeAll(stringResource(R.string.smart_shelf_see_all), shelf.icon.vector(),
+                                    "home-shelf-all-${row.id}") { shelfActions.open(shelf.id) })
                         }
                       }
                     }
@@ -651,11 +651,13 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modifier = Modifier) {
+internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modifier = Modifier,
+    leading: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     Row(verticalAlignment = Alignment.Bottom, modifier = modifier.fillMaxWidth().padding(end = mediaEndInset()).clearAndSetSemantics {
         heading()
         contentDescription = "$title · ${source.displayName}"
     }) {
+        if (leading != null) Icon(leading, null, Modifier.padding(end = 8.dp, bottom = 4.dp).size(20.dp), tint = Muted)
         // The trailing source mark and label identify the shelf without repeating the source
         // in its heading. Accessibility keeps both in the one spoken description above.
         Text(
@@ -811,7 +813,7 @@ private fun NowPlayingCard(
 
 @Composable
 internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, wide: Boolean, rowKey: String? = null, actions: MediaCardActions? = null,
-    libraryDisplay: app.reelstack.data.model.LibraryDisplay? = null) {
+    libraryDisplay: app.reelstack.data.model.LibraryDisplay? = null, seeAll: RailSeeAll? = null) {
     val chosenWide = if (libraryDisplay != null) when (libraryDisplay.artType) {
         app.reelstack.data.model.LibraryArtType.AUTO -> wide
         app.reelstack.data.model.LibraryArtType.POSTER -> false
@@ -836,6 +838,49 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
                 onClick = { onClick(media.id) },
             )
         }
+        if (seeAll != null) item(key = "see-all") { RailSeeAllCard(seeAll, chosenWide, libraryDisplay) }
+    }
+}
+
+/** The last card of a rail that stands for the rest of a shelf: what to call it, its mark, and where it goes. */
+internal class RailSeeAll(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tag: String, val onClick: () -> Unit)
+
+/** The width a rail's cards share, as the reader has sized artwork. */
+@Composable
+private fun railCardWidth(wide: Boolean, libraryDisplay: app.reelstack.data.model.LibraryDisplay?): androidx.compose.ui.unit.Dp {
+    val tablet = LocalTabletCanvas.current
+    return (if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }) *
+        app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale * (libraryDisplay?.size?.scale ?: 1f)
+}
+
+private fun railArtType(wide: Boolean, libraryDisplay: app.reelstack.data.model.LibraryDisplay?) =
+    libraryDisplay?.artType?.takeIf { it != app.reelstack.data.model.LibraryArtType.AUTO }
+        ?: if (wide) app.reelstack.data.model.LibraryArtType.THUMB else app.reelstack.data.model.LibraryArtType.POSTER
+
+/**
+ * A card in the frame of its neighbours, holding the shelf's mark instead of a poster, with the way
+ * into the whole shelf under it. A row then ends in itself, not in a button on a line of its own.
+ */
+@Composable
+private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: app.reelstack.data.model.LibraryDisplay?) {
+    val cardWidth = railCardWidth(wide, libraryDisplay)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val focused by interactionSource.collectIsFocusedAsState()
+    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
+    val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
+    Column(Modifier.width(cardWidth).zIndex(if (focused) 10f else 0f).graphicsLayer { scaleX = scale; scaleY = scale }
+        .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(),
+            role = Role.Button, onClick = seeAll.onClick)
+        .semantics { contentDescription = seeAll.label }.testTag(seeAll.tag)) {
+        Box(Modifier.fillMaxWidth().height(cardWidth / railArtType(wide, libraryDisplay).ratio).clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant).focusOutline(interactionSource, shape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(seeAll.icon, null, Modifier.size(28.dp), tint = TextColor)
+            }
+        }
+        Text(seeAll.label, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 19.sp,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 9.dp))
     }
 }
 
@@ -1095,11 +1140,8 @@ private fun MediaCardMenu(media: LibraryMedia, actions: MediaCardActions, open: 
 private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, revealDelay: Int, actions: MediaCardActions? = null,
     libraryDisplay: app.reelstack.data.model.LibraryDisplay? = null, onClick: () -> Unit) {
     var menuOpen by remember(media.id) { mutableStateOf(false) }
-    val tablet = LocalTabletCanvas.current
-    val cardWidth = (if (wide) { if (tablet) 292.dp else ReelLayout.EpisodeWidth } else { if (tablet) 158.dp else ReelLayout.PosterWidth }) *
-        app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale * (libraryDisplay?.size?.scale ?: 1f)
-    val artType = libraryDisplay?.artType?.takeIf { it != app.reelstack.data.model.LibraryArtType.AUTO }
-        ?: if (wide) app.reelstack.data.model.LibraryArtType.THUMB else app.reelstack.data.model.LibraryArtType.POSTER
+    val cardWidth = railCardWidth(wide, libraryDisplay)
+    val artType = railArtType(wide, libraryDisplay)
     val frameRatio = artType.ratio
     val artworkHeight = cardWidth / frameRatio
     val density = androidx.compose.ui.platform.LocalDensity.current

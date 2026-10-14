@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
@@ -210,23 +211,34 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
             }
         }
         if (entries.isNotEmpty()) item(key = "controls", span = { GridItemSpan(maxLineSpan) }) {
-            FlowRow(Modifier.fillMaxWidth().onSizeChanged { controlsHeight = it.height }
-                .then(topInView(1) { heroHeight + rowGap + controlsHeight }).testTag("smart-shelf-controls"), horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            val pills = buildList<@Composable () -> Unit> {
                 if (bothKinds) {
-                    ShelfPill(stringResource(R.string.smart_shelf_view_all), shownView == ShelfView.ALL, "smart-view-ALL",
-                        count = entries.size, role = Role.Tab) { view = ShelfView.ALL }
-                    ShelfPill(moviesTitle, shownView == ShelfView.MOVIES, "smart-view-MOVIES", leading = SpoleIcons.Movie,
-                        count = movies.size, role = Role.Tab) { view = ShelfView.MOVIES }
-                    ShelfPill(seriesTitle, shownView == ShelfView.SERIES, "smart-view-SERIES", leading = SpoleIcons.Screen,
-                        count = series.size, role = Role.Tab) { view = ShelfView.SERIES }
-                    Spacer(Modifier.width(8.dp))
+                    add { ShelfPill(stringResource(R.string.smart_shelf_view_all), shownView == ShelfView.ALL, "smart-view-ALL",
+                        count = entries.size, role = Role.Tab) { view = ShelfView.ALL } }
+                    add { ShelfPill(moviesTitle, shownView == ShelfView.MOVIES, "smart-view-MOVIES", leading = SpoleIcons.Movie,
+                        count = movies.size, role = Role.Tab) { view = ShelfView.MOVIES } }
+                    add { ShelfPill(seriesTitle, shownView == ShelfView.SERIES, "smart-view-SERIES", leading = SpoleIcons.Screen,
+                        count = series.size, role = Role.Tab) { view = ShelfView.SERIES } }
+                    add { Spacer(Modifier.width(8.dp)) }
                 }
-                ShelfPill(smartShelfSortLabel(shelf.sort), selected = false, tag = "smart-shelf-sort",
+                add { ShelfPill(smartShelfSortLabel(shelf.sort), selected = false, tag = "smart-shelf-sort",
                     leading = SpoleIcons.ListLines, trailing = SpoleIcons.ChevronDown, role = Role.Button,
-                    description = stringResource(R.string.smart_shelf_sort_title) + ": " + smartShelfSortLabel(shelf.sort)) { sortOpen = true }
-                if (anyWatched) ShelfPill(stringResource(R.string.smart_shelf_hide_watched), hideWatched, "smart-hide-watched",
-                    leading = if (hideWatched) SpoleIcons.EyeOff else SpoleIcons.Eye) { hideWatched = !hideWatched }
+                    description = stringResource(R.string.smart_shelf_sort_title) + ": " + smartShelfSortLabel(shelf.sort)) { sortOpen = true } }
+                if (anyWatched) add { ShelfPill(stringResource(R.string.smart_shelf_hide_watched), hideWatched, "smart-hide-watched",
+                    leading = if (hideWatched) SpoleIcons.EyeOff else SpoleIcons.Eye) { hideWatched = !hideWatched } }
+            }
+            val controls = Modifier.fillMaxWidth().onSizeChanged { controlsHeight = it.height }
+                .then(topInView(1) { heroHeight + rowGap + controlsHeight }).testTag("smart-shelf-controls")
+            // A phone has no room for five pills in a line, and two or three lines of them pushed the first covers
+            // down the page; one line that scrolls sideways, out to the edge, keeps the top short. The width is
+            // the page's own, so a narrow window on any device gets the line.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 640.dp) LazyRow(controls.cinematicBleed(gutter),
+                    contentPadding = PaddingValues(horizontal = gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(pills.size) { pills[it]() }
+                } else FlowRow(controls, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pills.forEach { it() }
+                }
             }
         }
         if (loading) items(12, key = { "skeleton-$it" }) {

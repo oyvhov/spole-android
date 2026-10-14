@@ -158,6 +158,17 @@ enum class SmartShelfPeriod {
         else -> generateSequence(date) { it.plusDays(1) }.take(400).firstOrNull(::isActive)
     }
 
+    /**
+     * The run that holds [date] or the next one to come, first day to last. Walked from [isActive], so
+     * the builder's dates can never drift from the calendar that decides them. Null for [ALWAYS].
+     */
+    fun run(date: LocalDate): ClosedRange<LocalDate>? {
+        val inRun = nextStart(date) ?: return null
+        val start = generateSequence(inRun) { it.minusDays(1) }.take(400).takeWhile(::isActive).last()
+        val end = generateSequence(inRun) { it.plusDays(1) }.take(400).takeWhile(::isActive).last()
+        return start..end
+    }
+
     fun isActive(date: LocalDate): Boolean = when (this) {
         ALWAYS -> true
         HALLOWEEN -> Season.onCalendar(date) == Season.HALLOWEEN

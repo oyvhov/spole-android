@@ -109,6 +109,31 @@ biblioteket, på framsida og i sidemenyen, kvar for seg. Halloween og jul er fer
   gongen, så ein knapp som blir halden inne, stoppar når han blir sleppt. Gjeld bibliotek, smarte
   hyller, søk, Oppdag, Aktivitet, førespurnadshistorikk og dei tre rutenetta i barnemodus.
 
+## Etter beta9 (11.–12. oktober): mindre tekst, meir plakat
+
+Tilbakemeldinga på beta8 var at flisene i biblioteket var tomme og teksten braut («Hallowee / n»),
+og at heile funksjonen hadde for mykje tekst. Fire stader er stramma inn, i same ånd:
+
+- **Flisa i biblioteket er plakatane.** Tre plakatar frå hylla står side om side og fyller flisa kant
+  til kant, i formatet 2:1 (220 dp brei på mobil, 240 på TV), som tre ståande plakatar fyller nøyaktig.
+  Namnet står på éi linje på ein mørk skugge nedst, med hylleikonet framfor, utan sirkel. Undertittelen
+  med regelen er borte; regelen står i byggjaren. Manglar plakatar, held aksentfargen plassen, og ei
+  hylle heilt utan bilete viser ikonet sitt midt på. Berre eit namn som treng to linjer med stor skrift,
+  gjer flisa høgare.
+- **Rada på framsida** har hylleikonet framfor tittelen, og «Bla i alt»-knappen under rada er borte.
+  I staden er siste kortet i rada eit «Sjå alle»-kort i same ramme som naboane, med ikonet, som opnar
+  hylla. Rada sluttar i seg sjølv, ikkje i ein knapp på ei eiga linje. `LibraryRail` tek eit slikt
+  sistekort (`RailSeeAll`) for den som treng det; dei andre radene er uendra.
+- **Sida for ei hylle på mobil:** dei fem brikkene (Alt, Filmar, Seriar, sortering, Skjul sette) braut
+  over to–tre rader på ein telefon. Under 640 dp står dei på éi rad som rullar sidelengs, ut i margen,
+  som biblioteksfiltera. På TV og breie skjermar bryt dei som før.
+- **Byggjaren** har mista forklaringsavsnitta under Sjangrar, Stikkord og Når. Periodane ber datoane
+  sine sjølve («Halloween · 20. okt.–1. nov.»), rekna frå same kalender som avgjer om perioden er i
+  gang (`SmartShelfPeriod.run`), så påska følgjer året. Sjangrane står med dei valde først; etter seksten
+  brikker kjem «Fleire sjangrar (N)», så fjernkontrollen slepp å gå gjennom førti brikker for å nå
+  Lagre. Lina «Gir minst 45 filmar og 18 seriar» øvst er behalden; ho er det levande i byggjaren.
+  Plasseringsbrytarane held undertekstane sine, og ikonvalet er som før.
+
 ## Emby
 
 - Emby er ei vanleg kjelde: hyller, sida for ei hylle, Home-rader og byggjaren verkar mot Emby òg,

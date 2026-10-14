@@ -284,10 +284,76 @@ class SmartShelvesTest {
                 emptyMap(), ServiceKind.JELLYFIN, onOpen = actions::open, onNew = { actions.edit() })
         } } }
         rule.onNodeWithText("Hundefilmar").assertIsDisplayed()
+        // The rule is not written on the tile; it is in the builder.
+        rule.onNodeWithText("dog").assertDoesNotExist()
         rule.onNodeWithTag("smart-shelf-halloween").performClick()
         assertEquals("halloween", actions.opened)
         rule.onNodeWithTag("smart-shelf-new").performScrollTo().performClick()
         assertEquals(null to null, actions.editing)
+    }
+
+    /**
+     * A tile is its posters: three of them fill it edge to edge, two to one, and the name is the only
+     * thing written on it, on one line across the whole width, at a phone's width as on a television.
+     */
+    @Test fun aTileIsItsPostersWithTheNameOnOneLine() {
+        var density = 1f
+        val peeks = List(4) { item("p$it", "Movie").copy(artworkUrl = "https://media.example/Items/p$it/Images/Primary?maxWidth=320") }
+        rule.setContent { DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(412.dp, 900.dp))) {
+            density = LocalDensity.current.density
+            ReelstackTheme { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                SmartShelfRow(listOf(SmartShelfPresets.halloween), mapOf(SmartShelfPresets.halloween.id to peeks),
+                    ServiceKind.JELLYFIN, onOpen = {}, onNew = {})
+            } }
+        } }
+        val tile = rule.onNodeWithTag("smart-shelf-halloween").fetchSemanticsNode().boundsInRoot
+        assertEquals("A tile is two to one", 2f, tile.width / tile.height, .05f)
+        // The tile is a button, which merges its text; the name is read from the unmerged tree.
+        val name = rule.onNodeWithTag("smart-shelf-name-halloween", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("The name is ${name.height / density} dp high: more than one line", name.height / density < 36f)
+        rule.onAllNodes(hasAnyAncestor(hasTestTag("smart-shelf-halloween")) and hasText("", substring = true), useUnmergedTree = true)
+            .assertCountEquals(1)
+    }
+
+    /** On a phone the page's choices stand on one line that scrolls, not two or three lines above the covers. */
+    @Test fun aPhoneKeepsTheChoicesOnOneLine() {
+        var density = 1f
+        val entries = listOf(item("m1", "Movie").copy(played = true), item("s1", "Series"), item("m2", "Movie"))
+        val state = ReelstackUiState(connections = listOf(connection), libraryPath = listOf(SmartShelfPresets.halloween.pathId to "Halloween"),
+            libraryEntries = entries)
+        rule.setContent { DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(412.dp, 900.dp))) {
+            density = LocalDensity.current.density
+            ReelstackTheme { CompositionLocalProvider(LocalSmartShelfActions provides Recorder()) { LibraryScreen(state, {}, {}, {}) } }
+        } }
+        val controls = rule.onNodeWithTag("smart-shelf-controls").fetchSemanticsNode().boundsInRoot
+        assertTrue("The choices are ${controls.height / density} dp high: more than one line", controls.height / density < 60f)
+        // The last choice is off the edge until the line is scrolled, which is what a line that scrolls is for.
+        rule.onNodeWithTag("smart-shelf-controls").performScrollToNode(hasTestTag("smart-hide-watched"))
+        rule.onNodeWithTag("smart-hide-watched").assertIsDisplayed()
+    }
+
+    /** Sixteen genres show at once; the rest wait behind «Fleire sjangrar», and the chosen ones lead. */
+    @Test fun aLongGenreListFoldsBehindMore() {
+        val genres = List(20) { "Genre%02d".format(it) }
+        val editor = SmartShelfEditor(SmartShelf("u-1", genres = listOf("Genre19")), isNew = false, facets = CatalogueFacets(genres = genres))
+        rule.setContent { ReelstackTheme { SmartShelfEditorDialog(editor, Recorder()) } }
+        rule.onNodeWithTag("smart-shelf-editor-list").performScrollToNode(hasTestTag("smart-genres-more"))
+        rule.onNodeWithTag("smart-genre-Genre19").assertExists()
+        rule.onNodeWithTag("smart-genre-Genre16").assertDoesNotExist()
+        rule.onNodeWithTag("smart-genres-more").performClick()
+        rule.onNodeWithTag("smart-shelf-editor-list").performScrollToNode(hasTestTag("smart-genre-Genre16"))
+        rule.onNodeWithTag("smart-genre-Genre16").assertExists()
+        rule.onNodeWithTag("smart-genres-more").assertDoesNotExist()
+    }
+
+    /** A period's chip carries its dates, so no paragraph has to explain when it runs. */
+    @Test fun aPeriodChipCarriesItsDates() {
+        rule.setContent { ReelstackTheme {
+            SmartShelfEditorDialog(SmartShelfEditor(SmartShelf("u-1", tags = listOf("dog")), isNew = false), Recorder())
+        } }
+        rule.onNodeWithTag("smart-shelf-editor-list").performScrollToNode(hasTestTag("smart-period-HALLOWEEN"))
+        rule.onNodeWithTag("smart-period-HALLOWEEN").assertTextContains("20", substring = true)
+        rule.onNodeWithTag("smart-period-ALWAYS").assert(noNumber)
     }
 
     /** A shelf on Home is a row per server, like «Nye filmar», with a way into the whole shelf. */

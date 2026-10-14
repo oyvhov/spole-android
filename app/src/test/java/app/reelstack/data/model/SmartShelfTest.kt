@@ -136,6 +136,20 @@ class SmartShelfTest {
         assertNull(SmartShelfPeriod.ALWAYS.nextStart(day(6, 1)))
     }
 
+    /** The builder writes a period's dates on its chip, so the run must be whole: start behind today when it is under way. */
+    @Test fun aPeriodKnowsItsWholeRun() {
+        val halloween = SmartShelfPeriod.HALLOWEEN.run(LocalDate.of(2026, 10, 9))!!
+        assertEquals(LocalDate.of(2026, 10, 20), halloween.start)
+        assertEquals(LocalDate.of(2026, 11, 1), halloween.endInclusive)
+        val midway = SmartShelfPeriod.CHRISTMAS.run(LocalDate.of(2026, 12, 25))!!
+        assertEquals(LocalDate.of(2026, 12, 1), midway.start)
+        assertEquals(LocalDate.of(2027, 1, 13), midway.endInclusive)
+        val easter = SmartShelfPeriod.EASTER.run(LocalDate.of(2027, 1, 1))!!
+        assertEquals(LocalDate.of(2027, 3, 21), easter.start)
+        assertEquals(LocalDate.of(2027, 3, 29), easter.endInclusive)
+        assertNull(SmartShelfPeriod.ALWAYS.run(LocalDate.of(2026, 10, 9)))
+    }
+
     @Test fun aChildsShelfLeavesHorrorOutButKeepsTheRest() {
         val shelf = SmartShelf("u-1", tags = listOf("halloween"), genres = listOf("Horror", "Skrekk", "Family"))
         assertEquals(listOf("Family"), shelf.forViewer(child = true).genres)

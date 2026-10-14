@@ -79,6 +79,9 @@ import app.reelstack.ui.components.windowLayoutPolicy
  * Tags people tend to want a shelf for. Only the ones the server actually has are offered, and only
  * until something is typed into the search; then the whole list is searched.
  */
+/** Genre chips shown before the rest fold behind «Fleire sjangrar». */
+private const val GENRES_SHOWN = 16
+
 private val SUGGESTED_TAGS = listOf("halloween", "christmas", "christmas calendar", "holiday", "santa claus", "easter",
     "summer", "winter", "snow", "friendship", "dog", "cat", "horse", "dinosaur", "superhero", "space", "time travel",
     "road trip", "heist", "based on novel or book", "based on true story", "musical", "sports", "ghost", "witch",
@@ -96,6 +99,7 @@ private val SUGGESTED_TAGS = listOf("halloween", "christmas", "christmas calenda
 @Composable
 internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShelfActions) {
     val draft = editor.draft
+    val today = remember { java.time.LocalDate.now() }
     val television = isTelevision()
     val policy = windowLayoutPolicy()
     val menuShortcuts = television || (policy.useNavigationRail && !policy.useCompactTouchRail)
@@ -181,9 +185,14 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                         }
                     }
                     item(key = "genres") {
-                        EditorSection(stringResource(R.string.smart_shelf_genres), stringResource(R.string.smart_shelf_genres_hint)) {
+                        EditorSection(stringResource(R.string.smart_shelf_genres)) {
                             // The server's own spelling first; a preset's other spelling of the same genre is not a second chip.
+                            // The chosen ones lead, and a long catalogue folds the rest behind «Fleire sjangrar», so a
+                            // remote is not walked through forty chips to reach the save button.
                             val genres = app.reelstack.data.model.distinctGenres(editor.facets.genres + draft.genres)
+                                .sortedBy { genre -> if (draft.genres.any { app.reelstack.data.model.sameGenre(it, genre) }) 0 else 1 }
+                            var allGenres by remember { mutableStateOf(false) }
+                            val shown = if (allGenres || genres.size <= GENRES_SHOWN) genres else genres.take(GENRES_SHOWN)
                             if (editor.facetsFailed) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 // A server that did not answer is not a server with no genres: say so, and let it be asked again.
                                 Text(stringResource(R.string.smart_shelf_facets_failed), style = MaterialTheme.typography.bodyMedium,
@@ -198,18 +207,20 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                             else if (genres.isEmpty() && !editor.facetsFailed) Text(stringResource(R.string.smart_shelf_no_genres),
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                genres.forEach { genre ->
+                                shown.forEach { genre ->
                                     val chosen = draft.genres.any { app.reelstack.data.model.sameGenre(it, genre) }
                                     ShelfChip(genreLabel(genre), selected = chosen, tag = "smart-genre-$genre") {
                                         update(draft.copy(genres = if (chosen) draft.genres.filterNot { app.reelstack.data.model.sameGenre(it, genre) }
                                             else draft.genres + genre))
                                     }
                                 }
+                                if (shown.size < genres.size) ShelfChip(stringResource(R.string.smart_shelf_more_genres, genres.size - shown.size),
+                                    selected = false, leading = SpoleIcons.Add, tag = "smart-genres-more") { allGenres = true }
                             }
                         }
                     }
                     item(key = "tags") {
-                        EditorSection(stringResource(R.string.smart_shelf_tags), stringResource(R.string.smart_shelf_tags_hint)) {
+                        EditorSection(stringResource(R.string.smart_shelf_tags)) {
                             if (draft.tags.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 draft.tags.forEach { tag ->
@@ -265,10 +276,17 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                             draft.unwatched, "smart-shelf-unwatched") { update(draft.copy(unwatched = it)) }
                     }
                     item(key = "period") {
-                        EditorSection(stringResource(R.string.smart_shelf_period), stringResource(R.string.smart_shelf_period_hint)) {
+                        EditorSection(stringResource(R.string.smart_shelf_period)) {
+                            // Each period carries its own dates, this year's or the next run's, in place of a paragraph about them.
+                            val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+                            val pattern = stringResource(R.string.smart_shelf_short_date_pattern)
+                            val dates = remember(pattern, locale) { java.time.format.DateTimeFormatter.ofPattern(pattern, locale) }
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 SmartShelfPeriod.entries.forEach { period ->
-                                    ShelfChip(smartShelfPeriodLabel(period), selected = draft.period == period, role = Role.RadioButton,
+                                    val run = period.run(today)
+                                    val label = if (run == null) smartShelfPeriodLabel(period) else stringResource(R.string.smart_shelf_period_range,
+                                        smartShelfPeriodLabel(period), run.start.format(dates), run.endInclusive.format(dates))
+                                    ShelfChip(label, selected = draft.period == period, role = Role.RadioButton,
                                         tag = "smart-period-${period.name}") { update(draft.copy(period = period)) }
                                 }
                             }
@@ -284,7 +302,6 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                             if (menuShortcuts) SettingsToggleRow(stringResource(R.string.smart_shelf_in_menu), stringResource(R.string.smart_shelf_in_menu_hint),
                                 draft.inMenu, "smart-shelf-in-menu") { update(draft.copy(inMenu = it)) }
                             // A period that has not begun keeps the shelf off Home and the menu; say until when.
-                            val today = remember { java.time.LocalDate.now() }
                             val waitsFor = draft.period.takeIf { (draft.onHome || draft.inMenu) && !it.isActive(today) }?.nextStart(today)
                             if (waitsFor != null) {
                                 val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
