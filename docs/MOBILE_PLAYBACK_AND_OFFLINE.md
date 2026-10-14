@@ -51,7 +51,7 @@ Dei faktisk lagra og visuelt kontrollerte skjermbileta ligg lokalt i
 `app/build/player-improvements-touch-area-build.log`. Mellombels justering av lagringsgrensa
 på testeininga vart sett tilbake; ingen AVD vart nullstilt eller appdata sletta.
 Synk mellom to ekte einingar/kontoar og fysisk nettbrett er ikkje prøvd i denne kontrollen.
-Ingen versjonsauke eller publisert APK-release.
+Denne første kontrollen vart gjord lokalt, før versjonsauke og publisering.
 
 Etter ikonbytet vart debug-app og testpakke bygde på nytt, og 25 av 25 testar i
 `PlayerSeekLayoutTest` og `TvPlaybackControlsTest` bestod på same isolerte testeining.
@@ -72,6 +72,10 @@ Visuelt kontrollerte skjermbilete ligg i `app/build/player-review/side-controls-
 `app/build/player-review/side-controls-tablet-portrait-font2.png`. Endelege loggar er
 `app/build/player-touch-visual-build.log` og `app/build/player-touch-visual-android.log`
 (`OK (25 tests)`).
+
+Utgjeve 14. oktober 2026 som `1.0.0-beta11`, versjonskode 148. Sjå
+[releaseverifiseringa](VERIFICATION_v1.0.0-beta11.md) for fullt bygg, testtal, signatur,
+offentleg APK og den faktiske oppdateringa gjennom appen på den lagra TV-profilen.
 
 ## Offline-reglar
 
