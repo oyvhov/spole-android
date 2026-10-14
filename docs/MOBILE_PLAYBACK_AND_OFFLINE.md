@@ -31,7 +31,7 @@ skjult bakgrunnsavspeling.
 
 ## Kontroll 13.–14. oktober 2026
 
-980 av 980 einingstestar og 52 av 52 relevante Android-testar bestod. Debug-appen og testpakken
+Den første JVM-køyringa omfatta 980 testar med 0 feil; 52 av 52 relevante Android-testar bestod. Debug-appen og testpakken
 bygde; lint hadde 0 feil, 194 åtvaringar og 1 hint. `git diff --check` var rein.
 Android-testane køyrde på den eksisterande `Spole_Instrumentation` (5562, API 36), med syntetiske
 kontoar og loopback-video frå Jellyfin-/Emby-fixturar. Dei innlogga review-profilane vart ikkje endra.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-beta11 - enklare spoling og betre episodeframdrift
+
+- Dobbeltrykk på store sideflater av videoen for å hoppe 10 sekund bakover eller framover på mobil og nettbrett. Nye trykk blir tekne imot også medan hoppet bufrar.
+- Reine spolingsikon på kvar side av videoen og ein diskret visuell puls. Gestvisinga har ingen forklaringstekst eller ekstra boksar.
+- Tidslinja fyller breidda. Nettbrett har eit 64 dp stort dragområde, større handtak og tydelegare tidsmerke i begge retningar.
+- Pause og bakgrunn lagrar framdrift, også under bufring. Ein pausa spelar sender ikkje same posisjon kvart tiande sekund.
+- Fersk framdrift frå tenaren erstattar eldre, stadfesta lokale posisjonar. Heim oppdaterer «Sjå vidare» og neste episode når ei økt startar, pausar, stoppar eller byter episode.
+
 ## 1.0.0-beta10 - smarte hyller med meir plakat og mindre tekst
 
 - Flisa for ei hylle i biblioteket er tre plakatar som fyller henne kant til kant, med namnet på éi linje nedst. Undertittelen er borte.
