@@ -20,7 +20,8 @@ class LocalPlaybackStore(context: Context) {
 
     @Synchronized fun record(c: ServiceConnection, item: PlayableItem, position: Long, duration: Long, completed: Boolean): String? {
         if (c.token.isBlank() || item.id.isBlank() || duration <= 0) return null
-        if (!completed && position < minimumResumePositionMs) return null
+        // A first start is invisible, but a rewind to the beginning must replace older progress.
+        if (!completed && position < minimumResumePositionMs && entries(c).none { it.text("id") == item.id }) return null
         val now = System.currentTimeMillis()
         val journalId = java.util.UUID.randomUUID().toString()
         val entry = buildJsonObject {
@@ -57,20 +58,22 @@ class LocalPlaybackStore(context: Context) {
             .mapNotNull { it as? JsonObject }.filter { it.number("updated") >= cutoff } }.getOrDefault(emptyList())
     }
 
-    fun resume(c: ServiceConnection, item: PlayableItem): PlayableItem {
+    fun resume(c: ServiceConnection, item: PlayableItem, fromServer: Boolean = false): PlayableItem {
+        if (fromServer) retireConfirmed(c, item.id)
         val row = entries(c).firstOrNull { it.text("id") == item.id } ?: return item
         if ((item.lastPlayedEpochMillis ?: 0) > row.number("updated")) return item
         return item.copy(resumeMs = if (row.done()) 0 else row.number("position"), played = row.done())
     }
 
-    fun merge(c: ServiceConnection, server: List<LibraryMedia>): List<LibraryMedia> {
+    fun merge(c: ServiceConnection, server: List<LibraryMedia>, fromServer: Boolean = false): List<LibraryMedia> {
+        if (fromServer) retireConfirmed(c)
         val result = server.toMutableList()
         for (row in entries(c)) {
             val id = "${c.kind.name.lowercase(java.util.Locale.ROOT)}-${row.text("id")}"
             val existing = result.firstOrNull { it.source == c.kind && it.id == id }
             if ((existing?.lastActivityEpochMillis ?: 0) > row.number("updated")) continue
             result.removeAll { it.source == c.kind && it.id == id }
-            if (row.done() || row.number("position") <= 0) continue
+            if (row.done() || row.number("position") < minimumResumePositionMs) continue
             val media = existing ?: LibraryMedia(id, row.text("title").orEmpty(), row.text("subtitle").orEmpty(),
                 artworkRes = R.drawable.media_placeholder, source = c.kind, remoteId = row.text("id"),
                 artworkUrl = row.text("art"), logoUrl = row.text("logo"), mediaType = row.text("type").orEmpty(),
@@ -82,13 +85,25 @@ class LocalPlaybackStore(context: Context) {
         return result.sortedByDescending { it.lastActivityEpochMillis ?: Long.MIN_VALUE }
     }
 
-    fun nextUp(c: ServiceConnection, server: List<LibraryMedia>): List<LibraryMedia> {
+    fun nextUp(c: ServiceConnection, server: List<LibraryMedia>, fromServer: Boolean = false): List<LibraryMedia> {
+        if (fromServer) retireConfirmed(c)
         val recent = entries(c).associateBy { "${c.kind.name.lowercase(java.util.Locale.ROOT)}-${it.text("id")}" }
         return server.filter { item ->
             val row = recent[item.id]
             item.source != c.kind || row == null || (item.lastActivityEpochMillis ?: 0) > row.number("updated") ||
                 row.text("serverConfirmed") == "true" && row.number("position") == 0L && !row.done()
         }
+    }
+
+    /** Acknowledged records bridge cache/latency only until the next successful server read.
+     * LastPlayedDate and device clocks cannot reliably order a seek from another device.
+     * Retiring the record also prevents later cache merges from reviving the old position. */
+    @Synchronized private fun retireConfirmed(c: ServiceConnection, itemId: String? = null) {
+        val rows = entries(c)
+        val pending = rows.filterNot { it.text("serverConfirmed") == "true" && (itemId == null || it.text("id") == itemId) }
+        if (pending.size == rows.size) return
+        prefs.edit().putString(key(c), JsonArray(pending).toString()).apply()
+        revision.value++
     }
 
     @Synchronized fun clear() { prefs.edit().clear().apply(); revision.value++ }

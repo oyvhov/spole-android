@@ -4,6 +4,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WindowLayoutPolicyTest {
+    @Test fun playerTimelineGrowsOnTabletsInBothOrientations() {
+        assertTrue(WindowLayoutPolicy(1280f, 800f).useLargePlayerTimeline)
+        assertTrue(WindowLayoutPolicy(800f, 1280f).useLargePlayerTimeline)
+        assertTrue(WindowLayoutPolicy(600f, 960f).useLargePlayerTimeline)
+        assertFalse(WindowLayoutPolicy(892f, 412f).useLargePlayerTimeline)
+        assertFalse(WindowLayoutPolicy(412f, 892f).useLargePlayerTimeline)
+    }
     @Test fun shortTouchWindowsUseCompactRail() {
         assertTrue(WindowLayoutPolicy(892f, 412f).useCompactTouchRail)
         assertTrue(WindowLayoutPolicy(1100f, 480f).useCompactTouchRail)

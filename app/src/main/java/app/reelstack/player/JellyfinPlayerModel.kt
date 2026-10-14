@@ -216,11 +216,12 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         addListener(object : Player.Listener {
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 mutable.update { it.copy(playWhenReady = playWhenReady) }
+                // Pausing during buffering does not change isPlaying, but still needs saving.
+                if (started) report("/Progress")
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 mutable.update { it.copy(playing = isPlaying) }
                 if (isPlaying && !started) { started = true; report("") }
-                else if (started) report("/Progress")
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 bufferingSince = if (playbackState == Player.STATE_BUFFERING) android.os.SystemClock.elapsedRealtime() else 0L
@@ -428,7 +429,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         reporter.launch {
             for (event in reports) {
                 val failed = runCatching { client.report(event.connection, event.plan, event.event, event.position, event.paused) }.isFailure
-                if (!failed && event.journalId != null && (event.event == "/Stopped" ||
+                if (!failed && event.journalId != null && (event.paused || event.event == "/Stopped" ||
                         playbackNearEnd(event.position, event.plan.item.durationMs))) {
                     runCatching { client.resumeState(event.connection, event.plan.item.id) }.getOrNull()?.let { (position, played) ->
                         container.localPlaybackStore.confirm(event.connection, event.plan.item.id, event.journalId, position, played)
@@ -489,7 +490,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 }
                 if (plan != null) mutable.update { it.copy(positionMs = player.currentPosition.coerceAtLeast(0)) }
                 startNextEpisodeCountdown()
-                if (++ticks % 10 == 0 && started) report("/Progress")
+                // A paused screen must not keep writing an old position over another device.
+                if (++ticks % 10 == 0 && started && foreground && player.playWhenReady) report("/Progress")
             }
         }
     }
@@ -571,7 +573,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 }
                 connection = result.first.first; seerrConnection = result.first.second; userId = result.first.third
                 check(sameAccount())
-                choose(container.localPlaybackStore.resume(result.first.first, result.second))
+                choose(container.localPlaybackStore.resume(result.first.first, result.second, fromServer = true))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=open type=${error.javaClass.simpleName}")
@@ -893,7 +895,12 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         }
         player.seekTo(target)
     }
-    fun background() { foreground = false; countdownJob?.cancel(); player.pause(); if (started) report("/Progress") }
+    fun background() {
+        val wasPlaying = player.playWhenReady
+        foreground = false; countdownJob?.cancel(); player.pause()
+        // Save synchronously before onStop returns; Media3 dispatches its pause listener later.
+        if (started && wasPlaying) report("/Progress")
+    }
     fun foreground() { if (!ensureSession()) return; foreground = true; if (state.value.ended) startNextEpisodeCountdown() }
     fun fallbackUrl(): String? = if (ensureSession()) connection?.let { safePlaybackUrl(it.baseUrl, "web/index.html") + "#!/details?id=${enc(selected?.id ?: rootId)}" } else null
 
@@ -913,7 +920,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         } else if (!started) return
         val journalId = if (started) container.localPlaybackStore.record(c, current.item, player.currentPosition.coerceAtLeast(0),
             player.duration.takeIf { it > 0 } ?: current.item.durationMs, player.playbackState == Player.STATE_ENDED) else null
-        reports.trySend(Report(c, current, event, player.currentPosition.coerceAtLeast(0), !player.isPlaying, journalId))
+        reports.trySend(Report(c, current, event, player.currentPosition.coerceAtLeast(0), !player.playWhenReady, journalId))
     }
     private fun stopCurrent() {
         recoveryJob?.cancel(); recoveryJob = null

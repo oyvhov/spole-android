@@ -119,7 +119,8 @@ internal class HomeFeedCoordinator(
 
     suspend fun refreshPlayback(sources: Set<ServiceKind> = MEDIA_SERVERS) = playbackLock.withLock {
         val owner = container.connectionRepository.captureSession()
-        val connections = readState().connections
+        val before = readState()
+        val connections = before.connections
         val requested = sources.intersect(MEDIA_SERVERS)
         if (connections.none { it.token.isNotBlank() && it.kind in requested }) return@withLock
         val result = withContext(Dispatchers.IO) {
@@ -136,21 +137,28 @@ internal class HomeFeedCoordinator(
                 )
             }
         }
+        // Session polling/push used to update only "Playing now". Other devices' stops and
+        // episode changes must also update Continue Watching and Next up while Home stays open.
+        val current = readState()
+        if (container.connectionRepository.isCurrent(owner) && current.connections == connections &&
+            personalProgressChanged(before.sessions, current.sessions, requested - result.unavailableSources)) refresh()
     }
 
     fun localResume(
         items: List<LibraryMedia>,
         connections: List<ServiceConnection>,
+        freshSources: Set<ServiceKind> = emptySet(),
     ): List<LibraryMedia> = connections
         .filter { it.kind in MEDIA_SERVERS && it.token.isNotBlank() }
-        .fold(items) { result, account -> container.localPlaybackStore.merge(account, result) }
+        .fold(items) { result, account -> container.localPlaybackStore.merge(account, result, account.kind in freshSources) }
 
     fun localNextUp(
         items: List<LibraryMedia>,
         connections: List<ServiceConnection>,
+        freshSources: Set<ServiceKind> = emptySet(),
     ): List<LibraryMedia> = connections
         .filter { it.kind in MEDIA_SERVERS && it.token.isNotBlank() }
-        .fold(items) { result, account -> container.localPlaybackStore.nextUp(account, result) }
+        .fold(items) { result, account -> container.localPlaybackStore.nextUp(account, result, account.kind in freshSources) }
 
     /** Returning from local playback refreshes personal progress and the next episode. */
     fun returnedToApp() {
@@ -422,8 +430,8 @@ internal class HomeFeedCoordinator(
             sessions = if (keepLivePlayback) current.sessions else snapshot.sessions,
             playbackUnavailableSources = if (keepLivePlayback) current.playbackUnavailableSources
                 else snapshot.errors.keys.intersect(MEDIA_SERVERS),
-            resume = localResume(snapshot.resume, connectionsNow),
-            nextUp = localNextUp(snapshot.nextUp, connectionsNow),
+            resume = localResume(snapshot.resume, connectionsNow, snapshot.successfulServices - snapshot.warnings.keys),
+            nextUp = localNextUp(snapshot.nextUp, connectionsNow, snapshot.successfulServices - snapshot.warnings.keys),
             favourites = snapshot.favourites,
             libraryShortcuts = current.copy(connections = connectionsNow).libraryConnection
                 ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),

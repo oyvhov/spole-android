@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.focusGroup
@@ -44,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -241,7 +243,7 @@ fun PlayerScreen(
     }
     var scrubbing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    var remoteSeekTargetMs by remember { mutableStateOf<Long?>(null) }
+    var remoteSeekTargetMs by remember(state.itemId) { mutableStateOf<Long?>(null) }
     var remoteSeekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var seekFeedback by remember(state.itemId) { mutableStateOf<TvSeekFeedback?>(null) }
     val recordSeek: (Long, Long) -> Unit = { from, to ->
@@ -257,6 +259,37 @@ fun PlayerScreen(
     val showSeriesFinished = state.showSeriesFinishedOffer() && menu == null && !scrubbing
     val latestShown by rememberUpdatedState(showControls)
     val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null)
+    val latestCanSeek by rememberUpdatedState(!isTelevision && !state.browsing && !state.awaitingResume &&
+        state.error == null && state.durationMs > 0 && menu == null && !statsVisible &&
+        (!state.busy || state.playWhenReady))
+    val touchSeek by rememberUpdatedState<(Long) -> Unit> { delta ->
+        val from = remoteSeekTargetMs ?: state.positionMs
+        val target = touchSeekTarget(from, delta, state.durationMs)
+        recordSeek(from, target)
+        remoteSeekTargetMs = target
+        interaction++
+        onSeek(target)
+        remoteSeekJob?.cancel()
+        remoteSeekJob = scope.launch { delay(2200); remoteSeekTargetMs = null }
+    }
+    var touchFeedback by remember(state.itemId) { mutableStateOf<TvSeekFeedback?>(null) }
+    val touchPulse = remember(state.itemId) { Animatable(1f) }
+    val touchMotionEnabled = app.reelstack.ui.theme.LocalMotionEnabled.current
+    LaunchedEffect(touchFeedback, touchMotionEnabled) {
+        if (!touchMotionEnabled) touchPulse.snapTo(1f)
+        else if (touchFeedback != null) {
+            touchPulse.snapTo(0f)
+            touchPulse.animateTo(1f, tween(420))
+        }
+    }
+    LaunchedEffect(seekFeedback) {
+        if (!isTelevision && seekFeedback != null) {
+            touchFeedback = seekFeedback
+            delay(1200)
+            touchFeedback = null
+        }
+    }
+    DisposableEffect(state.itemId) { onDispose { remoteSeekJob?.cancel() } }
     LaunchedEffect(canHide, finishedOffer, dismissedControls) {
         // Paused playback opens with controls, but an explicit Back must be allowed to hide them.
         if (!canHide && !dismissedControls) controls = !finishedOffer
@@ -376,22 +409,44 @@ fun PlayerScreen(
         // An ancestor receives unconsumed video taps; a sibling behind the scroll container cannot.
         Box(Modifier.fillMaxSize().testTag("player-touch-surface")
             .semantics { if (!showControls) onClick(showControlsLabel) { controls = true; interaction++; true } }
-            .pointerInput(Unit) {
+            .pointerInput(isTelevision, state.itemId) {
+                var lastTap: androidx.compose.ui.geometry.Offset? = null
+                var lastUpTime = 0L
+                var lastTapShown = true
                 awaitEachGesture {
                     // Observe before the fading scroll layer: it may still own this touch.
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val revealing = !latestShown
+                    val delta = touchSeekDelta(down.position.x, size.width.toFloat())
+                    val previous = lastTap
+                    val doubleTap = latestCanSeek && delta != null && previous != null &&
+                        touchSeekDelta(previous.x, size.width.toFloat()) == delta &&
+                        down.uptimeMillis - lastUpTime in viewConfiguration.doubleTapMinTimeMillis..viewConfiguration.doubleTapTimeoutMillis &&
+                        (down.position - previous).getDistance() <= viewConfiguration.touchSlop * 4
                     // Keep the pinned Back button's original gesture intact as well.
                     if (revealing) { controls = true; interaction++ }
                     var handledByControl = false
                     var moved = false
+                    var upTime = down.uptimeMillis
                     do {
                         val event = awaitPointerEvent(PointerEventPass.Final)
                         handledByControl = handledByControl || event.changes.any { it.isConsumed }
-                        moved = moved || event.changes.any { (it.position - down.position).getDistance() > viewConfiguration.touchSlop }
+                        moved = moved || event.changes.size > 1 || event.changes.any { (it.position - down.position).getDistance() > viewConfiguration.touchSlop }
+                        upTime = event.changes.firstOrNull()?.uptimeMillis ?: upTime
                     } while (event.changes.any { it.pressed })
-                    if (!revealing && !handledByControl && !moved && latestCanHide) {
-                        controls = false; interaction++
+                    if (!handledByControl && !moved && upTime - down.uptimeMillis < viewConfiguration.longPressTimeoutMillis) {
+                        if (doubleTap && latestCanSeek) {
+                            touchSeek(delta)
+                            controls = lastTapShown
+                            lastTap = null
+                        } else {
+                            lastTap = down.position
+                            lastUpTime = upTime
+                            lastTapShown = !revealing
+                            if (!revealing && latestCanHide) { controls = false; interaction++ }
+                        }
+                    } else {
+                        lastTap = null
                     }
                 }
             }) {
@@ -507,20 +562,25 @@ fun PlayerScreen(
                             if (!offline) app.reelstack.ui.components.SpoleSecondaryButton(onClick = onExternal) { Text(stringResource(R.string.player_external, state.source.displayName)) }
                         }
                     } else {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = {
-                                interaction++
-                                val target = ((remoteSeekTargetMs ?: state.positionMs) - 10_000).coerceAtLeast(0)
-                                remoteSeekTargetMs = target
-                                onSeek(target)
-                                remoteSeekJob?.cancel()
-                                remoteSeekJob = scope.launch {
-                                    delay(2200)
-                                    remoteSeekTargetMs = null
+                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(onClick = {
+                                    interaction++
+                                    val target = ((remoteSeekTargetMs ?: state.positionMs) - 10_000).coerceAtLeast(0)
+                                    remoteSeekTargetMs = target
+                                    onSeek(target)
+                                    remoteSeekJob?.cancel()
+                                    remoteSeekJob = scope.launch {
+                                        delay(2200)
+                                        remoteSeekTargetMs = null
+                                    }
+                                }, enabled = !state.busy, modifier = Modifier.size(56.dp).remoteFocus(isTelevision).testTag("player-rewind")) {
+                                    Icon(app.reelstack.ui.components.SpoleIcons.Replay10, stringResource(R.string.player_rewind),
+                                        Modifier.size(32.dp).graphicsLayer {
+                                            val scale = if ((touchFeedback?.deltaMs ?: 0) < 0) 1f + .1f * (1f - touchPulse.value) else 1f
+                                            scaleX = scale; scaleY = scale
+                                        }, tint = Color.White)
                                 }
-                            }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision).testTag("player-rewind")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.SeekBack, stringResource(R.string.player_rewind), Modifier.size(28.dp), tint = Color.White)
                             }
                             val preparingLabel = stringResource(R.string.player_preparing)
                             IconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy,
@@ -538,57 +598,71 @@ fun PlayerScreen(
                                 else Icon(if (state.playing || state.playWhenReady && !state.ended) app.reelstack.ui.components.SpoleIcons.Pause else app.reelstack.ui.components.SpoleIcons.PlaySimple,
                                     if (state.playing || state.playWhenReady && !state.ended) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(28.dp))
                             }
-                            IconButton(onClick = {
-                                interaction++
-                                if (state.durationMs > 0) {
-                                    val target = ((remoteSeekTargetMs ?: state.positionMs) + 10_000).coerceAtMost(state.durationMs)
-                                    remoteSeekTargetMs = target
-                                    onSeek(target)
-                                    remoteSeekJob?.cancel()
-                                    remoteSeekJob = scope.launch {
-                                        delay(2200)
-                                        remoteSeekTargetMs = null
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(onClick = {
+                                    interaction++
+                                    if (state.durationMs > 0) {
+                                        val target = ((remoteSeekTargetMs ?: state.positionMs) + 10_000).coerceAtMost(state.durationMs)
+                                        remoteSeekTargetMs = target
+                                        onSeek(target)
+                                        remoteSeekJob?.cancel()
+                                        remoteSeekJob = scope.launch {
+                                            delay(2200)
+                                            remoteSeekTargetMs = null
+                                        }
                                     }
+                                }, enabled = !state.busy, modifier = Modifier.size(56.dp).remoteFocus(isTelevision).testTag("player-forward")) {
+                                    Icon(app.reelstack.ui.components.SpoleIcons.Forward10, stringResource(R.string.player_forward),
+                                        Modifier.size(32.dp).graphicsLayer {
+                                            val scale = if ((touchFeedback?.deltaMs ?: 0) > 0) 1f + .1f * (1f - touchPulse.value) else 1f
+                                            scaleX = scale; scaleY = scale
+                                        }, tint = Color.White)
                                 }
-                            }, enabled = !state.busy, modifier = Modifier.remoteFocus(isTelevision).testTag("player-forward")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.SeekForward, stringResource(R.string.player_forward), Modifier.size(28.dp), tint = Color.White)
                             }
                         }
                     }
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (!state.awaitingResume) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
-                        var dragging by remember { mutableStateOf<Float?>(null) }
+                        var dragging by remember(state.itemId) { mutableStateOf<Float?>(null) }
+                        val config = androidx.compose.ui.platform.LocalConfiguration.current
+                        val largeTimeline = app.reelstack.ui.layout.WindowLayoutPolicy(
+                            config.screenWidthDp.toFloat(), config.screenHeightDp.toFloat()).useLargePlayerTimeline
+                        val handleSize = if (kids || largeTimeline) 24.dp else 20.dp
                         val timelineColors = SliderDefaults.colors(thumbColor = Color.White,
                             activeTrackColor = Color.White, inactiveTrackColor = Color.White.copy(alpha = .28f),
                             disabledActiveTrackColor = Color.White.copy(alpha = .5f),
                             disabledInactiveTrackColor = Color.White.copy(alpha = .2f))
                         Slider(value = dragging ?: remoteSeekTargetMs?.toFloat() ?: state.positionMs.toFloat().coerceIn(0f, state.durationMs.coerceAtLeast(1).toFloat()),
                             colors = timelineColors,
-                            // A child drags this with a whole finger, not a fingertip, so the kid
-                            // timeline is a 7 dp track with a 20 dp handle rather than 4 and 12.
+                            // A visible handle inside a generous full-width drag target.
                             thumb = {
                                 val handleSeason = app.reelstack.ui.components.touchSeason()
+                                // Slider's own measure policy uses the thumb height, so an outer
+                                // heightIn alone allocates space without enlarging its input surface.
+                                Box(Modifier.width(handleSize).height(if (largeTimeline) 64.dp else 48.dp),
+                                    contentAlignment = Alignment.Center) {
                                 if (handleSeason == app.reelstack.data.model.Season.NONE) Box(
-                                    Modifier.size(if (kids) 20.dp else 12.dp)
+                                    Modifier.size(handleSize).testTag("player-timeline-handle")
                                         .background(Color.White.copy(alpha = if (state.busy) .5f else 1f), CircleShape),
-                                ) else androidx.compose.foundation.Canvas(Modifier.size(if (kids) 20.dp else 14.dp)
+                                ) else androidx.compose.foundation.Canvas(Modifier.size(handleSize)
                                     .graphicsLayer { alpha = if (state.busy) .5f else 1f }
                                     .testTag("player-timeline-handle-$handleSeason")) {
                                     drawTimelineHandle(handleSeason, center, size.minDimension / 2f)
+                                }
                                 }
                             },
                             track = {
                                 SliderDefaults.Track(
                                     it,
                                     colors = timelineColors,
-                                    modifier = Modifier.height(if (kids) 7.dp else 4.dp),
+                                    modifier = Modifier.height(if (kids || largeTimeline) 8.dp else 6.dp),
                                     thumbTrackGapSize = 0.dp,
                                 )
                             },
-                            onValueChange = { dragging = it; scrubbing = true; interaction++ },
+                            onValueChange = { remoteSeekJob?.cancel(); remoteSeekTargetMs = null; dragging = it; scrubbing = true; interaction++ },
                             onValueChangeFinished = { dragging?.let { onSeek(it.toLong()) }; dragging = null; scrubbing = false; interaction++ },
                             valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(), enabled = !state.busy && state.error == null && state.durationMs > 0,
-                            modifier = Modifier.testTag("player-timeline"))
+                            modifier = Modifier.fillMaxWidth().heightIn(min = if (largeTimeline) 64.dp else 48.dp).testTag("player-timeline"))
                         Row(
                             Modifier.fillMaxWidth().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -599,7 +673,8 @@ fun PlayerScreen(
                                 playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs, padHours) +
                                     " / " + playbackTime(state.durationMs, padHours),
                                 modifier = Modifier.weight(1f).testTag("player-time-label"),
-                                style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                                style = (if (largeTimeline) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall)
+                                    .copy(fontFeatureSettings = "tnum"),
                                 color = Color.White.copy(alpha = .78f), maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -653,6 +728,27 @@ fun PlayerScreen(
             }
             }
         }
+        }
+        if (!isTelevision && !state.browsing && menu == null) touchFeedback?.let { feedback ->
+            val backwards = feedback.deltaMs < 0
+            Box(Modifier.fillMaxWidth(.45f).fillMaxHeight()
+                .align(if (backwards) Alignment.CenterStart else Alignment.CenterEnd)
+                .drawBehind {
+                    val progress = touchPulse.value
+                    val radius = (48f + 48f * progress).dp.toPx()
+                    val center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height / 2)
+                    drawCircle(Brush.radialGradient(
+                        colors = listOf(Color.White.copy(alpha = .10f * (1f - progress)), Color.Transparent),
+                        center = center, radius = radius), radius = radius, center = center)
+                }
+                .testTag(if (backwards) "player-touch-seek-area-back" else "player-touch-seek-area-forward"),
+                contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize().testTag("player-touch-seek-feedback"), contentAlignment = Alignment.Center) {
+                    if (!showControls) Icon(if (backwards) app.reelstack.ui.components.SpoleIcons.Replay10
+                        else app.reelstack.ui.components.SpoleIcons.Forward10, null,
+                        Modifier.size(40.dp), tint = Color.White)
+                }
+            }
         }
         if (statsVisible && player != null && !state.browsing) {
             val _tick = statsTick

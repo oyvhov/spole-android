@@ -370,20 +370,20 @@ class JellyfinPlayerTest {
     @Test fun localProgressSurvivesFailedReportsAndImmediatelyLeadsTheHomeShelf() = exercise { scenario, server, connections ->
         playing(scenario)
         server.rejectReports = true
-        scenario.onActivity { it.model.seek(7_000) }
-        waitFor { snapshot(scenario).positionMs >= 7_000 }
+        scenario.onActivity { it.model.seek(12_000) }
+        waitFor { snapshot(scenario).positionMs >= 12_000 }
         scenario.moveToState(Lifecycle.State.CREATED)
         val container = (context.applicationContext as ReelstackApplication).container
         val account = connections.get(ServiceKind.JELLYFIN)
         val restored = app.reelstack.data.repository.LocalPlaybackStore(context)
-        assertTrue(restored.resume(account, PlayableItem("film", "Film", "Movie", durationMs = 20_000)).resumeMs >= 7_000)
+        assertTrue(restored.resume(account, PlayableItem("film", "Film", "Movie", durationMs = 20_000)).resumeMs >= 12_000)
         val store = androidx.lifecycle.ViewModelStore()
         instrumentation.runOnMainSync {
             val model = app.reelstack.ui.ReelstackViewModel(container)
             store.put("home", model)
             model.returnedToApp()
             assertEquals("jellyfin-film", model.uiState.value.resume.first().id)
-            assertTrue(model.uiState.value.resume.first().progress!! >= .35f)
+            assertTrue(model.uiState.value.resume.first().progress!! >= .6f)
             store.clear()
         }
     }
@@ -536,6 +536,13 @@ class JellyfinPlayerTest {
             }
         }
         playing(scenario)
+        // Startup may outlast the initial OSD timeout on a busy emulator. Begin from an
+        // explicitly visible layer instead of depending on startup/decoder timing.
+        if (find(pauseLabel) == null) {
+            val screen = android.graphics.Rect()
+            scenario.onActivity { it.window.decorView.getGlobalVisibleRect(screen) }
+            tap(screen.left + screen.width() * .85f, screen.top + screen.height() * .35f)
+        }
         waitFor { find(pauseLabel) != null }
         waitFor(8_000) { find(pauseLabel) == null && find("Tilbake") == null }
         val bounds = android.graphics.Rect()
@@ -677,6 +684,33 @@ class JellyfinPlayerTest {
         scenario.moveToState(Lifecycle.State.RESUMED)
         assertFalse(snapshot(scenario).playing)
         scenario.onActivity { it.model.toggle() }; playing(scenario)
+    }
+    @Test fun pausedAndBackgroundPlayersDoNotOverwriteAnotherDevicesProgress() {
+        for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+            exercise(kind = kind, defaultSubtitle = -1) { scenario, server, _ ->
+                playing(scenario)
+                scenario.onActivity { it.model.seek(12_000); it.model.toggle() }
+                waitFor { server.events.any { (path, body) -> path.endsWith("/Progress") &&
+                    body["IsPaused"] == JsonPrimitive(true) &&
+                    (body["PositionTicks"] as? JsonPrimitive)?.longOrNull?.let { it >= 120_000_000 } == true } }
+                val pausedReports = server.events.count { it.first.endsWith("/Progress") }
+                val pausedAt = SystemClock.elapsedRealtime()
+                waitFor(13_000) { SystemClock.elapsedRealtime() - pausedAt >= 11_000 }
+                val last = server.events.last { it.first.endsWith("/Progress") }
+                assertEquals(JsonPrimitive(true), last.second["IsPaused"])
+                assertEquals("Paused player must not send periodic reports", pausedReports,
+                    server.events.count { it.first.endsWith("/Progress") })
+                val before = server.events.size
+                val backgroundAt = SystemClock.elapsedRealtime()
+                scenario.moveToState(Lifecycle.State.CREATED)
+                waitFor(13_000) { SystemClock.elapsedRealtime() - backgroundAt >= 11_000 }
+                assertEquals("An already paused background player must not repeat old progress", before, server.events.size)
+                scenario.moveToState(Lifecycle.State.RESUMED)
+                assertFalse(snapshot(scenario).playWhenReady)
+                scenario.onActivity { it.model.toggle() }
+                playing(scenario)
+            }
+        }
     }
     @Test fun accountReplacementStopsOldPlayer() = exercise { scenario,_,connections ->
         playing(scenario)

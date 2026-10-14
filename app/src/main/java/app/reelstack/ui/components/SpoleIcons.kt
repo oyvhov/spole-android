@@ -192,43 +192,39 @@ object SpoleIcons {
         moveTo(3.4f, 9.3f); lineTo(8.1f, 11f)
     }
 
-    /**
-     * Ten seconds back and ten seconds on.
-     *
-     * The number belongs inside the arc rather than beside it: on a remote these two sit either
-     * side of the play button, and a label outside the circle would make the pair asymmetric the
-     * moment one of them is focused.
-     */
-    val Replay10 = seekTen(false)
-    val Forward10 = seekTen(true)
+    /** Fixed ten-second actions: mirror the arrow, keeping the number upright. */
+    val Replay10 = seekGlyph("Replay10", forward = false, showTen = true)
+    val Forward10 = seekGlyph("Forward10", forward = true, showTen = true)
 
     /** Direction only: the seek feedback supplies the distance once, beside this glyph. */
-    val SeekBack = glyph("SeekBack") {
-        moveTo(11f, 6f); lineTo(5f, 12f); lineTo(11f, 18f)
-        moveTo(19f, 6f); lineTo(13f, 12f); lineTo(19f, 18f)
-    }
-    val SeekForward = glyph("SeekForward") {
-        moveTo(5f, 6f); lineTo(11f, 12f); lineTo(5f, 18f)
-        moveTo(13f, 6f); lineTo(19f, 12f); lineTo(13f, 18f)
-    }
+    val SeekBack = seekGlyph("SeekBack", forward = false, showTen = false)
+    val SeekForward = seekGlyph("SeekForward", forward = true, showTen = false)
 
-    private fun seekTen(forward: Boolean) = ImageVector.Builder(
-        "Spole.SeekTen.$forward", 32.dp, 32.dp, 32f, 32f,
+    private fun seekGlyph(name: String, forward: Boolean, showTen: Boolean) = ImageVector.Builder(
+        "Spole.$name", 24.dp, 24.dp, 24f, 24f,
     ).apply {
-        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f,
+        fun x(value: Float) = if (forward) 24f - value else value
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.8f,
             strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
-            if (forward) {
-                moveTo(23f, 5f); curveTo(10f, -2f, -2f, 17f, 10f, 26f)
-                curveTo(20f, 34f, 33f, 23f, 28f, 13f)
-                moveTo(23f, 1f); lineTo(23f, 6f); lineTo(18f, 6f)
-            } else {
-                moveTo(9f, 5f); curveTo(22f, -2f, 34f, 17f, 22f, 26f)
-                curveTo(12f, 34f, -1f, 23f, 4f, 13f)
-                moveTo(9f, 1f); lineTo(9f, 6f); lineTo(14f, 6f)
+            moveTo(x(5.1f), 9.2f)
+            curveTo(x(4.4f), 10.4f, x(4f), 11.7f, x(4f), 13f)
+            curveTo(x(4f), 17.42f, x(7.58f), 21f, x(12f), 21f)
+            curveTo(x(16.42f), 21f, x(20f), 17.42f, x(20f), 13f)
+            curveTo(x(20f), 8.58f, x(16.42f), 5f, x(12f), 5f)
+            lineTo(x(9f), 5f)
+            moveTo(x(12f), 2f); lineTo(x(9f), 5f); lineTo(x(12f), 8f)
+        }
+        if (showTen) {
+            path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.5f,
+                strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(7.9f, 11.5f); lineTo(9.3f, 10.3f); lineTo(9.3f, 16.7f)
+                moveTo(7.9f, 16.7f); lineTo(10.7f, 16.7f)
+                moveTo(14.4f, 10.3f)
+                curveTo(12.9f, 10.3f, 12.3f, 11.3f, 12.3f, 13.5f)
+                curveTo(12.3f, 15.7f, 12.9f, 16.7f, 14.4f, 16.7f)
+                curveTo(15.9f, 16.7f, 16.5f, 15.7f, 16.5f, 13.5f)
+                curveTo(16.5f, 11.3f, 15.9f, 10.3f, 14.4f, 10.3f); close()
             }
-            moveTo(9f, 13f); lineTo(12f, 11f); lineTo(12f, 21f)
-            moveTo(18f, 11f); curveTo(14f, 11f, 14f, 21f, 18f, 21f)
-            curveTo(22f, 21f, 22f, 11f, 18f, 11f); close()
         }
     }.build()
 

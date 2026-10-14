@@ -9,6 +9,9 @@ package app.reelstack.ui.layout
  * is whatever container asks: the app shell passes the window, a sheet passes its own width.
  */
 data class WindowLayoutPolicy(val widthDp: Float, val heightDp: Float) {
+    /** Both tablet orientations, without treating a short landscape phone as a tablet. */
+    val useLargePlayerTimeline: Boolean get() = minOf(widthDp, heightDp) >= 600f
+
     /** A two-column body inside a sheet or dialog: poster beside text instead of stacked. */
     val useSideBySideMedia: Boolean get() = widthDp >= 600f
 

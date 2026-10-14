@@ -2,11 +2,76 @@
 
 ## Lokal video
 
+Mobil og nettbrett støttar dobbeltrykk på venstre/høgre side av videoen for å hoppe 10 sekund
+bakover/framover. Kvar side dekkjer 45 % av breidda; midten er reservert for avspelingskontrollar.
+Ein kort, nøytral puls viser kva side som vart brukt. Nye dobbeltrykk bruker siste søkjemål medan
+videoen bufrar. Knappetrykk, tidslinjedrag, menyar, episodeval og feilvising utløyser ikkje gesten.
+Spolingsknappane bruker 32 dp bogepiler med «10» inni, ute på kvar si side av videoen.
+Ved dobbeltrykk får den aktuelle sida ein svak, mjuk puls. Når kontrollane er opne, reagerer
+det eksisterande ikonet; når dei er skjulte, blir same ikon kort vist på sida. Gestvisinga har
+inga forklaringstekst, sekundtekst eller bakgrunnsboksar. Knappane held plassen under spoling
+og bufring, og alle hopp blir framleis avgrensa til faktisk videolengd.
+
+Tidslinja fyller tilgjengeleg breidd. Nettbrett i begge retningar har 64 dp dragområde,
+8 dp strek, 24 dp handtak og større tidsmerke. Telefon har minst 48 dp dragområde.
+
+Framdriftsjournalen vernar posisjonar som enno ikkje er lagra på tenaren. Etter stadfesta
+lagring og neste vellukka tenarlesing blir journalposten fjerna, slik at ein annan eining sitt
+søk, «sett»-val eller nye episode får styre. Cache/feila nettverkslesing fjernar ikkje ventande
+posisjonar. Tilbakespoling til dei første sekunda erstattar eldre lokal framdrift utan eit nytt
+hald-fram-kort. Pause blir rapportert også under bufring; ein pausa spelar eller bakgrunnsspelar sender
+ikkje same posisjon kvart tiande sekund. Heim oppdaterer personlege rader når ei synleg økt
+startar, pausar, stoppar eller byter episode, via tenesta sin eksisterande polling-/push-flyt.
+
 `JellyfinPlayerActivity` held skjermen vaken berre medan den lokale spelaren faktisk spelar eller
 bufrar. Ved lås, Heim eller annan bakgrunnsbruk pausar han og rapporterer framdrift; han startar
 ikkje att automatisk. PiP er framleis ei uttrykkeleg handling frå spelaren, ikkje noko Heim gjer
 automatisk. Spole køyrer ikkje ein `MediaSessionService` for lokal video, så det finst ikkje
 skjult bakgrunnsavspeling.
+
+## Kontroll 13.–14. oktober 2026
+
+980 av 980 einingstestar og 52 av 52 relevante Android-testar bestod. Debug-appen og testpakken
+bygde; lint hadde 0 feil, 194 åtvaringar og 1 hint. `git diff --check` var rein.
+Android-testane køyrde på den eksisterande `Spole_Instrumentation` (5562, API 36), med syntetiske
+kontoar og loopback-video frå Jellyfin-/Emby-fixturar. Dei innlogga review-profilane vart ikkje endra.
+
+Kontrollen dekkjer dobbeltrykk på begge sider, fleire hopp før posisjonstilstanden kjem etter,
+skjulte kontrollar og bufring, knapp-/menyavgrensing, tidslinjedrag, pause, bakgrunn, rotasjon,
+kontogrenser og feila framdriftsrapportar. Nettbrett i begge retningar vart kontrollerte ved
+skriftstorleik 2.0, med trykk nær øvre og nedre kant av den 64 dp store tidslinjetreffflata.
+Behaldaren rundt handtaket eig treffhøgda; ei ytre minstehøgd åleine forstørra ikkje Material-spelaren si
+indre berøringsflate. Ferske tenarsvar etter stadfesta lagring overstyrer gamle lokale posisjonar,
+også ved bakoversøk, «sett»-status og eldre tenartidsstempel. Ventande lokale søk blir bevarte.
+
+Dei faktisk lagra og visuelt kontrollerte skjermbileta ligg lokalt i
+`app/build/player-review/tablet-landscape-font2.png` og
+`app/build/player-review/tablet-portrait-font2.png`. Endeleg Android-logg er
+`app/build/player-improvements-complete-android.log` (`OK (52 tests)`), og bygg-/lintlogg er
+`app/build/player-improvements-touch-area-build.log`. Mellombels justering av lagringsgrensa
+på testeininga vart sett tilbake; ingen AVD vart nullstilt eller appdata sletta.
+Synk mellom to ekte einingar/kontoar og fysisk nettbrett er ikkje prøvd i denne kontrollen.
+Ingen versjonsauke eller publisert APK-release.
+
+Etter ikonbytet vart debug-app og testpakke bygde på nytt, og 25 av 25 testar i
+`PlayerSeekLayoutTest` og `TvPlaybackControlsTest` bestod på same isolerte testeining.
+Ikona vart visuelt kontrollerte på telefon og nettbrett i begge retningar, med skriftstorleik 2.0
+på nettbrett, og ved dobbeltrykk i begge retningar. Skjermbileta ligg i
+`app/build/player-review/icons-phone-landscape.png`,
+`app/build/player-review/icons-tablet-landscape-font2.png` og
+`app/build/player-review/icons-tablet-portrait-font2.png`; testloggen er
+`app/build/player-icons-android.log` (`OK (25 tests)`).
+
+Den endelege gestvisinga utan tekst vart bygd og kontrollert med 25 av 25 testar i
+`PlayerSeekLayoutTest` og `JellyfinPlayerUiTest` på same isolerte testeining. Kontrollen dekkjer
+ikon på kvar videoside, dobbeltrykk utanfor knappane, skjult OSD, gjentekne hopp, bufring og
+stabil plassering, også med skriftstorleik 2.0. Pulsen følgjer appen sitt val for reduserte rørsler.
+Visuelt kontrollerte skjermbilete ligg i `app/build/player-review/side-controls-phone-landscape.png`,
+`app/build/player-review/side-controls-phone-portrait-font2.png`,
+`app/build/player-review/side-controls-tablet-landscape-font2.png` og
+`app/build/player-review/side-controls-tablet-portrait-font2.png`. Endelege loggar er
+`app/build/player-touch-visual-build.log` og `app/build/player-touch-visual-android.log`
+(`OK (25 tests)`).
 
 ## Offline-reglar
 

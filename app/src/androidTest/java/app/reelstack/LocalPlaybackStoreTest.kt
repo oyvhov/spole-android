@@ -8,6 +8,44 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LocalPlaybackStoreTest {
+    @Test fun rewindingToTheBeginningReplacesAnOlderResumeWithoutMakingATinyResumeCard() {
+        val store = LocalPlaybackStore(context)
+        store.clear()
+        try {
+            store.record(account, item, 40_000, 60_000, false)
+            val rewind = store.record(account, item, 5_000, 60_000, false)!!
+            assertEquals(5_000L, store.resume(account, item).resumeMs)
+            assertTrue(store.merge(account, emptyList()).isEmpty())
+            store.confirm(account, item.id, rewind, 5_000, false)
+            assertEquals(5_000L, store.resume(account, item.copy(resumeMs = 5_000), fromServer = true).resumeMs)
+            assertTrue(store.merge(account, emptyList()).isEmpty())
+        } finally { store.clear() }
+    }
+    @Test fun acknowledgedProgressDefersToFreshServerReadsEvenWithAnOlderTimestamp() {
+        val store = LocalPlaybackStore(context)
+        store.clear()
+        try {
+            for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+                val connection = account.copy(kind = kind)
+                val journal = store.record(connection, item, 30_000, 60_000, false)!!
+                store.confirm(connection, item.id, journal, 30_000, false)
+                val remote = item.copy(resumeMs = 12_000, lastPlayedEpochMillis = 1)
+                assertEquals(30_000L, store.resume(connection, remote).resumeMs)
+                assertEquals(12_000L, store.resume(connection, remote, fromServer = true).resumeMs)
+                val row = LibraryMedia("${kind.name.lowercase()}-episode", "Series", "", artworkRes = 0,
+                    source = kind, progress = .2f, lastActivityEpochMillis = 1)
+                assertEquals(listOf(row), store.merge(connection, listOf(row), fromServer = true))
+                assertEquals(listOf(row), store.merge(connection, listOf(row)))
+                assertTrue(store.merge(connection, emptyList(), fromServer = true).isEmpty())
+                assertEquals(listOf(row), store.nextUp(connection, listOf(row), fromServer = true))
+                assertTrue(store.resume(connection, remote.copy(played = true, resumeMs = 0), fromServer = true).played)
+                // A new unsaved local seek still wins until that exact journal is acknowledged.
+                store.record(connection, item, 40_000, 60_000, false)
+                assertEquals(40_000L, store.resume(connection, remote, fromServer = true).resumeMs)
+                assertEquals(2f / 3, store.merge(connection, listOf(row), fromServer = true).single().progress!!, .001f)
+            }
+        } finally { store.clear() }
+    }
     @Test fun fiveSecondsRemainingDoesNotReappearAndServerConfigurationWins() {
         val store = LocalPlaybackStore(context)
         store.clear()
