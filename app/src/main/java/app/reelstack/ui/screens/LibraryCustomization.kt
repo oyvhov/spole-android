@@ -82,8 +82,9 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
         "FAVOURITES" to stringResource(R.string.home_favourites), "LIBRARIES" to stringResource(R.string.refine_library_shelves),
         app.reelstack.data.model.SMART_SHELVES_SECTION to stringResource(R.string.smart_shelves_title))
     val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
-    val noShelves = remember(state.smartShelves) {
-        app.reelstack.data.model.libraryShelves(state.smartShelves, java.time.LocalDate.now()).isEmpty()
+    val noShelves = remember(state.smartShelves, state.libraryConnection) {
+        app.reelstack.data.model.libraryShelves(state.smartShelves, java.time.LocalDate.now())
+            .none { shelf -> state.libraryConnection?.let(shelf::appliesTo) == true }
     }
     val shelvesEmpty = stringResource(R.string.smart_shelves_editor_empty)
     val hubOrder = libraryHubOrder(options.libraryHubOrder)

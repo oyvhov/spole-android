@@ -59,6 +59,7 @@ import app.reelstack.data.model.SmartShelfIcon
 import app.reelstack.data.model.SmartShelfKinds
 import app.reelstack.data.model.SmartShelfPeriod
 import app.reelstack.data.model.SmartShelfPresets
+import app.reelstack.data.model.SmartShelfScope
 import app.reelstack.data.model.waitsForPeriod
 import app.reelstack.ui.components.RemoteTextField
 import app.reelstack.ui.components.SettingsToggleRow
@@ -106,11 +107,12 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
     val menuShortcuts = television || (policy.useNavigationRail && !policy.useCompactTouchRail)
     val firstFocus = remember { FocusRequester() }
     var missingRule by remember { mutableStateOf(false) }
+    var missingScope by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val tagField = rememberTextFieldState()
     val nameField = rememberTextFieldState(draft.name)
     LaunchedEffect(Unit) { if (television) { withFrameNanos { }; runCatching { firstFocus.requestFocus() } } }
-    val update: (SmartShelf) -> Unit = { missingRule = false; confirmDelete = false; actions.update(it) }
+    val update: (SmartShelf) -> Unit = { missingRule = false; missingScope = false; confirmDelete = false; actions.update(it) }
     val currentDraft by rememberUpdatedState(draft)
     val currentUpdate by rememberUpdatedState(update)
     LaunchedEffect(nameField) {
@@ -134,8 +136,8 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(if (editor.isNew) R.string.smart_shelf_new else R.string.smart_shelf_edit),
                             style = MaterialTheme.typography.headlineSmall)
-                        Text(previewLine(editor, missingRule), style = MaterialTheme.typography.bodyMedium,
-                            color = if (missingRule) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        Text(if (missingScope) stringResource(R.string.smart_shelf_scope_choose_library) else previewLine(editor, missingRule), style = MaterialTheme.typography.bodyMedium,
+                            color = if (missingRule || missingScope) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.testTag("smart-shelf-preview"))
                     }
                 }
@@ -153,6 +155,55 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                                         missingRule = false
                                         actions.applyTemplate(preset.id)
                                     }
+                                }
+                            }
+                        }
+                    }
+                    item(key = "scope") {
+                        EditorSection(stringResource(R.string.smart_shelf_scope)) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                editor.sources.forEachIndexed { index, source ->
+                                    ShelfChip(source.name, selected = draft.scope?.accountKey == source.accountKey,
+                                        role = Role.RadioButton, tag = "smart-scope-source-${source.source.name}",
+                                        modifier = if (!editor.isNew && index == 0) Modifier.focusRequester(firstFocus) else Modifier,
+                                        leading = SpoleIcons.Library) {
+                                        if (draft.scope?.accountKey != source.accountKey)
+                                            update(draft.copy(scope = SmartShelfScope(source.source, source.accountKey, emptySet())))
+                                    }
+                                }
+                                ShelfChip(stringResource(R.string.smart_shelf_scope_all_servers), selected = draft.scope == null,
+                                    role = Role.RadioButton, tag = "smart-scope-all-servers",
+                                    modifier = if (!editor.isNew && editor.sources.isEmpty()) Modifier.focusRequester(firstFocus) else Modifier) {
+                                    update(draft.copy(scope = null))
+                                }
+                            }
+                            val scope = draft.scope
+                            if (scope != null) {
+                                if (editor.sources.none { it.accountKey == scope.accountKey }) {
+                                    Text(stringResource(R.string.smart_shelf_scope_unavailable), style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    if (editor.librariesLoading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("smart-scope-loading"))
+                                    if (editor.librariesFailed) SpoleSecondaryButton(onClick = actions::retryFacets,
+                                        modifier = Modifier.testTag("smart-scope-retry")) {
+                                        Text(stringResource(R.string.action_retry))
+                                    }
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        ShelfChip(stringResource(R.string.smart_shelf_scope_all_libraries), selected = scope.libraryIds == null,
+                                            role = Role.RadioButton, tag = "smart-scope-all-libraries") {
+                                            update(draft.copy(scope = scope.copy(libraryIds = null)))
+                                        }
+                                        editor.libraries.forEach { library ->
+                                            val selected = scope.libraryIds?.contains(library.id) == true
+                                            ShelfChip(library.name, selected = selected, tag = "smart-scope-library-${library.id}") {
+                                                val selectedIds = scope.libraryIds.orEmpty()
+                                                update(draft.copy(scope = scope.copy(libraryIds = if (selected) selectedIds - library.id else selectedIds + library.id)))
+                                            }
+                                        }
+                                    }
+                                    if (scope.libraryIds?.isEmpty() == true) Text(stringResource(R.string.smart_shelf_scope_choose_library),
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.testTag("smart-scope-empty"))
                                 }
                             }
                         }
@@ -175,10 +226,9 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                     item(key = "kinds") {
                         EditorSection(stringResource(R.string.smart_shelf_kinds)) {
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                SmartShelfKinds.entries.forEachIndexed { index, kinds ->
+                                SmartShelfKinds.entries.forEach { kinds ->
                                     ShelfChip(smartShelfKindsLabel(kinds), selected = draft.kinds == kinds, role = Role.RadioButton,
-                                        tag = "smart-kinds-${kinds.name}",
-                                        modifier = if (!editor.isNew && index == 0) Modifier.focusRequester(firstFocus) else Modifier) {
+                                        tag = "smart-kinds-${kinds.name}") {
                                         update(draft.copy(kinds = kinds))
                                     }
                                 }
@@ -335,7 +385,10 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                         Text(stringResource(R.string.library_cancel))
                     }
                     val saveInteraction = remember { MutableInteractionSource() }
-                    Button(onClick = { if (draft.hasRule) actions.save() else missingRule = true },
+                    Button(onClick = {
+                        if (draft.scope?.libraryIds?.isEmpty() == true) missingScope = true
+                        else if (draft.hasRule) actions.save() else missingRule = true
+                    },
                         interactionSource = saveInteraction,
                         modifier = Modifier.heightIn(min = 48.dp).focusOutline(saveInteraction, CircleShape, glow = false)
                             .testTag("smart-shelf-save")) {

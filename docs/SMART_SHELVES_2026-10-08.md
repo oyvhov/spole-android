@@ -1,5 +1,21 @@
 # Smarte hyller, rader på framsida og fokusfeil · 8.–9. oktober 2026
 
+## Frå beta13 · 15. oktober 2026
+
+Nye hyller er knytte til den valde tenarkontoen. Blir hylla laga frå eit faktisk bibliotek,
+blir ho avgrensa til det biblioteket; frå rotnivået må brukaren velje bibliotek før lagring.
+«Tenar og bibliotek» i byggjaren viser omfanget og lèt brukaren velje eitt
+eller fleire bibliotek, alle bibliotek på tenaren, eller uttrykkeleg «Alle tenarar».
+
+Avgrensinga gjeld Home-rader, biblioteksfliser, meny, opning, førehandsvising og
+nettverksspørjingane. Valde bibliotek blir sende som `ParentId` på begge greinene av ein
+«eller»-regel og på «både»-reglar. Eit tomt utval sender ingen spørjingar og kan ikkje lagrast.
+Kontoidentiteten er stabil ved rute- og tokenbyte; byte til ein annan konto gir ikkje same hylle.
+Biblioteklista held seg i ro medan ein kryssar av; forseinka svar frå eit tidlegare val blir avviste.
+
+Eldre hyller og sesongmalar manglar lagra opphav og blir bevarte som «Alle tenarar» til
+brukaren endrar dei. Dei globale formuleringane nedanfor skildrar den historiske åtferda.
+
 I beta6 kunne berre Halloween og jul få ei eiga side i biblioteket, og regelen var fast. No kan
 kvar profil lage eigne hyller ut frå stikkord og sjangrar på tenaren. Ei hylle viser filmar og
 seriar kvar for seg, med mindre omslag enn biblioteket elles, og kvar hylle kan stå i

@@ -2,8 +2,10 @@ package app.reelstack.data.model
 
 import java.time.LocalDate
 import java.time.Month
+import java.security.MessageDigest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
@@ -12,6 +14,46 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+
+/** Stable across route failover and token renewal; no address or credential is stored on a shelf. */
+fun smartShelfAccountKey(connection: ServiceConnection): String = MessageDigest.getInstance("SHA-256")
+    .digest("${connection.kind}|${connection.identity.trimEnd('/')}|${connection.userId}".toByteArray(Charsets.UTF_8))
+    .joinToString("") { "%02x".format(it) }
+
+/** Null libraries means the whole account; an empty set explicitly selects no libraries. */
+data class SmartShelfScope(
+    val source: ServiceKind,
+    val accountKey: String,
+    val libraryIds: Set<String>? = null,
+) {
+    fun matches(connection: ServiceConnection): Boolean =
+        connection.userId.isNotBlank() && source == connection.kind && accountKey == smartShelfAccountKey(connection)
+
+    fun encode(): JsonObject = buildJsonObject {
+        put("source", source.name)
+        put("accountKey", accountKey)
+        libraryIds?.let { ids -> put("libraryIds", buildJsonArray { ids.sorted().forEach { add(JsonPrimitive(it)) } }) }
+    }
+
+    companion object {
+        fun of(connection: ServiceConnection, libraryIds: Set<String>? = null): SmartShelfScope =
+            SmartShelfScope(connection.kind, smartShelfAccountKey(connection),
+                libraryIds?.map(String::trim)?.filter(String::isNotBlank)?.toSet())
+
+        fun decode(value: JsonObject): SmartShelfScope? {
+            val source = ServiceKind.entries.firstOrNull {
+                it.name == (value["source"] as? JsonPrimitive)?.contentOrNull
+            } ?: return null
+            val account = (value["accountKey"] as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) ?: return null
+            val rawLibraries = value["libraryIds"]
+            val libraries = if (rawLibraries == null || rawLibraries == JsonNull) null else {
+                val entries = rawLibraries as? JsonArray ?: return null
+                entries.map { (it as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf(String::isNotBlank) ?: return null }.toSet()
+            }
+            return SmartShelfScope(source, account, libraries)
+        }
+    }
+}
 
 /**
  * A shelf that is a question to the server rather than a list of titles.
@@ -49,8 +91,12 @@ data class SmartShelf(
     val sort: SmartShelfSort = SmartShelfSort.RULE,
     /** One of [SmartShelfPresets]; a preset can be changed and reset, never deleted. */
     val preset: Boolean = false,
+    /** Older shelves and built-in presets remain global until the owner chooses an account. */
+    val scope: SmartShelfScope? = null,
 ) {
     val hasRule: Boolean get() = tags.isNotEmpty() || genres.isNotEmpty()
+
+    fun appliesTo(connection: ServiceConnection): Boolean = scope?.matches(connection) ?: true
 
     /** Tags and genres both, so «or» and «and» ask for different titles. */
     val combinesBoth: Boolean get() = tags.isNotEmpty() && genres.isNotEmpty()
@@ -83,6 +129,7 @@ data class SmartShelf(
         put("matchAll", matchAll)
         put("sort", sort.name)
         put("preset", preset)
+        scope?.let { put("scope", it.encode()) }
     }
 
     companion object {
@@ -97,6 +144,10 @@ data class SmartShelf(
             fun list(key: String) = (value[key] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }
                 ?.map(String::trim)?.filter(String::isNotBlank)?.distinct().orEmpty()
             val id = text("id")?.takeIf(String::isNotBlank) ?: return null
+            // A malformed explicit scope must never silently become a global shelf.
+            val rawScope = value["scope"]
+            val scope = if (rawScope == null || rawScope == JsonNull) null else
+                SmartShelfScope.decode(rawScope as? JsonObject ?: return null) ?: return null
             return SmartShelf(
                 id = id,
                 name = text("name").orEmpty().trim().take(40),
@@ -114,6 +165,7 @@ data class SmartShelf(
                 matchAll = (value["matchAll"] as? JsonPrimitive)?.booleanOrNull ?: false,
                 sort = SmartShelfSort.entries.firstOrNull { it.name == text("sort") } ?: SmartShelfSort.RULE,
                 preset = (value["preset"] as? JsonPrimitive)?.booleanOrNull ?: false,
+                scope = scope,
             )
         }
 
@@ -260,6 +312,9 @@ fun List<SmartShelf>.withShelf(shelf: SmartShelf): List<SmartShelf> =
 /** The genres and tags a profile's films and series carry, for building a shelf by choosing. */
 data class CatalogueFacets(val genres: List<String> = emptyList(), val tags: List<String> = emptyList())
 
+data class SmartShelfSourceOption(val accountKey: String, val source: ServiceKind, val name: String)
+data class SmartShelfLibraryOption(val id: String, val name: String)
+
 /**
  * The shelf builder's state: the shelf as it is being made, what the server offers to choose
  * from, and what the shelf would hold right now.
@@ -277,6 +332,10 @@ data class SmartShelfEditor(
     val previewSeries: Int? = null,
     val previewCapped: Boolean = false,
     val previewLoading: Boolean = false,
+    val sources: List<SmartShelfSourceOption> = emptyList(),
+    val libraries: List<SmartShelfLibraryOption> = emptyList(),
+    val librariesLoading: Boolean = false,
+    val librariesFailed: Boolean = false,
 )
 
 /**

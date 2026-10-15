@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta13 - smarte hyller med valt innhald
+
+- Nye smarte hyller blir knytte til vald tenarkonto og valt bibliotek. Frå rotnivået må du velje bibliotek før lagring. Fleire bibliotek, alle biblioteka på tenaren eller alle tenarar er uttrykkelege val.
+- Same avgrensing gjeld på framsida, i biblioteket, i menyen, i førehandsvising og i spørjingane til tenaren. Tomt bibliotekval blir aldri tolka som alle bibliotek.
+- Eldre hyller og sesongmalar er bevarte. Dei står tydeleg som «Alle tenarar» til ein vel noko anna.
+
 ## 1.0.0-beta12 - tettare tekstgrupper og gjennomgått grensesnitt
 
 - Serienamn og episodeinformasjon følgjer den faktiske teksthøgda. Korte titlar og manglande episodefelt lagar ikkje tomme linjer mellom felta, medan kunstfelt og handlingar held seg stabile.

@@ -739,7 +739,7 @@ class MediaServerClient(
     }
 
     /**
-     * A smart shelf across every library the profile can see: the tagged titles first, then the
+     * A smart shelf across the selected libraries: the tagged titles first, then the
      * genres. Two queries rather than one, because the Items API combines Tags and Genres with AND
      * and a shelf means either. [limit] of each makes a shelf, not a catalogue, so the page does
      * not grow on scroll; a peek for the library page asks for a handful. The shelf's own kinds and
@@ -753,13 +753,18 @@ class MediaServerClient(
      */
     fun smartShelf(connection: ServiceConnection, shelf: app.reelstack.data.model.SmartShelf,
         limit: Int = 60, cachedOnly: Boolean = false): List<RemoteLibraryItem> {
+        if (!shelf.hasRule || !shelf.appliesTo(connection)) return emptyList()
         require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
-        if (!shelf.hasRule) return emptyList()
+        val libraryIds = shelf.scope?.libraryIds?.map(String::trim)?.filter(String::isNotBlank)?.toSet()
+        if (libraryIds?.isEmpty() == true) return emptyList()
+        val parents: List<String?> = libraryIds?.sorted() ?: listOf(null)
+        val resultLimit = limit.coerceIn(1, 200)
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
         require(!user.isNullOrBlank()) { "caller must pass a profile id" }
-        fun items(filter: String): List<RemoteLibraryItem> {
+        fun items(filter: String, parentId: String?): List<RemoteLibraryItem> {
             val query = "userId=${encodePathSegment(user)}&Recursive=true&IncludeItemTypes=${shelf.kinds.itemTypes}" +
-                "&ExcludeItemTypes=BoxSet&CollapseBoxSetItems=false&StartIndex=0&Limit=${limit.coerceIn(1, 200)}" +
+                "&ExcludeItemTypes=BoxSet&CollapseBoxSetItems=false&StartIndex=0&Limit=$resultLimit" +
+                parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty() +
                 shelfOrder(shelf.sort) + (if (shelf.unwatched) "&IsPlayed=false" else "") + filter +
                 "&Fields=Overview,Genres,ProviderIds,DateCreated,ChildCount,RecursiveItemCount,$LIBRARY_RATING_FIELDS" +
                 "&EnableUserData=true&EnableImages=true&ImageTypeLimit=1&EnableImageTypes=Primary,Thumb,Backdrop,Logo,Banner&IsMissing=false"
@@ -773,12 +778,18 @@ class MediaServerClient(
             return getItems(connection, paths, via = patientTransport) { path, body -> shelfCache?.write(key(path), body) }
         }
         fun anyOf(values: List<String>) = java.net.URLEncoder.encode(values.joinToString("|"), "UTF-8")
+        val mergedOrder = if (shelf.sort == app.reelstack.data.model.SmartShelfSort.RULE)
+            app.reelstack.data.model.SmartShelfSort.TITLE else shelf.sort
         // The server ands its filters, so «a tag and a genre» is one question and «either» is two.
-        if (shelf.requiresBoth) return items("&Tags=${anyOf(shelf.tags)}&Genres=${anyOf(shelf.genres)}")
-        val tagged = if (shelf.tags.isEmpty()) emptyList() else items("&Tags=${anyOf(shelf.tags)}")
-        val genre = if (shelf.genres.isEmpty()) emptyList() else items("&Genres=${anyOf(shelf.genres)}")
-        // Two answers, each in order; together they are put in the shelf's order again.
-        return (tagged + genre).distinctBy { it.id }.inShelfOrder(shelf.sort)
+        if (shelf.requiresBoth) return parents.flatMap { parent ->
+            items("&Tags=${anyOf(shelf.tags)}&Genres=${anyOf(shelf.genres)}", parent)
+        }.distinctBy { it.id }.inShelfOrder(mergedOrder).take(resultLimit)
+        val tagged = if (shelf.tags.isEmpty()) emptyList() else parents.flatMap { items("&Tags=${anyOf(shelf.tags)}", it) }
+        val genre = if (shelf.genres.isEmpty()) emptyList() else parents.flatMap { items("&Genres=${anyOf(shelf.genres)}", it) }
+        // Across libraries, Rule still means tagged first, with each group in title order.
+        val combined = if (shelf.sort == app.reelstack.data.model.SmartShelfSort.RULE)
+            tagged.inShelfOrder(mergedOrder) + genre.inShelfOrder(mergedOrder) else tagged + genre
+        return combined.distinctBy { it.id }.inShelfOrder(shelf.sort).take(resultLimit)
     }
 
     private fun shelfOrder(sort: app.reelstack.data.model.SmartShelfSort): String {
@@ -794,19 +805,21 @@ class MediaServerClient(
      * The server's own lists, so a shelf is put together by choosing, not by typing on a remote.
      * A library that does not answer is left out; the shelf builder only fails when none does.
      */
-    fun catalogueFacets(connection: ServiceConnection): app.reelstack.data.model.CatalogueFacets {
+    fun catalogueFacets(connection: ServiceConnection, libraryIds: Set<String>? = null): app.reelstack.data.model.CatalogueFacets {
         require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
+        val selected = libraryIds?.map(String::trim)?.filter(String::isNotBlank)?.toSet()
+        if (selected?.isEmpty() == true) return app.reelstack.data.model.CatalogueFacets()
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)
         require(!user.isNullOrBlank())
-        val libraries = libraryViews(connection, encodePathSegment(user)).filter {
+        val libraries = if (selected != null) selected.sorted() else libraryViews(connection, encodePathSegment(user)).filter {
             it.collectionType?.lowercase(Locale.ROOT) in setOf(null, "", "movies", "tvshows", "tv", "mixed")
-        }
+        }.map { it.id }
         fun facets(parentId: String?): Result<Pair<List<String>, List<String>>> = runCatching {
             val scope = parentId?.let { "&ParentId=${encodePathSegment(it)}" }.orEmpty()
             serverFacets(connection, "userId=${encodePathSegment(user)}&IncludeItemTypes=Movie,Series&Recursive=true$scope",
                 patientTransport, wantTags = true).let { it.genres to it.tags }
         }
-        val answers = if (libraries.isEmpty()) listOf(facets(null)) else concurrentlyPatient(libraries) { facets(it.id) }
+        val answers = if (libraries.isEmpty()) listOf(facets(null)) else concurrentlyPatient(libraries) { facets(it) }
         val good = answers.mapNotNull { it.getOrNull() }
         if (good.isEmpty()) answers.firstNotNullOfOrNull { it.exceptionOrNull() }?.let { throw it }
         fun merged(pick: (Pair<List<String>, List<String>>) -> List<String>) = good.flatMap(pick)

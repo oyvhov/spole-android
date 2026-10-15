@@ -103,4 +103,9 @@
     <string name="smart_shelf_more_genres">Flere sjangere (%1$d)</string>
     <string name="smart_shelf_short_date_pattern">d. MMM</string>
     <string name="smart_shelf_period_range">%1$s · %2$s–%3$s</string>
+    <string name="smart_shelf_scope">Server og bibliotek</string>
+    <string name="smart_shelf_scope_all_servers">Alle servere</string>
+    <string name="smart_shelf_scope_all_libraries">Alle bibliotek</string>
+    <string name="smart_shelf_scope_choose_library">Velg minst ett bibliotek.</string>
+    <string name="smart_shelf_scope_unavailable">Serveren til denne hyllen er ikke tilkoblet.</string>
 </resources>

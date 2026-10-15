@@ -10,6 +10,15 @@ import org.junit.Test
 class SmartShelfTest {
     private fun day(month: Int, day: Int, year: Int = 2026) = LocalDate.of(year, month, day)
 
+    private val jellyfin = ServiceConnection(
+        kind = ServiceKind.JELLYFIN,
+        name = "Jellyfin",
+        baseUrl = "https://media.example",
+        token = "fixture-token",
+        userId = "viewer-1",
+        state = ConnectionState.CONNECTED,
+    )
+
     @Test fun periodExplanationMatchesPresetAndOwnLibraryVisibility() {
         val before = day(10, 15)
         val active = day(10, 25)
@@ -29,6 +38,140 @@ class SmartShelfTest {
             genres = listOf("Family"), kinds = SmartShelfKinds.MOVIES, unwatched = true, period = SmartShelfPeriod.EASTER, inMenu = true,
             matchAll = true, inLibrary = false, onHome = true, sort = SmartShelfSort.RATING)
         assertEquals(listOf(shelf, SmartShelfPresets.halloween), SmartShelf.decodeAll(SmartShelf.encodeAll(listOf(shelf, SmartShelfPresets.halloween))))
+    }
+
+    @Test fun storedScopesKeepAllNoAndSelectedLibrariesDistinct() {
+        val shelves = listOf(
+            SmartShelf("all", tags = listOf("dog"), scope = SmartShelfScope.of(jellyfin)),
+            SmartShelf("none", tags = listOf("cat"), scope = SmartShelfScope.of(jellyfin, emptySet())),
+            SmartShelf("selected", tags = listOf("bird"),
+                scope = SmartShelfScope.of(jellyfin, setOf("films", "series"))),
+            SmartShelf("legacy", tags = listOf("fish")),
+        ) + SmartShelfPresets.all
+
+        val restored = SmartShelf.decodeAll(SmartShelf.encodeAll(shelves))
+
+        assertEquals(shelves, restored)
+        assertNull(restored.first { it.id == "all" }.scope!!.libraryIds)
+        assertEquals(emptySet<String>(), restored.first { it.id == "none" }.scope!!.libraryIds)
+        assertEquals(setOf("films", "series"), restored.first { it.id == "selected" }.scope!!.libraryIds)
+        assertNull(restored.first { it.id == "legacy" }.scope)
+        assertTrue(restored.filter { it.preset }.all { it.scope == null })
+    }
+
+    @Test fun olderShelvesKeepTheirRulesAndRemainAvailableOnBothMediaServices() {
+        val old = SmartShelf.decodeAll("""[{"id":"u-old","name":"Hund","tags":["dog"],"inLibrary":false,"onHome":true},{"id":"halloween","preset":true,"tags":["witch"]}]""")
+        assertEquals(SmartShelf("u-old", name = "Hund", tags = listOf("dog"), inLibrary = false, onHome = true), old.first())
+        assertEquals(listOf("witch"), old.last().tags)
+        assertTrue(old.last().onHome)
+        val shelves = mergedSmartShelves(old)
+        val emby = jellyfin.copy(kind = ServiceKind.EMBY, baseUrl = "https://emby.example", userId = "viewer-2")
+
+        assertEquals(SmartShelfPresets.all.size + 1, shelves.size)
+        shelves.forEach { shelf ->
+            assertNull(shelf.scope)
+            assertTrue(shelf.appliesTo(jellyfin))
+            assertTrue(shelf.appliesTo(emby))
+        }
+        assertEquals(old, SmartShelf.decodeAll(SmartShelf.encodeAll(old)))
+    }
+
+    @Test fun scopedShelfKeepsItsAccountAcrossFailoverAndTokenRotation() {
+        val original = jellyfin.copy(
+            baseUrl = "https://lan.example",
+            alternateUrl = "https://remote.example",
+            identityUrl = "https://media.example/",
+        )
+        val failover = original.copy(
+            name = "Renamed service",
+            baseUrl = original.alternateUrl,
+            alternateUrl = original.baseUrl,
+            token = "rotated-fixture-token",
+        )
+        val scope = SmartShelfScope.of(original, setOf("films"))
+        val shelf = SmartShelf("u-scoped", tags = listOf("dog"), scope = scope)
+
+        assertEquals(smartShelfAccountKey(original), scope.accountKey)
+        assertEquals(smartShelfAccountKey(original), smartShelfAccountKey(failover))
+        assertEquals(scope, SmartShelfScope.of(failover, setOf("films")))
+        assertTrue(scope.matches(failover))
+        assertTrue(shelf.appliesTo(failover))
+    }
+
+    @Test fun accountKeyUsesBaseUrlUntilStableIdentityExistsAndIgnoresTrailingSlash() {
+        val beforeIdentity = jellyfin.copy(baseUrl = "https://media.example/")
+        val withoutSlash = beforeIdentity.copy(baseUrl = "https://media.example")
+        val afterIdentity = beforeIdentity.copy(
+            baseUrl = "https://alternate.example",
+            identityUrl = beforeIdentity.baseUrl,
+        )
+
+        assertEquals(smartShelfAccountKey(beforeIdentity), smartShelfAccountKey(withoutSlash))
+        assertEquals(smartShelfAccountKey(beforeIdentity), smartShelfAccountKey(afterIdentity))
+        assertTrue(SmartShelfScope.of(beforeIdentity).matches(afterIdentity))
+    }
+
+    @Test fun scopedShelfRejectsAnotherServiceServerOrUser() {
+        val scope = SmartShelfScope.of(jellyfin)
+        val shelf = SmartShelf("u-scoped", tags = listOf("dog"), scope = scope)
+        val others = listOf(
+            jellyfin.copy(kind = ServiceKind.EMBY),
+            jellyfin.copy(baseUrl = "https://other.example"),
+            jellyfin.copy(userId = "viewer-2"),
+        )
+
+        assertEquals(ServiceKind.JELLYFIN, scope.source)
+        assertTrue(scope.matches(jellyfin))
+        assertTrue(shelf.appliesTo(jellyfin))
+        others.forEach { other ->
+            assertFalse(scope.matches(other))
+            assertFalse(shelf.appliesTo(other))
+            assertFalse(smartShelfAccountKey(jellyfin) == smartShelfAccountKey(other))
+        }
+        // The explicit service discriminator is checked even if an account key is reused.
+        assertFalse(scope.copy(source = ServiceKind.EMBY).matches(jellyfin))
+        assertFalse(SmartShelfScope.of(jellyfin.copy(userId = "")).matches(jellyfin.copy(userId = "")))
+    }
+
+    @Test fun malformedExplicitScopeNeverTurnsIntoAGlobalShelf() {
+        val global = SmartShelf("legacy", tags = listOf("dog"))
+        val damagedScopes = listOf(
+            """{"source":"UNKNOWN","accountKey":"key"}""",
+            """{"source":"JELLYFIN","accountKey":""}""",
+            """{"source":"JELLYFIN","accountKey":"key","libraryIds":"all"}""",
+        )
+        damagedScopes.forEach { scope ->
+            val encoded = """[${global.encode()},{"id":"damaged","tags":["dog"],"scope":$scope}]"""
+            assertEquals(listOf(global), SmartShelf.decodeAll(encoded))
+        }
+    }
+
+    @Test fun editingOneScopedShelfKeepsTheOtherAccountsShelf() {
+        val own = SmartShelf("u-own", tags = listOf("dog"), scope = SmartShelfScope.of(jellyfin, setOf("films")))
+        val other = SmartShelf("u-other", tags = listOf("cat"),
+            scope = SmartShelfScope.of(jellyfin.copy(userId = "viewer-2"), emptySet()))
+        val edited = own.copy(name = "Hund", tags = listOf("dog", "puppy"), onHome = true)
+
+        val stored = listOf(own, other).withShelf(edited)
+        val restored = SmartShelf.decodeAll(SmartShelf.encodeAll(stored))
+
+        assertEquals(listOf(edited, other), restored)
+        assertEquals(own.scope, restored.first().scope)
+        assertEquals(other, restored.last())
+        assertEquals(emptySet<String>(), restored.last().scope!!.libraryIds)
+    }
+
+    @Test fun childViewerRulesKeepTheSameAccountAndLibraryScope() {
+        val scope = SmartShelfScope.of(jellyfin, setOf("family"))
+        val shelf = SmartShelf("u-family", tags = listOf("halloween"), genres = listOf("Horror", "Family"), scope = scope)
+
+        val child = shelf.forViewer(child = true)
+
+        assertEquals(listOf("Family"), child.genres)
+        assertEquals(scope, child.scope)
+        assertTrue(child.appliesTo(jellyfin))
+        assertFalse(child.appliesTo(jellyfin.copy(userId = "another-child")))
+        assertEquals(shelf, shelf.forViewer(child = false))
     }
 
     @Test fun aDamagedStoreLosesOnlyWhatIsDamaged() {

@@ -11,6 +11,8 @@ import app.reelstack.data.repository.MediaSnapshotStore
 import app.reelstack.data.model.ActivityEvent
 import app.reelstack.data.model.SmartShelf
 import app.reelstack.data.model.SmartShelfPresets
+import app.reelstack.data.model.SmartShelfScope
+import app.reelstack.data.model.smartShelfAccountKey
 import app.reelstack.data.model.mergedSmartShelves
 import app.reelstack.data.model.withShelf
 import app.reelstack.data.model.ConnectionState
@@ -326,13 +328,22 @@ data class ReelstackUiState(
 
     /** The layout Home renders: the saved one, or the one the older fields describe. */
     val effectiveHomeLayout: app.reelstack.data.model.HomeLayout
-        get() = (homeLayout ?: app.reelstack.data.model.HomeLayout.fromLegacy(homeRowOrder, homeSections, showNextUp = true))
-            .withShelfRows(homeShelfRows)
+        get() {
+            val rows = homeShelfRows
+            val layout = (homeLayout ?: app.reelstack.data.model.HomeLayout.fromLegacy(homeRowOrder, homeSections, showNextUp = true))
+                .withShelfRows(rows)
+            val scopes = mergedSmartShelves(smartShelves).mapNotNull { shelf -> shelf.scope?.let { shelf.id to it } }.toMap()
+            return layout.copy(order = layout.order.filter { row ->
+                val scope = row.shelf?.let { scopes[it] }
+                scope == null || connections.any { it.kind == row.source && scope.matches(it) }
+            })
+        }
 
     /** The Home rows smart shelves have today: one per shelf and per media server with an address. */
     val homeShelfRows: List<app.reelstack.data.model.HomeRowKey>
         get() = app.reelstack.data.model.homeShelves(smartShelves, java.time.LocalDate.now()).flatMap { shelf ->
-            homeMediaSources.map { app.reelstack.data.model.HomeRowKey.shelfRow(it, shelf.id) }
+            connections.filter { it.kind in homeMediaSources && it.token.isNotBlank() && shelf.appliesTo(it) }
+                .map { app.reelstack.data.model.HomeRowKey.shelfRow(it.kind, shelf.id) }.distinct()
         }
 
     /** Media servers that have an address, and so rows of their own on Home. */
@@ -350,6 +361,40 @@ data class ReelstackUiState(
 
 }
 
+/** A scoped shelf never falls back to the other signed-in media account. */
+internal fun ReelstackUiState.smartShelfConnection(shelf: SmartShelf): ServiceConnection? =
+    if (shelf.scope == null) libraryConnection else connections.firstOrNull {
+        it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank() &&
+            it.token.isNotBlank() && shelf.appliesTo(it)
+    }
+
+/** Only actual root-library views may seed a new scope, never a nested series or season id. */
+internal fun ReelstackUiState.newSmartShelfScope(): SmartShelfScope? {
+    val connection = libraryConnection?.takeIf { it.userId.isNotBlank() } ?: return null
+    val knownLibraries = libraryShortcuts.map { it.first }.toSet() + libraryChoices.map { it.id }
+    val root = libraryPath.firstOrNull()?.first?.takeIf { it in knownLibraries && SmartShelf.idOfPath(it) == null }
+    return SmartShelfScope.of(connection, root?.let { setOf(it) } ?: emptySet())
+}
+
+internal fun sameSmartShelfQuery(first: SmartShelf, second: SmartShelf): Boolean =
+    first.scope == second.scope && first.tags == second.tags && first.genres == second.genres &&
+        first.kinds == second.kinds && first.unwatched == second.unwatched &&
+        first.requiresBoth == second.requiresBoth && first.sort == second.sort
+
+internal fun sameSmartShelfAccount(first: ServiceConnection?, second: ServiceConnection): Boolean =
+    first != null && smartShelfAccountKey(first) == smartShelfAccountKey(second) && first.token == second.token
+
+internal fun sameSmartShelfSource(first: SmartShelf, second: SmartShelf): Boolean =
+    first.scope?.source == second.scope?.source && first.scope?.accountKey == second.scope?.accountKey
+
+internal fun ReelstackUiState.ownsSmartShelfEditorResult(start: ReelstackUiState, draft: SmartShelf,
+    connection: ServiceConnection, matchLibraries: Boolean = true): Boolean {
+    val current = smartShelfEditor?.draft ?: return false
+    return activeProfileId == start.activeProfileId && sessionScope == start.sessionScope &&
+        current.id == draft.id && (if (matchLibraries) current.scope == draft.scope else sameSmartShelfSource(current, draft)) &&
+        sameSmartShelfAccount(smartShelfConnection(current), connection)
+}
+
 class ReelstackViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
@@ -359,6 +404,7 @@ class ReelstackViewModel(
         val path: String,
         val collectionType: String?,
         val filters: app.reelstack.data.model.LibraryFilters,
+        val shelfScope: SmartShelfScope?,
     )
 
     private data class CachedLibraryPage(
@@ -381,6 +427,9 @@ class ReelstackViewModel(
             path = state.libraryPath.joinToString("/") { it.first },
             collectionType = state.libraryCollectionType,
             filters = state.libraryFilters,
+            shelfScope = SmartShelf.idOfPath(state.libraryPath.lastOrNull()?.first)?.let { id ->
+                mergedSmartShelves(state.smartShelves).firstOrNull { it.id == id }?.scope
+            },
         )
 
     /**
@@ -444,6 +493,7 @@ class ReelstackViewModel(
     private var smartPeekJob: Job? = null
     private var smartPreviewJob: Job? = null
     private var smartFacetsJob: Job? = null
+    private var smartLibrariesJob: Job? = null
     private var catalogueFacets: Pair<String, app.reelstack.data.model.CatalogueFacets>? = null
     /**
      * What each Home row of a smart shelf was last loaded with, so a row is only asked again when it
@@ -797,6 +847,7 @@ class ReelstackViewModel(
         libraryJob?.cancel()
         shelfJob?.cancel()
         peekJob?.cancel()
+        smartPeekJob?.cancel()
         libraryPageCache.clear()
         _uiState.update {
             it.copy(
@@ -824,6 +875,8 @@ class ReelstackViewModel(
         peekJob?.cancel()
         shelfJob?.cancel()
         libraryChoicesJob?.cancel()
+        smartPeekJob?.cancel()
+        closeSmartShelfEditor()
         libraryPageCache.clear()
         _uiState.update { it.copy(selectedLibrarySource = source,
             libraryPath = emptyList(), libraryCollectionType = null, libraryEntries = emptyList(),
@@ -919,7 +972,9 @@ class ReelstackViewModel(
             try {
                 fun currentCatalogue() = isActive && _uiState.value.librarySource == connection.kind &&
                     _uiState.value.libraryPath == path && _uiState.value.libraryFilters == state.libraryFilters &&
+                    libraryCacheKey(connection, _uiState.value) == cacheKey &&
                     _uiState.value.activeProfileId == state.activeProfileId &&
+                    _uiState.value.sessionScope == state.sessionScope &&
                     _uiState.value.libraryConnection?.let {
                         it.baseUrl == connection.baseUrl && it.token == connection.token && it.userId == connection.userId
                     } == true
@@ -2694,6 +2749,9 @@ class ReelstackViewModel(
      */
     fun openSmartShelf(id: String) {
         val shelf = smartShelf(id) ?: return
+        val state = _uiState.value
+        val connection = state.smartShelfConnection(shelf) ?: return
+        if (!sameSmartShelfAccount(state.libraryConnection, connection)) selectLibrarySource(connection.kind)
         _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shelf.pathId to smartShelfTitle(shelf)),
             libraryCollectionType = null, libraryFilters = app.reelstack.data.model.LibraryFilters(),
             libraryFacets = app.reelstack.data.model.LibraryFacets(), libraryEntries = emptyList(),
@@ -2709,7 +2767,7 @@ class ReelstackViewModel(
         val state = _uiState.value
         val connection = state.libraryConnection ?: return
         val missing = app.reelstack.data.model.libraryShelves(state.smartShelves, java.time.LocalDate.now())
-            .filter { it.hasRule && it.id !in state.smartShelfPeeks }
+            .filter { it.hasRule && it.appliesTo(connection) && it.id !in state.smartShelfPeeks }
         if (missing.isEmpty()) return
         smartPeekJob?.cancel()
         smartPeekJob = operationScope.launch {
@@ -2719,8 +2777,17 @@ class ReelstackViewModel(
                     container.mediaServerClient.smartShelf(connection, shelf.forViewer(state.isKidMode), limit = 4, cachedOnly = true)
                 }.getOrDefault(emptyList()) }.filterValues { it.isNotEmpty() }
             }
-            if (remembered.isNotEmpty() && isActive && _uiState.value.activeProfileId == state.activeProfileId) {
-                _uiState.update { it.copy(smartShelfPeeks = remembered + it.smartShelfPeeks) }
+            fun ownsPeeks(current: ReelstackUiState) = isActive && current.activeProfileId == state.activeProfileId &&
+                current.sessionScope == state.sessionScope && sameSmartShelfAccount(current.libraryConnection, connection)
+            if (remembered.isNotEmpty() && ownsPeeks(_uiState.value)) {
+                _uiState.update { current ->
+                    val valid = remembered.filterKeys { id ->
+                        val old = missing.firstOrNull { it.id == id }
+                        val latest = mergedSmartShelves(current.smartShelves).firstOrNull { it.id == id }
+                        old != null && latest != null && sameSmartShelfQuery(old, latest)
+                    }
+                    if (ownsPeeks(current)) current.copy(smartShelfPeeks = valid + current.smartShelfPeeks) else current
+                }
             }
             kotlinx.coroutines.coroutineScope {
                 missing.forEach { shelf -> launch {
@@ -2728,8 +2795,12 @@ class ReelstackViewModel(
                         runCatching { container.mediaServerClient.smartShelf(connection, shelf.forViewer(state.isKidMode), limit = 4) }
                             .getOrNull()
                     } ?: return@launch
-                    if (isActive && _uiState.value.activeProfileId == state.activeProfileId && _uiState.value.libraryConnection == connection) {
-                        _uiState.update { it.copy(smartShelfPeeks = it.smartShelfPeeks + (shelf.id to items)) }
+                    if (ownsPeeks(_uiState.value)) {
+                        _uiState.update { current ->
+                            val latest = mergedSmartShelves(current.smartShelves).firstOrNull { it.id == shelf.id }
+                            if (ownsPeeks(current) && latest != null && sameSmartShelfQuery(latest, shelf))
+                                current.copy(smartShelfPeeks = current.smartShelfPeeks + (shelf.id to items)) else current
+                        }
                     }
                 } }
             }
@@ -2753,15 +2824,21 @@ class ReelstackViewModel(
         rows.filter(layout::isVisible).forEach { key ->
             val shelf = shelves[key.shelf] ?: return@forEach
             val connection = state.connections.firstOrNull {
-                it.kind == key.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+                it.kind == key.source && it.baseUrl.isNotBlank() && it.token.isNotBlank() && shelf.appliesTo(it)
             } ?: return@forEach
-            val signature = shelf.encode().toString() + "|" + connection.baseUrl + "|" + connection.userId + "|" + state.isKidMode
+            val signature = shelf.encode().toString() + "|" + MediaSnapshotStore.fingerprint(listOf(connection)) + "|" + state.isKidMode
             val last = homeShelfLoads[key.id]
             if (!force && last != null && last.first == signature && now - last.second < HOME_SHELF_STALE_MILLIS) return@forEach
             homeShelfLoads[key.id] = signature to now
             val viewer = shelf.forViewer(state.isKidMode)
             operationScope.launch {
                 var loaded = false
+                fun ownsRow(current: ReelstackUiState): Boolean {
+                    val latest = mergedSmartShelves(current.smartShelves).firstOrNull { it.id == shelf.id }
+                    return isActive && current.activeProfileId == state.activeProfileId && current.sessionScope == state.sessionScope &&
+                        current.homeShelfRows.contains(key) && latest != null && sameSmartShelfQuery(latest, shelf) &&
+                        sameSmartShelfAccount(current.connections.firstOrNull { it.kind == key.source }, connection)
+                }
                 try {
                     // The row as it was last time, at once; the server's answer replaces it below.
                     if (key.id !in _uiState.value.homeShelfMedia) {
@@ -2769,17 +2846,17 @@ class ReelstackViewModel(
                             runCatching { container.mediaSyncRepository.smartShelfMedia(connection, viewer, HOME_SHELF_LIMIT, cachedOnly = true) }
                                 .getOrDefault(emptyList())
                         }
-                        if (remembered.isNotEmpty() && _uiState.value.activeProfileId == state.activeProfileId) {
-                            _uiState.update { it.copy(homeShelfMedia = mapOf(key.id to remembered) + it.homeShelfMedia) }
+                        if (remembered.isNotEmpty() && ownsRow(_uiState.value)) {
+                            _uiState.update { if (ownsRow(it)) it.copy(homeShelfMedia = mapOf(key.id to remembered) + it.homeShelfMedia) else it }
                         }
                     }
                     val items = withContext(Dispatchers.IO) {
                         runCatching { container.mediaSyncRepository.smartShelfMedia(connection, viewer, HOME_SHELF_LIMIT) }.getOrNull()
                     } ?: return@launch
-                    if (_uiState.value.activeProfileId == state.activeProfileId) {
-                        _uiState.update { it.copy(homeShelfMedia = it.homeShelfMedia + (key.id to items)) }
+                    if (ownsRow(_uiState.value)) {
+                        _uiState.update { if (ownsRow(it)) it.copy(homeShelfMedia = it.homeShelfMedia + (key.id to items)) else it }
+                        loaded = true
                     }
-                    loaded = true
                 } finally {
                     // A load that failed or was cancelled half-way, by a profile check or a new refresh,
                     // must not count as done, or the row would wait out the whole ten minutes empty.
@@ -2795,14 +2872,24 @@ class ReelstackViewModel(
      * but its rule, icon and period.
      */
     fun openSmartShelfEditor(id: String? = null, template: String? = null) {
+        closeSmartShelfEditor()
+        val state = _uiState.value
         val existing = id?.let(::smartShelf)
+        val initialScope = state.newSmartShelfScope()
+        if (existing == null && initialScope == null) return
         // A shelf someone makes is one they want to see: on Home as well as in the library, and from
         // today. A template lends its rule; its season stays with the built-in shelf.
         val draft = existing ?: template?.let { name -> SmartShelfPresets.all.firstOrNull { it.id == name } }
             ?.let { it.copy(id = newSmartShelfId(), name = smartShelfTitle(it), preset = false,
-                period = app.reelstack.data.model.SmartShelfPeriod.ALWAYS, onHome = true) }
-            ?: SmartShelf(id = newSmartShelfId(), onHome = true)
-        _uiState.update { it.copy(smartShelfEditor = app.reelstack.data.model.SmartShelfEditor(draft, isNew = existing == null)) }
+                period = app.reelstack.data.model.SmartShelfPeriod.ALWAYS, onHome = true, scope = initialScope) }
+            ?: SmartShelf(id = newSmartShelfId(), onHome = true, scope = initialScope)
+        val sources = state.connections.filter {
+            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank() &&
+                it.token.isNotBlank() && it.userId.isNotBlank()
+        }.map { app.reelstack.data.model.SmartShelfSourceOption(smartShelfAccountKey(it), it.kind, it.kind.displayName) }
+        _uiState.update { it.copy(smartShelfEditor = app.reelstack.data.model.SmartShelfEditor(draft,
+            isNew = existing == null, sources = sources)) }
+        loadSmartShelfLibraries()
         loadCatalogueFacets()
         previewSmartShelf()
     }
@@ -2813,10 +2900,21 @@ class ReelstackViewModel(
     fun updateSmartShelfDraft(draft: SmartShelf) {
         val editor = _uiState.value.smartShelfEditor ?: return
         if (editor.draft == draft) return
-        val ruleChanged = editor.draft.tags != draft.tags || editor.draft.genres != draft.genres ||
-            editor.draft.kinds != draft.kinds || editor.draft.unwatched != draft.unwatched ||
-            editor.draft.requiresBoth != draft.requiresBoth
-        _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(draft = draft)) }
+        val scopeChanged = editor.draft.scope != draft.scope
+        val accountChanged = !sameSmartShelfSource(editor.draft, draft)
+        val ruleChanged = !sameSmartShelfQuery(editor.draft, draft)
+        _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.let { current ->
+            if (scopeChanged) current.copy(draft = draft,
+                libraries = if (accountChanged) emptyList() else current.libraries,
+                librariesFailed = if (accountChanged) false else current.librariesFailed,
+                facets = app.reelstack.data.model.CatalogueFacets(), facetsFailed = false, facetsError = null,
+                previewMovies = null, previewSeries = null, previewCapped = false)
+            else current.copy(draft = draft)
+        }) }
+        if (scopeChanged) {
+            if (accountChanged) loadSmartShelfLibraries()
+            loadCatalogueFacets()
+        }
         if (ruleChanged) previewSmartShelf(delayMillis = 350)
     }
 
@@ -2832,6 +2930,7 @@ class ReelstackViewModel(
     fun closeSmartShelfEditor() {
         smartPreviewJob?.cancel()
         smartFacetsJob?.cancel()
+        smartLibrariesJob?.cancel()
         _uiState.update { it.copy(smartShelfEditor = null) }
     }
 
@@ -2839,13 +2938,14 @@ class ReelstackViewModel(
         val state = _uiState.value
         val editor = state.smartShelfEditor ?: return
         val trimmed = editor.draft.copy(name = editor.draft.name.trim().take(40))
-        if (!trimmed.hasRule) return
+        if (!trimmed.hasRule || trimmed.scope?.libraryIds?.isEmpty() == true) return
         val shelf = if (!trimmed.preset && trimmed.name.isBlank()) trimmed.copy(name = appString(R.string.smart_shelf_untitled)) else trimmed
         val stored = state.smartShelves.withShelf(shelf)
         container.preferencesRepository.setSmartShelves(state.activeProfileId, stored)
         libraryPageCache.clear()
         closeSmartShelfEditor()
-        _uiState.update { it.copy(smartShelves = stored, smartShelfPeeks = it.smartShelfPeeks - shelf.id) }
+        _uiState.update { it.copy(smartShelves = stored, smartShelfPeeks = it.smartShelfPeeks - shelf.id,
+            homeShelfMedia = it.homeShelfMedia.filterKeys { key -> app.reelstack.data.model.HomeRowKey.parse(key)?.shelf != shelf.id }) }
         loadHomeShelves()
         openSmartShelf(shelf.id)
     }
@@ -2888,35 +2988,73 @@ class ReelstackViewModel(
 
     fun retryCatalogueFacets() {
         catalogueFacets = null
+        loadSmartShelfLibraries()
         loadCatalogueFacets()
     }
 
-    private fun loadCatalogueFacets() {
-        val connection = _uiState.value.libraryConnection ?: return
-        val key = connection.baseUrl + "|" + connection.userId
-        catalogueFacets?.takeIf { it.first == key }?.let { (_, facets) ->
-            _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(facets = facets, facetsLoading = false)) }
+    private fun loadSmartShelfLibraries() {
+        smartLibrariesJob?.cancel()
+        val state = _uiState.value
+        val draft = state.smartShelfEditor?.draft ?: return
+        val connection = state.smartShelfConnection(draft)
+        if (draft.scope == null || connection == null) {
+            _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(libraries = emptyList(),
+                librariesLoading = false, librariesFailed = draft.scope != null)) }
             return
         }
-        _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(facetsLoading = true, facetsFailed = false)) }
+        _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(librariesLoading = true, librariesFailed = false)) }
+        smartLibrariesJob = operationScope.launch {
+            val outcome = withContext(Dispatchers.IO) { runCatching { container.mediaServerClient.browseLibraries(connection) } }
+            if (!isActive) return@launch
+            _uiState.update { current ->
+                if (!current.ownsSmartShelfEditorResult(state, draft, connection, matchLibraries = false)) current
+                else current.copy(smartShelfEditor = current.smartShelfEditor?.copy(librariesLoading = false,
+                    librariesFailed = outcome.isFailure, libraries = outcome.getOrNull().orEmpty()
+                        .map { app.reelstack.data.model.SmartShelfLibraryOption(it.id, it.name) }))
+            }
+        }
+    }
+
+    private fun loadCatalogueFacets() {
         smartFacetsJob?.cancel()
+        val state = _uiState.value
+        val draft = state.smartShelfEditor?.draft ?: return
+        val connection = state.smartShelfConnection(draft)
+        if (connection == null) {
+            _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(
+                facets = app.reelstack.data.model.CatalogueFacets(), facetsLoading = false, facetsFailed = true, facetsError = null)) }
+            return
+        }
+        val key = state.activeProfileId + "|" + MediaSnapshotStore.fingerprint(listOf(connection)) + "|" + draft.scope?.encode()
+        catalogueFacets?.takeIf { it.first == key }?.let { (_, facets) ->
+            _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(facets = facets,
+                facetsLoading = false, facetsFailed = false, facetsError = null)) }
+            return
+        }
+        _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(facetsLoading = true, facetsFailed = false, facetsError = null)) }
         smartFacetsJob = operationScope.launch {
-            val outcome = withContext(Dispatchers.IO) { runCatching { container.mediaServerClient.catalogueFacets(connection) } }
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching { container.mediaServerClient.catalogueFacets(connection, draft.scope?.libraryIds) }
+            }
             val facets = outcome.getOrNull()
             if (!isActive) return@launch
-            if (facets != null && (facets.genres.isNotEmpty() || facets.tags.isNotEmpty())) catalogueFacets = key to facets
-            _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(
-                facets = facets ?: app.reelstack.data.model.CatalogueFacets(), facetsLoading = false, facetsFailed = facets == null,
-                facetsError = outcome.exceptionOrNull()?.let { (it.message ?: it::class.java.simpleName).take(140) })) }
+            if (!_uiState.value.ownsSmartShelfEditorResult(state, draft, connection)) return@launch
+            if (facets != null) catalogueFacets = key to facets
+            _uiState.update { current ->
+                if (!current.ownsSmartShelfEditorResult(state, draft, connection)) current
+                else current.copy(smartShelfEditor = current.smartShelfEditor?.copy(
+                    facets = facets ?: app.reelstack.data.model.CatalogueFacets(), facetsLoading = false, facetsFailed = facets == null,
+                    facetsError = outcome.exceptionOrNull()?.let { (it.message ?: it::class.java.simpleName).take(140) }))
+            }
         }
     }
 
     private fun previewSmartShelf(delayMillis: Long = 0) {
         val state = _uiState.value
         val draft = state.smartShelfEditor?.draft ?: return
-        val connection = state.libraryConnection
+        val connection = state.smartShelfConnection(draft)
         smartPreviewJob?.cancel()
-        if (connection == null || !draft.hasRule) {
+        if (connection == null || !draft.hasRule || draft.scope?.libraryIds?.isEmpty() == true) {
             _uiState.update { it.copy(smartShelfEditor = it.smartShelfEditor?.copy(previewMovies = null, previewSeries = null,
                 previewCapped = false, previewLoading = false)) }
             return
@@ -2930,10 +3068,8 @@ class ReelstackViewModel(
             if (!isActive) return@launch
             _uiState.update { current ->
                 val editor = current.smartShelfEditor ?: return@update current
-                val same = editor.draft.tags == draft.tags && editor.draft.genres == draft.genres &&
-                    editor.draft.kinds == draft.kinds && editor.draft.unwatched == draft.unwatched &&
-                    editor.draft.requiresBoth == draft.requiresBoth
-                if (!same) return@update current
+                if (!current.ownsSmartShelfEditorResult(state, draft, connection) || !sameSmartShelfQuery(editor.draft, draft))
+                    return@update current
                 current.copy(smartShelfEditor = editor.copy(previewLoading = false,
                     previewSeries = items?.count { it.mediaType.equals("Series", ignoreCase = true) },
                     previewMovies = items?.count { !it.mediaType.equals("Series", ignoreCase = true) },

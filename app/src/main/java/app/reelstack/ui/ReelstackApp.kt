@@ -374,8 +374,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     },
                     shortcuts = state.libraryShortcuts,
                     libraryIcons = state.libraryIcons,
-                    smartShelves = remember(state.smartShelves) {
+                    smartShelves = remember(state.smartShelves, state.libraryConnection) {
                         app.reelstack.data.model.menuShelves(state.smartShelves, java.time.LocalDate.now())
+                            .filter { shelf -> state.libraryConnection?.let(shelf::appliesTo) == true }
                     },
                     selectedLibraryId = state.libraryPath.firstOrNull()?.first.takeIf { state.selectedTab == AppTab.LIBRARY },
                     onLibrarySelect = { id ->

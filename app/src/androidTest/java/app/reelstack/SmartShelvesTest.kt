@@ -21,6 +21,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.ForcedSize
+import androidx.compose.ui.test.FontScale
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
@@ -55,6 +56,9 @@ import app.reelstack.data.model.SmartShelfEditor
 import app.reelstack.data.model.SmartShelfKinds
 import app.reelstack.data.model.SmartShelfPresets
 import app.reelstack.data.model.SmartShelfSort
+import app.reelstack.data.model.SmartShelfScope
+import app.reelstack.data.model.SmartShelfSourceOption
+import app.reelstack.data.model.SmartShelfLibraryOption
 import app.reelstack.data.model.libraryShelves
 import app.reelstack.data.network.RemoteLibraryItem
 import app.reelstack.ui.ReelstackUiState
@@ -245,6 +249,77 @@ class SmartShelvesTest {
         // The library grid's covers start at 155 dp on a television and 130 dp on a phone.
         val library = if (tv) 155f else 130f
         assertTrue("A shelf cover is $width dp; the library grid's smallest is $library dp", width < library)
+    }
+
+    @Test fun theBuilderChoosesAccountAndLibrariesExplicitly() {
+        val recorder = Recorder()
+        val initial = SmartShelfScope.of(connection, setOf("movies"))
+        var editor by mutableStateOf(SmartShelfEditor(SmartShelf("u-scope", tags = listOf("dog"), scope = initial), false,
+            sources = listOf(SmartShelfSourceOption(initial.accountKey, ServiceKind.JELLYFIN, "Jellyfin"),
+                SmartShelfSourceOption("emby-account", ServiceKind.EMBY, "Emby")),
+            libraries = listOf(SmartShelfLibraryOption("movies", "Filmar"), SmartShelfLibraryOption("series", "Seriar"))))
+        val actions = object : SmartShelfActions by recorder {
+            override fun update(draft: SmartShelf) { recorder.update(draft); editor = editor.copy(draft = draft) }
+        }
+        rule.setContent { ReelstackTheme { SmartShelfEditorDialog(editor, actions) } }
+        rule.onNodeWithTag("smart-scope-source-JELLYFIN").assertIsSelected()
+        rule.onNodeWithTag("smart-scope-library-movies").assertIsSelected()
+        rule.onNodeWithTag("smart-scope-source-JELLYFIN").performClick()
+        rule.runOnIdle { assertEquals(setOf("movies"), editor.draft.scope?.libraryIds) }
+        rule.onNodeWithTag("smart-scope-library-series").performClick()
+        rule.runOnIdle { assertEquals(setOf("movies", "series"), editor.draft.scope?.libraryIds) }
+        rule.onNodeWithTag("smart-scope-library-movies").performClick()
+        rule.runOnIdle { assertEquals(setOf("series"), editor.draft.scope?.libraryIds) }
+        rule.onNodeWithTag("smart-scope-all-libraries").performClick()
+        rule.runOnIdle { assertEquals(null, editor.draft.scope?.libraryIds) }
+        rule.onNodeWithTag("smart-scope-source-EMBY").performClick()
+        rule.runOnIdle {
+            assertEquals("emby-account", editor.draft.scope?.accountKey)
+            assertEquals(emptySet<String>(), editor.draft.scope?.libraryIds)
+        }
+        rule.onNodeWithTag("smart-scope-all-servers").performClick()
+        rule.runOnIdle { assertEquals(null, editor.draft.scope); assertEquals(listOf("dog"), editor.draft.tags) }
+    }
+
+    @Test fun anEmptyLibrarySelectionCannotBecomeAllLibrariesBySaving() {
+        val recorder = Recorder()
+        val scope = SmartShelfScope.of(connection, emptySet())
+        var editor by mutableStateOf(SmartShelfEditor(SmartShelf("u-empty-scope", tags = listOf("dog"), scope = scope), false,
+            sources = listOf(SmartShelfSourceOption(scope.accountKey, ServiceKind.JELLYFIN, "Jellyfin"))))
+        val actions = object : SmartShelfActions by recorder {
+            override fun update(draft: SmartShelf) { editor = editor.copy(draft = draft) }
+        }
+        rule.setContent { ReelstackTheme { SmartShelfEditorDialog(editor, actions) } }
+        rule.onNodeWithTag("smart-shelf-save").performClick()
+        rule.runOnIdle { assertEquals(0, recorder.saved) }
+        rule.onNodeWithTag("smart-scope-empty").assertIsDisplayed()
+        rule.onNodeWithTag("smart-scope-all-libraries").performClick()
+        rule.onNodeWithTag("smart-shelf-save").performClick()
+        rule.runOnIdle { assertEquals(1, recorder.saved); assertEquals(null, editor.draft.scope?.libraryIds) }
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun scopedLibraryChoicesRemainUsableAtDoubleFont() {
+        val recorder = Recorder()
+        val scope = SmartShelfScope.of(connection, setOf("movies"))
+        var editor by mutableStateOf(SmartShelfEditor(SmartShelf("u-large-scope", tags = listOf("dog"), scope = scope), false,
+            sources = listOf(SmartShelfSourceOption(scope.accountKey, ServiceKind.JELLYFIN, "Jellyfin")),
+            libraries = listOf(SmartShelfLibraryOption("movies", "Filmar"), SmartShelfLibraryOption("series", "Seriar"))))
+        val actions = object : SmartShelfActions by recorder {
+            override fun update(draft: SmartShelf) { editor = editor.copy(draft = draft) }
+        }
+        rule.setContent {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(1280.dp, 800.dp))) {
+                DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(2f)) {
+                    ReelstackTheme { SmartShelfEditorDialog(editor, actions) }
+                }
+            }
+        }
+        rule.onNodeWithTag("smart-shelf-editor-list").performScrollToNode(hasTestTag("smart-scope-library-series"))
+        rule.onNodeWithTag("smart-scope-library-series").assertIsDisplayed().performClick()
+        rule.runOnIdle { assertEquals(setOf("movies", "series"), editor.draft.scope?.libraryIds) }
+        rule.onNodeWithTag("smart-shelf-save").assertIsDisplayed().performClick()
+        rule.runOnIdle { assertEquals(1, recorder.saved) }
     }
 
     @Test fun theBuilderAsksForARuleBeforeSaving() {

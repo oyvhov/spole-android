@@ -6,6 +6,7 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.SmartShelf
 import app.reelstack.data.model.SmartShelfKinds
 import app.reelstack.data.model.SmartShelfPresets
+import app.reelstack.data.model.SmartShelfScope
 import app.reelstack.data.model.SmartShelfSort
 import java.net.URLDecoder
 import org.junit.Assert.assertEquals
@@ -16,10 +17,11 @@ import org.junit.Test
 /** A smart shelf asks the server: tagged titles first, the genres after them, each title once. */
 class SmartShelfQueryTest {
     private class Scripted(private val answer: (String) -> String?) : JsonHttpTransport {
-        val requested = mutableListOf<String>()
+        val requested = java.util.Collections.synchronizedList(mutableListOf<String>())
         override fun get(url: String, headers: Map<String, String>): HttpResponse {
-            requested += URLDecoder.decode(url, "UTF-8")
-            return answer(requested.last())?.let { HttpResponse(200, it) } ?: HttpResponse(404, "")
+            val decoded = URLDecoder.decode(url, "UTF-8")
+            requested += decoded
+            return answer(decoded)?.let { HttpResponse(200, it) } ?: HttpResponse(404, "")
         }
         override fun post(url: String, headers: Map<String, String>, jsonBody: String) = HttpResponse(204, "")
         override fun delete(url: String, headers: Map<String, String>) = HttpResponse(204, "")
@@ -235,5 +237,117 @@ class SmartShelfQueryTest {
             .smartShelf(jellyfin, SmartShelfPresets.halloween.copy(genres = emptyList()))
         assertEquals(listOf("hocus"), shelf.map { it.id })
         assertTrue(quick.requested.isEmpty())
+    }
+
+    @Test fun anotherAccountOrServerCannotReadOrFetchAScopedShelf() {
+        var cacheReads = 0
+        val cache = object : ShelfAnswerCache {
+            override fun read(key: String): String? { cacheReads++; return items(movie("leaked", "Wrong account")) }
+            override fun write(key: String, body: String) = Unit
+            override fun clear() = Unit
+        }
+        val scoped = SmartShelfPresets.halloween.copy(scope = SmartShelfScope.of(jellyfin))
+        val client = MediaServerClient(transport = transport, deviceId = "d", shelfCache = cache)
+        listOf(jellyfin.copy(userId = "other"), jellyfin.copy(baseUrl = "https://other.example"),
+            jellyfin.copy(kind = ServiceKind.EMBY)).forEach { other ->
+            assertTrue(client.smartShelf(other, scoped).isEmpty())
+            assertTrue(client.smartShelf(other, scoped, cachedOnly = true).isEmpty())
+        }
+        assertEquals(0, cacheReads)
+        assertTrue(transport.requested.isEmpty())
+    }
+
+    @Test fun anExplicitlyEmptyLibrarySelectionAsksNothing() {
+        val client = MediaServerClient(transport = transport, deviceId = "d")
+        val shelf = SmartShelfPresets.halloween.copy(scope = SmartShelfScope.of(jellyfin, emptySet()))
+        assertTrue(client.smartShelf(jellyfin, shelf).isEmpty())
+        assertTrue(client.smartShelf(jellyfin, shelf, cachedOnly = true).isEmpty())
+        assertEquals(app.reelstack.data.model.CatalogueFacets(), client.catalogueFacets(jellyfin, emptySet()))
+        assertTrue(transport.requested.isEmpty())
+    }
+
+    @Test fun allLibrariesOfOneAccountDoNotBecomeAllAccounts() {
+        val shelf = SmartShelfPresets.halloween.copy(scope = SmartShelfScope.of(jellyfin))
+        assertEquals(3, MediaServerClient(transport = transport, deviceId = "d").smartShelf(jellyfin, shelf).size)
+        assertTrue(transport.requested.all { "ParentId" !in it && "userId=u1" in it })
+    }
+
+    @Test fun bothOrQueriesStayInsideEachSelectedLibraryAndShareOneResultLimit() {
+        val scopedTransport = Scripted { url -> when {
+            "ParentId=films" in url && "Tags=halloween" in url -> items(movie("b", "Bravo"), movie("shared", "Charlie"))
+            "ParentId=series" in url && "Tags=halloween" in url -> items(movie("a", "Alpha", "Series"), movie("shared", "Charlie"))
+            "ParentId=films" in url && "Genres=Horror" in url -> items(movie("d", "Delta"))
+            "ParentId=series" in url && "Genres=Horror" in url -> items(movie("e", "Echo", "Series"))
+            else -> null
+        } }
+        val shelf = SmartShelf("scoped", tags = listOf("halloween"), genres = listOf("Horror"),
+            sort = SmartShelfSort.TITLE, scope = SmartShelfScope.of(jellyfin, setOf("films", "series")))
+        val result = MediaServerClient(transport = scopedTransport, deviceId = "d").smartShelf(jellyfin, shelf, limit = 3)
+        assertEquals(listOf("a", "b", "shared"), result.map { it.id })
+        assertEquals(4, scopedTransport.requested.size)
+        assertTrue(scopedTransport.requested.all { "ParentId=films" in it || "ParentId=series" in it })
+        assertEquals(2, scopedTransport.requested.count { "Tags=halloween" in it })
+        assertEquals(2, scopedTransport.requested.count { "Genres=Horror" in it })
+    }
+
+    @Test fun andQueriesKeepTheLibraryScopeAndMergeDeduplicateAndSortBeforeLimiting() {
+        val scopedTransport = Scripted { url -> when {
+            "ParentId=films" in url -> items(movie("b", "Bravo"), movie("shared", "Charlie"))
+            "ParentId=series" in url -> items(movie("a", "Alpha", "Series"), movie("shared", "Charlie"))
+            else -> null
+        } }
+        val shelf = SmartShelf("scoped", tags = listOf("halloween"), genres = listOf("Horror"), matchAll = true,
+            sort = SmartShelfSort.TITLE, scope = SmartShelfScope.of(jellyfin, setOf("films", "series")))
+        val result = MediaServerClient(transport = scopedTransport, deviceId = "d").smartShelf(jellyfin, shelf, limit = 3)
+        assertEquals(listOf("a", "b", "shared"), result.map { it.id })
+        assertEquals(2, scopedTransport.requested.size)
+        assertTrue(scopedTransport.requested.all { "Tags=halloween&Genres=Horror" in it && "ParentId=" in it })
+    }
+
+    @Test fun ruleOrderSortsAcrossLibrariesButKeepsTaggedTitlesBeforeGenreOnlyTitles() {
+        val scopedTransport = Scripted { url -> when {
+            "ParentId=films" in url && "Tags=dog" in url -> items(movie("b", "Bravo"))
+            "ParentId=series" in url && "Tags=dog" in url -> items(movie("a", "Alpha", "Series"))
+            "ParentId=films" in url && "Genres=Drama" in url -> items(movie("d", "Delta"))
+            "ParentId=series" in url && "Genres=Drama" in url -> items(movie("c", "Charlie", "Series"))
+            else -> null
+        } }
+        val shelf = SmartShelf("rule", tags = listOf("dog"), genres = listOf("Drama"),
+            scope = SmartShelfScope.of(jellyfin, setOf("films", "series")))
+        val result = MediaServerClient(transport = scopedTransport, deviceId = "d").smartShelf(jellyfin, shelf, limit = 3)
+        assertEquals(listOf("a", "b", "c"), result.map { it.id })
+    }
+
+    @Test fun aLibraryScopedCacheCannotSupplyAnotherLibraryOrTheWholeCatalogue() {
+        val memory = object : ShelfAnswerCache {
+            val entries = mutableMapOf<String, String>()
+            override fun read(key: String) = entries[key]
+            override fun write(key: String, body: String) { entries[key] = body }
+            override fun clear() = entries.clear()
+        }
+        val scopedTransport = Scripted { url -> if ("ParentId=films" in url)
+            items(movie("film", "Film")) else null }
+        val client = MediaServerClient(transport = scopedTransport, deviceId = "d", shelfCache = memory)
+        val shelf = SmartShelf("cache", tags = listOf("dog"), scope = SmartShelfScope.of(jellyfin, setOf("films")))
+        assertEquals(listOf("film"), client.smartShelf(jellyfin, shelf).map { it.id })
+        val asked = scopedTransport.requested.size
+        assertEquals(listOf("film"), client.smartShelf(jellyfin, shelf, cachedOnly = true).map { it.id })
+        assertTrue(client.smartShelf(jellyfin, shelf.copy(scope = SmartShelfScope.of(jellyfin, setOf("series"))), cachedOnly = true).isEmpty())
+        assertTrue(client.smartShelf(jellyfin, shelf.copy(scope = null), cachedOnly = true).isEmpty())
+        assertEquals(asked, scopedTransport.requested.size)
+    }
+
+    @Test fun catalogueFacetsUseOnlyTheSelectedLibrariesWithoutGlobalFallback() {
+        val scopedTransport = Scripted { url -> when {
+            "ParentId=films" in url -> """{"Genres":["Horror"],"Tags":["dog"]}"""
+            "ParentId=series" in url -> """{"Genres":["Comedy"],"Tags":["cat"]}"""
+            else -> null
+        } }
+        val facets = MediaServerClient(transport = scopedTransport, deviceId = "d")
+            .catalogueFacets(jellyfin, setOf("films", "series"))
+        assertEquals(listOf("Comedy", "Horror"), facets.genres)
+        assertEquals(listOf("cat", "dog"), facets.tags)
+        assertTrue(scopedTransport.requested.all { "ParentId=films" in it || "ParentId=series" in it })
+        assertTrue(scopedTransport.requested.none { "UserViews" in it || "/Views" in it })
     }
 }

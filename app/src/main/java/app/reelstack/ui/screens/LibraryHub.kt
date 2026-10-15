@@ -37,7 +37,10 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     val options = LocalPersonalization.current
     val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
     val today = remember { java.time.LocalDate.now() }
-    val smartShelves = remember(state.smartShelves, today) { app.reelstack.data.model.libraryShelves(state.smartShelves, today) }
+    val smartShelves = remember(state.smartShelves, today, state.libraryConnection) {
+        app.reelstack.data.model.libraryShelves(state.smartShelves, today)
+            .filter { shelf -> state.libraryConnection?.let(shelf::appliesTo) == true }
+    }
     val libraries = state.libraryEntries.filter { it.id !in options.libraryHidden }.sortedBy { options.libraryOrder.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
     val libraryIds = libraries.map { it.id }.toSet()
     val resume = state.resume.filter { state.configuredCount == 0 || it.source == state.librarySource }

@@ -103,4 +103,9 @@
     <string name="smart_shelf_more_genres">Fleire sjangrar (%1$d)</string>
     <string name="smart_shelf_short_date_pattern">d. MMM</string>
     <string name="smart_shelf_period_range">%1$s · %2$s–%3$s</string>
+    <string name="smart_shelf_scope">Tenar og bibliotek</string>
+    <string name="smart_shelf_scope_all_servers">Alle tenarar</string>
+    <string name="smart_shelf_scope_all_libraries">Alle bibliotek</string>
+    <string name="smart_shelf_scope_choose_library">Vel minst eitt bibliotek.</string>
+    <string name="smart_shelf_scope_unavailable">Tenaren til denne hylla er ikkje tilkopla.</string>
 </resources>
