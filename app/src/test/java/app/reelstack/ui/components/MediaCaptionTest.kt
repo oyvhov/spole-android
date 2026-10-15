@@ -5,7 +5,7 @@ import org.junit.Test
 
 class MediaCaptionTest {
     @Test fun absentAndPlaceholderMetadataHasNoCaption() {
-        listOf(null, "", "  ", "TBA", " tba ", "N/A", "-").forEach { assertNull(readableMediaText(it)) }
+        listOf(null, "", "  ", "TBA", " tba ", "TBD", "N/A", "-").forEach { assertNull(readableMediaText(it)) }
     }
     @Test fun realOverviewAndTitlesRemainIntact() {
         assertEquals("Ei ekte omtale med TBA inni.", readableMediaText(" Ei ekte omtale med TBA inni. "))

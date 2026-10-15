@@ -346,8 +346,8 @@ class TvRefinementUiTest {
     }
     @Test fun remoteFocusKeepsRailGeometryAndCaptionBaselinesStable() {
         val titles = listOf("Kort", "Ein mykje lengre serietittel som treng to linjer")
-        val items = titles.mapIndexed { index, title -> LibraryMedia("steady-$index", title, "Episode",
-            artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode") }
+        var items by mutableStateOf(titles.mapIndexed { index, title -> LibraryMedia("steady-$index", title, "Episode",
+            artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode") })
         rule.setContent { Tv {
             val mode = LocalInputModeManager.current
             SideEffect { mode.requestInputMode(InputMode.Keyboard) }
@@ -355,14 +355,22 @@ class TvRefinementUiTest {
         } }
         val first = rule.onNodeWithTag("resume-card-steady-0")
         val second = rule.onNodeWithTag("resume-card-steady-1")
-        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-        rule.onNodeWithText(titles[1], useUnmergedTree = true)
-            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
-        assertEquals(1, layouts.single().lineCount)
+        assertEquals(1, assertNaturalRailCaptionGap("resume", "steady-0").lineCount)
+        assertEquals(2, assertNaturalRailCaptionGap("resume", "steady-1").lineCount)
+        val caption = rule.onNodeWithTag("resume-caption-steady-0", useUnmergedTree = true).getUnclippedBoundsInRoot()
         assertEquals(
-            rule.onNodeWithText(titles[0], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
-            rule.onNodeWithText(titles[1], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+            caption.height,
+            rule.onNodeWithTag("resume-caption-steady-1", useUnmergedTree = true).getUnclippedBoundsInRoot().height,
         )
+        val art = rule.onNodeWithTag("resume-artwork-steady-0", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(art.height,
+            rule.onNodeWithTag("resume-artwork-steady-1", useUnmergedTree = true).getUnclippedBoundsInRoot().height)
+        rule.runOnIdle { items = items.mapIndexed { index, item -> if (index == 0) item.copy(title = titles[1]) else item } }
+        assertEquals(2, assertNaturalRailCaptionGap("resume", "steady-0").lineCount)
+        val updatedCaption = rule.onNodeWithTag("resume-caption-steady-0", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(caption.top, updatedCaption.top)
+        assertEquals(caption.height, updatedCaption.height)
+        assertEquals(art, rule.onNodeWithTag("resume-artwork-steady-0", useUnmergedTree = true).getUnclippedBoundsInRoot())
         val initial = first.getUnclippedBoundsInRoot()
         first.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
         rule.waitForIdle()
@@ -381,23 +389,42 @@ class TvRefinementUiTest {
     }
     @Test fun televisionLibraryTitlesUseTwoLinesOnWideShelves() {
         val titles = listOf("Kort", "Ein svært lang serietittel som går over minst to heile linjer på alle TV-kort")
-        val items = titles.mapIndexed { index, title -> LibraryMedia("library-title-$index", title, "Episode",
-            artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode") }
+        var items by mutableStateOf(titles.mapIndexed { index, title -> LibraryMedia("library-title-$index", title, "Episode",
+            artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode") })
         rule.setContent { Tv {
             Box(Modifier.padding(24.dp)) { LibraryRail(items, {}, wide = true) }
         } }
-        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-        rule.onNodeWithText(titles[1], useUnmergedTree = true)
-            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
-        assertEquals(2, layouts.single().lineCount)
+        assertEquals(1, assertNaturalRailCaptionGap("library", "library-title-0").lineCount)
+        assertEquals(2, assertNaturalRailCaptionGap("library", "library-title-1").lineCount)
+        val caption = rule.onNodeWithTag("library-caption-library-title-0", useUnmergedTree = true).getUnclippedBoundsInRoot()
         assertEquals(
-            rule.onNodeWithText(titles[0], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
-            rule.onNodeWithText(titles[1], useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+            caption.height,
+            rule.onNodeWithTag("library-caption-library-title-1", useUnmergedTree = true).getUnclippedBoundsInRoot().height,
         )
+        val art = rule.onNodeWithTag("library-artwork-library-title-0", useUnmergedTree = true).getUnclippedBoundsInRoot()
         assertEquals(
-            rule.onNodeWithTag("library-artwork-library-title-0", useUnmergedTree = true).getUnclippedBoundsInRoot().height,
+            art.height,
             rule.onNodeWithTag("library-artwork-library-title-1", useUnmergedTree = true).getUnclippedBoundsInRoot().height,
         )
+        rule.runOnIdle { items = items.mapIndexed { index, item -> if (index == 0) item.copy(title = titles[1]) else item } }
+        assertEquals(2, assertNaturalRailCaptionGap("library", "library-title-0").lineCount)
+        val updatedCaption = rule.onNodeWithTag("library-caption-library-title-0", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(caption.top, updatedCaption.top)
+        assertEquals(caption.height, updatedCaption.height)
+        assertEquals(art, rule.onNodeWithTag("library-artwork-library-title-0", useUnmergedTree = true).getUnclippedBoundsInRoot())
+    }
+    private fun assertNaturalRailCaptionGap(prefix: String, id: String): androidx.compose.ui.text.TextLayoutResult {
+        val heading = rule.onNodeWithTag("$prefix-title-$id", useUnmergedTree = true)
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        heading.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val layout = layouts.single()
+        assertFalse("Both permitted title lines must remain readable", layout.didOverflowHeight)
+        val actualBottom = heading.fetchSemanticsNode().boundsInRoot.top + layout.getLineBottom(layout.lineCount - 1)
+        val subtitle = rule.onNodeWithTag("$prefix-subtitle-$id", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val gap = subtitle.top - actualBottom
+        assertTrue("Episode follows the visible final title line: $gap px",
+            gap >= -1f && gap <= with(layout.layoutInput.density) { 3.dp.toPx() })
+        return layout
     }
     @Composable private fun Tv(fontScale: Float = 1f, content: @Composable () -> Unit) {
         DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(960.dp, 540.dp))) {

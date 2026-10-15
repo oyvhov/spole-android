@@ -1,6 +1,7 @@
 package app.reelstack.ui
 
 import app.reelstack.data.network.ServicePayloadParser
+import app.reelstack.ui.components.episodeLine
 import app.reelstack.ui.components.episodeTitle
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -13,6 +14,29 @@ import org.junit.Test
  * take a bite out of "Episode 90".
  */
 class EpisodeLabelTest {
+    @Test fun `upcoming and calendar captions contain the episode number only once`() {
+        assertEquals("S18 - E17", episodeLine(18, 17, "Episode · S18 E17 · TBA"))
+        assertEquals("S2 - E5", episodeLine(2, 5, "Episode · S02 E05 · Episode 5"))
+        assertEquals("S18 - E17", episodeLine(18, 17, "Episode · S18 E17 · Episode 17"))
+        assertEquals("S2 - E5 · Real title", episodeLine(2, 5, "Episode · S02 E05 · Episode 5 - Real title"))
+        assertEquals("S2 - E5 · Title · Part two", episodeLine(2, 5, "Episode · S02 E05 · Title · Part two"))
+        assertEquals("S2 - E5 · S02 E05 at Midnight", episodeLine(2, 5, "Episode · S02 E05 at Midnight"))
+        assertEquals("S2 - E5 · S02 E50 · Finale", episodeLine(2, 5, "Episode · S02 E50 · Finale"))
+    }
+
+    @Test fun `placeholder episode names leave the actual numbering intact`() {
+        listOf("TBA", " tba ", "TBD", "N/A", "-").forEach { placeholder ->
+            assertEquals("S21 - E2", app.reelstack.ui.components.episodeLine(21, 2, "S21 E02 · $placeholder"))
+        }
+        assertEquals("S21 - E2 · TBA at Midnight", app.reelstack.ui.components.episodeLine(21, 2, "S21 E02 · TBA at Midnight"))
+    }
+
+    @Test fun `a subtitle year is omitted only when the metadata already contains that year`() {
+        assertEquals("", app.reelstack.ui.components.titleSubtitle(null, null, "2011", listOf("Film", "2011", "98 min")))
+        assertEquals("2011", app.reelstack.ui.components.titleSubtitle(null, null, "2011", listOf("Film")))
+        assertEquals("S1 - E2 · 2011", app.reelstack.ui.components.titleSubtitle(1, 2, "S01 E02 · 2011", listOf("2011")))
+    }
+
     @Test fun compactNumbersHaveNoPaddingAndPreserveEpisodeNames() {
         assertEquals("S2 - E2", app.reelstack.ui.components.episodeLine(2, 2, ""))
         assertEquals("S2 - E2 · The Visit", app.reelstack.ui.components.episodeLine(2, 2, "S02 E02 · The Visit"))

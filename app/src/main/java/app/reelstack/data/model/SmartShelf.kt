@@ -249,6 +249,10 @@ fun homeShelves(stored: List<SmartShelf>, date: LocalDate): List<SmartShelf> =
 fun menuShelves(stored: List<SmartShelf>, date: LocalDate): List<SmartShelf> =
     mergedSmartShelves(stored).filter { it.inMenu && it.period.isActive(date) }
 
+/** Own library shelves remain available; built-in library tiles follow their period too. */
+fun SmartShelf.waitsForPeriod(date: LocalDate): Boolean = !period.isActive(date) &&
+    (onHome || inMenu || preset && inLibrary)
+
 /** Replace a shelf by id, or add it at the end of the owner's own. */
 fun List<SmartShelf>.withShelf(shelf: SmartShelf): List<SmartShelf> =
     if (any { it.id == shelf.id }) map { if (it.id == shelf.id) shelf else it } else this + shelf

@@ -91,6 +91,29 @@ Loggar for kvar køyring ligg i `app/build/emulators/<tidspunkt>/`. Oppstartsskr
 
 ## Verifikasjon
 
+14. oktober 2026: brukaren logga inn på nytt i produksjonsappen på den faste mobilprofilen
+`Spole_Review` / `emulator-5560`. Innlogginga ligg i dei varige AVD-brukardata i
+`C:\JellyBin\.spole-review-avds`. Filsystemet vart synkronisert, og Spole vart stoppa og opna
+att utan ny innlogging; ekte bibliotek og konto kom tilbake. Bruk denne profilen også i seinare
+økter. Ikkje opprett ein ny mobilprofil eller slå på demo for visuell gjennomgang.
+
+Den lokale UI-gjennomgangen 14.–15. oktober 2026 ligg i
+`.artifacts/ui-audit-2026-10-14/index.html`, med samandrag i `REVIEW.md` i same mappe.
+Samlinga er Git-ignorert og inneheld ekte profil- og bibliotekbilete; hald henne lokal.
+
+15. oktober 2026: dei 17 UI-funna frå gjennomgangen er retta, saman med ein ekstra feil der
+nettbrett-heroen klemde knappeteksten ved dobbel skrift. Signert lokalt kontrollbygg av
+`1.0.0-beta11` (148) er installert med `-r` på dei to ekte profilane. Kontoane er bevarte;
+mobilinnlogginga er kontrollert etter stopp og ny appstart. Opphavleg skjermstorleik,
+skriftstorleik og temaval er sette tilbake etter kontrollen.
+
+Etterbilete, førlenkjer og detaljert status ligg lokalt i
+`.artifacts/ui-fixes-2026-10-15/index.html`. `verification.json` i same mappe identifiserer
+APK-en og testresultata: 996 JVM-testar (0 feil, 1 hoppa over), 44 målretta Android UI-testar,
+lint og signert bygg. Instrumentering brukte berre den isolerte profilen på 5562.
+Ingen ny offentleg release er laga av dette kontrollbygget. Bilete og testartefaktar skal
+framleis haldast utanfor Git.
+
 10. september 2026: skriptet vart køyrt mot begge eksisterande emulatorane. Det fann WSL-adressa, brukte riktige AVD-ar vidare, stadfesta validert nettverk og opna produksjonsappen. TV-speglingsvindauget vart lukka og opna att av skriptet; neste køyring brukte det vidare utan duplikat. Mobil åleine med `-NoWindows` vart også kontrollert. Ein medvite manglande datasti gav ei tydeleg feilmelding før emulatorstart, utan å opprette ein ny profil. PowerShell-syntaksen er kontrollert.
 
 Kaldoppstartskommandoane og GPU-vala er dei same som vart brukte til å starte begge profilane med ekte data tidlegare i økta. Ei ny kald omstart vart ikkje tvinga fram berre for å teste skriptet.

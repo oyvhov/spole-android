@@ -101,11 +101,17 @@ private fun SessionCardCaption(session: PlaybackSession, modifier: Modifier) {
                 Text(source.displayName, color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         }
-        Text(session.title, style = MaterialTheme.typography.titleMedium, minLines = 2, maxLines = 2,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("compact-session-title-${session.key}"))
-        Text(sessionSubtitle(session), color = Muted, style = MaterialTheme.typography.bodySmall,
-            maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text("${sessionWho(session)} · ${sessionDevice(session)}", color = Muted,
-            style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        val titleReserve = with(LocalDensity.current) { MaterialTheme.typography.titleMedium.lineHeight.toDp() * 2 }
+        HeroCaptionGroup(titleReserve, 4.dp,
+            Modifier.fillMaxWidth().testTag("compact-session-caption-${session.key}"), title = {
+                Text(session.title, style = MaterialTheme.typography.titleMedium, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("compact-session-title-${session.key}"))
+            }) {
+            Text(sessionSubtitle(session), color = Muted, style = MaterialTheme.typography.bodySmall,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("compact-session-subtitle-${session.key}"))
+            Text("${sessionWho(session)} · ${sessionDevice(session)}", color = Muted,
+                style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }

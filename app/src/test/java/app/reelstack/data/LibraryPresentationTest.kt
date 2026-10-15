@@ -6,6 +6,18 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LibraryPresentationTest {
+    @Test fun `large phone text gets two readable shelf columns rather than three narrow ones`() {
+        fun columns(fontScale: Float): Int {
+            val contentWidth = 426f - 48f
+            val gap = 12f
+            return ((contentWidth + gap) / (mediaCardMinimumWidth(96f, fontScale) + gap)).toInt().coerceAtLeast(1)
+        }
+        assertEquals(3, columns(1f))
+        assertEquals(2, columns(2f))
+        assertEquals(130f, mediaCardMinimumWidth(130f, 1f), .001f)
+        assertEquals(130f, mediaCardMinimumWidth(130f, .8f), .001f)
+    }
+
     @Test fun `two old library sections migrate to the first position of one Next section`() {
         assertEquals(listOf("FAVOURITES", "LIBRARY_NEXT", "FEATURE", "SMART_SHELVES", "LIBRARIES"),
             libraryHubOrder(listOf("FAVOURITES", "NEXT", "FEATURE", "CONTINUE", "LIBRARIES")))

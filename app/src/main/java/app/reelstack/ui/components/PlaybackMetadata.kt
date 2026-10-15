@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -34,7 +35,8 @@ internal fun PlaybackMetadata(details: ContentDetails, facts: List<String>, sour
     val ageRating = visibleFacts.firstNotNullOfOrNull(::ageRatingLabel)
     val descriptiveFacts = visibleFacts.filterNot { ageRatingLabel(it) != null }
     val quality = if (preferences.showMediaInfo) details.quality else emptyList()
-    val descriptiveLine = descriptiveFacts.distinct().map(::formatMetadataFact)
+    val context = LocalContext.current
+    val descriptiveLine = descriptiveFacts.distinct().map { formatMetadataFact(it).text(context) }
     if (ageRating != null || descriptiveLine.isNotEmpty() || source != null) FlowRow(
         Modifier.fillMaxWidth().testTag("playback-metadata"),
         horizontalArrangement = Arrangement.spacedBy(12.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
@@ -99,15 +101,15 @@ internal fun ageRatingLabel(fact: String): String? = fact.trim().toIntOrNull()
 
 private val finishTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
 
-private fun formatMetadataFact(fact: String): String {
-    val minutes = Regex("^(\\d+) min$").matchEntire(fact)?.groupValues?.get(1)?.toIntOrNull() ?: return fact
+internal fun formatMetadataFact(fact: String, now: LocalTime = LocalTime.now()): app.reelstack.localization.LocalizedText {
+    val minutes = Regex("^(\\d+) min$").matchEntire(fact)?.groupValues?.get(1)?.toIntOrNull()
+        ?.takeIf { it > 0 } ?: return app.reelstack.localization.LocalizedText.raw(fact)
     val hours = minutes / 60
     val remainder = minutes % 60
-    val duration = when {
-        hours == 0 -> "${minutes}m"
-        remainder == 0 -> "${hours}t"
-        else -> "${hours}t ${remainder}m"
+    val finish = now.plusMinutes(minutes.toLong()).format(finishTimeFormatter)
+    return when {
+        hours == 0 -> app.reelstack.localization.LocalizedText(R.string.metadata_runtime_minutes, minutes, finish)
+        remainder == 0 -> app.reelstack.localization.LocalizedText(R.string.metadata_runtime_hours, hours, finish)
+        else -> app.reelstack.localization.LocalizedText(R.string.metadata_runtime_hours_minutes, hours, remainder, finish)
     }
-    val finish = LocalTime.now().plusMinutes(minutes.toLong()).format(finishTimeFormatter)
-    return "$duration · ferdig $finish"
 }

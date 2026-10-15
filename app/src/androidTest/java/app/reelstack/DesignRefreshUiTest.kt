@@ -155,20 +155,27 @@ class DesignRefreshUiTest {
 
     @Test fun advancedOsdSelectsChapterAndUnwindsWithBack() {
         var seek = -1L
+        var exits = 0
+        lateinit var backDispatcher: androidx.activity.OnBackPressedDispatcher
         val state = app.reelstack.player.PlayerScreenState(title = "Film", busy = false, durationMs = 90_000,
             chapters = listOf(app.reelstack.player.PlaybackChapter("Opning", 0), app.reelstack.player.PlaybackChapter("Andre del", 30_000)))
         rule.setContent { Canvas(960, 540, tv = true) {
-            app.reelstack.player.PlayerScreen(state, null, {}, {}, { seek = it }, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+            backDispatcher = checkNotNull(androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current)
+                .onBackPressedDispatcher
+            app.reelstack.player.PlayerScreen(state, null, { exits++ }, {}, { seek = it }, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
         rule.onNodeWithTag("player-chapters").performClick()
         rule.onNodeWithText("0:30 · Andre del", substring = true).performClick()
         assertEquals(30_000L, seek)
-        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
-        rule.waitForIdle()
+        // Selecting a chapter already dismisses its dialog. Exercise the registered Back
+        // handler after that handoff rather than racing API 36's native dialog window.
+        rule.onNodeWithText("0:30 · Andre del", substring = true).assertDoesNotExist()
         rule.onNodeWithTag("player-controls").assertIsDisplayed()
-        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
-        rule.waitForIdle()
+        rule.runOnIdle { backDispatcher.onBackPressed() }
         rule.onNodeWithTag("player-controls").assertDoesNotExist()
+        assertEquals(0, exits)
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        assertEquals(1, exits)
     }
 
     @Test fun libraryNamesStayBelowPicturesAndCanBeHiddenOnTv() {

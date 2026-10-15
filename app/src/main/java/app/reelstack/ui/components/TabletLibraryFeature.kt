@@ -36,15 +36,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.constrainWidth
+import androidx.compose.ui.unit.constrainHeight
 import app.reelstack.R
 import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.LibraryMedia
@@ -99,11 +104,50 @@ private fun featuredBySections(candidates: List<LibraryMedia>, sections: Set<Hom
     }.distinctBy { it.title.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT) }
         .sortedByDescending { it.heroUrl != null }.take(HERO_FEATURE_COUNT)
 
-/** The hero title reserves two of these lines whether a logo or a heading fills the slot. */
+/** Two title lines are reserved by the outer caption, outside the natural text stack. */
 private val TITLE_SIZE = 32.sp
 private val TITLE_LINE_HEIGHT = 36.sp
 private val TV_TITLE_SIZE = 26.sp
 private val TV_TITLE_LINE_HEIGHT = 28.sp
+
+/** Native text includes font metrics that sp-to-dp line-height arithmetic does not capture. */
+@Composable
+internal fun measuredHeroTextHeight(style: TextStyle, lines: Int = 1): Dp {
+    val measurer = rememberTextMeasurer(cacheSize = 1)
+    val mergedStyle = LocalTextStyle.current.merge(style)
+    val height = remember(measurer, mergedStyle, lines) {
+        measurer.measure(text = List(lines) { "Ag" }.joinToString("\n"), style = mergedStyle,
+            softWrap = false, maxLines = lines).size.height
+    }
+    return with(LocalDensity.current) { height.toDp() }
+}
+
+/** Keep late logos from moving actions; spare title space follows the complete caption. */
+@Composable
+internal fun HeroCaptionGroup(
+    reservedTitleHeight: Dp,
+    spacing: Dp,
+    modifier: Modifier = Modifier,
+    reservedBodyHeight: Dp = 0.dp,
+    title: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Layout(modifier = modifier, content = {
+        Box { title() }
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing)) { content() }
+    }) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val heading = measurables[0].measure(loose)
+        val body = measurables[1].measure(loose)
+        val gap = if (body.height > 0 || reservedBodyHeight > 0.dp) spacing.roundToPx() else 0
+        val height = maxOf(heading.height, reservedTitleHeight.roundToPx()) + gap +
+            maxOf(body.height, reservedBodyHeight.roundToPx())
+        layout(constraints.constrainWidth(maxOf(heading.width, body.width)), constraints.constrainHeight(height)) {
+            heading.placeRelative(0, 0)
+            body.placeRelative(0, heading.height + gap)
+        }
+    }
+}
 
 /** Extend artwork into the list gutters without changing the width of the rows below it. */
 internal fun Modifier.cinematicBleed(inset: Dp): Modifier = layout { measurable, constraints ->
@@ -171,21 +215,30 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     // The feature was the one artwork surface with a fixed height, so choosing Compact shrank every
     // rail under it and left the hero at full size.
     val heroScale = LocalPersonalization.current.artworkSize.scale
+    val titleSize = if (compactTelevision) TV_TITLE_SIZE else TITLE_SIZE
+    val titleLineHeight = if (compactTelevision) TV_TITLE_LINE_HEIGHT else TITLE_LINE_HEIGHT
+    val titleSlot = measuredHeroTextHeight(TextStyle(fontSize = titleSize, lineHeight = titleLineHeight,
+        fontWeight = FontWeight.SemiBold), 2)
+    val overviewStyle = TextStyle(fontSize = if (compactTelevision) 13.sp else 14.sp,
+        lineHeight = if (compactTelevision) 17.sp else 20.sp)
     // Window and text scale reserve the scene before its artwork has loaded.
-    val reservedText = with(density) {
-        (if (compactTelevision) 28.sp else 36.sp).toDp() * 2 +
-            20.sp.toDp() * (if (compactTelevision) 2 else 4) +
-            (if (compactTelevision) 17.sp else 20.sp).toDp() * 2
-    }
+    val reservedText = titleSlot +
+        measuredHeroTextHeight(MaterialTheme.typography.bodyMedium, if (compactTelevision) 2 else 4) +
+        measuredHeroTextHeight(overviewStyle, 2)
     // Reserve room for the first shelf's heading, artwork and captions at normal text size.
     // Large text can grow the scene instead of clipping its controls.
     val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } * .44f
     val sceneHeight = maxOf(if (television) televisionHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
         reservedText + if (compactTelevision) 80.dp else 130.dp)
-    val featureSize = if (television) Modifier.heightIn(min = sceneHeight) else Modifier.height(sceneHeight)
+    // The caption slot measures every carousel candidate. Its real height can exceed the text
+    // estimate at large font sizes; a fixed touch height then squeezed the actions down to 16 dp.
+    val featureSize = Modifier.heightIn(min = sceneHeight)
     val featureSpacing = if (television) 8.dp else if (compactTelevision) 4.dp else 10.dp
-    val titleSize = if (compactTelevision) TV_TITLE_SIZE else TITLE_SIZE
-    val titleLineHeight = if (compactTelevision) TV_TITLE_LINE_HEIGHT else TITLE_LINE_HEIGHT
+    val metadataReserve = heroMetadataReservedHeight()
+    val numberLine = measuredHeroTextHeight(MaterialTheme.typography.labelLarge)
+    val episodeReserve = measuredHeroTextHeight(MaterialTheme.typography.bodyMedium, if (compactTelevision) 1 else 2)
+    val overviewLines = if (television && density.fontScale < 1.6f) 1 else 2
+    val overviewReserve = measuredHeroTextHeight(overviewStyle, overviewLines)
     Box(modifier.fillMaxWidth().then(featureSize)
         .bringIntoViewRequester(featureIntoView)
         .onFocusChanged {
@@ -255,50 +308,52 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             val captionAlpha by animateFloatAsState(if (incoming) 1f else 0f,
                 tween(if (!motion) 0 else if (incoming) 420 else 160,
                     delayMillis = if (motion && incoming) 160 else 0), label = "feature-caption-${title.id}")
-           Column(Modifier.graphicsLayer { alpha = captionAlpha }
+           // Series and entries whose type is not yet known may receive episode fields later.
+           val reserveEpisodeCaption = title.season != null || title.episode != null || !title.mediaType.equals("Movie", true)
+           // The old per-field line reserves live after the complete, naturally stacked body.
+           // Reserve even before late metadata arrives, including the single-candidate case.
+           val bodyReserve = metadataReserve + featureSpacing + overviewReserve +
+               (if (!compactTelevision) numberLine + featureSpacing else 0.dp) +
+               (if (reserveEpisodeCaption) episodeReserve + featureSpacing else 0.dp)
+           HeroCaptionGroup(titleSlot, featureSpacing, Modifier.fillMaxWidth().graphicsLayer { alpha = captionAlpha }
                .focusProperties { canFocus = incoming }
-               .then(if (incoming) Modifier else Modifier.clearAndSetSemantics {}),
-               verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
+               .then(if (incoming) Modifier.testTag("feature-current-caption") else Modifier.clearAndSetSemantics {}),
+               reservedBodyHeight = bodyReserve, title = {
             val logo = title.logoUrl
-            var logoFailed by remember(title.id) { mutableStateOf(false) }
-            // One height for both branches, measured as the two text lines the fallback always
-            // reserves. A clear logo sizes itself from its own aspect ratio, so without this the
-            // block was ~24 dp for a wide logo and ~72 dp for a title — and a logo that failed
-            // after layout swapped one for the other, which is the jump. Measured at the current
-            // font scale so the two stay equal at 2x text as well.
-            val titleSlot = with(LocalDensity.current) { titleLineHeight.toDp() * 2 }
-            Box(
-                Modifier.fillMaxWidth().height(titleSlot),
-                contentAlignment = Alignment.CenterStart,
-            ) {
+            var logoFailed by remember(title.id, logo) { mutableStateOf(false) }
+            var logoRatio by remember(title.id, logo) { mutableStateOf<Float?>(null) }
+            val logoWidth = if (television) 320.dp else 240.dp
                 if (!logo.isNullOrBlank() && !logoFailed) {
                     MediaArtwork(
                         url = logo,
                         contentDescription = title.title,
                         contentScale = ContentScale.Fit,
-                        alignment = Alignment.CenterStart,
+                        alignment = Alignment.BottomStart,
                         trimTransparent = true,
                         source = title.source,
                         onError = { logoFailed = true },
+                        onAspectRatio = { logoRatio = it },
                         crossfadeDurationMillis = 0,
-                        modifier = Modifier.height(titleSlot).width(if (television) 320.dp else 240.dp).testTag("hero-clearlogo")
-                            .padding(vertical = 2.dp),
+                        modifier = Modifier.height(logoRatio?.let { minOf(titleSlot, logoWidth / it) } ?: titleSlot)
+                            .width(logoWidth).testTag("hero-clearlogo"),
                     )
                 } else {
                     Text(title.title, color = Color.White, fontSize = titleSize, lineHeight = titleLineHeight,
-                        fontWeight = FontWeight.SemiBold, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("hero-title"))
                 }
-            }
+           }) {
             // "S06 E13 · Gjennom Ild Og Vann" reads as a filename. With the numbers carried as
             // numbers the hero writes them the way a person says them — and says it in exactly the
             // words the shelves below use, because the same episode appears in both and two
             // spellings of one fact on one screen is the kind of thing you cannot stop seeing.
             val numbers = episodeLine(title.season, title.episode, "")
-            if (!compactTelevision) Text(
+            if (!compactTelevision && numbers.isNotBlank()) Text(
                 numbers,
-                minLines = 1, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
                 color = Color.White.copy(alpha = .72f),
                 style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.testTag("hero-episode-number"),
             )
             // Films use the metadata row below for facts. Episodes keep their readable title here,
             // so season and episode numbers are shown once and in the same language everywhere.
@@ -306,14 +361,12 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             val episodeCaption = if (compactTelevision) listOf(numbers, name).filter(String::isNotBlank).joinToString(" · ") else name
             if (episodeCaption.isNotBlank()) Text(episodeCaption,
                 color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
-                minLines = if (compactTelevision) 1 else 2,
                 maxLines = if (compactTelevision) 1 else 2,
-                overflow = TextOverflow.Ellipsis)
-            HeroMetadataRow(title)
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("hero-episode-info"))
+            HeroMetadataRow(title, interactive = incoming)
             readableMediaText(title.overview)?.let { overview -> Text(overview, color = Color.White.copy(alpha = .78f),
                 fontSize = if (compactTelevision) 13.sp else 14.sp,
                 lineHeight = if (compactTelevision) 17.sp else 20.sp,
-                minLines = if (television) 1 else 2,
                 maxLines = if (television && density.fontScale < 1.6f) 1 else 2, overflow = TextOverflow.Ellipsis)
             }
            }
@@ -334,7 +387,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                         modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
                             .testTag("tablet-feature-play"),
                     ) {
-                        Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null, Modifier.size(18.dp))
+                        Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null,
+                            Modifier.size(18.dp).testTag("tablet-feature-play-icon"))
                         Text(stringResource(if (resuming) R.string.tv_resume else R.string.player_play),
                             Modifier.padding(start = 8.dp), style = MaterialTheme.typography.labelLarge)
                     }
@@ -344,7 +398,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                     .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
                     Text(stringResource(R.string.feature_more), style = MaterialTheme.typography.labelLarge)
-                    Icon(app.reelstack.ui.components.SpoleIcons.ArrowForward, null, Modifier.padding(start = 8.dp).size(16.dp))
+                    Icon(app.reelstack.ui.components.SpoleIcons.ArrowForward, null,
+                        Modifier.padding(start = 8.dp).size(16.dp).testTag("tablet-feature-open-icon"))
                 }
             }
         }
@@ -359,9 +414,15 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     }
 }
 
+/** Includes both plain facts and a late rating mark without changing the caption's outer frame. */
+@Composable
+internal fun heroMetadataReservedHeight(): Dp = maxOf(
+    measuredHeroTextHeight(MaterialTheme.typography.labelMedium), measuredHeroTextHeight(MaterialTheme.typography.bodyMedium),
+    measuredHeroTextHeight(MaterialTheme.typography.labelSmall) + 4.dp, 22.dp)
+
 /** One restrained line keeps the hero informative without turning it into a details sheet. */
 @Composable
-internal fun HeroMetadataRow(title: LibraryMedia) {
+internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
     val type = title.facts.firstOrNull()?.takeUnless { it.startsWith("S") }
     val year = title.facts.firstOrNull { it.matches(Regex("\\d{4}")) }
     val runtime = title.runtimeMinutes?.takeIf { it > 0 } ?: title.facts.firstNotNullOfOrNull {
@@ -381,7 +442,8 @@ internal fun HeroMetadataRow(title: LibraryMedia) {
     if (facts.isEmpty() && !hasRatings) return
 
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("hero-metadata"),
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState(), enabled = interactive)
+            .focusProperties { canFocus = interactive }.testTag("hero-metadata"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

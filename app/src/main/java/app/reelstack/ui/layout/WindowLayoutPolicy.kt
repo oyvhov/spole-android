@@ -48,4 +48,8 @@ data class WindowLayoutPolicy(val widthDp: Float, val heightDp: Float) {
             else -> height * .82f
         }
     }
+
+    /** Fixed by window and text size, never by asynchronously arriving status or metadata. */
+    fun compactDialogHeightDp(availableHeightDp: Float, fontScale: Float = 1f): Float =
+        minOf(dialogHeightDp(availableHeightDp), 360f * fontScale.coerceAtLeast(1f))
 }

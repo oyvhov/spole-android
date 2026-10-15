@@ -245,6 +245,9 @@ fun ReelstackSheets(
     StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss,
         fullScreen = tvDetails,
         expanded = phoneDetails,
+        compact = sheet is AppSheet.ConnectionEditor &&
+            state.connections.any { it.kind == connectionDraft?.kind && it.baseUrl.isNotBlank() } &&
+            connectionDraft?.simpleSetup != true,
         onCloseStarted = { if (connectionDraft?.simpleSetup == true) onCancelConnection() },
         onBack = if (sheet is AppSheet.TitleDetails) returnFromTitle else null) { entered, closing, close ->
         // Toolbar close and the remote Back use the same detail-history step.  A normal title
@@ -1133,11 +1136,13 @@ private fun MediaTrackChoices(
         // One track is a fact, not a choice: a single highlighted chip looks like something to
         // press and does nothing when pressed.
         if (details.audioTracks.size == 1) TrackFact(
-            stringResource(R.string.player_audio_tracks), details.audioTracks.single().label)
+            stringResource(R.string.player_audio_tracks), details.audioTracks.single().let {
+                app.reelstack.data.model.readableAudioTrackLabel(it.label, it.language)
+            })
         else if (details.audioTracks.size > 1) TrackChooser(
             label = stringResource(R.string.player_audio_tracks),
             tag = "audio",
-            options = details.audioTracks.map { it.index to it.label },
+            options = details.audioTracks.map { it.index to app.reelstack.data.model.readableAudioTrackLabel(it.label, it.language) },
             selected = selectedAudio,
             onSelect = onAudio,
         )

@@ -34,11 +34,14 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -106,12 +109,10 @@ internal fun AppNavigationRail(
         var controlsEnd by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
         app.reelstack.ui.components.SeasonalBackdrop(Modifier.matchParentSize()
             .onGloballyPositioned { railTop = it.positionInWindow().y }, menu = true, menuClearAbove = { controlsEnd - railTop })
-        app.reelstack.ui.components.SeasonalIdleSpider(Modifier.matchParentSize())
         Column(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).requiredWidth(200.dp).fillMaxHeight()
             .onFocusChanged { if (tv) onFocusWithin(it.hasFocus) }
             .focusProperties { onEnter = { if (tv) selectedFocus.requestFocus() } }.focusGroup()
-            .padding(horizontal = 12.dp, vertical = 24.dp)
-            .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            .padding(horizontal = 12.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).then(if (!tv) Modifier
                 .testTag("sidebar-toggle").semantics { contentDescription = toggleLabel }
                 .clip(RoundedCornerShape(16.dp))
@@ -119,7 +120,7 @@ internal fun AppNavigationRail(
                 .clickable(interactionSource = brandInteraction, indication = androidx.compose.foundation.LocalIndication.current,
                     role = Role.Button, onClick = { onExpandedChange(!expanded) }) else Modifier)
                 .padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                app.reelstack.ui.components.SpoleBrandMark(Modifier.size(28.dp))
+                app.reelstack.ui.components.SpoleBrandMark(Modifier.size(28.dp).testTag("sidebar-brand"))
                 androidx.compose.material3.Text(app.reelstack.ui.theme.LocalPersonalization.current.appLabel,
                     color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
                     style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
@@ -135,36 +136,76 @@ internal fun AppNavigationRail(
             // Smart shelves the owner put in the menu, while their period runs; never the season's twice.
             val shelfRows = smartShelves.filter { it.pathId != seasonId }
             val pinned = shortcuts.map { it.first } + listOfNotNull(seasonId) + shelfRows.map { it.pathId }
+            // Home and the brand are fixed anchors. Only the remaining destinations scroll, so
+            // focusing a low library shortcut cannot leave a clipped logo or Home sliver behind.
+            val home = tabs.first { it.tab == AppTab.HOME }
+            NavigationControl(stringResource(home.label), home.icon, selectedTab == AppTab.HOME,
+                { onSelect(AppTab.HOME) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
+                    .then(if (selectedTab == AppTab.HOME) Modifier.focusRequester(selectedFocus) else Modifier)
+                    .testTag("wide-tab-HOME"))
+            var destinationViewport by remember { mutableStateOf(Rect.Zero) }
+            Column(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(0.dp))
+                .onGloballyPositioned {
+                    val origin = it.positionInWindow()
+                    destinationViewport = Rect(origin.x, origin.y, origin.x + it.size.width, origin.y + it.size.height)
+                }
+                .verticalScroll(rememberScrollState()).testTag("sidebar-destinations"),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
             menu
-                .filterNot { isKidMode && it == AppTab.SETTINGS.name }
+                .filterNot { it == AppTab.HOME.name || isKidMode && it == AppTab.SETTINGS.name }
                 .mapNotNull { name -> tabs.find { it.tab.name == name } }.forEach { item ->
                     if (item.tab == AppTab.SETTINGS && seasonId != null) NavigationControl(
                         stringResource(if (season == app.reelstack.data.model.Season.CHRISTMAS) R.string.theme_season_christmas
                             else R.string.theme_season_halloween),
                         season.shelfIcon(), selectedLibraryId == seasonId,
                         { onLibrarySelect(seasonId) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
+                            .drawWholeSidebarRow(tv) { destinationViewport }
                             .then(if (selectedLibraryId == seasonId) Modifier.focusRequester(selectedFocus) else Modifier)
                             .testTag("wide-season-$season"))
                     if (item.tab == AppTab.SETTINGS) shelfRows.forEach { shelf ->
                         NavigationControl(app.reelstack.ui.components.smartShelfName(shelf), shelf.icon.vector(),
                             selectedLibraryId == shelf.pathId, { onLibrarySelect(shelf.pathId) }, labelAlpha, Role.Tab,
-                            Modifier.width(width - 24.dp)
+                            Modifier.width(width - 24.dp).drawWholeSidebarRow(tv) { destinationViewport }
                                 .then(if (selectedLibraryId == shelf.pathId) Modifier.focusRequester(selectedFocus) else Modifier)
                                 .testTag("wide-shelf-${shelf.id}"))
                     }
                     if (item.tab == AppTab.SETTINGS) shortcuts.forEach { (id, name) ->
                         NavigationControl(name, (libraryIcons[id] ?: LibraryIcon.LIBRARY).vector(), selectedLibraryId == id,
                             { onLibrarySelect(id) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
+                                .drawWholeSidebarRow(tv) { destinationViewport }
                                 .then(if (selectedLibraryId == id) Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-library-$id"))
                     }
                     NavigationControl(stringResource(item.label), item.icon, selectedTab == item.tab &&
                         (item.tab != AppTab.LIBRARY || selectedLibraryId !in pinned),
                         { onSelect(item.tab) }, labelAlpha, Role.Tab, Modifier.width(width - 24.dp)
+                            .drawWholeSidebarRow(tv) { destinationViewport }
                             .then(if (selectedTab == item.tab && (item.tab != AppTab.LIBRARY || selectedLibraryId !in pinned))
                                 Modifier.focusRequester(selectedFocus) else Modifier).testTag("wide-tab-${item.tab.name}"))
                 }
             Spacer(Modifier.height(0.dp).onGloballyPositioned { controlsEnd = it.positionInWindow().y })
+            }
         }
+    }
+}
+
+/**
+ * A remote scroll may leave the preceding destination partly behind the viewport edge.
+ * Do not paint a detached icon fragment there. Keep the real focus/scroll node intact:
+ * focusing that row still brings its whole bounds into view before it is painted again.
+ */
+@Composable
+private fun Modifier.drawWholeSidebarRow(enabled: Boolean, viewport: () -> Rect): Modifier {
+    if (!enabled) return this
+    var row by remember { mutableStateOf(Rect.Zero) }
+    return onGloballyPositioned {
+        val origin = it.positionInWindow()
+        row = Rect(origin.x, origin.y, origin.x + it.size.width, origin.y + it.size.height)
+    }.drawWithContent {
+        val port = viewport()
+        // A row taller than the entire viewport cannot be revealed in full. Preserve the normal
+        // clipped presentation in that exceptional window rather than hiding every destination.
+        if (port.isEmpty || row.isEmpty || row.height > port.height ||
+            row.top >= port.top - .5f && row.bottom <= port.bottom + .5f) drawContent()
     }
 }
 

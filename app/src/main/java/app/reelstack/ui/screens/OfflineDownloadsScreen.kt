@@ -100,7 +100,7 @@ fun OfflineDownloadsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
                 }
             }
-            item("summary") {
+            if (snapshot.items.isNotEmpty()) item("summary") {
                 DownloadSummary(
                     snapshot = snapshot,
                     modifier = Modifier.padding(horizontal = ReelLayout.Gutter),
@@ -170,7 +170,7 @@ private fun DownloadSummary(
     val summary: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(SpoleIcons.Download, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Icon(SpoleIcons.Download, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(
                         stringResource(if (activeItems.isNotEmpty()) R.string.offline_summary_active else R.string.offline_summary_ready),
@@ -338,7 +338,7 @@ private fun OfflineDownloadRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = MaterialTheme.colorScheme.background, shape = RoundedCornerShape(10.dp)) {
                     Icon(if (item.state == OfflineDownloadState.COMPLETE) SpoleIcons.Done else SpoleIcons.Download, null,
-                        tint = if (item.state == OfflineDownloadState.COMPLETE) MaterialTheme.colorScheme.primary else muted,
+                        tint = muted,
                         modifier = Modifier.padding(10.dp).size(22.dp))
                 }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {

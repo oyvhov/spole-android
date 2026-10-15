@@ -2,7 +2,7 @@ package app.reelstack.ui.components
 
 /** Shared compact numbering on heroes, shelves, details and playback controls. */
 internal fun episodeLine(season: Int?, episode: Int?, subtitle: String): String {
-    if (season == null && episode == null) return subtitle
+    if (season == null && episode == null) return readableMediaText(subtitle).orEmpty()
     val numbers = listOfNotNull(
         season?.let { "S$it" },
         episode?.let { "E$it" },
@@ -19,3 +19,11 @@ internal fun episodeLine(season: Int?, episode: Int?, subtitle: String): String 
  */
 internal fun episodeTitle(subtitle: String, episode: Int?): String =
     app.reelstack.data.model.episodeNameOf(subtitle.substringAfter(" · ", ""), episode)
+
+/** A movie year belongs in metadata once; episode names remain distinct from the series year. */
+internal fun titleSubtitle(season: Int?, episode: Int?, subtitle: String, facts: List<String>): String {
+    val caption = episodeLine(season, episode, subtitle)
+    return caption.takeUnless {
+        season == null && episode == null && it.matches(Regex("\\d{4}")) && facts.any { fact -> fact.trim() == it }
+    }.orEmpty()
+}

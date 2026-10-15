@@ -14,6 +14,24 @@ import org.junit.Test
  * player could not keep.
  */
 class MediaTrackTest {
+    @Test fun `audio display omits a technical handler without changing the playable track`() {
+        val track = details("""{"Id":"f","Name":"N","Type":"Movie","MediaStreams":[
+            {"Type":"Audio","Index":7,"DisplayTitle":"Audio Media Handler - Norwegian - Dolby Digital+ - 5.1 - Standard","Language":"nor"}]}""")
+            .audioTracks.single()
+        assertEquals("Norwegian · Dolby Digital+ · 5.1 · Standard",
+            app.reelstack.data.model.readableAudioTrackLabel(track.label, track.language))
+        assertEquals(7, track.index)
+        assertEquals("Audio Media Handler - Norwegian - Dolby Digital+ - 5.1 - Standard", track.label)
+    }
+
+    @Test fun `audio display preserves commentary and falls back to the supplied language`() {
+        assertEquals("English · Director commentary · DTS 5.1",
+            app.reelstack.data.model.readableAudioTrackLabel("English - Director commentary - DTS 5.1", "eng"))
+        assertEquals("Norsk", app.reelstack.data.model.readableAudioTrackLabel("Audio Media Handler", "Norsk"))
+        assertEquals("Audio Media Handler commentary",
+            app.reelstack.data.model.readableAudioTrackLabel("Audio Media Handler commentary"))
+    }
+
 
     private fun details(payload: String) = ServicePayloadParser.libraryDetails(payload)
 

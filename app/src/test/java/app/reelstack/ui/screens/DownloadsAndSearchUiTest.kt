@@ -1,6 +1,7 @@
 package app.reelstack.ui.screens
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +27,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.reelstack.R
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.LibraryMedia
+import app.reelstack.data.model.LibraryFilters
 import app.reelstack.data.model.Personalization
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.repository.AppPreferencesRepository
@@ -53,6 +55,35 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "w360dp-h780dp-port-xhdpi", application = app.reelstack.SheetTestApplication::class)
 class DownloadsAndSearchUiTest {
     @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
+
+    private fun checkLibrarySearchSummary(fontScale: Float) {
+        rule.setContent {
+            ReelstackTheme {
+                CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
+                    // The television header hosts the toolbar in a Box beside the title.
+                    Box { LibraryFilterBar(LibraryFilters(search = "12"), {}) }
+                }
+            }
+        }
+        val query = rule.onNodeWithTag("library-filter-summary").fetchSemanticsNode().boundsInRoot
+        val sort = rule.onNodeWithTag("library-sort-choice").fetchSemanticsNode().boundsInRoot
+        assertTrue("search summary overlaps sort: $query / $sort", query.bottom <= sort.top)
+    }
+
+    @Test fun librarySearchSummaryReservesItsOwnRow() = checkLibrarySearchSummary(1f)
+    @Test fun librarySearchSummaryReservesItsOwnRowAtDoubleText() = checkLibrarySearchSummary(2f)
+
+    @Test fun emptyDownloadsHaveOneHelpfulEmptyState() {
+        rule.setContent {
+            ReelstackTheme {
+                OfflineDownloadsScreen(OfflineDownloadsSnapshot(), true, PaddingValues(0.dp),
+                    {}, {}, {}, {}, {}, {}, {}, {})
+            }
+        }
+        rule.onNodeWithTag("offline-summary").assertDoesNotExist()
+        rule.onNodeWithText(rule.activity.getString(R.string.offline_empty_title)).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.offline_empty_note)).assertIsDisplayed()
+    }
 
     private val downloading = OfflineDownloadsSnapshot(
         items = listOf(

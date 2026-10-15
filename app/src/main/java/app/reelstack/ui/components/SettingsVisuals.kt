@@ -82,6 +82,21 @@ internal fun SettingsOptionPreview(value: Any?) {
         fun card(x: Float, y: Float, w: Float, h: Float, radius: Float, color: Color) =
             drawRoundRect(color, Offset(x * unit, y * unit), Size(w * unit, h * unit),
                 CornerRadius(radius * unit))
+        fun seasonSample(season: Season, x: Float = 0f, width: Float = 64f) {
+            val palette = season.applyTo(Personalization())
+            val background = Color(palette.visualTheme.background)
+            val raised = Color(palette.visualTheme.raised)
+            val accent = Color(palette.accent.argb)
+            card(x, 0f, width, 44f, 7f, background)
+            card(x + 3f, 4f, 5f, 36f, 2f, raised)
+            repeat(2) { index ->
+                card(x + 12f + index * width * .19f, 7f, width * .15f, 23f, 2f,
+                    Color(palette.visualTheme.muted).copy(alpha = .34f + index * .12f))
+            }
+            card(x + 12f, 34f, width * .36f, 4f, 2f, accent)
+            if (season != Season.NONE) drawTimelineHandle(season,
+                Offset((x + width * .76f) * unit, 20f * unit), width * .15f * unit, accent)
+        }
         when (value) {
             is LibraryArtType -> {
                 val width = if (value.ratio > 1f) 52f else 22f
@@ -135,37 +150,17 @@ internal fun SettingsOptionPreview(value: Any?) {
                     style = Stroke((if (value == FocusStyle.BOLD) 3.5f else 1.5f) * unit))
             }
             is Season -> {
-                card(0f, 0f, 64f, 44f, 7f, Color(value.swatch).copy(alpha = .15f))
-                drawCircle(Color(value.swatch), 11f * unit, Offset(32f * unit, 22f * unit))
-                if (value != Season.NONE) {
-                    drawCircle(colors.onSurface.copy(alpha = .6f), 2f * unit, Offset(12f * unit, 12f * unit))
-                    drawCircle(colors.onSurface.copy(alpha = .6f), 2f * unit, Offset(52f * unit, 32f * unit))
-                }
+                seasonSample(value)
             }
             is app.reelstack.data.model.SeasonChoice -> {
-                val halloween = Color(Season.HALLOWEEN.swatch)
-                val christmas = Color(Season.CHRISTMAS.swatch)
                 when (value) {
                     app.reelstack.data.model.SeasonChoice.CALENDAR -> {
-                        // Both seasons side by side on a page: the calendar decides between them.
-                        card(0f, 0f, 64f, 44f, 7f, colors.onSurfaceVariant.copy(alpha = .12f))
-                        card(10f, 6f, 44f, 5f, 2f, colors.onSurfaceVariant.copy(alpha = .4f))
-                        drawCircle(halloween, 8f * unit, Offset(23f * unit, 26f * unit))
-                        drawCircle(christmas, 8f * unit, Offset(41f * unit, 26f * unit))
+                        seasonSample(Season.HALLOWEEN, width = 31f)
+                        seasonSample(Season.CHRISTMAS, x = 33f, width = 31f)
                     }
-                    else -> {
-                        val swatch = Color(when (value) {
-                            app.reelstack.data.model.SeasonChoice.CHRISTMAS -> Season.CHRISTMAS.swatch
-                            app.reelstack.data.model.SeasonChoice.HALLOWEEN -> Season.HALLOWEEN.swatch
-                            else -> Season.NONE.swatch
-                        })
-                        card(0f, 0f, 64f, 44f, 7f, swatch.copy(alpha = .15f))
-                        drawCircle(swatch, 11f * unit, Offset(32f * unit, 22f * unit))
-                        if (value != app.reelstack.data.model.SeasonChoice.NONE) {
-                            drawCircle(colors.onSurface.copy(alpha = .6f), 2f * unit, Offset(12f * unit, 12f * unit))
-                            drawCircle(colors.onSurface.copy(alpha = .6f), 2f * unit, Offset(52f * unit, 32f * unit))
-                        }
-                    }
+                    app.reelstack.data.model.SeasonChoice.CHRISTMAS -> seasonSample(Season.CHRISTMAS)
+                    app.reelstack.data.model.SeasonChoice.HALLOWEEN -> seasonSample(Season.HALLOWEEN)
+                    app.reelstack.data.model.SeasonChoice.NONE -> seasonSample(Season.NONE)
                 }
             }
             is app.reelstack.data.model.SeasonalDecor -> {

@@ -10,6 +10,20 @@ import org.junit.Test
 class SmartShelfTest {
     private fun day(month: Int, day: Int, year: Int = 2026) = LocalDate.of(year, month, day)
 
+    @Test fun periodExplanationMatchesPresetAndOwnLibraryVisibility() {
+        val before = day(10, 15)
+        val active = day(10, 25)
+        val preset = SmartShelfPresets.halloween.copy(onHome = false, inMenu = false)
+        assertTrue(preset.waitsForPeriod(before))
+        assertFalse(preset.waitsForPeriod(active))
+        val own = preset.copy(id = "own", preset = false)
+        assertFalse(own.waitsForPeriod(before))
+        assertTrue(own.copy(onHome = true).waitsForPeriod(before))
+        assertTrue(own.copy(inMenu = true).waitsForPeriod(before))
+        assertFalse(preset.copy(inLibrary = false).waitsForPeriod(before))
+        assertFalse(own.copy(period = SmartShelfPeriod.ALWAYS, onHome = true).waitsForPeriod(before))
+    }
+
     @Test fun aShelfSurvivesBeingStored() {
         val shelf = SmartShelf("u-1", name = "Hundefilmar", icon = SmartShelfIcon.HEART, tags = listOf("dog", "puppy"),
             genres = listOf("Family"), kinds = SmartShelfKinds.MOVIES, unwatched = true, period = SmartShelfPeriod.EASTER, inMenu = true,

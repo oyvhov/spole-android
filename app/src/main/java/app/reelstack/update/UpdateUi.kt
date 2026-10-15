@@ -160,11 +160,15 @@ internal fun AppUpdateDialog(state: UpdateState, onClose: () -> Unit, onCancel: 
             }
         }
         val actionModifier = Modifier.focusRequester(focus).focusOutline(interaction, CircleShape)
+        BoxWithConstraints {
+        val layout = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
+        val dialogHeight = layout.compactDialogHeightDp(maxHeight.value,
+            androidx.compose.ui.platform.LocalDensity.current.fontScale).dp
         Surface(
             modifier = Modifier
                 .widthIn(max = 720.dp)
                 .fillMaxWidth(if (compact) .96f else .94f)
-                .fillMaxHeight(if (compact) .92f else .88f),
+                .height(dialogHeight),
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
@@ -370,6 +374,7 @@ internal fun AppUpdateDialog(state: UpdateState, onClose: () -> Unit, onCancel: 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
         }
     }
 }

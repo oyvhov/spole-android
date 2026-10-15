@@ -631,7 +631,8 @@ internal fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
                 onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
             .testTag("library-hit-${media.id}"),
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
+            .testTag("library-hit-artwork-${media.id}")) {
             MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop, source = media.source)
             Row(
                 Modifier.align(Alignment.TopStart).padding(8.dp)
@@ -644,12 +645,12 @@ internal fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 5.dp))
             }
         }
-        Text(media.title, color = TextColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-            minLines = if (app.reelstack.ui.components.isTelevision()) 2 else 1,
-            lineHeight = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp))
-        Text(media.subtitle, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+        app.reelstack.ui.components.RailCardCaption(media.title, media.subtitle, titleMaxLines = 2,
+            reserveTitleLines = if (app.reelstack.ui.components.isTelevision()) 2 else 1,
+            subtitleMaxLines = 1,
+            modifier = Modifier.padding(top = 8.dp).testTag("library-hit-caption-${media.id}"),
+            titleModifier = Modifier.testTag("library-hit-title-${media.id}"),
+            subtitleModifier = Modifier.testTag("library-hit-subtitle-${media.id}"))
     }
 }
 

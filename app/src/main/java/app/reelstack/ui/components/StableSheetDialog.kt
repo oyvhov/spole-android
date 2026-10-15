@@ -88,6 +88,7 @@ internal fun StableSheetDialog(
     onDismiss: () -> Unit,
     fullScreen: Boolean = false,
     expanded: Boolean = false,
+    compact: Boolean = false,
     onCloseStarted: () -> Unit = {},
     /**
      * Handles a logical back step inside a sheet, for example series → the episode it came from.
@@ -200,6 +201,8 @@ internal fun StableSheetDialog(
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .imePadding()) {
                 val sheetHeight = if (fullScreen) maxHeight
+                    else if (compact) policy.compactDialogHeightDp(maxHeight.value,
+                        androidx.compose.ui.platform.LocalDensity.current.fontScale).dp
                     else if (expanded && !policy.useSideBySideMedia) maxHeight * .96f
                     else policy.dialogHeightDp(maxHeight.value).dp
                 Surface(

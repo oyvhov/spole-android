@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WindowLayoutPolicyTest {
+    @Test fun compactStatusDialogsKeepFixedRoomAndGrowWithText() {
+        val phone = WindowLayoutPolicy(412f, 892f)
+        assertEquals(360f, phone.compactDialogHeightDp(800f), .01f)
+        assertEquals(656f, phone.compactDialogHeightDp(800f, 2f), .01f)
+        assertEquals(720f, WindowLayoutPolicy(1000f, 1400f).compactDialogHeightDp(1400f, 2f), .01f)
+        listOf(0f, 120f, 300f, 479f).forEach { available ->
+            assertTrue(phone.compactDialogHeightDp(available, 2f) in 0f..available)
+        }
+    }
     @Test fun playerTimelineGrowsOnTabletsInBothOrientations() {
         assertTrue(WindowLayoutPolicy(1280f, 800f).useLargePlayerTimeline)
         assertTrue(WindowLayoutPolicy(800f, 1280f).useLargePlayerTimeline)

@@ -96,7 +96,8 @@
     <string name="smart_sort_newest">Nyaste først</string>
     <string name="smart_sort_title">Tittel (A–Å)</string>
     <string name="smart_sort_rating">Best vurdert</string>
-    <string name="smart_shelf_period_waits">Perioden «%1$s» byrjar %2$s. Til då står hylla berre i biblioteket.</string>
+    <string name="smart_shelf_period_waits">Perioden «%1$s» byrjar %2$s. Plassering på Heim og i menyen følgjer perioden; bibliotekvising er eit eige val.</string>
+    <string name="smart_shelf_period_waits_preset">Perioden «%1$s» byrjar %2$s. Denne innebygde hylla blir automatisk vist på dei valde stadene i perioden.</string>
     <string name="smart_shelf_date_pattern">d. MMMM</string>
     <string name="smart_shelf_see_all">Sjå alle</string>
     <string name="smart_shelf_more_genres">Fleire sjangrar (%1$d)</string>

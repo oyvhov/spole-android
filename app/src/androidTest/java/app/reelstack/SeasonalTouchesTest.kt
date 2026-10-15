@@ -25,6 +25,7 @@ import app.reelstack.ui.components.LocalOpenSeasonShelf
 import app.reelstack.ui.components.SeasonalIdleSpider
 import app.reelstack.ui.components.SeasonalSpinner
 import app.reelstack.ui.components.SeasonalThemeBanner
+import app.reelstack.ui.components.SeasonalShelfButton
 import app.reelstack.ui.components.SpoleEggs
 import app.reelstack.ui.components.SpoleRewindOverlay
 import app.reelstack.ui.theme.ReelstackTheme
@@ -62,6 +63,27 @@ class SeasonalTouchesTest {
         rule.setContent { ReelstackTheme { AppNavigationRail(AppTab.HOME, {}, expanded = true) } }
         rule.onNodeWithTag("wide-season-HALLOWEEN").assertDoesNotExist()
         rule.onNodeWithTag("brand-season-HALLOWEEN").assertDoesNotExist()
+    }
+
+    @Test fun theHeroSeasonDoorWorksBeforeTheCalendarStartsAndWithDecorationOff() {
+        halloween(SeasonalDecor.OFF)
+        var opened: Season? = null
+        rule.setContent { ReelstackTheme {
+            CompositionLocalProvider(LocalOpenSeasonShelf provides { opened = it }) {
+                SeasonalShelfButton(onArtwork = true)
+            }
+        } }
+        rule.onNodeWithTag("home-season-HALLOWEEN").assertHasClickAction().performClick()
+        rule.runOnIdle { assertEquals(Season.HALLOWEEN, opened) }
+    }
+
+    @Test fun theHeroHasNoSeasonDoorWithoutASeason() {
+        repository.personalization = Personalization()
+        rule.setContent { ReelstackTheme {
+            CompositionLocalProvider(LocalOpenSeasonShelf provides { }) { SeasonalShelfButton() }
+        } }
+        rule.onNodeWithTag("home-season-HALLOWEEN").assertDoesNotExist()
+        rule.onNodeWithTag("home-season-CHRISTMAS").assertDoesNotExist()
     }
 
     /** On Home the greeting is a door; as the preview in Appearance it is not. */

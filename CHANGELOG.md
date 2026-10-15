@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta12 - tettare tekstgrupper og gjennomgått grensesnitt
+
+- Serienamn og episodeinformasjon følgjer den faktiske teksthøgda. Korte titlar og manglande episodefelt lagar ikkje tomme linjer mellom felta, medan kunstfelt og handlingar held seg stabile.
+- Betre plass til stor skrift i framsidekort og nettbrett-hero. Klare årstal, episodetitlar og lydspornamn utan doble felt eller tekniske standardnamn.
+- Større avspelingskontrollar på nettbrett, tydeleg tidslinje under spoling og betre plassering og lukking av avspelingsstatistikk.
+- Ryddigare TV-meny og biblioteksfilter, jamnare kalenderkunst og ein samla tomtilstand for nedlastingar.
+- Rolegare Halloween- og julepynt, synlege sesonginngangar, førehandsvising av tema og lesbar undertekstførehandsvising.
+- Stødige konto- og oppdateringsdialogar, nøytral kjeldemeny og omsett sluttid i spelaren.
+
 ## 1.0.0-beta11 - enklare spoling og betre episodeframdrift
 
 - Dobbeltrykk på store sideflater av videoen for å hoppe 10 sekund bakover eller framover på mobil og nettbrett. Nye trykk blir tekne imot også medan hoppet bufrar.

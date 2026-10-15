@@ -17,8 +17,17 @@ internal fun episodeNameOf(name: String, episode: Int?): String {
     // writes "Episode\u00a01" looks identical on screen to one that writes "Episode 1" — so the
     // prefix survived the strip and the row printed "1 · Episode 1", the number twice. Padded and
     // doubled spaces go the same way.
-    val trimmed = name.replace('\u00a0', ' ').replace(Regex("""\s+"""), " ").trim()
-    if (trimmed.isBlank()) return ""
+    var trimmed = name.replace('\u00a0', ' ').replace(Regex("""\s+"""), " ").trim()
+    // Calendar subtitles contain a kind, a numbered segment and then the episode's name. The
+    // kind has already been removed by the caption formatter, so only remove a whole leading
+    // Sxx Exx segment for this exact episode. A real title such as "S02 E05 at Midnight", or a
+    // title's hyphen/dot suffix, is deliberately not a match.
+    if (episode != null) {
+        NUMBERED_EPISODE_SEGMENT.find(trimmed)?.takeIf {
+            it.groupValues[1].toIntOrNull() == episode
+        }?.let { prefix -> trimmed = trimmed.substring(prefix.range.last + 1).trim() }
+    }
+    if (trimmed.isBlank() || trimmed.uppercase(java.util.Locale.ROOT) in EPISODE_PLACEHOLDERS) return ""
     // All three marks have to be present — no spaces at all, three or more dots, and a
     // season-episode marker — so a real title like "S.W.A.T." is left alone.
     if (trimmed.none { it == ' ' } && trimmed.count { it == '.' } >= 3 &&
@@ -32,7 +41,11 @@ internal fun episodeNameOf(name: String, episode: Int?): String {
         """^Episode\s*0*$episode(?![0-9])(?:\s*[-–—:.]+\s*|\s*$)""",
         RegexOption.IGNORE_CASE,
     )
-    return numbered.replace(trimmed, "").trim()
+    return numbered.replace(trimmed, "").trim().takeUnless {
+        it.uppercase(java.util.Locale.ROOT) in EPISODE_PLACEHOLDERS
+    }.orEmpty()
 }
 
+private val EPISODE_PLACEHOLDERS = setOf("TBA", "TBD", "N/A", "-")
+private val NUMBERED_EPISODE_SEGMENT = Regex("""^S\d+\s*(?:-\s*)?E(\d+)(?:\s*·\s*|$)""", RegexOption.IGNORE_CASE)
 private val RELEASE_MARK = Regex("""[Ss]\d{1,2}[Ee]\d{1,3}""")

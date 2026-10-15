@@ -48,7 +48,7 @@ internal fun MobileCinematicDetails(
                     color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().testTag("detail-title"))
             }
-            val subtitle = episodeLine(details.season, details.episode, opening.subtitle)
+            val subtitle = titleSubtitle(details.season, details.episode, opening.subtitle, details.facts.ifEmpty { opening.facts })
             if (subtitle.isNotBlank()) Text(subtitle,
                 style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface,

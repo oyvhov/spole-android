@@ -96,7 +96,8 @@
     <string name="smart_sort_newest">Newest first</string>
     <string name="smart_sort_title">Title (A–Z)</string>
     <string name="smart_sort_rating">Highest rated</string>
-    <string name="smart_shelf_period_waits">The «%1$s» period starts on %2$s. Until then the shelf is only in the library.</string>
+    <string name="smart_shelf_period_waits">The «%1$s» period starts on %2$s. Home and menu placements follow this period; library visibility is separate.</string>
+    <string name="smart_shelf_period_waits_preset">The «%1$s» period starts on %2$s. This built-in shelf appears automatically in its selected places during that period.</string>
     <string name="smart_shelf_date_pattern">d MMMM</string>
     <string name="smart_shelf_see_all">See all</string>
     <string name="smart_shelf_more_genres">More genres (%1$d)</string>

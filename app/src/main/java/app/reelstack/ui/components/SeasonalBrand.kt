@@ -67,6 +67,28 @@ internal fun SpoleBrandMark(modifier: Modifier = Modifier, contentDescription: S
     }
 }
 
+/** A functional season door, independent of decorative density and the calendar's preset rows. */
+@Composable
+internal fun SeasonalShelfButton(modifier: Modifier = Modifier, onArtwork: Boolean = false) {
+    val season = Season.of(LocalPersonalization.current)
+    val open = LocalOpenSeasonShelf.current
+    if (season == Season.NONE || open == null) return
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    IconButton(onClick = { open(season) }, interactionSource = interaction,
+        modifier = modifier.size(48.dp)
+            .focusOutline(interaction, androidx.compose.foundation.shape.CircleShape)
+            .testTag("home-season-$season")) {
+        Surface(shape = androidx.compose.foundation.shape.CircleShape,
+            color = if (onArtwork) Color.Black.copy(alpha = .58f) else MaterialTheme.colorScheme.surfaceVariant) {
+            Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                Icon(season.shelfIcon(), stringResource(if (season == Season.CHRISTMAS)
+                    R.string.season_open_christmas else R.string.season_open_halloween),
+                    Modifier.size(23.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
 /**
  * A compact seasonal illustration, also used as the live theme preview in settings.
  *
@@ -127,7 +149,9 @@ internal fun SeasonalThemeBanner(modifier: Modifier = Modifier, options: Persona
 internal fun SeasonalBackdrop(modifier: Modifier = Modifier, menu: Boolean = false, menuClearAbove: () -> Float = { 0f }) {
     val options = LocalPersonalization.current
     val season = Season.of(options)
-    if (season == Season.NONE) return
+    // A full-window scene duplicates the hero/banner and crosses system bars and account
+    // controls. Only the rail's measured, unused footer may carry a background illustration.
+    if (season == Season.NONE || !menu) return
     Canvas(modifier.testTag("season-backdrop-$season").clearAndSetSemantics { }) {
         val tint = if (season == Season.CHRISTMAS) Color(0xFF94713D) else Color(0xFF75428E)
         // The page and hero fade must share exactly the same background colour.
@@ -144,14 +168,14 @@ internal fun SeasonalBackdrop(modifier: Modifier = Modifier, menu: Boolean = fal
                 if (menuTop <= size.height - 56.dp.toPx()) withTransform({ translate(0f, menuTop) }) {
                     drawSeasonScene(season, 0f, true)
                 }
-            } else drawSeasonScene(season, 0f, true)
+            }
         }
     }
 }
 
 /** Low-cost vector shapes: no image requests, blur layers or decoration over the reading column. */
 internal fun DrawScope.drawSeasonScene(season: Season, time: Float, prominent: Boolean = false) {
-    val edge = if (prominent) 78.dp.toPx() else minOf(size.width * .22f, 150.dp.toPx())
+    val edge = if (prominent) 48.dp.toPx() else minOf(size.width * .18f, 88.dp.toPx())
     val right = size.width
     if (season == Season.CHRISTMAS) {
         val pine = Color(0xFF517C65)
@@ -201,7 +225,7 @@ internal fun DrawScope.drawSeasonScene(season: Season, time: Float, prominent: B
             drawStar(Offset(right - edge * 1.2f, edge * .85f), edge * .065f, gold.copy(alpha = .8f))
         }
     } else {
-        val web = Color(0xFFD8D1E9).copy(alpha = .48f)
+        val web = Color(0xFFD8D1E9).copy(alpha = .30f)
         val corner = Offset(right, 0f)
         repeat(5) { ray ->
             val angle = PI.toFloat() * (.5f + ray * .125f)
@@ -220,7 +244,7 @@ internal fun DrawScope.drawSeasonScene(season: Season, time: Float, prominent: B
         val spider = Offset(right - edge * .30f, edge * (.71f + .03f * sin(time * .8f)))
         drawLine(web, Offset(spider.x, 0f), spider, 1.dp.toPx())
         drawSpider(spider, edge * .13f)
-        drawGhost(Offset(right - edge * .83f, minOf(size.height * .72f, edge * 1.02f) + sin(time) * 3.dp.toPx()), edge * .40f, .86f)
+        drawGhost(Offset(right - edge * .83f, minOf(size.height * .72f, edge * 1.02f) + sin(time) * 3.dp.toPx()), edge * .35f, .55f)
         if (!prominent) {
             drawGhost(Offset(right - edge * .34f, size.height * .77f + sin(time + 2f) * 3.dp.toPx()), edge * .28f, .65f)
             drawSpider(Offset(right - edge * 1.17f, edge * .22f), edge * .09f)

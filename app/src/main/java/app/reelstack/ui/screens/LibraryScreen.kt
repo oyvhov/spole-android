@@ -65,7 +65,12 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
 private fun LibrarySourceMenu(selected: ServiceKind, sources: List<ServiceKind>, onSource: (ServiceKind) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { expanded = true }, modifier = Modifier.testTag("library-source-menu")) {
+        TextButton(onClick = { expanded = true },
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(50.dp))
+                .heightIn(min = 48.dp).testTag("library-source-menu")) {
+            app.reelstack.ui.components.ServiceSymbol(selected, Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
             Text(selected.displayName)
             Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, Modifier.padding(start = 6.dp).size(18.dp))
         }
@@ -128,7 +133,9 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     pageStates.SaveableStateProvider(state.libraryPath.joinToString("/") { it.first }) {
         val grid = rememberLazyGridState()
         val firstContent = remember { FocusRequester() }
-        val cell = (if (wideCards) { if (tv) 240.dp else 156.dp } else if (tv) 155.dp else 130.dp) * size
+        val cell = app.reelstack.data.model.mediaCardMinimumWidth(
+            (if (wideCards) { if (tv) 240f else 156f } else if (tv) 155f else 130f) * size,
+            androidx.compose.ui.platform.LocalDensity.current.fontScale).dp
         val listArtHeight = (if (tv) 118.dp else 96.dp) * size
         val density = androidx.compose.ui.platform.LocalDensity.current
         app.reelstack.ui.components.PrefetchLibraryArtwork(state.libraryEntries, grid, artType, state.librarySource,
@@ -260,7 +267,8 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                 val title: @Composable () -> Unit = {
                     Text(entry.title, color = MaterialTheme.colorScheme.onBackground,
                         minLines = 1,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                        maxLines = if (!listView && density.fontScale >= 1.5f) 1 else 2,
+                        overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                     if (!folders && entry.subtitle.isNotBlank() && !entry.mediaType.equals("Series", true)) Text(
                         app.reelstack.ui.components.episodeLine(entry.season, entry.episode, entry.subtitle),
                         modifier = Modifier.padding(top = 2.dp),

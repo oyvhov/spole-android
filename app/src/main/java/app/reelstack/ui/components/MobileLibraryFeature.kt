@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -50,15 +51,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.constrainWidth
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -155,7 +160,8 @@ internal fun MobileLibraryFeature(
                 } },
                 topInset = with(density) { headerHeight.toDp() } + 72.dp,
                 parallaxOffset = parallaxOffset,
-                modifier = if (page == pager.currentPage) Modifier else Modifier.clearAndSetSemantics {},
+                modifier = if (page == pager.currentPage) Modifier.testTag("mobile-feature-current-page")
+                    else Modifier.clearAndSetSemantics {},
             )
         }
         if (header != null) {
@@ -277,17 +283,21 @@ private fun MobileHeroPage(
                     bottom = if (titles.size > 1) 0.dp else 18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val title = selected
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Bound the caption by the same five known candidates as the carousel, while each
+            // visible title, episode line and metadata row remain one naturally measured stack.
+            val metadataReserve = heroMetadataReservedHeight()
+            val episodeReserve = measuredHeroTextHeight(MaterialTheme.typography.bodyMedium)
+            val titleReserve = maxOf(56.dp, measuredHeroTextHeight(TextStyle(fontSize = 24.sp, lineHeight = 28.sp,
+                fontWeight = FontWeight.SemiBold), 2))
+            Layout(modifier = Modifier.fillMaxWidth().testTag("mobile-feature-caption"), content = {
+             titles.forEach { title -> key(title.id) {
+              HeroCaptionGroup(titleReserve, 6.dp, Modifier.fillMaxWidth()
+                  .then(if (title.id == selected.id) Modifier.testTag("mobile-feature-current-caption")
+                      else Modifier.clearAndSetSemantics {}),
+                  reservedBodyHeight = episodeReserve + metadataReserve + 3.dp + 12.dp, title = {
                 val logo = title.logoUrl
-                var logoFailed by remember(title.id) { mutableStateOf(false) }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 44.dp),
-                    contentAlignment = Alignment.BottomStart
-                ) {
+                var logoFailed by remember(title.id, logo) { mutableStateOf(false) }
+                var logoRatio by remember(title.id, logo) { mutableStateOf<Float?>(null) }
                     if (!logo.isNullOrBlank() && !logoFailed) {
                         MediaArtwork(
                             url = logo,
@@ -297,8 +307,9 @@ private fun MobileHeroPage(
                             trimTransparent = true,
                             source = title.source,
                             onError = { logoFailed = true },
+                            onAspectRatio = { logoRatio = it },
                             modifier = Modifier
-                                .height(56.dp)
+                                .height(logoRatio?.let { minOf(56.dp, 220.dp / it) } ?: 56.dp)
                                 .width(220.dp)
                                 .testTag("mobile-hero-clearlogo")
                         )
@@ -314,16 +325,16 @@ private fun MobileHeroPage(
                             modifier = Modifier.testTag("mobile-hero-title")
                         )
                     }
-                }
-
-                val episodeInfo = episodeLine(title.season, title.episode, title.subtitle)
+              }) {
+                val episodeInfo = titleSubtitle(title.season, title.episode, title.subtitle, title.facts)
                 if (episodeInfo.isNotBlank()) {
                     Text(
                         text = episodeInfo,
                         color = Color.White.copy(alpha = 0.85f),
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("mobile-hero-episode-info"),
                     )
                 }
 
@@ -340,6 +351,15 @@ private fun MobileHeroPage(
                         color = MaterialTheme.colorScheme.onSurface,
                         trackColor = Color.White.copy(alpha = 0.25f),
                     )
+                }
+              }
+             } }
+            }) { measurables, constraints ->
+                val captions = measurables.map { it.measure(constraints.copy(minHeight = 0)) }
+                layout(constraints.constrainWidth(captions.maxOf { it.width }),
+                    constraints.constrainHeight(captions.maxOf { it.height })) {
+                    // Unplaced candidates reserve geometry without hidden scroll/focus targets.
+                    captions[index].placeRelative(0, 0)
                 }
             }
 

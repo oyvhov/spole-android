@@ -69,6 +69,9 @@ internal fun LibraryFilterBar(
         stringResource(R.string.library_favourites).takeIf { filters.favourites },
         filters.genre.takeIf(String::isNotBlank), filters.year.takeIf(String::isNotBlank),
         filters.initial.takeIf(String::isNotBlank), filters.search.takeIf(String::isNotBlank))
+    // A toolbar is a single layout child even when its caller places it in a Box beside a title.
+    // Summary and actions must reserve separate rows instead of painting over one another.
+    Column(Modifier.fillMaxWidth().testTag("library-filter-toolbar")) {
     if (summary.isNotEmpty()) Text(summary.joinToString(" · "),
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).testTag("library-filter-summary"))
@@ -278,6 +281,8 @@ internal fun LibraryFilterBar(
                 Text(stringResource(R.string.library_reset), color = MaterialTheme.colorScheme.error)
             }
         }
+    }
+
     }
 
     if (displayOpen) SpoleChoiceDialog(stringResource(R.string.library_display), { displayOpen = false }, SpoleIcons.ListLines) {

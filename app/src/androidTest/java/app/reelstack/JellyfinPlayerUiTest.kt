@@ -14,11 +14,16 @@ import org.junit.Test
 
 class JellyfinPlayerUiTest {
     @get:Rule val rule = createComposeRule()
+    private lateinit var inputMode: androidx.compose.ui.input.InputModeManager
+    private lateinit var backDispatcher: androidx.activity.OnBackPressedDispatcher
     private fun screen(state: PlayerScreenState, scale: Float = 1f, close: () -> Unit = {}, subtitle: (Int) -> Unit = {},
-        choose: (PlayableItem) -> Unit = {}, player: androidx.media3.common.Player? = null) {
+        choose: (PlayableItem) -> Unit = {}, player: androidx.media3.common.Player? = null, television: Boolean = false) {
         rule.setContent { val density = LocalDensity.current
+            inputMode = androidx.compose.ui.platform.LocalInputModeManager.current
+            backDispatcher = checkNotNull(androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current)
+                .onBackPressedDispatcher
             CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
-                ReelstackTheme { PlayerScreen(state, player, close, {}, {}, {}, choose, {}, {}, subtitle, {}, {}, isTelevision = false) }
+                ReelstackTheme { PlayerScreen(state, player, close, {}, {}, {}, choose, {}, {}, subtitle, {}, {}, isTelevision = television) }
             }
         }
     }
@@ -36,8 +41,70 @@ class JellyfinPlayerUiTest {
             // Asking Compose to scroll it therefore asserts an obsolete layout contract.
             rule.onNodeWithTag("player-stats").performClick()
             rule.onNodeWithTag("player-stats-overlay").assertIsDisplayed()
+            val info = rule.onNodeWithTag("player-stats").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val panel = rule.onNodeWithTag("player-stats-overlay").fetchSemanticsNode().boundsInRoot
+            assertTrue("Statistics must leave the information action unobscured", panel.top > info.bottom)
+            val closeBefore = rule.onNodeWithTag("player-stats-close").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             rule.onNodeWithText("Lydavbrot · 3").performScrollTo().assertIsDisplayed()
             rule.onNodeWithText("ffmpeg6.1.4-eac3", substring = true).performScrollTo().assertIsDisplayed()
+            assertEquals("The close action stays pinned while diagnostics scroll", closeBefore,
+                rule.onNodeWithTag("player-stats-close").assertIsDisplayed().fetchSemanticsNode().boundsInRoot)
+            rule.onNodeWithTag("player-stats-close").performTouchInput { click() }
+            rule.onNodeWithTag("player-stats-overlay").assertDoesNotExist()
+            rule.onNodeWithTag("player-stats").performTouchInput { click() }
+            rule.onNodeWithTag("player-stats-overlay").assertIsDisplayed()
+            rule.onNodeWithTag("player-stats").performTouchInput { click() }
+            rule.onNodeWithTag("player-stats-overlay").assertDoesNotExist()
+        } finally { rule.runOnIdle { player.release() } }
+    }
+    private fun back() {
+        // Exercise the registered Android callback on its owning thread. Injecting a legacy
+        // BACK key into this standalone host does not synchronise API 36's predictive Back.
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.waitForIdle()
+    }
+
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @Test fun backClosesStatisticsBeforeLeavingTouchPlayback() {
+        lateinit var player: androidx.media3.exoplayer.ExoPlayer
+        rule.runOnIdle { player = androidx.media3.exoplayer.ExoPlayer.Builder(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext).build() }
+        var exits = 0
+        try {
+            screen(PlayerScreenState(busy = false, durationMs = 60_000),
+                player = player, close = { exits++ })
+            rule.onNodeWithTag("player-stats").performClick()
+            rule.onNodeWithTag("player-stats-overlay").assertIsDisplayed()
+            back()
+            rule.onNodeWithTag("player-stats-overlay").assertDoesNotExist()
+            rule.onNodeWithTag("player-toggle").assertIsDisplayed()
+            assertEquals(0, exits)
+            back()
+            assertEquals(1, exits)
+        } finally { rule.runOnIdle { player.release() } }
+    }
+
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @Test fun televisionBackClosesStatisticsThenControlsThenPlayback() {
+        lateinit var player: androidx.media3.exoplayer.ExoPlayer
+        rule.runOnIdle { player = androidx.media3.exoplayer.ExoPlayer.Builder(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext).build() }
+        var exits = 0
+        try {
+            screen(PlayerScreenState(busy = false, durationMs = 60_000),
+                player = player, close = { exits++ }, television = true)
+            rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+            rule.onNodeWithTag("player-stats").performClick()
+            rule.onNodeWithTag("player-stats-close").assertIsDisplayed().assertIsFocused()
+            back()
+            rule.onNodeWithTag("player-stats-overlay").assertDoesNotExist()
+            rule.onNodeWithTag("player-timeline").assertIsDisplayed()
+            assertEquals(0, exits)
+            back()
+            rule.onNodeWithTag("player-timeline").assertDoesNotExist()
+            assertEquals(0, exits)
+            back()
+            assertEquals(1, exits)
         } finally { rule.runOnIdle { player.release() } }
     }
     @Test fun missingSubtitleWarningIsReadableAtDoubleFontSize() {
@@ -93,6 +160,20 @@ class JellyfinPlayerUiTest {
         rule.onNodeWithText("Norsk").assertIsDisplayed()
         rule.onNodeWithText("Av",substring=false).performClick()
         assertEquals(-1,selected)
+    }
+    @Test fun audioChoicesKeepTrackIdentityWithoutHandlerNoise() {
+        var selected = -1
+        rule.setContent { ReelstackTheme {
+            PlayerScreen(PlayerScreenState(busy = false, durationMs = 60_000,
+                audio = listOf(PlaybackTrack(3, "English · AAC 2.0 · Audio Media Handler", "eng"),
+                    PlaybackTrack(8, "English · AC3 5.1 · Commentary", "eng"))),
+                null, {}, {}, {}, {}, {}, {}, { selected = it }, {}, {}, {}, isTelevision = false)
+        } }
+        rule.onNodeWithTag("player-audio").performScrollTo().performClick()
+        rule.onNodeWithText("Audio Media Handler", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("AAC 2.0", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Commentary", substring = true).assertIsDisplayed().performClick()
+        assertEquals(8, selected)
     }
     @Test fun largeTextKeepsCloseAndQualityReachable() {
         screen(PlayerScreenState(title="Ein lang filmtittel som framleis skal vere lesbar",busy=false,durationMs=20000),scale=2f)

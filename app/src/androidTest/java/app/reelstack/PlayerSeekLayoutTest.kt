@@ -223,8 +223,40 @@ class PlayerSeekLayoutTest {
             bounds.width >= (size.width.value - 64) * renderScale - 2)
         val handle = rule.onNodeWithTag("player-timeline-handle", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue("Tablet handle ${handle.width / renderScale} dp at $configuration",
-            handle.width >= 24 * renderScale - 2)
+            handle.width >= 28 * renderScale - 2)
+        val track = rule.onNodeWithTag("player-timeline-track", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("The visible tablet track must be distinct from the generous hit area",
+            track.height >= 10 * renderScale - 2)
+        val before = controls()
+        val transport = listOf("player-toggle", "player-rewind", "player-forward")
+            .map { rule.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
+        assertTrue("Tablet transport controls need an appropriate visual scale",
+            transport.all { it.width >= 72 * renderScale - 2 && it.height >= 72 * renderScale - 2 })
+        val tools = listOf("player-chapters", "player-audio", "player-subtitles", "player-quality", "player-frame-mode")
+            .map { rule.onNodeWithTag(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
+        assertTrue("Track controls retain at least 48 dp", tools.all { it.width >= 48 * renderScale - 2 })
         rule.onNodeWithTag("player-time-label").assertIsDisplayed()
+        val restingTime = rule.onNodeWithTag("player-time-label").fetchSemanticsNode().config[
+            androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
+        // The position responds before the seek is committed, without adding a row or moving
+        // transport controls. No preview picture or instructional copy is introduced.
+        rule.onNodeWithTag("player-timeline").performTouchInput {
+            down(Offset(width * .25f, height / 2f))
+            moveTo(Offset(width * .6f, height / 2f), 300)
+        }
+        val draggingTime = rule.onNodeWithTag("player-time-label").fetchSemanticsNode().config[
+            androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
+        assertNotEquals(restingTime, draggingTime)
+        assertEquals("Dragging must not commit a seek until finger release", -1L, sought)
+        assertEquals("Scrub feedback must not move transport controls", before, controls())
+        val activeTrack = rule.onNodeWithTag("player-timeline-track", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("The active track gives visible scrub feedback", activeTrack.height > track.height)
+        rule.onNodeWithTag("player-timeline-preview").assertDoesNotExist()
+        rule.onNodeWithText("Dobbeltrykk", substring = true).assertDoesNotExist()
+        rule.onNodeWithTag("player-timeline").performTouchInput { up() }
+        assertTrue("Release must commit the visible scrub position", sought in 300_000..400_000)
+        rule.onNodeWithTag("player-time-label").assertTextEquals(draggingTime)
+        assertEquals(before, controls())
         // The full height must seek, including well above and below the visible track.
         rule.onNodeWithTag("player-timeline").performTouchInput { click(Offset(width * .8f, height * .1f)) }
         assertTrue("Upper timeline target must seek", sought > 400_000)

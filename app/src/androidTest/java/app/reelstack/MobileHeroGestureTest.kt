@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
@@ -23,6 +24,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 
+@OptIn(ExperimentalTestApi::class)
 class MobileHeroGestureTest {
     @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
     private val first = LibraryMedia("first", "Den første filmen med eit langt namn", "", artworkRes = 0,
@@ -131,12 +133,91 @@ class MobileHeroGestureTest {
         val expected = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
             .targetContext.resources.configuration.fontScale
         rule.runOnIdle { assertEquals(expected, actualFontScale, .001f) }
-        val heading = rule.onNode(hasTestTag("mobile-hero-title") and hasText(first.title), useUnmergedTree = true)
+        val heading = currentCaptionNode(hasTestTag("mobile-hero-title") and hasText(first.title))
         heading.assertIsDisplayed()
         rule.onNodeWithTag("mobile-feature-play").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("mobile-feature-open").performScrollTo().assertIsDisplayed()
         val header = rule.onNodeWithTag("fixture-header").getUnclippedBoundsInRoot()
         val title = heading.getUnclippedBoundsInRoot()
         assertTrue(title.top > header.bottom)
+    }
+
+    @Test fun compactCaptionHasNaturalGapsAndSteadyActions() = checkCaption(1f)
+    @Test fun doubleTextCaptionHasNaturalGapsAndSteadyActions() = checkCaption(2f)
+
+    private fun checkCaption(fontScale: Float) {
+        val facts = listOf("Episode", "2005", "28 min", "A deliberately long certification label that overflows the metadata row")
+        val episode = first.copy(title = "Serie", subtitle = "S01 E02 · Svartisen", mediaType = "Episode", season = 1,
+            episode = 2, facts = emptyList())
+        val long = episode.copy(id = "long", title = "Ein lang serietittel som treng meir enn ei tekstlinje", facts = facts)
+        val film = episode.copy(id = "film", title = "Film", subtitle = "2005", mediaType = "Movie", season = null,
+            episode = null, facts = facts.map { if (it == "Episode") "Film" else it })
+        val candidates = androidx.compose.runtime.mutableStateOf(listOf(episode, long, film))
+        var opened: String? = null
+        rule.setContent {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(androidx.compose.ui.unit.DpSize(400.dp, 900.dp))) {
+                DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) {
+                    ReelstackTheme { CompositionLocalProvider(LocalMotionEnabled provides false) {
+                        LazyColumn { item {
+                            MobileLibraryFeature(candidates.value.first(), { opened = it }, candidates = candidates.value,
+                                rotationEnabled = false)
+                        } }
+                    } }
+                }
+            }
+        }
+        val before = rule.onNodeWithTag("mobile-feature-open").getUnclippedBoundsInRoot()
+        rule.runOnIdle { candidates.value = candidates.value.map { if (it.id == episode.id) it.copy(facts = facts) else it } }
+        assertEquals(before, rule.onNodeWithTag("mobile-feature-open").getUnclippedBoundsInRoot())
+        rule.onAllNodesWithText(episode.title).assertCountEquals(1)
+        rule.onAllNodesWithText(long.title).assertCountEquals(0)
+        rule.onAllNodes(inCurrentCaption(hasTestTag("hero-metadata")), useUnmergedTree = true).assertCountEquals(1)
+        assertMobileTextGap("mobile-hero-title", "mobile-hero-episode-info")
+        assertMobileTextGap("mobile-hero-episode-info", "hero-metadata")
+        val metadata = currentCaptionNode(hasTestTag("hero-metadata"))
+        val scrollKey = androidx.compose.ui.semantics.SemanticsProperties.HorizontalScrollAxisRange
+        val scrollRange = metadata.fetchSemanticsNode().config[scrollKey]
+        val initialScroll = scrollRange.value()
+        val maxScroll = scrollRange.maxValue()
+        assertTrue("The visible metadata row has horizontal overflow", maxScroll > 0f)
+        val availableScroll = maxScroll - initialScroll
+        assertTrue("The visible metadata row has unused horizontal overflow", availableScroll > 0f)
+        metadata.performTouchInput {
+            // Stay within the row's overflow so the gesture cannot hand off to the pager.
+            val distance = minOf(availableScroll / 5f, width / 4f)
+            swipe(start = center, end = center - Offset(distance, 0f), durationMillis = 1_200)
+        }
+        assertTrue("The visible metadata row receives the drag", metadata.fetchSemanticsNode().config[scrollKey].value() > initialScroll)
+        rule.onAllNodesWithText(episode.title).assertCountEquals(1)
+        rule.onNodeWithTag("mobile-hero-dot-1").performClick()
+        assertMobileTextGap("mobile-hero-title", "mobile-hero-episode-info")
+        assertMobileTextGap("mobile-hero-episode-info", "hero-metadata")
+        assertEquals(before, rule.onNodeWithTag("mobile-feature-open").getUnclippedBoundsInRoot())
+        rule.onNodeWithTag("mobile-hero-dot-2").performClick()
+        currentCaptionNode(hasTestTag("mobile-hero-episode-info")).assertDoesNotExist()
+        assertMobileTextGap("mobile-hero-title", "hero-metadata")
+        assertEquals(before, rule.onNodeWithTag("mobile-feature-open").getUnclippedBoundsInRoot())
+        rule.onNodeWithTag("mobile-feature-open").performClick()
+        assertEquals(film.id, opened)
+    }
+
+    private fun inCurrentCaption(matcher: SemanticsMatcher) = matcher and
+        hasAnyAncestor(hasTestTag("mobile-feature-current-page")) and
+        hasAnyAncestor(hasTestTag("mobile-feature-current-caption"))
+
+    private fun currentCaptionNode(matcher: SemanticsMatcher) =
+        rule.onNode(inCurrentCaption(matcher), useUnmergedTree = true)
+
+    private fun assertMobileTextGap(fromTag: String, toTag: String) {
+        val text = currentCaptionNode(hasTestTag(fromTag))
+        val bounds = text.getUnclippedBoundsInRoot()
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        text.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val layout = layouts.single()
+        val lastLineBottom = with(layout.layoutInput.density) { layout.getLineBottom(layout.lineCount - 1).toDp() }
+        val next = currentCaptionNode(hasTestTag(toTag)).getUnclippedBoundsInRoot()
+        val gap = next.top - bounds.top - lastLineBottom
+        assertTrue("Caption has no reserved blank line between $fromTag and $toTag: $gap", gap <= 7.dp)
+        assertTrue("Caption lines do not overlap: $gap", gap >= 0.dp)
     }
 }

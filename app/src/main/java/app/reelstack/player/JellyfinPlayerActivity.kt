@@ -54,7 +54,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -74,6 +76,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.model.readableAudioTrackLabel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -237,6 +240,14 @@ fun PlayerScreen(
     var interaction by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf<PlayerMenu?>(null) }
     var statsVisible by remember { mutableStateOf(false) }
+    var playerHeaderHeightPx by remember { mutableIntStateOf(0) }
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val largeTouchControls = !isTelevision && app.reelstack.ui.layout.WindowLayoutPolicy(
+        configuration.screenWidthDp.toFloat(), configuration.screenHeightDp.toFloat()).useLargePlayerTimeline
+    val transportSize = if (largeTouchControls) 72.dp else 56.dp
+    val seekIconSize = if (largeTouchControls) 40.dp else 32.dp
+    val toolSize = if (largeTouchControls) 48.dp else 40.dp
+    val toolIconSize = if (largeTouchControls) 24.dp else 20.dp
     var statsTick by remember { mutableIntStateOf(0) }
     LaunchedEffect(statsVisible) {
         while (statsVisible) { delay(500); statsTick++ }
@@ -254,11 +265,11 @@ fun PlayerScreen(
     val canHide = (state.playing || state.busy && state.playWhenReady) &&
         state.error == null && !state.ended && !state.awaitingResume
     val finishedOffer = state.ended && (state.showNextEpisodeOffer() || state.showSeriesFinishedOffer())
-    val showControls = controls || (!canHide && !finishedOffer && !dismissedControls) || menu != null
+    val showControls = controls || (!canHide && !finishedOffer && !dismissedControls) || menu != null || statsVisible
     val showNextOffer = state.showNextEpisodeOffer() && menu == null && !scrubbing
     val showSeriesFinished = state.showSeriesFinishedOffer() && menu == null && !scrubbing
     val latestShown by rememberUpdatedState(showControls)
-    val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null)
+    val latestCanHide by rememberUpdatedState(canHide && !scrubbing && menu == null && !statsVisible)
     val latestCanSeek by rememberUpdatedState(!isTelevision && !state.browsing && !state.awaitingResume &&
         state.error == null && state.durationMs > 0 && menu == null && !statsVisible &&
         (!state.busy || state.playWhenReady))
@@ -294,14 +305,14 @@ fun PlayerScreen(
         // Paused playback opens with controls, but an explicit Back must be allowed to hide them.
         if (!canHide && !dismissedControls) controls = !finishedOffer
     }
-    LaunchedEffect(controls, canHide, interaction, menu, scrubbing) {
-        if (controls && canHide && menu == null && !scrubbing) {
+    LaunchedEffect(controls, canHide, interaction, menu, scrubbing, statsVisible) {
+        if (controls && canHide && menu == null && !scrubbing && !statsVisible) {
             delay(accessibility?.calculateRecommendedTimeoutMillis(3500, containsControls = true) ?: 3500)
             controls = false
         }
     }
-    LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu) {
-        if (isTelevision && menu == null && !state.browsing) {
+    LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu, statsVisible) {
+        if (isTelevision && menu == null && !statsVisible && !state.browsing) {
             if ((showNextOffer || showSeriesFinished) && state.ended) nextFocus.requestFocus()
             else if (!showControls && !nextHasFocus) videoFocus.requestFocus()
             else if (!state.busy && !state.awaitingResume && state.error == null && !controlsHaveFocus && !nextHasFocus)
@@ -312,7 +323,8 @@ fun PlayerScreen(
         if (isTelevision && (showNextOffer || showSeriesFinished)) nextFocus.requestFocus()
     }
     BackHandler {
-        if (isTelevision && menu != null && !state.browsing && !state.awaitingResume && state.error == null) {
+        if (statsVisible) { statsVisible = false; controls = true; interaction++ }
+        else if (isTelevision && menu != null && !state.browsing && !state.awaitingResume && state.error == null) {
             // Back unwinds the local layer first. Closing a track/quality menu should leave the
             // transport controls visible so the next decision is still in the same context.
             menu = null
@@ -354,7 +366,7 @@ fun PlayerScreen(
             if (native.repeatCount > 0 && consumedRemoteKey == native.keyCode && key !in setOf(
                     RemotePlaybackKey.LEFT, RemotePlaybackKey.RIGHT, RemotePlaybackKey.REWIND, RemotePlaybackKey.FORWARD)) return@onPreviewKeyEvent true
             val action = remotePlaybackAction(key, showControls || nextHasFocus, (state.playWhenReady || state.playing) && !state.ended,
-                (state.busy && state.durationMs <= 0) || state.browsing || state.awaitingResume || state.error != null || menu != null)
+                (state.busy && state.durationMs <= 0) || state.browsing || state.awaitingResume || state.error != null || menu != null || statsVisible)
             if (action == RemotePlaybackAction.DEFAULT) return@onPreviewKeyEvent false
             consumedRemoteKey = native.keyCode
             if (action == RemotePlaybackAction.REVEAL || action == RemotePlaybackAction.TOGGLE) controls = true
@@ -486,7 +498,7 @@ fun PlayerScreen(
                 { menu = PlayerMenu.QUALITY }, seekFeedback,
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
                 onChapters = { menu = PlayerMenu.CHAPTERS },
-                onStats = { statsVisible = !statsVisible }, showPlaybackModeLine = appearance.showPlaybackModeInOsd,
+                onStats = { statsVisible = !statsVisible; controls = true; interaction++ }, showPlaybackModeLine = appearance.showPlaybackModeInOsd,
                 kids = kids)
             val offerTopInset = if (showControls) 27.dp + with(androidx.compose.ui.platform.LocalDensity.current) {
                 MaterialTheme.typography.titleMedium.lineHeight.toDp()
@@ -519,8 +531,9 @@ fun PlayerScreen(
                 if (showControls) PlayerHeader(
                     title = state.title,
                     subtitle = state.subtitleLine(),
-                    onClose = onClose,
+                    onClose = { if (statsVisible) { statsVisible = false; controls = true; interaction++ } else onClose() },
                     showBack = !isTelevision,
+                    modifier = Modifier.onSizeChanged { playerHeaderHeightPx = it.height },
                     actions = {
                         if (onMiniPlayer != null && !state.busy && state.error == null && !state.awaitingResume && state.durationMs > 0) {
                             IconButton(onClick = onMiniPlayer, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-mini")) {
@@ -533,7 +546,7 @@ fun PlayerScreen(
                             }
                         }
                         if (!offline && !kids) {
-                            IconButton(onClick = { statsVisible = !statsVisible }, modifier = Modifier.size(40.dp).background(if (statsVisible) MaterialTheme.colorScheme.primaryContainer else Color.Black.copy(alpha = .45f), CircleShape).testTag("player-stats")) {
+                            IconButton(onClick = { statsVisible = !statsVisible; controls = true; interaction++ }, modifier = Modifier.size(40.dp).background(if (statsVisible) MaterialTheme.colorScheme.primaryContainer else Color.Black.copy(alpha = .45f), CircleShape).testTag("player-stats")) {
                                 Icon(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", tint = if (statsVisible) MaterialTheme.colorScheme.primary else Color.White, modifier = Modifier.size(20.dp))
                             }
                         }
@@ -574,9 +587,9 @@ fun PlayerScreen(
                                         delay(2200)
                                         remoteSeekTargetMs = null
                                     }
-                                }, enabled = !state.busy, modifier = Modifier.size(56.dp).remoteFocus(isTelevision).testTag("player-rewind")) {
+                                }, enabled = !state.busy, modifier = Modifier.size(transportSize).remoteFocus(isTelevision).testTag("player-rewind")) {
                                     Icon(app.reelstack.ui.components.SpoleIcons.Replay10, stringResource(R.string.player_rewind),
-                                        Modifier.size(32.dp).graphicsLayer {
+                                        Modifier.size(seekIconSize).graphicsLayer {
                                             val scale = if ((touchFeedback?.deltaMs ?: 0) < 0) 1f + .1f * (1f - touchPulse.value) else 1f
                                             scaleX = scale; scaleY = scale
                                         }, tint = Color.White)
@@ -586,17 +599,17 @@ fun PlayerScreen(
                             IconButton(onClick = { interaction++; onToggle() }, enabled = !state.busy,
                                 colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White,
                                     disabledContentColor = Color.White.copy(alpha = .7f)),
-                                modifier = Modifier.size(56.dp)
+                                modifier = Modifier.size(transportSize)
                                     .background(Color.Black.copy(alpha = .52f), CircleShape)
                                     .border(1.dp, Color.White.copy(alpha = .24f), CircleShape)
                                     .remoteFocus(isTelevision).focusRequester(playFocus)
                                     .semantics { if (state.busy) stateDescription = preparingLabel }
                                     .testTag("player-toggle")) {
                                 // Buffering changes only the contents of this fixed icon slot.
-                                if (state.busy) app.reelstack.ui.components.SeasonalSpinner(Modifier.size(24.dp).testTag("player-buffering"),
+                                if (state.busy) app.reelstack.ui.components.SeasonalSpinner(Modifier.size(if (largeTouchControls) 32.dp else 24.dp).testTag("player-buffering"),
                                     color = Color.White, strokeWidth = 2.dp)
                                 else Icon(if (state.playing || state.playWhenReady && !state.ended) app.reelstack.ui.components.SpoleIcons.Pause else app.reelstack.ui.components.SpoleIcons.PlaySimple,
-                                    if (state.playing || state.playWhenReady && !state.ended) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(28.dp))
+                                    if (state.playing || state.playWhenReady && !state.ended) stringResource(R.string.player_pause) else stringResource(R.string.player_play), Modifier.size(if (largeTouchControls) 36.dp else 28.dp))
                             }
                             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                 IconButton(onClick = {
@@ -611,9 +624,9 @@ fun PlayerScreen(
                                             remoteSeekTargetMs = null
                                         }
                                     }
-                                }, enabled = !state.busy, modifier = Modifier.size(56.dp).remoteFocus(isTelevision).testTag("player-forward")) {
+                                }, enabled = !state.busy, modifier = Modifier.size(transportSize).remoteFocus(isTelevision).testTag("player-forward")) {
                                     Icon(app.reelstack.ui.components.SpoleIcons.Forward10, stringResource(R.string.player_forward),
-                                        Modifier.size(32.dp).graphicsLayer {
+                                        Modifier.size(seekIconSize).graphicsLayer {
                                             val scale = if ((touchFeedback?.deltaMs ?: 0) > 0) 1f + .1f * (1f - touchPulse.value) else 1f
                                             scaleX = scale; scaleY = scale
                                         }, tint = Color.White)
@@ -624,10 +637,13 @@ fun PlayerScreen(
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (!state.awaitingResume) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
                         var dragging by remember(state.itemId) { mutableStateOf<Float?>(null) }
-                        val config = androidx.compose.ui.platform.LocalConfiguration.current
-                        val largeTimeline = app.reelstack.ui.layout.WindowLayoutPolicy(
-                            config.screenWidthDp.toFloat(), config.screenHeightDp.toFloat()).useLargePlayerTimeline
-                        val handleSize = if (kids || largeTimeline) 24.dp else 20.dp
+                        val largeTimeline = largeTouchControls
+                        val handleSize = when {
+                            largeTimeline && dragging != null -> 32.dp
+                            largeTimeline -> 28.dp
+                            kids -> 24.dp
+                            else -> 20.dp
+                        }
                         val timelineColors = SliderDefaults.colors(thumbColor = Color.White,
                             activeTrackColor = Color.White, inactiveTrackColor = Color.White.copy(alpha = .28f),
                             disabledActiveTrackColor = Color.White.copy(alpha = .5f),
@@ -655,12 +671,27 @@ fun PlayerScreen(
                                 SliderDefaults.Track(
                                     it,
                                     colors = timelineColors,
-                                    modifier = Modifier.height(if (kids || largeTimeline) 8.dp else 6.dp),
+                                    modifier = Modifier.height(when {
+                                        largeTimeline && dragging != null -> 14.dp
+                                        largeTimeline -> 10.dp
+                                        kids -> 8.dp
+                                        else -> 6.dp
+                                    }).testTag("player-timeline-track"),
                                     thumbTrackGapSize = 0.dp,
                                 )
                             },
                             onValueChange = { remoteSeekJob?.cancel(); remoteSeekTargetMs = null; dragging = it; scrubbing = true; interaction++ },
-                            onValueChangeFinished = { dragging?.let { onSeek(it.toLong()) }; dragging = null; scrubbing = false; interaction++ },
+                            onValueChangeFinished = {
+                                dragging?.toLong()?.let { target ->
+                                    // Keep the released position visible while Media3 catches up,
+                                    // just as the skip buttons do during seek buffering.
+                                    remoteSeekTargetMs = target
+                                    onSeek(target)
+                                    remoteSeekJob?.cancel()
+                                    remoteSeekJob = scope.launch { delay(2200); remoteSeekTargetMs = null }
+                                }
+                                dragging = null; scrubbing = false; interaction++
+                            },
                             valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(), enabled = !state.busy && state.error == null && state.durationMs > 0,
                             modifier = Modifier.fillMaxWidth().heightIn(min = if (largeTimeline) 64.dp else 48.dp).testTag("player-timeline"))
                         Row(
@@ -670,42 +701,49 @@ fun PlayerScreen(
                         ) {
                             val padHours = state.durationMs >= 3_600_000L
                             Text(
-                                playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs, padHours) +
-                                    " / " + playbackTime(state.durationMs, padHours),
+                                androidx.compose.ui.text.buildAnnotatedString {
+                                    withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(
+                                        alpha = if (dragging != null) 1f else .88f))) {
+                                        append(playbackTime(dragging?.toLong() ?: remoteSeekTargetMs ?: state.positionMs, padHours))
+                                    }
+                                    withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = .6f))) {
+                                        append(" / " + playbackTime(state.durationMs, padHours))
+                                    }
+                                },
                                 modifier = Modifier.weight(1f).testTag("player-time-label"),
-                                style = (if (largeTimeline) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall)
-                                    .copy(fontFeatureSettings = "tnum"),
+                                style = (if (largeTimeline) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodySmall)
+                                    .copy(fontWeight = FontWeight.Normal, fontFeatureSettings = "tnum"),
                                 color = Color.White.copy(alpha = .78f), maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 if (!kids) {
                                 if (state.chapters.isNotEmpty()) {
-                                    IconButton(onClick = { menu = PlayerMenu.CHAPTERS }, modifier = Modifier.size(40.dp).testTag("player-chapters")) {
-                                        Icon(app.reelstack.ui.components.SpoleIcons.Library, stringResource(R.string.phase_chapters), Modifier.size(20.dp))
+                                    IconButton(onClick = { menu = PlayerMenu.CHAPTERS }, modifier = Modifier.size(toolSize).testTag("player-chapters")) {
+                                        Icon(app.reelstack.ui.components.SpoleIcons.Library, stringResource(R.string.phase_chapters), Modifier.size(toolIconSize))
                                     }
                                 }
-                                IconButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy, modifier = Modifier.size(40.dp).testTag("player-audio")) {
-                                    Icon(app.reelstack.ui.components.SpoleIcons.Sound, stringResource(R.string.player_audio), Modifier.size(20.dp))
+                                IconButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy, modifier = Modifier.size(toolSize).testTag("player-audio")) {
+                                    Icon(app.reelstack.ui.components.SpoleIcons.Sound, stringResource(R.string.player_audio), Modifier.size(toolIconSize))
                                 }
                                 val subActive = state.subtitleIndex != -1
-                                IconButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy, modifier = Modifier.size(40.dp).testTag("player-subtitles")) {
+                                IconButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy, modifier = Modifier.size(toolSize).testTag("player-subtitles")) {
                                     Icon(
                                         app.reelstack.ui.components.SpoleIcons.Subtitles,
                                         stringResource(R.string.player_subtitles_button),
                                         tint = if (subActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(toolIconSize),
                                     )
                                 }
-                                if (!offline) IconButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy, modifier = Modifier.size(40.dp).testTag("player-quality")) {
-                                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_quality), Modifier.size(20.dp))
+                                if (!offline) IconButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy, modifier = Modifier.size(toolSize).testTag("player-quality")) {
+                                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_quality), Modifier.size(toolIconSize))
                                 }
                                 }
-                                IconButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.size(40.dp).testTag("player-frame-mode")) {
+                                IconButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.size(toolSize).testTag("player-frame-mode")) {
                                     Icon(
                                         if (fillVideo) app.reelstack.ui.components.SpoleIcons.Contract else app.reelstack.ui.components.SpoleIcons.Expand,
                                         stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill),
-                                        Modifier.size(20.dp),
+                                        Modifier.size(toolIconSize),
                                     )
                                 }
                             }
@@ -752,69 +790,95 @@ fun PlayerScreen(
         }
         if (statsVisible && player != null && !state.browsing) {
             val _tick = statsTick
-            Surface(
-                modifier = Modifier.align(Alignment.TopStart).padding(24.dp).testTag("player-stats-overlay"),
-                color = Color.Black.copy(alpha = .78f), shape = RoundedCornerShape(8.dp),
-            ) {
-                // The panel keeps its name — it is the name people search for — but everything
-                // around it is now translated, and it says which of the four things the server is
-                // doing rather than "Transcode" for three of them.
-                val unknown = stringResource(R.string.player_stats_unknown)
-                val audioTrack = state.audio.firstOrNull { it.index == state.audioIndex }
-                val windowHeight = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height
-                val statsHeight = with(androidx.compose.ui.platform.LocalDensity.current) { (windowHeight * .65f).toDp() }
-                Column(Modifier.heightIn(max = statsHeight).verticalScroll(rememberScrollState()).padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(stringResource(R.string.player_stats_title), color = Color.White, fontWeight = FontWeight.Bold)
-                    Text(stringResource(playbackModeLabel(state.mode), state.source.displayName), color = Color.White)
-                    playbackReasonFor(state)?.let {
-                        Text(stringResource(R.string.player_reason_because, stringResource(it)), color = Color.White)
-                    }
-                    Text("${stringResource(R.string.player_stats_video)} · ${state.videoCodec ?: unknown} · ${state.videoWidth}×${state.videoHeight} · ${state.videoBitrate.takeIf { it > 0 }?.let { "${it / 1_000_000} Mbps" } ?: unknown}", color = Color.White)
-                    Text("${state.videoHdr} · ${state.videoFrameRate.takeIf { it > 0 }?.let { "%.2f fps".format(it) } ?: unknown}", color = Color.White)
-                    // Source first, then what is arriving. When the server converts the audio
-                    // those are two different things, and printing only the source made the panel
-                    // contradict the reason printed three lines above it.
-                    Text("${stringResource(R.string.player_stats_audio)} · ${audioTrack?.label ?: unknown}", color = Color.White)
-                    state.audioCodec?.let { codec ->
-                        val channels = state.audioChannels.takeIf { it > 0 }?.let { " · $it ch" }.orEmpty()
-                        Text("→ $codec$channels", color = Color.White)
-                    }
-                    if (state.audioDecoder.isNotBlank() || state.videoDecoder.isNotBlank()) {
-                        Text(stringResource(R.string.player_stats_decoders,
-                            state.videoDecoder.ifBlank { unknown }, state.audioDecoder.ifBlank { unknown }), color = Color.White)
-                    }
-                    Text(stringResource(R.string.player_stats_audio_underruns, state.audioUnderruns), color = Color.White)
-                    state.advertisedAudio.takeIf { it.isNotBlank() }?.let {
-                        Text(stringResource(R.string.player_stats_advertised, it), color = Color.White)
-                    }
-                    state.advertisedVideo.takeIf { it.isNotBlank() }?.let {
-                        Text(stringResource(R.string.player_stats_advertised_video, it), color = Color.White)
-                    }
-                    // The server's own codes, unmapped. Everywhere else these become a sentence,
-                    // because CamelCase English in a nynorsk interface helps nobody — but this panel
-                    // exists to say what the server said, and one mapped sentence hides the other
-                    // reasons it listed alongside it.
-                    state.transcodeReasons.takeIf { it.isNotEmpty() }?.let {
-                        Text(stringResource(R.string.player_stats_server_codes, it.joinToString(", ")), color = Color.White)
-                    }
-                    // Why this stream stepped down, when it did. The server's codes say what the
-                    // server decided; this says what happened on the device to make it decide that,
-                    // which until now only logcat knew — and a television has no logcat.
-                    state.fallback.takeIf { it.isNotBlank() }?.let {
-                        Text(stringResource(R.string.player_stats_fallback, it), color = Color.White)
-                    }
-                    val status = when {
-                        player.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> R.string.player_stats_buffering
-                        player.isPlaying -> R.string.player_stats_playing
-                        else -> R.string.player_stats_paused
-                    }
-                    Text("${stringResource(R.string.player_stats_buffer)} ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${stringResource(status)}", color = Color.White)
-                    // Dropped frames are the one number that tells you the device cannot keep up,
-                    // as opposed to the network not keeping up. Worth its own line.
-                    (player as? androidx.media3.exoplayer.ExoPlayer)?.videoDecoderCounters
-                        ?.droppedBufferCount?.let {
-                        Text(stringResource(R.string.player_stats_dropped, it), color = Color.White)
+            // Reserve the measured chrome height, including large type. Neither the information
+            // action nor Back is hidden behind diagnostics; the panel has its own pinned close.
+            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()
+                .padding(horizontal = if (isTelevision) 48.dp else 16.dp,
+                    vertical = if (isTelevision) 27.dp else 0.dp)) {
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val panelTop = if (isTelevision) 56.dp else with(density) { playerHeaderHeightPx.toDp() } + 8.dp
+                val panelHeight = minOf(maxHeight * .65f, maxHeight - panelTop - 16.dp).coerceAtLeast(1.dp)
+                val statsCloseFocus = remember { FocusRequester() }
+                LaunchedEffect(isTelevision) {
+                    if (isTelevision) { withFrameNanos { }; statsCloseFocus.requestFocus() }
+                }
+                Surface(
+                    modifier = Modifier.align(Alignment.TopStart).padding(top = panelTop)
+                        .widthIn(max = 560.dp).fillMaxWidth().heightIn(max = panelHeight)
+                        .testTag("player-stats-overlay"),
+                    color = Color.Black.copy(alpha = .78f), shape = RoundedCornerShape(8.dp),
+                ) {
+                    // The panel keeps its name — it is the name people search for — but everything
+                    // around it is now translated, and it says which of the four things the server is
+                    // doing rather than "Transcode" for three of them.
+                    val unknown = stringResource(R.string.player_stats_unknown)
+                    val audioTrack = state.audio.firstOrNull { it.index == state.audioIndex }
+                    Column {
+                        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.player_stats_title), color = Color.White,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { statsVisible = false; controls = true; interaction++ },
+                                modifier = Modifier.size(48.dp).focusRequester(statsCloseFocus)
+                                    .remoteFocus(isTelevision).testTag("player-stats-close")) {
+                                Icon(app.reelstack.ui.components.SpoleIcons.Close,
+                                    stringResource(R.string.action_close), tint = Color.White)
+                            }
+                        }
+                        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
+                            .padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(stringResource(playbackModeLabel(state.mode), state.source.displayName), color = Color.White)
+                            playbackReasonFor(state)?.let {
+                                Text(stringResource(R.string.player_reason_because, stringResource(it)), color = Color.White)
+                            }
+                            Text("${stringResource(R.string.player_stats_video)} · ${state.videoCodec ?: unknown} · ${state.videoWidth}×${state.videoHeight} · ${state.videoBitrate.takeIf { it > 0 }?.let { "${it / 1_000_000} Mbps" } ?: unknown}", color = Color.White)
+                            Text("${state.videoHdr} · ${state.videoFrameRate.takeIf { it > 0 }?.let { "%.2f fps".format(it) } ?: unknown}", color = Color.White)
+                            // Source first, then what is arriving. When the server converts the audio
+                            // those are two different things, and printing only the source made the panel
+                            // contradict the reason printed three lines above it.
+                            Text("${stringResource(R.string.player_stats_audio)} · ${audioTrack?.let { readableAudioTrackLabel(it.label, it.language) } ?: unknown}", color = Color.White)
+                            state.audioCodec?.let { codec ->
+                                val channels = state.audioChannels.takeIf { it > 0 }?.let { " · $it ch" }.orEmpty()
+                                Text("→ $codec$channels", color = Color.White)
+                            }
+                            if (state.audioDecoder.isNotBlank() || state.videoDecoder.isNotBlank()) {
+                                Text(stringResource(R.string.player_stats_decoders,
+                                    state.videoDecoder.ifBlank { unknown }, state.audioDecoder.ifBlank { unknown }), color = Color.White)
+                            }
+                            Text(stringResource(R.string.player_stats_audio_underruns, state.audioUnderruns), color = Color.White)
+                            state.advertisedAudio.takeIf { it.isNotBlank() }?.let {
+                                Text(stringResource(R.string.player_stats_advertised, it), color = Color.White)
+                            }
+                            state.advertisedVideo.takeIf { it.isNotBlank() }?.let {
+                                Text(stringResource(R.string.player_stats_advertised_video, it), color = Color.White)
+                            }
+                            // The server's own codes, unmapped. Everywhere else these become a sentence,
+                            // because CamelCase English in a nynorsk interface helps nobody — but this panel
+                            // exists to say what the server said, and one mapped sentence hides the other
+                            // reasons it listed alongside it.
+                            state.transcodeReasons.takeIf { it.isNotEmpty() }?.let {
+                                Text(stringResource(R.string.player_stats_server_codes, it.joinToString(", ")), color = Color.White)
+                            }
+                            // Why this stream stepped down, when it did. The server's codes say what the
+                            // server decided; this says what happened on the device to make it decide that,
+                            // which until now only logcat knew — and a television has no logcat.
+                            state.fallback.takeIf { it.isNotBlank() }?.let {
+                                Text(stringResource(R.string.player_stats_fallback, it), color = Color.White)
+                            }
+                            val status = when {
+                                player.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> R.string.player_stats_buffering
+                                player.isPlaying -> R.string.player_stats_playing
+                                else -> R.string.player_stats_paused
+                            }
+                            Text("${stringResource(R.string.player_stats_buffer)} ${player.totalBufferedDuration / 1000}s · ${player.bufferedPercentage}% · ${stringResource(status)}", color = Color.White)
+                            // Dropped frames are the one number that tells you the device cannot keep up,
+                            // as opposed to the network not keeping up. Worth its own line.
+                            (player as? androidx.media3.exoplayer.ExoPlayer)?.videoDecoderCounters
+                                ?.droppedBufferCount?.let {
+                                Text(stringResource(R.string.player_stats_dropped, it), color = Color.White)
+                            }
+                        }
                     }
                 }
             }
@@ -836,7 +900,7 @@ fun PlayerScreen(
                 // press then hides the OSD; the dialog must not consume both layers at once.
                 onDismiss = { menu = null }, content = {
                     val options = when (title) {
-                        PlayerMenu.AUDIO -> state.audio.map { it.index to it.label }
+                        PlayerMenu.AUDIO -> state.audio.map { it.index to readableAudioTrackLabel(it.label, it.language) }
                         PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }
                         PlayerMenu.CHAPTERS -> state.chapters.mapIndexed { index, chapter -> index to "${playbackTime(chapter.startPositionMs)} · ${chapter.name}" }
                         else -> listOf(0 to stringResource(R.string.player_auto), 80_000_000 to stringResource(R.string.player_quality_ultra),
@@ -920,9 +984,10 @@ private fun PlayerHeader(
     onClose: () -> Unit,
     showTitle: Boolean = true,
     showBack: Boolean = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) != android.content.res.Configuration.UI_MODE_TYPE_TELEVISION,
+    modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         if (showBack) IconButton(onClick = onClose, modifier = Modifier.size(44.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-close")) {
             Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, stringResource(R.string.action_back))
         }

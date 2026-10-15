@@ -59,6 +59,7 @@ import app.reelstack.data.model.SmartShelfIcon
 import app.reelstack.data.model.SmartShelfKinds
 import app.reelstack.data.model.SmartShelfPeriod
 import app.reelstack.data.model.SmartShelfPresets
+import app.reelstack.data.model.waitsForPeriod
 import app.reelstack.ui.components.RemoteTextField
 import app.reelstack.ui.components.SettingsToggleRow
 import app.reelstack.ui.components.SmartShelfActions
@@ -301,13 +302,14 @@ internal fun SmartShelfEditorDialog(editor: SmartShelfEditor, actions: SmartShel
                                 draft.onHome, "smart-shelf-on-home") { update(draft.copy(onHome = it)) }
                             if (menuShortcuts) SettingsToggleRow(stringResource(R.string.smart_shelf_in_menu), stringResource(R.string.smart_shelf_in_menu_hint),
                                 draft.inMenu, "smart-shelf-in-menu") { update(draft.copy(inMenu = it)) }
-                            // A period that has not begun keeps the shelf off Home and the menu; say until when.
-                            val waitsFor = draft.period.takeIf { (draft.onHome || draft.inMenu) && !it.isActive(today) }?.nextStart(today)
+                            // Built-in library tiles follow the period as well; own shelves do not.
+                            val waitsFor = draft.period.takeIf { draft.waitsForPeriod(today) }?.nextStart(today)
                             if (waitsFor != null) {
                                 val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
                                 val day = waitsFor.format(java.time.format.DateTimeFormatter.ofPattern(
                                     stringResource(R.string.smart_shelf_date_pattern), locale))
-                                Text(stringResource(R.string.smart_shelf_period_waits, smartShelfPeriodLabel(draft.period), day),
+                                Text(stringResource(if (draft.preset) R.string.smart_shelf_period_waits_preset
+                                    else R.string.smart_shelf_period_waits, smartShelfPeriodLabel(draft.period), day),
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.testTag("smart-shelf-period-waits"))
                             }

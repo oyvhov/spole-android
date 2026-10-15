@@ -135,7 +135,10 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
     val tv = isTelevision()
     val gutter = if (tv) 32.dp else ReelLayout.Gutter
     // About seven covers across a television and three or four on a phone, where the library grid fits five and two.
-    val cell = (if (tv) 108.dp else 96.dp) * LocalPersonalization.current.artworkSize.scale
+    val cell = app.reelstack.data.model.mediaCardMinimumWidth(
+        (if (tv) 108f else 96f) * LocalPersonalization.current.artworkSize.scale,
+        LocalDensity.current.fontScale,
+    ).dp
     val actions = LocalSmartShelfActions.current
     val entries = state.libraryEntries
     val series = entries.filter { it.mediaType.equals("Series", ignoreCase = true) }
@@ -466,7 +469,7 @@ private fun SmartShelfCard(entry: RemoteLibraryItem, source: ServiceKind, onClic
             }
         }
         Text(entry.title, Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp), style = MaterialTheme.typography.titleSmall,
-            maxLines = 2, overflow = TextOverflow.Ellipsis)
+            maxLines = if (density.fontScale >= 1.5f) 1 else 2, overflow = TextOverflow.Ellipsis)
         if (entry.subtitle.isNotBlank()) Text(entry.subtitle, Modifier.padding(horizontal = 2.dp),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)

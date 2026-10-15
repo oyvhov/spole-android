@@ -187,6 +187,9 @@ internal fun UpcomingCalendarSheet(
 @Composable
 private fun CalendarEntry(batch: List<UpcomingMedia>, onOpen: (String) -> Unit, restoreFocus: Boolean = false) {
     val media = batch.first()
+    val artworkWidth = if (media.isMovieRelease) 58.dp else 90.dp
+    val artworkRatio = if (media.isMovieRelease) 2f / 3f else 16f / 9f
+    val artworkWidthPx = with(LocalDensity.current) { artworkWidth.roundToPx() }
     var expanded by rememberSaveable(media.calendarIdentity) { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(18.dp)
@@ -197,14 +200,18 @@ private fun CalendarEntry(batch: List<UpcomingMedia>, onOpen: (String) -> Unit, 
             contentColor = app.reelstack.ui.theme.Text,
             modifier = Modifier.fillMaxWidth().focusRequester(focus).focusOutline(interaction, shape, false).testTag("calendar-entry-${media.id}")) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                MediaArtwork(url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
-                    modifier = Modifier.width(if (media.isMovieRelease) 58.dp else 90.dp)
-                        .aspectRatio(if (media.isMovieRelease) 2f / 3f else 16f / 9f).clip(RoundedCornerShape(10.dp)),
-                    contentScale = ContentScale.Crop)
+                // Decode into the actual frame. A large portrait placeholder must not determine
+                // the intrinsic scale of a smaller, loaded episode thumbnail during Coil's fade.
+                RailArtwork(url = media.artworkUrl, fallbackRes = media.artworkRes, contentDescription = null,
+                    frameRatio = artworkRatio, source = media.source,
+                    modifier = Modifier.width(artworkWidth).aspectRatio(artworkRatio).clip(RoundedCornerShape(10.dp)),
+                    requestSize = androidx.compose.ui.unit.IntSize(artworkWidthPx, (artworkWidthPx / artworkRatio).toInt()))
                 Column(Modifier.weight(1f).padding(start = 16.dp)) {
                     Text(media.title, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(if (batch.size > 1) pluralStringResource(R.plurals.calendar_batch, batch.size, batch.size) else media.subtitle,
+                    Text(if (batch.size > 1) pluralStringResource(R.plurals.calendar_batch, batch.size, batch.size)
+                        else if (media.isMovieRelease) media.subtitle
+                        else episodeLine(media.season, media.episode, media.subtitle),
                         color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 4.dp))
                     Text(stringResource(if (media.isMovieRelease) R.string.calendar_home_release else R.string.calendar_episode_premiere),
                         color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 5.dp))
@@ -217,7 +224,8 @@ private fun CalendarEntry(batch: List<UpcomingMedia>, onOpen: (String) -> Unit, 
             }
             if (expanded) batch.forEach { episode ->
                 TextButton(onClick = { onOpen(episode.id) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(episode.subtitle, modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurface)
+                    Text(episodeLine(episode.season, episode.episode, episode.subtitle),
+                        modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }

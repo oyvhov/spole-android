@@ -2,6 +2,10 @@ package app.reelstack.data.model
 
 import app.reelstack.data.network.RemoteLibraryItem
 
+/** Let large text choose fewer, wider cards while preserving the chosen type size. */
+fun mediaCardMinimumWidth(baseWidth: Float, fontScale: Float): Float =
+    baseWidth * (1f + .6f * ((fontScale.takeIf { it.isFinite() } ?: 1f) - 1f).coerceAtLeast(0f))
+
 /** Choose the frame once for the catalogue, before any bitmap has loaded. */
 fun libraryArtType(display: LibraryDisplay, collectionType: String?, entries: List<RemoteLibraryItem>): LibraryArtType {
     if (display.artType != LibraryArtType.AUTO) return display.artType

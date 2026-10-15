@@ -21,14 +21,14 @@ import kotlin.random.Random
 import kotlinx.coroutines.delay
 
 /**
- * Pine, lights and snow for Christmas; ghosts, webs, spiders and embers for Halloween.
+ * Restrained snow and embers inside the artwork's clear middle-right region.
  *
  * This is the one place in Spole that exists purely because it is nice, so it is also the one place
  * that has to be easy to switch off and impossible to get in the way. It draws snow crystals and
- * sparks over the right-hand artwork, below every control, carries no semantics for a
+ * sparks over the right-hand artwork, away from header and action rows, carries no semantics for a
  * screen reader, and stops entirely when the mood is not seasonal or decorations are below FULL
- * («Mykje»). Reduced motion and lightweight TV mode retain the static illustration but stop particles
- * and floating ghosts. The drawing clock is limited to roughly twenty updates per second.
+ * («Mykje»). Reduced motion and lightweight TV mode stop particles; static seasonal marks and
+ * dedicated previews remain elsewhere. The drawing clock is limited to roughly twenty updates per second.
  *
  * The particles are generated once from a fixed seed, so the drift is the same every time the
  * screen opens rather than reshuffling under the reader.
@@ -42,7 +42,7 @@ internal fun SeasonalOrnament(modifier: Modifier = Modifier) {
 
     val flakes = remember(season) {
         val random = Random(season.ordinal * 7919)
-        List(if (season == Season.CHRISTMAS) 34 else 22) {
+        List(if (season == Season.CHRISTMAS) 18 else 12) {
             Flake(
                 x = random.nextFloat(),
                 start = random.nextFloat(),
@@ -71,7 +71,8 @@ internal fun SeasonalOrnament(modifier: Modifier = Modifier) {
     val rising = season == Season.HALLOWEEN
     val tint = if (rising) Color(0xFFFF9A3D) else Color(0xFFE8F2FF)
     Canvas(modifier.clearAndSetSemantics { }) {
-        drawSeasonScene(season, if (motion) time else 0f)
+        // A hero has its own profile/search/header and playback actions. Static scenes belong
+        // to the dedicated preview or empty menu footer, never to this shared artwork layer.
         if (motion) flakes.forEach { flake ->
             val travelled = (flake.start + time * flake.speed) % 1f
             val y = if (rising) (1f - travelled) * size.height else travelled * size.height
@@ -82,13 +83,13 @@ internal fun SeasonalOrnament(modifier: Modifier = Modifier) {
             val center = Offset(flake.x * size.width + drift, y)
             val radius = flake.radius * density
             // Keep the reading column clear; snow crystals and sparks stay over the artwork.
-            if (center.x > size.width * .58f) {
-                if (rising) drawLine(tint.copy(alpha = fade * .5f), center,
+            if (center.x > size.width * .62f && center.y > size.height * .24f && center.y < size.height * .62f) {
+                if (rising) drawLine(tint.copy(alpha = fade * .28f), center,
                     center + Offset(radius, -radius * 2f), density)
                 else repeat(3) { arm ->
                     val angle = arm * PI.toFloat() / 3f
                     val offset = Offset(kotlin.math.cos(angle), sin(angle)) * radius * 1.7f
-                    drawLine(tint.copy(alpha = fade * .65f), center - offset, center + offset, density)
+                    drawLine(tint.copy(alpha = fade * .35f), center - offset, center + offset, density)
                 }
             }
         }

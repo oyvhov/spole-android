@@ -1,5 +1,29 @@
 # Spole design system
 
+## Rettingar etter ekte UI-gjennomgang · 15. oktober 2026
+
+- Tittel, episodenummer og episodetittel følgjer faktisk teksthøgd. Ikkje reserver ei tom
+  andrelinje eller eit tomt episodefelt mellom synlege felt. Kort og heroar legg eventuell
+  stabil høgdereserve under heile tekstgruppa, slik at kunst, karusell og handlingar held forma.
+- På nettbrett har OSD 72 dp transportknappar, 40 dp spoleikon og 48 dp sporverktøy.
+  Tidslinja har 64 dp treffhøgd, 10 dp spor og 28 dp handtak; under drag veks sporet
+  til 14 dp og handtaket til 32 dp. Tidspunktet reagerer straks og held posisjonen ved slepp.
+- Statistikk har fast lukkeknapp under spelaroverskrifta. Tilbake lukkar statistikk før spelaren.
+- Merkevaren og Heim står fast i sidemenyen. Dei andre destinasjonane rullar i sitt eige felt.
+  Eit aktivt biblioteksøk har eiga rad over filterhandlingane.
+- Sesongpynt held seg unna statuslinje, profil, overskrifter og handlingar. Sesongprøver viser
+  faktisk palett og motiv. Mobilheroen har ein ikoninngang til den valde sesonghylla, også med pynt av.
+- Kortbreidd veks med skriftstorleiken. Ved stor skrift bruker rutenett ei avkorta tittellinje
+  framfor å bryte einslege ord over to linjer. Den valde skriftstorleiken blir bevart.
+  Breie touchheroar har minimumshøgd og reserverer det største tittelfeltet i karusellen,
+  slik at knappetekst og ikon får full plass også med dobbel skrift.
+- Kontosamandrag og oppdateringar bruker ein kompakt, fast dialogvariant: 360 dp ved normal
+  skrift, skalert med systemskrifta og avgrensa av vindauget. Innhaldet rullar; nettverksdata
+  endrar ikkje den ytre høgda. Dette presiserer eldre reglar om innhaldsavhengig dialogstorleik.
+- Kalenderkunst blir dekoda til den reserverte ramma. Årstal blir viste éin gong i mobilhero
+  og detaljar; episodereservar som TBA/TBD fell bort. Sluttid blir lokalisert, og genererte
+  lydsporledd som «Audio Media Handler» fell bort frå visingsnamnet utan å endre sporidentiteten.
+
 ## Overgangen frå mobilhero · 11. oktober 2026
 
 Karusellprikkane held 48 dp treffflate, men har ikkje ekstra botnluft etter treffflata.
@@ -16,8 +40,8 @@ bort medan ein dialog eller installatøren er aktiv.
 - «Spelar no» bruker same kort på mobil og breie flater: eit heilt cover i ein førehandsreservert
   84 × 126 dp plass, med kjelde, to tittellinjer, episode og brukar ved sida av. Stor skrift og
   smale kort stablar innhaldet. Framdrift er nøytral; pause/hald fram er lime og har eiga treffflate.
-- Overskrifter på innhaldsrader har 22 dp over og 10 dp under. Tittelfelt i hald-fram-rader held
-  av to linjer, slik at lange titlar og metadata får ei jamn plassering.
+- Overskrifter på innhaldsrader har 22 dp over og 10 dp under. Hald-fram-rader held av plass
+  til to tittellinjer under heile tekstgruppa; korte titlar har episodeinformasjonen tett inntil.
 - Biblioteket si «Neste»-rad bruker eit liggjande kort med bilde ved sida av teksten på breie
   flater med normal skrift. Stor skrift og telefon bruker den vanlege, stabla kortforma.
 - Aktivitet viser eitt cover for sesongførespurnader med same verifiserte medie-ID, kvalitet og

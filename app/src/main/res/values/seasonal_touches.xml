@@ -10,7 +10,7 @@
     <string name="theme_decor_full">A lot</string>
     <string name="theme_decor_off_hint">Colours only. No figures and no greeting on Home.</string>
     <string name="theme_decor_calm_hint">A hat or a ghost on the logo, the greeting on Home and a pumpkin or a snowflake on the player\'s timeline. Nothing moves.</string>
-    <string name="theme_decor_full_hint">Everything in «A little», plus snow or embers over the artwork, scenes in the menu and a spider that lets itself down when the remote is left alone.</string>
+    <string name="theme_decor_full_hint">Everything in «A little», with subtle snow or embers inside the artwork and small motifs in unused menu space.</string>
     <plurals name="season_halloween_countdown">
         <item quantity="one">%d day to Halloween.</item>
         <item quantity="other">%d days to Halloween.</item>

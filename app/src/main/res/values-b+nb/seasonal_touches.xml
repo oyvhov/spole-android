@@ -10,7 +10,7 @@
     <string name="theme_decor_full">Mye</string>
     <string name="theme_decor_off_hint">Bare fargene. Ingen figurer og ingen hilsen på Hjem.</string>
     <string name="theme_decor_calm_hint">Lue eller spøkelse på logoen, hilsenen på Hjem og et gresskar eller snøfnugg på tidslinjen i spilleren. Ingenting beveger seg.</string>
-    <string name="theme_decor_full_hint">Alt fra «Litt», og i tillegg snø eller glør over bildene, scener i menyen og en edderkopp som firer seg ned når fjernkontrollen ligger i ro.</string>
+    <string name="theme_decor_full_hint">Alt fra «Litt», med diskrete snøfnugg eller glør i bildefeltet og små motiver på ledig menyplass.</string>
     <plurals name="season_halloween_countdown">
         <item quantity="one">%d dag til halloween.</item>
         <item quantity="other">%d dager til halloween.</item>
