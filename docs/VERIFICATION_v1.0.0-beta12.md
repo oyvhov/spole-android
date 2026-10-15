@@ -65,5 +65,35 @@ Tittel, episode og metadata har naturleg avstand; kunstfelt og handlingsknappar 
 Opphavleg mobilformat 1280×2856, density 480, skrift 1.0 og temaval er sette tilbake.
 Det er emulatorbevis, ikkje prøve på fysisk nettbrett.
 
-TV-profilen 5564 er halden på beta11 for den offentlege oppdateringsprøva. Ingen testpakke
-blir køyrd på 5560/5564, og konto- eller AVD-data blir ikkje nullstilte.
+TV-profilen 5564 vart halden på beta11 fram til den offentlege oppdateringsprøva. Ingen testpakke
+vart køyrd på 5560/5564, og konto- eller AVD-data vart ikkje nullstilte.
+
+## Publisert artefakt og faktisk oppdatering
+
+- Kjelde og tag: `84f6d39d1cc82536dd12378e94777b9f38795cc8`, `v1.0.0-beta12`.
+  `SOURCE_COMMIT.txt` og APK-en sin innebygde VCS-commit samsvarer.
+- Bygg etter commit: `BUILD SUCCESSFUL`, kode 0, etter tre sekund. Alle runtime-oppføringar
+  utanom commit-/signeringsmetadata og heile R8-mappinga er byteidentiske med det testa bygget.
+- Universal-APK: 11 805 326 byte, SHA-256
+  `a84f091b48ce7d867383645cb2d998cb065933e143a496603929cc3fb0903e45`.
+- R8-mapping: 96 739 596 byte, SHA-256
+  `1544a72b2a92f6311c13656d8c24da9363ac0a9c38ca727e80d9ece35464dfee`.
+- Dei fire FFmpeg-JNI-biblioteka og begge lisensane er byteidentiske med offentleg beta9.
+  Kjelde-/relenkingsarkiv: 30 790 595 byte, SHA-256
+  `2b7eeba9705de0fcff66d3a04f71a811d39a9299d70e1f65728a8a8809965b21`.
+- [Beta12](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta12) er publisert
+  som prerelease, ikkje draft, med nøyaktig éin APK og fem assets. Alle storleikar, uploaded-statusar
+  og GitHub-digestar vart kontrollerte før publisering. Stabil latest er ikkje endra.
+- Den uautentiserte release-lista og offentleg APK-nedlasting er kontrollerte. Nedlasta APK
+  har same storleik og SHA-256 som arkivfila. Kontrollkallet brukte ein frisk query-parameter
+  etter at mellomlageret først returnerte release-lista frå før publisering.
+- TV 5564: Innstillingar → Varsel og oppdatering → Appoppdateringar → Sjekk no fann beta12.
+  Last ned → Installer → Android «Update» fullførte. Etter «Open» kom ekte framside tilbake;
+  Jellyfin og Emby står framleis som «Tilkopla». Installert kode er 149, oppdatert
+  15. oktober 2026 kl. 22:24:37; første installasjon er framleis 9. september kl. 20:50:58.
+  Dette er faktisk nedlasting og installasjon gjennom appen, ikkje ADB-installasjon.
+- GitHub [Bygg og test](https://github.com/oyvhov/spole-android/actions/runs/38800891977)
+  for releasecommit fullførte med `success`.
+
+Smarte hyller er framleis globale i beta12. Manglande val av tenar/bibliotek vart meldt av
+brukaren etter publisering og blir handtert som ei eiga retting; den publiserte APK-en blir ikkje bytt ut.
