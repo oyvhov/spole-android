@@ -39,6 +39,22 @@ class SeerrDiscoverClient(private val transport: JsonHttpTransport = HttpTranspo
     fun personCredits(connection: ServiceConnection, id: Int): List<RemoteDiscoverItem> =
         ServicePayloadParser.personCredits(get(connection, "api/v1/person/$id/combined_credits?language=nb"))
 
+    /** Profiles and folders of the default Radarr/Sonarr for this edition, or null when Seerr has none. */
+    fun requestOptions(connection: ServiceConnection, mediaType: String, is4k: Boolean): app.reelstack.data.model.RequestOptions? {
+        val service = if (mediaType == "tv") "sonarr" else "radarr"
+        val servers = ServicePayloadParser.serviceServers(get(connection, "api/v1/service/$service"))
+        val server = servers.firstOrNull { it.is4k == is4k && it.isDefault } ?: servers.firstOrNull { it.is4k == is4k } ?: return null
+        return ServicePayloadParser.serviceDetails(get(connection, "api/v1/service/$service/${server.id}"), is4k)
+    }
+
+    /** Whether Seerr has 4K turned on for this type of title. */
+    fun fourKEnabled(connection: ServiceConnection, mediaType: String): Boolean {
+        val root = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(get(connection, "api/v1/settings/public")) }.getOrNull()
+            as? kotlinx.serialization.json.JsonObject ?: return false
+        val key = if (mediaType == "tv") "series4kEnabled" else "movie4kEnabled"
+        return (root[key] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
+    }
+
     private fun page(connection: ServiceConnection, path: String, page: Int): SeerrSearchPage {
         val body = get(connection, path)
         return SeerrSearchPage(ServicePayloadParser.discover(body), page, ServicePayloadParser.totalPages(body))

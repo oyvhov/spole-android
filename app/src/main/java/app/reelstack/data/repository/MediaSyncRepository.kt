@@ -484,11 +484,17 @@ class MediaSyncRepository(
         mediaServerClient.userIdentity(connection)
             ?: serviceError(R.string.err_fann_ikkje_profilen, connection.kind.displayName)
 
-    fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {
+    fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet(),
+        choice: app.reelstack.data.model.RequestChoice = app.reelstack.data.model.RequestChoice()) {
         val remoteId = requireNotNull(media.remoteId) { "title has no Seerr media id" }
         val mediaType = requireNotNull(media.mediaType) { "title has no Seerr media type" }
-        seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId, seasons)
+        seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId, seasons, choice)
     }
+
+    fun requestOptions(connection: ServiceConnection, mediaType: String, is4k: Boolean) =
+        seerrDiscoverClient.requestOptions(connection, mediaType, is4k)
+
+    fun fourKEnabled(connection: ServiceConnection, mediaType: String) = seerrDiscoverClient.fourKEnabled(connection, mediaType)
 
     /** One page of Seerr results plus whether another page exists. */
     data class SearchPage(

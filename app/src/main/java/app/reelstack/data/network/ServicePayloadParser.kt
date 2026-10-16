@@ -457,6 +457,38 @@ object ServicePayloadParser {
             )
         }
 
+    data class ServiceServer(val id: Int, val is4k: Boolean, val isDefault: Boolean)
+
+    /** The Radarr or Sonarr servers Seerr knows, as `service/radarr` lists them. */
+    fun serviceServers(payload: String): List<ServiceServer> =
+        (runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonArray).orEmpty().mapNotNull {
+            val server = it as? JsonObject ?: return@mapNotNull null
+            ServiceServer(server.int("id") ?: return@mapNotNull null,
+                server["is4k"]?.jsonPrimitive?.booleanOrNull == true, server["isDefault"]?.jsonPrimitive?.booleanOrNull == true)
+        }
+
+    /** One server's profiles and root folders, with the ones Seerr would pick by itself. */
+    fun serviceDetails(payload: String, is4k: Boolean): app.reelstack.data.model.RequestOptions? {
+        val root = runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonObject ?: return null
+        val server = root.obj("server") ?: return null
+        return app.reelstack.data.model.RequestOptions(
+            serverId = server.int("id") ?: return null,
+            is4k = is4k,
+            profiles = root.array("profiles").mapNotNull { element ->
+                val profile = element as? JsonObject ?: return@mapNotNull null
+                app.reelstack.data.model.RequestProfile(profile.int("id") ?: return@mapNotNull null,
+                    profile.string("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null)
+            },
+            folders = root.array("rootFolders").mapNotNull { element ->
+                val folder = element as? JsonObject ?: return@mapNotNull null
+                app.reelstack.data.model.RequestFolder(folder.string("path")?.takeIf(String::isNotBlank) ?: return@mapNotNull null,
+                    folder["freeSpace"]?.jsonPrimitive?.longOrNull)
+            },
+            defaultProfileId = server.int("activeProfileId"),
+            defaultFolder = server.string("activeDirectory"),
+        )
+    }
+
     data class RemotePerson(val id: Int, val name: String, val portraitUrl: String?, val department: String?,
         val birthday: String?, val biography: String?)
 
