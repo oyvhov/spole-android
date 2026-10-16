@@ -113,6 +113,7 @@ class MediaSyncRepository(
     private val words: (LocalizedText) -> String = { it.literal.orEmpty() },
     private val mediaServerClient: MediaServerClient = MediaServerClient(),
     private val seerrServiceClient: SeerrServiceClient = SeerrServiceClient(),
+    private val seerrDiscoverClient: app.reelstack.data.network.SeerrDiscoverClient = app.reelstack.data.network.SeerrDiscoverClient(),
     private val recommendationsClient: RecommendationsClient = RecommendationsClient(),
     private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
     private val seerrReleaseClient: SeerrReleaseClient = SeerrReleaseClient(),
@@ -497,6 +498,21 @@ class MediaSyncRepository(
         return SearchPage(result.items.map(::discoverMedia), result.page, result.hasMore)
     }
 
+    fun discoverRow(connection: ServiceConnection, kind: app.reelstack.data.model.DiscoverRowKind, page: Int = 1): SearchPage =
+        seerrDiscoverClient.row(connection, kind, page).let { SearchPage(it.items.map(::discoverMedia), it.page, it.hasMore) }
+
+    fun discoverGenres(connection: ServiceConnection): List<app.reelstack.data.model.DiscoverGenre> =
+        seerrDiscoverClient.genres(connection, "movie") + seerrDiscoverClient.genres(connection, "tv")
+
+    fun discoverGenrePage(connection: ServiceConnection, genre: app.reelstack.data.model.DiscoverGenre, page: Int = 1): SearchPage =
+        seerrDiscoverClient.genrePage(connection, genre, page).let { SearchPage(it.items.map(::discoverMedia), it.page, it.hasMore) }
+
+    fun similar(connection: ServiceConnection, media: DiscoverMedia): List<DiscoverMedia> =
+        seerrDiscoverClient.similar(connection, requireNotNull(media.mediaType), requireNotNull(media.remoteId)).map(::discoverMedia)
+
+    fun recommended(connection: ServiceConnection, media: DiscoverMedia): List<DiscoverMedia> =
+        seerrDiscoverClient.recommendations(connection, requireNotNull(media.mediaType), requireNotNull(media.remoteId)).map(::discoverMedia)
+
     /** Searches every connected media server, so a title you already own is findable by name. */
     suspend fun searchLibraries(
         connections: List<ServiceConnection>,
@@ -696,6 +712,7 @@ class MediaSyncRepository(
         overview = item.overview,
         facts = listOf(words(mediaKind(item.mediaType))) + item.facts.map(words),
         genres = item.genres,
+        backdropUrl = item.backdropUrl,
     )
 
     private fun recommendationMedia(item: RemoteRecommendationItem) = DiscoverMedia(

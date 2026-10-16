@@ -223,6 +223,7 @@ data class DiscoverMedia(
     val facts: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val seerrStatus: Int? = null,
+    val backdropUrl: String? = null,
 )
 
 /**
@@ -269,7 +270,8 @@ fun seerrStatusDescription(status: Int?, inLibrary: Boolean = false): Int = when
     else -> R.string.seerr_desc_default
 }
 
-data class CastMember(val name: String, val role: String? = null, val portraitUrl: String? = null, val remoteId: String? = null)
+data class CastMember(val name: String, val role: String? = null, val portraitUrl: String? = null,
+    val remoteId: String? = null, val seerrPersonId: Int? = null)
 
 data class ContentDetails(
     val key: String,

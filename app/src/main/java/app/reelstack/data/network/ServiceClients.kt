@@ -1613,7 +1613,7 @@ private fun encode(value: String): String = java.net.URLEncoder.encode(value, Ch
 
 private fun encodePathSegment(value: String): String = encode(value).replace("+", "%20")
 
-private fun HttpResponse.requireSuccess(kind: ServiceKind) {
+internal fun HttpResponse.requireSuccess(kind: ServiceKind) {
     when (statusCode) {
         in 200..299 -> Unit
         401 -> if (kind == ServiceKind.SEERR) serviceError(R.string.err_seerr_logg_inn_nytt)
