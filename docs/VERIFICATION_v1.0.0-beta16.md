@@ -67,3 +67,26 @@ fotografert steg for steg med fjernkontrollen; etter rettinga dei same stega:
   sirkelen. Ingen brytar vart endra.
 
 Ingen førespurnad vart send, og ingen avspeling starta. Testpakka brukte berre isolert 5566.
+
+## Publisering
+
+- Kjelde og tag: `0631ae9a62d5810d389417810e1bd346e7fef5d2`, `v1.0.0-beta16`, i `SOURCE_COMMIT.txt`.
+  APK-en vart bygd frå releasecommiten; den same fila vart installert på 5564 og kontrollert der
+  (samandraget med ring og luft) og ligg som `tested-runtime.apk` i arkivet.
+- APK: 11 842 530 byte, SHA-256 `e32ac817408d0644c02a3951a10544f75ed4198b4f9561f95c3a5395557f1bec`,
+  signert med det faste sertifikatet (SHA-256 `36fa94f0…1a10`), pakke `app.reelstack`, kode 153,
+  ikkje debuggable. FFmpeg-biblioteka er identiske med beta15, så kjelde-/relenkingsarkivet er det
+  same (`2b7eeba9…5b21`).
+- [Beta16](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta16) er publisert som
+  prerelease med éin universal-APK og fem assets; alle fem GitHub-digestar vart kontrollerte før
+  publisering. Offentleg nedlasting har same SHA-256.
+
+## Faktisk oppdatering gjennom appen
+
+Isolert TV 5566 med offentleg beta15 (kode 152): Innstillingar → Varsel og oppdatering →
+Appoppdateringar → Sjekk no fann beta16 og notata. «Last ned oppdatering» vart «Installer
+oppdatering» etter appen sine kontrollar, og Android «Update» fullførte installasjonen. Etterpå:
+kode 153 og `1.0.0-beta16`, sist oppdatert 16. oktober 2026 kl. 19:28:47.
+
+GitHub [Bygg og test](https://github.com/oyvhov/spole-android/actions/runs/38939660579) for
+releasecommiten er fullført med `success`; `instrumentation-tests` vart hoppa over som før.
