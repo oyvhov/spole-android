@@ -163,3 +163,16 @@ Kvart steg er eigne commits med testar; éi utgåve når alle fire er ferdige.
   førespurnadstestar, og nye for faner, Tenaren, personside og arket. Testar som peikar på
   `wide-tab-ACTIVITY`, `menu-*-ACTIVITY`, `activity-*` og `history-*` blir skrivne om eller fjerna.
 - Skriftstorleik 2.0 på telefon og TV. Ekte data på TV-profil 5564 (ingen instrumentering der).
+
+## Avvik under bygginga
+
+- **Søk:** folk står øvst, men høgst tre liner, så titlane under er synlege. Lina viser kva personen er kjend
+  for på lesaren sitt språk («Skodespelar», «Regissør» …); talet «N i biblioteket ditt» er ikkje med, fordi
+  søket ikkje gir det utan eit ekstra kall per person.
+- **TV-toppfeltet** står fast over radene i staden for å vere første element i lista, elles rulla det bort ved
+  tredje rad. Lengd og sjangrar blir henta når ein plakat har hatt fokus i 0,3 sekund, éin gong per tittel.
+- **Tilbake** mellom tittelside og personside går eitt steg kvar veg; noko som blir opna frå andre stader,
+  startar på nytt.
+- **4K for ein film som alt finst i standard** kan ikkje bestillast frå appen enno: inngangen til arket krev at
+  standardutgåva kan bestillast. Logikken i arket er klar for det.
+- **Personsida** formaterer fødselsdatoen som lang dato på lesaren sitt språk.

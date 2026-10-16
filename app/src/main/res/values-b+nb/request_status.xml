@@ -48,5 +48,4 @@
     <string name="activity_detail_stage_raw">%1$s · %2$s</string>
     <string name="time_now">Nå</string>
     <string name="activity_registered">Denne hendelsen ble registrert %1$s.</string>
-    <string name="flow_badge_following">FØLGER</string>
 </resources>

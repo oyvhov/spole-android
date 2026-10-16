@@ -23,9 +23,6 @@
     <string name="setup_finishing_sign_in">Fullfører innloggingen…</string>
     <string name="session_paused">På pause</string>
     <string name="session_playing_now">Spiller nå</string>
-    <string name="activity_filter_all">Alle</string>
-    <string name="activity_filter_in_progress">På vei</string>
-    <string name="activity_filter_ready">Klare</string>
     <string name="details_eyebrow_in_library">I biblioteket ditt</string>
     <string name="details_eyebrow_discover">Oppdag i Seerr</string>
     <string name="queue_last_reported_state">Siste rapporterte tilstand fra %1$s.</string>

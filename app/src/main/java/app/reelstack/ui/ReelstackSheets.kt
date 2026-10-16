@@ -456,6 +456,11 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         it.mediaType == discoverMedia.mediaType && !it.is4k }
     val canAsk = discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
         state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)
+    // Withdrawing removes the request in Seerr, so it is asked once before anything is sent.
+    var confirmWithdraw by remember(details.key) { mutableStateOf<app.reelstack.data.model.TrackedRequest?>(null) }
+    confirmWithdraw?.let { request ->
+        WithdrawConfirm(request.title, onConfirm = { confirmWithdraw = null; onWithdraw(request.key) }, onKeep = { confirmWithdraw = null })
+    }
     val seerrActions = buildList {
         if (canAsk && discoverMedia != null) {
             val adding = discoverMedia.id in state.requestingMediaIds
@@ -471,7 +476,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
         if (tracked != null && tracked.requestId != null && !tracked.availabilityOnly && tracked.stage == app.reelstack.data.model.RequestStage.REQUESTED)
             add(app.reelstack.ui.components.TextAction(stringResource(R.string.title_action_withdraw), app.reelstack.ui.components.SpoleIcons.Close,
-                "title-withdraw") { onWithdraw(tracked.key) })
+                "title-withdraw") { confirmWithdraw = tracked })
         if (tracked != null) add(app.reelstack.ui.components.TextAction(
             stringResource(if (tracked.notify) R.string.title_action_notify_on else R.string.title_action_notify_off),
             if (tracked.notify) app.reelstack.ui.components.SpoleIcons.Bell else app.reelstack.ui.components.SpoleIcons.BellOff,
@@ -690,6 +695,40 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         }
     }
     }
+}
+
+/** «Trekkje tilbake …?» with Keep as the safe first choice; the remote starts there. */
+@Composable
+private fun WithdrawConfirm(title: String, onConfirm: () -> Unit, onKeep: () -> Unit) {
+    val keep = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        repeat(40) {
+            androidx.compose.runtime.withFrameNanos { }
+            if (runCatching { keep.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onKeep,
+        title = { Text(stringResource(R.string.flow_withdraw_title, title)) },
+        text = { Text(stringResource(R.string.flow_withdraw_note), color = Muted) },
+        confirmButton = {
+            TextButton(onClick = onConfirm, colors = ButtonDefaults.textButtonColors(contentColor = Warning),
+                modifier = Modifier.heightIn(min = 48.dp).testTag("withdraw-confirm")) {
+                Text(stringResource(R.string.flow_withdraw))
+            }
+        },
+        dismissButton = {
+            val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            TextButton(onClick = onKeep, interactionSource = interaction,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                modifier = Modifier.heightIn(min = 48.dp).focusRequester(keep)
+                    .focusOutline(interaction, RoundedCornerShape(24.dp), glow = false).testTag("withdraw-keep")) {
+                Text(stringResource(R.string.flow_keep))
+            }
+        },
+        containerColor = SurfaceRaised,
+        shape = RoundedCornerShape(28.dp),
+    )
 }
 
 @Composable

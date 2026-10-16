@@ -48,5 +48,4 @@
     <string name="activity_detail_stage_raw">%1$s · %2$s</string>
     <string name="time_now">Now</string>
     <string name="activity_registered">This event was recorded %1$s.</string>
-    <string name="flow_badge_following">FOLLOWING</string>
 </resources>

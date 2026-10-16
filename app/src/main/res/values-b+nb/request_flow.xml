@@ -45,14 +45,6 @@
     <string name="flow_choose_seasons">Velg sesonger å legge til</string>
     <string name="flow_send">Send forespørsel</string>
     <string name="flow_detail_named">Vis detaljer for %1$s</string>
-    <string name="flow_film">Film</string>
-    <string name="flow_season_numbers">Sesong %1$s</string>
-    <string name="flow_notify_on_title">Varsel på for %1$s</string>
-    <string name="flow_notify_off_title">Varsel av for %1$s</string>
-    <string name="flow_watching_note">Følger bibliotekstatus i Seerr. Ingen ny forespørsel.</string>
-    <string name="flow_removing">Fjerner…</string>
-    <string name="flow_unfollow">Slutt å følge</string>
-    <string name="flow_withdrawing">Trekker tilbake…</string>
     <string name="flow_withdraw">Trekk tilbake</string>
     <string name="flow_withdraw_title">Trekke tilbake «%1$s»?</string>
     <string name="flow_withdraw_note">Forespørselen blir fjernet i Seerr. Alt som allerede er lastet ned blir værende i biblioteket. Du kan sende den på nytt senere.</string>

@@ -2,14 +2,12 @@
 <resources>
     <string name="nav_home">Home</string>
     <string name="nav_discover">Discover</string>
-    <string name="nav_activity">Activity</string>
     <string name="nav_downloads">Downloads</string>
     <string name="nav_settings">Settings</string>
     <!-- Natural short navigation labels, selected only when the full label does not fit. -->
     <string name="nav_home_short">Home</string>
     <string name="nav_library_short">Media</string>
     <string name="nav_discover_short">Find</string>
-    <string name="nav_activity_short">Log</string>
     <string name="nav_downloads_short">Saved</string>
     <string name="nav_settings_short">Setup</string>
     <string name="action_close">Close</string>
@@ -95,7 +93,6 @@
     <string name="player_show_controls">Show playback controls</string>
     <string name="sheet_dismiss">Close dialog</string>
     <string name="sheet_title">Dialog</string>
-    <string name="discover_subtitle">Find your next watch. Add what you want in your library.</string>
     <string name="search_clear">Clear search</string>
     <string name="search_libraries">In your libraries</string>
     <string name="search_recent">Recent searches</string>
@@ -107,17 +104,8 @@
     <string name="search_not_connected">No suggestions yet. Connect Seerr in Settings to discover new titles.</string>
     <string name="search_loading_more">Loading more…</string>
     <string name="search_more">Load more results</string>
-    <string name="filter_all">All</string>
-    <string name="filter_all_titles">All titles</string>
-    <string name="filter_movies">Films</string>
-    <string name="filter_series">Series</string>
     <string name="filter_available">In your library</string>
-    <string name="filter_requestable">Can be added</string>
     <string name="filter_status">Status</string>
-    <string name="filter_personal_all">All</string>
-    <string name="filter_in_progress">In progress</string>
-    <string name="filter_ready">Ready</string>
-    <string name="filter_mine">Mine</string>
     <string name="account_change_seerr">Change Seerr account for %1$s</string>
     <string name="account_signin_seerr">Sign in to Seerr</string>
     <string name="welcome_ready">READY</string>
@@ -155,22 +143,6 @@
     <string name="crash_note">A report is stored on this device with the version, model and error. Addresses and access tokens are removed. Nothing has been sent.</string>
     <string name="crash_share">Share error report</string>
     <string name="crash_subject">Spole error report</string>
-    <string name="activity_subtitle">Your requests, from added to ready.</string>
-    <string name="activity_preview">Preview with demo content</string>
-    <string name="activity_refreshing">Updating…</string>
-    <string name="activity_partial_error">Some information could not be updated. Check Settings.</string>
-    <string name="activity_waiting">Waiting for the first update</string>
-    <string name="activity_view">View</string>
-    <string name="activity_refresh">Refresh requests</string>
-    <string name="filter_count">%1$s · %2$d</string>
-    <string name="activity_empty_filter">No requests match this filter.</string>
-    <string name="activity_notifications_off">App notifications are off in Settings. You can still follow progress here.</string>
-    <string name="activity_android_notifications_off">Android notifications are off. Enable them to be notified when your content is ready.</string>
-    <string name="activity_notifications_open">Open notification settings</string>
-    <string name="activity_loading">Loading your requests…</string>
-    <string name="activity_empty">Requests from your personal Seerr account appear here. Find a title in Discover to get started.</string>
-    <string name="activity_services">Service activity</string>
-    <string name="activity_no_events">No activity here yet</string>
     <string name="home_loading_resume">Loading your unfinished titles</string>
     <string name="home_loading_movies">Loading recently added films from %1$s</string>
     <string name="home_loading_series">Loading recently added episodes from %1$s</string>
@@ -204,10 +176,6 @@
     <string name="details_no_overview">No description available.</string>
     <string name="details_cast">Cast</string>
     <string name="media_seasons">View seasons</string>
-    <string name="media_add">Add</string>
-    <string name="media_sending">Sending…</string>
-    <string name="media_add_named">Add %1$s</string>
-    <string name="media_seasons_named">View seasons of %1$s</string>
     <string name="status_blocked">Blocked in Seerr</string>
     <string name="status_available">In your library</string>
     <string name="status_partial">Partly in your library</string>
@@ -217,7 +185,6 @@
     <string name="status_removed">Removed from library</string>
     <string name="status_requestable">Can be added</string>
     <string name="media_login_add">Sign in to add</string>
-    <string name="media_add_collection">Add to library</string>
     <string name="media_adding">Adding…</string>
     <string name="error_content_details">Could not load all details</string>
     <string name="error_search_all">Search failed. Check connections and try again.</string>

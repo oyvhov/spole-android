@@ -45,14 +45,6 @@
     <string name="flow_choose_seasons">Choose seasons to add</string>
     <string name="flow_send">Send request</string>
     <string name="flow_detail_named">View details for %1$s</string>
-    <string name="flow_film">Film</string>
-    <string name="flow_season_numbers">Season %1$s</string>
-    <string name="flow_notify_on_title">Notifications on for %1$s</string>
-    <string name="flow_notify_off_title">Notifications off for %1$s</string>
-    <string name="flow_watching_note">Following library status in Seerr. No new request.</string>
-    <string name="flow_removing">Removing…</string>
-    <string name="flow_unfollow">Stop following</string>
-    <string name="flow_withdrawing">Withdrawing…</string>
     <string name="flow_withdraw">Withdraw</string>
     <string name="flow_withdraw_title">Withdraw “%1$s”?</string>
     <string name="flow_withdraw_note">The request will be removed from Seerr. Anything already downloaded stays in the library. You can request it again later.</string>
