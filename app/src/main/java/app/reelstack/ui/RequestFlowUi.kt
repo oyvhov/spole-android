@@ -340,7 +340,8 @@ private fun ChoiceRow(label: String, tag: String, onClick: (() -> Unit)? = null,
             .then(if (onClick != null) Modifier.focusOutline(interaction, RoundedCornerShape(10.dp), glow = false)
                 .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
                     role = Role.Button, onClick = onClick) else Modifier)
-            .testTag(tag).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Inside the focus ring, in line with the season rows below.
+            .testTag(tag).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(label, color = Muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("$tag-label"))
                 Box(Modifier.testTag("$tag-value")) { value() }

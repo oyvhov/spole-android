@@ -55,6 +55,7 @@ import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 
 /** One page per person: picture, a little about them, what you have and what else they made. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PersonSheet(page: PersonPage?, onTitle: (String) -> Unit) {
     page ?: return
@@ -80,6 +81,10 @@ fun PersonSheet(page: PersonPage?, onTitle: (String) -> Unit) {
         }
     }
     val born = page.birthday?.let { birthday(it) }
+    // A television centres the focused row by default, which scrolled the picture and the name off
+    // the top. This page only scrolls as far as the focused poster needs, as the title page does.
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
+        app.reelstack.ui.components.DetailBringIntoView) {
     LazyColumn(Modifier.fillMaxSize().testTag("person-sheet"), state = list, verticalArrangement = Arrangement.spacedBy(22.dp),
         contentPadding = PaddingValues(vertical = if (tv) 40.dp else 16.dp)) {
         item(key = "head") {
@@ -148,6 +153,7 @@ fun PersonSheet(page: PersonPage?, onTitle: (String) -> Unit) {
                 }
             }
         }
+    }
     }
 }
 
