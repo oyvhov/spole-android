@@ -58,3 +58,19 @@ Testpakka brukte berre isolert 5566.
   `36fa94f03494f326053bdcc3d7253994950652d282e6db681cc33270b5f51a10`.
 - FFmpeg-JNI-bibliotek og lisensar er byteidentiske med beta13; kjelde-/relenkingsarkivet er gjenbrukt
   (30 790 595 byte, SHA-256 `2b7eeba9705de0fcff66d3a04f71a811d39a9299d70e1f65728a8a8809965b21`).
+- Kjelde og tag: `145e87493ef9b1cc44c1bd8c85d3af1a357b85b5`, `v1.0.0-beta15`, i `SOURCE_COMMIT.txt`.
+  Bygget frå releasecommiten er byteidentisk med det testa (APK og mapping).
+- [Beta15](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta15) er publisert som
+  prerelease med éin universal-APK og fem assets; alle fem GitHub-digestar vart kontrollerte før
+  publisering. Uautentisert release-liste og offentleg nedlasting har same storleik og SHA-256.
+
+## Faktisk oppdatering gjennom appen
+
+Isolert TV 5566 med offentleg beta14 (kode 151): Innstillingar → Varsel og oppdatering →
+Appoppdateringar → Sjekk no fann beta15 og notata. «Last ned oppdatering» vart «Installer
+oppdatering» etter appen sine kontrollar, og Android «Update» fullførte installasjonen. Etterpå:
+kode 152 og `1.0.0-beta15`, sist oppdatert 16. oktober 2026 kl. 13:24:15, første installasjonstid
+framleis 19. september 2026 kl. 14:51:26. «Open» opna appen att.
+
+GitHub [Bygg og test](https://github.com/oyvhov/spole-android/actions/runs/38893121680) for
+releasecommiten er fullført med `success`; `instrumentation-tests` vart hoppa over som før.
