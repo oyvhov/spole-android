@@ -444,6 +444,19 @@ object ServicePayloadParser {
             )
         }
 
+    /** The people in a Seerr search, with a picture when TMDB has one. Titles are read by [discover]. */
+    fun searchPeople(payload: String): List<app.reelstack.data.model.DiscoverPerson> =
+        (runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonObject)?.array("results").orEmpty().mapNotNull { element ->
+            val item = element as? JsonObject ?: return@mapNotNull null
+            if (item.string("mediaType") != "person") return@mapNotNull null
+            app.reelstack.data.model.DiscoverPerson(
+                id = item.int("id") ?: return@mapNotNull null,
+                name = item.string("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null,
+                portraitUrl = item.string("profilePath")?.let { tmdbImage(it, "w185") },
+                role = item.string("knownForDepartment")?.takeIf(String::isNotBlank),
+            )
+        }
+
     /** A TMDB image of a chosen size, for a path Seerr gave; anything else is not an image we fetch. */
     internal fun tmdbImage(path: String, size: String): String? =
         if (path.startsWith("/")) "https://image.tmdb.org/t/p/$size$path" else null

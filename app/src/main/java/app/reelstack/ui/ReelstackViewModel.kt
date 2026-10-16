@@ -194,6 +194,7 @@ data class ReelstackUiState(
     val discover: List<DiscoverMedia> = demoDiscover(),
     val recommendations: List<DiscoverMedia> = demoRecommendations(),
     val searchResults: List<DiscoverMedia> = emptyList(),
+    val searchPeople: List<app.reelstack.data.model.DiscoverPerson> = emptyList(),
     /** Hits from your own Jellyfin/Emby libraries, shown above the Seerr results. */
     val libraryChoices: List<app.reelstack.data.network.RemoteLibraryView> = emptyList(),
     val selectedLibrarySource: ServiceKind = ServiceKind.JELLYFIN,
@@ -1648,6 +1649,7 @@ class ReelstackViewModel(
                 searchHistory = container.preferencesRepository.searchHistory(profileId),
                 searchQuery = "",
                 searchResults = emptyList(),
+                searchPeople = emptyList(),
                 librarySearchResults = emptyList(),
                 globalSearch = app.reelstack.ui.state.SearchSlice(),
                 isSearching = false,
@@ -3840,6 +3842,7 @@ class ReelstackViewModel(
                     source != kind && (source == ServiceKind.JELLYFIN || source == ServiceKind.EMBY)
                 }.toSet(),
                 searchResults = emptyList(),
+                searchPeople = emptyList(),
                 librarySearchResults = emptyList(),
                 globalSearch = app.reelstack.ui.state.SearchSlice(),
                 searchQuery = "",

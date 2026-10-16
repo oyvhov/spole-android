@@ -90,8 +90,8 @@ fun GlobalSearchScreen(
     onClose: () -> Unit,
     onLibraryDetails: (String) -> Unit,
     onDiscoverDetails: (String) -> Unit,
-    onRequest: (String) -> Unit,
     onLoadMore: () -> Unit,
+    onPerson: (Int) -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -132,7 +132,7 @@ fun GlobalSearchScreen(
                         }
                     },
                     placeholder = {
-                        Text(stringResource(R.string.home_search), fontSize = 14.sp, lineHeight = 20.sp,
+                        Text(stringResource(R.string.discover_search_hint), fontSize = 14.sp, lineHeight = 20.sp,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -203,6 +203,14 @@ fun GlobalSearchScreen(
                         }
                     }
                 }
+                if (!search.searching && search.people.isNotEmpty()) {
+                    item(key = "people-heading", span = { GridItemSpan(maxLineSpan) }) {
+                        SearchHeading(stringResource(R.string.discover_people), Modifier.padding(top = 12.dp), SpoleIcons.Person)
+                    }
+                    items(search.people.take(SEARCH_PEOPLE_SHOWN), key = { "person-${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { person ->
+                        PersonLine(person) { onPerson(person.id) }
+                    }
+                }
                 when {
                     search.searching -> items(6, key = { "loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
                     requestable.isNotEmpty() -> {
@@ -210,9 +218,7 @@ fun GlobalSearchScreen(
                             SearchHeading(stringResource(R.string.search_add_new), Modifier.padding(top = 12.dp), SpoleIcons.Discover)
                         }
                         items(requestable, key = { "seerr-${it.id}" }) { media ->
-                            DiscoverCard(media, media.id in state.requestingMediaIds,
-                                allowed = state.canRequest(media),
-                                onRequest = { onRequest(media.id) }, onDetails = { onDiscoverDetails(media.id) })
+                            PosterOnlyCard(media, { onDiscoverDetails(media.id) }, Modifier.fillMaxWidth())
                         }
                         // Seerr answers twenty at a time; the next page is a choice, not a scroll trap.
                         if (search.hasMore) item(key = "more", span = { GridItemSpan(maxLineSpan) }) {
@@ -229,7 +235,7 @@ fun GlobalSearchScreen(
                             }
                         }
                     }
-                    search.libraryResults.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
+                    search.libraryResults.isEmpty() && search.people.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
                         QuietEmptyState(search.error ?: stringResource(R.string.search_global_no_results, query),
                             if (search.error != null) SpoleIcons.Wifi else SpoleIcons.Search,
                             modifier = Modifier.testTag("global-search-empty"))
@@ -237,7 +243,7 @@ fun GlobalSearchScreen(
                 }
                 // One service failing leaves the other's answers in place, with a line saying which.
                 val partialError = search.error
-                if (!search.searching && partialError != null && (search.libraryResults.isNotEmpty() || requestable.isNotEmpty())) {
+                if (!search.searching && partialError != null && (search.libraryResults.isNotEmpty() || requestable.isNotEmpty() || search.people.isNotEmpty())) {
                     item(key = "partial-error", span = { GridItemSpan(maxLineSpan) }) {
                         Text(partialError, color = Muted, style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(vertical = 8.dp))

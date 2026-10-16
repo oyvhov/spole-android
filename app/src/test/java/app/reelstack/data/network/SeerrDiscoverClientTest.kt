@@ -61,4 +61,13 @@ class SeerrDiscoverClientTest {
         assertEquals(listOf("tv"), items.map { it.mediaType })
         assertTrue(fake.asked.single().contains("api/v1/tv/77/similar"))
     }
+
+    @Test fun searchKeepsPeopleWithTheirPicture() {
+        val people = ServicePayloadParser.searchPeople("""{"results":[
+            {"id":501,"mediaType":"person","name":"Margaret Qualley","profilePath":"/m.jpg","knownForDepartment":"Acting"},
+            {"id":11,"mediaType":"movie","title":"X"}]}""")
+        assertEquals(listOf(501), people.map { it.id })
+        assertEquals("https://image.tmdb.org/t/p/w185/m.jpg", people.single().portraitUrl)
+        assertEquals("Acting", people.single().role)
+    }
 }

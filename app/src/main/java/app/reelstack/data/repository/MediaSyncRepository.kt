@@ -491,11 +491,16 @@ class MediaSyncRepository(
     }
 
     /** One page of Seerr results plus whether another page exists. */
-    data class SearchPage(val items: List<DiscoverMedia>, val page: Int, val hasMore: Boolean)
+    data class SearchPage(
+        val items: List<DiscoverMedia>,
+        val page: Int,
+        val hasMore: Boolean,
+        val people: List<app.reelstack.data.model.DiscoverPerson> = emptyList(),
+    )
 
     fun search(connection: ServiceConnection, query: String, page: Int = 1): SearchPage {
         val result = seerrServiceClient.search(connection, query, page)
-        return SearchPage(result.items.map(::discoverMedia), result.page, result.hasMore)
+        return SearchPage(result.items.map(::discoverMedia), result.page, result.hasMore, result.people)
     }
 
     fun discoverRow(connection: ServiceConnection, kind: app.reelstack.data.model.DiscoverRowKind, page: Int = 1): SearchPage =

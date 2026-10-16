@@ -309,6 +309,30 @@ internal fun PersonPortrait(person: DiscoverPerson, onClick: () -> Unit) {
     }
 }
 
+/** A person in search results: picture, name, what they are known for. */
+@Composable
+internal fun PersonLine(person: DiscoverPerson, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Column(Modifier.fillMaxWidth().focusOutline(interaction, RoundedCornerShape(10.dp))
+        .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
+        .testTag("search-person-${person.id}")) {
+        Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.size(48.dp).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
+                if (person.portraitUrl != null) MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop, source = ServiceKind.SEERR)
+                else Text(person.name.split(' ').filter(String::isNotBlank).take(2).map { it.first() }.joinToString(""), color = Muted)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(person.name, style = MaterialTheme.typography.titleSmall, color = TextColor)
+                person.role?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
+            }
+            Icon(SpoleIcons.ChevronRight, null, tint = Muted, modifier = Modifier.size(18.dp))
+        }
+        androidx.compose.material3.HorizontalDivider(color = LineDivider)
+    }
+}
+
 @Composable
 private fun GenreCard(genre: DiscoverGenre, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }

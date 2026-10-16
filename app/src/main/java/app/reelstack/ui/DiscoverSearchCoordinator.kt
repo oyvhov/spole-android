@@ -88,6 +88,7 @@ internal class DiscoverSearchCoordinator(
             updateState {
                 withSlice(it, slice(it).copy(
                     results = discoverResult.getOrNull()?.items.orEmpty(),
+                    people = discoverResult.getOrNull()?.people.orEmpty(),
                     page = discoverResult.getOrNull()?.page ?: 1,
                     hasMore = discoverResult.getOrNull()?.hasMore == true,
                     libraryResults = libraryResult.getOrDefault(emptyList()),
@@ -150,6 +151,7 @@ internal class DiscoverSearchCoordinator(
             query = state.searchQuery,
             results = state.searchResults,
             libraryResults = state.librarySearchResults,
+            people = state.searchPeople,
             searching = state.isSearching,
             error = state.searchError,
             page = state.searchPage,
@@ -161,6 +163,7 @@ internal class DiscoverSearchCoordinator(
             searchQuery = search.query,
             searchResults = search.results,
             librarySearchResults = search.libraryResults,
+            searchPeople = search.people,
             isSearching = search.searching,
             searchError = search.error,
             searchPage = search.page,

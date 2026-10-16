@@ -40,6 +40,8 @@ data class SeerrSearchPage(
     val items: List<RemoteDiscoverItem>,
     val page: Int,
     val totalPages: Int,
+    /** People Seerr found for the words; only the first page carries them. */
+    val people: List<app.reelstack.data.model.DiscoverPerson> = emptyList(),
 ) {
     val hasMore: Boolean get() = page < totalPages
 }
@@ -1305,6 +1307,7 @@ class SeerrServiceClient(
             items = ServicePayloadParser.discover(response.body),
             page = page,
             totalPages = ServicePayloadParser.totalPages(response.body),
+            people = if (page == 1) ServicePayloadParser.searchPeople(response.body) else emptyList(),
         )
     }
 

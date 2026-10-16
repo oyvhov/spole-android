@@ -547,8 +547,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 onClose = viewModel::closeGlobalSearch,
                 onLibraryDetails = viewModel::openLibraryDetails,
                 onDiscoverDetails = viewModel::openDiscoverDetails,
-                onRequest = viewModel::requestMedia,
                 onLoadMore = viewModel::loadMoreGlobalSearch,
+                onPerson = viewModel::openPerson,
             )
         }
     }

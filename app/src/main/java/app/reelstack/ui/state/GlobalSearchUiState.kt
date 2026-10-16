@@ -16,6 +16,7 @@ data class SearchSlice(
     val query: String = "",
     val results: List<DiscoverMedia> = emptyList(),
     val libraryResults: List<LibraryMedia> = emptyList(),
+    val people: List<app.reelstack.data.model.DiscoverPerson> = emptyList(),
     val searching: Boolean = false,
     val error: String? = null,
     val page: Int = 1,
