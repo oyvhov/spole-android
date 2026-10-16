@@ -617,6 +617,7 @@ object ServicePayloadParser {
             }.distinctBy { it.name }.take(16),
             trailerUrl = item.array("relatedVideos").mapNotNull { it as? JsonObject }
                 .firstOrNull { it.string("type") == "Trailer" && it.string("site") == "YouTube" }?.string("url"),
+            backdropUrl = item.string("backdropPath")?.let { tmdbImage(it, "w1280") },
         )
     }
 

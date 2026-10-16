@@ -254,7 +254,13 @@ fun ReelstackSheets(
     val returnFromTitle: () -> Boolean = {
         if (onDetailBack()) true else if (state.returnToCalendar) { onBackToCalendar(); true } else false
     }
+    // A film request is one decision and gets a small sheet; seasons need the full height.
+    val filmRequest = sheet is AppSheet.RequestComposer && state.requestDraft?.media?.mediaType != "tv"
+    val tvSheet = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss,
+        maxWidthDp = if (filmRequest && tvSheet) 600f else null,
+        maxHeightDp = if (filmRequest) (if (tvSheet) 420f else 500f) else null,
         fullScreen = tvDetails || tvPerson,
         expanded = phoneDetails || (personPage && !tvPerson),
         compact = sheet is AppSheet.ConnectionEditor &&
@@ -706,7 +712,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 12.dp))
         }
         if (!tv && canAsk) RequestIdentity(state, onSeerrAccount)
-        if (!tv) app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 18.dp))
+        // «Be om» lives in the bar at the bottom, like Play; the rest stay here as words.
+        if (!tv) app.reelstack.ui.components.TextActions(seerrActions.filterNot { it.tag == "title-request" }, Modifier.padding(top = 18.dp))
         castBlock()
         relatedBlock()
         }
@@ -714,12 +721,26 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     }
     // The reading column owns its space above Play. The dialog has already removed the system
     // navigation inset, so the action never sits under the gesture bar or over the synopsis.
+    val askAction = seerrActions.firstOrNull { it.tag == "title-request" }
     if (detailPlaybackTarget(state, details) != null) {
         Surface(color = app.reelstack.ui.theme.Surface, modifier = Modifier.fillMaxWidth()
             .testTag("detail-playback-footer")) {
             Box(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
                 IntegratedPlaybackButton(state, details, Modifier.fillMaxWidth(),
                     chosenAudio, chosenSubtitle, chosenVersion, enabled = ready)
+            }
+        }
+    } else if (askAction != null) {
+        // A title you can ask for has its one action where Play sits on a title you own: always in
+        // reach at the bottom, however far the page has been read.
+        Surface(color = app.reelstack.ui.theme.Surface, modifier = Modifier.fillMaxWidth()
+            .testTag("detail-request-bar")) {
+            Box(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
+                Button(onClick = askAction.onClick, shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("title-request-footer")) {
+                    Icon(askAction.icon, null, Modifier.size(20.dp))
+                    Text(askAction.label, Modifier.padding(start = 8.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }

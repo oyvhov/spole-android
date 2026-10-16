@@ -89,6 +89,9 @@ internal fun StableSheetDialog(
     fullScreen: Boolean = false,
     expanded: Boolean = false,
     compact: Boolean = false,
+    /** Caps for a sheet whose content is short, so it does not open as a mostly empty page. */
+    maxWidthDp: Float? = null,
+    maxHeightDp: Float? = null,
     onCloseStarted: () -> Unit = {},
     /**
      * Handles a logical back step inside a sheet, for example series → the episode it came from.
@@ -200,14 +203,18 @@ internal fun StableSheetDialog(
             BoxWithConstraints(Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .imePadding()) {
-                val sheetHeight = if (fullScreen) maxHeight
+                val scale = androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)
+                val sheetHeight = (if (fullScreen) maxHeight
                     else if (compact) policy.compactDialogHeightDp(maxHeight.value,
                         androidx.compose.ui.platform.LocalDensity.current.fontScale).dp
                     else if (expanded && !policy.useSideBySideMedia) maxHeight * .96f
-                    else policy.dialogHeightDp(maxHeight.value).dp
+                    else policy.dialogHeightDp(maxHeight.value).dp).let { height ->
+                        if (fullScreen || maxHeightDp == null) height else minOf(height, (maxHeightDp * scale).dp)
+                    }
+                val sheetWidth = minOf(policy.dialogWidthDp, maxWidthDp ?: policy.dialogWidthDp)
                 Surface(
                     modifier = Modifier.align(if (policy.useCenteredDialog) Alignment.Center else Alignment.BottomCenter)
-                        .then(if (fullScreen) Modifier else Modifier.widthIn(max = policy.dialogWidthDp.dp))
+                        .then(if (fullScreen) Modifier else Modifier.widthIn(max = sheetWidth.dp))
                         .fillMaxWidth().height(sheetHeight).testTag(if (fullScreen) "tv-detail-page" else "adaptive-dialog")
                         // Translation is draw-only: it never remeasures the body or retargets
                         // an anchor. A tween cannot bounce past its final position.

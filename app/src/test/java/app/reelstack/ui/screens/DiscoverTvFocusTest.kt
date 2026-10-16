@@ -81,16 +81,31 @@ class DiscoverTvFocusTest {
         org.junit.Assert.assertTrue("name starts above the screen: ${name.top}", name.top >= 0f)
     }
 
-    @Test fun theRequestSheetStartsOnTheChoicesWhenItHasSome() {
-        val options = app.reelstack.data.model.RequestOptions(0, false, listOf(app.reelstack.data.model.RequestProfile(4, "HD-1080p")),
-            listOf(app.reelstack.data.model.RequestFolder("/data/film", null)), 4, "/data/film")
-        keyboard {
-            app.reelstack.ui.RequestComposer(ReelstackUiState(connections = listOf(seerr),
-                accounts = mapOf(ServiceKind.SEERR to app.reelstack.data.model.ServiceAccount(ServiceKind.SEERR, "7", "Ø", permissions = 8224)),
-                requestDraft = app.reelstack.data.model.RequestDraft(media(11), loading = false, options = options, profileId = 4, folder = "/data/film")),
-                { _, _ -> }, {}, {}, {}, {}, {})
-        }
-        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("request-quality").assertIsFocused() }.isSuccess }
-        rule.onNodeWithTag("confirm-request").assertIsNotFocused()
+    @Test fun theFocusedRowLiesRightUnderTheHeader() {
+        val rows = mapOf(
+            DiscoverRowKind.TRENDING to DiscoverRowState((1..8).map { media(it) }),
+            DiscoverRowKind.UPCOMING_MOVIES to DiscoverRowState((11..18).map { media(it) }),
+            DiscoverRowKind.UPCOMING_SERIES to DiscoverRowState((21..28).map { media(it) }))
+        keyboard { DiscoverHubContent(DiscoverUiState(connections = listOf(seerr), hub = DiscoverHubState(rows = rows)), PaddingValues(),
+            DiscoverHubActions({}, {}, {}, {}, {}, {}, {})) }
+        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("discover-poster-seerr-movie-1").assertIsFocused() }.isSuccess }
+        // One press down, as on a remote: the middle row takes focus. (The last row cannot rise above
+        // the end of the list, so it is the row with rows under it that shows the behaviour.)
+        rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("discover-poster-seerr-movie-11").assertIsFocused()
+        val list = rule.onNodeWithTag("discover-hub-rows").fetchSemanticsNode().boundsInRoot
+        val poster = rule.onNodeWithTag("discover-poster-seerr-movie-11").fetchSemanticsNode().boundsInRoot
+        val gap = (poster.top - list.top) / rule.density.density
+        // Only the heading of the focused row sits between the header and its posters; no half row above.
+        org.junit.Assert.assertTrue("focused row is $gap dp under the header", gap in 30f..80f)
+    }
+
+    @Test fun aFocusedRequestShowsItsOwnPictureAndSynopsis() {
+        keyboard { DiscoverHubContent(hub(details = mapOf("seerr-movie-4" to FocusDetails(listOf("2009"), "Ei jente finn ei dør.",
+            "https://image.tmdb.org/t/p/w1280/r.jpg"))), PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {})) }
+        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("my-request-r").assertIsFocused() }.isSuccess }
+        rule.onNodeWithTag("discover-focus-header").assert(hasAnyDescendant(hasText("Ei jente finn ei dør.")))
+        rule.onNodeWithTag("discover-focus-backdrop").assertExists()
     }
 }

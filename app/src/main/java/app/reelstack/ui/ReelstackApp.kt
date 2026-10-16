@@ -116,6 +116,7 @@ import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.SurfaceRaised
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -164,6 +165,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         )
     }
     val focusManager = LocalFocusManager.current
+    val focusScope = androidx.compose.runtime.rememberCoroutineScope()
     val tvRail = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     var tvRailFocused by remember { mutableStateOf(false) }
     var railHasFocus by remember { mutableStateOf(false) }
@@ -327,6 +329,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         if (tvRail && moveIntoContent && !state.showOnboarding && state.activeSheet == null) {
             kotlinx.coroutines.delay(240)
             if (contentHasFocus || runCatching { contentFocus.requestFocus() }.getOrDefault(false)) moveIntoContent = false
+            // Focus that landed on the menu by itself goes back to the page, even when the page's
+            // remembered target is gone.
+            androidx.compose.runtime.withFrameNanos { }
+            if (!contentHasFocus && railHasFocus && !railEntryRequested)
+                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
         }
     }
     // One safe edge for every television screen, rather than each one choosing its own bottom
@@ -366,6 +373,13 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         if (tvRail && event.key == androidx.compose.ui.input.key.Key.DirectionRight &&
                             event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                             contentFocus.requestFocus()
+                            // The restorer can point at a button that has since gone (a hero that
+                            // turned); then nothing visible holds focus. Fall back to the nearest
+                            // thing to the right of the menu.
+                            focusScope.launch {
+                                androidx.compose.runtime.withFrameNanos { }
+                                if (!contentHasFocus) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+                            }
                             true
                         } else false
                     },
@@ -466,7 +480,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                             onTitle = viewModel::openDiscoverDetails, onPerson = viewModel::openPerson,
                             onMyRequests = viewModel::openMyRequests, onRequestLine = viewModel::openActivityDetails,
                             onGrid = viewModel::openDiscoverGrid, onRetry = { viewModel.refreshDiscoverHub(force = true) },
-                            onSearch = viewModel::openGlobalSearch, onFocusTitle = viewModel::focusDiscoverTitle),
+                            onSearch = viewModel::openGlobalSearch, onFocusTitle = viewModel::focusDiscoverTitle,
+                            onFocusRequest = viewModel::focusRequestTitle),
                         onAccountClick = viewModel::openSeerrAccount,
                         onLibraryDetails = viewModel::openLibraryDetails,
                         onLoadMore = viewModel::loadMoreSearchResults,

@@ -93,4 +93,9 @@ class SeerrDiscoverClientTest {
             "person/501?language=en" to """{"id":501,"name":"M","biography":"Born in Montana."}""")))
         assertEquals("Born in Montana.", client.person(seerr, 501).biography)
     }
+
+    @Test fun aSeerrTitleKeepsItsBackdrop() {
+        assertEquals("https://image.tmdb.org/t/p/w1280/b.jpg",
+            ServicePayloadParser.mediaDetails("""{"title":"X","backdropPath":"/b.jpg"}""").backdropUrl)
+    }
 }

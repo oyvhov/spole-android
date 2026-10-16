@@ -46,7 +46,7 @@ data class DiscoverHubState(
 }
 
 /** What the TV header adds to a row's own data once a title has had focus. */
-data class FocusDetails(val facts: List<String>, val overview: String?)
+data class FocusDetails(val facts: List<String>, val overview: String?, val backdropUrl: String? = null)
 
 /** The next page of a paged list. TMDB lists shift while they are read, so repeats are dropped. */
 fun DiscoverRowState.withPage(more: List<DiscoverMedia>, page: Int, hasMore: Boolean): DiscoverRowState =

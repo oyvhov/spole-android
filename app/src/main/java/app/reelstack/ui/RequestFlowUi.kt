@@ -75,18 +75,20 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
     val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val confirmFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
     val choiceFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
-    val hasChoices = draft.fourKAvailable || draft.options != null
-    LaunchedEffect(ready, television, hasChoices) {
+    val seasonFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
+    val firstOpenSeason = draft.visibleSeasons.firstOrNull { it.canRequest }?.number
+    LaunchedEffect(ready, television, firstOpenSeason) {
         if (!television || !ready) return@LaunchedEffect
-        // With choices on the sheet the remote starts on them, not on Send below them: they are
-        // out of sight otherwise, and Send would go out with choices the reader never saw.
-        if (hasChoices) {
-            repeat(40) {
-                androidx.compose.runtime.withFrameNanos { }
-                if (runCatching { choiceFocus.requestFocus() }.isSuccess) return@LaunchedEffect
-            }
-        } else if (!isSeries && canAdd && draft.error == null && draft.rules?.canRequest != false && !draft.quotaExceeded) {
-            androidx.compose.runtime.withFrameNanos { }; runCatching { confirmFocus.requestFocus() }
+        // A film starts on Send: the sheet fits on one screen, so every choice above it is in view.
+        // A series starts on its first season, since nothing can be sent before one is chosen.
+        val target = when {
+            isSeries && firstOpenSeason != null -> seasonFocus
+            !isSeries && canAdd && draft.error == null && draft.rules?.canRequest != false && !draft.quotaExceeded -> confirmFocus
+            else -> return@LaunchedEffect
+        }
+        repeat(40) {
+            androidx.compose.runtime.withFrameNanos { }
+            if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
     Column(Modifier.fillMaxSize().testTag("request-composer")) {
@@ -101,18 +103,18 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             // toolbar already says "Seasons" and the picture is the one you just came from. A
             // single-title request has nothing below it, so it keeps the full introduction.
             val wideMedia = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useSideBySideMedia
-            val posterWidth = if (isSeries) 48.dp else if (wideMedia) 132.dp else 82.dp
+            // A film is one decision: a small cover, its name and who asks, nothing to read first.
+            val posterWidth = if (isSeries) 48.dp else 56.dp
             Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MediaArtwork(draft.media.artworkUrl, null, Modifier.width(posterWidth).height(posterWidth * 1.5f).clip(RoundedCornerShape(10.dp)), fallbackRes = draft.media.artworkRes, ContentScale.Fit, ServiceKind.SEERR)
-                Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(draft.media.title,
                         modifier = Modifier.testTag("request-title"),
-                        fontSize = if (isSeries) 17.sp else 22.sp, lineHeight = if (isSeries) 22.sp else 26.sp,
+                        fontSize = if (isSeries) 17.sp else 20.sp, lineHeight = if (isSeries) 22.sp else 25.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (!isSeries) Text(stringResource(R.string.flow_movie_intro), color = Muted,
-                        fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 8.dp))
+                    if (!isSeries) RequestIdentity(state, onAccount, compact = true)
                 }
                 if (isSeries && wideMedia) Box(Modifier.widthIn(max = 180.dp).padding(start = 12.dp)) {
                     RequestIdentity(state, onAccount, compact = true)
@@ -121,14 +123,12 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             if (isSeries && !wideMedia) RequestIdentity(state, onAccount, compact = true)
             }
             }
-            if (!isSeries) RequestIdentity(state, onAccount)
         }
         if (isSeries) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("request-header")) { header() }
         Column(Modifier.weight(1f).testTag("request-scroll").verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             if (!isSeries) {
                 header()
-                if (ready && state.configuredCount > 0) RequestPreflight(draft, onRetry)
-                app.reelstack.ui.components.RequestJourney(null, Modifier.padding(top = 20.dp, bottom = 8.dp))
+                if (ready && state.configuredCount > 0) RequestPreflight(draft, onRetry, compact = true)
             }
             if (ready) RequestChoiceRows(draft, onEdition, onProfile, onFolder, choiceFocus)
             if (!ready) {
@@ -153,6 +153,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                     val interaction = remember(season.number) { MutableInteractionSource() }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.weight(1f).defaultMinSize(minHeight = 56.dp)
+                            .then(if (season.number == firstOpenSeason) Modifier.focusRequester(seasonFocus) else Modifier)
                             .clip(RoundedCornerShape(ReelLayout.ControlCorner))
                             .focusOutline(interaction, RoundedCornerShape(ReelLayout.ControlCorner), glow = false)
                             .focusable(enabled = television && !enabled, interactionSource = interaction)
@@ -209,7 +210,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             // seasons pushed the second one under the fold on a two-season show.
             if (isSeries && ready && state.configuredCount > 0) RequestPreflight(draft, onRetry)
             if (ready && hasSelection && canAdd) {
-            HorizontalDivider(Modifier.padding(vertical = 18.dp), color = SurfaceRaised)
+            HorizontalDivider(Modifier.padding(vertical = if (isSeries) 18.dp else 4.dp), color = SurfaceRaised)
             Row(Modifier.fillMaxWidth().toggleable(draft.notify, enabled = !draft.sending, role = Role.Checkbox, onValueChange = onNotify)
                 .padding(vertical = 8.dp).testTag("request-notification"), verticalAlignment = Alignment.CenterVertically) {
                 Icon(app.reelstack.ui.components.SpoleIcons.Bell, null, tint = Primary, modifier = Modifier.size(22.dp))
@@ -220,11 +221,13 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 }
                 Checkbox(draft.notify, onCheckedChange = null, enabled = !draft.sending)
             }
-            Text(when {
+            // For a film only a reason the alert would not arrive is worth a line.
+            when {
                 !state.notificationsEnabled -> stringResource(R.string.flow_notifications_off)
                 !LibraryNotifications.allowed(context) -> stringResource(R.string.flow_android_permission)
-                else -> stringResource(R.string.flow_background_note)
-            }, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp))
+                isSeries -> stringResource(R.string.flow_background_note)
+                else -> null
+            }?.let { Text(it, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
             if (ready && isSeries && !hasSelection && draft.watchedSeasons.isNotEmpty() &&
                 (!state.notificationsEnabled || !LibraryNotifications.allowed(context))) {
@@ -235,9 +238,9 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 14.dp))
                 app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry, enabled = !draft.sending) { Text(stringResource(R.string.flow_recheck)) }
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(if (isSeries) 18.dp else 4.dp))
         }
-        Column(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 24.dp, vertical = 12.dp)) {
+        Column(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 24.dp, vertical = if (isSeries) 12.dp else 6.dp)) {
             if (state.configuredCount == 0) Text(stringResource(R.string.flow_preview), color = Muted,
                 fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(bottom = 10.dp))
             if (isSeries && ready && draft.error == null && (!canAdd || draft.visibleSeasons.none { it.canRequest })) {
@@ -334,15 +337,24 @@ private fun RequestChoiceRows(draft: RequestDraft, onEdition: (Boolean) -> Unit,
 @Composable
 private fun ChoiceRow(label: String, tag: String, onClick: (() -> Unit)? = null, modifier: Modifier = Modifier, value: @Composable () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
+    // A television line is wide enough for name and value side by side, which keeps the whole sheet
+    // on one screen; a phone or large text puts the value under its name instead.
+    val sideBySide = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION &&
+        androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.3f
     Column(Modifier.fillMaxWidth()) {
         HorizontalDivider(color = TextColor.copy(alpha = .08f))
-        Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).then(modifier)
+        Row(Modifier.fillMaxWidth().heightIn(min = if (sideBySide) 52.dp else 60.dp).then(modifier)
             .then(if (onClick != null) Modifier.focusOutline(interaction, RoundedCornerShape(10.dp), glow = false)
                 .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
                     role = Role.Button, onClick = onClick) else Modifier)
             // Inside the focus ring, in line with the season rows below.
-            .testTag(tag).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            .testTag(tag).padding(horizontal = 12.dp, vertical = if (sideBySide) 6.dp else 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (sideBySide) {
+                Text(label, color = Muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.widthIn(min = 120.dp)
+                    .padding(end = 16.dp).testTag("$tag-label"))
+                Box(Modifier.weight(1f).testTag("$tag-value"), contentAlignment = Alignment.CenterEnd) { value() }
+            } else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(label, color = Muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("$tag-label"))
                 Box(Modifier.testTag("$tag-value")) { value() }
             }
@@ -354,9 +366,14 @@ private fun ChoiceRow(label: String, tag: String, onClick: (() -> Unit)? = null,
 
 @Composable
 private fun ValueColumn(main: String, detail: String?) {
-    Column {
-        Text(main, style = MaterialTheme.typography.bodyLarge)
-        detail?.takeIf(String::isNotBlank)?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
+    val end = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION &&
+        androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.3f
+    Column(horizontalAlignment = if (end) Alignment.End else Alignment.Start) {
+        Text(main, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        detail?.takeIf(String::isNotBlank)?.let {
+            Text(it, color = Muted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 

@@ -29,6 +29,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -183,6 +186,14 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val options = LocalPersonalization.current
     val allowRotation = if (television) !options.lightweightTv else motion
     var interaction by remember { mutableIntStateOf(0) }
+    // The play button exists only for a title that can be played. When the hero turns to one that
+    // cannot, the button goes; if the remote was on it, a television then hands focus to the first
+    // thing on screen, which is the sidebar. Focus moves to «Sjå meir» before the turn instead.
+    val playFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val openFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val playInteraction = remember { MutableInteractionSource() }
+    val playFocused by playInteraction.collectIsFocusedAsState()
+    val playFocusedNow by androidx.compose.runtime.rememberUpdatedState(playFocused)
     // A TV remote leaves focus on a button even when idle. Pause on actual key input instead
     // of freezing the carousel for as long as that focus remains. System animation scale
     // and calm transitions control the crossfade; only lightweight TV mode stops rotation.
@@ -192,7 +203,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 while (true) {
                     delay(8_000)
                     val current = shownId?.let(identities::indexOf)?.takeIf { it >= 0 } ?: position
-                    shownId = identities[(current + 1) % identities.size]
+                    val next = (current + 1) % identities.size
+                    if (playFocusedNow && !titles[next].playableNow()) runCatching { openFocus.requestFocus() }
+                    shownId = identities[next]
                 }
             }
         }
@@ -384,7 +397,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                                 context, selected.remoteId.orEmpty(), source = selected.source,
                             )
                         },
+                        interactionSource = playInteraction,
                         modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
+                            .focusRequester(playFocus)
                             .testTag("tablet-feature-play"),
                     ) {
                         Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null,
@@ -395,6 +410,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 }
                 FilledTonalButton(onClick = { onOpen(selected.id) }, interactionSource = actionInteraction,
                     modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
+                    .focusRequester(openFocus)
                     .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
                     Text(stringResource(R.string.feature_more), style = MaterialTheme.typography.labelLarge)
@@ -404,9 +420,13 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             }
         }
         if (account != null) {
+            val playable = selected.playableNow()
             Box(Modifier.align(Alignment.TopEnd)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .padding(16.dp)
+                // Down from the account goes to the hero's own buttons. The sidebar is nearer by
+                // distance, so without this the remote left the page from the top-right corner.
+                .focusProperties { down = if (playable) playFocus else openFocus }
                 .testTag("feature-account-overlay")) {
                 account()
             }
@@ -442,8 +462,13 @@ internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
     if (facts.isEmpty() && !hasRatings) return
 
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState(), enabled = interactive)
-            .focusProperties { canFocus = interactive }.testTag("hero-metadata"),
+        // A finger can slide a long line of facts; the remote never stops on it. A scrolling row is
+        // focusable by itself, with no ring to show it, and the incoming caption's row was where
+        // a television landed on arrival and on the way back from the menu. When the hero then
+        // turned, that row stopped being focusable and Android handed focus to the sidebar.
+        Modifier.fillMaxWidth()
+            .then(if (isTelevision()) Modifier else Modifier.horizontalScroll(rememberScrollState(), enabled = interactive))
+            .testTag("hero-metadata"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

@@ -628,6 +628,13 @@ class ReelstackViewModel(
      * On a television the header names the length and genres of the title in focus. Each title is
      * asked about once, after the remote has rested on it for a moment, and the answer is kept.
      */
+    /** One of your requests had focus: its picture and synopsis come the same way as a title's. */
+    fun focusRequestTitle(request: app.reelstack.data.model.TrackedRequest) {
+        if (request.mediaId <= 0 || request.mediaType !in setOf("movie", "tv")) return
+        focusDiscoverTitle(DiscoverMedia("seerr-${request.mediaType}-${request.mediaId}", request.title, "", R.drawable.media_placeholder,
+            false, remoteId = request.mediaId, mediaType = request.mediaType))
+    }
+
     fun focusDiscoverTitle(media: DiscoverMedia) {
         val state = _uiState.value
         if (!isTelevision() || state.isKidMode || media.id in state.discoverHub.focusDetails) return
@@ -642,7 +649,8 @@ class ReelstackViewModel(
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
             }.getOrNull() ?: return@launch
             val facts = (words(remote.facts) + remote.genres.take(2)).filter(String::isNotBlank)
-            val details = app.reelstack.data.model.FocusDetails(facts, remote.overview?.takeIf(String::isNotBlank))
+            val details = app.reelstack.data.model.FocusDetails(facts, remote.overview?.takeIf(String::isNotBlank),
+                remote.backdropUrl?.takeIf(String::isNotBlank))
             _uiState.update { it.copy(discoverHub = it.discoverHub.withFocusDetails(media.id, details)) }
         }
     }

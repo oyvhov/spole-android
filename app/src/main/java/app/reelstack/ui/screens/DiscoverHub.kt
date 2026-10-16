@@ -41,6 +41,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -90,7 +91,25 @@ data class DiscoverHubActions(
     val onSearch: () -> Unit,
     /** A television asks for the length and genres of whatever title has focus. */
     val onFocusTitle: (DiscoverMedia) -> Unit = {},
+    /** The same for one of your requests: its picture and synopsis for the header. */
+    val onFocusRequest: (TrackedRequest) -> Unit = {},
 )
+
+/**
+ * Scrolls the focused row to just under the header and keeps it there, with only its own heading
+ * above it. The default on a television stops the row a third of the way down, which left a strip
+ * of the row before it, cut in half, under the header.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private class RowUnderHeader(private val lead: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - lead
+}
+
+/** Rows scroll sideways the usual way; only the page itself snaps a row under the header. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun WithRowSpec(spec: androidx.compose.foundation.gestures.BringIntoViewSpec, content: @Composable () -> Unit) =
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides spec, content = content)
 
 @Composable
 internal fun DiscoverRowKind.title(): String = stringResource(when (this) {
@@ -145,19 +164,39 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
     val requestMedia = focusedRequest?.let { request ->
         state.hub.allMedia.firstOrNull { it.remoteId == request.mediaId && it.mediaType == request.mediaType }
     }
+    val requestDetails = focusedRequest?.let { state.hub.focusDetails["seerr-${it.mediaType}-${it.mediaId}"] }
+    @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+    val rowSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    // The focused poster sits one heading below the top of the rows: heading, its gap, a little air.
+    val lead = with(density) { (26.dp * density.fontScale + 30.dp).toPx() }
+    val columnSpec = remember(lead) { RowUnderHeader(lead) }
+    val fade = with(density) { 16.dp.toPx() }
     Box(Modifier.fillMaxSize().testTag("discover-hub")) {
-        if (tv) (if (focusedRequest != null) requestMedia else shown)?.let { FocusBackdrop(it) }
+        if (tv) (if (focusedRequest != null) requestDetails?.backdropUrl ?: requestMedia?.backdropUrl ?: requestMedia?.artworkUrl
+            else shown?.let { it.backdropUrl ?: it.artworkUrl })?.let { FocusBackdrop(it) }
         Column(Modifier.fillMaxSize()) {
             if (tv) Row(Modifier.fillMaxWidth().padding(start = ReelLayout.Gutter, end = ReelLayout.Gutter, top = 20.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.Top) {
                 Box(Modifier.weight(1f)) {
                     val request = focusedRequest
-                    if (request != null) RequestFocusHeader(request)
+                    if (request != null) RequestFocusHeader(request, requestDetails)
                     else if (shown != null) FocusHeader(shown, state.hub.focusDetails[shown.id])
                 }
                 header()
             }
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, verticalArrangement = Arrangement.spacedBy(if (tv) 22.dp else 24.dp),
+            @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
+                if (tv) columnSpec else rowSpec) {
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("discover-hub-rows")
+                // Rows pass under the header through a short fade rather than a hard edge.
+                .then(if (tv) Modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(Brush.verticalGradient(0f to Color.Transparent, fade / size.height to Color.Black),
+                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                    } else Modifier),
+                state = listState, verticalArrangement = Arrangement.spacedBy(if (tv) 22.dp else 24.dp),
                 contentPadding = PaddingValues(top = 8.dp,
                     bottom = contentPadding.calculateBottomPadding() + 24.dp)) {
                 if (!seerr && state.hub.rows.isEmpty()) item(key = "not-connected") {
@@ -168,14 +207,14 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                     Section(stringResource(R.string.my_requests_title), Modifier.testTag("discover-my-requests"),
                         trailing = { RowEndLink(stringResource(R.string.discover_all_count, state.trackedRequests.size),
                             "discover-my-requests-all", actions.onMyRequests) }) {
-                        if (tv) LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter),
+                        if (tv) WithRowSpec(rowSpec) { LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter),
                             horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                             items(mine, key = { "mine-${it.key}" }) { request ->
                                 RequestPoster(request, posterWidth,
                                     if (startOnRequest && request.key == mine.first().key) Modifier.focusRequester(firstPoster) else Modifier,
-                                    onFocused = { focusedRequest = request }) { actions.onRequestLine(request.key) }
+                                    onFocused = { focusedRequest = request; actions.onFocusRequest(request) }) { actions.onRequestLine(request.key) }
                             }
-                        } else Column(Modifier.padding(horizontal = ReelLayout.Gutter)) {
+                        } } else Column(Modifier.padding(horizontal = ReelLayout.Gutter)) {
                             mine.forEachIndexed { index, request ->
                                 if (index > 0) androidx.compose.material3.HorizontalDivider(color = LineDivider)
                                 RequestLine(request, { actions.onRequestLine(request.key) })
@@ -186,7 +225,7 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                 visibleRows.forEach { kind ->
                     val row = state.hub.rows.getValue(kind)
                     item(key = "row-$kind") {
-                        Section(kind.title(), Modifier.testTag("discover-row-$kind")) {
+                        Section(kind.title(), Modifier.testTag("discover-row-$kind")) { WithRowSpec(rowSpec) {
                             LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter),
                                 horizontalArrangement = Arrangement.spacedBy(if (tv) 18.dp else 10.dp)) {
                                 if (row.loading && row.items.isEmpty()) items(6) {
@@ -203,24 +242,24 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                                     RowEndTile(posterWidth) { actions.onGrid(DiscoverGridTarget.Row(kind)) }
                                 }
                             }
-                        }
+                        } }
                     }
                 }
                 if (state.hub.people.isNotEmpty()) item(key = "people") {
-                    Section(stringResource(R.string.discover_people), Modifier.testTag("discover-people")) {
+                    Section(stringResource(R.string.discover_people), Modifier.testTag("discover-people")) { WithRowSpec(rowSpec) {
                         LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             items(state.hub.people, key = { "person-${it.id}" }) { person -> PersonPortrait(person) { actions.onPerson(person.id) } }
                         }
-                    }
+                    } }
                 }
                 if (state.hub.genres.isNotEmpty()) item(key = "genres") {
-                    Section(stringResource(R.string.discover_genres), Modifier.testTag("discover-genres")) {
+                    Section(stringResource(R.string.discover_genres), Modifier.testTag("discover-genres")) { WithRowSpec(rowSpec) {
                         LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(state.hub.genres, key = { "genre-${it.mediaType}-${it.id}" }) { genre ->
                                 GenreCard(genre) { actions.onGrid(DiscoverGridTarget.Genre(genre)) }
                             }
                         }
-                    }
+                    } }
                 }
                 if (state.hub.anyFailed) item(key = "failed") {
                     Row(Modifier.padding(horizontal = ReelLayout.Gutter), verticalAlignment = Alignment.CenterVertically,
@@ -230,6 +269,7 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                         RowEndLink(stringResource(R.string.action_retry), "discover-rows-retry", actions.onRetry)
                     }
                 }
+            }
             }
         }
     }
@@ -380,9 +420,9 @@ private fun GenreCard(genre: DiscoverGenre, onClick: () -> Unit) {
 }
 
 @Composable
-private fun FocusBackdrop(media: DiscoverMedia) {
-    Box(Modifier.fillMaxWidth().fillMaxHeight(.62f)) {
-        MediaArtwork(media.backdropUrl ?: media.artworkUrl, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop,
+private fun FocusBackdrop(url: String) {
+    Box(Modifier.fillMaxWidth().fillMaxHeight(.62f).testTag("discover-focus-backdrop")) {
+        MediaArtwork(url, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop,
             source = ServiceKind.SEERR)
         val ground = MaterialTheme.colorScheme.background
         Box(Modifier.matchParentSize().background(Brush.horizontalGradient(0f to ground, .45f to ground.copy(alpha = .6f), .8f to Color.Transparent)))
@@ -411,16 +451,17 @@ private fun FocusHeader(media: DiscoverMedia, details: app.reelstack.data.model.
     }
 }
 
-/** The header for one of your requests: its title, where it is, and what that means. */
+/** The header for one of your requests, shaped like a title's: name, facts, where it is, synopsis. */
 @Composable
-private fun RequestFocusHeader(request: TrackedRequest) {
+private fun RequestFocusHeader(request: TrackedRequest, details: app.reelstack.data.model.FocusDetails?) {
     Column(Modifier.fillMaxWidth(.62f).testTag("discover-focus-header"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(request.title, style = MaterialTheme.typography.headlineMedium, color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(requestLineStatus(request), color = Muted, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(stringResource(R.string.my_requests_title), color = TextColor, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
+        Text(details?.facts.orEmpty().filter(String::isNotBlank).distinct().joinToString("  ·  "), color = Muted,
+            style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(requestLineStatus(request), color = TextColor, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
-        Text(stringResource(request.stage.explanation), color = Muted, style = MaterialTheme.typography.bodyMedium, minLines = 2,
-            maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(details?.overview ?: stringResource(request.stage.explanation), color = Muted, style = MaterialTheme.typography.bodyMedium,
+            minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
