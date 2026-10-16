@@ -40,4 +40,14 @@
     <string name="title_action_notify_off">Alert off</string>
     <string name="title_similar">Similar titles</string>
     <string name="title_recommended">Recommended from this</string>
+    <string name="request_edition">Edition</string>
+    <string name="request_edition_standard">Standard</string>
+    <string name="request_edition_4k">4K</string>
+    <string name="request_quality">Quality</string>
+    <string name="request_folder">Location</string>
+    <string name="request_usual_choice">usual choice</string>
+    <string name="request_free_space">%1$s free</string>
+    <string name="request_choose_quality">Choose quality</string>
+    <string name="request_choose_folder">Choose location</string>
+    <string name="request_cancel">Cancel</string>
 </resources>

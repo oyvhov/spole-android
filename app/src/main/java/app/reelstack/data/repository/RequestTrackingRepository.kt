@@ -39,11 +39,11 @@ class RequestTrackingRepository(
         list(scope).firstOrNull { it.key == key }?.let { put(scope, it.copy(notify = enabled)) }
     }
 
-    fun follow(connection: ServiceConnection, userId: String, media: DiscoverMedia, seasons: Set<Int>, notify: Boolean) {
+    fun follow(connection: ServiceConnection, userId: String, media: DiscoverMedia, seasons: Set<Int>, notify: Boolean, is4k: Boolean = false) {
         val scope = scope(connection, userId)
-        val key = "${media.mediaType}:${media.remoteId}:${seasons.sorted().joinToString(",")}"
+        val key = app.reelstack.data.model.trackedRequestKey(requireNotNull(media.mediaType), requireNotNull(media.remoteId), seasons, is4k)
         put(scope, TrackedRequest(key, requireNotNull(media.remoteId), requireNotNull(media.mediaType), media.title,
-            media.artworkUrl, seasons, notify, updatedAt = System.currentTimeMillis()))
+            media.artworkUrl, seasons, notify, updatedAt = System.currentTimeMillis(), is4k = is4k))
     }
 
     /** Seerr reads only. A bell must never submit a request or change server monitoring. */
@@ -124,7 +124,7 @@ class RequestTrackingRepository(
         val known = list(scope).mapTo(mutableSetOf()) { it.key }
         remote.forEach { request ->
             val id = request.remoteId ?: return@forEach
-            val key = "${request.mediaType}:$id:${request.seasons.sorted().joinToString(",")}" + if (request.is4k) ":4k" else ""
+            val key = app.reelstack.data.model.trackedRequestKey(request.mediaType, id, request.seasons, request.is4k)
             if (known.add(key)) synchronized(lock) {
                 val items = list(scope)
                 if (items.any { it.key == key }) return@synchronized

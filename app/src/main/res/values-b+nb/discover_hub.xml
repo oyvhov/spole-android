@@ -40,4 +40,14 @@
     <string name="title_action_notify_off">Varsel av</string>
     <string name="title_similar">Lignende titler</string>
     <string name="title_recommended">Anbefalt ut fra denne</string>
+    <string name="request_edition">Utgave</string>
+    <string name="request_edition_standard">Standard</string>
+    <string name="request_edition_4k">4K</string>
+    <string name="request_quality">Kvalitet</string>
+    <string name="request_folder">Lagringssted</string>
+    <string name="request_usual_choice">vanlig valg</string>
+    <string name="request_free_space">%1$s ledig</string>
+    <string name="request_choose_quality">Velg kvalitet</string>
+    <string name="request_choose_folder">Velg lagringssted</string>
+    <string name="request_cancel">Avbryt</string>
 </resources>

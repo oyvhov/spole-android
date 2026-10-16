@@ -1,5 +1,13 @@
 package app.reelstack.ui
 
+import app.reelstack.data.model.choice
+
+import app.reelstack.data.model.visibleSeasons
+
+import app.reelstack.data.model.canChooseRequestOptions
+
+import app.reelstack.data.model.canRequest4k
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -2692,11 +2700,23 @@ class ReelstackViewModel(
                     attempt { container.requestRulesClient.load(requireNotNull(connection),
                         requireNotNull(state.accounts[ServiceKind.SEERR]).id, media.mediaType ?: "movie") }.getOrNull()
                 }
+                val actor = state.accounts[ServiceKind.SEERR]
+                val type = media.mediaType ?: "movie"
+                // Both only for users Seerr lets choose; everyone else gets the sheet as before.
+                val fourK = async {
+                    actor?.canRequest4k(type) == true &&
+                        attempt { container.mediaSyncRepository.fourKEnabled(requireNotNull(connection), type) }.getOrDefault(false)
+                }
+                val options = async {
+                    if (actor?.canChooseRequestOptions() == true)
+                        attempt { container.mediaSyncRepository.requestOptions(requireNotNull(connection), type, is4k = false) }.getOrNull()
+                    else null
+                }
                 val remote = container.mediaSyncRepository.details(requireNotNull(connection), media)
-                val watched = state.accounts[ServiceKind.SEERR]?.let { actor ->
-                    media.remoteId?.let { remoteId -> container.requestTrackingRepository.watchedSeasons(connection, actor.id, remoteId) }
+                val watched = actor?.let {
+                    media.remoteId?.let { remoteId -> container.requestTrackingRepository.watchedSeasons(connection, it.id, remoteId) }
                 }.orEmpty()
-                Triple(remote, watched, rules.await())
+                DraftLoad(remote, watched, rules.await(), fourK.await(), options.await())
             } }
             if (!isActive) return@launch
             _uiState.update { current ->
@@ -2704,15 +2724,19 @@ class ReelstackViewModel(
                 if (current.activeSheet != AppSheet.RequestComposer) return@update current
                 val configured = current.connections.firstOrNull { it.kind == ServiceKind.SEERR }
                 if (configured?.token != connection?.token || configured?.baseUrl != connection?.baseUrl) return@update current
-                current.copy(requestDraft = result.fold(onSuccess = { (remote, watched, rules) ->
+                current.copy(requestDraft = result.fold(onSuccess = { (remote, watched, rules, fourK, options) ->
                     // No implicit "all seasons", including future or undated returning seasons.
-                    draft.copy(loading = false, seasons = remote.seasons, selected = emptySet(),
-                        mediaStatus = remote.seerrStatus, nextEpisode = remote.nextEpisode,
+                    draft.copy(loading = false, seasons = remote.seasons, seasons4k = remote.seasons4k, selected = emptySet(),
+                        mediaStatus = remote.seerrStatus, mediaStatus4k = remote.status4k, nextEpisode = remote.nextEpisode,
                         watchedSeasons = watched, rules = rules,
+                        fourKAvailable = fourK, options = options,
+                        profileId = options?.defaultProfileId?.takeIf { id -> options.profiles.any { it.id == id } } ?: options?.profiles?.firstOrNull()?.id,
+                        folder = options?.defaultFolder?.takeIf { path -> options.folders.any { it.path == path } } ?: options?.folders?.firstOrNull()?.path,
                         error = when {
                             remote.seerrStatus == 6 -> appString(R.string.flow_status_blocked_admin)
                             media.mediaType == "tv" && remote.seasons.isEmpty() -> appString(R.string.flow_status_no_seasons)
-                            media.mediaType != "tv" && remote.seerrStatus in 2..5 -> appString(R.string.flow_status_movie_already)
+                            media.mediaType != "tv" && remote.seerrStatus in 2..5 && !(fourK && remote.status4k !in 2..5) ->
+                                appString(R.string.flow_status_movie_already)
                             else -> null
                         })
                 }, onFailure = { draft.copy(loading = false, error = appString(R.string.error_request_seasons)) }))
@@ -2720,10 +2744,47 @@ class ReelstackViewModel(
         }
     }
 
+    private data class DraftLoad(val remote: app.reelstack.data.network.RemoteMediaDetails, val watched: Set<Int>,
+        val rules: app.reelstack.data.model.RequestRules?, val fourK: Boolean, val options: app.reelstack.data.model.RequestOptions?)
+
+    /** Standard or 4K. The seasons and the lists of quality and location follow the edition. */
+    fun setRequestEdition(fourK: Boolean) {
+        val state = _uiState.value
+        val draft = state.requestDraft ?: return
+        if (draft.loading || draft.sending || draft.fourK == fourK || (fourK && !draft.fourKAvailable)) return
+        val choose = state.accounts[ServiceKind.SEERR]?.canChooseRequestOptions() == true
+        _uiState.update { it.copy(requestDraft = draft.copy(fourK = fourK, selected = emptySet(), options = null,
+            profileId = null, folder = null, optionsLoading = choose,
+            error = if (draft.media.mediaType != "tv" && (if (fourK) draft.mediaStatus4k else draft.mediaStatus) in 2..5)
+                appString(R.string.flow_status_movie_already) else null)) }
+        if (!choose) return
+        val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.token.isNotBlank() } ?: return
+        operationScope.launch {
+            val options = attempt { withContext(Dispatchers.IO) {
+                container.mediaSyncRepository.requestOptions(connection, draft.media.mediaType ?: "movie", fourK) } }.getOrNull()
+            _uiState.update { current ->
+                val latest = current.requestDraft?.takeIf { it.media.id == draft.media.id && it.fourK == fourK } ?: return@update current
+                current.copy(requestDraft = latest.copy(optionsLoading = false, options = options,
+                    profileId = options?.defaultProfileId?.takeIf { id -> options.profiles.any { it.id == id } } ?: options?.profiles?.firstOrNull()?.id,
+                    folder = options?.defaultFolder?.takeIf { path -> options.folders.any { it.path == path } } ?: options?.folders?.firstOrNull()?.path))
+            }
+        }
+    }
+
+    fun setRequestProfile(id: Int) = _uiState.update { state ->
+        val draft = state.requestDraft?.takeIf { !it.sending && it.options?.profiles?.any { p -> p.id == id } == true } ?: return@update state
+        state.copy(requestDraft = draft.copy(profileId = id))
+    }
+
+    fun setRequestFolder(path: String) = _uiState.update { state ->
+        val draft = state.requestDraft?.takeIf { !it.sending && it.options?.folders?.any { f -> f.path == path } == true } ?: return@update state
+        state.copy(requestDraft = draft.copy(folder = path))
+    }
+
     fun setRequestSeason(number: Int, checked: Boolean) = _uiState.update { state ->
         val draft = state.requestDraft ?: return@update state
         if (draft.loading || draft.sending || draft.savingWatch != null || draft.mediaStatus == 6 || draft.error != null ||
-            draft.seasons.none { it.number == number && it.canRequest } ||
+            draft.visibleSeasons.none { it.number == number && it.canRequest } ||
             (state.configuredCount > 0 && state.accounts[ServiceKind.SEERR]?.canRequestType("tv") != true)) return@update state
         state.copy(requestDraft = draft.copy(selected = if (checked) draft.selected + number else draft.selected - number))
     }
@@ -2735,7 +2796,8 @@ class ReelstackViewModel(
     fun confirmRequest() {
         val draft = _uiState.value.requestDraft ?: return
         if (draft.quotaExceeded || draft.rules?.canRequest == false) return
-        if (draft.loading || draft.sending || draft.savingWatch != null || draft.error != null || (draft.media.mediaType == "tv" && draft.selected.isEmpty())) return
+        if (draft.loading || draft.sending || draft.savingWatch != null || draft.error != null || draft.optionsLoading ||
+            (draft.media.mediaType == "tv" && draft.selected.isEmpty())) return
         sendRequest(draft.media.id)
     }
 
@@ -2743,7 +2805,7 @@ class ReelstackViewModel(
         val state = _uiState.value
         val draft = state.requestDraft ?: return
         if (draft.loading || draft.sending || draft.savingWatch != null || draft.error != null || draft.mediaStatus == 6 ||
-            draft.seasons.none { it.number == number && it.canWatch }) return
+            draft.visibleSeasons.none { it.number == number && it.canWatch }) return
         val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() }
         val actor = state.accounts[ServiceKind.SEERR]?.takeIf { it.isPersonal }
         if (connection == null || actor == null) return
@@ -3336,8 +3398,8 @@ class ReelstackViewModel(
             val result = attempt {
                 withContext(Dispatchers.IO) {
                     // Reconfirm the exact identity shown in the UI before any write.
-                    container.mediaSyncRepository.request(seerr, media, expectedUserId = account.id, seasons = draft.selected)
-                    container.requestTrackingRepository.follow(seerr, account.id, media, draft.selected, draft.notify)
+                    container.mediaSyncRepository.request(seerr, media, expectedUserId = account.id, seasons = draft.selected, choice = draft.choice)
+                    container.requestTrackingRepository.follow(seerr, account.id, media, draft.selected, draft.notify, is4k = draft.fourK)
                 }
             }
             _uiState.update { current ->

@@ -188,6 +188,9 @@ fun ReelstackSheets(
     onNotify: (String, Boolean) -> Unit = { _, _ -> },
     onRelated: (String) -> Unit = {},
     onSeerrPerson: (Int) -> Unit = {},
+    onRequestEdition: (Boolean) -> Unit = {},
+    onRequestProfile: (Int) -> Unit = {},
+    onRequestFolder: (String) -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     // The profile menu is an anchored popup owned by the shell. Falling through to the dialog here
@@ -282,7 +285,8 @@ fun ReelstackSheets(
             when (sheet) {
                 AppSheet.RequestComposer -> RequestComposer(state, onRequestSeason, onRequestNotification,
                     onConfirmRequest, close, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount,
-                    onSeasonWatch = onSeasonWatch, entered = entered)
+                    onSeasonWatch = onSeasonWatch, entered = entered,
+                    onEdition = onRequestEdition, onProfile = onRequestProfile, onFolder = onRequestFolder)
                 is AppSheet.SessionDetails -> SessionDetailsContent(state.sessions, sheet.sessionKey,
                     state.pendingSessionKey, state.configuredCount == 0, detailScroll,
                     onPlaybackToggle, onSessionSelected,
