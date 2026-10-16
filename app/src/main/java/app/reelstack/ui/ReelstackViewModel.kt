@@ -61,7 +61,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-enum class AppTab { HOME, LIBRARY, DOWNLOADS, DISCOVER, ACTIVITY, SETTINGS }
+enum class AppTab { HOME, LIBRARY, DOWNLOADS, DISCOVER, SETTINGS }
 
 enum class ConnectionAuthMode { QUICK_CONNECT, ACCOUNT, API_KEY }
 
@@ -287,6 +287,8 @@ data class ReelstackUiState(
     val trackedRequests: List<TrackedRequest> = emptyList(),
     val requestHistory: app.reelstack.data.model.RequestHistoryState = app.reelstack.data.model.RequestHistoryState(),
     val showRequestHistory: Boolean = false,
+    /** «Dine førespurnader» is a page inside Oppdag; a notification or a tap on «Alle» opens it. */
+    val myRequestsOpen: Boolean = false,
     val trackingError: String? = null,
     val trackingLoading: Boolean = false,
     /** Keys of follows currently being withdrawn, so a card cannot be cancelled twice. */
@@ -643,6 +645,15 @@ class ReelstackViewModel(
         // Settings summarises the downloads in one line. It is a local read, never a server call.
         if (tab == AppTab.SETTINGS) refreshOfflineDownloads()
     }
+
+    /** Oppdag with «Dine førespurnader» open: where a request notification lands. */
+    fun openMyRequests() {
+        selectTab(AppTab.DISCOVER)
+        _uiState.update { it.copy(myRequestsOpen = true) }
+        if (_uiState.value.requestHistory.items.isEmpty()) loadRequestHistory(false)
+    }
+
+    fun closeMyRequests() = _uiState.update { it.copy(myRequestsOpen = false) }
 
     private fun startOfflineRefresh() {
         offlineRefreshJob?.cancel()
@@ -3236,9 +3247,9 @@ class ReelstackViewModel(
                         ) + current.activity,
                         requestingMediaIds = current.requestingMediaIds - id,
                         snackbar = appString(R.string.flow_sent_to_seerr_as, account.displayName),
-                        activeSheet = null,
+                        // Back to the title it was asked from, whose status line now says «Førespurd».
+                        activeSheet = if (current.contentDetails?.key == id) AppSheet.TitleDetails(id) else null,
                         requestDraft = null,
-                        selectedTab = AppTab.ACTIVITY,
                     )
                 } else {
                     current.copy(

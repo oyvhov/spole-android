@@ -111,7 +111,7 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     pendingSetupLink = null
                 }
                 androidx.compose.runtime.LaunchedEffect(pendingRequests) {
-                    if (pendingRequests) reelstackViewModel.selectTab(app.reelstack.ui.AppTab.ACTIVITY)
+                    if (pendingRequests) reelstackViewModel.openMyRequests()
                     pendingRequests = false
                 }
                 androidx.compose.runtime.LaunchedEffect(pendingDownloads) {

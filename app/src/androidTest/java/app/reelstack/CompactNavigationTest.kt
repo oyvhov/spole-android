@@ -83,7 +83,7 @@ class CompactNavigationTest {
 
     @Test fun nynorskUsesShortWordsAndFullLargeTextMenu() = checkCompactLabels(
         AppLanguage.NYNORSK,
-        listOf(R.string.nav_library_short, R.string.nav_activity_short, R.string.nav_settings_short),
+        listOf(R.string.nav_library_short, R.string.nav_settings_short),
     )
 
     @Test fun englishUsesShortWordsAndFullLargeTextMenu() = checkCompactLabels(
@@ -97,7 +97,6 @@ class CompactNavigationTest {
         val home = label(language, R.string.nav_home)
         val library = label(language, R.string.nav_library)
         val discover = label(language, R.string.nav_discover)
-        val activity = label(language, R.string.nav_activity)
         val settings = label(language, R.string.nav_settings)
         val menu = label(language, R.string.settings_tv_navigation)
         rule.setContent {
@@ -119,7 +118,7 @@ class CompactNavigationTest {
 
         rule.runOnIdle { fontScale.floatValue = 2f }
         rule.onNodeWithContentDescription("$menu · $home").assertIsDisplayed().performClick()
-        listOf(library, discover, activity, settings).forEach { name ->
+        listOf(library, discover, settings).forEach { name ->
             rule.onNodeWithText(name).performScrollTo().assertIsDisplayed()
         }
         rule.onNodeWithText(settings).performClick()

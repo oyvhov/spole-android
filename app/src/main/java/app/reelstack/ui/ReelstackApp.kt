@@ -260,7 +260,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             while (true) {
                 viewModel.refreshTrackedRequests(background = true)
                 kotlinx.coroutines.delay(
-                    if (viewModel.uiState.value.selectedTab == AppTab.ACTIVITY) 30_000L else 300_000L,
+                    if (viewModel.uiState.value.selectedTab == AppTab.DISCOVER) 30_000L else 300_000L,
                 )
             }
         }
@@ -273,6 +273,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     }
     val startTab = if (app.reelstack.ui.theme.LocalPersonalization.current.startInLibrary) AppTab.LIBRARY else AppTab.HOME
     BackHandler(enabled = state.globalSearchOpen) { viewModel.closeGlobalSearch() }
+    BackHandler(enabled = state.myRequestsOpen && state.selectedTab == AppTab.DISCOVER && state.activeSheet == null && !state.globalSearchOpen) {
+        viewModel.closeMyRequests()
+    }
     BackHandler(enabled = !state.globalSearchOpen && state.activeSheet == null && !state.showOnboarding && state.selectedTab != startTab) {
         selectTab(startTab)
     }
@@ -451,7 +454,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         showBrand = !showRail,
                         cardActions = cardActions,
                     )
-                    AppTab.DISCOVER -> DiscoverScreen(
+                    AppTab.DISCOVER -> if (state.myRequestsOpen) ActivityScreen(state, screenInsets, viewModel::openActivityDetails,
+                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
+                        viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
+                        viewModel::closeRequestHistory, viewModel::loadRequestHistory)
+                    else DiscoverScreen(
                         state = discoverState,
                         contentPadding = screenInsets,
                         onSearch = viewModel::setSearchQuery,
@@ -487,10 +494,6 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                             { selectTab(state.downloadsReturnTab.takeIf { it != AppTab.DOWNLOADS } ?: AppTab.SETTINGS) }
                         } else null,
                     )
-                    AppTab.ACTIVITY -> ActivityScreen(state, screenInsets, viewModel::openActivityDetails,
-                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
-                        viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
-                        viewModel::closeRequestHistory, viewModel::loadRequestHistory)
                     AppTab.SETTINGS -> SettingsScreen(
                         state = state,
                         contentPadding = screenInsets,
@@ -562,7 +565,6 @@ internal val tabs = listOf(
     TabItem(AppTab.LIBRARY, R.string.nav_library, app.reelstack.ui.components.SpoleIcons.Library),
     TabItem(AppTab.DOWNLOADS, R.string.nav_downloads, app.reelstack.ui.components.SpoleIcons.Download),
     TabItem(AppTab.DISCOVER, app.reelstack.R.string.nav_discover, app.reelstack.ui.components.SpoleIcons.Discover),
-    TabItem(AppTab.ACTIVITY, app.reelstack.R.string.nav_activity, app.reelstack.ui.components.SpoleIcons.Activity),
     TabItem(AppTab.SETTINGS, app.reelstack.R.string.nav_settings, app.reelstack.ui.components.SpoleIcons.Settings),
 )
 
@@ -590,7 +592,6 @@ internal fun ReelstackBottomBar(
             AppTab.LIBRARY -> R.string.nav_library_short
             AppTab.DOWNLOADS -> R.string.nav_downloads_short
             AppTab.DISCOVER -> R.string.nav_discover_short
-            AppTab.ACTIVITY -> R.string.nav_activity_short
             AppTab.SETTINGS -> R.string.nav_settings_short
         })
         if (measurer.measure(full, labelStyle, softWrap = false).size.width <= availablePx) full else short

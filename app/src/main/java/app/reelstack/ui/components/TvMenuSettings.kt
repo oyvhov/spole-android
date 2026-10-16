@@ -29,8 +29,7 @@ import app.reelstack.ui.theme.SurfaceRaised
 internal fun TvMenuSettings(value: Personalization, onChange: (Personalization) -> Unit) {
     val order = (value.menuOrder + DEFAULT_MENU).distinct().filter { it in DEFAULT_MENU }
     val names = mapOf("HOME" to stringResource(R.string.nav_home), "LIBRARY" to stringResource(R.string.nav_library),
-        "DISCOVER" to stringResource(R.string.nav_discover), "ACTIVITY" to stringResource(R.string.nav_activity),
-        "SETTINGS" to stringResource(R.string.nav_settings))
+        "DISCOVER" to stringResource(R.string.nav_discover), "SETTINGS" to stringResource(R.string.nav_settings))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SettingsGroup(stringResource(R.string.settings_menu_heading), stringResource(R.string.settings_tv_menu_hint))
         ThemeChoice(stringResource(R.string.design_start_page), value.startInLibrary, listOf(false, true), "start-page",
@@ -102,7 +101,6 @@ private fun TvMenuOrderEditor(order: List<String>, names: Map<String, String>, h
 private fun menuIcon(id: String): ImageVector = when (id) {
     "HOME" -> SpoleIcons.Home
     "LIBRARY" -> SpoleIcons.Library
-    "DISCOVER" -> SpoleIcons.Search
-    "ACTIVITY" -> SpoleIcons.Activity
+    "DISCOVER" -> SpoleIcons.Discover
     else -> SpoleIcons.Settings
 }

@@ -720,8 +720,8 @@ class TvRefinementUiTest {
         rule.setContent { ReelstackTheme { Column(Modifier.verticalScroll(rememberScrollState())) {
             app.reelstack.ui.components.TvMenuSettings(value) { value = it }
         } } }
-        rule.onNodeWithTag("menu-up-ACTIVITY").performScrollTo().performClick()
-        rule.runOnIdle { assertEquals(listOf("HOME", "LIBRARY", "ACTIVITY", "DISCOVER", "SETTINGS"), value.menuOrder) }
+        rule.onNodeWithTag("menu-up-DISCOVER").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(listOf("HOME", "DISCOVER", "LIBRARY", "SETTINGS"), value.menuOrder) }
         rule.onNodeWithTag("menu-visible-DISCOVER").performScrollTo().performClick()
         rule.runOnIdle { assertFalse("DISCOVER" in value.visibleMenu()); assertTrue("SETTINGS" in value.visibleMenu()) }
         rule.onNodeWithTag("menu-visible-SETTINGS").performScrollTo().assertIsNotEnabled()
