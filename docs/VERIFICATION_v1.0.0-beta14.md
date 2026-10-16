@@ -80,3 +80,32 @@ frå Android TV («Set up Device Lock») vart avvist med «Not now». Testpakka 
 - Fire FFmpeg-JNI-bibliotek og begge lisensane er byteidentiske med beta13. Kjelde-/relenkingsarkiv
   gjenbrukt: 30 790 595 byte, SHA-256
   `2b7eeba9705de0fcff66d3a04f71a811d39a9299d70e1f65728a8a8809965b21`.
+- Kjelde og tag: `4412eff1f86f2f3f071103e222ecae39f250fa05`, `v1.0.0-beta14`, i `SOURCE_COMMIT.txt`.
+  Bygget er laga i ei git-arbeidsmappe, så APK-en har ingen innebygd VCS-commit
+  (`NO_VALID_GIT_FOUND`), som beta10 frå same mappe.
+- Etter commit: `assembleRelease`, `BUILD SUCCESSFUL`, kode 0. Alle oppføringar i APK-en og
+  R8-mappinga er byteidentiske med det testa bygget.
+- [Beta14](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta14) er publisert som
+  prerelease, ikkje draft, med éin universal-APK og fem assets. Tag, filstorleikar, uploaded-status
+  og alle fem GitHub-digestar vart kontrollerte før publisering. Stabil latest er ikkje endra.
+- Uautentisert release-liste og offentleg APK-nedlasting er verifiserte; den nedlasta APK-en har
+  same byte-storleik og SHA-256 som arkivfila.
+
+## Faktisk oppdatering gjennom appen
+
+Den lagra TV-profilen 5564 hadde alt fått beta14 med `-r` for den visuelle kontrollen, så den ekte
+oppdateringa vart prøvd på den isolerte TV-profilen 5566. Der vart offentleg beta13 (kode 150,
+SHA-256 `7430346d…5e72`, lasta ned frå GitHub) installert over ein eldre produksjonsbeta.
+Ved opning viste appen sjølv «Spole v1.0.0-beta14 er klar». «Sjå oppdatering» opna panelet med
+notata og «Nedlasting · 11,3 MB»; «Last ned oppdatering» vart «Installer oppdatering» etter
+appen sine kontrollar. Android «Do you want to update this app?» → «Update» fullførte
+installasjonen, og «Open» opna appen att.
+
+Etter oppdateringa viser pakkekontrollen kode 151 og `1.0.0-beta14`, sist oppdatert
+16. oktober 2026 kl. 11:01:04. Første installasjonstid er framleis 19. september 2026 kl. 14:51:26.
+Dette er ei faktisk offentleg nedlasting og Android-oppdatering, ikkje ein `adb install -r`-test.
+5566 har ingen innlogga tenester; appen opna på førehandsvisinga.
+
+GitHub [Bygg og test](https://github.com/oyvhov/spole-android/actions/runs/38877132022) for
+releasecommiten `4412eff` er fullført med `success`: jobben `build` bestod, og
+`instrumentation-tests` vart hoppa over som i tidlegare køyringar.
