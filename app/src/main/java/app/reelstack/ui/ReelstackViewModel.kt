@@ -291,6 +291,8 @@ data class ReelstackUiState(
     val myRequestsOpen: Boolean = false,
     /** A title opened from outside the Discover lists, such as a request line, so details and requests can find it. */
     val detailMedia: DiscoverMedia? = null,
+    /** The Seerr rows of Oppdag, each loaded on its own. */
+    val discoverHub: app.reelstack.data.model.DiscoverHubState = app.reelstack.data.model.DiscoverHubState(),
     val trackingError: String? = null,
     val trackingLoading: Boolean = false,
     /** Keys of follows currently being withdrawn, so a card cannot be cancelled twice. */
@@ -309,7 +311,7 @@ data class ReelstackUiState(
 
     /** Every Seerr card on screen anywhere, so details and requests work from the global search too. */
     val knownDiscoverMedia: List<DiscoverMedia>
-        get() = listOfNotNull(detailMedia) + discover + searchResults + globalSearch.results + recommendations +
+        get() = listOfNotNull(detailMedia) + discoverHub.allMedia + discover + searchResults + globalSearch.results + recommendations +
             upcoming.mapNotNull { item -> item.tmdbId?.let { id ->
                 DiscoverMedia(item.id, item.title, item.subtitle, item.artworkRes, false,
                     artworkUrl = item.artworkUrl, remoteId = id, mediaType = if (item.mediaType == "Movie") "movie" else "tv",
@@ -321,6 +323,10 @@ data class ReelstackUiState(
 
     /** Applies one change to a Seerr title wherever it is listed. */
     fun mapDiscoverMedia(transform: (DiscoverMedia) -> DiscoverMedia): ReelstackUiState = copy(
+        discoverHub = discoverHub.copy(
+            rows = discoverHub.rows.mapValues { (_, row) -> row.copy(items = row.items.map(transform)) },
+            gridRow = discoverHub.gridRow.copy(items = discoverHub.gridRow.items.map(transform)),
+        ),
         discover = discover.map(transform),
         recommendations = recommendations.map(transform),
         searchResults = searchResults.map(transform),
@@ -545,6 +551,18 @@ class ReelstackViewModel(
         slice = { it.globalSearch },
         withSlice = { state, search -> state.copy(globalSearch = search) },
     )
+    private val discoverHub = DiscoverHubCoordinator(
+        container = container,
+        scope = operationScope,
+        readState = { _uiState.value },
+        updateState = { transform -> _uiState.update(transform) },
+    )
+
+    fun refreshDiscoverHub(force: Boolean = false) = discoverHub.refresh(force)
+    fun openDiscoverGrid(target: app.reelstack.data.model.DiscoverGridTarget) = discoverHub.openGrid(target)
+    fun loadMoreDiscoverGrid() = discoverHub.loadMore()
+    fun closeDiscoverGrid() = discoverHub.closeGrid()
+
     private val homeFeed = HomeFeedCoordinator(
         container = container,
         scope = operationScope,
@@ -642,6 +660,7 @@ class ReelstackViewModel(
             )
         }
         if (tab == AppTab.LIBRARY) browseLibrary(false)
+        if (tab == AppTab.DISCOVER) discoverHub.refresh(force = false)
         if (tab == AppTab.DOWNLOADS) startOfflineRefresh()
         else offlineRefreshJob?.cancel()
         // Settings summarises the downloads in one line. It is a local read, never a server call.
@@ -1627,6 +1646,7 @@ class ReelstackViewModel(
                 activity = emptyList(),
                 incoming = emptyList(),
                 discover = emptyList(),
+                discoverHub = app.reelstack.data.model.DiscoverHubState(),
                 recommendations = emptyList(),
                 kidsLibrary = emptyList(),
                 kidsLibraries = emptyList(),
@@ -3728,7 +3748,7 @@ class ReelstackViewModel(
             signingOut = true, connections = container.connectionRepository.list(),
             sessions = emptyList(), resume = emptyList(), recentMovies = emptyList(), loadedSources = emptySet(), lastUpdatedEpochMillis = null,
             recentSeries = emptyList(), upcoming = emptyList(), calendarUndated = emptyList(), calendarHidden = emptySet(), recentReleases = emptyList(),
-            incoming = emptyList(), discover = emptyList(), recommendations = emptyList(), activity = emptyList(),
+            incoming = emptyList(), discover = emptyList(), discoverHub = app.reelstack.data.model.DiscoverHubState(), recommendations = emptyList(), activity = emptyList(),
             notificationsEnabled = container.preferencesRepository.notificationsEnabled,
             wifiOnly = container.preferencesRepository.wifiOnly,
             homeSections = container.preferencesRepository.visibleHomeSections,
@@ -3786,6 +3806,7 @@ class ReelstackViewModel(
                 upcoming = emptyList(), calendarUndated = emptyList(), calendarHidden = emptySet(),
                 recentReleases = emptyList(),
                 discover = emptyList(),
+                discoverHub = app.reelstack.data.model.DiscoverHubState(),
                 recommendations = emptyList(),
                 // The other media server keeps its rows; everything cleared here loads afresh.
                 loadedSources = it.loadedSources.filter { source ->

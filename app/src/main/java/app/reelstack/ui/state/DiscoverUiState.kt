@@ -24,6 +24,8 @@ data class DiscoverUiState(
     val searchHasMore: Boolean = false,
     val loadingMoreSearch: Boolean = false,
     val requestingMediaIds: Set<String> = emptySet(),
+    val hub: app.reelstack.data.model.DiscoverHubState = app.reelstack.data.model.DiscoverHubState(),
+    val trackedRequests: List<app.reelstack.data.model.TrackedRequest> = emptyList(),
 ) {
     val configuredCount: Int get() = connections.count { it.baseUrl.isNotBlank() }
     val visibleDiscover: List<DiscoverMedia> get() = if (searchQuery.isBlank()) discover else searchResults
@@ -50,4 +52,6 @@ fun ReelstackUiState.toDiscoverUiState(): DiscoverUiState = DiscoverUiState(
     searchHasMore = searchHasMore,
     loadingMoreSearch = loadingMoreSearch,
     requestingMediaIds = requestingMediaIds,
+    hub = discoverHub,
+    trackedRequests = trackedRequests,
 )
