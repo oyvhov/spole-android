@@ -75,3 +75,25 @@ Lagra TV-profil 5564, signert bygg installert med `-r`:
 Android TV si «Set up Device Lock»-rute kom opp ein gong og vart lukka utan å setje opp lås.
 
 Ingen førespurnad vart send, og ingen avspeling starta. Testpakka brukte berre isolert 5566.
+
+## Publisering
+
+- Kjelde og tag: `35102366b07a772dda8fd9bd89dffb8c101910ae`, `v1.0.0-beta17`, i `SOURCE_COMMIT.txt`. APK-en vart bygd frå
+  releasecommiten og installert på 5564 med `-r`; han ligg som `tested-runtime.apk` i arkivet.
+- APK: 11 860 794 byte, SHA-256 `9b0bff6e34496a8894144131666051a7ee55712d20b403f9a3a6dea041dcfefc`,
+  signert med det faste sertifikatet (SHA-256 `36fa94f0…1a10`), pakke `app.reelstack`, kode 154,
+  ikkje debuggable. FFmpeg-biblioteka er identiske med beta16, så kjelde-/relenkingsarkivet er det
+  same (`2b7eeba9…5b21`).
+- [Beta17](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta17) er publisert som
+  prerelease med éin universal-APK og fem assets; alle fem GitHub-digestar vart kontrollerte før
+  publisering. Offentleg nedlasting har same SHA-256.
+
+## Faktisk oppdatering gjennom appen
+
+Isolert TV 5566 med offentleg beta16 (kode 153): Innstillingar → Varsel og oppdatering →
+Appoppdateringar → Sjekk no fann beta17. «Last ned oppdatering» vart «Installer oppdatering», og
+Android «Update» fullførte installasjonen. Etterpå: kode 154 og `1.0.0-beta17`, sist oppdatert
+16. oktober 2026 kl. 22:44:44.
+
+GitHub [Bygg og test](https://github.com/oyvhov/spole-android/actions/runs/38964109803) for
+releasecommiten er fullført med `success`; `instrumentation-tests` vart hoppa over som før.
