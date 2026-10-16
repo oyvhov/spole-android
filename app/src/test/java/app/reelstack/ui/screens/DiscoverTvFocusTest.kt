@@ -112,4 +112,49 @@ class DiscoverTvFocusTest {
         rule.onAllNodes(hasAnyAncestor(hasTestTag("discover-focus-header")) and hasText("Ei jente finn ei dør.")).assertCountEquals(0)
         rule.onNodeWithTag("discover-focus-backdrop").assertExists()
     }
+
+    @Test fun readMoreOnAPersonStaysAndReadsLessAfterwards() {
+        val page = PersonPage(DiscoverPerson(9, "Margaret Qualley", null), department = "Acting",
+            biography = "Margaret Qualley is an American actress. ".repeat(12))
+        keyboard { PersonSheet(page, onTitle = {}) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("person-read-more").requestFocus()
+        rule.onNodeWithTag("person-read-more").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
+        rule.waitForIdle()
+        // The button the remote was on is still there, now to read less.
+        rule.onNodeWithTag("person-read-more").assertIsFocused()
+            .assert(hasText(rule.activity.getString(R.string.details_less)))
+    }
+
+    @Test fun backFromYourRequestsReturnsToAlle() {
+        var returned = false
+        val state = hub().let { it.copy(hub = it.hub.copy(returnTo = app.reelstack.data.model.DiscoverReturn("my-requests-all", 0, 0))) }
+        keyboard { DiscoverHubContent(state, PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {}, onReturned = { returned = true })) }
+        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("discover-my-requests-all").assertIsFocused() }.isSuccess }
+        rule.runOnIdle { org.junit.Assert.assertTrue(returned) }
+    }
+
+    @Test fun backFromARowsAlleReturnsToItsTile() {
+        val state = hub().let { it.copy(hub = it.hub.copy(returnTo = app.reelstack.data.model.DiscoverReturn("all:TRENDING", 0, 0))) }
+        keyboard { DiscoverHubContent(state, PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {})) }
+        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("discover-all-TRENDING").assertIsFocused() }.isSuccess }
+    }
+
+    @Test fun leavingForAlleRemembersWhereTheRemoteWas() {
+        var left: app.reelstack.data.model.DiscoverReturn? = null
+        keyboard { DiscoverHubContent(hub(), PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {}, onLeave = { left = it })) }
+        rule.onNodeWithTag("discover-my-requests-all").performClick()
+        rule.runOnIdle { org.junit.Assert.assertEquals("my-requests-all", left?.key) }
+    }
+
+    @Test fun rightAtTheEndOfARowStaysInTheRow() {
+        keyboard { DiscoverHubContent(hub(), PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {})) }
+        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("my-request-r").assertIsFocused() }.isSuccess }
+        rule.onNodeWithTag("discover-all-TRENDING").requestFocus()
+        rule.waitForIdle()
+        // Nothing lies to the right of «Alle»; the link to your requests above must not catch the press.
+        rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("discover-all-TRENDING").assertIsFocused()
+    }
 }

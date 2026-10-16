@@ -44,6 +44,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -94,6 +96,10 @@ data class DiscoverHubActions(
     val onSearch: () -> Unit,
     /** A television asks for the picture, year and rating of the request that has focus. */
     val onFocusRequest: (TrackedRequest) -> Unit = {},
+    /** The rows are left for «Alle», a genre or your requests: where to come back to. */
+    val onLeave: (app.reelstack.data.model.DiscoverReturn) -> Unit = {},
+    /** The way back was taken. */
+    val onReturned: () -> Unit = {},
 )
 
 /**
@@ -149,7 +155,24 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
     val firstPosterId = visibleRows.firstNotNullOfOrNull { state.hub.rows[it]?.items?.firstOrNull() }?.id
     val startOnRequest = tv && mine.isNotEmpty()
     val startKey = if (startOnRequest) "request:${mine.first().key}" else firstPosterId?.let { "media:$it" }
-    var claimed by remember { mutableStateOf(false) }
+    // Coming back from «Alle», a genre or your requests, the remote goes back to the tile it left
+    // from, with the rows where they were; the first poster is for a fresh visit.
+    val returnTo = state.hub.returnTo
+    var claimed by remember { mutableStateOf(returnTo != null) }
+    val returnFocus = remember { FocusRequester() }
+    fun leave(key: String) = actions.onLeave(app.reelstack.data.model.DiscoverReturn(key,
+        listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset))
+    LaunchedEffect(returnTo) {
+        if (returnTo == null) return@LaunchedEffect
+        if (tv) {
+            runCatching { listState.scrollToItem(returnTo.index, returnTo.offset) }
+            repeat(40) {
+                withFrameNanos { }
+                if (runCatching { returnFocus.requestFocus() }.isSuccess) return@repeat
+            }
+        }
+        actions.onReturned()
+    }
     LaunchedEffect(tv, startKey) {
         if (!tv || claimed || startKey == null) return@LaunchedEffect
         repeat(40) {
@@ -207,8 +230,9 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                 if (mine.isNotEmpty()) item(key = "mine") {
                     Section(stringResource(R.string.my_requests_title), Modifier.testTag("discover-my-requests"),
                         trailing = { RowEndLink(stringResource(R.string.discover_all_count, state.trackedRequests.size),
-                            "discover-my-requests-all", actions.onMyRequests) }) {
-                        if (tv) WithRowSpec(rowSpec) { LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter),
+                            "discover-my-requests-all", { leave("my-requests-all"); actions.onMyRequests() },
+                            if (returnTo?.key == "my-requests-all") Modifier.focusRequester(returnFocus) else Modifier) }) {
+                        if (tv) WithRowSpec(rowSpec) { LazyRow(Modifier.keepsRemoteAtRowEnd(tv), contentPadding = PaddingValues(horizontal = ReelLayout.Gutter),
                             horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                             items(mine, key = { "mine-${it.key}" }) { request ->
                                 RequestPoster(request, posterWidth,
@@ -227,7 +251,7 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                     val row = state.hub.rows.getValue(kind)
                     item(key = "row-$kind") {
                         Section(kind.title(), Modifier.testTag("discover-row-$kind")) { WithRowSpec(rowSpec) {
-                            LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter),
+                            LazyRow(Modifier.keepsRemoteAtRowEnd(tv), contentPadding = PaddingValues(horizontal = ReelLayout.Gutter),
                                 horizontalArrangement = Arrangement.spacedBy(if (tv) 18.dp else 10.dp)) {
                                 if (row.loading && row.items.isEmpty()) items(6) {
                                     Box(Modifier.width(posterWidth).aspectRatio(2f / 3f)
@@ -240,7 +264,10 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                                         onFocused = { focused = media; focusedRequest = null })
                                 }
                                 if (row.items.isNotEmpty()) item(key = "$kind-all") {
-                                    RowEndTile(posterWidth) { actions.onGrid(DiscoverGridTarget.Row(kind)) }
+                                    RowEndTile(posterWidth, Modifier.testTag("discover-all-$kind")
+                                        .then(if (returnTo?.key == "all:$kind") Modifier.focusRequester(returnFocus) else Modifier)) {
+                                        leave("all:$kind"); actions.onGrid(DiscoverGridTarget.Row(kind))
+                                    }
                                 }
                             }
                         } }
@@ -248,16 +275,19 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                 }
                 if (state.hub.people.isNotEmpty()) item(key = "people") {
                     Section(stringResource(R.string.discover_people), Modifier.testTag("discover-people")) { WithRowSpec(rowSpec) {
-                        LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        LazyRow(Modifier.keepsRemoteAtRowEnd(tv), contentPadding = PaddingValues(horizontal = ReelLayout.Gutter), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             items(state.hub.people, key = { "person-${it.id}" }) { person -> PersonPortrait(person) { actions.onPerson(person.id) } }
                         }
                     } }
                 }
                 if (state.hub.genres.isNotEmpty()) item(key = "genres") {
                     Section(stringResource(R.string.discover_genres), Modifier.testTag("discover-genres")) { WithRowSpec(rowSpec) {
-                        LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LazyRow(Modifier.keepsRemoteAtRowEnd(tv), contentPadding = PaddingValues(horizontal = ReelLayout.Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(state.hub.genres, key = { "genre-${it.mediaType}-${it.id}" }) { genre ->
-                                GenreCard(genre) { actions.onGrid(DiscoverGridTarget.Genre(genre)) }
+                                val key = "genre:${genre.mediaType}-${genre.id}"
+                                GenreCard(genre, if (returnTo?.key == key) Modifier.focusRequester(returnFocus) else Modifier) {
+                                    leave(key); actions.onGrid(DiscoverGridTarget.Genre(genre))
+                                }
                             }
                         }
                     } }
@@ -275,6 +305,14 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
         }
     }
 }
+
+/**
+ * A row on a television keeps the remote when right is pressed past its last poster. Without it the
+ * press went on to whatever lay nearest to the right, which was «Alle 114» in the row above.
+ */
+private fun Modifier.keepsRemoteAtRowEnd(tv: Boolean): Modifier = if (!tv) this else this
+    .focusProperties { onExit = { if (requestedFocusDirection == androidx.compose.ui.focus.FocusDirection.Right) cancelFocusChange() } }
+    .focusGroup()
 
 @Composable
 private fun Section(title: String, modifier: Modifier = Modifier, trailing: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
@@ -305,6 +343,24 @@ internal fun PosterOnlyCard(media: DiscoverMedia, onClick: () -> Unit, modifier:
     }
 }
 
+/**
+ * A poster with its name and year under it, for a television page with no header to name the poster
+ * in focus: search, a row's «Alle», a title page's similar titles. Oppdag itself names it in its header.
+ */
+@Composable
+internal fun NamedPoster(media: DiscoverMedia, onClick: () -> Unit, modifier: Modifier = Modifier,
+    posterModifier: Modifier = Modifier, onFocused: () -> Unit = {}) {
+    Column(modifier) {
+        PosterOnlyCard(media, onClick, posterModifier.fillMaxWidth(), onFocused)
+        Text(media.title, color = TextColor, style = MaterialTheme.typography.titleSmall, maxLines = 2,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp))
+        media.metadata.takeIf(String::isNotBlank)?.let {
+            Text(it, color = Muted, style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 2.dp))
+        }
+    }
+}
+
 /** On TV your requests are posters too; work in flight carries a thin line along the bottom. */
 @Composable
 private fun RequestPoster(request: TrackedRequest, width: Dp, modifier: Modifier = Modifier, onFocused: () -> Unit = {}, onClick: () -> Unit) {
@@ -327,9 +383,9 @@ private fun RequestPoster(request: TrackedRequest, width: Dp, modifier: Modifier
 }
 
 @Composable
-private fun RowEndTile(width: Dp, onClick: () -> Unit) {
+private fun RowEndTile(width: Dp, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    Box(Modifier.width(width).aspectRatio(2f / 3f).focusOutline(interaction, RoundedCornerShape(ReelLayout.ArtworkCorner))
+    Box(modifier.width(width).aspectRatio(2f / 3f).focusOutline(interaction, RoundedCornerShape(ReelLayout.ArtworkCorner))
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -340,9 +396,9 @@ private fun RowEndTile(width: Dp, onClick: () -> Unit) {
 }
 
 @Composable
-private fun RowEndLink(text: String, tag: String, onClick: () -> Unit) {
+private fun RowEndLink(text: String, tag: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
-    Row(Modifier.heightIn(min = 44.dp).focusBleed(10.dp).focusOutline(interaction, CircleShape)
+    Row(modifier.heightIn(min = 44.dp).focusBleed(10.dp).focusOutline(interaction, CircleShape)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .padding(horizontal = 16.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
         Text(text, color = Muted, style = MaterialTheme.typography.labelLarge)
@@ -408,10 +464,10 @@ internal fun PersonLine(person: DiscoverPerson, onClick: () -> Unit) {
 }
 
 @Composable
-private fun GenreCard(genre: DiscoverGenre, onClick: () -> Unit) {
+private fun GenreCard(genre: DiscoverGenre, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(10.dp)
-    Box(Modifier.width(168.dp).aspectRatio(16f / 9f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
+    Box(modifier.width(168.dp).aspectRatio(16f / 9f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .testTag("genre-${genre.mediaType}-${genre.id}")) {
         genre.backdropUrl?.let { MediaArtwork(it, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop, source = ServiceKind.SEERR) }
@@ -422,7 +478,7 @@ private fun GenreCard(genre: DiscoverGenre, onClick: () -> Unit) {
 }
 
 @Composable
-private fun FocusBackdrop(url: String) {
+internal fun FocusBackdrop(url: String) {
     Box(Modifier.fillMaxWidth().fillMaxHeight(.62f).testTag("discover-focus-backdrop")) {
         MediaArtwork(url, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop,
             source = ServiceKind.SEERR)
@@ -487,6 +543,9 @@ fun DiscoverGridContent(title: String, row: DiscoverRowState, contentPadding: Pa
             if (runCatching { first.requestFocus() }.isSuccess) { claimed = true; return@LaunchedEffect }
         }
     }
+    // The picture of the poster in focus behind the page, as on Oppdag.
+    var focused by remember { mutableStateOf<DiscoverMedia?>(null) }
+    focused?.backdropUrl?.takeIf { tv }?.let { FocusBackdrop(it) }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(posterCell()), state = grid,
         contentPadding = PaddingValues(start = ReelLayout.Gutter, end = ReelLayout.Gutter, top = 12.dp,
@@ -506,7 +565,10 @@ fun DiscoverGridContent(title: String, row: DiscoverRowState, contentPadding: Pa
         items(row.items.size, key = { row.items[it].id }) { index ->
             val media = row.items[index]
             if (index >= row.items.size - 6) LaunchedEffect(row.items.size) { onMore() }
-            PosterOnlyCard(media, { onTitle(media.id) }, if (media.id == firstId) Modifier.focusRequester(first) else Modifier)
+            if (tv) NamedPoster(media, { onTitle(media.id) },
+                posterModifier = if (media.id == firstId) Modifier.focusRequester(first) else Modifier, onFocused = { focused = media })
+            else PosterOnlyCard(media, { onTitle(media.id) }, if (media.id == firstId) Modifier.focusRequester(first) else Modifier,
+                onFocused = { focused = media })
         }
         if (row.loading) items(6, key = { "grid-loading-$it" }) {
             Box(Modifier.aspectRatio(2f / 3f).clip(RoundedCornerShape(ReelLayout.ArtworkCorner)).background(SurfaceRaised))

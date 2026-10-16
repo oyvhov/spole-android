@@ -383,7 +383,8 @@ private fun DiscoverSearchGrid(
             }
         } else {
             items(visible, key = DiscoverMedia::id) { media ->
-                PosterOnlyCard(media, { onDetails(media.id) }, Modifier.fillMaxWidth())
+                if (app.reelstack.ui.components.isTelevision()) NamedPoster(media, { onDetails(media.id) }, Modifier.fillMaxWidth())
+                else PosterOnlyCard(media, { onDetails(media.id) }, Modifier.fillMaxWidth())
             }
             // Seerr answers 20 results at a time. Loading the next page is explicit rather than
             // automatic, so scrolling a long list never fires requests the reader did not ask for.
@@ -461,17 +462,8 @@ internal fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
             .testTag("library-hit-artwork-${media.id}")) {
+            // No «I biblioteket» on the cover: every card here sits under «I biblioteka dine».
             MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop, source = media.source)
-            Row(
-                Modifier.align(Alignment.TopStart).padding(8.dp)
-                    .background(Color.Black.copy(alpha = .72f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 7.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null, tint = Success, modifier = Modifier.size(12.dp))
-                Text(stringResource(R.string.filter_available), color = Color.White, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 5.dp))
-            }
         }
         app.reelstack.ui.components.RailCardCaption(media.title, media.subtitle, titleMaxLines = 2,
             reserveTitleLines = if (app.reelstack.ui.components.isTelevision()) 2 else 1,

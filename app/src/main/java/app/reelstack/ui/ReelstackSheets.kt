@@ -527,8 +527,9 @@ internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String)
                 modifier = Modifier.padding(top = 18.dp, bottom = 12.dp).testTag(if (label == R.string.title_similar) "title-similar" else "title-recommended"))
             androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(titles.size, key = { titles[it].id }) { index ->
-                    app.reelstack.ui.screens.PosterOnlyCard(titles[index], { onRelated(titles[index].id) },
-                        Modifier.width((if (tv) 120.dp else 104.dp) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale))
+                    val width = (if (tv) 120.dp else 104.dp) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+                    if (tv) app.reelstack.ui.screens.NamedPoster(titles[index], { onRelated(titles[index].id) }, Modifier.width(width))
+                    else app.reelstack.ui.screens.PosterOnlyCard(titles[index], { onRelated(titles[index].id) }, Modifier.width(width))
                 }
             }
         }

@@ -3,4 +3,7 @@
     <string name="metadata_runtime_minutes">%1$dm · ferdig %2$s</string>
     <string name="metadata_runtime_hours">%1$dt · ferdig %2$s</string>
     <string name="metadata_runtime_hours_minutes">%1$dt %2$dm · ferdig %3$s</string>
+    <string name="metadata_length_minutes">%1$dm</string>
+    <string name="metadata_length_hours">%1$dt</string>
+    <string name="metadata_length_hours_minutes">%1$dt %2$dm</string>
 </resources>

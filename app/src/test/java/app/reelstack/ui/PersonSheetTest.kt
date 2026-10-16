@@ -45,9 +45,12 @@ class PersonSheetTest {
         assertEquals(listOf("seerr-movie-2"), opened)
     }
 
-    @Test fun readMoreOpensTheWholeBiographyAndGoesAway() {
+    @Test fun readMoreOpensTheWholeBiographyAndCanCloseIt() {
         rule.setContent { ReelstackTheme { PersonSheet(page, onTitle = {}) } }
+        // The button stays, to read less: one that went away left a remote on nothing.
         rule.onNodeWithTag("person-read-more").performClick()
-        rule.onNodeWithTag("person-read-more").assertDoesNotExist()
+        rule.onNodeWithTag("person-read-more").assertTextEquals(rule.activity.getString(app.reelstack.R.string.details_less))
+        rule.onNodeWithTag("person-read-more").performClick()
+        rule.onNodeWithTag("person-read-more").assertTextEquals(rule.activity.getString(app.reelstack.R.string.person_read_more))
     }
 }

@@ -47,8 +47,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
@@ -106,9 +113,11 @@ fun GlobalSearchScreen(
         withFrameNanos { }
         if (runCatching { field.requestFocus() }.isSuccess) keyboard?.show()
     }
-    // Scrolling the results is reading, not typing. The keyboard steps aside.
+    // Scrolling the results is reading, not typing. The keyboard steps aside — only from the field: on a
+    // television the remote's own moves scroll the grid, and clearing focus then lost it altogether.
+    var fieldFocused by remember { androidx.compose.runtime.mutableStateOf(false) }
     LaunchedEffect(grid) {
-        snapshotFlow { grid.isScrollInProgress }.collect { scrolling -> if (scrolling) focusManager.clearFocus() }
+        snapshotFlow { grid.isScrollInProgress }.collect { scrolling -> if (scrolling && fieldFocused) focusManager.clearFocus() }
     }
     ReelPage(Modifier.background(Ink).semantics { paneTitle = screenTitle }, media = true) {
         Column(Modifier.fillMaxSize().testTag("global-search")
@@ -147,7 +156,15 @@ fun GlobalSearchScreen(
                         unfocusedContainerColor = Color.Transparent,
                         cursorColor = Primary,
                     ),
-                    modifier = Modifier.weight(1f).focusRequester(field).testTag("global-search-field"),
+                    // A text field keeps the remote's down for itself; on a television the results are
+                    // what down is for, so it leaves the field and the keyboard steps aside.
+                    modifier = Modifier.weight(1f).focusRequester(field).onFocusChanged { fieldFocused = it.isFocused }.onPreviewKeyEvent { event ->
+                        if (event.key == androidx.compose.ui.input.key.Key.DirectionDown &&
+                            event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                            keyboard?.hide()
+                            focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                        } else false
+                    }.testTag("global-search-field"),
                 )
             }
             val query = search.query.trim()
@@ -220,7 +237,8 @@ fun GlobalSearchScreen(
                             SearchHeading(stringResource(R.string.search_add_new), Modifier.padding(top = 12.dp), SpoleIcons.Discover)
                         }
                         items(requestable, key = { "seerr-${it.id}" }) { media ->
-                            PosterOnlyCard(media, { onDiscoverDetails(media.id) }, Modifier.fillMaxWidth())
+                            if (app.reelstack.ui.components.isTelevision()) NamedPoster(media, { onDiscoverDetails(media.id) }, Modifier.fillMaxWidth())
+                            else PosterOnlyCard(media, { onDiscoverDetails(media.id) }, Modifier.fillMaxWidth())
                         }
                         // Seerr answers twenty at a time; the next page is a choice, not a scroll trap.
                         if (search.hasMore) item(key = "more", span = { GridItemSpan(maxLineSpan) }) {

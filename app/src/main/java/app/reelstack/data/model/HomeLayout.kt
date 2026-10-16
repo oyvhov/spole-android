@@ -104,6 +104,14 @@ data class HomeLayout(val order: List<HomeRowKey>, val hidden: Set<HomeRowKey> =
     fun isVisible(key: HomeRowKey): Boolean = key !in hidden
 
     /**
+     * Whether a row's heading needs its server's name: only when a connected server shows the same
+     * row too. With one server, «Sjå vidare · Jellyfin» only repeats what the whole page is.
+     */
+    fun sourceNeeded(key: HomeRowKey, connected: Set<ServiceKind>): Boolean = key.source != null &&
+        order.any { other -> other != key && other.kind == key.kind && other.shelf == key.shelf &&
+            other.source != null && other.source != key.source && other.source in connected && isVisible(other) }
+
+    /**
      * Adds the rows of the shelves that have one now. A shelf seen for the first time comes in just
      * above the newest titles, where a season's films belong, and keeps the place it is moved to;
      * a row for a shelf that has none today stays in [order] and takes its place back with the shelf.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0-beta17 - nytt «Neste episode», rolegare TV-sider og fokus som finn heim
+
+- Avspelaren: «Neste episode» er eit roleg hjørnekort utan bilete, med namnet, sesong og episode, «Spel neste» og «Skjul». Nedteljinga fyller «Spel neste» sakte frå venstre i staden for å vise sekund; når knappen er full, startar neste episode.
+- TV: heroen på Heim og i Bibliotek har eit bilete som held fram under første rad og tonar ut i sida, i staden for å stoppe i ei line. Det tonar ut gjennom eiga gjennomsikt, så sesongbakgrunnen viser gjennom.
+- Framsida viser ikkje lenger Jellyfin-logo og namn ved radene. Namnet står berre der to tenarar har same rad.
+- Bibliotek i menyen opnar alltid biblioteksida på TV, ikkje den siste smarthylla eller biblioteket du var i. Tilbake frå eit bibliotek gir fokus til flisa eller «Bla i alt» du kom frå, med sida der ho var.
+- Smarthylle-sida: «Overrask meg» er borte, og «Endre» står sist blant vala. Bileta øvst byter seg og held fram under vala, og fokus startar på første tittel.
+- Oppdag: «Dine førespurnader» og «Alle»-sidene viser bakgrunnsbiletet til det som har fokus, og plakatane har namn der sida ikkje har toppfelt. Tilbake frå «Alle», ein sjanger eller «Dine førespurnader» gir fokus til der du var. Pil høgre sist i ei rad blir verande i rada.
+- Søk på TV: pil ned går frå søkjefeltet til resultata, og fokus blir verande når lista rullar. Treffa under «I biblioteka dine» har ikkje lenger «I biblioteket» på kvart bilete, og titlar du kan be om har namn under plakaten.
+- Tittelsida: Tilbake frå ein tittel i «Liknande titlar» går til tittelen du kom frå. «ferdig 21:25» står berre på titlar som kan spelast.
+- Personsida: «Les meir» blir «Vis mindre» i staden for å forsvinne med fokuset. «Kalender» på Heim har fokusring, og «Dine førespurnader» rullar utan å kutte tittelen.
+
 ## 1.0.0-beta16 - fokusringar som følgjer forma, roleg Oppdag
 
 - TV: fokusringen følgjer forma på det du står på. Medverkande og personar får ring rundt ansiktet, ikkje ein boks rundt bilete og namn. Episodar får ring rundt stillbiletet, slik plakatar har.

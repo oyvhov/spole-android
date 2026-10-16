@@ -470,7 +470,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     )
                     AppTab.DISCOVER -> if (state.myRequestsOpen) app.reelstack.ui.screens.MyRequestsScreen(state, screenInsets,
                         onOpen = viewModel::openActivityDetails, onBack = viewModel::closeMyRequests,
-                        onLoadOlder = { viewModel.loadRequestHistory(true) }, onEvent = viewModel::openActivityDetails)
+                        onLoadOlder = { viewModel.loadRequestHistory(true) }, onEvent = viewModel::openActivityDetails,
+                        onFocusRequest = viewModel::focusRequestTitle)
                     else DiscoverScreen(
                         state = discoverState,
                         contentPadding = screenInsets,
@@ -481,7 +482,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                             onMyRequests = viewModel::openMyRequests, onRequestLine = viewModel::openActivityDetails,
                             onGrid = viewModel::openDiscoverGrid, onRetry = { viewModel.refreshDiscoverHub(force = true) },
                             onSearch = viewModel::openGlobalSearch,
-                            onFocusRequest = viewModel::focusRequestTitle),
+                            onFocusRequest = viewModel::focusRequestTitle, onLeave = viewModel::leaveDiscoverHub,
+                            onReturned = viewModel::discoverHubReturned),
                         onAccountClick = viewModel::openSeerrAccount,
                         onLibraryDetails = viewModel::openLibraryDetails,
                         onLoadMore = viewModel::loadMoreSearchResults,

@@ -43,7 +43,8 @@ class TvPlaybackControlsTest {
         rule.onNodeWithTag("player-next-episode").assertDoesNotExist()
         rule.runOnIdle { state.value = state.value.copy(positionMs = 1_740_000, nextEpisodeCountdown = 6) }
         rule.onNodeWithTag("player-next-play").assertIsDisplayed().assertIsFocused()
-        rule.onNodeWithTag("player-next-artwork").assertIsDisplayed()
+        // The corner card names the episode without a picture.
+        rule.onNodeWithTag("player-next-artwork").assertDoesNotExist()
         rule.mainClock.advanceTimeBy(4000)
         rule.onNodeWithTag("player-next-play").assertIsFocused()
         rule.onNodeWithTag("player-next-play").performKeyInput { pressKey(Key.DirectionCenter) }
@@ -64,7 +65,8 @@ class TvPlaybackControlsTest {
         }
         rule.onNodeWithTag("player-next-play").assertIsDisplayed()
         rule.onNodeWithTag("player-next-cancel").assertIsDisplayed()
-        rule.onNodeWithTag("player-next-progress").assertIsDisplayed()
+        // The countdown is the fill inside «Spel neste»; at its first second it has barely begun.
+        rule.onNodeWithTag("player-next-progress", useUnmergedTree = true).assertExists()
     }
 
     @Test fun backHidesPlayingControlsThenLeavesPlayer() {

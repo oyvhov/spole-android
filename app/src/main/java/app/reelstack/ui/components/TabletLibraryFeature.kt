@@ -34,6 +34,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -264,8 +265,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             false
         }
         .focusGroup()
-        .then(if (television) Modifier else Modifier.clip(RoundedCornerShape(24.dp)))
-        .background(Ink)
+        .then(if (television) Modifier else Modifier.clip(RoundedCornerShape(24.dp)).background(Ink))
         // On television the whole hero used to take focus, and the only way to show that was a
         // ring round the entire picture — which is exactly what made it look like a selected cell
         // rather than a piece of artwork. The "Sjå meir" button inside is the focus target
@@ -282,7 +282,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 )
         )
         .testTag("tablet-library-feature")) {
-        Box(Modifier.matchParentSize()) {
+        // On a television the picture runs on under the first row and fades into the page, instead of
+        // ending in a line across the screen where the hero stops. It fades by its own transparency,
+        // so a seasonal page shows through rather than a dark band in the hero's colour.
+        Box(Modifier.matchParentSize().then(if (television) Modifier.heroOverflow(.6f) else Modifier).testTag("feature-artwork")) {
           Box(Modifier.matchParentSize()) {
             // Predecode the bounded carousel. Keep the outgoing image opaque beneath the incoming
             // layer until its fade finishes, avoiding a dark dip halfway through the transition.
@@ -299,11 +302,13 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
               }
             }
           }
-            Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-                0f to Ink, .27f to Ink, .52f to Ink.copy(alpha = .88f),
-                .72f to Ink.copy(alpha = .18f), 1f to Color.Transparent)))
-            Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-                0f to Color.Transparent, .55f to Color.Transparent, 1f to Ink.copy(alpha = if (television) 1f else .6f))))
+            if (!television) {
+                Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
+                    0f to Ink, .27f to Ink, .52f to Ink.copy(alpha = .88f),
+                    .72f to Ink.copy(alpha = .18f), 1f to Color.Transparent)))
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+                    0f to Color.Transparent, .55f to Color.Transparent, 1f to Ink.copy(alpha = .6f))))
+            }
             // Above the artwork and its scrims, under every word and control. Draws nothing at all
             // unless a season is running and the ornament is switched on.
             SeasonalOrnament(Modifier.matchParentSize())
@@ -510,3 +515,24 @@ private fun formatHeroRuntime(minutes: Int): String {
         else -> "${hours}t ${remainder}m"
     }
 }
+
+/**
+ * The hero's picture on a television: [extra] of the hero's height taller, overflowing below it, and
+ * faded by its own transparency. Clear of the words on the left, whole in the upper right, and gone
+ * by the time it reaches the first row's posters.
+ */
+internal fun Modifier.heroOverflow(extra: Float): Modifier = this
+    .layout { measurable, constraints ->
+        val height = (constraints.maxHeight * (1f + extra)).toInt()
+        val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(constraints.maxWidth, height))
+        layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(0, 0) }
+    }
+    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        drawRect(Brush.horizontalGradient(0f to Color.Transparent, .27f to Color.Transparent,
+            .52f to Color.Black.copy(alpha = .14f), .72f to Color.Black.copy(alpha = .8f), 1f to Color.Black),
+            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+        drawRect(Brush.verticalGradient(0f to Color.Black, .42f to Color.Black, .7f to Color.Black.copy(alpha = .45f), 1f to Color.Transparent),
+            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+    }

@@ -48,6 +48,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import app.reelstack.ui.components.heroOverflow
+import androidx.compose.runtime.key
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -121,12 +125,12 @@ private const val NEW_FOR_MILLIS = 14L * 24 * 60 * 60_000
 /**
  * A smart shelf's own page.
  *
- * It opens on the shelf itself: a backdrop from one of its titles, a fan of its posters, its name and
- * its two actions, and nothing more to read; the rule is in the builder, and the counts are on the
- * filter. Under that, the choices a shelf of a few dozen titles needs and no more: films, series or
- * both, an order the server sorts by, and watched titles out of the way. «Overrask meg» opens a title
- * not seen yet. The covers are a size smaller than a library's grid, so more of the shelf is on screen
- * at once; with both kinds shown, films and series stand under their own headings.
+ * It opens on the shelf itself: backdrops from its titles taking turns, a fan of its posters and its
+ * name, and nothing more to read; the rule is in the builder, and the counts are on the filter. Under
+ * that, the choices a shelf of a few dozen titles needs and no more: films, series or both, an order
+ * the server sorts by, watched titles out of the way, and «Endre» last. The covers are a size smaller
+ * than a library's grid, so more of the shelf is on screen at once; with both kinds shown, films and
+ * series stand under their own headings.
  */
 @OptIn(ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -154,9 +158,8 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
     val shownSeries = if (shownView == ShelfView.MOVIES) emptyList() else series.unseen()
     val shown = shownMovies + shownSeries
     val anyWatched = entries.any { it.played }
-    // Something not seen yet, from what the page shows; everything seen leaves the choice to all of it.
-    val surprisePool = shown.filterNot { it.played }.ifEmpty { shown }
-    val surpriseFocus = remember { FocusRequester() }
+    val firstTitle = remember { FocusRequester() }
+    val firstId = shown.firstOrNull()?.id
     val editFocus = remember { FocusRequester() }
     val grid = rememberLazyGridState()
     var pageHasFocus by remember { mutableStateOf(false) }
@@ -174,13 +177,13 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
             top.scroll = scope.launch { grid.scrollToTop(heroHeight + rowGap) }
         }
     }
-    // A remote arriving from a tile starts on the shelf's own action, which sits at the top: the whole
-    // top of the page stays in view and the first title is one press down. Focus that has moved already
-    // is left where it is, and nothing is scrolled, so a page someone is reading never jumps back.
-    LaunchedEffect(shelf.id, entries.isNotEmpty()) {
-        if (tv && entries.isNotEmpty() && !pageHasFocus) {
+    // A remote arriving from a tile starts on the shelf's first title, under its picture and choices,
+    // which stay in view. Focus that has moved already is left where it is, and nothing is scrolled, so
+    // a page someone is reading never jumps back.
+    LaunchedEffect(shelf.id, firstId != null) {
+        if (tv && firstId != null && !pageHasFocus) {
             withFrameNanos { }
-            runCatching { (if (surprisePool.isNotEmpty()) surpriseFocus else editFocus).requestFocus() }
+            runCatching { firstTitle.requestFocus() }
         }
     }
     // Closing the builder hands the remote back to «Endre», where it left from.
@@ -209,8 +212,7 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
     ) {
         item(key = "hero", span = { GridItemSpan(maxLineSpan) }) {
             Box(Modifier.onSizeChanged { heroHeight = it.height }.then(topInView(0) { heroHeight })) {
-                SmartShelfHero(shelf, entries, tv, gutter, state.librarySource, editFocus,
-                    surpriseFocus, onBack, onEdit, onSurprise = surprisePool.takeIf { it.isNotEmpty() }?.let { pool -> { onOpen(pool.random().id) } })
+                SmartShelfHero(shelf, entries, tv, gutter, state.librarySource, onBack)
             }
         }
         if (entries.isNotEmpty()) item(key = "controls", span = { GridItemSpan(maxLineSpan) }) {
@@ -229,6 +231,9 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
                     description = stringResource(R.string.smart_shelf_sort_title) + ": " + smartShelfSortLabel(shelf.sort)) { sortOpen = true } }
                 if (anyWatched) add { ShelfPill(stringResource(R.string.smart_shelf_hide_watched), hideWatched, "smart-hide-watched",
                     leading = if (hideWatched) SpoleIcons.EyeOff else SpoleIcons.Eye) { hideWatched = !hideWatched } }
+                // The shelf's own action, last among the choices rather than over its picture.
+                add { ShelfPill(stringResource(R.string.smart_shelf_edit_action), selected = false, tag = "smart-shelf-edit",
+                    leading = SpoleIcons.Edit, role = Role.Button, modifier = Modifier.focusRequester(editFocus), onClick = onEdit) }
             }
             val controls = Modifier.fillMaxWidth().onSizeChanged { controlsHeight = it.height }
                 .then(topInView(1) { heroHeight + rowGap + controlsHeight }).testTag("smart-shelf-controls")
@@ -254,10 +259,11 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
         }
         // Both kinds side by side read as two answers, so each gets its heading; one kind needs none.
         if (shownView == ShelfView.ALL && bothKinds) {
-            section("movies", moviesTitle, shownMovies, state.librarySource, onOpen)
-            section("series", seriesTitle, shownSeries, state.librarySource, onOpen)
+            section("movies", moviesTitle, shownMovies, state.librarySource, onOpen, firstId, firstTitle)
+            section("series", seriesTitle, shownSeries, state.librarySource, onOpen, firstId, firstTitle)
         } else items(shown, key = { "title-${it.id}" }) { entry ->
-            SmartShelfCard(entry, state.librarySource, { onOpen(entry.id) })
+            SmartShelfCard(entry, state.librarySource, { onOpen(entry.id) },
+                if (entry.id == firstId) Modifier.focusRequester(firstTitle) else Modifier)
         }
         if (entries.isNotEmpty() && shown.isEmpty()) item(key = "all-watched", span = { GridItemSpan(maxLineSpan) }) {
             QuietEmptyState(stringResource(R.string.smart_shelf_all_watched), SpoleIcons.DoneCircle,
@@ -301,7 +307,7 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
 }
 
 private fun LazyGridScope.section(key: String, title: String, items: List<RemoteLibraryItem>, source: ServiceKind,
-    onOpen: (String) -> Unit) {
+    onOpen: (String) -> Unit, firstId: String?, firstTitle: FocusRequester) {
     if (items.isEmpty()) return
     item(key = "$key-heading", span = { GridItemSpan(maxLineSpan) }) {
         Row(Modifier.padding(top = 10.dp).semantics(mergeDescendants = true) { heading() }.testTag("smart-shelf-$key"),
@@ -310,35 +316,56 @@ private fun LazyGridScope.section(key: String, title: String, items: List<Remote
         }
     }
     items(items, key = { "$key-${it.id}" }) { entry ->
-        SmartShelfCard(entry, source, { onOpen(entry.id) })
+        SmartShelfCard(entry, source, { onOpen(entry.id) }, if (entry.id == firstId) Modifier.focusRequester(firstTitle) else Modifier)
     }
 }
 
 /**
- * The top of the page: a backdrop from the shelf's own titles under two soft shades, a fan of three
- * posters on a wide screen, the shelf's name and its two actions. It is kept low, so a television shows
- * the first row of covers under it. Without a backdrop the accent's own wash stands in, so a shelf
- * whose titles have no art still opens on something.
+ * The top of the page: backdrops from the shelf's own titles taking turns, a fan of three posters on a
+ * wide screen, and the shelf's name. On a television the picture runs on under the choices and fades
+ * into the page by its own transparency, rather than stopping in a line where the top ends. Without a
+ * backdrop the accent's own wash stands in, so a shelf whose titles have no art still opens on something.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SmartShelfHero(shelf: SmartShelf, entries: List<RemoteLibraryItem>,
-    tv: Boolean, gutter: Dp, source: ServiceKind, editFocus: FocusRequester, surpriseFocus: FocusRequester,
-    onBack: () -> Unit, onEdit: () -> Unit, onSurprise: (() -> Unit)?) {
+    tv: Boolean, gutter: Dp, source: ServiceKind, onBack: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val name = smartShelfName(shelf)
-    val backdrop = entries.firstNotNullOfOrNull { it.backdropUrl ?: it.heroUrl }
+    val backdrops = entries.mapNotNull { entry -> (entry.backdropUrl ?: entry.heroUrl)?.let { entry.id to it } }
+        .distinctBy { it.second }.take(5)
     val posters = entries.mapNotNull { libraryArtworkUrl(it, LibraryArtType.POSTER) }.distinct().take(3)
+    val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
+    val turns = backdrops.size > 1 && motion && !(tv && LocalPersonalization.current.lightweightTv)
+    var shown by remember(shelf.id) { mutableIntStateOf(0) }
+    LaunchedEffect(shelf.id, backdrops.size, turns) {
+        if (!turns) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(8_000)
+            shown = (shown + 1) % backdrops.size
+        }
+    }
     BoxWithConstraints(Modifier.cinematicBleed(gutter).fillMaxWidth().heightIn(min = if (tv) 236.dp else 196.dp)
         .testTag("smart-shelf-hero")) {
         val wide = maxWidth > 760.dp
-        if (backdrop != null) MediaArtwork(librarySizedArtwork(backdrop, 1280), null,
-            Modifier.matchParentSize().graphicsLayer { alpha = .55f }, source = source)
-        else Box(Modifier.matchParentSize().background(Brush.linearGradient(listOf(colors.primaryContainer, colors.background))))
-        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-            0f to colors.background.copy(alpha = .95f), .5f to colors.background.copy(alpha = .62f), 1f to colors.background.copy(alpha = .2f))))
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-            0f to colors.background.copy(alpha = .3f), .55f to Color.Transparent, 1f to colors.background)))
+        Box(Modifier.matchParentSize().then(if (tv) Modifier.heroOverflow(.6f) else Modifier).testTag("smart-shelf-art")) {
+            if (backdrops.isEmpty()) Box(Modifier.matchParentSize().background(Brush.linearGradient(listOf(colors.primaryContainer, colors.background))))
+            backdrops.forEachIndexed { index, (id, url) ->
+                key(id) {
+                    val current = index == shown.coerceAtMost(backdrops.lastIndex)
+                    val alpha by animateFloatAsState(if (current) 1f else 0f, tween(if (motion) 1100 else 0), label = "shelf-backdrop")
+                    if (current || alpha > 0f) MediaArtwork(librarySizedArtwork(url, 1280), null,
+                        Modifier.matchParentSize().graphicsLayer { this.alpha = alpha * if (tv) 1f else .55f }
+                            .then(if (current) Modifier.testTag("smart-shelf-backdrop-$id") else Modifier), source = source)
+                }
+            }
+            if (!tv) {
+                Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
+                    0f to colors.background.copy(alpha = .95f), .5f to colors.background.copy(alpha = .62f), 1f to colors.background.copy(alpha = .2f))))
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+                    0f to colors.background.copy(alpha = .3f), .55f to Color.Transparent, 1f to colors.background)))
+            }
+        }
         // A fixed height: inside a scrolling grid the hero has no height of its own to fill.
         if (wide && posters.isNotEmpty()) PosterFan(posters, source,
             Modifier.align(Alignment.CenterEnd).padding(end = gutter + 56.dp).height(if (tv) 196.dp else 170.dp))
@@ -353,23 +380,6 @@ private fun SmartShelfHero(shelf: SmartShelf, entries: List<RemoteLibraryItem>,
                 Text(name, style = if (tv) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineLarge,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { heading() }.testTag("smart-shelf-title"))
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (onSurprise != null) {
-                    val surpriseInteraction = remember { MutableInteractionSource() }
-                    Button(onClick = onSurprise, interactionSource = surpriseInteraction,
-                        modifier = Modifier.heightIn(min = 48.dp).focusRequester(surpriseFocus)
-                            .focusOutline(surpriseInteraction, CircleShape, glow = false).testTag("smart-shelf-surprise")) {
-                        Icon(SpoleIcons.Shuffle, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.smart_shelf_surprise))
-                    }
-                }
-                SpoleSecondaryButton(onClick = onEdit, modifier = Modifier.focusRequester(editFocus).testTag("smart-shelf-edit")) {
-                    Icon(SpoleIcons.Edit, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.smart_shelf_edit_action))
-                }
             }
         }
     }
@@ -398,11 +408,11 @@ private fun PosterFan(posters: List<String>, source: ServiceKind, modifier: Modi
  */
 @Composable
 private fun ShelfPill(label: String, selected: Boolean, tag: String, leading: ImageVector? = null, trailing: ImageVector? = null,
-    count: Int? = null, role: Role = Role.Checkbox, description: String? = null, onClick: () -> Unit) {
+    count: Int? = null, role: Role = Role.Checkbox, description: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val colors = MaterialTheme.colorScheme
     val content = if (selected) colors.onPrimaryContainer else colors.onSurface
-    Row(Modifier.heightIn(min = 44.dp).clip(CircleShape)
+    Row(modifier.heightIn(min = 44.dp).clip(CircleShape)
         .background(if (selected) colors.primaryContainer else colors.surfaceVariant, CircleShape)
         .focusOutline(interaction, CircleShape, glow = false)
         .selectable(selected, interactionSource = interaction, indication = LocalIndication.current, role = role, onClick = onClick)

@@ -94,6 +94,10 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     onShelfOpen: (String) -> Unit, cardActions: MediaCardActions?, onCustomize: () -> Unit,
     sourcePicker: @Composable () -> Unit) {
     BackHandler(state.libraryPath.isNotEmpty() && state.activeSheet == null) { onBack() }
+    // The library page keeps its place while a library is open, and the remote comes back to the
+    // tile it left from rather than to the top of the page.
+    val hubList = androidx.compose.foundation.lazy.rememberLazyListState()
+    var returnTo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
     // A smart shelf has its own page: films and series apart, on smaller covers than this grid.
     val smartShelf = app.reelstack.data.model.SmartShelf.idOfPath(state.libraryPath.lastOrNull()?.first)?.let { id ->
@@ -127,7 +131,8 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     // below the root is still the grid it always was.
     if (folders) {
         LibraryHub(state, onOpen, onShelfOpen, cardActions, onRetry = { onLoad(false) }, onCustomize = onCustomize,
-            sourcePicker = sourcePicker)
+            sourcePicker = sourcePicker, list = hubList, returnTo = returnTo, onReturned = { returnTo = null },
+            onLeave = { returnTo = it })
         return
     }
     val pageStates = rememberSaveableStateHolder()

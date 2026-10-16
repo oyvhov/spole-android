@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.withFrameNanos
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 
 import androidx.compose.ui.focus.focusRequester
 
@@ -67,6 +68,7 @@ import app.reelstack.ui.theme.Text as TextColor
 internal val LineDivider: Color @Composable get() = TextColor.copy(alpha = .08f)
 
 /** Requests as lines. Opening one goes to its title page, where every action on it lives. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MyRequestsScreen(
     state: ReelstackUiState,
@@ -75,6 +77,8 @@ fun MyRequestsScreen(
     onBack: () -> Unit,
     onLoadOlder: () -> Unit,
     onEvent: (String) -> Unit = {},
+    /** A television asks for the picture of the request in focus, as Oppdag does. */
+    onFocusRequest: (TrackedRequest) -> Unit = {},
 ) {
     val tabs = MyRequestsTab.entries.filter { it != MyRequestsTab.SERVER || state.adminView }
     var tab by rememberSaveable { mutableStateOf(MyRequestsTab.ALL) }
@@ -102,7 +106,16 @@ fun MyRequestsScreen(
         !app.reelstack.background.LibraryNotifications.allowed(context) -> stringResource(R.string.my_requests_alerts_android)
         else -> null
     }
-    ReelPage(media = true) {
+    var focused by remember { mutableStateOf<TrackedRequest?>(null) }
+    // The picture of the request in focus fills the top of the page on a television, as on Oppdag.
+    val backdrop = focused?.takeIf { tv }?.let { request ->
+        state.discoverHub.focusDetails["seerr-${request.mediaType}-${request.mediaId}"]?.backdropUrl
+    }
+    if (backdrop != null) FocusBackdrop(backdrop)
+    // A television's own spec pulls the focused line towards the middle and cut the page's title in
+    // half; this one scrolls only as far as the line needs.
+    ReelPage(media = true) { androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
+        if (tv) app.reelstack.ui.components.DetailBringIntoView else androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current) {
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize().testTag("my-requests"),
@@ -163,14 +176,16 @@ fun MyRequestsScreen(
                     else Text(stringResource(R.string.my_requests_empty), color = Muted, modifier = Modifier.padding(vertical = 24.dp))
                 }
             } else {
-                items(lines, key = { "line-${it.key}" }) { request -> RequestLine(request, { onOpen(request.key) }) }
+                items(lines, key = { "line-${it.key}" }) { request ->
+                    RequestLine(request, { onOpen(request.key) }, onFocused = { focused = request; onFocusRequest(request) })
+                }
                 if (tab == MyRequestsTab.ALL && state.requestHistory.hasMore) item(key = "older") {
                     LaunchedEffect(state.requestHistory.items.size) { onLoadOlder() }
                     Text(stringResource(R.string.my_requests_older), color = Muted, modifier = Modifier.padding(vertical = 18.dp))
                 }
             }
         }
-    }
+    } }
 }
 
 /** Text tabs with a line under the chosen one. Wraps at large text instead of clipping. */
@@ -207,8 +222,10 @@ private fun TextTabs(
 
 /** One request: cover, title, status and, while on the way, a thin line of progress. */
 @Composable
-internal fun RequestLine(request: TrackedRequest, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun RequestLine(request: TrackedRequest, onClick: () -> Unit, modifier: Modifier = Modifier, onFocused: () -> Unit = {}) {
     val interaction = remember { MutableInteractionSource() }
+    val focusedNow by interaction.collectIsFocusedAsState()
+    LaunchedEffect(focusedNow) { if (focusedNow) onFocused() }
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().focusBleed(12.dp).focusOutline(interaction, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))

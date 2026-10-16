@@ -36,6 +36,8 @@ data class DiscoverHubState(
     val scope: String? = null,
     /** Length, genres and synopsis for titles that had focus on a television, newest last. */
     val focusDetails: Map<String, FocusDetails> = emptyMap(),
+    /** Where the remote left the rows for «Alle», a genre or your requests, to come back to. */
+    val returnTo: DiscoverReturn? = null,
 ) {
     val allMedia: List<DiscoverMedia> get() = rows.values.flatMap { it.items } + gridRow.items
     val anyFailed: Boolean get() = rows.values.any { it.failed }
@@ -59,6 +61,9 @@ fun DiscoverMedia.asRequested(waitsForApproval: Boolean): DiscoverMedia = copy(
 )
 
 /** The Seerr status a request line stands for, so its title page opens with the same words. */
+/** The tile the remote left the rows from ([key]) and how far the rows were scrolled. */
+data class DiscoverReturn(val key: String, val index: Int, val offset: Int)
+
 /** The TMDB score a row title already shows as «★ 7.1», out of 100 as Spole keeps them. */
 fun DiscoverMedia.tmdbScore(): Float? = facts.firstNotNullOfOrNull { fact ->
     fact.removePrefix("★").takeIf { it != fact }?.trim()?.replace(',', '.')?.toFloatOrNull()

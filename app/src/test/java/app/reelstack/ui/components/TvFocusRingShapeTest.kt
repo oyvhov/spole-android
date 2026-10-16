@@ -127,4 +127,9 @@ class TvFocusRingShapeTest {
         keyboard { TrailerPreview("https://www.youtube.com/watch?v=abcdefghijk", "Film") }
         ringOnTopEdge("detail-trailer")
     }
+
+    @Test fun theCalendarButtonOnHomeHasARing() {
+        keyboard { app.reelstack.ui.screens.UpcomingSectionTitle(onCalendarClick = {}) }
+        ringOnTopEdge("home-calendar-button")
+    }
 }

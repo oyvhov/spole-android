@@ -739,11 +739,14 @@ class ReelstackViewModel(
         // Downloads are intentionally a personal mobile/tablet space. There is no TV or kids-mode
         // loophole through a notification, a restored tab, or a direct ViewModel call.
         if (tab == AppTab.DOWNLOADS && (_uiState.value.isKidMode || isTelevision())) return
-        // Keep the last library location when moving between tabs. The library loader can refresh
-        // it in place, but dropping the path made a return to Films look like a new visit to the
-        // library root every time.
+        // Keep the last library location when moving between tabs on a phone. The library loader can
+        // refresh it in place, but dropping the path made a return to Films look like a new visit to the
+        // library root every time. On a television Bibliotek is the library page itself.
         _uiState.update {
-            it.copy(
+            val root = tab == AppTab.LIBRARY && it.libraryPath.isNotEmpty() &&
+                app.reelstack.data.model.libraryMenuOpensRoot(isTelevision(), it.selectedTab == AppTab.LIBRARY)
+            (if (root) it.copy(libraryPath = emptyList(), libraryEntries = emptyList(), libraryOffset = 0, libraryHasMore = false,
+                libraryFilters = app.reelstack.data.model.LibraryFilters(), libraryCollectionType = null) else it).copy(
                 selectedTab = tab,
                 downloadsReturnTab = if (tab == AppTab.DOWNLOADS && it.selectedTab != AppTab.DOWNLOADS) it.selectedTab
                     else it.downloadsReturnTab,
@@ -759,6 +762,12 @@ class ReelstackViewModel(
         // Settings summarises the downloads in one line. It is a local read, never a server call.
         if (tab == AppTab.SETTINGS) refreshOfflineDownloads()
     }
+
+    /** Where the remote left Oppdag's rows, to put it back there on return. */
+    fun leaveDiscoverHub(point: app.reelstack.data.model.DiscoverReturn) =
+        _uiState.update { it.copy(discoverHub = it.discoverHub.copy(returnTo = point)) }
+
+    fun discoverHubReturned() = _uiState.update { it.copy(discoverHub = it.discoverHub.copy(returnTo = null)) }
 
     /** Oppdag with «Dine førespurnader» open: where a request notification lands. */
     fun openMyRequests() {
@@ -2163,6 +2172,23 @@ class ReelstackViewModel(
         openLibraryDetails(media.id, clearHistory = false)
         if (details != null && connection != null) {
             val ret = EpisodeReturn(media.id, connection, details, state.seriesBrowse)
+            episodeReturn = ret
+            detailHistory.addLast(ret)
+        }
+    }
+
+    /**
+     * A title from «Liknande» or «Tilrådd» on a title page. Back returns to the page it was opened
+     * from, as it does from an episode, rather than closing both.
+     */
+    fun openRelatedDetails(id: String) {
+        val state = _uiState.value
+        val details = state.contentDetails
+        val connection = details?.let { current -> state.connections.firstOrNull { it.kind == current.source && it.token.isNotBlank() } }
+            ?: state.connections.firstOrNull { it.kind == ServiceKind.SEERR && it.token.isNotBlank() }
+        openDiscoverDetails(id)
+        if (details != null && connection != null && _uiState.value.contentDetails?.key == id) {
+            val ret = EpisodeReturn(id, connection, details, state.seriesBrowse)
             episodeReturn = ret
             detailHistory.addLast(ret)
         }

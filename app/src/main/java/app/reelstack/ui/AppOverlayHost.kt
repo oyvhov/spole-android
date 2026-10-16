@@ -38,7 +38,7 @@ internal fun AppOverlayHost(
         onPersonPageTitle = viewModel::openPersonTitle,
         onWithdraw = viewModel::cancelTrackedRequest,
         onNotify = viewModel::setFollowNotification,
-        onRelated = viewModel::openDiscoverDetails,
+        onRelated = viewModel::openRelatedDetails,
         onSeerrPerson = viewModel::openPerson,
         onRequestEdition = viewModel::setRequestEdition,
         onRequestProfile = viewModel::setRequestProfile,

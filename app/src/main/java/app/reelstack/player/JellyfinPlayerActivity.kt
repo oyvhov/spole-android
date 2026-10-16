@@ -22,6 +22,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.border
@@ -1007,71 +1008,71 @@ private fun PlayerHeader(
         }
     }
 }
-/** A compact, Emby-like corner offer; it leaves the picture as the primary surface. */
+/**
+ * «Neste episode» in the corner, as in Emby and as the owner chose it: no picture, the episode's name
+ * and where it is in the series, «Spel neste» and «Skjul». The countdown is calm: it fills «Spel neste»
+ * from the left, from a dimmed accent to the full one, and starts the episode when the button is full.
+ * No seconds are written out; the count is still spoken to TalkBack.
+ */
 @Composable
 private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCancel: () -> Unit,
     focus: FocusRequester, modifier: Modifier = Modifier) {
     val next = state.nextEpisode ?: return
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val shape = RoundedCornerShape(12.dp)
-    Surface(modifier.widthIn(max = 292.dp).fillMaxWidth()
-        .focusGroup().testTag("player-next-episode"), shape = shape,
-        color = Color.Black.copy(alpha = .64f), contentColor = Color.White, tonalElevation = 0.dp) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                app.reelstack.ui.components.MediaArtwork(next.artworkUrl, next.title,
-                    Modifier.width(76.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(7.dp))
-                        .testTag("player-next-artwork"),
-                    fallbackRes = R.drawable.media_placeholder,
-                    source = state.source)
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = .7f))
-                    Text(next.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis)
-                    Text(app.reelstack.ui.components.episodeLine(next.season, next.episode, next.subtitle),
-                        style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        color = Color.White.copy(alpha = .7f))
-                }
+    val pill = RoundedCornerShape(50)
+    val accent = MaterialTheme.colorScheme.primary
+    val ink = MaterialTheme.colorScheme.onPrimary
+    val total = state.nextEpisodeCountdownTotalSeconds.coerceAtLeast(1)
+    // Elapsed share of the countdown, eased over each second so the light moves on steadily.
+    val target = state.nextEpisodeCountdown?.let { (1f - it.toFloat() / total).coerceIn(0f, 1f) } ?: 1f
+    val fill by androidx.compose.animation.core.animateFloatAsState(target,
+        tween(if (state.nextEpisodeCountdown != null) 1_000 else 0, easing = androidx.compose.animation.core.LinearEasing),
+        label = "next-episode-fill")
+    val countdownText = state.nextEpisodeCountdown?.let { stringResource(R.string.next_episode_countdown, it) }
+    Surface(modifier.widthIn(max = 296.dp).fillMaxWidth()
+        .focusGroup().testTag("player-next-episode"), shape = RoundedCornerShape(14.dp),
+        color = Color(0xE60D1119), contentColor = Color.White, tonalElevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .06f))) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = .62f))
+                Text(next.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(app.reelstack.ui.components.episodeLine(next.season, next.episode, next.subtitle),
+                    style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = Color.White.copy(alpha = .62f))
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End,
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                if (!state.ended || state.nextEpisodeCountdown != null) {
-                    val cancelInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                    TextButton(onClick = onCancel, interactionSource = cancelInteraction,
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White), shape = shape,
-                        modifier = Modifier.heightIn(min = 48.dp).neutralPlayerFocus(cancelInteraction, shape).testTag("player-next-cancel")) {
-                        Text(stringResource(if (state.ended) R.string.next_episode_cancel else R.string.next_episode_dismiss))
-                    }
-                }
-                Button(onClick = onPlay, shape = shape, interactionSource = interaction,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = .18f), contentColor = Color.White),
-                    modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus)
-                        .neutralPlayerFocus(interaction, shape).testTag("player-next-play")) {
-                    // Keep the countdown in the one affirmative action, as in Emby.  It gives the
-                    // timeout a home without adding a third line or making the small TV card grow.
-                    Box(Modifier.widthIn(min = 168.dp).heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
-                        state.nextEpisodeCountdown?.let {
-                            LinearProgressIndicator(
-                                progress = { (it.toFloat() / state.nextEpisodeCountdownTotalSeconds.coerceAtLeast(1)).coerceIn(0f, 1f) },
-                                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).height(2.dp)
-                                    .testTag("player-next-progress"),
-                                color = Color.White, trackColor = Color.White.copy(alpha = .18f), drawStopIndicator = {},
-                            )
+                androidx.compose.runtime.CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                    Box(Modifier.weight(1f).heightIn(min = 44.dp).focusRequester(focus)
+                        .neutralPlayerFocus(interaction, pill).clip(pill)
+                        .background(androidx.compose.ui.graphics.lerp(Color(0xFF0D1119), accent, .58f))
+                        .clickable(interactionSource = interaction, indication = null, role = androidx.compose.ui.semantics.Role.Button,
+                            onClick = onPlay)
+                        .semantics { if (countdownText != null) stateDescription = countdownText }
+                        .testTag("player-next-play"), contentAlignment = Alignment.CenterStart) {
+                        Box(Modifier.matchParentSize()) {
+                            Box(Modifier.fillMaxHeight().fillMaxWidth(fill).background(accent).testTag("player-next-progress"))
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null, Modifier.size(18.dp))
-                            AnimatedContent(
-                                targetState = state.nextEpisodeCountdown,
-                                transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(90)) },
-                                label = "next-episode-action",
-                            ) { seconds ->
-                                Text(
-                                    text = if (seconds == null) stringResource(R.string.player_next_play)
-                                    else stringResource(R.string.next_episode_countdown, seconds),
-                                    modifier = Modifier.padding(start = 6.dp), maxLines = 1,
-                                )
-                            }
+                        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 14.dp),
+                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null, Modifier.size(16.dp), tint = ink)
+                            Text(stringResource(R.string.next_episode_play), color = ink, fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                    if (!state.ended || state.nextEpisodeCountdown != null) {
+                        val cancelInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                        Box(Modifier.heightIn(min = 44.dp).neutralPlayerFocus(cancelInteraction, pill).clip(pill)
+                            .background(Color.White.copy(alpha = .08f))
+                            .clickable(interactionSource = cancelInteraction, indication = null,
+                                role = androidx.compose.ui.semantics.Role.Button, onClick = onCancel)
+                            .padding(horizontal = 18.dp).testTag("player-next-cancel"), contentAlignment = Alignment.Center) {
+                            Text(stringResource(if (state.ended) R.string.next_episode_cancel else R.string.next_episode_hide),
+                                style = MaterialTheme.typography.labelLarge, maxLines = 1)
                         }
                     }
                 }

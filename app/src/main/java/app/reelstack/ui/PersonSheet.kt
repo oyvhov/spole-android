@@ -104,12 +104,14 @@ fun PersonSheet(page: PersonPage?, onTitle: (String) -> Unit) {
                     page.biography?.let { bio ->
                         Text(bio, color = Muted, style = MaterialTheme.typography.bodyMedium,
                             maxLines = if (expanded) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis)
-                        if (!expanded) {
+                        // A toggle, as the title page's synopsis is: a button that went away with the press left
+                        // the remote on nothing.
+                        run {
                             val interaction = remember { MutableInteractionSource() }
-                            Text(stringResource(R.string.person_read_more), color = TextColor, style = MaterialTheme.typography.labelLarge,
+                            Text(stringResource(if (expanded) R.string.details_less else R.string.person_read_more), color = TextColor, style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.heightIn(min = 44.dp).then(if (startOnBiography) Modifier.focusRequester(firstPoster) else Modifier)
                                     .focusBleed(14.dp).focusOutline(interaction, CircleShape)
-                                    .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button) { expanded = true }
+                                    .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button) { expanded = !expanded }
                                     .padding(horizontal = 14.dp, vertical = 12.dp).testTag("person-read-more"))
                         }
                     }
