@@ -289,6 +289,8 @@ data class ReelstackUiState(
     val showRequestHistory: Boolean = false,
     /** «Dine førespurnader» is a page inside Oppdag; a notification or a tap on «Alle» opens it. */
     val myRequestsOpen: Boolean = false,
+    /** A title opened from outside the Discover lists, such as a request line, so details and requests can find it. */
+    val detailMedia: DiscoverMedia? = null,
     val trackingError: String? = null,
     val trackingLoading: Boolean = false,
     /** Keys of follows currently being withdrawn, so a card cannot be cancelled twice. */
@@ -307,7 +309,7 @@ data class ReelstackUiState(
 
     /** Every Seerr card on screen anywhere, so details and requests work from the global search too. */
     val knownDiscoverMedia: List<DiscoverMedia>
-        get() = discover + searchResults + globalSearch.results + recommendations +
+        get() = listOfNotNull(detailMedia) + discover + searchResults + globalSearch.results + recommendations +
             upcoming.mapNotNull { item -> item.tmdbId?.let { id ->
                 DiscoverMedia(item.id, item.title, item.subtitle, item.artworkRes, false,
                     artworkUrl = item.artworkUrl, remoteId = id, mediaType = if (item.mediaType == "Movie") "movie" else "tv",
@@ -2270,7 +2272,7 @@ class ReelstackViewModel(
     }
 
     fun openDiscoverDetails(id: String) {
-        val media = (_uiState.value.visibleDiscover + _uiState.value.globalSearch.results + _uiState.value.recommendations).firstOrNull { it.id == id } ?: return
+        val media = _uiState.value.knownDiscoverMedia.firstOrNull { it.id == id } ?: return
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }
@@ -2480,7 +2482,7 @@ class ReelstackViewModel(
                 metadata = if (tracked.mediaType == "tv") "Serie" else "Film", artworkRes = R.drawable.media_placeholder,
                 artworkUrl = tracked.artworkUrl, inLibrary = tracked.stage == app.reelstack.data.model.RequestStage.AVAILABLE,
                 remoteId = tracked.mediaId, mediaType = tracked.mediaType)
-            _uiState.update { it.copy(discover = it.discover.filterNot { entry -> entry.id == media.id } + media, searchQuery = "") }
+            _uiState.update { it.copy(detailMedia = media) }
             openDiscoverDetails(media.id)
             return
         }

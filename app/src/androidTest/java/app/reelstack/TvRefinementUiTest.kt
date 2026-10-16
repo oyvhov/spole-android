@@ -669,15 +669,6 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("library-search-toggle").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) }
         rule.onNodeWithTag("library-item-film-1").assertIsFocused()
     }
-    @Test fun unresolvedActivityIsGroupedAndCanBeOpenedWithoutBlankPosterRows() {
-        val requests = (1..25).map { TrackedRequest("movie:$it", it, "movie", "Film", null, emptySet(), stage = RequestStage.UNKNOWN, requestId = it) }
-        rule.setContent { ReelstackTheme {
-            ActivityScreen(ReelstackUiState(connections = listOf(connection), trackedRequests = requests), PaddingValues(0.dp), {})
-        } }
-        rule.onNodeWithTag("tracked-request-movie:1").assertDoesNotExist()
-        rule.onNodeWithTag("unresolved-toggle").assertIsDisplayed().performClick()
-        rule.onNodeWithTag("unresolved-movie:1").assertIsDisplayed()
-    }
     @Test fun combinedContinueRailDeduplicatesAndCanReturnToSeparateNextUp() {
         var preferences by mutableStateOf(Personalization(combineContinueWatching = true))
         val resume = LibraryMedia("episode", "Testserie", "S01 E01", .4f, R.drawable.media_placeholder, ServiceKind.JELLYFIN, mediaType = "Episode")

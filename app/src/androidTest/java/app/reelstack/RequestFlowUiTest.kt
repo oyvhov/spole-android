@@ -47,15 +47,6 @@ class RequestFlowUiTest {
         rule.onNodeWithTag("confirm-request").assertIsNotEnabled()
         rule.onNodeWithText("Sjekk på nytt").performScrollTo().assertIsDisplayed()
     }
-    @Test fun trackedRequestShowsRealStageAndNotificationChoice() {
-        var notify = false
-        val request = TrackedRequest("x", 2, "tv", "Testserie", null, setOf(2), false, RequestStage.IMPORTING)
-        rule.setContent { ReelstackTheme { TrackedRequestCard(request, {}, { notify = it }) } }
-        rule.onNodeWithText("Blir lagt i biblioteket").assertIsDisplayed()
-        rule.onNodeWithText("Sesong 2").assertIsDisplayed()
-        rule.onNodeWithText("Lastar ned").assertDoesNotExist()
-        assertFalse(notify)
-    }
 
     @Test fun partialSeasonCanEnableAlertWithoutSelectingOrSendingRequest() {
         var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(2, LocalizedText.raw("Sesong 2"), 8, 4)), loading = false))
@@ -86,18 +77,6 @@ class RequestFlowUiTest {
         rule.onNodeWithTag("request-notification").performScrollTo().assertIsOn()
     }
 
-    @Test fun availabilityOnlyCardNeverShowsWithdrawalOrFakeRequestProgress() {
-        var removed = false
-        val watch = TrackedRequest("watch", 42, "tv", "Testserie", null, setOf(2), stage = RequestStage.WATCHING, availabilityOnly = true)
-        rule.setContent { ReelstackTheme { TrackedRequestCard(watch, {}, {}, onCancel = { removed = true }) } }
-        rule.onNodeWithText("Følgjer med").assertIsDisplayed()
-        rule.onNodeWithText("Sesong 2").assertIsDisplayed()
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        rule.onNodeWithText(context.getString(R.string.flow_badge_following)).assertIsDisplayed()
-        rule.onNodeWithTag("cancel-request-watch").assertDoesNotExist()
-        rule.onNodeWithTag("remove-watch-watch").performClick()
-        assertTrue(removed)
-    }
 
     @Test fun seasonWatchControlsWorkAtDoubleTextSize() {
         var draft by mutableStateOf(RequestDraft(media, listOf(RequestSeason(2, LocalizedText.raw("Sesong 2"), 12, 4)), loading = false))

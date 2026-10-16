@@ -47,14 +47,6 @@ class EnglishRequestFlowTest {
         rule.onNodeWithTag("confirm-request").performClick()
         assertEquals(1, sent)
     }
-    @Test fun requestStageDoesNotTurnImportingIntoDownloading() {
-        val request = TrackedRequest("fixture", 1, "tv", "A title", null, setOf(2), stage = RequestStage.IMPORTING)
-        rule.setContent { English { TrackedRequestCard(request, {}, {}) } }
-        rule.onNodeWithText("Adding to library").assertIsDisplayed()
-        rule.onNodeWithText("Season 2").assertIsDisplayed()
-        rule.onNodeWithText("Downloading").assertDoesNotExist()
-        rule.onNodeWithContentDescription("Notifications on for A title").assertExists()
-    }
     @Test fun accountPanelTranslatesControlsWithoutChangingTheActor() {
         val account = ServiceAccount(ServiceKind.SEERR, "7", "Maya", permissions = 32)
         rule.setContent { English { SettingsAccounts(ReelstackUiState(

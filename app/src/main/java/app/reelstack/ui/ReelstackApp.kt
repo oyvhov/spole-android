@@ -106,7 +106,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import app.reelstack.R
-import app.reelstack.ui.screens.ActivityScreen
 import app.reelstack.ui.screens.DiscoverScreen
 import app.reelstack.ui.screens.HomeScreen
 import app.reelstack.ui.screens.SettingsScreen
@@ -454,10 +453,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         showBrand = !showRail,
                         cardActions = cardActions,
                     )
-                    AppTab.DISCOVER -> if (state.myRequestsOpen) ActivityScreen(state, screenInsets, viewModel::openActivityDetails,
-                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
-                        viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
-                        viewModel::closeRequestHistory, viewModel::loadRequestHistory)
+                    AppTab.DISCOVER -> if (state.myRequestsOpen) app.reelstack.ui.screens.MyRequestsScreen(state, screenInsets,
+                        onOpen = viewModel::openActivityDetails, onBack = viewModel::closeMyRequests,
+                        onLoadOlder = { viewModel.loadRequestHistory(true) }, onEvent = viewModel::openActivityDetails)
                     else DiscoverScreen(
                         state = discoverState,
                         contentPadding = screenInsets,

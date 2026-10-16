@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="my_requests_title">Dine førespurnader</string>
+    <string name="my_requests_tab_all">Alle</string>
+    <string name="my_requests_tab_in_progress">På veg</string>
+    <string name="my_requests_tab_ready">Klare</string>
+    <string name="my_requests_tab_server">Tenaren</string>
+    <string name="my_requests_empty">Du har ikkje bede om noko enno.</string>
+    <string name="my_requests_unresolved">Førespurnad nr. %1$d</string>
+    <string name="my_requests_older">Hent eldre</string>
+    <plurals name="my_requests_seasons">
+        <item quantity="one">Sesong %1$s</item>
+        <item quantity="other">Sesong %1$s</item>
+    </plurals>
+</resources>

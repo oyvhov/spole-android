@@ -17,48 +17,7 @@ import org.junit.Test
 class UiConsistencyTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun personalActivityShowsReadyTitlesAndRequestsInProgress() {
-        assumeTouchLayout()
-        rule.setContent {
-            ReelstackTheme {
-                androidx.compose.runtime.key("personal-activity-filter") {
-                    ActivityScreen(ReelstackUiState(connections = listOf(
-                        ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "fixture", sessionCookie = true)),
-                        accounts = mapOf(ServiceKind.SEERR to ServiceAccount(ServiceKind.SEERR, "me", "Testperson")),
-                        trackedRequests = listOf(
-                            TrackedRequest("ready", 1, "movie", "Klar for filmkveld", null, emptySet(), notify = false, stage = RequestStage.AVAILABLE),
-                            TrackedRequest("pending", 2, "movie", "På veg heim", null, emptySet(), notify = false, stage = RequestStage.REQUESTED),
-                        )), PaddingValues(0.dp), {})
-                }
-            }
-        }
-        rule.onNodeWithTag("activity-personal-ALL").performScrollTo().performClick()
-        rule.onNodeWithText("Klar for filmkveld").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("På veg heim").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithContentDescription("Framdrift: Førespurd").performScrollTo().assertIsDisplayed()
-    }
 
-    @Test fun activityFiltersSourceAndOpensExactTitle() {
-        var opened = ""
-        rule.setContent {
-            ReelstackTheme {
-                ActivityScreen(ReelstackUiState(activity = listOf(
-                    ActivityEvent("one", "Film A", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_requested), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_now), source = ServiceKind.JELLYFIN),
-                    ActivityEvent("two", "Film B", app.reelstack.localization.LocalizedText(app.reelstack.R.string.stage_downloading), app.reelstack.localization.LocalizedText(app.reelstack.R.string.time_now), source = ServiceKind.SEERR),
-                )), PaddingValues(0.dp), { opened = it })
-            }
-        }
-        rule.onNodeWithTag("activity-scope").performClick()
-        rule.onNodeWithText("Seerr").performClick()
-        rule.onNodeWithText("Film A").assertDoesNotExist()
-        rule.onNodeWithText("Film B").performClick()
-        assertEquals("two", opened)
-        rule.onNodeWithTag("activity-scope").performClick()
-        rule.onNodeWithText("Sonarr").assertDoesNotExist()
-        rule.onNodeWithText("Radarr").assertDoesNotExist()
-        rule.onNodeWithText("Alt").performClick()
-        rule.onNodeWithText("Film A").assertIsDisplayed()
-    }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun settingsToggleHasOneActionAndShowsLibraryNotifications() {
