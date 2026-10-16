@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta15 - stødig TV-fokus og lettare førespurnader
+
+- TV-framsida: fokus hoppar ikkje lenger til sidemenyen når heroen byter tittel. Fakta-lina i heroen tok fokus utan synleg ramme, og når heroen byta, sende Android fokus til menyen. Fokus startar no på «Spel av», og ned frå kontoknappen går til heroen.
+- Mobil: «Be om» og «Be om sesongar» ligg fast nedst på tittelsida, slik «Spel av» gjer for titlar du har.
+- Å be om ein film er eitt lite ark: tittel, konto, kvalitet og lagringsstad når kontoen har lov, varsel og «Send førespurnad». På TV får arket plass på éin skjerm og startar på «Send førespurnad». Seriar beheld sesongvalet.
+- Oppdag på TV: rada med fokus legg seg rett under toppfeltet, utan halve rader over. Førespurnadene dine viser eige bakgrunnsbilete og samandrag i toppfeltet.
+
 ## 1.0.0-beta14 - Oppdag og førespurnader på éin stad
 
 - Oppdag og Aktivitet er slått saman. Aktivitet er ikkje lenger ei eiga fane: «Dine førespurnader» står øvst i Oppdag, med fanene Alle, På veg og Klare, og Tenaren for administratorar.
