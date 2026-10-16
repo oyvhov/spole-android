@@ -29,7 +29,8 @@ import app.reelstack.ui.theme.SurfaceRaised
 @Composable
 fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKind? = null,
     loadTitles: suspend (CastMember, app.reelstack.data.model.ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
-    onTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {}) {
+    onTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
+    onSeerrPerson: (Int) -> Unit = {}) {
     var selected by remember(cast) { mutableStateOf<CastMember?>(null) }
     var titles by remember(cast) { mutableStateOf(emptyList<app.reelstack.data.model.LibraryMedia>()) }
     var loading by remember { mutableStateOf(false) }
@@ -49,13 +50,15 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        items(cast.distinctBy { it.remoteId ?: it.name }, key = { it.remoteId ?: it.name }) { person ->
+        items(cast.distinctBy { it.remoteId ?: it.seerrPersonId?.toString() ?: it.name },
+            key = { it.remoteId ?: it.seerrPersonId?.toString() ?: it.name }) { person ->
             val interaction = remember { MutableInteractionSource() }
             val shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             Column(Modifier.width(104.dp).focusOutline(interaction, shape)
                 .clickable(interactionSource = interaction, indication = mediaCardIndication(),
-                    enabled = person.remoteId != null && source != null, role = Role.Button) {
-                    selected = if (selected == person) null else person
+                    enabled = person.seerrPersonId != null || (person.remoteId != null && source != null), role = Role.Button) {
+                    val seerrId = person.seerrPersonId
+                    if (seerrId != null) onSeerrPerson(seerrId) else selected = if (selected == person) null else person
                 }.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(portraitSize).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
                     if (person.portraitUrl != null) {

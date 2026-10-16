@@ -583,6 +583,8 @@ object ServicePayloadParser {
                 app.reelstack.data.model.CastMember(name, person.string("character"),
                     person.string("profilePath")?.let { tmdbImage(it, "w185") }, seerrPersonId = person.int("id"))
             }.distinctBy { it.name }.take(16),
+            trailerUrl = item.array("relatedVideos").mapNotNull { it as? JsonObject }
+                .firstOrNull { it.string("type") == "Trailer" && it.string("site") == "YouTube" }?.string("url"),
         )
     }
 

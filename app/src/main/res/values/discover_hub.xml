@@ -33,4 +33,11 @@
     <string name="person_dept_sound">Sound and music</string>
     <string name="person_dept_camera">Camera</string>
     <string name="person_dept_editing">Editing</string>
+    <string name="title_action_request">Request</string>
+    <string name="title_action_request_seasons">Request seasons</string>
+    <string name="title_action_withdraw">Withdraw</string>
+    <string name="title_action_notify_on">Alert on</string>
+    <string name="title_action_notify_off">Alert off</string>
+    <string name="title_similar">Similar titles</string>
+    <string name="title_recommended">Recommended from this</string>
 </resources>

@@ -317,6 +317,9 @@ data class ContentDetails(
     val versions: List<MediaVersion> = emptyList(),
     val backdropUrl: String? = null,
     val trailerUrl: String? = null,
+    /** Seerr's similar titles and its recommendations from this one, as poster rows. */
+    val similar: List<DiscoverMedia> = emptyList(),
+    val recommended: List<DiscoverMedia> = emptyList(),
     val logoUrl: String? = null,
     val criticRating: Int? = null,
     /** Ratings are kept separate so a server's generic critic score is never mislabeled. */

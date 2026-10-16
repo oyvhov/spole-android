@@ -86,7 +86,7 @@ class Alpha12UiTest {
                         facts = listOf("2026", "117 min", "★ 6,0"))), null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
             } }
         }
-        rule.onNodeWithTag("tv-title-request").assertIsDisplayed().assertIsFocused()
-        rule.onNodeWithTag("tv-title-request").captureToImage()
+        rule.onNodeWithTag("title-request").assertIsDisplayed().assertIsFocused()
+        rule.onNodeWithTag("title-request").captureToImage()
     }
 }

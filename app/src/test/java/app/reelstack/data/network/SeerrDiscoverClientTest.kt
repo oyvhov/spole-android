@@ -79,4 +79,11 @@ class SeerrDiscoverClientTest {
         assertEquals("Margaret Qualley", client.person(seerr, 501).name)
         assertEquals(listOf(12, 11), client.personCredits(seerr, 501).map { it.remoteId })
     }
+
+    @Test fun aSeerrTitleKeepsItsYouTubeTrailer() {
+        val details = ServicePayloadParser.mediaDetails("""{"title":"X","relatedVideos":[
+            {"type":"Teaser","site":"YouTube","url":"https://www.youtube.com/watch?v=a"},
+            {"type":"Trailer","site":"YouTube","url":"https://www.youtube.com/watch?v=b"}]}""")
+        assertEquals("https://www.youtube.com/watch?v=b", details.trailerUrl)
+    }
 }

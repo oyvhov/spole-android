@@ -184,6 +184,10 @@ fun ReelstackSheets(
     onDetailBack: () -> Boolean = { false },
     onSessionSelected: (String) -> Unit = {},
     onPersonPageTitle: (String) -> Unit = {},
+    onWithdraw: (String) -> Unit = {},
+    onNotify: (String, Boolean) -> Unit = { _, _ -> },
+    onRelated: (String) -> Unit = {},
+    onSeerrPerson: (Int) -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     // The profile menu is an anchored popup owned by the shell. Falling through to the dialog here
@@ -289,7 +293,8 @@ fun ReelstackSheets(
                             onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered, onCalendarFollow = onCalendarFollow,
                             onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason, onEpisodeSeries = onEpisodeSeries,
                             onOfflineDownload = onOfflineDownload,
-                            onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle, onEpisodeClick = onEpisodeClick)
+                            onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle, onEpisodeClick = onEpisodeClick,
+                            onWithdraw = onWithdraw, onNotify = onNotify, onRelated = onRelated, onSeerrPerson = onSeerrPerson)
                     }
                 }
                 is AppSheet.Person -> androidx.compose.runtime.key(sheet.id) {
@@ -399,7 +404,11 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
     onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
-    onCalendarFollow: (ContentDetails) -> Unit = {}) {
+    onCalendarFollow: (ContentDetails) -> Unit = {},
+    onWithdraw: (String) -> Unit = {},
+    onNotify: (String, Boolean) -> Unit = { _, _ -> },
+    onRelated: (String) -> Unit = {},
+    onSeerrPerson: (Int) -> Unit = {}) {
     val details = state.contentDetails ?: return
     // Freeze the opening artwork and title. Late metadata must not replace or resize the hero.
     val opening = remember(details.key) { details }
@@ -434,7 +443,47 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (details.cast.isNotEmpty()) {
             Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 18.dp, bottom = 12.dp))
-            app.reelstack.ui.components.CastRail(details.cast, details.source, onPersonTitles, onPersonTitle)
+            app.reelstack.ui.components.CastRail(details.cast, details.source, onPersonTitles, onPersonTitle, onSeerrPerson)
+        }
+    }
+    // What can be done with a Seerr title, as words: ask for it, withdraw your own waiting
+    // request, and turn the alert for it on or off. No filled buttons.
+    val tracked = state.trackedRequests.firstOrNull { discoverMedia != null && it.mediaId == discoverMedia.remoteId &&
+        it.mediaType == discoverMedia.mediaType && !it.is4k }
+    val canAsk = discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
+        state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)
+    val seerrActions = buildList {
+        if (canAsk && discoverMedia != null) {
+            val adding = discoverMedia.id in state.requestingMediaIds
+            val needsAccount = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() } &&
+                state.accounts[ServiceKind.SEERR]?.isPersonal != true
+            add(app.reelstack.ui.components.TextAction(stringResource(when {
+                adding -> R.string.media_adding
+                needsAccount -> R.string.media_login_add
+                discoverMedia.mediaType == "tv" -> R.string.title_action_request_seasons
+                else -> R.string.title_action_request
+            }), if (discoverMedia.mediaType == "tv") app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add,
+                "title-request") { if (adding) Unit else if (needsAccount) onSeerrAccount() else onAddMedia(discoverMedia.id) })
+        }
+        if (tracked != null && tracked.requestId != null && !tracked.availabilityOnly && tracked.stage == app.reelstack.data.model.RequestStage.REQUESTED)
+            add(app.reelstack.ui.components.TextAction(stringResource(R.string.title_action_withdraw), app.reelstack.ui.components.SpoleIcons.Close,
+                "title-withdraw") { onWithdraw(tracked.key) })
+        if (tracked != null) add(app.reelstack.ui.components.TextAction(
+            stringResource(if (tracked.notify) R.string.title_action_notify_on else R.string.title_action_notify_off),
+            if (tracked.notify) app.reelstack.ui.components.SpoleIcons.Bell else app.reelstack.ui.components.SpoleIcons.BellOff,
+            "title-notify") { onNotify(tracked.key, !tracked.notify) })
+    }
+    val relatedBlock: @Composable () -> Unit = {
+        listOf(R.string.title_similar to details.similar, R.string.title_recommended to details.recommended).forEach { (label, titles) ->
+            if (titles.isEmpty()) return@forEach
+            Text(stringResource(label), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 18.dp, bottom = 12.dp).testTag(if (label == R.string.title_similar) "title-similar" else "title-recommended"))
+            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(titles.size, key = { titles[it].id }) { index ->
+                    app.reelstack.ui.screens.PosterOnlyCard(titles[index], { onRelated(titles[index].id) },
+                        Modifier.width((if (tv) 120.dp else 104.dp) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale))
+                }
+            }
         }
     }
     val aside: @Composable () -> Unit = {
@@ -474,7 +523,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 app.reelstack.ui.components.TvDetailSynopsis(details)
                 actions()
                 if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
-                TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
+                app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
+                    focusFirst = seerrActions.firstOrNull()?.tag == "title-request")
             } else {
                 DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 24.dp).testTag("detail-loading"))
             }
@@ -482,6 +532,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             if (ready) {
                 SeriesEpisodes(state.seriesBrowse, details.key, onSeason, onEpisodeClick)
                 castBlock()
+                relatedBlock()
                 if (!isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
                     { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
                 details.error?.let { Text(it, color = Warning, modifier = Modifier.padding(top = 16.dp)) }
@@ -584,7 +635,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (!tv && mediaType == "Episode") synopsis()
         if (tv && !wideDetail) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
-        if (tv) TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
+        if (tv) app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
+            focusFirst = seerrActions.firstOrNull()?.tag == "title-request")
         if (details.title != opening.title) {
             Text(details.title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 20.dp))
@@ -603,10 +655,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // TV has already shown these alongside its smaller poster.
         if (!tv && mediaType != "Episode") synopsis()
         details.statusTitle?.takeUnless { details.libraryAvailable && details.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }?.let { title ->
-            Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
-                .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
-                if (details.libraryAvailable) Icon(app.reelstack.ui.components.SpoleIcons.Movie, null, tint = Primary, modifier = Modifier.padding(top = 3.dp).size(20.dp))
-                else Icon(app.reelstack.ui.components.SpoleIcons.Clock, null, tint = Muted, modifier = Modifier.padding(top = 3.dp).size(20.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 24.dp).testTag("title-status"), verticalAlignment = Alignment.Top) {
+                Icon(if (details.libraryAvailable) app.reelstack.ui.components.SpoleIcons.Movie else app.reelstack.ui.components.SpoleIcons.Clock,
+                    null, tint = Muted, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
                     Text(if (discoverMedia?.seerrStatus != null) app.reelstack.localization.localizedSeerrStatus(discoverMedia.seerrStatus, discoverMedia.inLibrary, discoverMedia.requested) else title, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
                     details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -616,44 +667,10 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         details.error?.let {
             Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 12.dp))
         }
+        if (!tv && canAsk) RequestIdentity(state, onSeerrAccount)
+        if (!tv) app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 18.dp))
         castBlock()
-        if (!tv && discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
-            state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
-            val adding = discoverMedia.id in state.requestingMediaIds
-            val connectedSeerr = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() }
-            val needsAccount = connectedSeerr && state.accounts[ServiceKind.SEERR]?.isPersonal != true
-            RequestIdentity(state, onSeerrAccount)
-            Button(
-                onClick = { if (needsAccount) onSeerrAccount() else onAddMedia(discoverMedia.id) },
-                enabled = !adding,
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Primary,
-                    contentColor = Ink,
-                    // Follows the chosen accent. These used to be fixed greens, so a coral or
-                    // iris accent had a green disabled state.
-                    disabledContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-                modifier = Modifier.fillMaxWidth().padding(top = 22.dp).heightIn(min = 56.dp),
-            ) {
-                if (adding) {
-                    CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(19.dp))
-                } else {
-                    Icon(if (discoverMedia.mediaType == "tv") app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add,
-                        contentDescription = null, modifier = Modifier.size(20.dp))
-                }
-                Text(
-                    when {
-                        adding -> stringResource(R.string.media_adding)
-                        needsAccount -> stringResource(R.string.media_login_add)
-                        discoverMedia.mediaType == "tv" -> stringResource(R.string.media_seasons)
-                        else -> stringResource(R.string.media_add_collection)
-                    },
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-        }
+        relatedBlock()
         }
     }
     }
@@ -668,27 +685,6 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }
         }
     }
-    }
-}
-
-@Composable
-private fun TvTitleRequestAction(state: ReelstackUiState, key: String, onAddMedia: (String) -> Unit, onAccount: () -> Unit) {
-    val media = state.knownDiscoverMedia.firstOrNull { it.id == key } ?: return
-    if (!media.canRequest || !(state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let {
-            media.mediaType == "tv" || !it.isPersonal || it.canRequestType(media.mediaType ?: "movie") } == true)) return
-    val adding = media.id in state.requestingMediaIds
-    val needsAccount = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() } && state.accounts[ServiceKind.SEERR]?.isPersonal != true
-    val focus = remember(key) { FocusRequester() }
-    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    LaunchedEffect(key) { androidx.compose.runtime.withFrameNanos { }; focus.requestFocus() }
-    Button(onClick = { if (needsAccount) onAccount() else onAddMedia(media.id) }, enabled = !adding,
-        interactionSource = interaction, shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.padding(top = 16.dp).widthIn(min = 220.dp).heightIn(min = 52.dp)
-            .focusRequester(focus).focusOutline(interaction, RoundedCornerShape(16.dp))
-            .testTag("tv-title-request")) {
-        Icon(if (media.mediaType == "tv") app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add, null)
-        Text(stringResource(when { adding -> R.string.media_adding; needsAccount -> R.string.media_login_add;
-            media.mediaType == "tv" -> R.string.media_seasons; else -> R.string.media_add_collection }), Modifier.padding(start = 10.dp))
     }
 }
 

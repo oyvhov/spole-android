@@ -315,7 +315,8 @@ data class ReelstackUiState(
 
     /** Every Seerr card on screen anywhere, so details and requests work from the global search too. */
     val knownDiscoverMedia: List<DiscoverMedia>
-        get() = listOfNotNull(detailMedia) + personPage?.inLibrary.orEmpty() + personPage?.more.orEmpty() + discoverHub.allMedia + discover + searchResults + globalSearch.results + recommendations +
+        get() = listOfNotNull(detailMedia) + personPage?.inLibrary.orEmpty() + personPage?.more.orEmpty() +
+            contentDetails?.similar.orEmpty() + contentDetails?.recommended.orEmpty() + discoverHub.allMedia + discover + searchResults + globalSearch.results + recommendations +
             upcoming.mapNotNull { item -> item.tmdbId?.let { id ->
                 DiscoverMedia(item.id, item.title, item.subtitle, item.artworkRes, false,
                     artworkUrl = item.artworkUrl, remoteId = id, mediaType = if (item.mediaType == "Movie") "movie" else "tv",
@@ -2407,6 +2408,16 @@ class ReelstackViewModel(
         }
         if (connection == null || media.remoteId == null || media.mediaType == null) return
         operationScope.launch {
+            // The rows below the cast load beside the details, never in front of them.
+            launch {
+                val similar = attempt { withContext(Dispatchers.IO) { container.mediaSyncRepository.similar(connection, media) } }.getOrDefault(emptyList())
+                val recommended = attempt { withContext(Dispatchers.IO) { container.mediaSyncRepository.recommended(connection, media) } }.getOrDefault(emptyList())
+                _uiState.update { current ->
+                    val details = current.contentDetails?.takeIf { it.key == media.id } ?: return@update current
+                    current.copy(contentDetails = details.copy(similar = similar.filterNot { it.id == media.id }.take(20),
+                        recommended = recommended.filterNot { it.id == media.id }.take(20)))
+                }
+            }
             val result = attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
             }
@@ -2426,6 +2437,7 @@ class ReelstackViewModel(
                                 facts = (words(remote.facts) + details.facts).distinct(),
                                 genres = (remote.genres + details.genres).distinct(),
                                 artworkUrl = remote.artworkUrl ?: details.artworkUrl,
+                                trailerUrl = remote.trailerUrl ?: details.trailerUrl,
                                 loading = false,
                             ),
                             discover = current.discover.map { item ->

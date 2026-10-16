@@ -33,4 +33,11 @@
     <string name="person_dept_sound">Lyd og musikk</string>
     <string name="person_dept_camera">Foto</string>
     <string name="person_dept_editing">Klipp</string>
+    <string name="title_action_request">Be om</string>
+    <string name="title_action_request_seasons">Be om sesongar</string>
+    <string name="title_action_withdraw">Trekk tilbake</string>
+    <string name="title_action_notify_on">Varsel på</string>
+    <string name="title_action_notify_off">Varsel av</string>
+    <string name="title_similar">Liknande titlar</string>
+    <string name="title_recommended">Tilrådd ut frå denne</string>
 </resources>
