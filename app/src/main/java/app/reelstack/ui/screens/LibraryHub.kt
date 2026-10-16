@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -159,7 +160,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
                 val label = stringResource(R.string.refine_library_edit)
                 TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                     tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
-                    IconButton(onClick = onCustomize, modifier = Modifier.testTag("hub-customize")) {
+                    IconButton(onClick = onCustomize, modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("hub-customize")) {
                         Icon(SpoleIcons.Tune, label)
                     }
                 }

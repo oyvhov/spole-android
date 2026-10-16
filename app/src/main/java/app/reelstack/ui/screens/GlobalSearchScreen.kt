@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.reelstack.ui.components.OpenMenuAction
 import app.reelstack.ui.components.QuietEmptyState
+import app.reelstack.ui.components.focusRing
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -113,7 +115,7 @@ fun GlobalSearchScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
             Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = ReelLayout.Gutter, top = 12.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose, modifier = Modifier.testTag("global-search-close")) {
+                IconButton(onClick = onClose, modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("global-search-close")) {
                     Icon(SpoleIcons.ArrowBack, stringResource(R.string.action_back))
                 }
                 TextField(
@@ -126,7 +128,7 @@ fun GlobalSearchScreen(
                             CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                         } else if (search.query.isNotEmpty()) {
                             IconButton(onClick = { onQuery(""); runCatching { field.requestFocus() } },
-                                modifier = Modifier.testTag("global-search-clear")) {
+                                modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("global-search-clear")) {
                                 Icon(SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
                             }
                         }
@@ -226,7 +228,7 @@ fun GlobalSearchScreen(
                                 onClick = onLoadMore,
                                 enabled = !search.loadingMore,
                                 shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("global-search-more"),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).focusRing(RoundedCornerShape(14.dp)).testTag("global-search-more"),
                             ) {
                                 if (search.loadingMore) {
                                     CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)

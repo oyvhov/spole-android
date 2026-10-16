@@ -2,6 +2,7 @@ package app.reelstack.ui.screens
 import app.reelstack.ui.components.SettingsServiceRow
 
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
 import app.reelstack.data.model.DiscoverGridTarget
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -295,7 +296,7 @@ fun DiscoverScreen(
                 if (television) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     IconButton(onClick = hubActions.onSearch, interactionSource = interaction,
-                        modifier = Modifier.focusOutline(interaction, CircleShape).testTag("discover-search-icon")) {
+                        modifier = Modifier.size(48.dp).focusOutline(interaction, CircleShape).testTag("discover-search-icon")) {
                         Icon(app.reelstack.ui.components.SpoleIcons.Search, stringResource(R.string.discover_search_hint), tint = TextColor)
                     }
                     accountButton()
@@ -393,7 +394,7 @@ private fun DiscoverSearchGrid(
                         enabled = !state.loadingMoreSearch,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 52.dp)
-                            .testTag("discover-load-more"),
+                            .focusRing(RoundedCornerShape(14.dp)).testTag("discover-load-more"),
                     ) {
                         if (state.loadingMoreSearch) {
                             CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)
@@ -429,7 +430,7 @@ private fun TvSearchBox(query: String, modifier: Modifier, onClear: () -> Unit, 
             fontSize = 14.sp, lineHeight = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(start = 12.dp),
         )
-        if (query.isNotBlank()) IconButton(onClick = onClear, modifier = Modifier.testTag("discover-search-clear")) {
+        if (query.isNotBlank()) IconButton(onClick = onClear, modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("discover-search-clear")) {
             Icon(app.reelstack.ui.components.SpoleIcons.Close, stringResource(R.string.search_clear), tint = Muted)
         }
     }

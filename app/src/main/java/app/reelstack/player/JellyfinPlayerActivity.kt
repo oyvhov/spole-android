@@ -1,6 +1,7 @@
 package app.reelstack.player
 
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
 
 import androidx.compose.ui.res.stringResource
 import app.reelstack.R
@@ -564,14 +565,18 @@ fun PlayerScreen(
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (state.awaitingResume) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Button(onClick = { onResume(false) }) { Text(stringResource(R.string.player_resume, playbackTime(state.positionMs))) }
+                            Button(onClick = { onResume(false) }, modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.shape)) {
+                                Text(stringResource(R.string.player_resume, playbackTime(state.positionMs)))
+                            }
                             app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onResume(true) }) { Text(stringResource(R.string.player_restart)) }
                         }
                     } else if (state.error != null) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(app.reelstack.ui.components.SpoleIcons.Alert, null, tint = MaterialTheme.colorScheme.error)
                             Text(state.error, modifier = Modifier.padding(vertical = 12.dp))
-                            Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                            Button(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.shape)) {
+                                Text(stringResource(R.string.action_retry))
+                            }
                             if (!offline) app.reelstack.ui.components.SpoleSecondaryButton(onClick = onExternal) { Text(stringResource(R.string.player_external, state.source.displayName)) }
                         }
                     } else {
@@ -1035,13 +1040,13 @@ private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCanc
                     val cancelInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     TextButton(onClick = onCancel, interactionSource = cancelInteraction,
                         colors = ButtonDefaults.textButtonColors(contentColor = Color.White), shape = shape,
-                        modifier = Modifier.heightIn(min = 40.dp).neutralPlayerFocus(cancelInteraction, shape).testTag("player-next-cancel")) {
+                        modifier = Modifier.heightIn(min = 48.dp).neutralPlayerFocus(cancelInteraction, shape).testTag("player-next-cancel")) {
                         Text(stringResource(if (state.ended) R.string.next_episode_cancel else R.string.next_episode_dismiss))
                     }
                 }
                 Button(onClick = onPlay, shape = shape, interactionSource = interaction,
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = .18f), contentColor = Color.White),
-                    modifier = Modifier.heightIn(min = 40.dp).focusRequester(focus)
+                    modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus)
                         .neutralPlayerFocus(interaction, shape).testTag("player-next-play")) {
                     // Keep the countdown in the one affirmative action, as in Emby.  It gives the
                     // timeout a home without adding a third line or making the small TV card grow.
@@ -1091,9 +1096,9 @@ private fun SeriesFinishedCard(onClose: () -> Unit, focus: FocusRequester, modif
                 Text(stringResource(R.string.player_series_finished_hint), style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = .7f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            TextButton(onClick = onClose, interactionSource = interaction,
+            TextButton(onClick = onClose, interactionSource = interaction, shape = shape,
                 colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
-                modifier = Modifier.heightIn(min = 40.dp).focusRequester(focus)
+                modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus)
                     .neutralPlayerFocus(interaction, shape).testTag("player-series-finished-close")) {
                 Text(stringResource(R.string.player_return_to_series))
             }
@@ -1123,7 +1128,7 @@ private fun SkipSegmentButton(state: PlayerScreenState, onSkip: () -> Unit) {
         Button(
             onClick = onSkip,
             shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus).testTag("player-skip-segment"),
+            modifier = Modifier.heightIn(min = 48.dp).focusRing(RoundedCornerShape(14.dp)).focusRequester(focus).testTag("player-skip-segment"),
         ) {
             Text(stringResource(
                 if (segment.kind == PlaybackSegment.Kind.INTRO) R.string.player_skip_intro

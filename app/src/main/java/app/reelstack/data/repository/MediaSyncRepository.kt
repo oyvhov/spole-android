@@ -491,6 +491,9 @@ class MediaSyncRepository(
         seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId, seasons, choice)
     }
 
+    fun criticScore(connection: ServiceConnection, media: DiscoverMedia): Int? =
+        seerrDiscoverClient.criticScore(connection, requireNotNull(media.mediaType), requireNotNull(media.remoteId))
+
     fun requestOptions(connection: ServiceConnection, mediaType: String, is4k: Boolean) =
         seerrDiscoverClient.requestOptions(connection, mediaType, is4k)
 

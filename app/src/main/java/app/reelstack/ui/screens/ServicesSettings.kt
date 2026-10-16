@@ -155,12 +155,14 @@ private fun ChildProfileSettings(
             title = { Text(stringResource(R.string.kids_pin_disable_title)) },
             text = { Text(stringResource(R.string.kids_pin_disable_body)) },
             confirmButton = {
-                TextButton(onClick = { confirmDisablePin = false; onDisablePin() }) {
+                TextButton(onClick = { confirmDisablePin = false; onDisablePin() },
+                    modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape)) {
                     Text(stringResource(R.string.kids_pin_disable_action))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDisablePin = false }) {
+                TextButton(onClick = { confirmDisablePin = false },
+                    modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape)) {
                     Text(stringResource(R.string.account_cancel))
                 }
             },

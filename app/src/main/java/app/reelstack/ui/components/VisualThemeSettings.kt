@@ -287,10 +287,14 @@ internal fun AppLabelSetting(value: Personalization, onChange: (Personalization)
                 TextButton(onClick = {
                     onChange(value.copy(appLabel = draft.trim().ifBlank { "Spole" }))
                     open = false
-                }) { Text(stringResource(R.string.library_save)) }
+                }, modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape)) {
+                    Text(stringResource(R.string.library_save))
+                }
             },
             dismissButton = {
-                TextButton(onClick = { open = false }) { Text(stringResource(R.string.library_cancel)) }
+                TextButton(onClick = { open = false }, modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape)) {
+                    Text(stringResource(R.string.library_cancel))
+                }
             },
         )
     }

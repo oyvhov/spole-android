@@ -388,6 +388,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             // The hero is usually showing something you are already part-way through. Starting or
             // resuming it is therefore the leading, accent-coloured action; details remain one
             // D-pad press to the right and keep their stable identity while the hero rotates.
+            // On a television the buttons have no touch margin, so each ring lies on its own pill.
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalMinimumInteractiveComponentSize provides
+                if (television) 0.dp else androidx.compose.material3.LocalMinimumInteractiveComponentSize.current) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (selected.playableNow()) {
                     val resuming = (selected.progress ?: 0f) > 0f
@@ -399,6 +402,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                         },
                         interactionSource = playInteraction,
                         modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
+                            .focusRing(ButtonDefaults.shape)
                             .focusRequester(playFocus)
                             .testTag("tablet-feature-play"),
                     ) {
@@ -410,6 +414,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 }
                 FilledTonalButton(onClick = { onOpen(selected.id) }, interactionSource = actionInteraction,
                     modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
+                    .focusRing(ButtonDefaults.filledTonalShape)
                     .focusRequester(openFocus)
                     .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
@@ -417,6 +422,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                     Icon(app.reelstack.ui.components.SpoleIcons.ArrowForward, null,
                         Modifier.padding(start = 8.dp).size(16.dp).testTag("tablet-feature-open-icon"))
                 }
+            }
             }
         }
         if (account != null) {

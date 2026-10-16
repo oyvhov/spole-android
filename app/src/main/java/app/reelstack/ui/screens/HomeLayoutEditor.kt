@@ -109,7 +109,8 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
                             leadingIcon = sources.firstOrNull { it.name == value }?.let { kind ->
                                 { ServiceLogo(kind, null, Modifier.size(16.dp)) }
                             },
-                            modifier = Modifier.testTag("home-layout-filter-$value"))
+                            modifier = Modifier.heightIn(min = 48.dp).focusRing(FilterChipDefaults.shape)
+                                .testTag("home-layout-filter-$value"))
                     }
                 }
                 if (selectedSource != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -205,11 +206,11 @@ internal fun HomeLayoutEditor(state: ReelstackUiState, actions: HomeEditorAction
                     val resetInteraction = remember { MutableInteractionSource() }
                     val doneInteraction = remember { MutableInteractionSource() }
                     TextButton(onClick = { actions.onLayoutChange(HomeLayout.DEFAULT) }, interactionSource = resetInteraction,
-                        modifier = Modifier.focusOutline(resetInteraction, CircleShape).testTag("home-layout-reset")) {
+                        modifier = Modifier.heightIn(min = 48.dp).focusOutline(resetInteraction, CircleShape).testTag("home-layout-reset")) {
                         Text(stringResource(R.string.home_layout_reset))
                     }
                     Button(onClick = onDismiss, interactionSource = doneInteraction,
-                        modifier = Modifier.focusOutline(doneInteraction, CircleShape).testTag("home-layout-done")) {
+                        modifier = Modifier.heightIn(min = 48.dp).focusOutline(doneInteraction, CircleShape).testTag("home-layout-done")) {
                         Text(stringResource(R.string.home_order_done))
                     }
                 }
@@ -249,7 +250,7 @@ private fun HomeLayoutRow(
     val librariesButton: (@Composable RowScope.() -> Unit)? = if (libraries == null) null else { {
         val openInteraction = remember { MutableInteractionSource() }
         TextButton(onClick = onOpen, interactionSource = openInteraction,
-            modifier = Modifier.weight(1f, fill = false).focusOutline(openInteraction, CircleShape)
+            modifier = Modifier.weight(1f, fill = false).heightIn(min = 48.dp).focusOutline(openInteraction, CircleShape)
                 .testTag("home-layout-libraries-${row.id}")) {
             Icon(SpoleIcons.Tune, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))

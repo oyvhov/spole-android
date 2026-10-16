@@ -2,7 +2,6 @@ package app.reelstack.ui.components
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,8 +38,7 @@ internal fun ExpandableSynopsis(identity: String, title: String, overview: Strin
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 if (canExpand || expanded) {
                     app.reelstack.ui.components.SpoleSecondaryButton(onClick = { expanded = !expanded }, interactionSource = interaction,
-                        modifier = Modifier.padding(start = 8.dp).widthIn(max = actionMaxWidth)
-                            .focusOutline(interaction, CircleShape).testTag("overview-expand")) {
+                        modifier = Modifier.padding(start = 8.dp).widthIn(max = actionMaxWidth).testTag("overview-expand")) {
                         Text(stringResource(if (expanded) R.string.details_less else R.string.details_read_more))
                     }
                 }

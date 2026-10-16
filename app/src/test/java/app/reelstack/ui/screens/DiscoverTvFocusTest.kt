@@ -55,11 +55,13 @@ class DiscoverTvFocusTest {
         rule.onNodeWithTag("discover-focus-header").assert(hasAnyDescendant(hasText("Coraline")))
     }
 
-    @Test fun withoutRequestsTheRemoteStartsOnTheFirstPosterAndItsOverviewComesFromTheDetails() {
+    @Test fun withoutRequestsTheRemoteStartsOnTheFirstPosterAndTheHeaderNamesIt() {
         keyboard { DiscoverHubContent(hub(requests = emptyList(), details = mapOf("seerr-movie-1" to FocusDetails(listOf("1t 39m"), "Ein omtale."))),
             PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {})) }
         rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("discover-poster-seerr-movie-1").assertIsFocused() }.isSuccess }
-        rule.onNodeWithTag("discover-focus-header").assert(hasAnyDescendant(hasText("Ein omtale.")))
+        rule.onNodeWithTag("discover-focus-header").assert(hasAnyDescendant(hasText(media(1).title)))
+        // The synopsis is on the title page; the header only names the title.
+        rule.onAllNodes(hasAnyAncestor(hasTestTag("discover-focus-header")) and hasText("Ein omtale.")).assertCountEquals(0)
     }
 
     @Test fun theAllGridStartsOnItsFirstPoster() {
@@ -101,11 +103,13 @@ class DiscoverTvFocusTest {
         org.junit.Assert.assertTrue("focused row is $gap dp under the header", gap in 30f..80f)
     }
 
-    @Test fun aFocusedRequestShowsItsOwnPictureAndSynopsis() {
-        keyboard { DiscoverHubContent(hub(details = mapOf("seerr-movie-4" to FocusDetails(listOf("2009"), "Ei jente finn ei dør.",
+    @Test fun aFocusedRequestShowsItsOwnPictureAndYear() {
+        keyboard { DiscoverHubContent(hub(details = mapOf("seerr-movie-4" to FocusDetails(listOf("2009", "★ 7.7"), "Ei jente finn ei dør.",
             "https://image.tmdb.org/t/p/w1280/r.jpg"))), PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {})) }
         rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("my-request-r").assertIsFocused() }.isSuccess }
-        rule.onNodeWithTag("discover-focus-header").assert(hasAnyDescendant(hasText("Ei jente finn ei dør.")))
+        rule.onNodeWithTag("discover-focus-header").assert(hasAnyDescendant(hasText("2009", substring = true)))
+        rule.onNodeWithTag("discover-focus-header").assert(hasAnyDescendant(hasText("★ 7.7", substring = true)))
+        rule.onAllNodes(hasAnyAncestor(hasTestTag("discover-focus-header")) and hasText("Ei jente finn ei dør.")).assertCountEquals(0)
         rule.onNodeWithTag("discover-focus-backdrop").assertExists()
     }
 }

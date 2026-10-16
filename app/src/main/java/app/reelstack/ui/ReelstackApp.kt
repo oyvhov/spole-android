@@ -480,7 +480,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                             onTitle = viewModel::openDiscoverDetails, onPerson = viewModel::openPerson,
                             onMyRequests = viewModel::openMyRequests, onRequestLine = viewModel::openActivityDetails,
                             onGrid = viewModel::openDiscoverGrid, onRetry = { viewModel.refreshDiscoverHub(force = true) },
-                            onSearch = viewModel::openGlobalSearch, onFocusTitle = viewModel::focusDiscoverTitle,
+                            onSearch = viewModel::openGlobalSearch,
                             onFocusRequest = viewModel::focusRequestTitle),
                         onAccountClick = viewModel::openSeerrAccount,
                         onLibraryDetails = viewModel::openLibraryDetails,

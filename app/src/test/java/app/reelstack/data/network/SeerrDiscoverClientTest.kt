@@ -98,4 +98,17 @@ class SeerrDiscoverClientTest {
         assertEquals("https://image.tmdb.org/t/p/w1280/b.jpg",
             ServicePayloadParser.mediaDetails("""{"title":"X","backdropPath":"/b.jpg"}""").backdropUrl)
     }
+
+    @Test fun aSeerrTitleCarriesItsTmdbScore() {
+        // Spole keeps TMDB scores out of 100, as Jellyfin's are; 7.1 is shown as «TMDB 7.1».
+        assertEquals(71f, ServicePayloadParser.mediaDetails("""{"title":"X","voteAverage":7.1}""").tmdbRating!!, .01f)
+        assertNull(ServicePayloadParser.mediaDetails("""{"title":"X","voteAverage":0}""").tmdbRating)
+    }
+
+    @Test fun rottenTomatoesComesFromTheRatingsOfSeerr() {
+        val client = SeerrDiscoverClient(Fake(mapOf("movie/11/ratings" to """{"title":"X","criticsScore":74,"audienceScore":80}""")))
+        assertEquals(74, client.criticScore(seerr, "movie", 11))
+        // A title without a Rotten Tomatoes page answers 404; that is no score, not an error.
+        assertNull(client.criticScore(seerr, "tv", 12))
+    }
 }

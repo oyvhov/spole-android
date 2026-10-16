@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta16 - fokusringar som følgjer forma, roleg Oppdag
+
+- TV: fokusringen følgjer forma på det du står på. Medverkande og personar får ring rundt ansiktet, ikkje ein boks rundt bilete og namn. Episodar får ring rundt stillbiletet, slik plakatar har.
+- TV: lenker og faner som «Les meir», «Alle 114», «På veg» og samandraget på tittelsida får luft mellom tekst og ring; ringen skjer ikkje lenger gjennom bokstavar.
+- TV: knappane i heroen på Heim og i Bibliotek, «Trailer», «Følg i kalenderen», «Hopp over intro», «Hald fram» og «Prøv igjen» i avspelaren og knappar i dialogar, søk, kalender, profilar og innstillingar har no synleg ring i knappens eiga form. Ringen ligg på knappen, ikkje rundt den usynlege trykkflata.
+- TV: doble ringar på sekundærknappar er borte, menyknappar og sesongfaner har same form på markering og ring, og «Avbryt» i be om-arket er ein pille i staden for ein oval.
+- Oppdag på TV: toppfeltet har fast høgd og to liner: tittel, og år · vurdering · type · status. Samandraget og lange fakta ligg på tittelsida.
+- Tittelsida for titlar frå Seerr viser TMDB-vurdering og Rotten Tomatoes, og toppen er lågare, så medverkande er synlege utan å rulle.
+- TV-tittelsida: pil opp frå knappane går til samandraget når det er meir å lese, og OK opnar heile teksten. Før kunne fjernkontrollen ikkje nå det.
+
 ## 1.0.0-beta15 - stødig TV-fokus og lettare førespurnader
 
 - TV-framsida: fokus hoppar ikkje lenger til sidemenyen når heroen byter tittel. Fakta-lina i heroen tok fokus utan synleg ramme, og når heroen byta, sende Android fokus til menyen. Fokus startar no på «Spel av», og ned frå kontoknappen går til heroen.

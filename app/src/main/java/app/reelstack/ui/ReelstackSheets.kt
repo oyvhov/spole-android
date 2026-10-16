@@ -1,5 +1,6 @@
 package app.reelstack.ui
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.SpoleSecondaryButton
 
 import androidx.compose.ui.res.pluralStringResource
@@ -26,6 +27,7 @@ import app.reelstack.data.model.resolvedMediaType
 import app.reelstack.data.model.canRequest
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -208,6 +210,7 @@ fun ReelstackSheets(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.75f))
+                    .focusProperties { canFocus = false }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -216,7 +219,7 @@ fun ReelstackSheets(
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
-                    modifier = Modifier.clickable(
+                    modifier = Modifier.focusProperties { canFocus = false }.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = {},
@@ -407,7 +410,7 @@ private fun DetailSheetSkeleton() {
 }
 
 @Composable
-private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
+internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
     scroll: ScrollState, entered: Boolean, onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {}, onEpisodeSeries: () -> Unit = {},
     onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?, String) -> Unit = { _, _, _, _, _ -> },
@@ -538,6 +541,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     var chosenSubtitle by remember(details.key) { mutableStateOf<Int?>(null) }
     var chosenVersion by remember(details.key) { mutableStateOf<String?>(null) }
     val seriesLinkFocus = remember(details.key) { androidx.compose.ui.focus.FocusRequester() }
+    var synopsisReachable by remember(details.key) { mutableStateOf(false) }
     val actions: @Composable () -> Unit = {
         TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed,
             onSeries = if (mediaType == "Episode" && state.seriesBrowse.seriesId.isNotBlank()) onEpisodeSeries else null,
@@ -547,7 +551,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             modifier = Modifier.onFocusChanged { if (tv && it.hasFocus && scroll.value > 0) {
                 detailScope.launch { scroll.animateScrollTo(0) }
             } }.onPreviewKeyEvent { event ->
-                if (tv && event.key == androidx.compose.ui.input.key.Key.DirectionUp) {
+                // Up goes on to a synopsis with more to read; otherwise it only shows the top of the page.
+                if (tv && event.key == androidx.compose.ui.input.key.Key.DirectionUp && !synopsisReachable) {
                     if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                         detailScope.launch { scroll.animateScrollTo(0) }
                     }
@@ -556,7 +561,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }.focusGroup())
     }
     if (tv) {
-        app.reelstack.ui.components.TvCinematicDetails(details, scroll, opening = opening, heading = {
+        app.reelstack.ui.components.TvCinematicDetails(details, scroll, opening = opening,
+            compactHero = opening.source == ServiceKind.SEERR, heading = {
             app.reelstack.ui.components.DetailLogo(details, opening.title)
             if (mediaType == "Episode") Text(
                 app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
@@ -564,7 +570,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                     .testTag("episode-series-name"))
             if (ready) {
                 aside()
-                app.reelstack.ui.components.TvDetailSynopsis(details)
+                app.reelstack.ui.components.TvDetailSynopsis(details) { synopsisReachable = it }
                 actions()
                 if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
                 app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
@@ -922,7 +928,7 @@ private fun TitleActionRow(
                     state.calendarUndated.any { it.key == key })
                 TextButton(onClick = { onCalendarFollow(details) },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("detail-calendar-follow")) {
+                    modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape).testTag("detail-calendar-follow")) {
                     Icon(app.reelstack.ui.components.SpoleIcons.Calendar, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(if (following) R.string.calendar_unfollow else R.string.calendar_follow))
@@ -977,7 +983,7 @@ private fun TitleActionRow(
                     colors = ButtonDefaults.textButtonColors(contentColor = Muted),
                     modifier = Modifier.heightIn(min = 48.dp)
                         .then(seriesFocus?.let { Modifier.focusRequester(it) } ?: Modifier)
-                        .focusOutline(interaction, RoundedCornerShape(10.dp), glow = false)
+                        .focusOutline(interaction, ButtonDefaults.textShape, glow = false)
                         .testTag("episode-series-link")) {
                     Icon(app.reelstack.ui.components.SpoleIcons.Library, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -1566,7 +1572,7 @@ internal fun ConnectionEditorSheet(
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ),
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).focusRing(RoundedCornerShape(14.dp)),
                     ) {
                         Text(stringResource(R.string.account_sign_out), fontWeight = FontWeight.SemiBold)
                     }
@@ -1719,6 +1725,7 @@ internal fun ConnectionEditorSheet(
                 val otherName = if (draft.kind == ServiceKind.SEERR) "Jellyfin" else "Seerr"
                 Row(verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                        .focusRing(RoundedCornerShape(14.dp))
                         .then(Modifier.clip(RoundedCornerShape(14.dp)).background(SurfaceRaised))
                         .then(Modifier.toggleableLogin(!draft.saving, draft.alsoConnect) { onCompanionLoginChange(it, draft.companionUrl) })
                         .padding(horizontal = 12.dp, vertical = 6.dp)) {
@@ -1858,6 +1865,7 @@ private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onTogg
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
             .testTag("connected-service-summary")
             .focusOutline(interaction, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
                 onClickLabel = actionText, onClick = onToggle)
             .semantics {

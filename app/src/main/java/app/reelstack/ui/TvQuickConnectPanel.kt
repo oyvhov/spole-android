@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import app.reelstack.ui.components.focusOutline
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -41,7 +40,7 @@ internal fun TvQuickConnectPanel(draft: ConnectionDraft) {
                     copied = true
                 },
                     interactionSource = interaction,
-                    modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(24.dp))) {
+                    modifier = Modifier.heightIn(min = 48.dp)) {
                     Text(stringResource(if (copied) R.string.quick_copied else R.string.quick_copy))
                 }
             }

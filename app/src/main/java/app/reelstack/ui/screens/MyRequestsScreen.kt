@@ -54,6 +54,7 @@ import app.reelstack.data.model.myRequestsFor
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
+import app.reelstack.ui.components.focusBleed
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.mediaCardIndication
 import app.reelstack.ui.theme.Muted
@@ -112,7 +113,7 @@ fun MyRequestsScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val backInteraction = remember { MutableInteractionSource() }
                     IconButton(onClick = onBack, interactionSource = backInteraction, modifier = Modifier.offset(x = (-12).dp)
-                        .focusOutline(backInteraction, CircleShape).testTag("my-requests-back")) {
+                        .size(48.dp).focusOutline(backInteraction, CircleShape).testTag("my-requests-back")) {
                         Icon(SpoleIcons.ArrowBack, stringResource(R.string.action_back))
                     }
                     Text(stringResource(R.string.my_requests_title), style = MaterialTheme.typography.headlineSmall)
@@ -190,9 +191,9 @@ private fun TextTabs(
             // As wide as its words: a full-width line under each tab put every tab on its own row.
             Column(
                 Modifier.width(IntrinsicSize.Max).then(if (chosen && firstFocus != null) Modifier.focusRequester(firstFocus) else Modifier)
-                    .focusOutline(interaction, RoundedCornerShape(8.dp))
+                    .focusBleed(12.dp).focusOutline(interaction, RoundedCornerShape(8.dp)).clip(RoundedCornerShape(8.dp))
                     .selectable(chosen, interactionSource = interaction, indication = mediaCardIndication(), role = Role.Tab) { onSelect(choice) }
-                    .padding(vertical = 10.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
                     .testTag("my-requests-tab-${choice.name}"),
             ) {
                 Text(if (count == null) text else "$text  $count", color = if (chosen) TextColor else Muted,
@@ -209,13 +210,10 @@ private fun TextTabs(
 internal fun RequestLine(request: TrackedRequest, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
-    Column(
-        modifier.fillMaxWidth()
-            .focusOutline(interaction, RoundedCornerShape(10.dp))
+    Column(modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().focusBleed(12.dp).focusOutline(interaction, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))
             .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
-            .testTag("my-request-${request.key}"),
-    ) {
-        Row(Modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+            .testTag("my-request-${request.key}").padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             MediaArtwork(request.artworkUrl, null,
                 Modifier.width(48.dp).aspectRatio(2f / 3f).clip(shape).background(SurfaceRaised),
@@ -254,18 +252,17 @@ internal fun requestLineStatus(request: TrackedRequest): String {
 private fun ServerEventLine(event: ActivityEvent, onClick: () -> Unit) {
     val context = LocalContext.current
     val interaction = remember { MutableInteractionSource() }
-    Column(
-        Modifier.fillMaxWidth()
-            .focusOutline(interaction, RoundedCornerShape(10.dp))
+    Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().focusBleed(12.dp).focusOutline(interaction, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))
             .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
-            .testTag("server-event-${event.id}"),
-    ) {
-        Text(event.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 10.dp))
-        Text(
-            listOfNotNull(event.time.text(context), event.detail.text(context), event.source?.displayName)
-                .filter { it.isNotBlank() }.joinToString("  ·  "),
-            color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 3.dp, bottom = 10.dp),
-        )
+            .testTag("server-event-${event.id}").padding(horizontal = 12.dp)) {
+            Text(event.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 10.dp))
+            Text(
+                listOfNotNull(event.time.text(context), event.detail.text(context), event.source?.displayName)
+                    .filter { it.isNotBlank() }.joinToString("  ·  "),
+                color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 3.dp, bottom = 10.dp),
+            )
+        }
         HorizontalDivider(color = LineDivider)
     }
 }

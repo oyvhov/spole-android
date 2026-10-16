@@ -60,6 +60,15 @@ class SeerrDiscoverClient(private val transport: JsonHttpTransport = HttpTranspo
         return (root[key] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
     }
 
+    /** The Rotten Tomatoes critics score Seerr knows for a title; a title without one answers 404. */
+    fun criticScore(connection: ServiceConnection, mediaType: String, id: Int): Int? {
+        require(mediaType == "movie" || mediaType == "tv")
+        val body = runCatching { get(connection, "api/v1/$mediaType/$id/ratings") }.getOrNull() ?: return null
+        val root = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(body) }.getOrNull()
+            as? kotlinx.serialization.json.JsonObject ?: return null
+        return (root["criticsScore"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()?.takeIf { it in 0..100 }
+    }
+
     private fun page(connection: ServiceConnection, path: String, page: Int): SeerrSearchPage {
         val body = get(connection, path)
         return SeerrSearchPage(ServicePayloadParser.discover(body), page, ServicePayloadParser.totalPages(body))

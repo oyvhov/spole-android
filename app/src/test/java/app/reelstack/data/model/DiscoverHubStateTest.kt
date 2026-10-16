@@ -42,4 +42,12 @@ class DiscoverHubStateTest {
         assertEquals(3, RequestStage.DOWNLOADING.seerrStatus())
         assertEquals(3, RequestStage.REQUESTED.seerrStatus())
     }
+
+    @Test fun aRowTitleCarriesItsTmdbScoreToTheTitlePage() {
+        // A row already knows the score; the title page shows it as TMDB before the details arrive.
+        assertEquals(71f, media(1).copy(facts = listOf("2026", "★ 7.1", "1t 39m")).tmdbScore()!!, .01f)
+        assertEquals(71f, media(1).copy(facts = listOf("★ 7,1")).tmdbScore()!!, .01f)
+        assertEquals(null, media(1).copy(facts = listOf("2026")).tmdbScore())
+        assertEquals(null, media(1).copy(facts = listOf("★ 0.0")).tmdbScore())
+    }
 }

@@ -211,8 +211,13 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             if (isSeries && ready && state.configuredCount > 0) RequestPreflight(draft, onRetry)
             if (ready && hasSelection && canAdd) {
             HorizontalDivider(Modifier.padding(vertical = if (isSeries) 18.dp else 4.dp), color = SurfaceRaised)
-            Row(Modifier.fillMaxWidth().toggleable(draft.notify, enabled = !draft.sending, role = Role.Checkbox, onValueChange = onNotify)
-                .padding(vertical = 8.dp).testTag("request-notification"), verticalAlignment = Alignment.CenterVertically) {
+            // A rounded row with its ring, as the choices above it; the tint follows the same corners.
+            val notifyInteraction = remember { MutableInteractionSource() }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(ReelLayout.ControlCorner))
+                .focusOutline(notifyInteraction, RoundedCornerShape(ReelLayout.ControlCorner), glow = false)
+                .toggleable(draft.notify, interactionSource = notifyInteraction, indication = androidx.compose.foundation.LocalIndication.current,
+                    enabled = !draft.sending, role = Role.Checkbox, onValueChange = onNotify)
+                .testTag("request-notification").padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(app.reelstack.ui.components.SpoleIcons.Bell, null, tint = Primary, modifier = Modifier.size(22.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(stringResource(R.string.flow_notify_ready), fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
@@ -249,7 +254,8 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 val cancelInteraction = remember { MutableInteractionSource() }
                 if (television) TextButton(onClick = onDismiss, enabled = !draft.sending, interactionSource = cancelInteraction,
                     colors = ButtonDefaults.textButtonColors(contentColor = Muted),
-                    modifier = Modifier.heightIn(min = 54.dp).focusOutline(cancelInteraction, RoundedCornerShape(27.dp), glow = false)
+                    contentPadding = PaddingValues(horizontal = 28.dp),
+                    modifier = Modifier.heightIn(min = 54.dp).focusOutline(cancelInteraction, ButtonDefaults.textShape, glow = false)
                         .testTag("cancel-request")) {
                     Text(stringResource(R.string.request_cancel), style = MaterialTheme.typography.titleMedium)
                 }
@@ -263,7 +269,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                     colors = ButtonDefaults.textButtonColors(contentColor = Primary),
                     interactionSource = confirmInteraction,
                     modifier = Modifier.weight(1f).heightIn(min = 54.dp).focusRequester(confirmFocus)
-                        .focusOutline(confirmInteraction, RoundedCornerShape(27.dp), glow = false).testTag("confirm-request")) {
+                        .focusOutline(confirmInteraction, ButtonDefaults.textShape, glow = false).testTag("confirm-request")) {
                     if (draft.sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
                     Text(if (draft.sending) stringResource(R.string.flow_sending) else if (isSeries && draft.selected.isEmpty()) stringResource(R.string.flow_choose_seasons)
                         else if (isSeries) pluralStringResource(R.plurals.flow_send_seasons, draft.selected.size, draft.selected.size) else stringResource(R.string.flow_send),

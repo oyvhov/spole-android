@@ -49,6 +49,7 @@ import app.reelstack.ui.components.PinEntrySheet
 import app.reelstack.ui.components.ProfileMenu
 import app.reelstack.ui.components.StableSheetDialog
 import app.reelstack.ui.components.focusOutline
+import androidx.compose.ui.focus.focusProperties
 import app.reelstack.ui.theme.*
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -615,6 +616,7 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.75f))
+                .focusProperties { canFocus = false }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -623,7 +625,7 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
             contentAlignment = Alignment.Center,
         ) {
             Box(
-                modifier = Modifier.clickable(
+                modifier = Modifier.focusProperties { canFocus = false }.clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = {},

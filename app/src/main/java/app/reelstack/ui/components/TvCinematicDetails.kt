@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -39,6 +40,8 @@ internal fun TvCinematicDetails(
     scroll: ScrollState,
     opening: ContentDetails = details,
     heading: @Composable () -> Unit,
+    /** A title with nothing to play or pick here: its top only needs the room its words take. */
+    compactHero: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val options = LocalPersonalization.current
@@ -47,7 +50,7 @@ internal fun TvCinematicDetails(
         // Keep the episode rail near the actions, with breathing room for the title and logo.
         // The heading grows naturally for expanded synopsis or large type.
         val episodic = details.mediaType == "Series" || details.mediaType == "Episode"
-        val heroHeight = maxHeight * if (episodic) .52f else .76f
+        val heroHeight = maxHeight * if (compactHero) .4f else if (episodic) .52f else .76f
         if (options.detailBackdrop) {
             Box(Modifier.fillMaxWidth().height(maxHeight)) {
                 MediaArtwork(app.reelstack.data.network.detailBackdropUrl(opening, details), null,
@@ -92,7 +95,7 @@ internal fun DetailLogo(details: ContentDetails, title: String) {
 }
 
 @Composable
-internal fun TvDetailSynopsis(details: ContentDetails) {
+internal fun TvDetailSynopsis(details: ContentDetails, onReachable: (Boolean) -> Unit = {}) {
     val overview = details.overview?.takeIf(String::isNotBlank) ?: return
     var expanded by rememberSaveable(details.key) { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
@@ -104,11 +107,13 @@ internal fun TvDetailSynopsis(details: ContentDetails) {
         val overflows = measurer.measure(overview, style = style, maxLines = 2,
             overflow = TextOverflow.Ellipsis, constraints = Constraints(maxWidth = (constraints.maxWidth - iconSpace).coerceAtLeast(1)))
             .hasVisualOverflow
+        // Only a synopsis with more to read is a place for the remote to stop.
+        androidx.compose.runtime.LaunchedEffect(overflows, expanded) { onReachable(overflows || expanded) }
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            .focusOutline(interaction, RoundedCornerShape(8.dp))
+            .focusBleed(12.dp, 8.dp).focusOutline(interaction, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))
             .clickable(enabled = overflows || expanded, interactionSource = interaction,
                 indication = androidx.compose.foundation.LocalIndication.current, role = Role.Button,
-                onClickLabel = label) { expanded = !expanded }.testTag("overview-expand"),
+                onClickLabel = label) { expanded = !expanded }.testTag("overview-expand").padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Text(overview, style = style, maxLines = if (expanded) Int.MAX_VALUE else 2,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).testTag("overview-text"))

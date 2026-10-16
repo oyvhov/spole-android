@@ -44,6 +44,7 @@ import app.reelstack.R
 import app.reelstack.data.model.PersonPage
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.components.MediaArtwork
+import app.reelstack.ui.components.focusBleed
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.mediaCardIndication
@@ -107,9 +108,9 @@ fun PersonSheet(page: PersonPage?, onTitle: (String) -> Unit) {
                             val interaction = remember { MutableInteractionSource() }
                             Text(stringResource(R.string.person_read_more), color = TextColor, style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.heightIn(min = 44.dp).then(if (startOnBiography) Modifier.focusRequester(firstPoster) else Modifier)
-                                    .focusOutline(interaction, RoundedCornerShape(8.dp))
+                                    .focusBleed(14.dp).focusOutline(interaction, CircleShape)
                                     .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button) { expanded = true }
-                                    .padding(vertical = 12.dp).testTag("person-read-more"))
+                                    .padding(horizontal = 14.dp, vertical = 12.dp).testTag("person-read-more"))
                         }
                     }
                 }

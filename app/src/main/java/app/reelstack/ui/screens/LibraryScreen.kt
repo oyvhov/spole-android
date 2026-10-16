@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.contentDescription
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.steadyRemoteRows
 
 @Composable
@@ -68,7 +69,7 @@ private fun LibrarySourceMenu(selected: ServiceKind, sources: List<ServiceKind>,
         TextButton(onClick = { expanded = true },
             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(50.dp))
-                .heightIn(min = 48.dp).testTag("library-source-menu")) {
+                .heightIn(min = 48.dp).focusRing(RoundedCornerShape(50.dp)).testTag("library-source-menu")) {
             app.reelstack.ui.components.ServiceSymbol(selected, Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text(selected.displayName)
@@ -345,7 +346,8 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                     if (state.libraryLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     else if (state.libraryError != null) {
                         Text(state.libraryError, color = MaterialTheme.colorScheme.error)
-                        Button(onClick = { onLoad(state.libraryEntries.isNotEmpty()) }) { Text(stringResource(R.string.library_retry)) }
+                        Button(onClick = { onLoad(state.libraryEntries.isNotEmpty()) },
+                            modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.shape)) { Text(stringResource(R.string.library_retry)) }
                     } else if (connected && state.libraryEntries.isEmpty()) {
                         app.reelstack.ui.components.QuietEmptyState(
                             stringResource(if (state.libraryFilters.activeCount > 0) R.string.search_empty_filter else R.string.tv_library_empty),
@@ -357,7 +359,9 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                             }} else null)
                     }
                     if (state.libraryHasMore && !state.libraryLoading && state.libraryError == null)
-                        Button(onClick = { onLoad(true) }) { Text(stringResource(R.string.library_more)) }
+                        Button(onClick = { onLoad(true) }, modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.shape)) {
+                            Text(stringResource(R.string.library_more))
+                        }
                 }
             }
         }

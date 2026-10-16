@@ -229,11 +229,14 @@ private fun ProfileMenuRow(
 
         if (canDelete) {
             val deleteDescription = stringResource(R.string.profile_delete_action)
+            val deleteInteraction = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
                     .size(44.dp)
+                    .focusOutline(deleteInteraction, CircleShape)
                     .clip(CircleShape)
-                    .clickable(role = Role.Button, onClick = onDelete)
+                    .clickable(interactionSource = deleteInteraction, indication = mediaCardIndication(),
+                        role = Role.Button, onClick = onDelete)
                     .semantics { contentDescription = deleteDescription }
                     .testTag("delete-profile-${profile.id}"),
                 contentAlignment = Alignment.Center,

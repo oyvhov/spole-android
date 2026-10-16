@@ -59,6 +59,11 @@ fun DiscoverMedia.asRequested(waitsForApproval: Boolean): DiscoverMedia = copy(
 )
 
 /** The Seerr status a request line stands for, so its title page opens with the same words. */
+/** The TMDB score a row title already shows as «★ 7.1», out of 100 as Spole keeps them. */
+fun DiscoverMedia.tmdbScore(): Float? = facts.firstNotNullOfOrNull { fact ->
+    fact.removePrefix("★").takeIf { it != fact }?.trim()?.replace(',', '.')?.toFloatOrNull()
+}?.takeIf { it > 0f && it <= 10f }?.times(10f)
+
 fun RequestStage.seerrStatus(): Int? = when (this) {
     RequestStage.AVAILABLE -> 5
     RequestStage.REQUESTED, RequestStage.DOWNLOADING, RequestStage.IMPORTING -> 3

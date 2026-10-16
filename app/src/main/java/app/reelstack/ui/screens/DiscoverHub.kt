@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.data.model.DiscoverGenre
 import app.reelstack.data.model.DiscoverGridTarget
@@ -68,8 +69,10 @@ import app.reelstack.data.model.RequestStage
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.TrackedRequest
 import app.reelstack.data.model.myRequestsPreview
+import app.reelstack.data.model.isSeries
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
+import app.reelstack.ui.components.focusBleed
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.focusScale
 import app.reelstack.ui.components.isTelevision
@@ -89,9 +92,7 @@ data class DiscoverHubActions(
     val onGrid: (DiscoverGridTarget) -> Unit,
     val onRetry: () -> Unit,
     val onSearch: () -> Unit,
-    /** A television asks for the length and genres of whatever title has focus. */
-    val onFocusTitle: (DiscoverMedia) -> Unit = {},
-    /** The same for one of your requests: its picture and synopsis for the header. */
+    /** A television asks for the picture, year and rating of the request that has focus. */
     val onFocusRequest: (TrackedRequest) -> Unit = {},
 )
 
@@ -236,7 +237,7 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                                     PosterOnlyCard(media, { actions.onTitle(media.id) },
                                         Modifier.width(posterWidth).then(if (!startOnRequest && media.id == firstPosterId &&
                                             kind == visibleRows.first()) Modifier.focusRequester(firstPoster) else Modifier),
-                                        onFocused = { focused = media; focusedRequest = null; actions.onFocusTitle(media) })
+                                        onFocused = { focused = media; focusedRequest = null })
                                 }
                                 if (row.items.isNotEmpty()) item(key = "$kind-all") {
                                     RowEndTile(posterWidth) { actions.onGrid(DiscoverGridTarget.Row(kind)) }
@@ -341,9 +342,9 @@ private fun RowEndTile(width: Dp, onClick: () -> Unit) {
 @Composable
 private fun RowEndLink(text: String, tag: String, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    Row(Modifier.heightIn(min = 44.dp).focusOutline(interaction, RoundedCornerShape(10.dp))
+    Row(Modifier.heightIn(min = 44.dp).focusBleed(10.dp).focusOutline(interaction, CircleShape)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
-        .padding(horizontal = 6.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
+        .padding(horizontal = 16.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
         Text(text, color = Muted, style = MaterialTheme.typography.labelLarge)
         Icon(SpoleIcons.ChevronRight, null, tint = Muted, modifier = Modifier.size(16.dp))
     }
@@ -354,10 +355,11 @@ private fun RowEndLink(text: String, tag: String, onClick: () -> Unit) {
 internal fun PersonPortrait(person: DiscoverPerson, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val size = if (isTelevision()) 96.dp else 72.dp
-    Column(Modifier.width(size + 8.dp).focusOutline(interaction, RoundedCornerShape(12.dp))
+    Column(Modifier.width(size + 8.dp)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .testTag("person-${person.id}"), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(size).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(size).focusOutline(interaction, CircleShape).clip(CircleShape).background(SurfaceRaised),
+            contentAlignment = Alignment.Center) {
             if (person.portraitUrl != null) MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(),
                 fallbackRes = R.drawable.media_placeholder, contentScale = ContentScale.Crop, source = ServiceKind.SEERR)
             else Text(person.name.split(' ').filter(String::isNotBlank).take(2).map { it.first() }.joinToString(""), color = Muted)
@@ -385,10 +387,10 @@ internal fun departmentLabel(raw: String?): String? = when (raw) {
 @Composable
 internal fun PersonLine(person: DiscoverPerson, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    Column(Modifier.fillMaxWidth().focusOutline(interaction, RoundedCornerShape(10.dp))
-        .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
-        .testTag("search-person-${person.id}")) {
-        Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().focusBleed(12.dp).focusOutline(interaction, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))
+            .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
+            .testTag("search-person-${person.id}").padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.size(48.dp).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
                 if (person.portraitUrl != null) MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(),
@@ -431,37 +433,40 @@ private fun FocusBackdrop(url: String) {
 }
 
 /**
- * Title, facts, status and two lines of synopsis for whatever has focus.
- *
- * Every line keeps its height from one title to the next (one line of title, two of synopsis even
- * when the synopsis is shorter), so the rows below never jump while the remote moves.
+ * Two lines for whatever has focus: the name, then year · rating · kind · status. The synopsis and the
+ * long facts are on the title page; here they made the header taller and shorter from one poster to
+ * the next. Both lines have a fixed line height, so a star or another fallback glyph cannot move
+ * the rows below.
  */
 @Composable
 private fun FocusHeader(media: DiscoverMedia, details: app.reelstack.data.model.FocusDetails?) {
-    val extraFacts = details?.facts.orEmpty()
-    Column(Modifier.fillMaxWidth(.62f).testTag("discover-focus-header"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(media.title, style = MaterialTheme.typography.headlineMedium, color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text((listOf(media.metadata) + extraFacts + media.facts).filter(String::isNotBlank).distinct().joinToString("  ·  "),
-            color = Muted, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested),
-            color = TextColor, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(media.overview?.takeIf(String::isNotBlank) ?: details?.overview.orEmpty(), color = Muted,
-            style = MaterialTheme.typography.bodyMedium, minLines = 2, maxLines = 2,
-            overflow = TextOverflow.Ellipsis)
-    }
+    val year = media.metadata.takeIf { it.matches(YEAR) } ?: media.facts.firstOrNull { it.matches(YEAR) }
+    val rating = media.facts.firstOrNull { it.startsWith("★") } ?: details?.facts?.firstOrNull { it.startsWith("★") }
+    HeaderLines(media.title, listOfNotNull(year, rating,
+        stringResource(app.reelstack.ui.components.mediaKindRes(if (media.isSeries) "Series" else "Movie")),
+        app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)))
 }
 
-/** The header for one of your requests, shaped like a title's: name, facts, where it is, synopsis. */
+/** The same two lines for one of your requests: its name, then year · rating · where it is. */
 @Composable
 private fun RequestFocusHeader(request: TrackedRequest, details: app.reelstack.data.model.FocusDetails?) {
-    Column(Modifier.fillMaxWidth(.62f).testTag("discover-focus-header"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(request.title, style = MaterialTheme.typography.headlineMedium, color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(details?.facts.orEmpty().filter(String::isNotBlank).distinct().joinToString("  ·  "), color = Muted,
-            style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(requestLineStatus(request), color = TextColor, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
-            overflow = TextOverflow.Ellipsis)
-        Text(details?.overview ?: stringResource(request.stage.explanation), color = Muted, style = MaterialTheme.typography.bodyMedium,
-            minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    val facts = details?.facts.orEmpty()
+    HeaderLines(request.title, listOfNotNull(facts.firstOrNull { it.matches(YEAR) }, facts.firstOrNull { it.startsWith("★") },
+        requestLineStatus(request)))
+}
+
+private val YEAR = Regex("\\d{4}")
+
+@Composable
+private fun HeaderLines(title: String, facts: List<String>) {
+    val steady = androidx.compose.ui.text.style.LineHeightStyle(
+        alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+        trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.None)
+    Column(Modifier.fillMaxWidth(.62f).testTag("discover-focus-header"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.headlineMedium.copy(lineHeight = 40.sp, lineHeightStyle = steady))
+        Text(facts.filter(String::isNotBlank).distinct().joinToString("  ·  "), color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp, lineHeightStyle = steady))
     }
 }
 
@@ -492,7 +497,7 @@ fun DiscoverGridContent(title: String, row: DiscoverRowState, contentPadding: Pa
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val backInteraction = remember { MutableInteractionSource() }
                 IconButton(onClick = onBack, interactionSource = backInteraction,
-                    modifier = Modifier.focusOutline(backInteraction, CircleShape).testTag("discover-grid-back")) {
+                    modifier = Modifier.size(48.dp).focusOutline(backInteraction, CircleShape).testTag("discover-grid-back")) {
                     Icon(SpoleIcons.ArrowBack, stringResource(R.string.action_back))
                 }
                 Text(title, style = MaterialTheme.typography.headlineSmall, color = TextColor)

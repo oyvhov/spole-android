@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -76,8 +78,15 @@ private fun TvMenuOrderEditor(order: List<String>, names: Map<String, String>, h
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.End) {
-            Switch(checked = visible, onCheckedChange = { onVisible(id, it) }, enabled = id !in required,
-                modifier = Modifier.testTag("menu-visible-$id").semantics { contentDescription = names.getValue(id) })
+            // The switch's own focus box is 48 dp around a 32 dp track; this pill sits evenly around the track.
+            val switchInteraction = remember { MutableInteractionSource() }
+            Box(Modifier.focusBleed(8.dp).focusOutline(switchInteraction, CircleShape).clip(CircleShape)
+                .toggleable(visible, interactionSource = switchInteraction, indication = mediaCardIndication(),
+                    enabled = id !in required, role = Role.Switch) { onVisible(id, it) }
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+                .testTag("menu-visible-$id").semantics { contentDescription = names.getValue(id) }) {
+                Switch(checked = visible, onCheckedChange = null, enabled = id !in required)
+            }
             Spacer(Modifier.weight(1f))
             listOf(-1, 1).forEachIndexed { button, direction ->
                 val target = index + direction
@@ -87,7 +96,7 @@ private fun TvMenuOrderEditor(order: List<String>, names: Map<String, String>, h
                     focus.getValue(id)[if (destination == 0) 1 else if (destination == order.lastIndex) 0 else button].requestFocus()
                     onOrder(next)
                 }, enabled = target in order.indices,
-                    modifier = Modifier.focusRequester(focus.getValue(id)[button])
+                    modifier = Modifier.size(48.dp).focusRing(CircleShape).focusRequester(focus.getValue(id)[button])
                         .testTag("menu-${if (direction < 0) "up" else "down"}-$id")) {
                     Icon(if (direction < 0) SpoleIcons.ChevronUp else SpoleIcons.ChevronDown,
                         stringResource(if (direction < 0) R.string.home_order_up else R.string.home_order_down, names.getValue(id)))

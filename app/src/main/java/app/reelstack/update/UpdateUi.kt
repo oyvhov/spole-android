@@ -121,7 +121,7 @@ internal fun AppUpdateBanner(tag: String, onOpen: () -> Unit, onLater: () -> Uni
                     Button(onClick = onOpen, interactionSource = interaction,
                         modifier = width.focusRequester(openFocus).focusProperties {
                             if (tv) { right = laterFocus; down = laterFocus }
-                        }.focusOutline(interaction, ButtonDefaults.shape).testTag("update-view")) {
+                        }.heightIn(min = 48.dp).focusOutline(interaction, ButtonDefaults.shape).testTag("update-view")) {
                         Text(stringResource(R.string.update_view))
                     }
                     app.reelstack.ui.components.SpoleSecondaryButton(onClick = onLater,
@@ -159,7 +159,7 @@ internal fun AppUpdateDialog(state: UpdateState, onClose: () -> Unit, onCancel: 
                 if (state.checking) closeFocus.requestFocus() else focus.requestFocus()
             }
         }
-        val actionModifier = Modifier.focusRequester(focus).focusOutline(interaction, CircleShape)
+        val actionModifier = Modifier.focusRequester(focus).heightIn(min = 48.dp).focusOutline(interaction, CircleShape)
         BoxWithConstraints {
         val layout = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
         val dialogHeight = layout.compactDialogHeightDp(maxHeight.value,
@@ -344,7 +344,7 @@ internal fun AppUpdateDialog(state: UpdateState, onClose: () -> Unit, onCancel: 
                         onClick = onCheck,
                         interactionSource = if (state.release == null) interaction else checkInteraction,
                         modifier = (if (state.release == null) actionModifier else
-                            Modifier.focusOutline(checkInteraction, CircleShape)).then(buttonWidth).testTag("update-check"),
+                            Modifier.heightIn(min = 48.dp).focusOutline(checkInteraction, CircleShape)).then(buttonWidth).testTag("update-check"),
                         enabled = !state.checking && !state.downloading,
                     ) {
                         Icon(

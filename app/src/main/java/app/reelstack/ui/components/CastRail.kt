@@ -53,14 +53,15 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
         items(cast.distinctBy { it.remoteId ?: it.seerrPersonId?.toString() ?: it.name },
             key = { it.remoteId ?: it.seerrPersonId?.toString() ?: it.name }) { person ->
             val interaction = remember { MutableInteractionSource() }
-            val shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-            Column(Modifier.width(104.dp).focusOutline(interaction, shape)
+            // The ring follows the face; the name under it is part of the same button.
+            Column(Modifier.width(104.dp)
                 .clickable(interactionSource = interaction, indication = mediaCardIndication(),
                     enabled = person.seerrPersonId != null || (person.remoteId != null && source != null), role = Role.Button) {
                     val seerrId = person.seerrPersonId
                     if (seerrId != null) onSeerrPerson(seerrId) else selected = if (selected == person) null else person
                 }.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(portraitSize).clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(portraitSize).focusOutline(interaction, CircleShape).clip(CircleShape).background(SurfaceRaised),
+                    contentAlignment = Alignment.Center) {
                     if (person.portraitUrl != null) {
                         MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(), fallbackRes = R.drawable.media_placeholder, source = source)
                     } else {
@@ -88,10 +89,11 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
                     val interaction = remember { MutableInteractionSource() }
                     val shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     val movie = title.mediaType.equals("Movie", true)
-                    Column(Modifier.width(if (movie) 132.dp else 220.dp).focusOutline(interaction, shape)
+                    Column(Modifier.width(if (movie) 132.dp else 220.dp)
                         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button) { onTitle(title) }
                         .padding(6.dp)) {
-                        MediaArtwork(title.artworkUrl, null, Modifier.fillMaxWidth().aspectRatio(if (movie) 2f / 3f else 16f / 9f).clip(shape),
+                        MediaArtwork(title.artworkUrl, null, Modifier.fillMaxWidth().aspectRatio(if (movie) 2f / 3f else 16f / 9f)
+                            .focusOutline(interaction, shape).clip(shape),
                             fallbackRes = title.artworkRes, source = title.source)
                         Text(title.title, modifier = Modifier.padding(top = 6.dp), maxLines = 2,
                             overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)

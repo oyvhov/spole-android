@@ -42,8 +42,7 @@ internal fun SheetToolbar(
     ) {
         if (page) {
             app.reelstack.ui.components.SpoleSecondaryButton(onClick = onBack ?: onClose, enabled = enabled, interactionSource = closeInteraction,
-                modifier = Modifier.heightIn(min = 48.dp).focusRequester(closeFocus)
-                    .focusOutline(closeInteraction, CircleShape).testTag("sheet-close")) {
+                modifier = Modifier.heightIn(min = 48.dp).focusRequester(closeFocus).testTag("sheet-close")) {
                 Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, null, Modifier.size(24.dp))
                 Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.action_back), Modifier.padding(start = 10.dp))
             }
@@ -53,8 +52,7 @@ internal fun SheetToolbar(
         }
         Box(Modifier.weight(1f).heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
             if (onBack != null) {
-                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onBack, enabled = enabled, interactionSource = backInteraction,
-                    modifier = Modifier.focusOutline(backInteraction, CircleShape)) {
+                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onBack, enabled = enabled, interactionSource = backInteraction) {
                     Icon(app.reelstack.ui.components.SpoleIcons.ArrowBack, null, Modifier.size(20.dp))
                     Text(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_calendar), Modifier.padding(start = 8.dp))
                 }
@@ -65,7 +63,7 @@ internal fun SheetToolbar(
         IconButton(onClick = onClose, enabled = enabled, interactionSource = closeInteraction,
             modifier = Modifier.size(48.dp).focusRequester(closeFocus)
                 .focusOutline(closeInteraction, CircleShape).testTag("sheet-close")) {
-            Box(Modifier.size(36.dp).background(SurfaceRaised, CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(40.dp).background(SurfaceRaised, CircleShape), contentAlignment = Alignment.Center) {
                 Icon(app.reelstack.ui.components.SpoleIcons.Close, closeDescription, Modifier.size(20.dp))
             }
         }

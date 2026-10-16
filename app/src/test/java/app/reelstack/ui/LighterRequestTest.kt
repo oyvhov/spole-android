@@ -92,4 +92,30 @@ class TvLightFilmRequestTest {
         // No explanation of the steps and no long introduction: a film is one decision.
         rule.onNodeWithTag("request-journey").assertDoesNotExist()
     }
+
+    @Test fun theAlertRowAndCancelHaveRingsInTheirOwnShape() {
+        rule.setContent {
+            val input = LocalInputModeManager.current
+            SideEffect { input.requestInputMode(InputMode.Keyboard) }
+            ReelstackTheme {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.size(600.dp, 420.dp)) {
+                    RequestComposer(ReelstackUiState(connections = listOf(seerr), accounts = mapOf(ServiceKind.SEERR to account),
+                        requestDraft = RequestDraft(film, loading = false, options = options, profileId = 4, folder = "/mnt/w/Filmar 10",
+                            rules = RequestRules(canRequest = true, approvalRequired = false, quota = null))),
+                        { _, _ -> }, {}, {}, {}, {}, {})
+                }
+            }
+        }
+        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("confirm-request").assertIsFocused() }.isSuccess }
+        val d = rule.density.density
+        // The alert row is a rounded row like the choices above it, not a square tint.
+        rule.onNodeWithTag("request-notification").requestFocus()
+        rule.waitForIdle()
+        val row = rule.onNodeWithTag("request-notification").fetchSemanticsNode().boundsInRoot
+        // Three quarters across the top edge: past the words, so only a ring can be white there.
+        assertTrue("the alert row has no ring", rule.runOnIdle { drawnContent(rule.activity) }.ringAt(row.width * .75f / d, 1f, row, d))
+        // «Avbryt» is a pill, not an oval around one word.
+        val cancel = rule.onNodeWithTag("cancel-request").fetchSemanticsNode().boundsInRoot
+        assertTrue("cancel is ${cancel.width / d} × ${cancel.height / d} dp", cancel.width >= cancel.height * 1.8f)
+    }
 }

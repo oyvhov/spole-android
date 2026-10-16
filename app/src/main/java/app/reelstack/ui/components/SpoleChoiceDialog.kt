@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,7 +38,9 @@ internal fun SpoleChoiceDialog(title: String, onDismiss: () -> Unit, icon: Image
                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     SettingsIconBadge(icon, MaterialTheme.colorScheme.primary, 40.dp)
                     Text(title, Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                    IconButton(onClick = onDismiss) { Icon(SpoleIcons.Close, stringResource(R.string.action_close)) }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).focusRing(CircleShape)) {
+                        Icon(SpoleIcons.Close, stringResource(R.string.action_close))
+                    }
                 }
                 Box(Modifier.weight(1f, fill = false)) { content() }
             }

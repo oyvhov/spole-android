@@ -3,6 +3,7 @@ package app.reelstack.ui
 import app.reelstack.data.model.seerrStatus
 
 import app.reelstack.data.model.asRequested
+import app.reelstack.data.model.tmdbScore
 
 import app.reelstack.data.model.choice
 
@@ -625,17 +626,17 @@ class ReelstackViewModel(
     private var focusDetailsJob: Job? = null
 
     /**
-     * On a television the header names the length and genres of the title in focus. Each title is
-     * asked about once, after the remote has rested on it for a moment, and the answer is kept.
+     * On a television the Discover header shows the picture, year and rating of the request in focus;
+     * a request carries none of them itself. Each is asked about once, after the remote has rested on
+     * it for a moment, and the answer is kept. A title in a row already has them.
      */
-    /** One of your requests had focus: its picture and synopsis come the same way as a title's. */
     fun focusRequestTitle(request: app.reelstack.data.model.TrackedRequest) {
         if (request.mediaId <= 0 || request.mediaType !in setOf("movie", "tv")) return
         focusDiscoverTitle(DiscoverMedia("seerr-${request.mediaType}-${request.mediaId}", request.title, "", R.drawable.media_placeholder,
             false, remoteId = request.mediaId, mediaType = request.mediaType))
     }
 
-    fun focusDiscoverTitle(media: DiscoverMedia) {
+    private fun focusDiscoverTitle(media: DiscoverMedia) {
         val state = _uiState.value
         if (!isTelevision() || state.isKidMode || media.id in state.discoverHub.focusDetails) return
         if (media.remoteId == null || media.mediaType == null) return
@@ -2427,12 +2428,22 @@ class ReelstackViewModel(
                     statusTitle = appString(seerrStatusLabel(media.seerrStatus, media.inLibrary, media.requested)),
                     libraryAvailable = media.inLibrary || media.seerrStatus == 5,
                     statusDescription = appString(seerrStatusDescription(media.seerrStatus, media.inLibrary)),
+                    tmdbRating = media.tmdbScore(),
                     loading = connection != null && media.remoteId != null && media.mediaType != null,
                 ),
             )
         }
         if (connection == null || media.remoteId == null || media.mediaType == null) return
         operationScope.launch {
+            // Rotten Tomatoes comes from its own Seerr call; a title without a score answers 404.
+            launch {
+                val critic = attempt { withContext(Dispatchers.IO) { container.mediaSyncRepository.criticScore(connection, media) } }.getOrNull()
+                    ?: return@launch
+                _uiState.update { current ->
+                    val details = current.contentDetails?.takeIf { it.key == media.id } ?: return@update current
+                    current.copy(contentDetails = details.copy(criticRating = critic))
+                }
+            }
             // The rows below the cast load beside the details, never in front of them.
             launch {
                 val similar = attempt { withContext(Dispatchers.IO) { container.mediaSyncRepository.similar(connection, media) } }.getOrDefault(emptyList())
@@ -2463,6 +2474,8 @@ class ReelstackViewModel(
                                 genres = (remote.genres + details.genres).distinct(),
                                 artworkUrl = remote.artworkUrl ?: details.artworkUrl,
                                 trailerUrl = remote.trailerUrl ?: details.trailerUrl,
+                                tmdbRating = remote.tmdbRating ?: details.tmdbRating,
+                                backdropUrl = details.backdropUrl ?: remote.backdropUrl,
                                 loading = false,
                             ),
                         ).mapDiscoverMedia { item ->
