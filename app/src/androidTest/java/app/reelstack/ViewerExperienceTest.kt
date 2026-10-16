@@ -6,7 +6,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.*
 import app.reelstack.ui.ReelstackUiState
-import app.reelstack.ui.screens.ActivityScreen
 import app.reelstack.ui.screens.HomeScreen
 import app.reelstack.ui.theme.ReelstackTheme
 import org.junit.Rule
