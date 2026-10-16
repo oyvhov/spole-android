@@ -70,4 +70,13 @@ class SeerrDiscoverClientTest {
         assertEquals("https://image.tmdb.org/t/p/w185/m.jpg", people.single().portraitUrl)
         assertEquals("Acting", people.single().role)
     }
+
+    @Test fun aPersonHasCreditsWithoutRepeats() {
+        val client = SeerrDiscoverClient(Fake(mapOf(
+            "person/501/combined_credits" to """{"cast":[{"id":11,"mediaType":"movie","title":"A","releaseDate":"2024-01-01"}],
+                "crew":[{"id":11,"mediaType":"movie","title":"A","releaseDate":"2024-01-01"},{"id":12,"mediaType":"tv","name":"B","firstAirDate":"2025-02-02"}]}""",
+            "person/501" to """{"id":501,"name":"Margaret Qualley","biography":"Bio","birthday":"1994-10-23","knownForDepartment":"Acting","profilePath":"/m.jpg"}""")))
+        assertEquals("Margaret Qualley", client.person(seerr, 501).name)
+        assertEquals(listOf(12, 11), client.personCredits(seerr, 501).map { it.remoteId })
+    }
 }

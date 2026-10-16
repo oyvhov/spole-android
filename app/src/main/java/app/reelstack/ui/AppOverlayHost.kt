@@ -35,6 +35,7 @@ internal fun AppOverlayHost(
         connectionDraft = connectionDraft,
         onDismiss = viewModel::closeSheet,
         onDetailBack = viewModel::returnFromDetail,
+        onPersonPageTitle = viewModel::openPersonTitle,
         onPlaybackToggle = viewModel::togglePlayback,
         onSessionSelected = { viewModel.openSheet(AppSheet.SessionDetails(it)) },
         onConnectionNameChange = viewModel::updateConnectionName,

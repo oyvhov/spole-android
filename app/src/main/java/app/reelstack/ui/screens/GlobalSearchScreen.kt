@@ -182,6 +182,14 @@ fun GlobalSearchScreen(
                     }
                     return@LazyVerticalGrid
                 }
+                if (!search.searching && search.people.isNotEmpty()) {
+                    item(key = "people-heading", span = { GridItemSpan(maxLineSpan) }) {
+                        SearchHeading(stringResource(R.string.discover_people), Modifier.padding(top = 12.dp), SpoleIcons.Person)
+                    }
+                    items(search.people.take(SEARCH_PEOPLE_SHOWN), key = { "person-${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { person ->
+                        PersonLine(person) { onPerson(person.id) }
+                    }
+                }
                 if (search.libraryResults.isNotEmpty()) {
                     item(key = "library-heading", span = { GridItemSpan(maxLineSpan) }) {
                         Column(Modifier.padding(top = 4.dp)) {
@@ -201,14 +209,6 @@ fun GlobalSearchScreen(
                         items(mediaItems, key = { "library-${it.id}" }) { media ->
                             LibraryHitCard(media) { onLibraryDetails(media.id) }
                         }
-                    }
-                }
-                if (!search.searching && search.people.isNotEmpty()) {
-                    item(key = "people-heading", span = { GridItemSpan(maxLineSpan) }) {
-                        SearchHeading(stringResource(R.string.discover_people), Modifier.padding(top = 12.dp), SpoleIcons.Person)
-                    }
-                    items(search.people.take(SEARCH_PEOPLE_SHOWN), key = { "person-${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { person ->
-                        PersonLine(person) { onPerson(person.id) }
                     }
                 }
                 when {

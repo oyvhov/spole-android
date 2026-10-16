@@ -299,10 +299,10 @@ fun DiscoverScreen(
     }
 }
 
-/** A name search finds a handful of people; a title search finds people who only share a word with it. */
-internal const val SEARCH_PEOPLE_SHOWN = 6
+/** People lead the results; three lines leave the titles below them in view. */
+internal const val SEARCH_PEOPLE_SHOWN = 3
 
-/** What the box above found: your own titles first, then people, then everything Seerr can add. */
+/** What the box above found: people, your own titles, then everything Seerr can add. */
 @Composable
 private fun DiscoverSearchGrid(
     state: DiscoverUiState,
@@ -324,6 +324,15 @@ private fun DiscoverSearchGrid(
         modifier = Modifier.fillMaxSize().steadyRemoteRows(gridState).testTag("discover-grid"),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) { header() }
+        if (!state.isSearching && state.searchPeople.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(stringResource(R.string.discover_people), color = Muted, style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(top = 4.dp))
+            }
+            items(state.searchPeople.take(SEARCH_PEOPLE_SHOWN), key = { "search-person-${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { person ->
+                PersonLine(person) { onPerson(person.id) }
+            }
+        }
         if (state.librarySearchResults.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 // Heading and note on one line. Stacked, this section spent three lines saying what
@@ -344,15 +353,6 @@ private fun DiscoverSearchGrid(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(stringResource(R.string.search_add_new), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
-            }
-        }
-        if (!state.isSearching && state.searchPeople.isNotEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(stringResource(R.string.discover_people), color = Muted, style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(top = 4.dp))
-            }
-            items(state.searchPeople.take(SEARCH_PEOPLE_SHOWN), key = { "search-person-${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { person ->
-                PersonLine(person) { onPerson(person.id) }
             }
         }
         if (state.isSearching) {

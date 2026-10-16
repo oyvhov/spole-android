@@ -309,6 +309,20 @@ internal fun PersonPortrait(person: DiscoverPerson, onClick: () -> Unit) {
     }
 }
 
+/** TMDB names what a person is known for in English; the common ones are said in the reader's language. */
+@Composable
+internal fun departmentLabel(raw: String?): String? = when (raw) {
+    null -> null
+    "Acting" -> stringResource(R.string.person_dept_acting)
+    "Directing" -> stringResource(R.string.person_dept_directing)
+    "Writing" -> stringResource(R.string.person_dept_writing)
+    "Production" -> stringResource(R.string.person_dept_production)
+    "Sound" -> stringResource(R.string.person_dept_sound)
+    "Camera" -> stringResource(R.string.person_dept_camera)
+    "Editing" -> stringResource(R.string.person_dept_editing)
+    else -> raw
+}
+
 /** A person in search results: picture, name, what they are known for. */
 @Composable
 internal fun PersonLine(person: DiscoverPerson, onClick: () -> Unit) {
@@ -325,7 +339,7 @@ internal fun PersonLine(person: DiscoverPerson, onClick: () -> Unit) {
             }
             Column(Modifier.weight(1f)) {
                 Text(person.name, style = MaterialTheme.typography.titleSmall, color = TextColor)
-                person.role?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
+                departmentLabel(person.role)?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
             }
             Icon(SpoleIcons.ChevronRight, null, tint = Muted, modifier = Modifier.size(18.dp))
         }

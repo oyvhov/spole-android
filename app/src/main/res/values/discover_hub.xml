@@ -21,4 +21,16 @@
     <string name="discover_all">All</string>
     <string name="discover_rows_failed">Seerr didn’t answer everything.</string>
     <string name="discover_search_hint">Search films, series and people</string>
+    <string name="person_in_library">In your library</string>
+    <string name="person_more_with">More with %1$s</string>
+    <string name="person_read_more">Read more</string>
+    <string name="person_born">born %1$s</string>
+    <string name="person_failed">Seerr didn’t answer. Try again later.</string>
+    <string name="person_dept_acting">Actor</string>
+    <string name="person_dept_directing">Director</string>
+    <string name="person_dept_writing">Writer</string>
+    <string name="person_dept_production">Producer</string>
+    <string name="person_dept_sound">Sound and music</string>
+    <string name="person_dept_camera">Camera</string>
+    <string name="person_dept_editing">Editing</string>
 </resources>

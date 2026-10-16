@@ -183,6 +183,7 @@ fun ReelstackSheets(
     onAddKidManual: (String, String, String?) -> Unit = { _, _, _ -> },
     onDetailBack: () -> Boolean = { false },
     onSessionSelected: (String) -> Unit = {},
+    onPersonPageTitle: (String) -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     // The profile menu is an anchored popup owned by the shell. Falling through to the dialog here
@@ -234,6 +235,10 @@ fun ReelstackSheets(
         (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    // A person's page is a page like a title's: the whole screen on a television, tall on a phone.
+    val personPage = sheet is AppSheet.Person
+    val tvPerson = personPage && (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val phoneDetails = sheet is AppSheet.TitleDetails && !tvDetails &&
         !app.reelstack.ui.layout.WindowLayoutPolicy(configuration.screenWidthDp.toFloat(),
             configuration.screenHeightDp.toFloat()).useSideBySideMedia
@@ -243,28 +248,28 @@ fun ReelstackSheets(
         if (onDetailBack()) true else if (state.returnToCalendar) { onBackToCalendar(); true } else false
     }
     StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss,
-        fullScreen = tvDetails,
-        expanded = phoneDetails,
+        fullScreen = tvDetails || tvPerson,
+        expanded = phoneDetails || (personPage && !tvPerson),
         compact = sheet is AppSheet.ConnectionEditor &&
             state.connections.any { it.kind == connectionDraft?.kind && it.baseUrl.isNotBlank() } &&
             connectionDraft?.simpleSetup != true,
         onCloseStarted = { if (connectionDraft?.simpleSetup == true) onCancelConnection() },
-        onBack = if (sheet is AppSheet.TitleDetails) returnFromTitle else null) { entered, closing, close ->
+        onBack = if (sheet is AppSheet.TitleDetails || personPage) returnFromTitle else null) { entered, closing, close ->
         // Toolbar close and the remote Back use the same detail-history step.  A normal title
         // still closes exactly as before once there is no parent episode to restore.
         val closeOrReturn = {
-            if (sheet is AppSheet.TitleDetails && returnFromTitle()) Unit else close()
+            if ((sheet is AppSheet.TitleDetails || personPage) && returnFromTitle()) Unit else close()
         }
         val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
         Box(Modifier.fillMaxSize().testTag("sheet-viewport")) {
         Column(Modifier.fillMaxSize()) {
-            if (!tvDetails && !cinematicPhone && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails)) {
+            if (!tvDetails && !tvPerson && !cinematicPhone && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails || personPage)) {
                 SheetToolbar(
                     title = if (sheet is AppSheet.SessionDetails) stringResource(R.string.home_now_playing) else "",
                     closeDescription = stringResource(R.string.details_close), onClose = closeOrReturn, enabled = !closing,
                     onBack = if (state.returnToCalendar) onBackToCalendar else null,
                     page = tvDetails,
-                    compact = sheet is AppSheet.TitleDetails,
+                    compact = sheet is AppSheet.TitleDetails || personPage,
                 )
             }
             Box(
@@ -286,6 +291,9 @@ fun ReelstackSheets(
                             onOfflineDownload = onOfflineDownload,
                             onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle, onEpisodeClick = onEpisodeClick)
                     }
+                }
+                is AppSheet.Person -> androidx.compose.runtime.key(sheet.id) {
+                    PersonSheet(state.personPage, onTitle = onPersonPageTitle)
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
                     UpcomingCalendarSheet(state.upcoming, onUpcomingClick, close, undated = state.calendarUndated, error = state.upcomingError, loading = state.isRefreshing, onTitleClick = onCalendarTitle)

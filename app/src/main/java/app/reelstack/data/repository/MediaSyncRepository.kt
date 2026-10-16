@@ -506,6 +506,14 @@ class MediaSyncRepository(
     fun discoverRow(connection: ServiceConnection, kind: app.reelstack.data.model.DiscoverRowKind, page: Int = 1): SearchPage =
         seerrDiscoverClient.row(connection, kind, page).let { SearchPage(it.items.map(::discoverMedia), it.page, it.hasMore) }
 
+    fun person(connection: ServiceConnection, id: Int): app.reelstack.data.model.PersonPage {
+        val person = seerrDiscoverClient.person(connection, id)
+        val (owned, more) = app.reelstack.data.model.splitCredits(seerrDiscoverClient.personCredits(connection, id).map(::discoverMedia))
+        return app.reelstack.data.model.PersonPage(
+            app.reelstack.data.model.DiscoverPerson(person.id, person.name, person.portraitUrl, person.department),
+            person.department, person.birthday, person.biography, owned, more)
+    }
+
     fun discoverGenres(connection: ServiceConnection): List<app.reelstack.data.model.DiscoverGenre> =
         seerrDiscoverClient.genres(connection, "movie") + seerrDiscoverClient.genres(connection, "tv")
 

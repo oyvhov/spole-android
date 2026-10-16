@@ -21,4 +21,16 @@
     <string name="discover_all">Alle</string>
     <string name="discover_rows_failed">Seerr svarte ikkje på alt.</string>
     <string name="discover_search_hint">Søk etter filmar, seriar og folk</string>
+    <string name="person_in_library">I biblioteket ditt</string>
+    <string name="person_more_with">Meir med %1$s</string>
+    <string name="person_read_more">Les meir</string>
+    <string name="person_born">fødd %1$s</string>
+    <string name="person_failed">Seerr svarte ikkje. Prøv igjen seinare.</string>
+    <string name="person_dept_acting">Skodespelar</string>
+    <string name="person_dept_directing">Regissør</string>
+    <string name="person_dept_writing">Manusforfattar</string>
+    <string name="person_dept_production">Produsent</string>
+    <string name="person_dept_sound">Lyd og musikk</string>
+    <string name="person_dept_camera">Foto</string>
+    <string name="person_dept_editing">Klipp</string>
 </resources>

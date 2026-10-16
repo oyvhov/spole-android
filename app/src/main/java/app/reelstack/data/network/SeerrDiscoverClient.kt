@@ -33,6 +33,12 @@ class SeerrDiscoverClient(private val transport: JsonHttpTransport = HttpTranspo
             .map { if (it.mediaType == mediaType) it else it.copy(mediaType = mediaType, id = "seerr-$mediaType-${it.remoteId}") }
     }
 
+    fun person(connection: ServiceConnection, id: Int): ServicePayloadParser.RemotePerson =
+        ServicePayloadParser.person(get(connection, "api/v1/person/$id?language=nb"))
+
+    fun personCredits(connection: ServiceConnection, id: Int): List<RemoteDiscoverItem> =
+        ServicePayloadParser.personCredits(get(connection, "api/v1/person/$id/combined_credits?language=nb"))
+
     private fun page(connection: ServiceConnection, path: String, page: Int): SeerrSearchPage {
         val body = get(connection, path)
         return SeerrSearchPage(ServicePayloadParser.discover(body), page, ServicePayloadParser.totalPages(body))

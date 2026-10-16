@@ -68,6 +68,7 @@ enum class ConnectionAuthMode { QUICK_CONNECT, ACCOUNT, API_KEY }
 sealed interface AppSheet {
     data class SessionDetails(val sessionKey: String) : AppSheet
     data class TitleDetails(val key: String) : AppSheet
+    data class Person(val id: Int) : AppSheet
     data object RequestComposer : AppSheet
     data object UpcomingCalendar : AppSheet
     data class ConnectionEditor(val kind: ServiceKind) : AppSheet
@@ -294,6 +295,8 @@ data class ReelstackUiState(
     val detailMedia: DiscoverMedia? = null,
     /** The Seerr rows of Oppdag, each loaded on its own. */
     val discoverHub: app.reelstack.data.model.DiscoverHubState = app.reelstack.data.model.DiscoverHubState(),
+    /** The Seerr person page that is open, or was last open. */
+    val personPage: app.reelstack.data.model.PersonPage? = null,
     val trackingError: String? = null,
     val trackingLoading: Boolean = false,
     /** Keys of follows currently being withdrawn, so a card cannot be cancelled twice. */
@@ -312,7 +315,7 @@ data class ReelstackUiState(
 
     /** Every Seerr card on screen anywhere, so details and requests work from the global search too. */
     val knownDiscoverMedia: List<DiscoverMedia>
-        get() = listOfNotNull(detailMedia) + discoverHub.allMedia + discover + searchResults + globalSearch.results + recommendations +
+        get() = listOfNotNull(detailMedia) + personPage?.inLibrary.orEmpty() + personPage?.more.orEmpty() + discoverHub.allMedia + discover + searchResults + globalSearch.results + recommendations +
             upcoming.mapNotNull { item -> item.tmdbId?.let { id ->
                 DiscoverMedia(item.id, item.title, item.subtitle, item.artworkRes, false,
                     artworkUrl = item.artworkUrl, remoteId = id, mediaType = if (item.mediaType == "Movie") "movie" else "tv",
@@ -564,8 +567,44 @@ class ReelstackViewModel(
     fun loadMoreDiscoverGrid() = discoverHub.loadMore()
     fun closeDiscoverGrid() = discoverHub.closeGrid()
 
-    /** Opens a person's page. Filled in with the person page. */
-    fun openPerson(id: Int) = Unit
+    private var personJob: Job? = null
+    private val personTrail = PersonTrail<ContentDetails>()
+
+    /** One page per Seerr person, opened from Folk, from search or from a title's cast. */
+    fun openPerson(id: Int) {
+        val state = _uiState.value
+        val connection = state.connections.firstOrNull {
+            it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        } ?: return
+        if (state.isKidMode) return
+        val known = state.discoverHub.people.firstOrNull { it.id == id }
+            ?: state.searchPeople.firstOrNull { it.id == id }
+            ?: state.globalSearch.people.firstOrNull { it.id == id }
+            ?: state.contentDetails?.cast?.firstOrNull { it.seerrPersonId == id }?.let {
+                app.reelstack.data.model.DiscoverPerson(id, it.name, it.portraitUrl, it.role) }
+            ?: app.reelstack.data.model.DiscoverPerson(id, "", null)
+        personTrail.openedPerson(fromTitle = state.contentDetails?.takeIf { state.activeSheet is AppSheet.TitleDetails })
+        _uiState.update { it.copy(activeSheet = AppSheet.Person(id),
+            personPage = app.reelstack.data.model.PersonPage(known, loading = true)) }
+        personJob?.cancel()
+        personJob = operationScope.launch {
+            val result = attempt { withContext(Dispatchers.IO) { container.mediaSyncRepository.person(connection, id) } }
+            _uiState.update { current ->
+                val page = current.personPage?.takeIf { it.person.id == id } ?: return@update current
+                current.copy(personPage = result.getOrNull()?.let { loaded ->
+                    // The search or the cast may have a better picture than the person record.
+                    loaded.copy(person = loaded.person.copy(portraitUrl = loaded.person.portraitUrl ?: page.person.portraitUrl))
+                } ?: page.copy(loading = false, failed = true))
+            }
+        }
+    }
+
+    /** A title on a person page; Back from it returns to the person. */
+    fun openPersonTitle(id: String) {
+        val personId = _uiState.value.personPage?.person?.id ?: return
+        openDiscoverDetails(id)
+        if (_uiState.value.activeSheet == AppSheet.TitleDetails(id)) personTrail.openedTitleFromPerson(personId)
+    }
 
     private var focusDetailsJob: Job? = null
 
@@ -1533,6 +1572,19 @@ class ReelstackViewModel(
      * transparent, which looked like a jump through Home before the episode reappeared.
      */
     fun returnFromDetail(): Boolean {
+        val current = _uiState.value
+        when (val step = personTrail.back(current.activeSheet is AppSheet.Person, current.personPage?.person?.id)) {
+            is PersonTrail.Step.Title<*> -> {
+                val details = step.details as ContentDetails
+                _uiState.update { it.copy(activeSheet = AppSheet.TitleDetails(details.key), contentDetails = details) }
+                return true
+            }
+            is PersonTrail.Step.Person -> {
+                _uiState.update { it.copy(activeSheet = AppSheet.Person(step.id)) }
+                return true
+            }
+            null -> if (current.activeSheet is AppSheet.Person) return false
+        }
         val previous = detailHistory.removeLastOrNull() ?: episodeReturn
         episodeReturn = null
         if (previous != null && _uiState.value.contentDetails?.key == previous.seriesKey &&
@@ -1551,6 +1603,7 @@ class ReelstackViewModel(
         if (returnFromDetail()) return
         if (_uiState.value.returnToCalendar) { backToCalendar(); return }
         detailHistory.clear()
+        personTrail.clear()
         if (_uiState.value.requestDraft?.sending == true) return
         requestDraftJob?.cancel()
         _uiState.update { it.copy(requestDraft = null) }
@@ -2111,6 +2164,7 @@ class ReelstackViewModel(
         if (clearHistory) {
             episodeReturn = null
             detailHistory.clear()
+            personTrail.openedTitleElsewhere()
         }
         val state = _uiState.value
         val media = (listOfNotNull(state.libraryDetailMedia) + state.resume + state.nextUp + state.favourites + state.recentMovies + state.recentSeries + state.librarySearchResults + state.globalSearch.libraryResults + state.libraryPeeks.values.flatten() + state.libraryShelves.resume + state.libraryShelves.nextUp)
@@ -2322,6 +2376,7 @@ class ReelstackViewModel(
 
     fun openDiscoverDetails(id: String) {
         val media = _uiState.value.knownDiscoverMedia.firstOrNull { it.id == id } ?: return
+        personTrail.openedTitleElsewhere()
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }

@@ -457,6 +457,24 @@ object ServicePayloadParser {
             )
         }
 
+    data class RemotePerson(val id: Int, val name: String, val portraitUrl: String?, val department: String?,
+        val birthday: String?, val biography: String?)
+
+    fun person(payload: String): RemotePerson {
+        val item = json.parseToJsonElement(payload).jsonObject
+        return RemotePerson(item.int("id") ?: 0, item.string("name").orEmpty(), item.string("profilePath")?.let { tmdbImage(it, "w342") },
+            item.string("knownForDepartment")?.takeIf(String::isNotBlank), item.string("birthday")?.takeIf(String::isNotBlank),
+            item.string("biography")?.takeIf(String::isNotBlank))
+    }
+
+    /** Everything a person acted in or worked on, once each, newest first. */
+    fun personCredits(payload: String): List<RemoteDiscoverItem> {
+        val root = json.parseToJsonElement(payload).jsonObject
+        return (root.array("cast") + root.array("crew")).mapNotNull { (it as? JsonObject)?.let(::discoverItem) }
+            .distinctBy { it.mediaType to it.remoteId }
+            .sortedByDescending { it.metadata }
+    }
+
     /** A TMDB image of a chosen size, for a path Seerr gave; anything else is not an image we fetch. */
     internal fun tmdbImage(path: String, size: String): String? =
         if (path.startsWith("/")) "https://image.tmdb.org/t/p/$size$path" else null
