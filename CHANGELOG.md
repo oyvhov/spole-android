@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta14 - Oppdag og førespurnader på éin stad
+
+- Oppdag og Aktivitet er slått saman. Aktivitet er ikkje lenger ei eiga fane: «Dine førespurnader» står øvst i Oppdag, med fanene Alle, På veg og Klare, og Tenaren for administratorar.
+- Oppdag har rolege rader frå Seerr: Populært no, Filmar som kjem, Seriar som kjem, Folk og Sjangrar. Plakatane har verken tekst eller knappar under seg, og kvar rad lastar for seg. «Alle» på slutten av ei rad opnar heile lista.
+- På TV viser toppfeltet tittelen som har fokus, med bakgrunnsbilete, fakta, status og samandrag. Søket er eit ikon øvst.
+- Søket finn folk med bilete. Kvar person har si eiga side med det du alt har og det dei elles har laga.
+- Tittelsida for Seerr-titlar har handlingar som ord med ikon: Be om, Trekk tilbake, Varsel og Trailer. Rollelista opnar personsida, og Liknande titlar og Tilrådd ut frå denne står som plakatrader.
+- Be om-arket kan velje Utgåve (Standard eller 4K), Kvalitet og Lagringsstad med ledig plass, for kontoar som har lov i Seerr. «Send førespurnad» er lime tekst med pil.
+- Etter sending blir du verande på tittelsida, og statuslina seier «Førespurd» med ein gong.
+
 ## 1.0.0-beta13 - smarte hyller med valt innhald
 
 - Nye smarte hyller blir knytte til vald tenarkonto og valt bibliotek. Frå rotnivået må du velje bibliotek før lagring. Fleire bibliotek, alle biblioteka på tenaren eller alle tenarar er uttrykkelege val.
