@@ -19,24 +19,6 @@ import org.junit.Test
 class SetupAndDiscoverTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun libraryFilterSeparatesAvailableAndRequestableTitles() {
-        val titles = listOf(
-            DiscoverMedia("ready", "Klar film", "Film", R.drawable.media_placeholder, true, mediaType = "movie", seerrStatus = 5),
-            DiscoverMedia("new", "Ny serie", "Serie", R.drawable.media_placeholder, false, mediaType = "tv", seerrStatus = 1),
-        )
-        rule.setContent {
-            ReelstackTheme { DiscoverScreen(ReelstackUiState(discover = titles), PaddingValues(0.dp), {}, {}, {}) }
-        }
-        rule.onNodeWithText("Status").performScrollTo().performClick()
-        rule.onNodeWithText("Kan leggjast til").performClick()
-        rule.onNodeWithText("Klar film").assertDoesNotExist()
-        rule.onNodeWithText("Ny serie").assertIsDisplayed()
-        rule.onNodeWithText("Kan leggjast til").performScrollTo().performClick()
-        rule.onNodeWithText("I biblioteket").performClick()
-        rule.onNodeWithText("Ny serie").assertDoesNotExist()
-        rule.onNodeWithText("Klar film").assertIsDisplayed()
-    }
-
     @Test fun discoverUsesPersonalSeerrAvatarInHeaderWithoutIdentityCard() {
         val connection = ServiceConnection(ServiceKind.SEERR, "Seerr", "https://seerr.example", "session", sessionCookie = true)
         val account = ServiceAccount(ServiceKind.SEERR, "7", "Maya")
@@ -44,7 +26,7 @@ class SetupAndDiscoverTest {
         rule.setContent {
             ReelstackTheme {
                 DiscoverScreen(ReelstackUiState(connections = listOf(connection), accounts = mapOf(ServiceKind.SEERR to account)),
-                    PaddingValues(0.dp), {}, {}, {}, { opened = true })
+                    PaddingValues(0.dp), {}, {}, onAccountClick = { opened = true })
             }
         }
         rule.onNodeWithTag("discover-account").assertIsDisplayed()
@@ -52,7 +34,7 @@ class SetupAndDiscoverTest {
         assertEquals(true, opened)
         rule.onNodeWithText("Som Maya").assertDoesNotExist()
         rule.onNodeWithTag("request-identity").assertDoesNotExist()
-        rule.onNodeWithTag("discover-filters").assertIsDisplayed()
+        rule.onNodeWithTag("discover-hub").assertExists()
     }
 
     @Test fun firstRunOffersServicesAndExplicitPreview() {
@@ -84,7 +66,7 @@ class SetupAndDiscoverTest {
         rule.onNodeWithText("Utforsk med demodata først").assertDoesNotExist()
     }
 
-    @Test fun discoverFiltersChangeResultsAndDetailActionOpensTheTitle() {
+    @Test fun aSearchResultOpensTheTitle() {
         var opened: String? = null
         val movies = listOf(
             DiscoverMedia("film", "Testfilmen", "Film · 2026", R.drawable.media_placeholder, true, mediaType = "movie"),
@@ -92,15 +74,11 @@ class SetupAndDiscoverTest {
         )
         rule.setContent {
             ReelstackTheme {
-                DiscoverScreen(ReelstackUiState(discover = movies), PaddingValues(0.dp), {}, {}, { opened = it })
+                DiscoverScreen(ReelstackUiState(searchQuery = "test", searchResults = movies), PaddingValues(0.dp), {}, { opened = it })
             }
         }
-        rule.onNodeWithText("Filmar").performClick()
-        rule.onNodeWithText("Testserien").assertDoesNotExist()
-        rule.onNodeWithTag("discover-cover-film").performScrollTo().performClick()
+        rule.onNodeWithTag("discover-poster-film").performScrollTo().performClick()
         assertEquals("film", opened)
-        rule.onNodeWithText("Seriar").performClick()
-        rule.onNodeWithText("Testfilmen").assertDoesNotExist()
-        rule.onNodeWithText("Testserien").assertIsDisplayed()
+        rule.onNodeWithTag("discover-poster-series").assertExists()
     }
 }

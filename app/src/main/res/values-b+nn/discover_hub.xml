@@ -12,4 +12,13 @@
         <item quantity="one">Sesong %1$s</item>
         <item quantity="other">Sesong %1$s</item>
     </plurals>
+    <string name="discover_row_trending">Populært no</string>
+    <string name="discover_row_upcoming_movies">Filmar som kjem</string>
+    <string name="discover_row_upcoming_series">Seriar som kjem</string>
+    <string name="discover_people">Folk</string>
+    <string name="discover_genres">Sjangrar</string>
+    <string name="discover_all_count">Alle %1$d</string>
+    <string name="discover_all">Alle</string>
+    <string name="discover_rows_failed">Seerr svarte ikkje på alt.</string>
+    <string name="discover_search_hint">Søk etter filmar, seriar og folk</string>
 </resources>

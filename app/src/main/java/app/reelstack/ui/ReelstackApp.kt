@@ -163,7 +163,6 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             onPlayed = { media, played -> viewModel.setMediaPlayed(media.id, played) },
         )
     }
-    var pendingSearchFocus by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val tvRail = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     var tvRailFocused by remember { mutableStateOf(false) }
@@ -175,7 +174,6 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     var contentHasFocus by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val selectTab: (AppTab) -> Unit = { tab ->
-        pendingSearchFocus = false
         focusManager.clearFocus()
         keyboard?.hide()
         viewModel.selectTab(tab)
@@ -272,6 +270,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     }
     val startTab = if (app.reelstack.ui.theme.LocalPersonalization.current.startInLibrary) AppTab.LIBRARY else AppTab.HOME
     BackHandler(enabled = state.globalSearchOpen) { viewModel.closeGlobalSearch() }
+    BackHandler(enabled = state.discoverHub.grid != null && state.selectedTab == AppTab.DISCOVER && state.activeSheet == null && !state.globalSearchOpen) {
+        viewModel.closeDiscoverGrid()
+    }
     BackHandler(enabled = state.myRequestsOpen && state.selectedTab == AppTab.DISCOVER && state.activeSheet == null && !state.globalSearchOpen) {
         viewModel.closeMyRequests()
     }
@@ -460,15 +461,18 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         state = discoverState,
                         contentPadding = screenInsets,
                         onSearch = viewModel::setSearchQuery,
-                        onRequest = viewModel::requestMedia,
                         onDetails = viewModel::openDiscoverDetails,
+                        hubActions = app.reelstack.ui.screens.DiscoverHubActions(
+                            onTitle = viewModel::openDiscoverDetails, onPerson = viewModel::openPerson,
+                            onMyRequests = viewModel::openMyRequests, onRequestLine = viewModel::openActivityDetails,
+                            onGrid = viewModel::openDiscoverGrid, onRetry = { viewModel.refreshDiscoverHub(force = true) },
+                            onSearch = viewModel::openGlobalSearch, onFocusTitle = viewModel::focusDiscoverTitle),
                         onAccountClick = viewModel::openSeerrAccount,
                         onLibraryDetails = viewModel::openLibraryDetails,
                         onLoadMore = viewModel::loadMoreSearchResults,
+                        onGridMore = viewModel::loadMoreDiscoverGrid,
+                        onGridBack = viewModel::closeDiscoverGrid,
                         searchTransitionModifier = searchTransition,
-                        prepareSearch = pendingSearchFocus,
-                        searchReady = navigation.currentState == AppTab.DISCOVER && !navigation.isRunning,
-                        onSearchFocusConsumed = { pendingSearchFocus = false },
                     )
                     AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary,
                         viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary,

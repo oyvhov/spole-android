@@ -563,6 +563,33 @@ class ReelstackViewModel(
     fun loadMoreDiscoverGrid() = discoverHub.loadMore()
     fun closeDiscoverGrid() = discoverHub.closeGrid()
 
+    /** Opens a person's page. Filled in with the person page. */
+    fun openPerson(id: Int) = Unit
+
+    private var focusDetailsJob: Job? = null
+
+    /**
+     * On a television the header names the length and genres of the title in focus. Each title is
+     * asked about once, after the remote has rested on it for a moment, and the answer is kept.
+     */
+    fun focusDiscoverTitle(media: DiscoverMedia) {
+        val state = _uiState.value
+        if (!isTelevision() || state.isKidMode || media.id in state.discoverHub.focusFacts) return
+        if (media.remoteId == null || media.mediaType == null) return
+        val connection = state.connections.firstOrNull {
+            it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
+        } ?: return
+        focusDetailsJob?.cancel()
+        focusDetailsJob = operationScope.launch {
+            kotlinx.coroutines.delay(300)
+            val remote = runCatching {
+                withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
+            }.getOrNull() ?: return@launch
+            val facts = (words(remote.facts) + remote.genres.take(2)).filter(String::isNotBlank)
+            _uiState.update { it.copy(discoverHub = it.discoverHub.withFocusFacts(media.id, facts)) }
+        }
+    }
+
     private val homeFeed = HomeFeedCoordinator(
         container = container,
         scope = operationScope,

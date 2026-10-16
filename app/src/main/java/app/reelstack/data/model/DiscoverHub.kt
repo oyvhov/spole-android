@@ -34,9 +34,15 @@ data class DiscoverHubState(
     val gridRow: DiscoverRowState = DiscoverRowState(),
     /** The profile and server the rows were loaded for; a late answer for another is dropped. */
     val scope: String? = null,
+    /** Length, genres and the like for titles that had focus on a television, newest last. */
+    val focusFacts: Map<String, List<String>> = emptyMap(),
 ) {
     val allMedia: List<DiscoverMedia> get() = rows.values.flatMap { it.items } + gridRow.items
     val anyFailed: Boolean get() = rows.values.any { it.failed }
+
+    /** Remembers [facts] for [id]; only the [limit] most recently looked at are kept. */
+    fun withFocusFacts(id: String, facts: List<String>, limit: Int = 100): DiscoverHubState =
+        copy(focusFacts = (focusFacts - id + (id to facts)).entries.toList().takeLast(limit).associate { it.toPair() })
 }
 
 /** The first billed people of the first titles, without repeats. */

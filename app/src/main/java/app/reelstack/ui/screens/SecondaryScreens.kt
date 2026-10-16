@@ -2,6 +2,7 @@ package app.reelstack.ui.screens
 import app.reelstack.ui.components.SettingsServiceRow
 
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.data.model.DiscoverGridTarget
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -141,29 +142,6 @@ import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
 
-/** Stable filter identities. The visible label is a property, never the state itself. */
-enum class DiscoverFilter(val label: String) {
-    ALL("Alt"), MOVIES("Filmar"), SERIES("Seriar")
-}
-
-enum class LibraryFilter(val label: String) {
-    ALL("Alle titlar"), AVAILABLE("I biblioteket"), REQUESTABLE("Kan leggjast til")
-}
-
-@Composable
-private fun DiscoverFilter.localizedLabel(): String = when (this) {
-    DiscoverFilter.ALL -> stringResource(R.string.filter_all)
-    DiscoverFilter.MOVIES -> stringResource(R.string.filter_movies)
-    DiscoverFilter.SERIES -> stringResource(R.string.filter_series)
-}
-
-@Composable
-private fun LibraryFilter.localizedLabel(): String = when (this) {
-    LibraryFilter.ALL -> stringResource(R.string.filter_all_titles)
-    LibraryFilter.AVAILABLE -> stringResource(R.string.filter_available)
-    LibraryFilter.REQUESTABLE -> stringResource(R.string.filter_requestable)
-}
-
 /**
  * How wide one cell is on a wall of covers.
  *
@@ -206,57 +184,25 @@ private fun screenPadding(contentPadding: PaddingValues) = PaddingValues(
  * rather than obeyed.
  */
 @Suppress("ModifierParameter")
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun DiscoverScreen(
     state: DiscoverUiState,
     contentPadding: PaddingValues,
     onSearch: (String) -> Unit,
-    onRequest: (String) -> Unit,
     onDetails: (String) -> Unit,
+    hubActions: DiscoverHubActions,
     onAccountClick: () -> Unit = {},
     onLibraryDetails: (String) -> Unit = {},
     onLoadMore: () -> Unit = {},
+    onGridMore: () -> Unit = {},
+    onGridBack: () -> Unit = {},
     searchTransitionModifier: Modifier = Modifier,
-    prepareSearch: Boolean = false,
-    searchReady: Boolean = false,
-    globalSearch: Boolean = false,
-    onSearchFocusConsumed: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val searchFocus = remember { FocusRequester() }
-    val gridState = rememberLazyGridState()
-    var filter by rememberSaveable { mutableStateOf(DiscoverFilter.ALL) }
-    var libraryFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
-    // An explicit Home search starts at the field, even after browsing a long filtered grid.
-    // Ordinary tab visits retain their query, filters and scroll position.
-    LaunchedEffect(prepareSearch) {
-        if (prepareSearch) {
-            filter = DiscoverFilter.ALL
-            libraryFilter = LibraryFilter.ALL
-            gridState.scrollToItem(0)
-        }
-    }
-    val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
-        android.content.res.Configuration.UI_MODE_TYPE_MASK ==
-        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    val filterFocus = remember { FocusRequester() }
+    val television = app.reelstack.ui.components.isTelevision()
     var searchOpen by rememberSaveable { mutableStateOf(false) }
-    // Claim the first focus for the type filters. Guarding the search shortcut was not enough: the
-    // field is the first focusable element on the screen, so the focus system handed it the remote
-    // by itself and the on-screen keyboard came with it.
-    //
-    // The filter bar lives in a lazy header, so a fixed two-frame wait asked before it was attached
-    // and the request failed silently. Keep asking until it lands, then stop — bounded, so a screen
-    // where the bar never appears does not spin.
-    LaunchedEffect(television) {
-        if (!television) return@LaunchedEffect
-        repeat(40) {
-            withFrameNanos { }
-            if (runCatching { filterFocus.requestFocus() }.isSuccess) return@LaunchedEffect
-        }
-    }
     LaunchedEffect(searchOpen) {
         if (television && searchOpen) {
             withFrameNanos { }
@@ -264,37 +210,107 @@ fun DiscoverScreen(
             keyboard?.show()
         }
     }
-    LaunchedEffect(prepareSearch, searchReady) {
-        if (prepareSearch && searchReady) {
-            gridState.scrollToItem(0)
-            // Let the lazy header attach before focusing. This is frame-driven, not a timer
-            // that drifts from the transition on a slow device or with animations disabled.
-            withFrameNanos { }
-            // Never on television. A remote has no keyboard, so grabbing the field throws the
-            // on-screen one over the content the moment Discover opens — and getting rid of it
-            // costs a Back press before anything can be browsed. The field is still there to be
-            // chosen deliberately.
-            if (!television) {
-                searchFocus.requestFocus()
-                keyboard?.show()
-            }
-            onSearchFocusConsumed()
-        }
+    val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
+    val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+    val accountButton: @Composable () -> Unit = {
+        AccountAvatarButton(
+            account = account,
+            connection = connection,
+            onClick = onAccountClick,
+            description = account?.let { stringResource(R.string.account_change_seerr, it.displayName) }
+                ?: stringResource(R.string.account_signin_seerr),
+            testTag = "discover-account",
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
-    val visible = state.visibleDiscover.filter { media ->
-        val matchesType = when (filter) {
-            DiscoverFilter.MOVIES -> !media.isSeries
-            DiscoverFilter.SERIES -> media.isSeries
-            DiscoverFilter.ALL -> true
-        }
-        matchesType && when (libraryFilter) {
-            LibraryFilter.ALL -> true
-            LibraryFilter.AVAILABLE -> media.inLibrary || media.seerrStatus == 5
-            LibraryFilter.REQUESTABLE -> media.canRequest
-        }
+    val discoverTop: @Composable () -> Unit = {
+        app.reelstack.ui.components.DiscoverHeader(heading = {
+            Text(stringResource(R.string.nav_discover), color = TextColor, style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.padding(top = 6.dp))
+        }, account = accountButton, search = {
+            // The box is always on screen. On television it is a button that looks exactly like
+            // the field until it is chosen, because focusing a real text field is what summons
+            // the on-screen keyboard. Pressing it swaps in the field below, focused and with the
+            // keyboard, which is the only moment a remote user wants either.
+            if (television && !searchOpen) TvSearchBox(
+                query = state.searchQuery,
+                modifier = searchTransitionModifier.focusRequester(searchFocus),
+                onClear = { onSearch("") },
+                onOpen = { searchOpen = true },
+            )
+            else androidx.compose.material3.TextField(
+                value = state.searchQuery,
+                onValueChange = onSearch,
+                singleLine = true,
+                leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (state.isSearching) {
+                        CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    } else if (state.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearch("") }) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
+                        }
+                    }
+                },
+                placeholder = { Text(stringResource(R.string.discover_search_hint), fontSize = 14.sp, lineHeight = 20.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    focusManager.clearFocus()
+                    // Back to the button, so the keyboard goes with it and the results are visible.
+                    if (television) searchOpen = false
+                }),
+                shape = RoundedCornerShape(20.dp),
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedIndicatorColor = Primary,
+                    unfocusedIndicatorColor = app.reelstack.ui.theme.ControlOutline,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    cursorColor = Primary,
+                ),
+                modifier = searchTransitionModifier.fillMaxWidth().focusRequester(searchFocus)
+                    .testTag("discover-search"),
+            )
+        })
     }
-    val firstResult = remember { FocusRequester() }
     ReelPage(media = true) {
+        val grid = state.hub.grid
+        when {
+            grid != null -> DiscoverGridContent(
+                title = when (grid) {
+                    is DiscoverGridTarget.Row -> grid.kind.title()
+                    is DiscoverGridTarget.Genre -> grid.genre.name
+                },
+                row = state.hub.gridRow, contentPadding = contentPadding, onTitle = onDetails, onMore = onGridMore, onBack = onGridBack)
+            state.searchQuery.isBlank() -> DiscoverHubContent(state, contentPadding, hubActions, header = {
+                // On a television the page opens on the posters; search is an icon one press up,
+                // and it opens the full search, where people are found too.
+                if (television) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    IconButton(onClick = hubActions.onSearch, interactionSource = interaction,
+                        modifier = Modifier.focusOutline(interaction, CircleShape).testTag("discover-search-icon")) {
+                        Icon(app.reelstack.ui.components.SpoleIcons.Search, stringResource(R.string.discover_search_hint), tint = TextColor)
+                    }
+                    accountButton()
+                } else discoverTop()
+            })
+            else -> DiscoverSearchGrid(state, contentPadding, discoverTop, onDetails, onLibraryDetails, onLoadMore)
+        }
+    }
+}
+
+/** What the box above found: your own titles first, then everything Seerr can add. */
+@Composable
+private fun DiscoverSearchGrid(
+    state: DiscoverUiState,
+    contentPadding: PaddingValues,
+    header: @Composable () -> Unit,
+    onDetails: (String) -> Unit,
+    onLibraryDetails: (String) -> Unit,
+    onLoadMore: () -> Unit,
+) {
+    val gridState = rememberLazyGridState()
+    val visible = state.searchResults
     LazyVerticalGrid(
         columns = GridCells.Adaptive(posterCell()),
         state = gridState,
@@ -303,126 +319,7 @@ fun DiscoverScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.fillMaxSize().steadyRemoteRows(gridState).testTag("discover-grid"),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Column {
-                val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
-                val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
-                app.reelstack.ui.components.DiscoverHeader(heading = {
-                    Column {
-                        Text(stringResource(R.string.nav_discover), color = TextColor, style = MaterialTheme.typography.displaySmall,
-                            modifier = Modifier.padding(top = 6.dp))
-                        // The lede says what this page is for. Once there is a query in the box the
-                        // reader knows, and on a television those two lines are the difference
-                        // between seeing the first row of hits and seeing the top half of it.
-                        if (state.searchQuery.isBlank()) Text(stringResource(R.string.discover_subtitle),
-                            color = Muted, fontSize = 13.sp,
-                            lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
-                    }
-                }, account = {
-                    AccountAvatarButton(
-                        account = account,
-                        connection = connection,
-                        onClick = onAccountClick,
-                        description = account?.let { stringResource(R.string.account_change_seerr, it.displayName) }
-                            ?: stringResource(R.string.account_signin_seerr),
-                        testTag = "discover-account",
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }, search = {
-                // The box is always on screen. On television it is a button that looks exactly like
-                // the field until it is chosen, because focusing a real text field is what summons
-                // the on-screen keyboard — and the shell hands focus to the first element in the
-                // content every time a tab is opened. Pressing it swaps in the field below, focused
-                // and with the keyboard, which is the only moment a remote user wants either.
-                if (television && !searchOpen) TvSearchBox(
-                    query = state.searchQuery,
-                    // The same requester as the field it stands in for, so the link from the filter
-                    // row below always has something attached to point at.
-                    modifier = searchTransitionModifier.focusRequester(searchFocus)
-                        .focusProperties { down = filterFocus },
-                    onClear = { onSearch("") },
-                    onOpen = { searchOpen = true },
-                )
-                else androidx.compose.material3.TextField(
-                    value = state.searchQuery,
-                    onValueChange = onSearch,
-                    singleLine = true,
-                    leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (state.isSearching) {
-                            CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                        } else if (state.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { onSearch("") }) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
-                            }
-                        }
-                    },
-                    placeholder = { Text(stringResource(R.string.home_search), fontSize = 14.sp, lineHeight = 20.sp) },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = {
-                        focusManager.clearFocus()
-                        // Back to the button, so the keyboard goes with it and the results are visible.
-                        if (television) searchOpen = false
-                    }),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = androidx.compose.material3.TextFieldDefaults.colors(
-                        focusedIndicatorColor = Primary,
-                        unfocusedIndicatorColor = app.reelstack.ui.theme.ControlOutline,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        cursorColor = Primary,
-                    ),
-                    modifier = searchTransitionModifier.fillMaxWidth().focusRequester(searchFocus)
-                        .testTag("discover-search"),
-                )
-                })
-                Row(
-                    Modifier.padding(top = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    // On a wide television header the search box sits beside the heading, far to
-                    // the right of these chips: nothing is directly above them, so a plain Up press
-                    // finds nothing at all. The link says where Up goes instead of leaving it to
-                    // geometry that does not line up.
-                    DiscoverFilterBar(filter, libraryFilter, { filter = it }, { libraryFilter = it },
-                        Modifier.focusRequester(filterFocus).focusGroup()
-                            .then(if (television) Modifier.focusProperties {
-                                up = searchFocus
-                                if (state.librarySearchResults.isNotEmpty() || visible.isNotEmpty()) down = firstResult
-                            } else Modifier))
-                }
-            }
-        }
-        if (globalSearch && state.searchQuery.isBlank() && state.searchHistory.isNotEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(top = 20.dp, bottom = 6.dp)) {
-                    Text(
-                        stringResource(R.string.search_recent),
-                        color = TextColor,
-                        fontSize = 18.sp,
-                        lineHeight = 24.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        stringResource(R.string.discover_subtitle),
-                        color = Muted,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        state.searchHistory.forEach { query ->
-                            AssistChip(
-                                onClick = { onSearch(query) },
-                                label = { Text(query, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Clock, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        item(span = { GridItemSpan(maxLineSpan) }) { header() }
         if (state.librarySearchResults.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 // Heading and note on one line. Stacked, this section spent three lines saying what
@@ -438,27 +335,21 @@ fun DiscoverScreen(
                 }
             }
             items(state.librarySearchResults, key = { "library-hit-${it.id}" }) { media ->
-                Box(if (media.id == state.librarySearchResults.firstOrNull()?.id) Modifier.focusRequester(firstResult) else Modifier) {
-                    LibraryHitCard(media) { onLibraryDetails(media.id) }
-                }
+                LibraryHitCard(media) { onLibraryDetails(media.id) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(stringResource(R.string.search_add_new), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
             }
         }
-        if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank()
-                && state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() })) {
+        if (state.isSearching) {
             items(8, key = { "discover-loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
         } else if (visible.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 app.reelstack.ui.components.QuietEmptyState(
                     state.searchError ?: when {
-                        state.searchQuery.isNotBlank() && state.librarySearchResults.isNotEmpty() ->
-                            stringResource(R.string.search_no_new, state.searchQuery.trim())
-                        state.searchQuery.isNotBlank() -> stringResource(R.string.search_no_results, state.searchQuery.trim())
-                        filter != DiscoverFilter.ALL || libraryFilter != LibraryFilter.ALL -> stringResource(R.string.search_empty_filter)
-                        else -> stringResource(R.string.search_not_connected)
+                        state.librarySearchResults.isNotEmpty() -> stringResource(R.string.search_no_new, state.searchQuery.trim())
+                        else -> stringResource(R.string.search_no_results, state.searchQuery.trim())
                     },
                     icon = if (state.searchError != null) app.reelstack.ui.components.SpoleIcons.Wifi else app.reelstack.ui.components.SpoleIcons.Search,
                     modifier = Modifier,
@@ -466,11 +357,7 @@ fun DiscoverScreen(
             }
         } else {
             items(visible, key = DiscoverMedia::id) { media ->
-              Box(if (state.librarySearchResults.isEmpty() && media.id == visible.firstOrNull()?.id) Modifier.focusRequester(firstResult) else Modifier) {
-                DiscoverCard(media, media.id in state.requestingMediaIds,
-                    allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { media.isSeries || !it.isPersonal || it.canRequestType("movie") } == true,
-                    onRequest = { onRequest(media.id) }, onDetails = { onDetails(media.id) })
-              }
+                PosterOnlyCard(media, { onDetails(media.id) }, Modifier.fillMaxWidth())
             }
             // Seerr answers 20 results at a time. Loading the next page is explicit rather than
             // automatic, so scrolling a long list never fires requests the reader did not ask for.
@@ -493,7 +380,6 @@ fun DiscoverScreen(
                 }
             }
         }
-    }
     }
 }
 
@@ -520,56 +406,6 @@ private fun TvSearchBox(query: String, modifier: Modifier, onClear: () -> Unit, 
         )
         if (query.isNotBlank()) IconButton(onClick = onClear, modifier = Modifier.testTag("discover-search-clear")) {
             Icon(app.reelstack.ui.components.SpoleIcons.Close, stringResource(R.string.search_clear), tint = Muted)
-        }
-    }
-}
-
-@Composable
-private fun DiscoverFilterBar(
-    type: DiscoverFilter,
-    library: LibraryFilter,
-    onType: (DiscoverFilter) -> Unit,
-    onLibrary: (LibraryFilter) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var statusOpen by rememberSaveable { mutableStateOf(false) }
-    androidx.compose.foundation.lazy.LazyRow(
-        modifier.fillMaxWidth().testTag("discover-filters"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(DiscoverFilter.entries, key = { "type-${it.name}" }) { option ->
-            app.reelstack.ui.components.OpenFilterTab(option.localizedLabel(), option == type) { onType(option) }
-        }
-        item(key = "library-status") {
-            val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            Box {
-                FilterChip(
-                    interactionSource = interaction,
-                    selected = library != LibraryFilter.ALL,
-                    onClick = { statusOpen = true },
-                    label = { Text(if (library == LibraryFilter.ALL) stringResource(R.string.filter_status) else library.localizedLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    trailingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, Modifier.size(18.dp)) },
-                    shape = RoundedCornerShape(10.dp), border = null,
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = Color.Transparent, labelColor = Muted,
-                        selectedContainerColor = Color.Transparent, selectedLabelColor = Primary,
-                    ),
-                    modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(10.dp), glow = false).testTag("discover-status-filter"),
-                )
-                DropdownMenu(expanded = statusOpen, onDismissRequest = { statusOpen = false },
-                    containerColor = SurfaceRaised) {
-                    LibraryFilter.entries.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option.localizedLabel()) },
-                            selected = option == library,
-                            leadingIcon = if (option == library) {
-                                { Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                            } else null,
-                            onClick = { onLibrary(option); statusOpen = false },
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -714,30 +550,22 @@ fun DiscoverScreen(
     state: ReelstackUiState,
     contentPadding: PaddingValues,
     onSearch: (String) -> Unit,
-    onRequest: (String) -> Unit,
     onDetails: (String) -> Unit,
+    hubActions: DiscoverHubActions = DiscoverHubActions({}, {}, {}, {}, {}, {}, {}),
     onAccountClick: () -> Unit = {},
     onLibraryDetails: (String) -> Unit = {},
     onLoadMore: () -> Unit = {},
     searchTransitionModifier: Modifier = Modifier,
-    prepareSearch: Boolean = false,
-    searchReady: Boolean = false,
-    globalSearch: Boolean = false,
-    onSearchFocusConsumed: () -> Unit = {},
 ) = DiscoverScreen(
     state = state.toDiscoverUiState(),
     contentPadding = contentPadding,
     onSearch = onSearch,
-    onRequest = onRequest,
     onDetails = onDetails,
+    hubActions = hubActions,
     onAccountClick = onAccountClick,
     onLibraryDetails = onLibraryDetails,
     onLoadMore = onLoadMore,
     searchTransitionModifier = searchTransitionModifier,
-    prepareSearch = prepareSearch,
-    searchReady = searchReady,
-    globalSearch = globalSearch,
-    onSearchFocusConsumed = onSearchFocusConsumed,
 )
 
 private enum class SettingsSection(val label: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {

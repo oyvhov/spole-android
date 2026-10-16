@@ -105,9 +105,11 @@ internal class DiscoverHubCoordinator(
     fun loadMore() {
         val hub = readState().discoverHub
         val target = hub.grid ?: return
-        if (hub.gridRow.loading || !hub.gridRow.hasMore) return
-        updateState { it.copy(discoverHub = it.discoverHub.copy(gridRow = it.discoverHub.gridRow.copy(loading = true))) }
-        loadGrid(target, hub.gridRow.page + 1)
+        val row = hub.gridRow
+        // After a failure the same page is asked for again; the first page if nothing came at all.
+        if (row.loading || (!row.failed && !row.hasMore)) return
+        updateState { it.copy(discoverHub = it.discoverHub.copy(gridRow = it.discoverHub.gridRow.copy(loading = true, failed = false))) }
+        loadGrid(target, if (row.items.isEmpty()) 1 else row.page + 1)
     }
 
     fun closeGrid() = updateState { it.copy(discoverHub = it.discoverHub.copy(grid = null, gridRow = DiscoverRowState())) }

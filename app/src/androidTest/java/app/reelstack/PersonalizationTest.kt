@@ -77,16 +77,16 @@ class PersonalizationTest {
                 density = LocalDensity.current.density
                 ReelstackTheme {
                     CompositionLocalProvider(LocalPersonalization provides Personalization(artworkSize = ArtworkSize.LARGE)) {
-                        app.reelstack.ui.screens.DiscoverScreen(ReelstackUiState(isSearching = loading,
-                            discover = listOf(DiscoverMedia("fixture", "A film", "2026", R.drawable.media_placeholder, false))),
-                            PaddingValues(0.dp), {}, {}, {})
+                        app.reelstack.ui.screens.DiscoverScreen(ReelstackUiState(isSearching = loading, searchQuery = "a",
+                            searchResults = listOf(DiscoverMedia("fixture", "A film", "2026", R.drawable.media_placeholder, false))),
+                            PaddingValues(0.dp), {}, {})
                     }
                 }
             }
         }
         val skeleton = rule.onAllNodesWithContentDescription("Lastar søkjeresultat").onFirst().fetchSemanticsNode().boundsInRoot
         rule.runOnIdle { loading = false }
-        val artwork = rule.onNodeWithTag("discover-cover-fixture").fetchSemanticsNode().boundsInRoot
+        val artwork = rule.onNodeWithTag("discover-poster-fixture").fetchSemanticsNode().boundsInRoot
         assertEquals(skeleton.width, artwork.width, 1f)
         assertTrue(artwork.height > 0f)
     }
