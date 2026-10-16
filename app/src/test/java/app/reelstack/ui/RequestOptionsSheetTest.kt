@@ -14,6 +14,7 @@ import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.theme.ReelstackTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,5 +66,22 @@ class RequestOptionsSheetTest {
         show(1024 + 32, RequestDraft(media, loading = false, fourKAvailable = true))
         rule.onNodeWithTag("request-edition-4k").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(listOf("edition:true"), chosen) }
+    }
+
+    @Test fun atLargeTextTheLabelSitsAboveItsValue() {
+        rule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+                androidx.compose.ui.unit.Density(androidx.compose.ui.platform.LocalDensity.current.density, 2f)) {
+                ReelstackTheme {
+                    RequestComposer(ReelstackUiState(connections = listOf(seerr),
+                        accounts = mapOf(ServiceKind.SEERR to ServiceAccount(ServiceKind.SEERR, "7", "Ø", permissions = 8224)),
+                        requestDraft = RequestDraft(media, loading = false, options = options, profileId = 4, folder = "/mnt/w/Filmar 10")),
+                        { _, _ -> }, {}, {}, {}, {}, {})
+                }
+            }
+        }
+        val label = rule.onNodeWithTag("request-folder-label", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val value = rule.onNodeWithTag("request-folder-value", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("label ${label} overlaps value ${value}", label.bottom <= value.top + 1f)
     }
 }

@@ -275,6 +275,13 @@ fun DiscoverScreen(
     }
     ReelPage(media = true) {
         val grid = state.hub.grid
+        Column(Modifier.fillMaxSize()) {
+        // On a phone the field stays where it is while the page under it switches between rows and
+        // results. Inside either list it was a new field after the first letter, and the keyboard
+        // closed under the reader's thumb.
+        if (!television && grid == null) Box(Modifier.padding(start = ReelLayout.Gutter, end = ReelLayout.Gutter,
+            top = ReelLayout.PageTop, bottom = 4.dp)) { discoverTop() }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
         when {
             grid != null -> DiscoverGridContent(
                 title = when (grid) {
@@ -292,9 +299,12 @@ fun DiscoverScreen(
                         Icon(app.reelstack.ui.components.SpoleIcons.Search, stringResource(R.string.discover_search_hint), tint = TextColor)
                     }
                     accountButton()
-                } else discoverTop()
+                }
             })
-            else -> DiscoverSearchGrid(state, contentPadding, discoverTop, onDetails, onLibraryDetails, onLoadMore, hubActions.onPerson)
+            else -> DiscoverSearchGrid(state, contentPadding, { if (television) discoverTop() }, onDetails, onLibraryDetails, onLoadMore,
+                hubActions.onPerson, top = if (television) ReelLayout.PageTop else 8.dp)
+        }
+        }
         }
     }
 }
@@ -312,13 +322,15 @@ private fun DiscoverSearchGrid(
     onLibraryDetails: (String) -> Unit,
     onLoadMore: () -> Unit,
     onPerson: (Int) -> Unit,
+    top: androidx.compose.ui.unit.Dp = ReelLayout.PageTop,
 ) {
     val gridState = rememberLazyGridState()
     val visible = state.searchResults
     LazyVerticalGrid(
         columns = GridCells.Adaptive(posterCell()),
         state = gridState,
-        contentPadding = screenPadding(contentPadding),
+        contentPadding = PaddingValues(start = ReelLayout.Gutter, top = top, end = ReelLayout.Gutter,
+            bottom = contentPadding.calculateBottomPadding() + 24.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.fillMaxSize().steadyRemoteRows(gridState).testTag("discover-grid"),

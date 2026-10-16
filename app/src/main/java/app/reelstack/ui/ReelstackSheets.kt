@@ -452,14 +452,30 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     }
     // What can be done with a Seerr title, as words: ask for it, withdraw your own waiting
     // request, and turn the alert for it on or off. No filled buttons.
-    val tracked = state.trackedRequests.firstOrNull { discoverMedia != null && it.mediaId == discoverMedia.remoteId &&
-        it.mediaType == discoverMedia.mediaType && !it.is4k }
+    // Every request for this title, standard and 4K. One request reads as plain words; several name
+    // their seasons or edition, so a withdrawal can only ever reach the one it says.
+    val trackedHere = state.trackedRequests.filter { discoverMedia != null && it.mediaId == discoverMedia.remoteId &&
+        it.mediaType == discoverMedia.mediaType }
+    val requestParts = trackedHere.associate { tracked ->
+        tracked.key to if (trackedHere.size < 2) null else listOfNotNull(
+            tracked.seasons.sorted().takeIf { it.isNotEmpty() }?.let {
+                androidx.compose.ui.res.pluralStringResource(R.plurals.my_requests_seasons, it.size, it.joinToString(", ")) },
+            "4K".takeIf { tracked.is4k }).joinToString(" · ").ifBlank { null }
+    }
+    val alertContext = androidx.compose.ui.platform.LocalContext.current
+    var pendingAlert by remember(details.key) { mutableStateOf<String?>(null) }
+    val alertPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+        pendingAlert?.let { key -> onNotify(key, true) }
+        pendingAlert = null
+    }
     val canAsk = discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
         state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)
     // Withdrawing removes the request in Seerr, so it is asked once before anything is sent.
     var confirmWithdraw by remember(details.key) { mutableStateOf<app.reelstack.data.model.TrackedRequest?>(null) }
     confirmWithdraw?.let { request ->
-        WithdrawConfirm(request.title, onConfirm = { confirmWithdraw = null; onWithdraw(request.key) }, onKeep = { confirmWithdraw = null })
+        WithdrawConfirm(listOfNotNull(request.title, requestParts[request.key]).joinToString(" · "),
+            onConfirm = { confirmWithdraw = null; onWithdraw(request.key) }, onKeep = { confirmWithdraw = null })
     }
     val seerrActions = buildList {
         if (canAsk && discoverMedia != null) {
@@ -474,13 +490,26 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }), if (discoverMedia.mediaType == "tv") app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add,
                 "title-request") { if (adding) Unit else if (needsAccount) onSeerrAccount() else onAddMedia(discoverMedia.id) })
         }
-        if (tracked != null && tracked.requestId != null && !tracked.availabilityOnly && tracked.stage == app.reelstack.data.model.RequestStage.REQUESTED)
-            add(app.reelstack.ui.components.TextAction(stringResource(R.string.title_action_withdraw), app.reelstack.ui.components.SpoleIcons.Close,
-                "title-withdraw") { confirmWithdraw = tracked })
-        if (tracked != null) add(app.reelstack.ui.components.TextAction(
-            stringResource(if (tracked.notify) R.string.title_action_notify_on else R.string.title_action_notify_off),
-            if (tracked.notify) app.reelstack.ui.components.SpoleIcons.Bell else app.reelstack.ui.components.SpoleIcons.BellOff,
-            "title-notify") { onNotify(tracked.key, !tracked.notify) })
+        trackedHere.forEach { tracked ->
+            val part = requestParts[tracked.key]
+            if (tracked.requestId != null && !tracked.availabilityOnly && tracked.stage == app.reelstack.data.model.RequestStage.REQUESTED)
+                add(app.reelstack.ui.components.TextAction(listOfNotNull(stringResource(R.string.title_action_withdraw), part).joinToString(" · "),
+                    app.reelstack.ui.components.SpoleIcons.Close, if (part == null) "title-withdraw" else "title-withdraw-${tracked.key}") {
+                    confirmWithdraw = tracked
+                })
+            add(app.reelstack.ui.components.TextAction(
+                listOfNotNull(stringResource(if (tracked.notify) R.string.title_action_notify_on else R.string.title_action_notify_off), part)
+                    .joinToString(" · "),
+                if (tracked.notify) app.reelstack.ui.components.SpoleIcons.Bell else app.reelstack.ui.components.SpoleIcons.BellOff,
+                if (part == null) "title-notify" else "title-notify-${tracked.key}") {
+                // Turning an alert on asks Android first, as the old request card did.
+                if (!tracked.notify && android.os.Build.VERSION.SDK_INT >= 33 &&
+                    !app.reelstack.background.LibraryNotifications.allowed(alertContext)) {
+                    pendingAlert = tracked.key
+                    alertPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                } else onNotify(tracked.key, !tracked.notify)
+            })
+        }
     }
     val relatedBlock: @Composable () -> Unit = {
         listOf(R.string.title_similar to details.similar, R.string.title_recommended to details.recommended).forEach { (label, titles) ->
@@ -533,7 +562,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                 actions()
                 if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
                 app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
-                    focusFirst = seerrActions.firstOrNull()?.tag == "title-request")
+                    focusFirst = seerrActions.firstOrNull()?.tag == "title-request" || detailPlaybackTarget(state, details) == null)
             } else {
                 DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 24.dp).testTag("detail-loading"))
             }
@@ -645,7 +674,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (tv && !wideDetail) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
         if (tv) app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
-            focusFirst = seerrActions.firstOrNull()?.tag == "title-request")
+            focusFirst = seerrActions.firstOrNull()?.tag == "title-request" || detailPlaybackTarget(state, details) == null)
         if (details.title != opening.title) {
             Text(details.title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 20.dp))
@@ -712,8 +741,10 @@ private fun WithdrawConfirm(title: String, onConfirm: () -> Unit, onKeep: () -> 
         title = { Text(stringResource(R.string.flow_withdraw_title, title)) },
         text = { Text(stringResource(R.string.flow_withdraw_note), color = Muted) },
         confirmButton = {
-            TextButton(onClick = onConfirm, colors = ButtonDefaults.textButtonColors(contentColor = Warning),
-                modifier = Modifier.heightIn(min = 48.dp).testTag("withdraw-confirm")) {
+            val confirmInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            TextButton(onClick = onConfirm, interactionSource = confirmInteraction, colors = ButtonDefaults.textButtonColors(contentColor = Warning),
+                modifier = Modifier.heightIn(min = 48.dp).focusOutline(confirmInteraction, RoundedCornerShape(24.dp), glow = false)
+                    .testTag("withdraw-confirm")) {
                 Text(stringResource(R.string.flow_withdraw))
             }
         },
@@ -868,7 +899,9 @@ private fun TitleActionRow(
                     it.tmdbId == details.tmdbId && (if (it.mediaType.equals("Movie", true)) "movie" else "tv") == type
                 } ||
                     state.calendarUndated.any { it.key == key })
-                TextButton(onClick = { onCalendarFollow(details) }, modifier = Modifier.heightIn(min = 48.dp).testTag("detail-calendar-follow")) {
+                TextButton(onClick = { onCalendarFollow(details) },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("detail-calendar-follow")) {
                     Icon(app.reelstack.ui.components.SpoleIcons.Calendar, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(if (following) R.string.calendar_unfollow else R.string.calendar_follow))

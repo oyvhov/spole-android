@@ -81,4 +81,22 @@ class MyRequestsScreenTest {
         rule.onNodeWithTag("my-requests-tab-READY").assertIsDisplayed()
         rule.onNodeWithText("Severance", substring = true).assertIsDisplayed()
     }
+
+    @Test fun theTabsShareOneLine() {
+        show(admin = true)
+        val all = rule.onNodeWithTag("my-requests-tab-ALL").fetchSemanticsNode().boundsInRoot
+        val ready = rule.onNodeWithTag("my-requests-tab-READY").fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertEquals(all.top, ready.top, 1f)
+        org.junit.Assert.assertTrue(ready.left > all.right)
+    }
+
+    @Test fun alertsTurnedOffAreSaidOnceAtTheTop() {
+        rule.setContent {
+            ReelstackTheme {
+                MyRequestsScreen(ReelstackUiState(trackedRequests = requests, notificationsEnabled = false), PaddingValues(),
+                    onOpen = {}, onBack = {}, onLoadOlder = {})
+            }
+        }
+        rule.onNodeWithTag("my-requests-alerts").assertIsDisplayed()
+    }
 }

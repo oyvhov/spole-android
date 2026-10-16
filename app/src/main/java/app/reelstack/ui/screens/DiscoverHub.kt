@@ -111,8 +111,11 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
     header: @Composable () -> Unit = {}) {
     val tv = isTelevision()
     var focused by remember { mutableStateOf<DiscoverMedia?>(null) }
+    // A request poster has no row data of its own; the header names it until a title has focus.
+    var focusedRequest by remember { mutableStateOf<TrackedRequest?>(null) }
     val first = state.hub.rows[DiscoverRowKind.TRENDING]?.items?.firstOrNull()
     val shown = focused ?: first
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val mine = myRequestsPreview(state.trackedRequests, if (tv) 12 else 3)
     val posterWidth = (if (tv) 120.dp else 112.dp) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val seerr = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() }
@@ -120,33 +123,44 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
         val row = state.hub.rows[kind]
         row != null && !row.failed && (row.loading || row.items.isNotEmpty())
     }
-    // The remote starts on the first poster, not on the search icon above it: search is one press
-    // up, and a fresh page should start where the titles are.
+    // The remote starts on the top row's first poster, not on the search icon above it: search is
+    // one press up, and a fresh page starts where the titles are. Your own requests are the top row.
     val firstPoster = remember { FocusRequester() }
     val firstPosterId = visibleRows.firstNotNullOfOrNull { state.hub.rows[it]?.items?.firstOrNull() }?.id
+    val startOnRequest = tv && mine.isNotEmpty()
+    val startKey = if (startOnRequest) "request:${mine.first().key}" else firstPosterId?.let { "media:$it" }
     var claimed by remember { mutableStateOf(false) }
-    LaunchedEffect(tv, firstPosterId) {
-        if (!tv || claimed || firstPosterId == null) return@LaunchedEffect
+    LaunchedEffect(tv, startKey) {
+        if (!tv || claimed || startKey == null) return@LaunchedEffect
         repeat(40) {
             withFrameNanos { }
-            if (runCatching { firstPoster.requestFocus() }.isSuccess) { claimed = true; return@LaunchedEffect }
+            if (runCatching { firstPoster.requestFocus() }.isSuccess) {
+                claimed = true
+                // Focus may land while a row above is still arriving; the page starts at its top.
+                listState.scrollToItem(0)
+                return@LaunchedEffect
+            }
         }
     }
+    val requestMedia = focusedRequest?.let { request ->
+        state.hub.allMedia.firstOrNull { it.remoteId == request.mediaId && it.mediaType == request.mediaType }
+    }
     Box(Modifier.fillMaxSize().testTag("discover-hub")) {
-        if (tv && shown != null) FocusBackdrop(shown)
+        if (tv) (if (focusedRequest != null) requestMedia else shown)?.let { FocusBackdrop(it) }
         Column(Modifier.fillMaxSize()) {
             if (tv) Row(Modifier.fillMaxWidth().padding(start = ReelLayout.Gutter, end = ReelLayout.Gutter, top = 20.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.Top) {
                 Box(Modifier.weight(1f)) {
-                    if (shown != null) FocusHeader(shown, state.hub.focusFacts[shown.id].orEmpty())
+                    val request = focusedRequest
+                    if (request != null) RequestFocusHeader(request)
+                    else if (shown != null) FocusHeader(shown, state.hub.focusDetails[shown.id])
                 }
                 header()
             }
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (tv) 22.dp else 24.dp),
-                contentPadding = PaddingValues(top = if (tv) 8.dp else ReelLayout.PageTop,
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, verticalArrangement = Arrangement.spacedBy(if (tv) 22.dp else 24.dp),
+                contentPadding = PaddingValues(top = 8.dp,
                     bottom = contentPadding.calculateBottomPadding() + 24.dp)) {
-                if (!tv) item(key = "top") { Box(Modifier.padding(horizontal = ReelLayout.Gutter)) { header() } }
-                if (!seerr) item(key = "not-connected") {
+                if (!seerr && state.hub.rows.isEmpty()) item(key = "not-connected") {
                     app.reelstack.ui.components.QuietEmptyState(stringResource(R.string.search_not_connected),
                         icon = SpoleIcons.Search, modifier = Modifier.padding(horizontal = ReelLayout.Gutter))
                 }
@@ -157,7 +171,9 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                         if (tv) LazyRow(contentPadding = PaddingValues(horizontal = ReelLayout.Gutter),
                             horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                             items(mine, key = { "mine-${it.key}" }) { request ->
-                                RequestPoster(request, posterWidth) { actions.onRequestLine(request.key) }
+                                RequestPoster(request, posterWidth,
+                                    if (startOnRequest && request.key == mine.first().key) Modifier.focusRequester(firstPoster) else Modifier,
+                                    onFocused = { focusedRequest = request }) { actions.onRequestLine(request.key) }
                             }
                         } else Column(Modifier.padding(horizontal = ReelLayout.Gutter)) {
                             mine.forEachIndexed { index, request ->
@@ -179,9 +195,9 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
                                 }
                                 items(row.items, key = { "$kind-${it.id}" }) { media ->
                                     PosterOnlyCard(media, { actions.onTitle(media.id) },
-                                        Modifier.width(posterWidth).then(if (media.id == firstPosterId && kind == visibleRows.first())
-                                            Modifier.focusRequester(firstPoster) else Modifier),
-                                        onFocused = { focused = media; actions.onFocusTitle(media) })
+                                        Modifier.width(posterWidth).then(if (!startOnRequest && media.id == firstPosterId &&
+                                            kind == visibleRows.first()) Modifier.focusRequester(firstPoster) else Modifier),
+                                        onFocused = { focused = media; focusedRequest = null; actions.onFocusTitle(media) })
                                 }
                                 if (row.items.isNotEmpty()) item(key = "$kind-all") {
                                     RowEndTile(posterWidth) { actions.onGrid(DiscoverGridTarget.Row(kind)) }
@@ -250,10 +266,12 @@ internal fun PosterOnlyCard(media: DiscoverMedia, onClick: () -> Unit, modifier:
 
 /** On TV your requests are posters too; work in flight carries a thin line along the bottom. */
 @Composable
-private fun RequestPoster(request: TrackedRequest, width: Dp, onClick: () -> Unit) {
+private fun RequestPoster(request: TrackedRequest, width: Dp, modifier: Modifier = Modifier, onFocused: () -> Unit = {}, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
+    val focusedNow by interaction.collectIsFocusedAsState()
+    LaunchedEffect(focusedNow) { if (focusedNow) onFocused() }
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
-    Box(Modifier.width(width).aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
+    Box(modifier.width(width).aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .semantics(mergeDescendants = true) { contentDescription = request.title }.testTag("my-request-${request.key}")) {
         MediaArtwork(request.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = R.drawable.media_placeholder,
@@ -379,15 +397,30 @@ private fun FocusBackdrop(media: DiscoverMedia) {
  * when the synopsis is shorter), so the rows below never jump while the remote moves.
  */
 @Composable
-private fun FocusHeader(media: DiscoverMedia, extraFacts: List<String>) {
+private fun FocusHeader(media: DiscoverMedia, details: app.reelstack.data.model.FocusDetails?) {
+    val extraFacts = details?.facts.orEmpty()
     Column(Modifier.fillMaxWidth(.62f).testTag("discover-focus-header"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(media.title, style = MaterialTheme.typography.headlineMedium, color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text((listOf(media.metadata) + extraFacts + media.facts).filter(String::isNotBlank).distinct().joinToString("  ·  "),
             color = Muted, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested),
             color = TextColor, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(media.overview.orEmpty(), color = Muted, style = MaterialTheme.typography.bodyMedium, minLines = 2, maxLines = 2,
+        Text(media.overview?.takeIf(String::isNotBlank) ?: details?.overview.orEmpty(), color = Muted,
+            style = MaterialTheme.typography.bodyMedium, minLines = 2, maxLines = 2,
             overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** The header for one of your requests: its title, where it is, and what that means. */
+@Composable
+private fun RequestFocusHeader(request: TrackedRequest) {
+    Column(Modifier.fillMaxWidth(.62f).testTag("discover-focus-header"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(request.title, style = MaterialTheme.typography.headlineMedium, color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(requestLineStatus(request), color = Muted, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(stringResource(R.string.my_requests_title), color = TextColor, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+        Text(stringResource(request.stage.explanation), color = Muted, style = MaterialTheme.typography.bodyMedium, minLines = 2,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -396,6 +429,18 @@ private fun FocusHeader(media: DiscoverMedia, extraFacts: List<String>) {
 fun DiscoverGridContent(title: String, row: DiscoverRowState, contentPadding: PaddingValues, onTitle: (String) -> Unit,
     onMore: () -> Unit, onBack: () -> Unit) {
     val grid = rememberLazyGridState()
+    val tv = isTelevision()
+    // On a television the link that opened the grid is gone, so the remote is put on the first poster.
+    val first = remember { FocusRequester() }
+    val firstId = row.items.firstOrNull()?.id
+    var claimed by remember { mutableStateOf(false) }
+    LaunchedEffect(tv, firstId) {
+        if (!tv || claimed || firstId == null) return@LaunchedEffect
+        repeat(40) {
+            withFrameNanos { }
+            if (runCatching { first.requestFocus() }.isSuccess) { claimed = true; return@LaunchedEffect }
+        }
+    }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(posterCell()), state = grid,
         contentPadding = PaddingValues(start = ReelLayout.Gutter, end = ReelLayout.Gutter, top = 12.dp,
@@ -404,7 +449,9 @@ fun DiscoverGridContent(title: String, row: DiscoverRowState, contentPadding: Pa
         modifier = Modifier.fillMaxSize().steadyRemoteRows(grid).testTag("discover-grid-all")) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack, modifier = Modifier.testTag("discover-grid-back")) {
+                val backInteraction = remember { MutableInteractionSource() }
+                IconButton(onClick = onBack, interactionSource = backInteraction,
+                    modifier = Modifier.focusOutline(backInteraction, CircleShape).testTag("discover-grid-back")) {
                     Icon(SpoleIcons.ArrowBack, stringResource(R.string.action_back))
                 }
                 Text(title, style = MaterialTheme.typography.headlineSmall, color = TextColor)
@@ -413,7 +460,7 @@ fun DiscoverGridContent(title: String, row: DiscoverRowState, contentPadding: Pa
         items(row.items.size, key = { row.items[it].id }) { index ->
             val media = row.items[index]
             if (index >= row.items.size - 6) LaunchedEffect(row.items.size) { onMore() }
-            PosterOnlyCard(media, { onTitle(media.id) })
+            PosterOnlyCard(media, { onTitle(media.id) }, if (media.id == firstId) Modifier.focusRequester(first) else Modifier)
         }
         if (row.loading) items(6, key = { "grid-loading-$it" }) {
             Box(Modifier.aspectRatio(2f / 3f).clip(RoundedCornerShape(ReelLayout.ArtworkCorner)).background(SurfaceRaised))

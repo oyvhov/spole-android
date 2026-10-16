@@ -86,4 +86,11 @@ class SeerrDiscoverClientTest {
             {"type":"Trailer","site":"YouTube","url":"https://www.youtube.com/watch?v=b"}]}""")
         assertEquals("https://www.youtube.com/watch?v=b", details.trailerUrl)
     }
+
+    @Test fun aBiographyMissingInNorwegianComesInEnglish() {
+        val client = SeerrDiscoverClient(Fake(mapOf(
+            "person/501?language=nb" to """{"id":501,"name":"M","biography":""}""",
+            "person/501?language=en" to """{"id":501,"name":"M","biography":"Born in Montana."}""")))
+        assertEquals("Born in Montana.", client.person(seerr, 501).biography)
+    }
 }

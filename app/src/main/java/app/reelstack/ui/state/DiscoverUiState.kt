@@ -54,6 +54,9 @@ fun ReelstackUiState.toDiscoverUiState(): DiscoverUiState = DiscoverUiState(
     searchHasMore = searchHasMore,
     loadingMoreSearch = loadingMoreSearch,
     requestingMediaIds = requestingMediaIds,
-    hub = discoverHub,
+    // Without any server the preview still has a row: the demo titles, under «Populært no».
+    hub = if (configuredCount == 0 && discoverHub.rows.isEmpty() && discover.isNotEmpty())
+        discoverHub.copy(rows = mapOf(app.reelstack.data.model.DiscoverRowKind.TRENDING to app.reelstack.data.model.DiscoverRowState(discover)))
+    else discoverHub,
     trackedRequests = trackedRequests,
 )

@@ -10,6 +10,7 @@ import app.reelstack.data.model.DiscoverRowKind
 import app.reelstack.data.model.DiscoverRowState
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.peopleFrom
+import app.reelstack.data.model.withPage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,7 +43,7 @@ class DiscoverHubLoader(private val source: DiscoverHubSource) {
                 val result = runCatching { source.row(kind, 1) }
                 land { state ->
                     state.copy(rows = state.rows + (kind to result.fold(
-                        onSuccess = { DiscoverRowState(it.items, page = it.page, hasMore = it.hasMore) },
+                        onSuccess = { DiscoverRowState(it.items.distinctBy { item -> item.id }, page = it.page, hasMore = it.hasMore) },
                         onFailure = { DiscoverRowState(failed = true) },
                     )))
                 }
@@ -130,7 +131,7 @@ internal class DiscoverHubCoordinator(
                 if (state.discoverHub.grid != target) return@updateState state
                 val old = state.discoverHub.gridRow
                 state.copy(discoverHub = state.discoverHub.copy(gridRow = result.fold(
-                    onSuccess = { DiscoverRowState((if (page == 1) emptyList() else old.items) + it.items, page = it.page, hasMore = it.hasMore) },
+                    onSuccess = { old.withPage(it.items, it.page, it.hasMore) },
                     onFailure = { old.copy(loading = false, failed = true) },
                 )))
             }

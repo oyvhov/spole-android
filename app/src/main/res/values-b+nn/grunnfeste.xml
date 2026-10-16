@@ -6,7 +6,7 @@
     <string name="skeleton_loading_upcoming">Lastar komande utgjevingar</string>
     <string name="skeleton_loading_downloads">Lastar nedlastingar</string>
     <string name="skeleton_loading_search">Lastar søkjeresultat</string>
-    <string name="skeleton_loading_activity">Lastar aktivitet</string>
+    <string name="skeleton_loading_activity">Lastar førespurnader</string>
     <string name="skeleton_loading_details">Hentar fleire detaljar</string>
     <string name="home_playback_details">Avspelingsdetaljar</string>
     <string name="remote_sending_command">Sender kommando…</string>

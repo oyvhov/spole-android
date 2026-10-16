@@ -33,8 +33,13 @@ class SeerrDiscoverClient(private val transport: JsonHttpTransport = HttpTranspo
             .map { if (it.mediaType == mediaType) it else it.copy(mediaType = mediaType, id = "seerr-$mediaType-${it.remoteId}") }
     }
 
-    fun person(connection: ServiceConnection, id: Int): ServicePayloadParser.RemotePerson =
-        ServicePayloadParser.person(get(connection, "api/v1/person/$id?language=nb"))
+    /** TMDB often has no Norwegian biography; the English one is better than none. */
+    fun person(connection: ServiceConnection, id: Int): ServicePayloadParser.RemotePerson {
+        val person = ServicePayloadParser.person(get(connection, "api/v1/person/$id?language=nb"))
+        if (person.biography != null) return person
+        val english = runCatching { ServicePayloadParser.person(get(connection, "api/v1/person/$id?language=en")) }.getOrNull()
+        return person.copy(biography = english?.biography)
+    }
 
     fun personCredits(connection: ServiceConnection, id: Int): List<RemoteDiscoverItem> =
         ServicePayloadParser.personCredits(get(connection, "api/v1/person/$id/combined_credits?language=nb"))

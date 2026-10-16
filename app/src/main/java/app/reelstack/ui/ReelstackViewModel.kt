@@ -1,5 +1,9 @@
 package app.reelstack.ui
 
+import app.reelstack.data.model.seerrStatus
+
+import app.reelstack.data.model.asRequested
+
 import app.reelstack.data.model.choice
 
 import app.reelstack.data.model.visibleSeasons
@@ -336,6 +340,9 @@ data class ReelstackUiState(
 
     /** Applies one change to a Seerr title wherever it is listed. */
     fun mapDiscoverMedia(transform: (DiscoverMedia) -> DiscoverMedia): ReelstackUiState = copy(
+        detailMedia = detailMedia?.let(transform),
+        personPage = personPage?.let { it.copy(inLibrary = it.inLibrary.map(transform), more = it.more.map(transform)) },
+        contentDetails = contentDetails?.let { it.copy(similar = it.similar.map(transform), recommended = it.recommended.map(transform)) },
         discoverHub = discoverHub.copy(
             rows = discoverHub.rows.mapValues { (_, row) -> row.copy(items = row.items.map(transform)) },
             gridRow = discoverHub.gridRow.copy(items = discoverHub.gridRow.items.map(transform)),
@@ -623,7 +630,7 @@ class ReelstackViewModel(
      */
     fun focusDiscoverTitle(media: DiscoverMedia) {
         val state = _uiState.value
-        if (!isTelevision() || state.isKidMode || media.id in state.discoverHub.focusFacts) return
+        if (!isTelevision() || state.isKidMode || media.id in state.discoverHub.focusDetails) return
         if (media.remoteId == null || media.mediaType == null) return
         val connection = state.connections.firstOrNull {
             it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
@@ -635,7 +642,8 @@ class ReelstackViewModel(
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
             }.getOrNull() ?: return@launch
             val facts = (words(remote.facts) + remote.genres.take(2)).filter(String::isNotBlank)
-            _uiState.update { it.copy(discoverHub = it.discoverHub.withFocusFacts(media.id, facts)) }
+            val details = app.reelstack.data.model.FocusDetails(facts, remote.overview?.takeIf(String::isNotBlank))
+            _uiState.update { it.copy(discoverHub = it.discoverHub.withFocusDetails(media.id, details)) }
         }
     }
 
@@ -2395,6 +2403,7 @@ class ReelstackViewModel(
                 contentDetails = ContentDetails(
                     key = media.id,
                     tmdbId = media.remoteId,
+                    backdropUrl = media.backdropUrl,
                     title = media.title,
                     eyebrow = appString(if (media.inLibrary) R.string.details_eyebrow_in_library else R.string.details_eyebrow_discover),
                     // The kind, then the year: the detail sheet has no type badge to carry it.
@@ -2422,8 +2431,8 @@ class ReelstackViewModel(
                 val recommended = attempt { withContext(Dispatchers.IO) { container.mediaSyncRepository.recommended(connection, media) } }.getOrDefault(emptyList())
                 _uiState.update { current ->
                     val details = current.contentDetails?.takeIf { it.key == media.id } ?: return@update current
-                    current.copy(contentDetails = details.copy(similar = similar.filterNot { it.id == media.id }.take(20),
-                        recommended = recommended.filterNot { it.id == media.id }.take(20)))
+                    current.copy(contentDetails = details.copy(similar = similar.filterNot { it.id == media.id }.distinctBy { it.id }.take(20),
+                        recommended = recommended.filterNot { it.id == media.id }.distinctBy { it.id }.take(20)))
                 }
             }
             val result = attempt {
@@ -2448,23 +2457,10 @@ class ReelstackViewModel(
                                 trailerUrl = remote.trailerUrl ?: details.trailerUrl,
                                 loading = false,
                             ),
-                            discover = current.discover.map { item ->
-                                if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
-                                    inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
-                            },
-                            recommendations = current.recommendations.map { item ->
-                                if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
-                                    inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
-                            },
-                            searchResults = current.searchResults.map { item ->
-                                if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
-                                    inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
-                            },
-                            globalSearch = current.globalSearch.copy(results = current.globalSearch.results.map { item ->
-                                if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
-                                    inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
-                            }),
-                        )
+                        ).mapDiscoverMedia { item ->
+                            if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
+                                inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
+                        }
                     },
                     onFailure = {
                         current.copy(contentDetails = details.copy(loading = false, error = appString(R.string.error_content_details)))
@@ -2605,7 +2601,11 @@ class ReelstackViewModel(
                 id = "seerr-${tracked.mediaType}-${tracked.mediaId}", title = tracked.title,
                 metadata = if (tracked.mediaType == "tv") "Serie" else "Film", artworkRes = R.drawable.media_placeholder,
                 artworkUrl = tracked.artworkUrl, inLibrary = tracked.stage == app.reelstack.data.model.RequestStage.AVAILABLE,
-                remoteId = tracked.mediaId, mediaType = tracked.mediaType)
+                remoteId = tracked.mediaId, mediaType = tracked.mediaType,
+                // The line said «Førespurd» or «Lastar ned»; the page it opens must not offer to ask again.
+                seerrStatus = tracked.stage.seerrStatus(),
+                requested = tracked.stage in setOf(app.reelstack.data.model.RequestStage.REQUESTED,
+                    app.reelstack.data.model.RequestStage.DOWNLOADING, app.reelstack.data.model.RequestStage.IMPORTING))
             _uiState.update { it.copy(detailMedia = media) }
             openDiscoverDetails(media.id)
             return
@@ -2615,7 +2615,7 @@ class ReelstackViewModel(
             ContentDetails(
                 key = event.id,
                 title = event.title,
-                eyebrow = "Aktivitet${event.source?.let { " · ${it.displayName}" }.orEmpty()}",
+                eyebrow = appString(R.string.my_requests_tab_server) + event.source?.let { " · ${it.displayName}" }.orEmpty(),
                 subtitle = event.detail.text(container.appContext),
                 overview = appString(R.string.activity_registered, event.time.text(container.appContext).lowercase()),
                 facts = listOfNotNull(event.source?.displayName, event.progress?.let { "$it %" },
@@ -3372,17 +3372,14 @@ class ReelstackViewModel(
         if (seerr == null || seerr.baseUrl.isBlank() || media.remoteId == null || media.mediaType == null) {
             _uiState.update {
                 it.copy(
-                    discover = it.discover.map { item -> if (item.id == id) item.copy(requested = true) else item },
-                    recommendations = it.recommendations.map { item -> if (item.id == id) item.copy(requested = true) else item },
-                    searchResults = it.searchResults.map { item -> if (item.id == id) item.copy(requested = true) else item },
-                    globalSearch = it.globalSearch.copy(results = it.globalSearch.results.map { item -> if (item.id == id) item.copy(requested = true) else item }),
                     contentDetails = it.contentDetails?.let { details ->
                         if (details.key == id) details.copy(statusTitle = appString(R.string.flow_local_status_title), statusDescription = appString(R.string.flow_local_status_desc)) else details
                     },
                     snackbar = appString(R.string.flow_local_snackbar),
-                    activeSheet = null,
+                    // The preview keeps the reader on the title too; its status line says «Lagd til».
+                    activeSheet = if (it.contentDetails?.key == id) AppSheet.TitleDetails(id) else null,
                     requestDraft = null,
-                )
+                ).mapDiscoverMedia { item -> if (item.id == id) item.copy(requested = true) else item }
             }
             return
         }
@@ -3430,7 +3427,9 @@ class ReelstackViewModel(
                         // Back to the title it was asked from, whose status line now says «Førespurd».
                         activeSheet = if (current.contentDetails?.key == id) AppSheet.TitleDetails(id) else null,
                         requestDraft = null,
-                    )
+                    ).mapDiscoverMedia { item ->
+                        if (item.id == id) item.asRequested(waitsForApproval = draft.rules?.approvalRequired == true) else item
+                    }
                 } else {
                     current.copy(
                         requestingMediaIds = current.requestingMediaIds - id,

@@ -13,7 +13,7 @@
     <string name="skeleton_loading_upcoming">Loading upcoming releases</string>
     <string name="skeleton_loading_downloads">Loading downloads</string>
     <string name="skeleton_loading_search">Loading search results</string>
-    <string name="skeleton_loading_activity">Loading activity</string>
+    <string name="skeleton_loading_activity">Loading requests</string>
     <string name="skeleton_loading_details">Loading more details</string>
     <string name="home_playback_details">Playback details</string>
     <string name="remote_sending_command">Sending command…</string>

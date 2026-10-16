@@ -65,15 +65,22 @@ fun PersonSheet(page: PersonPage?, onTitle: (String) -> Unit) {
     val width = (if (tv) 120.dp else 104.dp) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val firstPoster = remember { FocusRequester() }
     val firstId = (page.inLibrary.firstOrNull() ?: page.more.firstOrNull())?.id
-    LaunchedEffect(tv, firstId) {
-        if (!tv || firstId == null) return@LaunchedEffect
+    // Without titles the remote starts on «Les meir»; a page with nothing to focus would ignore it.
+    val startOnBiography = firstId == null && page.biography != null && !expanded
+    val list = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(tv, firstId, startOnBiography) {
+        if (!tv || (firstId == null && !startOnBiography)) return@LaunchedEffect
         repeat(40) {
             withFrameNanos { }
-            if (runCatching { firstPoster.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (runCatching { firstPoster.requestFocus() }.isSuccess) {
+                // Bringing the poster into view scrolled the picture and the name off the top.
+                list.scrollToItem(0)
+                return@LaunchedEffect
+            }
         }
     }
     val born = page.birthday?.let { birthday(it) }
-    LazyColumn(Modifier.fillMaxSize().testTag("person-sheet"), verticalArrangement = Arrangement.spacedBy(22.dp),
+    LazyColumn(Modifier.fillMaxSize().testTag("person-sheet"), state = list, verticalArrangement = Arrangement.spacedBy(22.dp),
         contentPadding = PaddingValues(vertical = if (tv) 40.dp else 16.dp)) {
         item(key = "head") {
             Row(Modifier.padding(horizontal = ReelLayout.Gutter), horizontalArrangement = Arrangement.spacedBy(24.dp),
@@ -94,7 +101,8 @@ fun PersonSheet(page: PersonPage?, onTitle: (String) -> Unit) {
                         if (!expanded) {
                             val interaction = remember { MutableInteractionSource() }
                             Text(stringResource(R.string.person_read_more), color = TextColor, style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.heightIn(min = 44.dp).focusOutline(interaction, RoundedCornerShape(8.dp))
+                                modifier = Modifier.heightIn(min = 44.dp).then(if (startOnBiography) Modifier.focusRequester(firstPoster) else Modifier)
+                                    .focusOutline(interaction, RoundedCornerShape(8.dp))
                                     .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button) { expanded = true }
                                     .padding(vertical = 12.dp).testTag("person-read-more"))
                         }

@@ -1,5 +1,19 @@
 package app.reelstack.ui.screens
 
+import androidx.compose.foundation.shape.CircleShape
+
+import androidx.compose.runtime.withFrameNanos
+
+import androidx.compose.runtime.LaunchedEffect
+
+import androidx.compose.ui.focus.focusRequester
+
+import androidx.compose.ui.focus.FocusRequester
+
+import androidx.compose.foundation.layout.width
+
+import androidx.compose.foundation.layout.IntrinsicSize
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -71,6 +85,22 @@ fun MyRequestsScreen(
         else -> myRequestsFor(tab, state.trackedRequests)
     }
     val list = rememberLazyListState()
+    val tv = app.reelstack.ui.components.isTelevision()
+    // On a television the link that opened this page is gone; the remote starts on the chosen tab.
+    val tabFocus = remember { FocusRequester() }
+    LaunchedEffect(tv) {
+        if (!tv) return@LaunchedEffect
+        repeat(40) {
+            withFrameNanos { }
+            if (runCatching { tabFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val alerts = when {
+        !state.notificationsEnabled -> stringResource(R.string.my_requests_alerts_off)
+        !app.reelstack.background.LibraryNotifications.allowed(context) -> stringResource(R.string.my_requests_alerts_android)
+        else -> null
+    }
     ReelPage(media = true) {
         LazyColumn(
             state = list,
@@ -80,7 +110,9 @@ fun MyRequestsScreen(
         ) {
             item(key = "head") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack, modifier = Modifier.offset(x = (-12).dp).testTag("my-requests-back")) {
+                    val backInteraction = remember { MutableInteractionSource() }
+                    IconButton(onClick = onBack, interactionSource = backInteraction, modifier = Modifier.offset(x = (-12).dp)
+                        .focusOutline(backInteraction, CircleShape).testTag("my-requests-back")) {
                         Icon(SpoleIcons.ArrowBack, stringResource(R.string.action_back))
                     }
                     Text(stringResource(R.string.my_requests_title), style = MaterialTheme.typography.headlineSmall)
@@ -88,7 +120,7 @@ fun MyRequestsScreen(
             }
             item(key = "tabs") {
                 Column {
-                    TextTabs(tabs, tab, { tab = it }) { choice ->
+                    TextTabs(tabs, tab, { tab = it }, tabFocus) { choice ->
                         val count = when (choice) {
                             MyRequestsTab.SERVER -> null
                             MyRequestsTab.ALL -> state.trackedRequests.size + older.size
@@ -102,6 +134,10 @@ fun MyRequestsScreen(
                         }) to count
                     }
                     HorizontalDivider(color = LineDivider)
+                    alerts?.let {
+                        Text(it, color = Muted, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 10.dp).testTag("my-requests-alerts"))
+                    }
                     state.trackingError?.let {
                         Text(it, color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp))
                     }
@@ -143,6 +179,7 @@ private fun TextTabs(
     tabs: List<MyRequestsTab>,
     selected: MyRequestsTab,
     onSelect: (MyRequestsTab) -> Unit,
+    firstFocus: FocusRequester? = null,
     label: @Composable (MyRequestsTab) -> Pair<String, Int?>,
 ) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.padding(top = 4.dp)) {
@@ -150,8 +187,10 @@ private fun TextTabs(
             val (text, count) = label(choice)
             val interaction = remember { MutableInteractionSource() }
             val chosen = choice == selected
+            // As wide as its words: a full-width line under each tab put every tab on its own row.
             Column(
-                Modifier.focusOutline(interaction, RoundedCornerShape(8.dp))
+                Modifier.width(IntrinsicSize.Max).then(if (chosen && firstFocus != null) Modifier.focusRequester(firstFocus) else Modifier)
+                    .focusOutline(interaction, RoundedCornerShape(8.dp))
                     .selectable(chosen, interactionSource = interaction, indication = mediaCardIndication(), role = Role.Tab) { onSelect(choice) }
                     .padding(vertical = 10.dp)
                     .testTag("my-requests-tab-${choice.name}"),

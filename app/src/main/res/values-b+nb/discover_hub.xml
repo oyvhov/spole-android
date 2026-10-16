@@ -48,4 +48,6 @@
     <string name="request_usual_choice">vanlig valg</string>
     <string name="request_free_space">%1$s ledig</string>
     <string name="request_cancel">Avbryt</string>
+    <string name="my_requests_alerts_off">Appvarsler er slått av i Innstillinger. Statusen står her.</string>
+    <string name="my_requests_alerts_android">Android må tillate varsler fra Spole før du får beskjed når noe er klart.</string>
 </resources>

@@ -270,14 +270,14 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     }
     val startTab = if (app.reelstack.ui.theme.LocalPersonalization.current.startInLibrary) AppTab.LIBRARY else AppTab.HOME
     BackHandler(enabled = state.globalSearchOpen) { viewModel.closeGlobalSearch() }
-    BackHandler(enabled = state.discoverHub.grid != null && state.selectedTab == AppTab.DISCOVER && state.activeSheet == null && !state.globalSearchOpen) {
-        viewModel.closeDiscoverGrid()
-    }
-    BackHandler(enabled = state.myRequestsOpen && state.selectedTab == AppTab.DISCOVER && state.activeSheet == null && !state.globalSearchOpen) {
-        viewModel.closeMyRequests()
-    }
-    BackHandler(enabled = !state.globalSearchOpen && state.activeSheet == null && !state.showOnboarding && state.selectedTab != startTab) {
-        selectTab(startTab)
+    val backAction = shellBack(state, startTab)
+    BackHandler(enabled = backAction != null) {
+        when (backAction) {
+            ShellBack.CLOSE_GRID -> viewModel.closeDiscoverGrid()
+            ShellBack.CLOSE_MY_REQUESTS -> viewModel.closeMyRequests()
+            ShellBack.START_TAB -> selectTab(startTab)
+            null -> Unit
+        }
     }
 
     LaunchedEffect(state.snackbar) {

@@ -35,10 +35,10 @@
     <string name="flow_notify_ready">Varsle når det er klart</string>
     <string name="flow_notify_seasons">Når Seerr melder de valgte sesongene tilgjengelige.</string>
     <string name="flow_notify_movie">Når filmen er i biblioteket.</string>
-    <string name="flow_notifications_off">Appvarsler er slått av i Innstillinger. Statusen kan fremdeles følges i Aktivitet.</string>
-    <string name="flow_android_permission">Android må tillate varsler. Du kan fremdeles følge status i Aktivitet.</string>
+    <string name="flow_notifications_off">Appvarsler er slått av i Innstillinger. Statusen kan fremdeles følges under «Dine forespørsler».</string>
+    <string name="flow_android_permission">Android må tillate varsler. Du kan fremdeles følge status under «Dine forespørsler».</string>
     <string name="flow_background_note">Appen sjekker i bakgrunnen. Android kan forsinke varselet.</string>
-    <string name="flow_permission_off">Varsler er ikke tillatt nå. Slå dem på i Innstillinger; statusen kan følges i Aktivitet.</string>
+    <string name="flow_permission_off">Varsler er ikke tillatt nå. Slå dem på i Innstillinger; statusen kan følges under «Dine forespørsler».</string>
     <string name="flow_preview">Forhåndsvisning · ingenting blir sendt</string>
     <string name="flow_done">Ferdig</string>
     <string name="flow_sending">Sender…</string>

@@ -87,11 +87,13 @@ class ReelstackSmokeTest {
     @Test
     fun demoRequestIsClearlyKeptLocal() {
         composeRule.onNodeWithText("Oppdag").performClick()
-        composeRule.onAllNodesWithText("Legg til")[0].performClick()
+        // Posters carry no buttons: the request starts on the title page.
+        composeRule.onNodeWithContentDescription("The Last Horizon").performScrollTo().performClick()
+        composeRule.onNodeWithTag("title-request").performScrollTo().performClick()
         composeRule.onNodeWithTag("confirm-request").performClick()
 
-        composeRule.onNodeWithText("Lagd til").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare").assertIsDisplayed()
+        composeRule.onNode(hasText("Lagd til") and hasAnyAncestor(hasTestTag("sheet-viewport"))).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -105,14 +107,14 @@ class ReelstackSmokeTest {
     @Test
     fun discoverCardOpensRichDetailsWithAddLanguage() {
         composeRule.onNodeWithText("Oppdag").performClick()
-        composeRule.onNodeWithText("The Last Horizon").performClick()
+        composeRule.onNodeWithContentDescription("The Last Horizon").performScrollTo().performClick()
 
         // The sheet says where the title came from, not just which service answered: a Discover
         // title reads "Oppdag i Seerr", a library title "Bibliotek i Jellyfin".
         composeRule.onNode(hasText("Oppdag i Seerr") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
         composeRule.onNode(hasText("The Last Horizon") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
         composeRule.onNodeWithText("Om filmen").assertIsDisplayed()
-        composeRule.onNodeWithText("Legg til i mediesamlinga").performScrollTo().assertIsDisplayed()
+        composeRule.onNode(hasTestTag("title-request") and hasText("Be om")).performScrollTo().assertIsDisplayed()
     }
 
     @Test

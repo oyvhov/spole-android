@@ -45,4 +45,24 @@ class TitleWithdrawTest {
         rule.onNodeWithTag("withdraw-confirm").performClick()
         rule.runOnIdle { assertEquals(listOf("movie:11:"), withdrawn) }
     }
+
+    @Test fun twoRequestsForOneSeriesEachWithdrawTheirOwn() {
+        val media = DiscoverMedia("seerr-tv-12", "Severance", "2022", R.drawable.media_placeholder, false, remoteId = 12,
+            mediaType = "tv", seerrStatus = 2, requested = true)
+        val withdrawn = mutableListOf<String>()
+        rule.setContent {
+            ReelstackTheme {
+                ReelstackSheets(ReelstackUiState(discover = listOf(media), activeSheet = AppSheet.TitleDetails(media.id),
+                    trackedRequests = listOf(
+                        TrackedRequest("tv:12:1", 12, "tv", "Severance", null, setOf(1), requestId = 5, stage = RequestStage.REQUESTED),
+                        TrackedRequest("tv:12:2", 12, "tv", "Severance", null, setOf(2), requestId = 6, stage = RequestStage.REQUESTED)),
+                    contentDetails = ContentDetails(media.id, media.title, "Seerr", "Serie · 2022", artworkRes = R.drawable.media_placeholder,
+                        source = ServiceKind.SEERR, mediaType = "Series")),
+                    null, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, onWithdraw = { withdrawn += it })
+            }
+        }
+        rule.onNodeWithTag("title-withdraw-tv:12:2").performScrollTo().performClick()
+        rule.onNodeWithTag("withdraw-confirm").performClick()
+        rule.runOnIdle { assertEquals(listOf("tv:12:2"), withdrawn) }
+    }
 }

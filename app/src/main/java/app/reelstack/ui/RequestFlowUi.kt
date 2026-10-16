@@ -74,9 +74,19 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
     val hasSelection = !isSeries || draft.selected.isNotEmpty()
     val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val confirmFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
-    LaunchedEffect(ready, television) {
-        if (television && ready && !isSeries && canAdd && draft.error == null && draft.rules?.canRequest != false && !draft.quotaExceeded) {
-            androidx.compose.runtime.withFrameNanos { }; confirmFocus.requestFocus()
+    val choiceFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
+    val hasChoices = draft.fourKAvailable || draft.options != null
+    LaunchedEffect(ready, television, hasChoices) {
+        if (!television || !ready) return@LaunchedEffect
+        // With choices on the sheet the remote starts on them, not on Send below them: they are
+        // out of sight otherwise, and Send would go out with choices the reader never saw.
+        if (hasChoices) {
+            repeat(40) {
+                androidx.compose.runtime.withFrameNanos { }
+                if (runCatching { choiceFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            }
+        } else if (!isSeries && canAdd && draft.error == null && draft.rules?.canRequest != false && !draft.quotaExceeded) {
+            androidx.compose.runtime.withFrameNanos { }; runCatching { confirmFocus.requestFocus() }
         }
     }
     Column(Modifier.fillMaxSize().testTag("request-composer")) {
@@ -120,7 +130,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 if (ready && state.configuredCount > 0) RequestPreflight(draft, onRetry)
                 app.reelstack.ui.components.RequestJourney(null, Modifier.padding(top = 20.dp, bottom = 8.dp))
             }
-            if (ready) RequestChoiceRows(draft, onEdition, onProfile, onFolder)
+            if (ready) RequestChoiceRows(draft, onEdition, onProfile, onFolder, choiceFocus)
             if (!ready) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 24.dp).testTag("seasons-loading"),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -233,9 +243,11 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             if (isSeries && ready && draft.error == null && (!canAdd || draft.visibleSeasons.none { it.canRequest })) {
                 app.reelstack.ui.components.SpoleSecondaryButton(onClick = onDismiss, enabled = !draft.sending, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) { Text(stringResource(R.string.flow_done)) }
             } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (television) TextButton(onClick = onDismiss, enabled = !draft.sending,
+                val cancelInteraction = remember { MutableInteractionSource() }
+                if (television) TextButton(onClick = onDismiss, enabled = !draft.sending, interactionSource = cancelInteraction,
                     colors = ButtonDefaults.textButtonColors(contentColor = Muted),
-                    modifier = Modifier.heightIn(min = 54.dp).testTag("cancel-request")) {
+                    modifier = Modifier.heightIn(min = 54.dp).focusOutline(cancelInteraction, RoundedCornerShape(27.dp), glow = false)
+                        .testTag("cancel-request")) {
                     Text(stringResource(R.string.request_cancel), style = MaterialTheme.typography.titleMedium)
                 }
                 val confirmInteraction = remember { MutableInteractionSource() }
@@ -261,34 +273,42 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
 }
 
 /**
- * Edition, quality and location, each a line with its value at the end. A tap on quality or
- * location opens its list right under the line, in the same sheet, and a choice closes it again.
+ * Edition, quality and location: a muted name with its value under it, so neither squeezes the
+ * other at large text. A tap on quality or location opens its list right under the line, in the
+ * same sheet, and a choice closes it again.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RequestChoiceRows(draft: RequestDraft, onEdition: (Boolean) -> Unit, onProfile: (Int) -> Unit, onFolder: (String) -> Unit) {
+private fun RequestChoiceRows(draft: RequestDraft, onEdition: (Boolean) -> Unit, onProfile: (Int) -> Unit, onFolder: (String) -> Unit,
+    firstFocus: androidx.compose.ui.focus.FocusRequester) {
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     var picking by remember(draft.media.id, draft.fourK) { mutableStateOf<String?>(null) }
+    val options = draft.options
     Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
         if (draft.fourKAvailable) ChoiceRow(stringResource(R.string.request_edition), "request-edition") {
-            listOf(false to R.string.request_edition_standard, true to R.string.request_edition_4k).forEach { (value, label) ->
-                val chosen = draft.fourK == value
-                val interaction = remember(value) { MutableInteractionSource() }
-                Text(stringResource(label), color = if (chosen) TextColor else Muted,
-                    fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
-                    modifier = Modifier.padding(start = 12.dp).heightIn(min = 44.dp)
-                        .focusOutline(interaction, RoundedCornerShape(8.dp), glow = false)
-                        .toggleable(chosen, interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
-                            role = Role.RadioButton, enabled = !draft.sending) { onEdition(value) }
-                        .padding(horizontal = 8.dp, vertical = 12.dp)
-                        .testTag("request-edition-${if (value) "4k" else "standard"}"))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(false to R.string.request_edition_standard, true to R.string.request_edition_4k).forEach { (value, label) ->
+                    val chosen = draft.fourK == value
+                    val interaction = remember(value) { MutableInteractionSource() }
+                    Text(stringResource(label), color = if (chosen) TextColor else Muted,
+                        fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.heightIn(min = 44.dp)
+                            .then(if (!value) Modifier.focusRequester(firstFocus) else Modifier)
+                            .focusOutline(interaction, RoundedCornerShape(8.dp), glow = false)
+                            .toggleable(chosen, interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
+                                role = Role.RadioButton, enabled = !draft.sending) { onEdition(value) }
+                            .padding(horizontal = 8.dp, vertical = 12.dp)
+                            .testTag("request-edition-${if (value) "4k" else "standard"}"))
+                }
             }
         }
         if (draft.optionsLoading) Text(stringResource(R.string.flow_checking), color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
             modifier = Modifier.padding(vertical = 12.dp))
-        draft.options?.let { options ->
+        if (options != null) {
             val profile = options.profiles.firstOrNull { it.id == draft.profileId }
             if (options.profiles.isNotEmpty()) ChoiceRow(stringResource(R.string.request_quality), "request-quality",
-                onClick = { picking = if (picking == "quality") null else "quality" }.takeUnless { draft.sending }) {
+                onClick = { picking = if (picking == "quality") null else "quality" }.takeUnless { draft.sending },
+                modifier = if (!draft.fourKAvailable) Modifier.focusRequester(firstFocus) else Modifier) {
                 ValueColumn(profile?.name.orEmpty(), stringResource(R.string.request_usual_choice).takeIf { draft.profileId == options.defaultProfileId })
             }
             if (picking == "quality") options.profiles.forEach { p ->
@@ -296,7 +316,8 @@ private fun RequestChoiceRows(draft: RequestDraft, onEdition: (Boolean) -> Unit,
             }
             val folder = options.folders.firstOrNull { it.path == draft.folder }
             if (options.folders.isNotEmpty()) ChoiceRow(stringResource(R.string.request_folder), "request-folder",
-                onClick = { picking = if (picking == "folder") null else "folder" }.takeUnless { draft.sending }) {
+                onClick = { picking = if (picking == "folder") null else "folder" }.takeUnless { draft.sending },
+                modifier = if (!draft.fourKAvailable && options.profiles.isEmpty()) Modifier.focusRequester(firstFocus) else Modifier) {
                 ValueColumn(listOfNotNull(folder?.name, folder?.freeBytes?.let { stringResource(R.string.request_free_space, formatFreeSpace(it, locale)) })
                     .joinToString("  ·  "),
                     listOfNotNull(folder?.path, stringResource(R.string.request_usual_choice).takeIf { draft.folder == options.defaultFolder }).joinToString(" · "))
@@ -306,22 +327,24 @@ private fun RequestChoiceRows(draft: RequestDraft, onEdition: (Boolean) -> Unit,
                     .joinToString(" · "), f.path == draft.folder, "request-folder-option-${f.path.hashCode()}") { onFolder(f.path); picking = null }
             }
         }
-        if (draft.fourKAvailable || draft.options != null) HorizontalDivider(color = TextColor.copy(alpha = .08f))
+        if (draft.fourKAvailable || options != null) HorizontalDivider(color = TextColor.copy(alpha = .08f))
     }
 }
 
 @Composable
-private fun ChoiceRow(label: String, tag: String, onClick: (() -> Unit)? = null, value: @Composable RowScope.() -> Unit) {
+private fun ChoiceRow(label: String, tag: String, onClick: (() -> Unit)? = null, modifier: Modifier = Modifier, value: @Composable () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Column(Modifier.fillMaxWidth()) {
         HorizontalDivider(color = TextColor.copy(alpha = .08f))
-        Row(Modifier.fillMaxWidth().heightIn(min = 60.dp)
+        Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).then(modifier)
             .then(if (onClick != null) Modifier.focusOutline(interaction, RoundedCornerShape(10.dp), glow = false)
                 .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
                     role = Role.Button, onClick = onClick) else Modifier)
-            .testTag(tag).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(end = 12.dp))
-            value()
+            .testTag(tag).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, color = Muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("$tag-label"))
+                Box(Modifier.testTag("$tag-value")) { value() }
+            }
             if (onClick != null) Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, tint = Muted,
                 modifier = Modifier.padding(start = 8.dp).size(18.dp))
         }
@@ -330,11 +353,9 @@ private fun ChoiceRow(label: String, tag: String, onClick: (() -> Unit)? = null,
 
 @Composable
 private fun ValueColumn(main: String, detail: String?) {
-    Column(horizontalAlignment = Alignment.End) {
-        Text(main, style = MaterialTheme.typography.bodyLarge, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-        detail?.takeIf(String::isNotBlank)?.let {
-            Text(it, color = Muted, style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-        }
+    Column {
+        Text(main, style = MaterialTheme.typography.bodyLarge)
+        detail?.takeIf(String::isNotBlank)?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
     }
 }
 

@@ -48,4 +48,6 @@
     <string name="request_usual_choice">usual choice</string>
     <string name="request_free_space">%1$s free</string>
     <string name="request_cancel">Cancel</string>
+    <string name="my_requests_alerts_off">App notifications are off in Settings. The status is shown here.</string>
+    <string name="my_requests_alerts_android">Android needs to allow notifications from Spole before you are told something is ready.</string>
 </resources>

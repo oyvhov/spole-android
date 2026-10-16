@@ -34,15 +34,35 @@ data class DiscoverHubState(
     val gridRow: DiscoverRowState = DiscoverRowState(),
     /** The profile and server the rows were loaded for; a late answer for another is dropped. */
     val scope: String? = null,
-    /** Length, genres and the like for titles that had focus on a television, newest last. */
-    val focusFacts: Map<String, List<String>> = emptyMap(),
+    /** Length, genres and synopsis for titles that had focus on a television, newest last. */
+    val focusDetails: Map<String, FocusDetails> = emptyMap(),
 ) {
     val allMedia: List<DiscoverMedia> get() = rows.values.flatMap { it.items } + gridRow.items
     val anyFailed: Boolean get() = rows.values.any { it.failed }
 
-    /** Remembers [facts] for [id]; only the [limit] most recently looked at are kept. */
-    fun withFocusFacts(id: String, facts: List<String>, limit: Int = 100): DiscoverHubState =
-        copy(focusFacts = (focusFacts - id + (id to facts)).entries.toList().takeLast(limit).associate { it.toPair() })
+    /** Remembers [details] for [id]; only the [limit] most recently looked at are kept. */
+    fun withFocusDetails(id: String, details: FocusDetails, limit: Int = 100): DiscoverHubState =
+        copy(focusDetails = (focusDetails - id + (id to details)).entries.toList().takeLast(limit).associate { it.toPair() })
+}
+
+/** What the TV header adds to a row's own data once a title has had focus. */
+data class FocusDetails(val facts: List<String>, val overview: String?)
+
+/** The next page of a paged list. TMDB lists shift while they are read, so repeats are dropped. */
+fun DiscoverRowState.withPage(more: List<DiscoverMedia>, page: Int, hasMore: Boolean): DiscoverRowState =
+    DiscoverRowState(((if (page == 1) emptyList() else items) + more).distinctBy { it.id }, page = page, hasMore = hasMore)
+
+/** A title just asked for: «Førespurd», or «Ventar på godkjenning» when Seerr needs an approval first. */
+fun DiscoverMedia.asRequested(waitsForApproval: Boolean): DiscoverMedia = copy(
+    requested = true,
+    seerrStatus = seerrStatus?.takeIf { it in 4..6 } ?: if (waitsForApproval) 2 else 3,
+)
+
+/** The Seerr status a request line stands for, so its title page opens with the same words. */
+fun RequestStage.seerrStatus(): Int? = when (this) {
+    RequestStage.AVAILABLE -> 5
+    RequestStage.REQUESTED, RequestStage.DOWNLOADING, RequestStage.IMPORTING -> 3
+    else -> null
 }
 
 /** The first billed people of the first titles, without repeats. */

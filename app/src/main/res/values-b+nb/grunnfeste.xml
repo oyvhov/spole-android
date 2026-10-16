@@ -6,7 +6,7 @@
     <string name="skeleton_loading_upcoming">Laster kommende utgivelser</string>
     <string name="skeleton_loading_downloads">Laster nedlastinger</string>
     <string name="skeleton_loading_search">Laster søkeresultater</string>
-    <string name="skeleton_loading_activity">Laster aktivitet</string>
+    <string name="skeleton_loading_activity">Laster forespørsler</string>
     <string name="skeleton_loading_details">Henter flere detaljer</string>
     <string name="home_playback_details">Avspillingsdetaljer</string>
     <string name="remote_sending_command">Sender kommando…</string>
