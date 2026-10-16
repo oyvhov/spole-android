@@ -100,11 +100,13 @@ class CompactNavigationTest {
         val settings = label(language, R.string.nav_settings)
         val menu = label(language, R.string.settings_tv_navigation)
         rule.setContent {
-            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(360.dp, 640.dp))) {
+            // 300 dp gives each of the five labels 52 dp, the room six tabs had at 360 dp before
+            // Aktivitet left the bar. At 360 dp five whole words now fit and no short word is used.
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(300.dp, 640.dp))) {
                 DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale.floatValue)) {
                     InLanguage(language) {
                         // The tightest bar: every tab, with Downloads chosen into the menu as well.
-                        // Without it five labels fit whole at 1.4 and no short word is needed.
+                        // Without it four labels fit whole at 1.4 and no short word is needed.
                         CompositionLocalProvider(app.reelstack.ui.theme.LocalPersonalization provides
                             app.reelstack.ui.theme.LocalPersonalization.current.copy(showDownloadsInMenu = true)) {
                             ReelstackBottomBar(selected.value, onSelect = { selected.value = it })
