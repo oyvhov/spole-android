@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0-beta18 - ny avspelar: roleg OSD, eigne undertekstar og framdrift utan nett
+
+- Avspelaren har eit rolegare OSD. TV har tidslinja og éin knapp, «Avspelingsval»; mobilen har spel/pause og spoling og den same knappen. I menyen ligg lydspor, undertekstar, kapittel, fart (0,5–2×), lyd- og tekstforsinking, kvalitet, biletfylling, rotasjon, minispelar og statistikk. Tilbake går eitt nivå opp.
+- ASS/SSA-undertekstar blir teikna i appen med originale stilar, plasseringar, animasjonar og innebygde fontar, i staden for å bli gjort om til rein tekst. Er originalen for stor eller kan ikkje hentast, får du tenaren sin vanlege tekst i staden for ingen.
+- PGS/SUP og DVD-tekst i MKS blir viste lokalt når tenaren tilbyr fila, utan at tenaren må brenne dei inn i biletet.
+- Førehandsbilete over tidslina når du spolar, for Jellyfin-titlar med trickplay.
+- Mobil: dra opp og ned til venstre for lysstyrke og til høgre for volum; knip for å fylle eller tilpasse biletet.
+- Framdrift frå nedlastingar du ser utan nett, blir lagra og send til tenaren når nettet er tilbake, også etter at appen har vore lukka. Ei innlogging på ei anna teneste tømmer ikkje lenger det som ventar.
+- Ei undertekstline som varer lenger enn videoen, held ikkje lenger episoden i gang ved slutten. Nedteljinga til neste episode kjem som ho skal.
+- Ei undertekstfil som ikkje kan lesast, slår av teksten i staden for å stoppe filmen.
+- TV: heroen på Heim byter tittel også når fokus står på knappane hans, slik han gjorde før; eit trykk på fjernkontrollen startar ventetida på nytt.
+
 ## 1.0.0-beta17 - nytt «Neste episode», rolegare TV-sider og fokus som finn heim
 
 - Avspelaren: «Neste episode» er eit roleg hjørnekort utan bilete, med namnet, sesong og episode, «Spel neste» og «Skjul». Nedteljinga fyller «Spel neste» sakte frå venstre i staden for å vise sekund; når knappen er full, startar neste episode.
