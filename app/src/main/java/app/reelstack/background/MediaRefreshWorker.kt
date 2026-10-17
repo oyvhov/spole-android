@@ -17,6 +17,7 @@ class MediaRefreshWorker(
 ) : CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
         val container = AppContainer(applicationContext)
+        PlaybackProgressScheduler.schedule(applicationContext)
         if (!app.reelstack.offline.offlineNetworkAllowed(applicationContext, container.preferencesRepository.wifiOnly)) return giveUpOrRetry()
         val owner = container.connectionRepository.captureSession()
         val connections = container.connectionRepository.list()

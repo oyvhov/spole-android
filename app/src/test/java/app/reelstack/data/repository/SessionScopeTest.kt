@@ -73,4 +73,27 @@ class SessionScopeTest {
             assertEquals(listOf(title.key), store.read(adultScope).titles.map { it.key })
         } finally { release.countDown(); worker.shutdownNow() }
     }
+
+    // The player checks its account every second on the main thread. A progress write holds the
+    // session guard over disk and Keystore work; the check must not queue behind it.
+    @Test fun thePlayersTickDoesNotWaitForAGuardedWrite() {
+        repo.save(connection())
+        val owner = repo.captureSession()
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val writer = Thread { repo.withCurrentSession(owner) { entered.countDown(); release.await(5, java.util.concurrent.TimeUnit.SECONDS) } }
+        writer.start()
+        assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        val answer = java.util.concurrent.FutureTask { repo.isCurrentNow(owner) }
+        Thread(answer).start()
+        try { assertTrue(answer.get(500, java.util.concurrent.TimeUnit.MILLISECONDS)) }
+        finally { release.countDown(); writer.join() }
+    }
+    @Test fun theNonWaitingCheckStillSeesASignOut() {
+        repo.save(connection())
+        val owner = repo.captureSession()
+        assertTrue(repo.isCurrentNow(owner))
+        repo.signOut(ServiceKind.JELLYFIN)
+        assertFalse(repo.isCurrentNow(owner))
+    }
 }

@@ -39,9 +39,9 @@ class JellyfinPlayerUiTest {
                 scale = 2f, player = player)
             // The statistics action is pinned in the player chrome, not in the document below it.
             // Asking Compose to scroll it therefore asserts an obsolete layout contract.
-            rule.onNodeWithTag("player-stats").performClick()
+            option("player-stats")
             rule.onNodeWithTag("player-stats-overlay").assertIsDisplayed()
-            val info = rule.onNodeWithTag("player-stats").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val info = rule.onNodeWithTag("player-close").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             val panel = rule.onNodeWithTag("player-stats-overlay").fetchSemanticsNode().boundsInRoot
             assertTrue("Statistics must leave the information action unobscured", panel.top > info.bottom)
             val closeBefore = rule.onNodeWithTag("player-stats-close").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
@@ -51,11 +51,17 @@ class JellyfinPlayerUiTest {
                 rule.onNodeWithTag("player-stats-close").assertIsDisplayed().fetchSemanticsNode().boundsInRoot)
             rule.onNodeWithTag("player-stats-close").performTouchInput { click() }
             rule.onNodeWithTag("player-stats-overlay").assertDoesNotExist()
-            rule.onNodeWithTag("player-stats").performTouchInput { click() }
+            option("player-stats")
             rule.onNodeWithTag("player-stats-overlay").assertIsDisplayed()
-            rule.onNodeWithTag("player-stats").performTouchInput { click() }
+            rule.onNodeWithTag("player-stats-close").performTouchInput { click() }
             rule.onNodeWithTag("player-stats-overlay").assertDoesNotExist()
         } finally { rule.runOnIdle { player.release() } }
+    }
+    private fun option(tag: String, television: Boolean = false) {
+        val trigger = rule.onNodeWithTag("player-options")
+        if (!television) trigger.performScrollTo()
+        trigger.performClick()
+        rule.onNodeWithTag(tag).performScrollTo().performClick()
     }
     private fun back() {
         // Exercise the registered Android callback on its owning thread. Injecting a legacy
@@ -73,7 +79,7 @@ class JellyfinPlayerUiTest {
         try {
             screen(PlayerScreenState(busy = false, durationMs = 60_000),
                 player = player, close = { exits++ })
-            rule.onNodeWithTag("player-stats").performClick()
+            option("player-stats")
             rule.onNodeWithTag("player-stats-overlay").assertIsDisplayed()
             back()
             rule.onNodeWithTag("player-stats-overlay").assertDoesNotExist()
@@ -94,7 +100,7 @@ class JellyfinPlayerUiTest {
             screen(PlayerScreenState(busy = false, durationMs = 60_000),
                 player = player, close = { exits++ }, television = true)
             rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
-            rule.onNodeWithTag("player-stats").performClick()
+            option("player-stats", television = true)
             rule.onNodeWithTag("player-stats-close").assertIsDisplayed().assertIsFocused()
             back()
             rule.onNodeWithTag("player-stats-overlay").assertDoesNotExist()
@@ -113,9 +119,10 @@ class JellyfinPlayerUiTest {
     }
     @Test fun pictureCanFillTheScreenAndReturnToUncroppedFit() {
         screen(PlayerScreenState(busy=false,durationMs=20000))
-        rule.onNodeWithContentDescription("Fyll skjermen").performScrollTo().performClick()
-        rule.onNodeWithContentDescription("Heile biletet").assertIsDisplayed().performClick()
-        rule.onNodeWithContentDescription("Fyll skjermen").assertIsDisplayed()
+        option("player-frame-mode")
+        rule.onNodeWithTag("player-frame-mode").assertTextContains("Fyll skjermen").performClick()
+        rule.onNodeWithTag("player-frame-mode").assertTextContains("Heile biletet")
+        rule.onNodeWithContentDescription("Lukk", substring = false).performClick()
         rule.onNodeWithTag("player-close").assertIsDisplayed()
     }
     @Test fun closeIsAvailableWhileVideoLoads() {
@@ -147,7 +154,7 @@ class JellyfinPlayerUiTest {
         screen(PlayerScreenState(title="Ein lang filmtittel med fleire ord",busy=false,durationMs=20000),
             scale=2f, close={ closed=true })
         val before = rule.onNodeWithTag("player-close").fetchSemanticsNode().boundsInRoot
-        rule.onNodeWithTag("player-quality").performScrollTo()
+        rule.onNodeWithTag("player-options").performScrollTo()
         val after = rule.onNodeWithTag("player-close").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertEquals(before,after)
         rule.onNodeWithTag("player-close").performTouchInput { click() }
@@ -156,7 +163,7 @@ class JellyfinPlayerUiTest {
     @Test fun textChoiceAndOffAreExplicit() {
         var selected=99
         screen(PlayerScreenState(busy=false,subtitles=listOf(PlaybackTrack(2,"Norsk", "nor",true)),subtitleIndex=2),subtitle={selected=it})
-        rule.onNodeWithTag("player-subtitles").performScrollTo().performClick()
+        option("player-option-subtitles")
         rule.onNodeWithText("Norsk").assertIsDisplayed()
         rule.onNodeWithText("Av",substring=false).performClick()
         assertEquals(-1,selected)
@@ -169,7 +176,7 @@ class JellyfinPlayerUiTest {
                     PlaybackTrack(8, "English · AC3 5.1 · Commentary", "eng"))),
                 null, {}, {}, {}, {}, {}, {}, { selected = it }, {}, {}, {}, isTelevision = false)
         } }
-        rule.onNodeWithTag("player-audio").performScrollTo().performClick()
+        option("player-option-audio")
         rule.onNodeWithText("Audio Media Handler", substring = true).assertDoesNotExist()
         rule.onNodeWithText("AAC 2.0", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Commentary", substring = true).assertIsDisplayed().performClick()
@@ -178,7 +185,7 @@ class JellyfinPlayerUiTest {
     @Test fun largeTextKeepsCloseAndQualityReachable() {
         screen(PlayerScreenState(title="Ein lang filmtittel som framleis skal vere lesbar",busy=false,durationMs=20000),scale=2f)
         rule.onNodeWithTag("player-close").assertIsDisplayed()
-        rule.onNodeWithTag("player-quality").performScrollTo().assertIsDisplayed().performClick()
+        option("player-option-quality")
         rule.onNodeWithText("Automatisk").assertIsDisplayed()
     }
     @Test fun episodesAreExplicitAndShowPersonalResume() {

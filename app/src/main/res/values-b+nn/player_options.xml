@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_options">Avspelingsval</string>
+    <string name="player_speed">Avspelingsfart</string>
+    <string name="player_audio_delay">Lydforsinking</string>
+    <string name="player_subtitle_delay">Tekstforsinking</string>
+    <string name="player_frame">Bilete</string>
+    <string name="player_speed_value">%1$.2f×</string>
+    <string name="player_delay_none">I takt</string>
+    <string name="player_delay_late_value">%1$d ms seinare</string>
+    <string name="player_delay_early_value">%1$d ms tidlegare</string>
+    <string name="player_delay_hint">Positive verdiar kjem seinare enn biletet. Endringar gjeld med ein gong.</string>
+    <string name="player_delay_earlier">100 ms tidlegare</string>
+    <string name="player_delay_later">100 ms seinare</string>
+    <string name="player_reset">Nullstill</string>
+    <string name="player_brightness">Lysstyrke</string>
+    <string name="player_volume">Volum</string>
+    <string name="player_err_local_progress">Fekk ikkje lagra framdrifta på denne eininga.</string>
+</resources>

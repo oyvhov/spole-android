@@ -196,7 +196,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val playFocused by playInteraction.collectIsFocusedAsState()
     val playFocusedNow by androidx.compose.runtime.rememberUpdatedState(playFocused)
     // A TV remote leaves focus on a button even when idle. Pause on actual key input instead
-    // of freezing the carousel for as long as that focus remains. System animation scale
+    // of freezing the carousel for as long as that focus remains (beta11). System animation scale
     // and calm transitions control the crossfade; only lightweight TV mode stops rotation.
     LaunchedEffect(identities, focused && !television, interaction, rotationEnabled, allowRotation, lifecycleOwner) {
         if (titles.size > 1 && (!focused || television) && rotationEnabled && allowRotation) {

@@ -2,9 +2,11 @@
 <data-extraction-rules>
     <cloud-backup disableIfNoEncryptionCapabilities="true">
         <exclude domain="sharedpref" path="reelstack_secrets.xml" />
+        <exclude domain="sharedpref" path="playback_progress_outbox.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="reelstack_secrets.xml" />
+        <exclude domain="sharedpref" path="playback_progress_outbox.xml" />
     </device-transfer>
 </data-extraction-rules>
 

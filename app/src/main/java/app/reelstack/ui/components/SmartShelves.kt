@@ -181,7 +181,7 @@ private fun SmartShelfTile(shelf: SmartShelf, items: List<RemoteLibraryItem>, so
     val shape = RoundedCornerShape(12.dp)
     val name = smartShelfName(shelf)
     val colors = MaterialTheme.colorScheme
-    val scale = focusScale(focused, false)
+    val scale by animateFocusScale(focused, false)
     val width = tileWidth()
     val posters = items.mapNotNull { libraryArtworkUrl(it, LibraryArtType.POSTER) }.distinct().take(TILE_POSTERS)
     Box(Modifier.width(width).heightIn(min = width / 2)

@@ -95,7 +95,7 @@ internal fun MobileLibraryFeature(
     header: (@Composable () -> Unit)? = null,
     candidates: List<LibraryMedia> = listOf(media),
     rotationEnabled: Boolean = true,
-    parallaxOffset: Float = 0f,
+    parallaxOffsetProvider: () -> Float = { 0f },
 ) {
     val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
@@ -159,7 +159,7 @@ internal fun MobileLibraryFeature(
                     else pager.scrollToPage(index + 1)
                 } },
                 topInset = with(density) { headerHeight.toDp() } + 72.dp,
-                parallaxOffset = parallaxOffset,
+                parallaxOffsetProvider = parallaxOffsetProvider,
                 modifier = if (page == pager.currentPage) Modifier.testTag("mobile-feature-current-page")
                     else Modifier.clearAndSetSemantics {},
             )
@@ -182,10 +182,11 @@ private fun MobileHeroPage(
     onOpen: (String) -> Unit,
     onSelect: (Int) -> Unit,
     topInset: androidx.compose.ui.unit.Dp,
-    parallaxOffset: Float,
+    parallaxOffsetProvider: () -> Float,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val motion = LocalMotionEnabled.current
     val featureInteraction = remember { MutableInteractionSource() }
     val heroUrl = app.reelstack.data.network.mobileHeroArtworkUrl(selected)
     var artworkFailed by remember(selected.id, heroUrl) { mutableStateOf(false) }
@@ -208,8 +209,9 @@ private fun MobileHeroPage(
             modifier = Modifier
                 .matchParentSize()
                 .graphicsLayer {
-                    translationY = parallaxOffset
+                    translationY = if (motion) parallaxOffsetProvider() else 0f
                 }
+                .testTag("mobile-hero-artwork")
         ) {
             MediaArtwork(
                 url = app.reelstack.data.network.heroArtworkUrl(

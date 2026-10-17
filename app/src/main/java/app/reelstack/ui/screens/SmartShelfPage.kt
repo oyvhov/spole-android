@@ -105,7 +105,7 @@ import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.SpoleSecondaryButton
 import app.reelstack.ui.components.cinematicBleed
 import app.reelstack.ui.components.focusOutline
-import app.reelstack.ui.components.focusScale
+import app.reelstack.ui.components.animateFocusScale
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.mediaCardIndication
 import app.reelstack.ui.components.smartShelfName
@@ -450,7 +450,7 @@ private fun SmartShelfCard(entry: RemoteLibraryItem, source: ServiceKind, onClic
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
-    val scale = focusScale(focused, pressed)
+    val scale by animateFocusScale(focused, pressed)
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val density = LocalDensity.current
     val isNew = entry.addedAtEpochMillis?.let { System.currentTimeMillis() - it in 0..NEW_FOR_MILLIS } == true

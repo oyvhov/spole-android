@@ -2,3 +2,8 @@
 # or the same source builds an APK that differs from the last release.
 playback-ffmpeg/licenses/*.txt text eol=lf
 playback-ffmpeg/src/main/assets/**/*.txt text eol=lf
+scripts/test-progress-restart.sh text eol=lf
+app/src/main/assets/licenses/libass/*.txt text eol=lf
+app/src/androidTest/assets/player/*.sup binary
+app/src/androidTest/assets/player/*.mkv binary
+app/src/androidTest/assets/player/*.mks binary

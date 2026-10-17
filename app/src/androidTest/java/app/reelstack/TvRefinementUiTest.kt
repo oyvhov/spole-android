@@ -79,8 +79,9 @@ class TvRefinementUiTest {
                 durationMs = 120000, audio = listOf(PlaybackTrack(1, "Norsk", "nor", false), PlaybackTrack(2, "English", "eng", false)), audioIndex = 1),
                 null, {}, {}, {}, {}, {}, {}, { selected = it }, {}, {}, {}, isTelevision = true)
         } }
-        assertEquals(48.dp, rule.onNodeWithTag("player-audio").getUnclippedBoundsInRoot().width)
-        rule.onNodeWithTag("player-audio").performClick()
+        assertTrue(rule.onNodeWithTag("player-options").getUnclippedBoundsInRoot().height >= 48.dp)
+        rule.onNodeWithTag("player-options").performClick()
+        rule.onNodeWithTag("player-option-audio").performClick()
         rule.onNodeWithTag("choice-dialog").assertIsDisplayed()
         rule.onNodeWithText("English").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(2, selected) }

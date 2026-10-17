@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_options">Playback options</string>
+    <string name="player_speed">Playback speed</string>
+    <string name="player_audio_delay">Audio delay</string>
+    <string name="player_subtitle_delay">Subtitle delay</string>
+    <string name="player_frame">Picture</string>
+    <string name="player_speed_value">%1$.2f×</string>
+    <string name="player_delay_none">In sync</string>
+    <string name="player_delay_late_value">%1$d ms later</string>
+    <string name="player_delay_early_value">%1$d ms earlier</string>
+    <string name="player_delay_hint">Positive values play later than the picture. Changes apply immediately.</string>
+    <string name="player_delay_earlier">100 ms earlier</string>
+    <string name="player_delay_later">100 ms later</string>
+    <string name="player_reset">Reset</string>
+    <string name="player_brightness">Brightness</string>
+    <string name="player_volume">Volume</string>
+    <string name="player_err_local_progress">Could not save playback progress on this device.</string>
+</resources>

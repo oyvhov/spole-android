@@ -51,9 +51,32 @@ internal class LocalAudioFallback {
 
 /** Keep hardware and passthrough first. Only a failed audio format moves to FFmpeg. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-internal class PlaybackRenderersFactory(context: Context, private val fallback: LocalAudioFallback) :
+internal class PlaybackRenderersFactory(context: Context, private val fallback: LocalAudioFallback,
+    private val adjustments: PlaybackAdjustmentController = PlaybackAdjustmentController(),
+    private val subtitles: PlaybackSubtitleResources = PlaybackSubtitleResources()) :
     DefaultRenderersFactory(context) {
     init { setEnableDecoderFallback(true) }
+
+    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioOutputPlaybackParams: Boolean): AudioSink? =
+        super.buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParams)?.let { sink ->
+            object : androidx.media3.exoplayer.audio.ForwardingAudioSink(sink) {
+                override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
+                    val position = super.getCurrentPositionUs(sourceEnded)
+                    return if (position == AudioSink.CURRENT_POSITION_NOT_SET) position
+                    else adjustedAudioClock(position, adjustments.current.audioDelayMs)
+                }
+            }
+        }
+
+    override fun buildTextRenderers(context: Context, output: androidx.media3.exoplayer.text.TextOutput,
+        outputLooper: android.os.Looper, extensionRendererMode: Int, out: ArrayList<Renderer>) {
+        out.add(MediaBoundTextRenderer(NativeAssRenderer(output, outputLooper, adjustments, subtitles)))
+        val renderer = androidx.media3.exoplayer.text.TextRenderer(output, outputLooper)
+        out.add(MediaBoundTextRenderer(object : Renderer by renderer {
+            override fun render(positionUs: Long, elapsedRealtimeUs: Long) =
+                renderer.render(subtitleRenderPosition(positionUs, adjustments.current.subtitleDelayMs), elapsedRealtimeUs)
+        }))
+    }
 
     override fun buildAudioRenderers(context: Context, extensionRendererMode: Int,
         mediaCodecSelector: MediaCodecSelector, enableDecoderFallback: Boolean, audioSink: AudioSink,

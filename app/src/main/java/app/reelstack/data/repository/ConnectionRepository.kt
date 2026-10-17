@@ -55,6 +55,12 @@ class ConnectionRepository(
         captureSession()
     }
     fun isCurrent(owner: SessionScope): Boolean = captureSession() == owner
+    /**
+     * The last published session, without waiting for a guarded write on another thread. For the
+     * main thread's once-a-second checks; every write path publishes under the lock, and writes
+     * themselves keep using [withCurrentSession].
+     */
+    fun isCurrentNow(owner: SessionScope): Boolean = session.value == owner
 
     /** Keep synchronous local writes within the checked generation, including a profile switch race. */
     @Synchronized fun <T> withCurrentSession(owner: SessionScope, write: () -> T): T? =

@@ -1,6 +1,5 @@
 package app.reelstack.ui
 
-import app.reelstack.AppContainer
 import app.reelstack.R
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.state.SearchSlice
@@ -18,12 +17,15 @@ import kotlinx.coroutines.withContext
  * screen each have their own instance; [slice] and [withSlice] say which part of the state it owns.
  */
 internal class DiscoverSearchCoordinator(
-    private val container: AppContainer,
+    private val appContext: android.content.Context,
+    private val mediaSyncRepository: app.reelstack.data.repository.MediaSyncRepository,
+    private val preferencesRepository: app.reelstack.data.repository.AppPreferencesRepository,
     private val scope: CoroutineScope,
     private val readState: () -> ReelstackUiState,
     private val updateState: ((ReelstackUiState) -> ReelstackUiState) -> Unit,
     private val slice: (ReelstackUiState) -> SearchSlice = ::discoverSlice,
     private val withSlice: (ReelstackUiState, SearchSlice) -> ReelstackUiState = ::withDiscoverSlice,
+    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
 ) {
     private var searchJob: Job? = null
     private var loadMoreJob: Job? = null
@@ -72,19 +74,19 @@ internal class DiscoverSearchCoordinator(
             // one media server is down.
             val libraryDeferred = async {
                 if (mediaServers.isEmpty()) Result.success(emptyList()) else attempt {
-                    withContext(Dispatchers.IO) {
-                        container.mediaSyncRepository.searchLibraries(mediaServers, query)
+                    withContext(ioDispatcher) {
+                        mediaSyncRepository.searchLibraries(mediaServers, query)
                     }
                 }
             }
             val discoverResult = if (seerr == null) {
                 Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
             } else attempt {
-                withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query, page = 1) }
+                withContext(ioDispatcher) { mediaSyncRepository.search(seerr, query, page = 1) }
             }
             val libraryResult = libraryDeferred.await()
             if (!isActive || slice(readState()).query.trim() != query) return@launch
-            container.preferencesRepository.rememberSearch(readState().activeProfileId, query)
+            preferencesRepository.rememberSearch(readState().activeProfileId, query)
             updateState {
                 withSlice(it, slice(it).copy(
                     results = discoverResult.getOrNull()?.items.orEmpty(),
@@ -99,7 +101,7 @@ internal class DiscoverSearchCoordinator(
                         libraryResult.isFailure -> appString(R.string.error_search_libraries)
                         else -> null
                     },
-                )).copy(searchHistory = container.preferencesRepository.searchHistory(it.activeProfileId))
+                )).copy(searchHistory = preferencesRepository.searchHistory(it.activeProfileId))
             }
         }
     }
@@ -123,7 +125,7 @@ internal class DiscoverSearchCoordinator(
         edit { it.copy(loadingMore = true) }
         loadMoreJob = scope.launch {
             val result = attempt {
-                withContext(Dispatchers.IO) { container.mediaSyncRepository.search(seerr, query, next) }
+                withContext(ioDispatcher) { mediaSyncRepository.search(seerr, query, next) }
             }
             edit { latest ->
                 if (latest.query.trim() != query) return@edit latest.copy(loadingMore = false)
@@ -140,7 +142,7 @@ internal class DiscoverSearchCoordinator(
     }
 
     private fun appString(@androidx.annotation.StringRes resId: Int, vararg args: Any): String =
-        app.reelstack.localization.AppLanguages.wrap(container.appContext).getString(resId, *args)
+        app.reelstack.localization.AppLanguages.wrap(appContext).getString(resId, *args)
 
     companion object {
         private const val DEBOUNCE_MILLIS = 350L

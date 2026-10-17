@@ -22,7 +22,8 @@ class JellyfinPlayerTest {
     private val context get() = instrumentation.targetContext
     private class Server(val assets: android.content.res.AssetManager, val hls: Boolean = false, val resumeMs: Long = 0,
         val episode: Boolean = false, val defaultSubtitle: Int = 2, val audioCodec: String = "aac",
-        val rejectSubtitles: Boolean = false, val subtitleDelayMs: Long = 0) : AutoCloseable {
+        val rejectSubtitles: Boolean = false, val subtitleDelayMs: Long = 0, val pgs: Boolean = false,
+        val syncProgress: Boolean = false, val subtitleCodec: String = "srt", val hugeAss: Boolean = false) : AutoCloseable {
         val socket = ServerSocket(0)
         val base = "http://127.0.0.1:${socket.localPort}"
         val pool = Executors.newCachedThreadPool()
@@ -31,6 +32,8 @@ class JellyfinPlayerTest {
         val clientHeaders = CopyOnWriteArrayList<String>()
         @Volatile var rejectVideo = false
         @Volatile var rejectReports = false
+        @Volatile var savedPositionTicks = resumeMs * 10_000
+        @Volatile var savedPlayed = false
         init { pool.execute { while (!socket.isClosed) runCatching { val client = socket.accept(); pool.execute {
             client.use { conn -> runCatching {
                 conn.soTimeout = 5000
@@ -59,6 +62,13 @@ class JellyfinPlayerTest {
                 var status = 200
                 var contentType = "application/json"
                 var bytes = when {
+                    syncProgress && path.contains("/UserData") -> {
+                        events += path to body
+                        savedPositionTicks = body.getValue("PlaybackPositionTicks").jsonPrimitive.long
+                        savedPlayed = body.getValue("Played").jsonPrimitive.boolean
+                        status = 204
+                        byteArrayOf()
+                    }
                     path == "/Users/Me" || path == "/Users/u1" -> """{"Id":"u1","Name":"Testperson","Policy":{"EnableMediaPlayback":true,"IsAdministrator":false}}""".toByteArray()
                     episode && path.contains("adjacentTo=") -> """{"Items":[
                         {"Id":"film","Type":"Episode","SeriesId":"series","Name":"Første","RunTimeTicks":200000000},
@@ -68,25 +78,41 @@ class JellyfinPlayerTest {
                     path.contains("/Items/series") -> """{"Id":"series","Type":"Series","Name":"Testserie"}""".toByteArray()
                     path.startsWith("/Shows/") -> """{"Items":[{"Id":"season","Type":"Season","Name":"Sesong 1","LocationType":"Virtual"}],"TotalRecordCount":1}""".toByteArray()
                     path.startsWith("/Items?") -> """{"Items":[{"Id":"film","Type":"Episode","Name":"Ny dag","SeriesName":"Testserie","ParentIndexNumber":1,"IndexNumber":1,"RunTimeTicks":200000000},{"Id":"missing","Type":"Episode","IsMissing":true}],"TotalRecordCount":2}""".toByteArray()
+                    syncProgress && path.contains("/Items/") && !path.contains("PlaybackInfo") ->
+                        """{"Id":"film","Type":"Movie","Name":"Spole testvideo","RunTimeTicks":200000000,"UserData":{"PlaybackPositionTicks":$savedPositionTicks,"Played":$savedPlayed,"PlayCount":1,"IsFavorite":true}}""".toByteArray()
                     path.contains("/Items/") && !path.contains("PlaybackInfo") -> """{"Id":"film","Type":"Movie","Name":"Spole testvideo","RunTimeTicks":200000000,"UserData":{"PlaybackPositionTicks":${resumeMs*10000}}}""".toByteArray()
                     path.endsWith("PlaybackInfo") -> {
                         events += path to body
                         val direct = !hls && body["EnableDirectPlay"] != JsonPrimitive(false)
                         val source = if (path.contains("/Items/next/")) "next-source" else "source"
                         val sub = (body["SubtitleStreamIndex"] as? JsonPrimitive)?.intOrNull ?: defaultSubtitle
-                        """{"PlaySessionId":"session${events.size}","MediaSources":[{"Id":"$source","SupportsDirectPlay":$direct,"TranscodingUrl":"/hls/master.m3u8?api_key=fixture","DefaultAudioStreamIndex":1,"DefaultSubtitleStreamIndex":$sub,"MediaStreams":[{"Index":0,"Type":"Video","Codec":"h264","Profile":"baseline","Width":640,"Height":360,"BitDepth":8,"VideoRangeType":"SDR","AverageFrameRate":24},{"Index":1,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"English","Language":"eng"},{"Index":3,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"Norsk","Language":"nor"},{"Index":2,"Type":"Subtitle","DisplayTitle":"Norsk tekst","Language":"nor","Codec":"srt","IsTextSubtitleStream":true}]}]}""".toByteArray()
+                        """{"PlaySessionId":"session${events.size}","MediaSources":[{"Id":"$source","SupportsDirectPlay":$direct,"TranscodingUrl":"/hls/master.m3u8?api_key=fixture","DefaultAudioStreamIndex":1,"DefaultSubtitleStreamIndex":$sub,"MediaStreams":[{"Index":0,"Type":"Video","Codec":"h264","Profile":"baseline","Width":640,"Height":360,"BitDepth":8,"VideoRangeType":"SDR","AverageFrameRate":24},{"Index":1,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"English","Language":"eng"},{"Index":3,"Type":"Audio","Codec":"aac","Channels":2,"SampleRate":48000,"DisplayTitle":"Norsk","Language":"nor"},{"Index":2,"Type":"Subtitle","DisplayTitle":"Norsk tekst","Language":"nor","Codec":"$subtitleCodec","IsTextSubtitleStream":true}]}]}""".toByteArray()
                     }
-                    path.startsWith("/Sessions/Playing") -> { events += path to body; status = if (rejectReports) 503 else 204; byteArrayOf() }
+                    path.startsWith("/Sessions/Playing") -> {
+                        events += path to body
+                        status = if (rejectReports) 503 else 204
+                        if (syncProgress && !rejectReports) savedPositionTicks = body.getValue("PositionTicks").jsonPrimitive.long
+                        byteArrayOf()
+                    }
                     path.contains("/Subtitles/") -> {
                         if (subtitleDelayMs > 0) Thread.sleep(subtitleDelayMs)
                         contentType="text/vtt"
                         if (rejectSubtitles) { status = 503; byteArrayOf() }
+                        else if (hugeAss && path.substringBefore('?').endsWith("/Stream.ass")) {
+                            // Heavily typeset ASS can be several MiB: larger than the libass document bound.
+                            contentType = "text/x-ssa"
+                            buildString {
+                                append("[Script Info]\nScriptType: v4.00+\n\n[Events]\n")
+                                append("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
+                                while (length < 3 * 1024 * 1024) append("Dialogue: 0,0:00:00.00,0:00:20.00,Default,,0,0,0,,{\\pos(10,10)}Typesetting\n")
+                            }.toByteArray()
+                        }
                         else assets.open("player/subtitle.vtt").use { it.readBytes() }
                     }
                     else -> {
                         if (rejectVideo) { status=503; byteArrayOf() } else {
                             val name = if (path.startsWith("/hls/")) path.substringAfterLast('/').substringBefore('?')
-                                else if (audioCodec != "aac") "$audioCodec.mkv" else "video.mp4"
+                                else if (pgs) "pgs.mkv" else if (audioCodec != "aac") "$audioCodec.mkv" else "video.mp4"
                             contentType = when {
                                 name.endsWith("m3u8") -> "application/vnd.apple.mpegurl"
                                 name.endsWith("ts") -> "video/mp2t"
@@ -103,6 +129,19 @@ class JellyfinPlayerTest {
                         .replace(",{\"Index\":3,\"Type\":\"Audio\",\"Codec\":\"$audioCodec\",\"Channels\":6,\"SampleRate\":48000,\"DisplayTitle\":\"Norsk\",\"Language\":\"nor\"}", "")
                         .toByteArray()
                 }
+                if (path.endsWith("PlaybackInfo") && pgs) {
+                    val response = Json.parseToJsonElement(bytes.toString(Charsets.UTF_8)).jsonObject
+                    val sources = response.getValue("MediaSources").jsonArray.map { value ->
+                        val source = value.jsonObject
+                        JsonObject(source + mapOf("Container" to JsonPrimitive("mkv"), "MediaStreams" to JsonArray(
+                            source.getValue("MediaStreams").jsonArray.filter { it.jsonObject["Index"] != JsonPrimitive(3) }.map { stream ->
+                                if (stream.jsonObject["Type"] == JsonPrimitive("Subtitle")) JsonObject(stream.jsonObject + mapOf(
+                                    "Codec" to JsonPrimitive("pgssub"), "IsTextSubtitleStream" to JsonPrimitive(false), "IsExternal" to JsonPrimitive(false)))
+                                else stream
+                            })))
+                    }
+                    bytes = JsonObject(response + ("MediaSources" to JsonArray(sources))).toString().toByteArray()
+                }
                 val total = bytes.size
                 val range = headers["range"]?.substringAfter("bytes=")?.substringBefore('-')?.toIntOrNull()
                 val rangeHeader = if (status == 200 && range != null && range < total) {
@@ -117,9 +156,11 @@ class JellyfinPlayerTest {
 
     private fun exercise(hls: Boolean = false, resumeMs: Long = 0, root: String = "film", autoResume: Boolean = true,
         episode: Boolean = false, defaultSubtitle: Int = 2, audioCodec: String = "aac", kind: ServiceKind = ServiceKind.JELLYFIN,
-        rejectSubtitles: Boolean = false, subtitleDelayMs: Long = 0,
+        rejectSubtitles: Boolean = false, subtitleDelayMs: Long = 0, pgs: Boolean = false, syncProgress: Boolean = false,
+        subtitleCodec: String = "srt", hugeAss: Boolean = false,
         block: (ActivityScenario<JellyfinPlayerActivity>, Server, ConnectionRepository) -> Unit) {
-        Server(instrumentation.context.assets, hls, resumeMs, episode, defaultSubtitle, audioCodec, rejectSubtitles, subtitleDelayMs).use { server ->
+        Server(instrumentation.context.assets, hls, resumeMs, episode, defaultSubtitle, audioCodec, rejectSubtitles, subtitleDelayMs, pgs, syncProgress,
+            subtitleCodec, hugeAss).use { server ->
             val connections = (context.applicationContext as ReelstackApplication).container.connectionRepository
             ServiceKind.entries.forEach(connections::delete)
             connections.save(ServiceConnection(kind,"Test",server.base,"fixture","u1"))
@@ -342,17 +383,23 @@ class JellyfinPlayerTest {
         }
     }
 
-    @Test fun countdownAdvancesFromRealVideoBeforeTheCurrentEpisodeEnds() = exercise(episode = true) { scenario, server, _ ->
+    @Test fun countdownWaitsForRealEpisodeEndBeforeAdvancing() = exercise(episode = true) { scenario, server, _ ->
         playing(scenario)
         waitFor { snapshot(scenario).nextEpisode != null }
+        val durationMs = snapshot(scenario).durationMs
         scenario.onActivity { it.model.seek(10_500) }
-        waitFor { snapshot(scenario).nextEpisodeCountdown != null }
+        waitFor { snapshot(scenario).positionMs >= 11_000 }
         assertFalse(snapshot(scenario).ended)
+        assertNull("Showing the next-episode offer must not cut the current episode short", snapshot(scenario).nextEpisodeCountdown)
+        scenario.onActivity { it.model.seek(18_000) }
+        var countdownState = PlayerScreenState()
+        waitFor { snapshot(scenario).also { countdownState = it }.nextEpisodeCountdown != null }
+        assertTrue("Countdown starts only at EOS: $countdownState", countdownState.ended)
         waitFor { snapshot(scenario).itemId == "next" && snapshot(scenario).playing }
         assertNull(snapshot(scenario).error)
         val stopped = server.events.first { it.first.endsWith("/Stopped") }.second
         val stoppedAt = stopped.getValue("PositionTicks").jsonPrimitive.long
-        assertTrue("Episode must change before its 20-second end; stopped at $stoppedAt ticks", stoppedAt < 200_000_000L)
+        assertTrue("The episode must finish before advancing; stopped at $stoppedAt ticks", stoppedAt >= durationMs * 10_000)
     }
 
     @Test fun nextButtonUsesTheNextFilesSourceAndStartsOnlyOnce() = exercise(episode = true) { scenario, server, _ ->
@@ -388,12 +435,38 @@ class JellyfinPlayerTest {
         }
     }
 
-    @Test fun cancellingEarlyCountdownKeepsCurrentEpisode() = exercise(episode = true) { scenario, _, _ ->
+    @Test fun failedLiveReportsAreRetriedAsUserDataAfterPlayerClosesOnBothServers() {
+        for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+            exercise(kind = kind, defaultSubtitle = -1, syncProgress = true) { scenario, server, connections ->
+                playing(scenario)
+                val container = (context.applicationContext as ReelstackApplication).container
+                val scope = app.reelstack.data.repository.PlaybackProgressOutbox.scope("", connections.get(kind))
+                // Wait for the start report/read to finish before disconnecting report delivery.
+                waitFor { server.events.any { it.first == "/Sessions/Playing" } }
+                server.rejectReports = true
+                scenario.onActivity { it.model.seek(12_000); if (it.model.player.playWhenReady) it.model.toggle() }
+                waitFor { container.playbackProgressOutbox.pending(scope).any { it.positionMs >= 12_000 } }
+                assertTrue(server.events.none { it.first.contains("/UserData") })
+                scenario.close()
+                waitFor(40_000) { server.events.any { it.first.contains("/UserData") } }
+                waitFor { container.playbackProgressOutbox.pending(scope).isEmpty() }
+                assertTrue(server.savedPositionTicks >= 120_000_000)
+                assertFalse(server.savedPlayed)
+                val retried = server.events.single { it.first.contains("/UserData") }.second
+                assertFalse(retried.containsKey("PlaySessionId"))
+                if (kind == ServiceKind.EMBY) assertEquals(JsonPrimitive(true), retried["IsFavorite"])
+            }
+        }
+    }
+
+    @Test fun dismissingNextOfferKeepsCurrentEpisodeAndPreventsAutoplay() = exercise(episode = true) { scenario, _, _ ->
         playing(scenario)
         waitFor { snapshot(scenario).nextEpisode != null }
         scenario.onActivity { it.model.seek(10_500) }
-        waitFor { snapshot(scenario).nextEpisodeCountdown != null }
+        waitFor { snapshot(scenario).positionMs >= 11_000 }
         scenario.onActivity { it.model.cancelNextEpisode() }
+        scenario.onActivity { it.model.seek(19_000) }
+        waitFor { snapshot(scenario).ended }
         SystemClock.sleep(5500)
         assertEquals("film", snapshot(scenario).itemId)
         assertNull(snapshot(scenario).nextEpisodeCountdown)
@@ -458,17 +531,40 @@ class JellyfinPlayerTest {
         org.junit.Assume.assumeTrue(context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE))
         exercise { scenario, server, _ ->
             playing(scenario)
-            scenario.onActivity { it.openMiniPlayer() }
+            var fullWidth = 0
+            waitFor {
+                var ready = false
+                scenario.onActivity {
+                    fullWidth = it.window.decorView.width
+                    ready = it.hasWindowFocus() && fullWidth > 0
+                }
+                ready
+            }
+            var positionBeforeMini = 0L
+            scenario.onActivity {
+                positionBeforeMini = it.model.player.currentPosition
+                it.openMiniPlayer()
+            }
+            // The PiP flag arrives before Android finishes resizing the window. Returning
+            // immediately can abort the system transition. Observe a real small window and
+            // continued video progress before testing expansion back to fullscreen.
             waitFor {
                 var active = false
-                scenario.onActivity { active = it.isInPictureInPictureMode && it.model.player.isPlaying }
+                scenario.onActivity {
+                    active = it.isInPictureInPictureMode && !it.hasWindowFocus() &&
+                        it.window.decorView.width in 1 until fullWidth && it.model.player.isPlaying &&
+                        it.model.player.currentPosition >= positionBeforeMini + 1_500
+                }
                 active
             }
             scenario.onActivity { context.startActivity(Intent(context, JellyfinPlayerActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)) }
             waitFor {
                 var full = false
-                scenario.onActivity { full = !it.isInPictureInPictureMode && it.model.player.isPlaying }
+                scenario.onActivity {
+                    full = !it.isInPictureInPictureMode && it.hasWindowFocus() &&
+                        it.window.decorView.width == fullWidth && it.model.player.isPlaying
+                }
                 full
             }
             assertEquals(1, server.events.count { it.first == "/Sessions/Playing" })
@@ -514,6 +610,7 @@ class JellyfinPlayerTest {
         waitFor { server.events.any { it.first.endsWith("/Stopped") } }
     }
     @Test fun videoTouchShowsControlsAndPauseReceivesTheNextTap() = exercise { scenario,_,_ ->
+        org.junit.Assume.assumeFalse(context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)
         val automation = instrumentation.uiAutomation
         val pauseLabel = context.getString(R.string.player_pause)
         fun freshRoot(): android.view.accessibility.AccessibilityNodeInfo? {
@@ -602,6 +699,44 @@ class JellyfinPlayerTest {
         waitFor { server.events.any { it.first.endsWith("/Stopped") } }
     }
     }
+    @Test fun embeddedPgsRendersAndSwitchesWithoutServerTranscoding() {
+        for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+            exercise(kind = kind, pgs = true) { scenario, server, _ ->
+                var diagnostic = ""
+                fun bitmapIsVisible(): Boolean {
+                    var visible = false
+                    scenario.onActivity { activity ->
+                        val player = activity.model.player
+                        visible = player.currentCues.cues.any { it.bitmap?.let { bitmap -> bitmap.width == 160 && bitmap.height == 40 } == true }
+                        diagnostic = "mode=${activity.model.state.value.mode}, error=${activity.model.state.value.error}, " +
+                            "position=${player.currentPosition}, subtitle=${activity.model.state.value.subtitleIndex}, " +
+                            "tracks=${player.currentTracks.groups.map { group -> (0 until group.length).map { index ->
+                                val format = group.getTrackFormat(index)
+                                "${format.sampleMimeType}/${format.codecs}, selected=${group.isTrackSelected(index)}"
+                            } }}, cues=${player.currentCues.cues.map { it.bitmap?.let { b -> "${b.width}x${b.height}" } }}"
+                    }
+                    return visible
+                }
+                try { waitFor { bitmapIsVisible() && snapshot(scenario).playing } }
+                catch (failure: AssertionError) { throw AssertionError(diagnostic, failure) }
+                // The later cue must not hide losing the early one during initial track selection.
+                scenario.onActivity { assertTrue("The first PGS cue must survive startup", it.model.player.currentPosition < 5_000) }
+                assertEquals(PlaybackMode.DIRECT_PLAY, snapshot(scenario).mode)
+                assertFalse(snapshot(scenario).subtitleUnavailable)
+                val negotiations = server.events.count { it.first.endsWith("PlaybackInfo") }
+                scenario.onActivity { it.model.subtitles(-1) }
+                waitFor { !bitmapIsVisible() && snapshot(scenario).subtitleIndex == -1 }
+                scenario.onActivity { it.model.subtitles(2); it.model.seek(8_000) }
+                // The fixture has a new display set after 9 s. Matroska need not replay a display
+                // set that began before the video keyframe used by an 8 s seek.
+                try { waitFor { bitmapIsVisible() && snapshot(scenario).playing && snapshot(scenario).positionMs >= 8_000 } }
+                catch (failure: AssertionError) { throw AssertionError(diagnostic, failure) }
+                assertEquals(negotiations, server.events.count { it.first.endsWith("PlaybackInfo") })
+                assertFalse(server.requests.any { it.contains("/Subtitles/") || it.startsWith("/hls/") })
+            }
+        }
+    }
+
     @Test fun hlsVideoSeeksAndSubtitleTrackIsSelected() = exercise(hls=true) { scenario,server,_ ->
         playing(scenario)
         assertFalse(snapshot(scenario).direct)
@@ -626,6 +761,21 @@ class JellyfinPlayerTest {
         assertEquals(sessions,server.events.count { it.first.endsWith("PlaybackInfo") })
         assertEquals(downloads, server.requests.count { it.contains("/Subtitles/") })
         assertTrue(snapshot(scenario).positionMs>=12_000)
+    }
+    @Test fun anAssFileTooLargeForTheRendererFallsBackToTheServersVtt() = exercise(subtitleCodec = "ass", hugeAss = true) { scenario, server, _ ->
+        playing(scenario)
+        // beta17 always asked for Stream.vtt. A styled original that is too large must not cost the text.
+        waitFor {
+            var shown = false
+            scenario.onActivity { activity ->
+                shown = activity.model.player.currentTracks.groups.any { it.type == androidx.media3.common.C.TRACK_TYPE_TEXT && it.isSelected } &&
+                    activity.model.player.currentCues.cues.isNotEmpty()
+            }
+            shown
+        }
+        assertTrue(server.requests.any { it.substringBefore('?').endsWith("/Subtitles/2/Stream.ass") })
+        assertTrue(server.requests.any { it.substringBefore('?').endsWith("/Subtitles/2/Stream.vtt") })
+        assertFalse(snapshot(scenario).subtitleUnavailable)
     }
     @Test fun subtitlesOffFetchNothingAndSwitchingOnLoadsTheTextOnce() = exercise(defaultSubtitle = -1) { scenario, server, _ ->
         playing(scenario)

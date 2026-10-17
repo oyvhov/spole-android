@@ -140,6 +140,43 @@ class DiscoverTvFocusTest {
         rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("discover-all-TRENDING").assertIsFocused() }.isSuccess }
     }
 
+    @Test fun returningFocusDoesNotTakeTheRemotesNextMoveBack() {
+        var returns = 0
+        val state = hub(requests = emptyList()).let { it.copy(hub = it.hub.copy(
+            returnTo = app.reelstack.data.model.DiscoverReturn("all:TRENDING", 0, 0))) }
+        rule.mainClock.autoAdvance = false
+        keyboard { DiscoverHubContent(state, PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {},
+            onReturned = { returns++ })) }
+        // Inspect the first successful restoration, before the old forty-frame loop could finish.
+        for (frame in 0 until 12) {
+            rule.mainClock.advanceTimeByFrame()
+            if (runCatching { rule.onNodeWithTag("discover-all-TRENDING").assertIsFocused() }.isSuccess) break
+        }
+        rule.onNodeWithTag("discover-all-TRENDING").assertIsFocused()
+        rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionLeft) }
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.onNodeWithTag("discover-poster-seerr-movie-2").assertIsFocused()
+        org.junit.Assert.assertEquals(1, returns)
+    }
+
+    @Test fun freshRemoteInputCancelsRestorationOfATileThatIsNotPresent() {
+        var returns = 0
+        val state = hub(requests = emptyList()).let { it.copy(hub = it.hub.copy(
+            returnTo = app.reelstack.data.model.DiscoverReturn("missing-tile", 0, 0))) }
+        rule.mainClock.autoAdvance = false
+        keyboard { DiscoverHubContent(state, PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {},
+            onReturned = { returns++ })) }
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag("discover-poster-seerr-movie-1").requestFocus()
+        rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) }
+        rule.mainClock.advanceTimeBy(100)
+        // New input finishes the restore before the forty-frame deadline.
+        org.junit.Assert.assertEquals(1, returns)
+        rule.onNodeWithTag("discover-poster-seerr-movie-2").assertIsFocused()
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.onNodeWithTag("discover-poster-seerr-movie-2").assertIsFocused()
+    }
+
     @Test fun leavingForAlleRemembersWhereTheRemoteWas() {
         var left: app.reelstack.data.model.DiscoverReturn? = null
         keyboard { DiscoverHubContent(hub(), PaddingValues(), DiscoverHubActions({}, {}, {}, {}, {}, {}, {}, onLeave = { left = it })) }

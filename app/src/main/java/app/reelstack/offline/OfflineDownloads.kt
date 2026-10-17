@@ -32,6 +32,8 @@ import app.reelstack.data.repository.ConnectionRepository
 import app.reelstack.data.repository.DeviceIdentity
 import app.reelstack.data.security.EncryptedTokenStore
 import app.reelstack.player.MediaPlaybackClient
+import app.reelstack.player.PlaybackUserState
+import app.reelstack.data.repository.PlaybackProgressOutbox
 import app.reelstack.player.safePlaybackUrl
 import org.json.JSONObject
 import java.io.File
@@ -47,6 +49,7 @@ data class OfflineDownloadRequest(
     val subtitle: String = "",
     val mediaType: String = "",
     val mimeType: String? = null,
+    val progressBaseline: PlaybackUserState? = null,
 )
 
 /** Deliberately small view contract: no URL, endpoint, user id or token may reach the UI. */
@@ -83,6 +86,8 @@ data class OfflinePlaybackSource(
     val uri: Uri,
     val cacheKey: String,
     val itemId: String,
+    val progressBaseline: PlaybackUserState? = null,
+    val progressScope: String = "",
 )
 
 /**
@@ -268,6 +273,8 @@ class OfflineDownloadRepository(private val context: Context) {
             service = request.connection.kind,
             serviceScope = offlineServiceHash(request.connection),
             mediaType = request.mediaType.cleanOfflineLabel(),
+            progressBaseline = request.progressBaseline,
+            progressScope = PlaybackProgressOutbox.scope(request.profileId, request.connection),
         ))
         DownloadService.sendAddDownload(appContext, OfflineDownloadService::class.java, download, true)
         return null
@@ -376,7 +383,15 @@ class OfflineDownloadRepository(private val context: Context) {
             uri = download.request.uri,
             cacheKey = download.request.customCacheKey ?: download.request.id,
             itemId = entry.itemId,
+            progressBaseline = entry.progressBaseline,
+            progressScope = entry.progressScope,
         )
+    }
+
+    /** Only a fresh canonical server read may advance the baseline for future offline sessions. */
+    fun confirmProgress(profileId: String, connection: ServiceConnection, itemId: String, state: PlaybackUserState) {
+        catalog.confirmProgress(profileId, offlineServiceHash(connection), itemId,
+            PlaybackProgressOutbox.scope(profileId, connection), state)
     }
 
     /**
@@ -486,6 +501,8 @@ private data class OfflineCatalogEntry(
     /** One-way hash of the exact server/account identity; never rendered or logged. */
     val serviceScope: String,
     val mediaType: String,
+    val progressBaseline: PlaybackUserState? = null,
+    val progressScope: String = "",
 )
 
 /**
@@ -512,27 +529,43 @@ private class OfflineDownloadCatalog(context: Context) {
                         service = source,
                         serviceScope = item.optString("serviceScope"),
                         mediaType = item.optString("type"),
+                        progressBaseline = item.optJSONObject("progressBaseline")?.toString()?.let { raw ->
+                            (kotlinx.serialization.json.Json.parseToJsonElement(raw) as? kotlinx.serialization.json.JsonObject)
+                                ?.let(PlaybackUserState::parse)
+                        },
+                        progressScope = item.optString("progressScope"),
                     ))
                 }
             }
         }.orEmpty()
     }.getOrDefault(emptyList())
 
-    fun put(profileId: String, entry: OfflineCatalogEntry) = write(profileId, entries(profileId).filterNot { it.id == entry.id } + entry)
+    fun put(profileId: String, entry: OfflineCatalogEntry) = synchronized(lock) {
+        write(profileId, entries(profileId).filterNot { it.id == entry.id } + entry)
+    }
 
-    fun remove(profileId: String, id: String) = write(profileId, entries(profileId).filterNot { it.id == id })
+    fun confirmProgress(profileId: String, serviceScope: String, itemId: String, progressScope: String, state: PlaybackUserState) = synchronized(lock) {
+        val rows = entries(profileId)
+        if (rows.none { it.serviceScope == serviceScope && it.itemId == itemId }) return@synchronized
+        write(profileId, rows.map {
+            if (it.serviceScope == serviceScope && it.itemId == itemId)
+                it.copy(progressBaseline = state, progressScope = progressScope) else it
+        })
+    }
 
-    fun clear(profileId: String) {
+    fun remove(profileId: String, id: String) = synchronized(lock) { write(profileId, entries(profileId).filterNot { it.id == id }) }
+
+    fun clear(profileId: String) = synchronized(lock) {
         store.remove(key(profileId))
         writeIndex(index() - profileHash(profileId))
     }
 
-    fun clearService(profileId: String, connection: ServiceConnection) {
+    fun clearService(profileId: String, connection: ServiceConnection) = synchronized(lock) {
         val serviceScope = offlineServiceHash(connection)
         write(profileId, entries(profileId).filterNot { it.serviceScope == serviceScope })
     }
 
-    fun clearAll() {
+    fun clearAll() = synchronized(lock) {
         index().forEach { profile -> store.remove(keyForHash(profile)) }
         store.remove(INDEX_KEY)
     }
@@ -549,6 +582,8 @@ private class OfflineDownloadCatalog(context: Context) {
                 put("id", entry.id); put("item", entry.itemId); put("title", entry.title)
                 put("subtitle", entry.subtitle); put("service", entry.service.name)
                 put("serviceScope", entry.serviceScope); put("type", entry.mediaType)
+                entry.progressBaseline?.let { put("progressBaseline", JSONObject(it.toJson().toString())) }
+                put("progressScope", entry.progressScope)
             }) }
         })
         store.put(keyForHash(hash), payload.toString())
@@ -570,6 +605,8 @@ private class OfflineDownloadCatalog(context: Context) {
     private fun profileHash(profileId: String) = offlineScopeHash(profileId.ifBlank { "adult" })
 
     private companion object {
+        // Downloads, playback and a progress worker can update separate catalog instances.
+        val lock = Any()
         const val KEY_PREFIX = "offline.catalog."
         const val INDEX_KEY = "offline.catalog.index"
     }

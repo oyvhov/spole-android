@@ -10,7 +10,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.*
 
 /** A small account-scoped journal. Server latency must not erase progress from this device. */
-class LocalPlaybackStore(context: Context) {
+class LocalPlaybackStore(
+    context: Context,
+    private val onForget: (ServiceConnection, String) -> Unit = { _, _ -> },
+) {
     /** Do not turn the first play event at position zero into a visible local resume item. */
     private val minimumResumePositionMs = 10_000L
     private val prefs = context.getSharedPreferences("local_playback", Context.MODE_PRIVATE)
@@ -108,6 +111,7 @@ class LocalPlaybackStore(context: Context) {
 
     @Synchronized fun clear() { prefs.edit().clear().apply(); revision.value++ }
     @Synchronized fun forget(c: ServiceConnection, id: String) {
+        onForget(c, id)
         prefs.edit().putString(key(c), JsonArray(entries(c).filter { it.text("id") != id }).toString()).apply()
         revision.value++
     }

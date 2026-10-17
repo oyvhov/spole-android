@@ -49,6 +49,7 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -76,7 +77,7 @@ import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.focusBleed
 import app.reelstack.ui.components.focusOutline
-import app.reelstack.ui.components.focusScale
+import app.reelstack.ui.components.animateFocusScale
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.mediaCardIndication
 import app.reelstack.ui.components.steadyRemoteRows
@@ -159,18 +160,21 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
     // from, with the rows where they were; the first poster is for a fresh visit.
     val returnTo = state.hub.returnTo
     var claimed by remember { mutableStateOf(returnTo != null) }
+    var returnInterrupted by remember(returnTo) { mutableStateOf(false) }
+    var returnHandled by remember(returnTo) { mutableStateOf(false) }
     val returnFocus = remember { FocusRequester() }
     fun leave(key: String) = actions.onLeave(app.reelstack.data.model.DiscoverReturn(key,
         listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset))
-    LaunchedEffect(returnTo) {
-        if (returnTo == null) return@LaunchedEffect
-        if (tv) {
+    LaunchedEffect(returnTo, returnInterrupted) {
+        if (returnTo == null || returnHandled) return@LaunchedEffect
+        if (tv && !returnInterrupted) {
             runCatching { listState.scrollToItem(returnTo.index, returnTo.offset) }
-            repeat(40) {
+            for (attempt in 0 until 40) {
                 withFrameNanos { }
-                if (runCatching { returnFocus.requestFocus() }.isSuccess) return@repeat
+                if (runCatching { returnFocus.requestFocus() }.getOrDefault(false)) break
             }
         }
+        returnHandled = true
         actions.onReturned()
     }
     LaunchedEffect(tv, startKey) {
@@ -196,7 +200,11 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
     val lead = with(density) { (26.dp * density.fontScale + 30.dp).toPx() }
     val columnSpec = remember(lead) { RowUnderHeader(lead) }
     val fade = with(density) { 16.dp.toPx() }
-    Box(Modifier.fillMaxSize().testTag("discover-hub")) {
+    Box(Modifier.fillMaxSize().onPreviewKeyEvent {
+        // Fresh remote input wins over a delayed restoration of a tile still being laid out.
+        if (returnTo != null && !returnHandled && it.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) returnInterrupted = true
+        false
+    }.testTag("discover-hub")) {
         if (tv) (if (focusedRequest != null) requestDetails?.backdropUrl ?: requestMedia?.backdropUrl ?: requestMedia?.artworkUrl
             else shown?.let { it.backdropUrl ?: it.artworkUrl })?.let { FocusBackdrop(it) }
         Column(Modifier.fillMaxSize()) {
@@ -332,7 +340,7 @@ internal fun PosterOnlyCard(media: DiscoverMedia, onClick: () -> Unit, modifier:
     val focusedNow by interaction.collectIsFocusedAsState()
     LaunchedEffect(focusedNow) { if (focusedNow) onFocused() }
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
-    val scale = focusScale(focusedNow, false)
+    val scale by animateFocusScale(focusedNow, false)
     Box(modifier.aspectRatio(2f / 3f).graphicsLayer { scaleX = scale; scaleY = scale }.focusOutline(interaction, shape).clip(shape)
         .background(SurfaceRaised)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)

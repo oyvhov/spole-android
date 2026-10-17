@@ -14,10 +14,12 @@ class ProfileSessionBoundaryTest {
         val repository = container.connectionRepository
         val originalProfile = repository.activeProfileId
         val originalOnboarding = container.preferencesRepository.onboardingCompleted
+        val originalConnections = repository.list("")
         val store = ViewModelStore()
         try {
             instrumentation.runOnMainSync {
                 repository.activeProfileId = ""
+                app.reelstack.data.model.ServiceKind.entries.forEach { repository.delete(it, "") }
                 container.preferencesRepository.onboardingCompleted = true
                 val first = ReelstackViewModel(container)
                 val retained = ReelstackViewModel(container)
@@ -45,6 +47,7 @@ class ProfileSessionBoundaryTest {
         } finally {
             instrumentation.runOnMainSync {
                 store.clear()
+                originalConnections.filter { it.baseUrl.isNotBlank() }.forEach { repository.save(it, "") }
                 repository.activeProfileId = originalProfile
                 container.preferencesRepository.onboardingCompleted = originalOnboarding
             }

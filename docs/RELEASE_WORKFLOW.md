@@ -78,6 +78,12 @@ frå akkurat det native-bygget som leverte JNI-biblioteka. Ta SHA-256 med i
 før publisering. Sjå `playback-ffmpeg/README.md`. APK-en skal innehalde lisensane
 i `assets/licenses/ffmpeg/`. Ikkje publiser den nye native-modulen utan desse filene.
 
+Lokal ASS-rendering legg også til native bibliotek. Følg [NATIVE_SUBTITLES.md](NATIVE_SUBTITLES.md)
+for låste kjelder, rekursive submodular, lisensar og kjeldearkivet som skal følgje releasen.
+Køyr `python scripts/check-native-subtitles.py <release-apk>` før publisering.
+Lag arkivet med `python scripts/package-native-subtitle-sources.py <rekursiv-klone> <ny-arkivsti>`.
+Kontroller kjeldemanifestet, legg arkivet ved releasen og før SHA-256 i `SHA256SUMS.txt`.
+
 Stage berre dei gjennomgåtte filene. APK, mapping og loggar skal ikkje inn i Git. Etter commit skal ingen kjeldeendringar stå att for byggartefaktet. Dersom kjelda blir endra etter bygget, må du byggje og verifisere på nytt.
 
 ```powershell

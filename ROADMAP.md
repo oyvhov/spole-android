@@ -5,7 +5,27 @@
 Gjeldande implementasjon, testresultat og dei attståande releaseprøvene ligg i
 [status for stabil 1.0](docs/STABLE_1_0_PROGRESS.md). Prioriteten er minnebruk, kontogrenser,
 trygg oppgradering og ein ferdig barnekjerne med dagens design. Vanleg CI køyrer bygg, lint og
-einingstestar, med korte PR-smoketestar og manuell telefon-/TV-kontroll før release.
+einingstestar, med utvalde telefon- og TV-testar ved PR og manuell kontroll før release.
+
+Første kvalitetsløft etter beta17 tek fokusstabilitet på TV, innebygde PGS-undertekstar ved
+direkteavspeling og TV-regresjonstestar i PR-køyringa. Gjennomføring og attståande steg er
+førte i [status for stabil 1.0](docs/STABLE_1_0_PROGRESS.md#kvalitetsløft-etter-beta17).
+
+Andre runde legg til ei varig framdriftskø for nettspelaren, konfliktkontroll før gjentaking,
+avgrensa rapportkø og prøver med prosessrestart. Sjå
+[framdriftskøa og testavgrensingane](docs/STABLE_1_0_PROGRESS.md#varig-framdriftskø--17-oktober-2026).
+
+Tredje runde flyttar fokusløft og mobilparallax til teiknelaget, med målte komposisjonstal
+før og etter. Parallax respekterer no redusert rørsle. Sjå
+[målte Compose-rettingar](docs/STABLE_1_0_PROGRESS.md#målte-compose-rettingar--17-oktober-2026).
+
+Fjerde runde samlar avspelingsvala i éin OSD-meny og utvidar fråkopla framdrift, mobilrørsler,
+lokale undertekstar og førehandsbilete ved spoling. Sjå
+[implementasjon, kontroll og attståande format-/maskinvareprøver](docs/PLAYER_UPGRADE_2026-10-17.md).
+
+Fullføringsrunden legg til MKS-bitmap, avgrensa diskcache og signert/R8-verifisering.
+[Ny poengvurdering](docs/PLAYER_REVIEW_2026-10-17.md) viser kva som er løfta, og kva som
+framleis må på plass for å konkurrere i toppsjiktet.
 
 Statusbolkane nedanfor er historiske. Nye funksjonar som casting, SyncPlay og daglege
 skjermtidskvotar kjem etter at kjernen er verifisert.

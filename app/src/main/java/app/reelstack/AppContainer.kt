@@ -54,7 +54,15 @@ class AppContainer(context: Context) {
     )
     val sessionSocket = app.reelstack.data.network.JellyfinSessionSocket(deviceId = deviceId)
     val mediaSnapshotStore = MediaSnapshotStore(appContext)
-    val localPlaybackStore = app.reelstack.data.repository.LocalPlaybackStore(appContext)
+    val playbackProgressOutbox by lazy { app.reelstack.data.repository.PlaybackProgressOutbox(appContext) }
+    // Clearing the resume journal on every sign-in must not drop unsent checkpoints: they are
+    // scoped to their own profile, account and token and wait for that account to return.
+    val localPlaybackStore = app.reelstack.data.repository.LocalPlaybackStore(appContext,
+        onForget = { connection, itemId -> playbackProgressOutbox.forget(
+            app.reelstack.data.repository.PlaybackProgressOutbox.scope(connectionRepository.activeProfileId, connection), itemId) })
+    /** Sign-out: that account's unsent checkpoints can never be sent, so they go with it. */
+    fun forgetUnsentProgress(profileId: String, connections: List<app.reelstack.data.model.ServiceConnection>) =
+        playbackProgressOutbox.forgetScopes(connections.map { app.reelstack.data.repository.PlaybackProgressOutbox.scope(profileId, it) })
     /** Per-profile, app-private offline tree. The network downloader is allowed no other target. */
     val offlineStorage by lazy { app.reelstack.offline.OfflineStorage(appContext) }
     val offlineDownloads by lazy { app.reelstack.offline.OfflineDownloadRepository(appContext) }

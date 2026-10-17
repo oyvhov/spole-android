@@ -49,6 +49,9 @@ jobs:
       - name: Einingstestar, lint og bygg
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
 
+      - name: Kontroller native undertekstar og lisensar
+        run: python3 scripts/check-native-subtitles.py app/build/outputs/apk/debug/app-debug.apk
+
       # Optional advice on an explicitly enabled manual run. Ordinary CI never calls Jev.
       # Never send PR data or expose a key to a PR.
       - name: Rådgjevande Jev-kontroll av testfeil
@@ -98,6 +101,7 @@ jobs:
             app/build/reports/tests/
             app/build/reports/lint-results-debug.html
             app/build/test-results/
+            app/build/outputs/motion-review/
           retention-days: 14
 
   instrumentation-tests:
@@ -108,7 +112,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        surface: ${{ fromJSON(github.event_name == 'pull_request' && '["phone"]' || '["phone", "tv"]') }}
+        surface: [phone, tv]
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -135,13 +139,16 @@ jobs:
           force-avd-creation: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim
           script: |
-            if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
-              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.ReelstackSmokeTest,app.reelstack.SheetInteractionTest,app.reelstack.LoginExperienceTest'
-            elif [[ '${{ matrix.surface }}' == 'tv' ]]; then
-              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.LoginExperienceTest,app.reelstack.ProfileSessionBoundaryTest,app.reelstack.TvNavigationIntegrationTest,app.reelstack.WatchNextTest,app.reelstack.JellyfinPlayerTest#accountReplacementStopsOldPlayer,app.reelstack.JellyfinPlayerTest#backgroundPlayerStaysRevokedAfterSwitchingAwayAndBack'
+            if [[ '${{ matrix.surface }}' == 'tv' ]]; then
+              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.LoginExperienceTest,app.reelstack.ProfileSessionBoundaryTest,app.reelstack.TvNavigationIntegrationTest,app.reelstack.TvPlaybackControlsTest,app.reelstack.NativeAssPlaybackTest,app.reelstack.BitmapSidecarPlaybackTest,app.reelstack.PlaybackOptionsUiTest,app.reelstack.PlaybackPreviewUiTest,app.reelstack.PlaybackTouchGesturesTest,app.reelstack.OfflinePlaybackIntegrationTest#offlineEnginePersistsProgressResumesAndRevokesItsOwner,app.reelstack.FocusOutlineTest,app.reelstack.WatchNextTest,app.reelstack.JellyfinPlayerTest#embeddedPgsRendersAndSwitchesWithoutServerTranscoding,app.reelstack.JellyfinPlayerTest#failedLiveReportsAreRetriedAsUserDataAfterPlayerClosesOnBothServers,app.reelstack.JellyfinPlayerTest#accountReplacementStopsOldPlayer,app.reelstack.JellyfinPlayerTest#backgroundPlayerStaysRevokedAfterSwitchingAwayAndBack'
+            elif [[ '${{ github.event_name }}' == 'pull_request' ]]; then
+              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.ReelstackSmokeTest,app.reelstack.SheetInteractionTest,app.reelstack.LoginExperienceTest,app.reelstack.PlaybackTouchGesturesTest,app.reelstack.PlaybackOptionsUiTest,app.reelstack.PlaybackPreviewUiTest,app.reelstack.PlayerSeekLayoutTest,app.reelstack.BitmapSidecarPlaybackTest'
             else
-              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.ReelstackSmokeTest,app.reelstack.SheetInteractionTest,app.reelstack.LoginExperienceTest,app.reelstack.LinkedLoginTest,app.reelstack.ProfileSessionBoundaryTest,app.reelstack.RequestHistoryFlowTest,app.reelstack.OfflineDownloadsUiTest,app.reelstack.OfflinePlaybackIntegrationTest'
+              ./gradlew --no-daemon connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=app.reelstack.ReelstackSmokeTest,app.reelstack.SheetInteractionTest,app.reelstack.LoginExperienceTest,app.reelstack.LinkedLoginTest,app.reelstack.ProfileSessionBoundaryTest,app.reelstack.RequestHistoryFlowTest,app.reelstack.OfflineDownloadsUiTest,app.reelstack.OfflinePlaybackIntegrationTest,app.reelstack.PlaybackTouchGesturesTest,app.reelstack.PlaybackOptionsUiTest,app.reelstack.PlaybackPreviewUiTest,app.reelstack.PlayerSeekLayoutTest,app.reelstack.NativeAssPlaybackTest,app.reelstack.BitmapSidecarPlaybackTest,app.reelstack.JellyfinPlayerUiTest'
             fi
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            bash scripts/test-progress-restart.sh "$(adb get-serialno)"
       - name: Lagre Android-testresultat
         if: always()
         uses: actions/upload-artifact@v4
@@ -150,5 +157,6 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            app/build/outputs/progress-restart/
           if-no-files-found: ignore
           retention-days: 14

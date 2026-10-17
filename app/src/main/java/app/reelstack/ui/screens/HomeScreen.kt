@@ -257,8 +257,9 @@ fun HomeScreen(
         val featured = features.firstOrNull()
         val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
         val feedScope = rememberCoroutineScope()
-        val parallaxOffset by remember {
-            androidx.compose.runtime.derivedStateOf {
+        // Scroll changes only the artwork's graphics layer, not the hero's lazy-item composition.
+        val parallaxOffsetProvider = remember(feedState) {
+            {
                 if (feedState.firstVisibleItemIndex == 0) {
                     feedState.firstVisibleItemScrollOffset * 0.42f
                 } else 0f
@@ -325,7 +326,7 @@ fun HomeScreen(
                             },
                             candidates = features,
                             rotationEnabled = featureVisible && state.activeSheet == null,
-                            parallaxOffset = parallaxOffset,
+                            parallaxOffsetProvider = parallaxOffsetProvider,
                         )
                     }
                 }
@@ -867,7 +868,7 @@ private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: ap
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
-    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
+    val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     Column(Modifier.width(cardWidth).zIndex(if (focused) 10f else 0f).graphicsLayer { scaleX = scale; scaleY = scale }
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(),
@@ -1038,7 +1039,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
-    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
+    val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
     var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
@@ -1162,7 +1163,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
         animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
         label = "library-card-reveal",
     )
-    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
+    val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
     Column(
         modifier = Modifier
             .width(cardWidth)

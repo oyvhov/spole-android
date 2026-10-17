@@ -7,6 +7,7 @@ import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.onFocusChanged
@@ -41,9 +42,12 @@ internal fun mediaCardIndication(): androidx.compose.foundation.Indication? {
  * Deliberately small: 1.035 is enough to see and small enough that a row does not shove its
  * neighbours around. Press still wins, so a card that is being clicked dips under the finger, and
  * reduced motion drops the scaling entirely and leaves the outline and shadow to do the work.
+ *
+ * Keep the animated state unread until graphicsLayer. Returning its value here subscribes the
+ * entire calling card/button to every animation frame, even though its content never changes.
  */
 @Composable
-internal fun focusScale(focused: Boolean, pressed: Boolean): Float {
+internal fun animateFocusScale(focused: Boolean, pressed: Boolean): State<Float> {
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
     val target = when {
         pressed && motion -> 0.985f
@@ -51,8 +55,7 @@ internal fun focusScale(focused: Boolean, pressed: Boolean): Float {
         focused -> 1.035f
         else -> 1f
     }
-    val scale by animateFloatAsState(target, tween(if (motion) 140 else 0), label = "focus-scale")
-    return scale
+    return animateFloatAsState(target, tween(if (motion) 140 else 0), label = "focus-scale")
 }
 
 /**

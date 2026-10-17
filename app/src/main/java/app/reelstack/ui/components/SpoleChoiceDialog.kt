@@ -28,17 +28,22 @@ import app.reelstack.R
 
 /** Shared compact menu surface. Only the options scroll; the title and close target stay put. */
 @Composable
-internal fun SpoleChoiceDialog(title: String, onDismiss: () -> Unit, icon: ImageVector = SpoleIcons.Tune, content: @Composable () -> Unit) {
+internal fun SpoleChoiceDialog(title: String, onDismiss: () -> Unit, icon: ImageVector = SpoleIcons.Tune,
+    fixedViewport: Boolean = false, onBack: (() -> Unit)? = null, onClose: () -> Unit = onDismiss, content: @Composable () -> Unit) {
     val height = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() * .82f }
     Dialog(onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.widthIn(max = 480.dp).fillMaxWidth(.92f).heightIn(max = height).testTag("choice-dialog"),
+        Surface(Modifier.widthIn(max = 480.dp).fillMaxWidth(.92f)
+            .then(if (fixedViewport) Modifier.height(height.coerceAtMost(560.dp)) else Modifier.heightIn(max = height)).testTag("choice-dialog"),
             shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(12.dp)) {
                 Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    SettingsIconBadge(icon, MaterialTheme.colorScheme.primary, 40.dp)
+                    if (onBack == null) SettingsIconBadge(icon, MaterialTheme.colorScheme.primary, 40.dp)
+                    else IconButton(onClick = onBack, modifier = Modifier.size(48.dp).focusRing(CircleShape)) {
+                        Icon(SpoleIcons.ArrowBack, stringResource(R.string.action_back))
+                    }
                     Text(title, Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).focusRing(CircleShape)) {
+                    IconButton(onClick = onClose, modifier = Modifier.size(48.dp).focusRing(CircleShape)) {
                         Icon(SpoleIcons.Close, stringResource(R.string.action_close))
                     }
                 }

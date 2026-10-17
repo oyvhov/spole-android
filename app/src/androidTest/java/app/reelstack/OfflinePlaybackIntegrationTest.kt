@@ -173,4 +173,75 @@ class OfflinePlaybackIntegrationTest {
             }
         }
     }
+
+    /** Runs the shared cache engine on either form factor, with the HTTP server shut down. */
+    @Test fun offlineEnginePersistsProgressResumesAndRevokesItsOwner() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val container = (context.applicationContext as ReelstackApplication).container
+        val connections = container.connectionRepository
+        val originalProfile = connections.activeProfileId
+        val originalConnection = connections.get(ServiceKind.JELLYFIN, "")
+        val originalWifi = container.preferencesRepository.wifiOnly
+        val downloads = container.offlineDownloads
+        val bytes = instrumentation.context.assets.open("player/video.mp4").use { it.readBytes() }
+        val store = androidx.lifecycle.ViewModelStore()
+        val lease = app.reelstack.background.PlaybackProgressRuntime.acquire()
+        val itemId = "offline-progress-${System.nanoTime()}"
+        var id: String? = null
+        var scope: String? = null
+        lateinit var model: app.reelstack.player.OfflinePlayerModel
+        Fixture(bytes).use { fixture ->
+            fixture.continueFirst.countDown()
+            try {
+                instrumentation.runOnMainSync {
+                    connections.activeProfileId = ""
+                    container.preferencesRepository.wifiOnly = false; downloads.onlyWifi(false)
+                    connections.save(ServiceConnection(ServiceKind.JELLYFIN, "Fixture",
+                        fixture.url.substringBeforeLast('/'), "fixture-offline-token", "offline-user"))
+                    val connection = connections.get(ServiceKind.JELLYFIN)
+                    scope = app.reelstack.data.repository.PlaybackProgressOutbox.scope("", connection)
+                    assertNull(downloads.enqueue(OfflineDownloadRequest("", connection,
+                        OfflineMediaCandidate(itemId, ServiceKind.JELLYFIN, directDownloadUrl = fixture.url),
+                        "Offline progress fixture", mediaType = "Movie", mimeType = "video/mp4",
+                        progressBaseline = app.reelstack.player.PlaybackUserState(0, false, 0))))
+                }
+                await { downloads.snapshot("").items.any { it.title == "Offline progress fixture" && it.state == OfflineDownloadState.COMPLETE } }
+                id = downloads.snapshot("").items.first { it.title == "Offline progress fixture" }.id
+                fixture.close()
+                instrumentation.runOnMainSync {
+                    model = app.reelstack.player.OfflinePlayerModel(container)
+                    store.put("offline", model); model.open(id!!)
+                }
+                await { model.state.value.playing }
+                instrumentation.runOnMainSync { model.seek(12_000); model.background() }
+                await { container.playbackProgressOutbox.pending(scope!!).any { it.itemId == itemId && it.positionMs >= 12_000 } }
+                val restored = app.reelstack.data.repository.PlaybackProgressOutbox(context).pending(scope!!).single { it.itemId == itemId }
+                assertEquals(app.reelstack.player.PlaybackUserState(0, false, 0), restored.baseline)
+                instrumentation.runOnMainSync {
+                    store.clear()
+                    model = app.reelstack.player.OfflinePlayerModel(container)
+                    store.put("offline", model); model.open(id!!)
+                }
+                await { model.state.value.playing && model.state.value.positionMs >= 12_000 }
+                instrumentation.runOnMainSync {
+                    connections.activeProfileId = "synthetic-offline-other"
+                    connections.activeProfileId = ""
+                    model.foreground()
+                }
+                await { model.state.value.error != null }
+                instrumentation.runOnMainSync { assertEquals(0, model.player.mediaItemCount) }
+            } finally {
+                instrumentation.runOnMainSync { store.clear() }
+                id?.let { downloads.remove("", it) }
+                scope?.let { container.playbackProgressOutbox.forget(it, itemId) }
+                instrumentation.runOnMainSync {
+                    container.preferencesRepository.wifiOnly = originalWifi; downloads.onlyWifi(originalWifi)
+                    if (originalConnection.baseUrl.isNotBlank()) connections.save(originalConnection, "") else connections.delete(ServiceKind.JELLYFIN, "")
+                    connections.activeProfileId = originalProfile
+                }
+                app.reelstack.background.PlaybackProgressRuntime.release(lease)
+            }
+        }
+    }
 }

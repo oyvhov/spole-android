@@ -1,6 +1,5 @@
 package app.reelstack.ui
 
-import app.reelstack.AppContainer
 import app.reelstack.data.model.CastMember
 import app.reelstack.data.model.DiscoverGenre
 import app.reelstack.data.model.DiscoverGridTarget
@@ -62,10 +61,11 @@ class DiscoverHubLoader(private val source: DiscoverHubSource) {
 
 /** Owns the Discover rows in the root state. */
 internal class DiscoverHubCoordinator(
-    private val container: AppContainer,
+    private val mediaSyncRepository: app.reelstack.data.repository.MediaSyncRepository,
     private val scope: CoroutineScope,
     private val readState: () -> ReelstackUiState,
     private val updateState: ((ReelstackUiState) -> ReelstackUiState) -> Unit,
+    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
 ) {
     private var job: Job? = null
     private var gridJob: Job? = null
@@ -83,13 +83,13 @@ internal class DiscoverHubCoordinator(
         val key = scopeKey(state) ?: return
         if (!force && state.discoverHub.scope == key && state.discoverHub.rows.values.none { it.failed }) return
         job?.cancel()
-        val repository = container.mediaSyncRepository
+        val repository = mediaSyncRepository
         val source = object : DiscoverHubSource {
-            override suspend fun row(kind: DiscoverRowKind, page: Int) = withContext(Dispatchers.IO) {
+            override suspend fun row(kind: DiscoverRowKind, page: Int) = withContext(ioDispatcher) {
                 repository.discoverRow(connection, kind, page).let { DiscoverRowPage(it.items, it.page, it.hasMore) }
             }
-            override suspend fun genres() = withContext(Dispatchers.IO) { repository.discoverGenres(connection) }
-            override suspend fun cast(media: DiscoverMedia) = withContext(Dispatchers.IO) { repository.details(connection, media).cast }
+            override suspend fun genres() = withContext(ioDispatcher) { repository.discoverGenres(connection) }
+            override suspend fun cast(media: DiscoverMedia) = withContext(ioDispatcher) { repository.details(connection, media).cast }
         }
         job = scope.launch {
             DiscoverHubLoader(source).load(key, { scopeKey() }) { change ->
@@ -120,10 +120,10 @@ internal class DiscoverHubCoordinator(
         gridJob?.cancel()
         gridJob = scope.launch {
             val result = runCatching {
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     when (target) {
-                        is DiscoverGridTarget.Row -> container.mediaSyncRepository.discoverRow(connection, target.kind, page)
-                        is DiscoverGridTarget.Genre -> container.mediaSyncRepository.discoverGenrePage(connection, target.genre, page)
+                        is DiscoverGridTarget.Row -> mediaSyncRepository.discoverRow(connection, target.kind, page)
+                        is DiscoverGridTarget.Genre -> mediaSyncRepository.discoverGenrePage(connection, target.genre, page)
                     }
                 }
             }

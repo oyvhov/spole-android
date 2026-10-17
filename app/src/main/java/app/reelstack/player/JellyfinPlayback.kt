@@ -19,6 +19,8 @@ data class PlaybackChapter(
     val imageUrl: String? = null,
 )
 
+data class PlaybackFont(val name: String, val url: String)
+
 data class PlayableItem(
     val id: String, val title: String, val type: String,
     val subtitle: String = "", val durationMs: Long = 0, val resumeMs: Long = 0,
@@ -36,13 +38,25 @@ data class PlayableItem(
     val logoUrl: String? = null,
     val artworkUrl: String? = null,
     val lastPlayedEpochMillis: Long? = null,
+    /** The unmodified server answer, before the local resume overlay is applied. */
+    val progressState: PlaybackUserState? = null,
+    val trickplay: List<TrickplayGrid> = emptyList(),
 )
 
 data class PlaybackTrack(
     val index: Int, val label: String, val language: String?, val isText: Boolean = false,
     /** Stable across Emby/Jellyfin stream reordering, unlike [index]. */
     val key: String = trackKey(label, language, null, false),
-)
+    /** Only original Matroska streams whose PGS track is inside the file. */
+    val embeddedPgs: Boolean = false,
+    val nativeAss: Boolean = false,
+    val embeddedBitmapMime: String? = null,
+    val externalBitmapUrl: String? = null,
+    val externalBitmapMime: String? = null,
+) {
+    val localBitmap: Boolean get() = externalBitmapUrl == null && (embeddedPgs || embeddedBitmapMime != null)
+    val sidecar: Boolean get() = isText || externalBitmapUrl != null
+}
 
 internal fun trackKey(label: String, language: String?, codec: String?, forced: Boolean): String =
     listOf(language.orEmpty().lowercase().trim(), codec.orEmpty().lowercase().trim(),
@@ -97,6 +111,7 @@ data class PlaybackPlan(
     val transcodeReasons: List<String> = emptyList(),
     val compatibility: PlaybackCompatibility = PlaybackCompatibility.DIRECT,
     val sourceFrameRate: Float = 0f,
+    val fonts: List<PlaybackFont> = emptyList(),
 ) {
     /** Kept for every caller that only needs "is the file being sent untouched". */
     val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
@@ -182,6 +197,8 @@ fun parsePlayable(item: JsonObject, baseUrl: String? = null): PlayableItem {
         type, subtitle, duration, if (user.flag("Played") || duration > 0 && resume >= duration) 0 else resume, user.flag("Played"),
         chapters = chapters, season = season, episode = episode,
         lastPlayedEpochMillis = runCatching { java.time.Instant.parse(user.str("LastPlayedDate")).toEpochMilli() }.getOrNull(),
+        progressState = PlaybackUserState.parse(user),
+        trickplay = parseTrickplay(item, baseUrl),
         seriesId = item.str("SeriesId"), logoUrl = playableLogoUrl(item, baseUrl),
         artworkUrl = playableLandscapeUrl(item, baseUrl) ?: if (!baseUrl.isNullOrBlank() && item.obj("ImageTags").str("Primary").isNotBlank())
             "${baseUrl.trimEnd('/')}/Items/${enc(id)}/Images/Primary?maxWidth=320&quality=85&tag=${enc(item.obj("ImageTags").str("Primary"))}" else null)
@@ -275,6 +292,11 @@ class MediaPlaybackClient(
     fun item(c: ServiceConnection, user: String, id: String) =
         parsePlayable(read(c, "Users/${enc(user)}/Items/${enc(id)}?Fields=Chapters"), c.baseUrl)
 
+    /** Jellyfin omits this manifest unless the field is requested. Load only the playing item. */
+    fun trickplay(c: ServiceConnection, user: String, id: String): List<TrickplayGrid> =
+        if (c.kind != ServiceKind.JELLYFIN) emptyList()
+        else parseTrickplay(read(c, "Users/${enc(user)}/Items/${enc(id)}?Fields=Trickplay"), c.baseUrl)
+
     /** Read this profile's canonical state after reporting; no administrator configuration is needed. */
     fun resumeState(c: ServiceConnection, id: String): Pair<Long, Boolean>? {
         val user = c.userId.takeIf(String::isNotBlank) ?: verify(c, announce = false)
@@ -362,7 +384,9 @@ class MediaPlaybackClient(
             runCatching { capabilities() }.getOrDefault(DevicePlaybackCapabilities.CONSERVATIVE)
         val payload = buildJsonObject {
             put("UserId", user); put("DeviceProfile", devicePlaybackProfile(bitrate, detected,
-                preferAudioCopy = compatibility == PlaybackCompatibility.REMUX)); put("MaxStreamingBitrate", bitrate)
+                preferAudioCopy = compatibility == PlaybackCompatibility.REMUX,
+                embedPgs = compatibility == PlaybackCompatibility.DIRECT,
+                externalBitmap = compatibility != PlaybackCompatibility.FULL)); put("MaxStreamingBitrate", bitrate)
             // A VOD timeline starting at zero makes Media3 seek positions and server progress identical.
             put("StartTimeTicks", 0); put("IsPlayback", true); put("AutoOpenLiveStream", false)
             put("EnableDirectPlay", compatibility == PlaybackCompatibility.DIRECT)
@@ -383,15 +407,25 @@ class MediaPlaybackClient(
         val mediaSourceId = source.str("Id").also { if (it.isBlank()) serviceError(R.string.player_err_server_incomplete) }
         val session = response.str("PlaySessionId").also { if (it.isBlank()) serviceError(R.string.player_err_server_incomplete) }
         val streams = source.objects("MediaStreams")
+        val directStream = originalDirectStreamUrl(source)
+        val direct = (source.flag("SupportsDirectPlay") || directStream != null) && compatibility == PlaybackCompatibility.DIRECT
         fun tracks(type: String) = streams.filter { it.str("Type") == type }.mapNotNull {
             val index = it.num("Index")?.toInt() ?: return@mapNotNull null
             val label = it.str("DisplayTitle").ifBlank { it.str("Language").ifBlank { "$type ${index + 1}" } }
             val language = it.str("Language").takeIf(String::isNotBlank)
-            val codec = it.str("Codec").takeIf(String::isNotBlank)
+            val codec = it.str("Codec").lowercase(java.util.Locale.ROOT).takeIf(String::isNotBlank)
             val forced = it.flag("IsForced")
+            val bitmap = if (type == "Subtitle" && compatibility != PlaybackCompatibility.FULL)
+                bitmapSubtitleDelivery(c.baseUrl, codec, it.str("DeliveryUrl")) else null
             PlaybackTrack(index, label, language, it.flag("IsTextSubtitleStream") || codec in
                 setOf("srt", "subrip", "ass", "ssa", "webvtt", "vtt", "mov_text"),
-                trackKey(label, language, codec, forced))
+                trackKey(label, language, codec, forced), embeddedPgs = type == "Subtitle" && codec == "pgssub" &&
+                    !it.flag("IsExternal") && source.str("Container").equals("mkv", ignoreCase = true) &&
+                    direct, nativeAss = type == "Subtitle" && codec in setOf("ass", "ssa"),
+                embeddedBitmapMime = if (type == "Subtitle" && codec in setOf("dvdsub", "vobsub") &&
+                    !it.flag("IsExternal") && source.str("Container").equals("mkv", true) && direct)
+                    "application/vobsub" else null,
+                externalBitmapUrl = bitmap?.url, externalBitmapMime = bitmap?.mimeType)
         }
         val subtitles = tracks("Subtitle")
         val serverSubtitle = source.num("DefaultSubtitleStreamIndex")?.toInt() ?: -1
@@ -406,8 +440,6 @@ class MediaPlaybackClient(
                 preferredLanguage, fallbackLanguage)
         }
         val subtitleTrack = subtitles.firstOrNull { it.index == selectedSubtitle }
-        val directStream = originalDirectStreamUrl(source)
-        val direct = (source.flag("SupportsDirectPlay") || directStream != null) && compatibility == PlaybackCompatibility.DIRECT
         // A rejected audio route must not turn a supported H.264/HEVC picture into a full transcode.
         if (compatibility != PlaybackCompatibility.FULL && !videoSupported(source)) {
             return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, PlaybackCompatibility.FULL,
@@ -417,20 +449,29 @@ class MediaPlaybackClient(
             return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, PlaybackCompatibility.AUDIO_ONLY,
                 mediaSourceId, preferredLanguage, fallbackLanguage)
         }
-        // Image subtitles need burn-in; re-negotiate explicitly instead of silently dropping them.
-        if (direct && subtitleTrack != null && !subtitleTrack.isText) {
+        // Original MKV bitmap tracks and explicitly advertised SUP/MKS sidecars can stay local.
+        // Other bitmap routes retain negotiated server rendering.
+        if (compatibility != PlaybackCompatibility.FULL && subtitleTrack != null && !subtitleTrack.sidecar &&
+            !(direct && subtitleTrack.localBitmap)) {
             return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, PlaybackCompatibility.FULL,
                 mediaSourceId, preferredLanguage, fallbackLanguage)
         }
         val url = if (direct) directStream ?: "Videos/${enc(item.id)}/stream?static=true&MediaSourceId=${enc(mediaSourceId)}&PlaySessionId=${enc(session)}" else
             source.str("TranscodingUrl").also { if (it.isBlank()) serviceError(R.string.player_err_cannot_adapt) }
-        val subtitleUrl = subtitleTrack?.takeIf { it.isText }?.let {
-            safePlaybackUrl(c.baseUrl, "Videos/${enc(item.id)}/${enc(mediaSourceId)}/Subtitles/${it.index}/Stream.vtt")
+        val subtitleUrl = subtitleTrack?.takeIf { it.sidecar }?.let {
+            it.externalBitmapUrl ?: safePlaybackUrl(c.baseUrl, "Videos/${enc(item.id)}/${enc(mediaSourceId)}/Subtitles/${it.index}/Stream.${if (it.nativeAss) "ass" else "vtt"}")
         }
         return PlaybackPlan(item, mediaSourceId, session, safePlaybackUrl(c.baseUrl, url),
             playbackModeFor(source, direct), tracks("Audio"), subtitles,
             selectedAudio, selectedSubtitle, subtitleUrl, playbackTranscodeReasons(source), compatibility,
-            if (direct) sourceVideoFrameRate(source) else 0f)
+            if (direct) sourceVideoFrameRate(source) else 0f,
+            source.objects("MediaAttachments").take(24).mapNotNull { attachment ->
+                val name = attachment.str("FileName").take(240)
+                val index = attachment.num("Index")?.takeIf { it >= 0 } ?: return@mapNotNull null
+                if (!name.endsWith(".ttf", true) && !name.endsWith(".otf", true)) return@mapNotNull null
+                val url = safePlaybackUrl(c.baseUrl, "Videos/${enc(item.id)}/${enc(mediaSourceId)}/Attachments/$index")
+                PlaybackFont(name, url)
+            })
     }
 
     /** Playback support is separate from receiving remote commands. Until a remote-command
