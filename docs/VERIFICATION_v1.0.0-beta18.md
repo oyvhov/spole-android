@@ -70,3 +70,18 @@ Lagra TV-profil 5564, signert bygg installert med `adb install -r` over beta17 (
 
 Ingen førespurnad vart send, og ingen avspeling starta på den ekte kontoen. Testpakka brukte berre
 isolerte 5562 og 5566.
+
+## Publisering og oppdatering
+
+- Release `v1.0.0-beta18` publisert 17. oktober 2026 som prerelease med éin APK
+  (28 042 752 byte, SHA-256 `8aabe60304c5683570f82b0cd6e6fa33a6a62dcb6cca97879f3a8228d4fe0616`),
+  mapping, `SOURCE_COMMIT.txt`, `SHA256SUMS.txt`, FFmpeg-kjelda og kjeldearkivet for dei native
+  undertekstbiblioteka. Alle seks digestane på GitHub var like dei lokale filene. Den offentlege
+  nedlastinga utan innlogging gav same SHA-256 som det bygde APK-et.
+- FFmpeg- og dei andre native biblioteka frå beta17 er byte for byte like; nye er berre `libass.so`,
+  `libasskt.so` og `libc++_shared.so`. `check-native-subtitles.py` på release-APK-en: fire ABI-ar,
+  16 KB-justering på 64-bit, åtte lisensfiler. Sertifikat SHA-256 `36fa94f0…1a10`.
+- Oppdatering i appen på isolert TV 5566: offisiell beta17 (154) viste «Spole v1.0.0-beta18 er
+  klar» ved opning. «Sjå oppdatering» → «Last ned oppdatering» (26,7 MB) → «Installer oppdatering»
+  → Android «Update» → «App installed.». Appen opna som 1.0.0-beta18 (155) med data frå før.
+- CI «Bygg og test» for `6ae66bb`, med den utvida instrumenteringa for telefon og TV: grøn.
