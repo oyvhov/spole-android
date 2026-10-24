@@ -41,6 +41,12 @@ screenshot. Never share Seerr administrator tokens with regular users.
 Accent colour, seasonal themes and visible Home rows can be adjusted in Settings.
 On TV, the side panel can also be hidden until you navigate to the left edge.
 
+## Stova
+
+Stova kan opne ein Jellyfin- eller Emby-tittel direkte i Spole, anten som detaljar eller avspeling. Kontoen må alt vere logga inn i Spole. Ein kjend barnekonto kan opnast frå vaksenmodus; inne i barnemodus kan lenkja berre opne den aktive barnekontoen sitt eige innhald.
+
+Integrasjonen brukar app-til-app-lenkjer med `spole://open`, retta mot `app.reelstack` (med `app.reelstack.debug` som utviklarreserve). Sjå [format, døme og kontoreglar](LAUNCHER_LINK.md). Funksjonen er førebels ikkje publisert, og instrumentering og manuell TV-kontroll står att; sjå [verifiseringa](VERIFICATION_LAUNCHER_LINK.md).
+
 ## Current features
 
 - **Separate Jellyfin and Emby libraries:** each service keeps its own library, Continue Watching rows and playback state.

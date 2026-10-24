@@ -1,5 +1,11 @@
 # Changelog
 
+## Ikkje publisert
+
+- Stova og andre Android-startarar kan opne Jellyfin-/Emby-detaljar eller avspeling gjennom `spole://open`, med streng validering og eksisterande innlogging i Spole.
+- Lenkjene følgjer kontogrenser og barnemodus. Barn opnar berre eige innhald i sitt eige skal; ei lenkje kan ikkje gå tilbake til vaksenkontoen eller eit anna barn.
+- Sjå [lenkjekontrakten](docs/LAUNCHER_LINK.md) og [verifiseringa](docs/VERIFICATION_LAUNCHER_LINK.md). Einingstestar, debug-bygg og lint er køyrde; instrumentering og manuell TV-kontroll er utsette etter brukaren sitt uttrykkelege val. Ingen ny APK-release er publisert.
+
 ## 1.0.0-beta13 - smarte hyller med valt innhald
 
 - Nye smarte hyller blir knytte til vald tenarkonto og valt bibliotek. Frå rotnivået må du velje bibliotek før lagring. Fleire bibliotek, alle biblioteka på tenaren eller alle tenarar er uttrykkelege val.
