@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="launcher_not_signed_in">Denne kontoen er ikkje logga inn i Spole.</string>
+    <string name="launcher_kid_mode">Spole er i barnemodus. Gå ut av barnemodus i Spole først.</string>
     <string name="widget_title">Spelar no</string>
     <string name="widget_description">Viser kva som spelar på Jellyfin og Emby akkurat no.</string>
     <string name="widget_loading">Hentar…</string>

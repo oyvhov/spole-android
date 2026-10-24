@@ -237,7 +237,8 @@ fun ReelstackSheets(
     val phoneDetails = sheet is AppSheet.TitleDetails && !tvDetails &&
         !app.reelstack.ui.layout.WindowLayoutPolicy(configuration.screenWidthDp.toFloat(),
             configuration.screenHeightDp.toFloat()).useSideBySideMedia
-    val openingDetails = remember(state.contentDetails?.key) { state.contentDetails }
+    var openingDetails by remember(state.contentDetails?.key, state.contentDetails?.source) { mutableStateOf(state.contentDetails) }
+    if (openingDetails?.title.isNullOrBlank() && state.contentDetails?.loading == false) openingDetails = state.contentDetails
     val cinematicPhone = useMobileCinematicDetails(openingDetails) && phoneDetails
     val returnFromTitle: () -> Boolean = {
         if (onDetailBack()) true else if (state.returnToCalendar) { onBackToCalendar(); true } else false
@@ -255,7 +256,7 @@ fun ReelstackSheets(
         val closeOrReturn = {
             if (sheet is AppSheet.TitleDetails && returnFromTitle()) Unit else close()
         }
-        val detailScroll = androidx.compose.runtime.key(sheet) { rememberScrollState() }
+        val detailScroll = androidx.compose.runtime.key(sheet, state.contentDetails?.source) { rememberScrollState() }
         Box(Modifier.fillMaxSize().testTag("sheet-viewport")) {
         Column(Modifier.fillMaxSize()) {
             if (!tvDetails && !cinematicPhone && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails)) {
@@ -279,7 +280,7 @@ fun ReelstackSheets(
                     onPlaybackToggle, onSessionSelected,
                     unavailable = state.playbackUnavailableSources.any { sheet.sessionKey.startsWith("${it.name}:") })
                 is AppSheet.TitleDetails -> state.contentDetails?.let { details ->
-                    androidx.compose.runtime.key(details.key) {
+                    androidx.compose.runtime.key(details.key, details.source) {
                         RichTitleDetailsSheet(state = state, onAddMedia = onAddMedia,
                             onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered, onCalendarFollow = onCalendarFollow,
                             onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason, onEpisodeSeries = onEpisodeSeries,
@@ -394,7 +395,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     onCalendarFollow: (ContentDetails) -> Unit = {}) {
     val details = state.contentDetails ?: return
     // Freeze the opening artwork and title. Late metadata must not replace or resize the hero.
-    val opening = remember(details.key) { details }
+    var opening by remember(details.key) { mutableStateOf(details) }
+    // A launcher may open before any title/artwork is cached. Adopt its first actual metadata.
+    if (opening.title.isBlank() && !details.loading) opening = details
     val ready = entered && !details.loading
     val metadataAlpha by animateFloatAsState(if (ready) 1f else 0f, tween(180), label = "metadata-reveal")
     val discoverMedia = state.knownDiscoverMedia.firstOrNull { it.id == details.key }
@@ -1098,10 +1101,11 @@ private fun IntegratedPlaybackButton(state: ReelstackUiState, details: ContentDe
 }
 
 /** The fixed mobile action and the player use the same concrete, authenticated media target. */
-private fun detailPlaybackTarget(state: ReelstackUiState, details: ContentDetails): Pair<ServiceKind, String>? {
+internal fun detailPlaybackTarget(state: ReelstackUiState, details: ContentDetails): Pair<ServiceKind, String>? {
     val source = details.source?.takeIf { it in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) } ?: return null
     if (state.connections.none { it.kind == source && it.token.isNotBlank() }) return null
-    val key = details.key.removePrefix("${source.name.lowercase(java.util.Locale.ROOT)}-")
+    val key = details.remoteId?.takeIf(String::isNotBlank) ?: details.key
+        .removePrefix("${source.name.lowercase(java.util.Locale.ROOT)}-")
         .takeIf { it.isNotBlank() && it != details.key } ?: return null
     val series = details.mediaType.equals("Series", true) || details.mediaType.equals("Season", true)
     val itemId = if (series) state.seriesBrowse.takeIf { it.openedFor == details.key }

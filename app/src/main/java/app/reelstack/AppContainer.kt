@@ -10,10 +10,9 @@ import app.reelstack.data.repository.MediaSnapshotStore
 import app.reelstack.data.repository.AppPreferencesRepository
 import app.reelstack.data.repository.DeviceIdentity
 
-class AppContainer(context: Context) {
+class AppContainer(context: Context, val connectionRepository: ConnectionRepository = ConnectionRepository(context)) {
     val appContext: Context = context.applicationContext
     private val deviceId = DeviceIdentity.get(appContext)
-    val connectionRepository = ConnectionRepository(appContext)
     val pinSecurity = app.reelstack.data.security.PinSecurity(appContext)
     val accountProfileClient = app.reelstack.data.network.AccountProfileClient(deviceId = deviceId)
     val connectionTester = ServiceConnectionTester(deviceId = deviceId)

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="launcher_not_signed_in">This account is not signed in to Spole.</string>
+    <string name="launcher_kid_mode">Spole is in kids mode. Leave kids mode in Spole first.</string>
     <string name="app_name" translatable="false">Spole</string>
     <string name="widget_title">Now playing</string>
     <string name="widget_description">Shows what is playing on Jellyfin and Emby right now.</string>

@@ -58,8 +58,8 @@ import kotlinx.coroutines.isActive
  * The kid shell, beside [app.reelstack.ui.ReelstackApp] rather than a condition inside it.
  *
  * Five tabs and a side rail are not something a four-year-old navigates, so none of them exist
- * here: no bottom bar, no rail, no tabs, no search, and above all no detail sheet. A tap on a
- * poster plays. The only way out is the profile picture, and it asks for the PIN.
+ * here: no bottom bar, no rail, no tabs, no search. A tap on a poster plays. An explicit launcher
+ * details link has its own child-only panel. The way out is the profile picture and PIN.
  */
 @Composable
 fun KidsApp(viewModel: ReelstackViewModel) {
@@ -69,7 +69,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
     val television = (configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
 
-    var libraryOpenId by rememberSaveable(state.activeProfileId) { mutableStateOf<String?>(null) }
+    var libraryOpenId by rememberSaveable(state.activeProfileId, state.launcherHomeRequest) { mutableStateOf<String?>(null) }
 
     // Back walks the child-facing navigation stack. It never exits the shell by accident.
     BackHandler(enabled = state.activeSheet == null && (state.kidsBrowse.open || libraryOpenId != null)) {
@@ -93,10 +93,10 @@ fun KidsApp(viewModel: ReelstackViewModel) {
             delay(60_000)
         }
     }
-    var appearanceOpen by rememberSaveable(state.activeProfileId) { mutableStateOf(false) }
+    var appearanceOpen by rememberSaveable(state.activeProfileId, state.launcherHomeRequest) { mutableStateOf(false) }
     BackHandler(appearanceOpen) { appearanceOpen = false }
 
-    var profileMenuOpen by rememberSaveable(state.activeProfileId) { mutableStateOf(false) }
+    var profileMenuOpen by rememberSaveable(state.activeProfileId, state.launcherHomeRequest) { mutableStateOf(false) }
     val cardColumns = when {
         television -> 6
         configuration.screenWidthDp >= 900 -> 5
@@ -584,6 +584,28 @@ internal fun KidsProfileDialog(
 private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     if (sheet == null) return
+
+    if (sheet is AppSheet.TitleDetails) {
+        val details = state.contentDetails ?: return
+        val context = LocalContext.current
+        // No adult sheet host, external client, Seerr action or account control enters this panel.
+        StableSheetDialog(dismissEnabled = true, onDismiss = viewModel::closeSheet) { _, _, close ->
+            KidsLauncherDetailsContent(details,
+                onPlay = {
+                    val target = details.remoteId
+                    val source = details.source
+                    if (!target.isNullOrBlank() && source != null) app.reelstack.player.JellyfinPlayerActivity.open(
+                        context, target, source = source, kidsMode = true)
+                },
+                onEpisodes = {
+                    val media = state.libraryDetailMedia?.takeIf { it.id == details.key && it.source == details.source }
+                        ?: app.reelstack.ui.mediaActionTarget(state, details.key)
+                    viewModel.closeSheet()
+                    if (media != null) viewModel.openKidsSeries(media)
+                }, onClose = close)
+        }
+        return
+    }
 
     // Falls out of the account picture in the corner, the same motion as the adult app.
     if (sheet is AppSheet.ProfileSwitcher) {

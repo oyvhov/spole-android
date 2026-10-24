@@ -20,6 +20,8 @@ import kotlinx.coroutines.launch
 
 class MainActivity : app.reelstack.localization.LocalizedActivity() {
     private var pendingSetupLink by mutableStateOf<String?>(null)
+    private var pendingLauncherOpen by mutableStateOf<app.reelstack.launcher.PendingLauncherOpen?>(null)
+    private var pendingLauncherMessage by mutableStateOf<Int?>(null)
     private var pendingRequests by mutableStateOf(false)
     private var pendingDownloads by mutableStateOf(false)
     private var activeViewModel: ReelstackViewModel? = null
@@ -44,18 +46,20 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
         setIntent(intent)
         pendingRequests = intent.getBooleanExtra("open_requests", false)
         pendingDownloads = intent.getBooleanExtra("open_downloads", false)
-        if (intent.action == android.content.Intent.ACTION_VIEW && intent.data?.scheme == "spole") {
+        if (intent.action == android.content.Intent.ACTION_VIEW && intent.data?.scheme == "spole" && intent.data?.host == "setup") {
             pendingSetupLink = intent.dataString
         }
+        receiveLauncherIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingRequests = savedInstanceState == null && intent.getBooleanExtra("open_requests", false)
         pendingDownloads = savedInstanceState == null && intent.getBooleanExtra("open_downloads", false)
-        if (savedInstanceState == null && intent.action == android.content.Intent.ACTION_VIEW && intent.data?.scheme == "spole") {
+        if (savedInstanceState == null && intent.action == android.content.Intent.ACTION_VIEW && intent.data?.scheme == "spole" && intent.data?.host == "setup") {
             pendingSetupLink = intent.dataString
         }
+        if (savedInstanceState == null) receiveLauncherIntent(intent)
         enableEdgeToEdge()
         val container = (application as ReelstackApplication).container
         setContent {
@@ -88,7 +92,7 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                 ) {
                 app.reelstack.ui.StartupReveal(reelstackViewModel) {
                     // Kids mode is a separate shell beside the adult app, not a condition inside
-                    // it: no rail, no tabs, no detail sheet. Branching here is what keeps that
+                    // it: no rail, no tabs, no adult detail sheet. Branching here keeps that
                     // promise structural instead of a growing list of `if (isKidMode)` checks.
                     val authority by reelstackViewModel.sessionScope.collectAsStateWithLifecycle()
                     val rendered by reelstackViewModel.renderingSession.collectAsStateWithLifecycle()
@@ -110,6 +114,30 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     pendingSetupLink?.let(reelstackViewModel::importSetupLink)
                     pendingSetupLink = null
                 }
+                androidx.compose.runtime.LaunchedEffect(pendingLauncherOpen) {
+                    val pending = pendingLauncherOpen
+                    pendingLauncherOpen = null
+                    val target = pending?.consume(container.connectionRepository, reelstackViewModel::selectProfile) { link, _ ->
+                        reelstackViewModel.synchronizeSession()
+                        when (link.action) {
+                            app.reelstack.launcher.LauncherAction.DETAILS -> reelstackViewModel.openRemoteDetails(link.kind, link.itemId)
+                            app.reelstack.launcher.LauncherAction.PLAY -> app.reelstack.player.JellyfinPlayerActivity.open(
+                                this@MainActivity, link.itemId, source = link.kind, kidsMode = container.connectionRepository.isKidMode)
+                        }
+                    }
+                    when (target) {
+                        app.reelstack.launcher.LauncherTarget.BlockedInKidMode -> pendingLauncherMessage = R.string.launcher_kid_mode
+                        app.reelstack.launcher.LauncherTarget.NotSignedIn -> pendingLauncherMessage = R.string.launcher_not_signed_in
+                        else -> Unit
+                    }
+                }
+                androidx.compose.runtime.LaunchedEffect(pendingLauncherMessage) {
+                    pendingLauncherMessage?.let { resource ->
+                        reelstackViewModel.openLauncherHome()
+                        showLauncherMessage(resource)
+                    }
+                    pendingLauncherMessage = null
+                }
                 androidx.compose.runtime.LaunchedEffect(pendingRequests) {
                     if (pendingRequests) reelstackViewModel.selectTab(app.reelstack.ui.AppTab.ACTIVITY)
                     pendingRequests = false
@@ -120,5 +148,19 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                 }
             }
         }
+    }
+
+    private fun receiveLauncherIntent(intent: android.content.Intent) {
+        val repository = (application as ReelstackApplication).container.connectionRepository
+        pendingLauncherOpen = app.reelstack.launcher.PendingLauncherOpen.from(intent, repository)
+        // The child shell has no snackbar host; this short message is visible in either shell.
+        val message = intent.getStringExtra("launcher_message")
+        pendingLauncherMessage = listOf(R.string.launcher_not_signed_in, R.string.launcher_kid_mode).firstOrNull {
+            message == getString(it)
+        }
+    }
+
+    private fun showLauncherMessage(@androidx.annotation.StringRes resource: Int) {
+        android.widget.Toast.makeText(this, resource, android.widget.Toast.LENGTH_LONG).show()
     }
 }

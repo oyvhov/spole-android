@@ -196,6 +196,7 @@ data class RemoteMediaDetails(
     val criticRating: Int? = null,
     val tmdbRating: Float? = null,
     val mdblistRating: Float? = null,
+    val mediaType: String? = null,
 )
 
 data class RemoteRequest(
@@ -597,11 +598,17 @@ object ServicePayloadParser {
         }
         return RemoteMediaDetails(
             title = item.string("Name") ?: item.string("name"),
+            mediaType = mediaType,
             artworkUrl = if (mediaType.equals("Episode", true) && baseUrl != null &&
                 item.string("Id") != null && (item["ImageTags"] as? JsonObject)?.string("Primary") != null) {
                 val id = java.net.URLEncoder.encode(item.string("Id"), "UTF-8")
                 val tag = java.net.URLEncoder.encode((item["ImageTags"] as JsonObject).string("Primary"), "UTF-8")
                 EndpointValidator.resolve(baseUrl, "Items/$id/Images/Primary?maxWidth=960&quality=85&tag=$tag")
+            } else if (baseUrl != null) {
+                item.string("Id")?.let { id ->
+                    val artwork = libraryArtwork(item, id, mediaType, preferEpisodeStill = true)
+                    imagePath(artwork.itemId, artwork.imageType, artwork.tag)?.let { EndpointValidator.resolve(baseUrl, it) }
+                }
             } else null,
             backdropUrl = libraryBackdrop(item, baseUrl),
             logoUrl = app.reelstack.player.playableLogoUrl(item, baseUrl),

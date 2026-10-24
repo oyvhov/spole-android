@@ -180,6 +180,8 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
             sourceId: String? = null, source: ServiceKind = ServiceKind.JELLYFIN, kidsMode: Boolean = false) =
             context.startActivity(
                 Intent(context, JellyfinPlayerActivity::class.java).putExtra(ITEM_ID, itemId).apply {
+                    // Recreate an existing player for the new item instead of stacking players.
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                     putExtra(SERVICE_KIND, source.name)
                     if (kidsMode) putExtra(KIDS_MODE, true)
                     audioIndex?.let { putExtra(AUDIO_INDEX, it) }

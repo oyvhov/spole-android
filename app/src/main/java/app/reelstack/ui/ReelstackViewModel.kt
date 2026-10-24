@@ -131,6 +131,7 @@ data class ReelstackUiState(
     val signingOut: Boolean = false,
     val showOnboarding: Boolean = false,
     val selectedTab: AppTab = AppTab.HOME,
+    val launcherHomeRequest: Int = 0,
     /**
      * Where Back leads from Downloads when they are not a menu item: Settings when opened from
      * there, or the tab a queued download or its notification came from.
@@ -397,7 +398,88 @@ internal fun ReelstackUiState.ownsSmartShelfEditorResult(start: ReelstackUiState
 
 class ReelstackViewModel(
     private val container: AppContainer,
+    private val remoteDetailsLoader: suspend (ServiceConnection, String) -> app.reelstack.data.network.RemoteMediaDetails = { connection, id ->
+        withContext(Dispatchers.IO) { container.mediaServerClient.details(connection, id) }
+    },
 ) : ViewModel() {
+    /** An external launcher destination resets both the shared and the child-local navigation. */
+    fun openLauncherHome() {
+        detailHistory.clear()
+        episodeReturn = null
+        closeSheet()
+        closeKidsSeries()
+        selectTab(AppTab.HOME)
+        _uiState.update { it.copy(contentDetails = null, seriesBrowse = app.reelstack.data.model.SeriesBrowse(),
+            launcherHomeRequest = it.launcherHomeRequest + 1) }
+    }
+    /** Opens the server's id even before Home or Library has fetched a row containing it. */
+    fun openRemoteDetails(kind: ServiceKind, itemId: String) {
+        if (kind !in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) || !itemId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) return
+        synchronizeSession()
+        openLauncherHome()
+        val state = _uiState.value
+        val cached = knownLibraryMedia(state).firstOrNull { it.source == kind && it.remoteId == itemId }
+        if (cached != null) {
+            openLibraryDetails(cached.id)
+            return
+        }
+        val connection = state.connections.firstOrNull { it.kind == kind && it.token.isNotBlank() && it.baseUrl.isNotBlank() } ?: return
+        invalidateDetailRequest()
+        val request = detailRequest
+        val owner = container.connectionRepository.captureSession()
+        episodeReturn = null
+        detailHistory.clear()
+        seasonsJob?.cancel(); episodesJob?.cancel()
+        _uiState.update { it.copy(activeSheet = AppSheet.TitleDetails(itemId), libraryDetailMedia = null,
+            seriesBrowse = app.reelstack.data.model.SeriesBrowse(),
+            contentDetails = ContentDetails(key = itemId, title = "", eyebrow = "", subtitle = "",
+                artworkRes = R.drawable.media_placeholder, remoteId = itemId, source = kind, loading = true,
+                libraryAvailable = true, statusTitle = appString(R.string.details_in_library_badge),
+                statusDescription = appString(R.string.details_in_library_source, kind.displayName))) }
+        detailJob = operationScope.launch {
+            val result = attempt { remoteDetailsLoader(connection, itemId) }
+            if (!isActive || detailRequest != request || !container.connectionRepository.isCurrent(owner)) return@launch
+            val remote = result.getOrNull()
+            _uiState.update { current ->
+                val details = current.contentDetails?.takeIf { it.key == itemId && it.source == kind } ?: return@update current
+                if (remote == null) current.copy(contentDetails = details.copy(loading = false, error = appString(R.string.error_content_details)))
+                else {
+                    val loaded = details.withRemoteDetails(remote).copy(mediaType = remote.mediaType ?: "Video")
+                    current.copy(contentDetails = loaded, libraryDetailMedia = LibraryMedia(
+                        id = itemId, title = loaded.title, subtitle = loaded.subtitle, artworkRes = loaded.artworkRes,
+                        source = kind, remoteId = itemId, artworkUrl = loaded.artworkUrl, overview = loaded.overview,
+                        facts = loaded.facts, genres = loaded.genres, mediaType = loaded.mediaType ?: "Video",
+                        seriesId = remote.seriesId, season = remote.season, episode = remote.episode,
+                        favourite = remote.favourite, played = remote.played, progress = remote.progress,
+                        logoUrl = remote.logoUrl, backdropUrl = remote.backdropUrl))
+                }
+            }
+            if (remote != null && !owner.kidsMode) _uiState.value.libraryDetailMedia?.let { loadSeasons(connection, it) }
+        }
+    }
+
+    private fun knownLibraryMedia(state: ReelstackUiState): List<LibraryMedia> =
+        listOfNotNull(state.libraryDetailMedia) + state.resume + state.nextUp + state.favourites + state.recentMovies +
+            state.recentSeries + state.librarySearchResults + state.globalSearch.libraryResults + state.libraryPeeks.values.flatten() +
+            state.libraryShelves.resume + state.libraryShelves.nextUp + state.homeShelfMedia.values.flatten() + state.kidsLibrary +
+            state.libraryEntries.map { it.toLibraryMedia(state.librarySource, R.drawable.media_placeholder, words(it.facts)) }
+
+    private fun ContentDetails.withRemoteDetails(remote: app.reelstack.data.network.RemoteMediaDetails) = copy(
+        title = remote.title ?: title, tagline = remote.tagline ?: tagline, cast = remote.cast,
+        backdropUrl = remote.backdropUrl ?: backdropUrl, logoUrl = remote.logoUrl ?: logoUrl,
+        trailerUrl = remote.trailerUrl, season = remote.season ?: season, episode = remote.episode ?: episode,
+        overview = remote.overview ?: overview, facts = words(remote.facts),
+        criticRating = remote.criticRating ?: criticRating, tmdbRating = remote.tmdbRating ?: tmdbRating,
+        mdblistRating = remote.mdblistRating ?: mdblistRating, genres = (remote.genres + genres).distinct(),
+        artworkUrl = remote.artworkUrl ?: artworkUrl, progress = remote.progress ?: progress,
+        remainingMinutes = remote.remainingMinutes, quality = remote.quality, favourite = remote.favourite,
+        played = remote.played, audioTracks = remote.audioTracks, subtitleTracks = remote.subtitleTracks,
+        versions = remote.versions.map { (id, name) -> app.reelstack.data.model.MediaVersion(id, name) }, loading = false)
+
+    private fun invalidateDetailRequest() {
+        detailRequest++
+        detailJob?.cancel()
+    }
     private data class LibraryCacheKey(
         val accountFingerprint: String,
         val source: ServiceKind,
@@ -506,6 +588,8 @@ class ReelstackViewModel(
     // only because nothing suspends between the cancel and the relaunch, which is not a property
     // anybody should have to verify to change this code.
     private var seasonsJob: Job? = null
+    private var detailJob: Job? = null
+    private var detailRequest = 0L
     private var episodesJob: Job? = null
     private data class EpisodeReturn(val seriesKey: String, val connection: ServiceConnection,
         val details: ContentDetails, val browse: app.reelstack.data.model.SeriesBrowse)
@@ -1488,6 +1572,7 @@ class ReelstackViewModel(
     }
 
     fun closeSheet() {
+        invalidateDetailRequest()
         if (returnFromDetail()) return
         if (_uiState.value.returnToCalendar) { backToCalendar(); return }
         detailHistory.clear()
@@ -1555,6 +1640,7 @@ class ReelstackViewModel(
         if (next == boundSession || committingSession && next.profileId == boundSession.profileId) return
         val previousProfileId = boundSession.profileId
         boundSession = next
+        invalidateDetailRequest()
         operationScope.coroutineContext.cancelChildren()
         if (!isTelevision() && previousProfileId != next.profileId) operationScope.launch(Dispatchers.IO) {
             container.offlineDownloads.setProfileActive(previousProfileId, active = false)
@@ -1786,7 +1872,8 @@ class ReelstackViewModel(
      * A movie never reaches this — it plays on the tap, which is the point of the kid shell.
      */
     fun openKidsSeries(media: LibraryMedia) {
-        val seriesId = media.remoteId?.takeIf { it.isNotBlank() } ?: return
+        val target = seriesBrowseTarget(media) ?: return
+        val seriesId = target.seriesId
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == media.source && it.token.isNotBlank()
         } ?: return
@@ -1806,17 +1893,18 @@ class ReelstackViewModel(
                 .sortedWith(compareBy({ (it.episode ?: 0) == 0 }, { it.episode ?: Int.MAX_VALUE }))
             if (!isActive || _uiState.value.kidsBrowse.seriesId != seriesId) return@launch
 
-            val nextUp = runCatching {
+            val nextUp = if (target.initialSeasonId != null) null else runCatching {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.seriesNextUp(connection, seriesId) }
             }.getOrNull()
             val opening = nextUp?.let { next -> seasons.firstOrNull { it.episode == next.season } }
                 ?: seasons.firstOrNull()
 
+            val openingId = target.initialSeasonId ?: opening?.remoteId
             _uiState.update {
                 if (it.kidsBrowse.seriesId != seriesId) it
-                else it.copy(kidsBrowse = it.kidsBrowse.copy(seasons = seasons, loading = opening != null))
+                else it.copy(kidsBrowse = it.kidsBrowse.copy(seasons = seasons, loading = openingId != null))
             }
-            opening?.remoteId?.let { selectKidsSeason(it) } ?: _uiState.update {
+            openingId?.let { selectKidsSeason(it) } ?: _uiState.update {
                 if (it.kidsBrowse.seriesId != seriesId) it else it.copy(kidsBrowse = it.kidsBrowse.copy(loading = false))
             }
         }
@@ -2046,12 +2134,15 @@ class ReelstackViewModel(
     }
 
     fun openLibraryDetails(id: String, clearHistory: Boolean = true) {
+        invalidateDetailRequest()
+        val request = detailRequest
+        val owner = container.connectionRepository.captureSession()
         if (clearHistory) {
             episodeReturn = null
             detailHistory.clear()
         }
         val state = _uiState.value
-        val media = (listOfNotNull(state.libraryDetailMedia) + state.resume + state.nextUp + state.favourites + state.recentMovies + state.recentSeries + state.librarySearchResults + state.globalSearch.libraryResults + state.libraryPeeks.values.flatten() + state.libraryShelves.resume + state.libraryShelves.nextUp)
+        val media = knownLibraryMedia(state)
             .firstOrNull { it.id == id } ?: return
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == media.source && it.baseUrl.isNotBlank() && it.token.isNotBlank()
@@ -2092,20 +2183,21 @@ class ReelstackViewModel(
             )
         }
         if (connection == null || media.remoteId == null) return
-        loadSeasons(connection, media)
-        operationScope.launch {
+        if (!owner.kidsMode) loadSeasons(connection, media)
+        detailJob = operationScope.launch {
             val started = System.nanoTime()
             val result = attempt {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.details(connection, media) }
             }
             app.reelstack.data.network.PerfLog.milestone("detail loaded", started)
+            if (!isActive || detailRequest != request || !container.connectionRepository.isCurrent(owner)) return@launch
             result.getOrNull()?.let { remote ->
-                if (_uiState.value.contentDetails?.key == media.id && media.seriesId == null && remote.seriesId != null) {
+                if (!owner.kidsMode && _uiState.value.contentDetails?.key == media.id && media.seriesId == null && remote.seriesId != null) {
                     loadSeasons(connection, media.copy(seriesId = remote.seriesId, season = remote.season, episode = remote.episode))
                 }
             }
             _uiState.update { current ->
-                val details = current.contentDetails?.takeIf { it.key == media.id } ?: return@update current
+                val details = current.contentDetails?.takeIf { it.key == media.id && it.source == media.source } ?: return@update current
                 result.fold(
                     onSuccess = { remote ->
                         current.copy(
@@ -2164,24 +2256,23 @@ class ReelstackViewModel(
         // A series is browsed by its own id; an episode is browsed by its parent's, because the
         // useful thing on an episode page is the rest of the season it came from — without it the
         // page was a paragraph of synopsis and half a screen of black.
-        val seriesId = when {
-            media.mediaType.equals("Series", true) -> media.remoteId
-            media.mediaType.equals("Episode", true) -> media.seriesId
-            else -> null
-        }
-        if (seriesId.isNullOrBlank()) {
+        val target = seriesBrowseTarget(media)
+        if (target == null) {
             if (_uiState.value.seriesBrowse != app.reelstack.data.model.SeriesBrowse()) {
                 _uiState.update { it.copy(seriesBrowse = app.reelstack.data.model.SeriesBrowse()) }
             }
             return
         }
+        val seriesId = target.seriesId
         _uiState.update { it.copy(seriesBrowse = app.reelstack.data.model.SeriesBrowse(
             seriesId = seriesId, openedFor = media.id, loading = true)) }
         seasonsJob = operationScope.launch {
             // Where the reader is in the series does not depend on the season list. Asking for
             // both at once puts the episodes on screen one round trip (sometimes two) sooner.
             val nextUpLookup = async(Dispatchers.IO) {
-                runCatching { container.mediaSyncRepository.seriesNextUp(connection, seriesId) }.getOrNull()
+                // A Season link stays within that season; a global next-up could start another.
+                if (target.initialSeasonId != null) null
+                else runCatching { container.mediaSyncRepository.seriesNextUp(connection, seriesId) }.getOrNull()
             }
             val loaded = runCatching {
                 withContext(Dispatchers.IO) { container.mediaSyncRepository.seasons(connection, seriesId) }
@@ -2210,7 +2301,7 @@ class ReelstackViewModel(
                 ?.let { own -> seasons.firstOrNull { it.episode == own } }
                 ?: nextUp?.let { next -> seasons.firstOrNull { it.episode == next.season } }
                 ?: seasons.firstOrNull()
-            opening?.remoteId?.let { selectSeason(it) }
+            (target.initialSeasonId ?: opening?.remoteId)?.let { selectSeason(it) }
         }
     }
 
