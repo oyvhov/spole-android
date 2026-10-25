@@ -40,20 +40,26 @@ Etter `adb install -r` peikar den same ruta på `app.reelstack/.launcher.Launche
 Android stadfestar beta21/158; SHA-256 av den installerte APK-en er identisk med fila over.
 `firstInstallTime` er framleis 10.09.2026, medan `lastUpdateTime` er 25.10.2026.
 
-Ein detaljlenkje for ein faktisk film frå Stova sitt eksisterande Jellyfin-snapshot vart sendt med
-`action=details`. Appen viste **Velkomen til Spole / Logg inn**. Ein separat vanleg kaldstart,
-utan lenkje eller launcher-ekstra, viste også innlogging. Dette er difor ikkje berre eit avvist
-titteloppslag. Eg kan ikkje stadfeste at eksisterande Spole-innlogging er tilgjengeleg i appen no,
-og gjer ingen påstand om ei vellukka ekte detaljopning eller bevarte Spole-kontoar.
+Den første detaljlenkja og ein separat vanleg kaldstart viste **Velkomen til Spole / Logg inn**.
+Etter at brukaren sjølv logga inn, stadfesta hovudagenten ekte Spole-heimskjerm og prøvde den
+faktiske første «Hald fram»-tittelen frå Stova sitt Jellyfin-snapshot: **One Battle After Another**.
 
-Ingen `pm clear`, avinstallasjon, utlogging, kontoendring, tokenmigrering eller avspeling er utført.
-Produksjonspakken er ikkje debuggbar, så private kontofiler kunne ikkje samanliknast direkte.
-Innloggingslagringa og tokenlagerkoden er uendra frå beta20. Det er ikkje fastslått kvifor eininga
-viser innlogging; ikkje legg til kontoar eller flytt løyndomar utan ei ny, konkret avklaring.
+Både ei varm `ACTION_VIEW`-opning og ei kald opning etter `am force-stop app.reelstack`, med
+`spole://open` og `action=details`, opna den rette detaljsida. Begge UI-dumpane viste tittelen,
+Jellyfin, samandraget og **Hald fram · 143 min att**. Skjermbiletet frå den varme prøva vart òg
+kontrollert visuelt. Det ligg lokalt i `C:/Launcher/.superpowers/spole-beta21-title-details.png`
+og er ikkje lagt i Git. Dette stadfestar ekte varm og kald detaljopning via lenkjekontrakten.
 
-Attståande prøve etter at innlogging er tilgjengeleg: kald og varm opning frå Stova til ein kjend
-tittel, metadata og Back-retur. Avspeling, profilbyte og barnemodus er ikkje prøvde på fysisk Shield.
-Shield-UI vart frigjeven til hovudagenten etter installasjon og dei avgrensa prøvene.
+Agentane har ikkje utført `pm clear`, avinstallasjon, utlogging, kontoendring, tokenmigrering eller
+avspeling. Innlogginga vart utført av brukaren. Produksjonspakken er ikkje debuggbar, så private
+kontofiler kunne ikkje samanliknast direkte. Innloggingslagringa og tokenlagerkoden er uendra frå
+beta20; årsaka til den opphavlege innloggingsskjermen er ikkje fastslått. Eit bevart 143-minutts
+halde-fram-punkt er synleg, men prøva dokumenterer ikkje lokal kontokontinuitet gjennom oppdateringa.
+
+Attståande prøve: opning ved faktisk trykk på kortet i den endelege Stova-installasjonen og
+Back-retur. Avspeling, profilbyte og barnemodus er ikkje prøvde på fysisk Shield. Shield-UI er
+hos hovudagenten; denne dokumentasjonsoppdateringa gjorde ingen nye einingskall eller bygg.
+Det arkiverte artefaktet er framleis frå `92ce694`, slik `SOURCE_COMMIT.txt` oppgir.
 
 Ingen tag, push eller offentleg release er oppretta. Versjonskode 158 er no lokalt distribuert;
 ei seinare annleis utgåve må ha høgare kode.

@@ -1,6 +1,6 @@
 # Verifisering av Stova-lenkjer
 
-Oppdatering 25. oktober 2026: signert lokal beta21 er installert på Shield. Sjå [den nye lokale verifiseringa](VERIFICATION_v1.0.0-beta21-local.md) for resultat og grenser. Funksjonen er framleis ikkje offentleg publisert.
+Oppdatering 25. oktober 2026: signert lokal beta21 er installert på Shield. Etter at brukaren logga inn, er ekte varm og kald detaljopning for «One Battle After Another» stadfesta med `spole://open` og `action=details`. Sjå [den nye lokale verifiseringa](VERIFICATION_v1.0.0-beta21-local.md) for resultat og grenser. Funksjonen er framleis ikkje offentleg publisert.
 
 Historisk status før lokal Shield-oppdatering: kjeldekode implementert og JVM-testar, debug-bygg og lint grøne. Instrumentering og manuell TV-kontroll var ikkje køyrde, etter brukaren sitt uttrykkelege val om å hoppe over Task 4 steg 2 og 3. [Kontrakten](LAUNCHER_LINK.md) skil forventa åtferd frå faktisk einingsbevis.
 
