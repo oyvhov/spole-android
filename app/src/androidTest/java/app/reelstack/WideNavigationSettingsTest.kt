@@ -20,7 +20,7 @@ import org.junit.Test
 class WideNavigationSettingsTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun collapsedTvFocusShowsItsNameWithoutTakingRemoteFocus() {
+    @Test fun collapsedTvFocusShowsNoFloatingNameBesideTheIcon() {
         lateinit var inputMode: androidx.compose.ui.input.InputModeManager
         rule.setContent {
             val config = android.content.res.Configuration(androidx.compose.ui.platform.LocalConfiguration.current).apply {
@@ -33,12 +33,14 @@ class WideNavigationSettingsTest {
         }
         rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
         rule.onNodeWithTag("wide-tab-HOME").performSemanticsAction(SemanticsActions.RequestFocus)
-        rule.waitUntil(3000) { rule.onAllNodesWithTag("navigation-focus-label").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithTag("navigation-focus-label").assertIsDisplayed()
-        rule.onNodeWithTag("wide-tab-HOME").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+        // «Home» used to float beside the icon, over the hero. The ring is the answer on a remote.
+        rule.mainClock.advanceTimeBy(1_000); rule.waitForIdle()
+        rule.onNodeWithTag("navigation-focus-label").assertDoesNotExist()
+        rule.onNodeWithTag("wide-tab-HOME").assertIsFocused().assertContentDescriptionEquals("Heim")
+            .performKeyInput { pressKey(Key.DirectionDown) }
         rule.onNodeWithTag("wide-tab-LIBRARY").assertIsFocused()
-        rule.waitUntil(3000) { rule.onAllNodesWithTag("navigation-focus-label").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithTag("navigation-focus-label").assertTextEquals("Bibliotek")
+        rule.mainClock.advanceTimeBy(1_000); rule.waitForIdle()
+        rule.onNodeWithTag("navigation-focus-label").assertDoesNotExist()
         rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
     }
     @Test fun expandedNavigationSupportsDpadAndClickSelection() {

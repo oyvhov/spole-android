@@ -174,12 +174,15 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         item("customize") {
             Row(Modifier.fillMaxWidth().testTag("hub-footer"), horizontalArrangement = Arrangement.End) {
                 val label = stringResource(R.string.refine_library_edit)
-                TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                    tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
+                val customize = @Composable {
                     IconButton(onClick = onCustomize, modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("hub-customize")) {
                         Icon(SpoleIcons.Tune, label)
                     }
                 }
+                // Material shows the tooltip on focus too; on a television it floats over the page.
+                if (app.reelstack.ui.components.isTelevision()) customize()
+                else TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                    tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) { customize() }
             }
         }
     }

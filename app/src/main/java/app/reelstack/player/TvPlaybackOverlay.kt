@@ -243,39 +243,27 @@ private fun PlayerOsdClock(modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.titleMedium)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TvPlayerAction(icon: ImageVector, label: String, tag: String, modifier: Modifier = Modifier,
-    enabled: Boolean = true, labelVisible: Boolean = false, showTooltip: Boolean = true, onClick: () -> Unit) {
+    enabled: Boolean = true, labelVisible: Boolean = false, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val tooltip = rememberTooltipState()
-    val windowFocused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
-    LaunchedEffect(focused, windowFocused) { if (focused && windowFocused && showTooltip) tooltip.show() else tooltip.dismiss() }
+    // No tooltip over the video: a floating name on a television only covers the picture. The
+    // name stays the button's description for TalkBack.
     val shape = RoundedCornerShape(8.dp)
     // The transport row used to draw its own 1.5 dp edge while every card in the app used
     // `focusOutline` — two different answers to the same question, and the weaker one sat over
     // moving video where contrast is worst. One treatment now, plus the same lift the rails have.
     val scale by animateFocusScale(focused, pressed = false)
-    val button = @Composable {
-        Surface(onClick,
-            modifier.size(48.dp).graphicsLayer { scaleX = scale; scaleY = scale }
-                .focusOutline(interaction, shape)
-                .testTag(tag).semantics(mergeDescendants = true) { contentDescription = label; role = Role.Button },
-            enabled = enabled, shape = shape, interactionSource = interaction,
-            color = if (focused) Color.White.copy(alpha = .20f) else Color.Transparent,
-            contentColor = Color.White.copy(alpha = if (enabled) 1f else .38f)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, null, Modifier.size(if (labelVisible) 22.dp else 28.dp))
-            }
+    Surface(onClick,
+        modifier.size(48.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+            .focusOutline(interaction, shape)
+            .testTag(tag).semantics(mergeDescendants = true) { contentDescription = label; role = Role.Button },
+        enabled = enabled, shape = shape, interactionSource = interaction,
+        color = if (focused) Color.White.copy(alpha = .20f) else Color.Transparent,
+        contentColor = Color.White.copy(alpha = if (enabled) 1f else .38f)) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(if (labelVisible) 22.dp else 28.dp))
         }
-    }
-    if (showTooltip) {
-        TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-            tooltip = { PlainTooltip { Text(label) } }, state = tooltip, focusable = false) {
-            button()
-        }
-    } else {
-        button()
     }
 }
