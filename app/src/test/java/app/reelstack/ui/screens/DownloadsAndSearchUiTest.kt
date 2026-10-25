@@ -195,7 +195,7 @@ class DownloadsAndSearchUiTest {
                     state = GlobalSearchUiState(search = SearchSlice(query = "silo", libraryResults = listOf(owned),
                         results = listOf(available, newTitle))),
                     onQuery = {}, onClose = { closed = true }, onLibraryDetails = { library = it },
-                    onDiscoverDetails = { discover = it }, onRequest = {}, onLoadMore = {},
+                    onDiscoverDetails = { discover = it }, onLoadMore = {},
                 )
             }
         }
@@ -204,9 +204,9 @@ class DownloadsAndSearchUiTest {
         rule.onNodeWithTag("discover-filters").assertDoesNotExist()
         rule.onNodeWithText(rule.activity.getString(R.string.search_libraries)).assertIsDisplayed()
         // The title you own appears once, where a tap plays it.
-        rule.onNodeWithTag("discover-cover-seerr-tv-1").assertDoesNotExist()
+        rule.onNodeWithTag("discover-poster-seerr-tv-1").assertDoesNotExist()
         rule.onNodeWithTag("library-hit-jf-1").performClick()
-        rule.onNodeWithTag("discover-cover-seerr-tv-2").performScrollTo().performClick()
+        rule.onNodeWithTag("discover-poster-seerr-tv-2").performScrollTo().performClick()
         rule.onNodeWithTag("global-search-close").performClick()
         rule.runOnIdle {
             assertEquals("jf-1", library)
@@ -222,7 +222,7 @@ class DownloadsAndSearchUiTest {
                 GlobalSearchScreen(
                     state = GlobalSearchUiState(history = listOf("Dune")),
                     onQuery = { query = it }, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {},
-                    onRequest = {}, onLoadMore = {},
+                    onLoadMore = {},
                 )
             }
         }
@@ -236,11 +236,28 @@ class DownloadsAndSearchUiTest {
             ReelstackTheme {
                 GlobalSearchScreen(
                     state = GlobalSearchUiState(search = SearchSlice(query = "zzqx")),
-                    onQuery = {}, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onRequest = {}, onLoadMore = {},
+                    onQuery = {}, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = {},
                 )
             }
         }
         rule.onNodeWithTag("global-search-empty").assertIsDisplayed()
         rule.onNodeWithText(rule.activity.getString(R.string.search_global_no_results, "zzqx")).assertIsDisplayed()
+    }
+
+    @Test fun peopleAreFoundWithTheirPictureAndOpenTheirPage() {
+        val opened = mutableListOf<Int>()
+        rule.setContent {
+            ReelstackTheme {
+                GlobalSearchScreen(
+                    state = GlobalSearchUiState(search = SearchSlice(query = "qualley",
+                        people = listOf(app.reelstack.data.model.DiscoverPerson(501, "Margaret Qualley", null, "Acting")))),
+                    onQuery = {}, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = {},
+                    onPerson = { opened += it },
+                )
+            }
+        }
+        rule.onNodeWithTag("global-search-empty").assertDoesNotExist()
+        rule.onNodeWithTag("search-person-501").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(listOf(501), opened) }
     }
 }

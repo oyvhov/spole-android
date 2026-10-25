@@ -15,6 +15,7 @@ data class DiscoverUiState(
     val accountErrors: Map<ServiceKind, String> = emptyMap(),
     val discover: List<DiscoverMedia> = emptyList(),
     val searchResults: List<DiscoverMedia> = emptyList(),
+    val searchPeople: List<app.reelstack.data.model.DiscoverPerson> = emptyList(),
     val librarySearchResults: List<LibraryMedia> = emptyList(),
     val searchQuery: String = "",
     val searchHistory: List<String> = emptyList(),
@@ -24,6 +25,8 @@ data class DiscoverUiState(
     val searchHasMore: Boolean = false,
     val loadingMoreSearch: Boolean = false,
     val requestingMediaIds: Set<String> = emptySet(),
+    val hub: app.reelstack.data.model.DiscoverHubState = app.reelstack.data.model.DiscoverHubState(),
+    val trackedRequests: List<app.reelstack.data.model.TrackedRequest> = emptyList(),
 ) {
     val configuredCount: Int get() = connections.count { it.baseUrl.isNotBlank() }
     val visibleDiscover: List<DiscoverMedia> get() = if (searchQuery.isBlank()) discover else searchResults
@@ -41,6 +44,7 @@ fun ReelstackUiState.toDiscoverUiState(): DiscoverUiState = DiscoverUiState(
     accountErrors = accountErrors,
     discover = discover,
     searchResults = searchResults,
+    searchPeople = searchPeople,
     librarySearchResults = librarySearchResults,
     searchQuery = searchQuery,
     searchHistory = searchHistory,
@@ -50,4 +54,9 @@ fun ReelstackUiState.toDiscoverUiState(): DiscoverUiState = DiscoverUiState(
     searchHasMore = searchHasMore,
     loadingMoreSearch = loadingMoreSearch,
     requestingMediaIds = requestingMediaIds,
+    // Without any server the preview still has a row: the demo titles, under «Populært no».
+    hub = if (configuredCount == 0 && discoverHub.rows.isEmpty() && discover.isNotEmpty())
+        discoverHub.copy(rows = mapOf(app.reelstack.data.model.DiscoverRowKind.TRENDING to app.reelstack.data.model.DiscoverRowState(discover)))
+    else discoverHub,
+    trackedRequests = trackedRequests,
 )

@@ -26,3 +26,11 @@ fun libraryNextItems(resume: List<LibraryMedia>, nextUp: List<LibraryMedia>): Li
     return (continued + nextUp.filter { !it.played && it.identity() !in resumed }.distinctBy { it.identity() })
         .sortedByDescending { it.lastActivityEpochMillis ?: Long.MIN_VALUE }
 }
+
+/**
+ * Whether Bibliotek in the menu opens the library page itself rather than where the library was left.
+ * On a television it always does: films, series and smart shelves have their own entries in the
+ * menu, and Bibliotek landing on the last of them made the page about libraries hard to reach. A
+ * phone keeps its place between tabs, and goes back to the page when Bibliotek is pressed again.
+ */
+fun libraryMenuOpensRoot(television: Boolean, alreadyThere: Boolean): Boolean = television || alreadyThere

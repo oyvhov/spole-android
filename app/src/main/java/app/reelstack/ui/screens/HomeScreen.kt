@@ -1,6 +1,7 @@
 package app.reelstack.ui.screens
 
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.vector
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.playableNow
@@ -104,7 +105,6 @@ import app.reelstack.ui.components.HomeSearchEntry
 import app.reelstack.ui.components.IncomingSkeleton
 import app.reelstack.ui.components.LibraryRailSkeleton
 import app.reelstack.ui.components.AccountAvatarButton
-import app.reelstack.ui.components.ServiceLogo
 import app.reelstack.ui.components.UpcomingSkeleton
 import app.reelstack.ui.components.RecommendationSkeleton
 import app.reelstack.ui.theme.Muted
@@ -257,8 +257,9 @@ fun HomeScreen(
         val featured = features.firstOrNull()
         val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
         val feedScope = rememberCoroutineScope()
-        val parallaxOffset by remember {
-            androidx.compose.runtime.derivedStateOf {
+        // Scroll changes only the artwork's graphics layer, not the hero's lazy-item composition.
+        val parallaxOffsetProvider = remember(feedState) {
+            {
                 if (feedState.firstVisibleItemIndex == 0) {
                     feedState.firstVisibleItemScrollOffset * 0.42f
                 } else 0f
@@ -325,7 +326,7 @@ fun HomeScreen(
                             },
                             candidates = features,
                             rotationEnabled = featureVisible && state.activeSheet == null,
-                            parallaxOffset = parallaxOffset,
+                            parallaxOffsetProvider = parallaxOffsetProvider,
                         )
                     }
                 }
@@ -343,6 +344,8 @@ fun HomeScreen(
                 belowMobileHero = false
                 return top
             }
+            // The servers whose rows can be on the page; a row names its server only to tell two apart.
+            val homeSources = (mediaSources + watchingSources).toSet()
             layout.order.filter(layout::isVisible).forEach { row ->
                 val source = row.source
                 if (row.kind == HomeRowKind.NOW_PLAYING && state.sessions.isNotEmpty()) {
@@ -375,7 +378,7 @@ fun HomeScreen(
                                 MediaSectionTitle(stringResource(if (combine(source)) R.string.tv_continue_combined else R.string.home_continue), source, Modifier.padding(
                                     top = sectionTop,
                                     bottom = ReelLayout.SectionBottom,
-                                ))
+                                ), showSource = layout.sourceNeeded(row, homeSources))
                                 if (items.isEmpty() && firstLoad) LibraryRailSkeleton(stringResource(R.string.home_loading_resume), wide = true, tabletArtwork = false)
                                 else if (items.isEmpty()) EmptySectionLine(stringResource(R.string.home_resume_retry))
                                 else ResumeRail(items, onLibraryClick, cardActions, rowKey = row.id)
@@ -391,7 +394,7 @@ fun HomeScreen(
                       val sectionTop = nextSectionTop()
                       item(key = "favourites-${source.name}") {
                         MediaSectionTitle(stringResource(R.string.home_favourites), source,
-                            Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
+                            Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom), showSource = layout.sourceNeeded(row, homeSources))
                         LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions)
                       }
                     }
@@ -402,7 +405,8 @@ fun HomeScreen(
                       val sectionTop = nextSectionTop()
                       item(key = "next-up-${source.name}") {
                         Column(Modifier.testTag("next-up-${source.name}")) {
-                            MediaSectionTitle(stringResource(R.string.tv_next_up), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
+                            MediaSectionTitle(stringResource(R.string.tv_next_up), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
+                                showSource = layout.sourceNeeded(row, homeSources))
                             // Next up has no resume point of its own; the other two writes still apply.
                             ResumeRail(items, onLibraryClick, cardActions.withoutResumeRemoval(), rowKey = row.id)
                         }
@@ -412,7 +416,8 @@ fun HomeScreen(
                 if (row.kind == HomeRowKind.NEW_MOVIES && source != null && source in mediaSources) {
                         val sectionTop = nextSectionTop()
                         item(key = "recent-movies-${source.name}") {
-                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
+                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
+                                showSource = layout.sourceNeeded(row, homeSources))
                             val items = state.recentMovies.filter { it.source == source }
                             if (items.isEmpty()) {
                                 if (state.isRefreshing && source !in state.loadedSources) {
@@ -428,7 +433,8 @@ fun HomeScreen(
                 if (row.kind == HomeRowKind.NEW_SERIES && source != null && source in mediaSources) {
                         val sectionTop = nextSectionTop()
                         item(key = "recent-series-${source.name}") {
-                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom))
+                            MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
+                                showSource = layout.sourceNeeded(row, homeSources))
                             val items = state.recentSeries.filter { it.source == source }
                             if (items.isEmpty()) {
                                 if (state.isRefreshing && source !in state.loadedSources) {
@@ -454,7 +460,8 @@ fun HomeScreen(
                         Column(Modifier.testTag("home-shelf-${row.id}")) {
                             // The shelf's own icon marks the row as a shelf; the way into all of it is the row's last card.
                             MediaSectionTitle(app.reelstack.ui.components.smartShelfName(shelf), source,
-                                Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom), leading = shelf.icon.vector())
+                                Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom), leading = shelf.icon.vector(),
+                                showSource = layout.sourceNeeded(row, homeSources))
                             LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions,
                                 seeAll = RailSeeAll(stringResource(R.string.smart_shelf_see_all), shelf.icon.vector(),
                                     "home-shelf-all-${row.id}") { shelfActions.open(shelf.id) })
@@ -653,14 +660,14 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Modifier = Modifier,
-    leading: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    leading: androidx.compose.ui.graphics.vector.ImageVector? = null, showSource: Boolean = false) {
     Row(verticalAlignment = Alignment.Bottom, modifier = modifier.fillMaxWidth().padding(end = mediaEndInset()).clearAndSetSemantics {
         heading()
         contentDescription = "$title · ${source.displayName}"
     }) {
         if (leading != null) Icon(leading, null, Modifier.padding(end = 8.dp, bottom = 4.dp).size(20.dp), tint = Muted)
-        // The trailing source mark and label identify the shelf without repeating the source
-        // in its heading. Accessibility keeps both in the one spoken description above.
+        // The server's name is there only to tell two servers' rows apart; with one server it only
+        // repeated what the whole page is. Accessibility keeps it in the spoken description above.
         Text(
             text = title,
             color = TextColor,
@@ -669,21 +676,13 @@ internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Mod
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(end = 12.dp),
         )
-        // Mark and label stay centred on each other; the pair sits on the heading's baseline.
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
-            ServiceLogo(
-                kind = source,
-                contentDescription = null,
-                modifier = Modifier.size(13.dp),
-            )
-            Text(
-                text = source.displayName,
-                color = Muted,
-                fontSize = 12.sp, lineHeight = 17.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 7.dp),
-            )
-        }
+        if (showSource) Text(
+            text = source.displayName,
+            color = Muted,
+            fontSize = 12.sp, lineHeight = 17.sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(bottom = 2.dp),
+        )
     }
 }
 
@@ -869,7 +868,7 @@ private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: ap
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
-    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
+    val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     Column(Modifier.width(cardWidth).zIndex(if (focused) 10f else 0f).graphicsLayer { scaleX = scale; scaleY = scale }
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(),
@@ -1040,7 +1039,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
-    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
+    val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
     var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
@@ -1164,7 +1163,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
         animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
         label = "library-card-reveal",
     )
-    val scale = app.reelstack.ui.components.focusScale(focused, pressed)
+    val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
     Column(
         modifier = Modifier
             .width(cardWidth)
@@ -1302,7 +1301,7 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
  * it is not squeezed into a half-width column that wraps at the default font size.
  */
 @Composable
-private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(end = mediaEndInset())) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_upcoming), Modifier.weight(1f).padding(end = 12.dp))
@@ -1311,6 +1310,8 @@ private fun UpcomingSectionTitle(onCalendarClick: () -> Unit, modifier: Modifier
                 color = Primary.copy(alpha = 0.18f),
                 contentColor = PrimarySoft,
                 shape = CircleShape,
+                // 48 dp so the ring lies on the pill, not round the touch margin of a 40 dp one.
+                modifier = Modifier.heightIn(min = 48.dp).focusRing(CircleShape).testTag("home-calendar-button"),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

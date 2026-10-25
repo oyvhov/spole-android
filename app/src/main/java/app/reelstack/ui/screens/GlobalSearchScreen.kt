@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,14 +40,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.reelstack.ui.components.OpenMenuAction
 import app.reelstack.ui.components.QuietEmptyState
+import app.reelstack.ui.components.focusRing
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
@@ -90,8 +99,8 @@ fun GlobalSearchScreen(
     onClose: () -> Unit,
     onLibraryDetails: (String) -> Unit,
     onDiscoverDetails: (String) -> Unit,
-    onRequest: (String) -> Unit,
     onLoadMore: () -> Unit,
+    onPerson: (Int) -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -104,16 +113,18 @@ fun GlobalSearchScreen(
         withFrameNanos { }
         if (runCatching { field.requestFocus() }.isSuccess) keyboard?.show()
     }
-    // Scrolling the results is reading, not typing. The keyboard steps aside.
+    // Scrolling the results is reading, not typing. The keyboard steps aside — only from the field: on a
+    // television the remote's own moves scroll the grid, and clearing focus then lost it altogether.
+    var fieldFocused by remember { androidx.compose.runtime.mutableStateOf(false) }
     LaunchedEffect(grid) {
-        snapshotFlow { grid.isScrollInProgress }.collect { scrolling -> if (scrolling) focusManager.clearFocus() }
+        snapshotFlow { grid.isScrollInProgress }.collect { scrolling -> if (scrolling && fieldFocused) focusManager.clearFocus() }
     }
     ReelPage(Modifier.background(Ink).semantics { paneTitle = screenTitle }, media = true) {
         Column(Modifier.fillMaxSize().testTag("global-search")
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
             Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = ReelLayout.Gutter, top = 12.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose, modifier = Modifier.testTag("global-search-close")) {
+                IconButton(onClick = onClose, modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("global-search-close")) {
                     Icon(SpoleIcons.ArrowBack, stringResource(R.string.action_back))
                 }
                 TextField(
@@ -126,13 +137,13 @@ fun GlobalSearchScreen(
                             CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                         } else if (search.query.isNotEmpty()) {
                             IconButton(onClick = { onQuery(""); runCatching { field.requestFocus() } },
-                                modifier = Modifier.testTag("global-search-clear")) {
+                                modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("global-search-clear")) {
                                 Icon(SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
                             }
                         }
                     },
                     placeholder = {
-                        Text(stringResource(R.string.home_search), fontSize = 14.sp, lineHeight = 20.sp,
+                        Text(stringResource(R.string.discover_search_hint), fontSize = 14.sp, lineHeight = 20.sp,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -145,7 +156,15 @@ fun GlobalSearchScreen(
                         unfocusedContainerColor = Color.Transparent,
                         cursorColor = Primary,
                     ),
-                    modifier = Modifier.weight(1f).focusRequester(field).testTag("global-search-field"),
+                    // A text field keeps the remote's down for itself; on a television the results are
+                    // what down is for, so it leaves the field and the keyboard steps aside.
+                    modifier = Modifier.weight(1f).focusRequester(field).onFocusChanged { fieldFocused = it.isFocused }.onPreviewKeyEvent { event ->
+                        if (event.key == androidx.compose.ui.input.key.Key.DirectionDown &&
+                            event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                            keyboard?.hide()
+                            focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                        } else false
+                    }.testTag("global-search-field"),
                 )
             }
             val query = search.query.trim()
@@ -182,6 +201,14 @@ fun GlobalSearchScreen(
                     }
                     return@LazyVerticalGrid
                 }
+                if (!search.searching && search.people.isNotEmpty()) {
+                    item(key = "people-heading", span = { GridItemSpan(maxLineSpan) }) {
+                        SearchHeading(stringResource(R.string.discover_people), Modifier.padding(top = 12.dp), SpoleIcons.Person)
+                    }
+                    items(search.people.take(SEARCH_PEOPLE_SHOWN), key = { "person-${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { person ->
+                        PersonLine(person) { onPerson(person.id) }
+                    }
+                }
                 if (search.libraryResults.isNotEmpty()) {
                     item(key = "library-heading", span = { GridItemSpan(maxLineSpan) }) {
                         Column(Modifier.padding(top = 4.dp)) {
@@ -210,9 +237,8 @@ fun GlobalSearchScreen(
                             SearchHeading(stringResource(R.string.search_add_new), Modifier.padding(top = 12.dp), SpoleIcons.Discover)
                         }
                         items(requestable, key = { "seerr-${it.id}" }) { media ->
-                            DiscoverCard(media, media.id in state.requestingMediaIds,
-                                allowed = state.canRequest(media),
-                                onRequest = { onRequest(media.id) }, onDetails = { onDiscoverDetails(media.id) })
+                            if (app.reelstack.ui.components.isTelevision()) NamedPoster(media, { onDiscoverDetails(media.id) }, Modifier.fillMaxWidth())
+                            else PosterOnlyCard(media, { onDiscoverDetails(media.id) }, Modifier.fillMaxWidth())
                         }
                         // Seerr answers twenty at a time; the next page is a choice, not a scroll trap.
                         if (search.hasMore) item(key = "more", span = { GridItemSpan(maxLineSpan) }) {
@@ -220,7 +246,7 @@ fun GlobalSearchScreen(
                                 onClick = onLoadMore,
                                 enabled = !search.loadingMore,
                                 shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("global-search-more"),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).focusRing(RoundedCornerShape(14.dp)).testTag("global-search-more"),
                             ) {
                                 if (search.loadingMore) {
                                     CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)
@@ -229,7 +255,7 @@ fun GlobalSearchScreen(
                             }
                         }
                     }
-                    search.libraryResults.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
+                    search.libraryResults.isEmpty() && search.people.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
                         QuietEmptyState(search.error ?: stringResource(R.string.search_global_no_results, query),
                             if (search.error != null) SpoleIcons.Wifi else SpoleIcons.Search,
                             modifier = Modifier.testTag("global-search-empty"))
@@ -237,7 +263,7 @@ fun GlobalSearchScreen(
                 }
                 // One service failing leaves the other's answers in place, with a line saying which.
                 val partialError = search.error
-                if (!search.searching && partialError != null && (search.libraryResults.isNotEmpty() || requestable.isNotEmpty())) {
+                if (!search.searching && partialError != null && (search.libraryResults.isNotEmpty() || requestable.isNotEmpty() || search.people.isNotEmpty())) {
                     item(key = "partial-error", span = { GridItemSpan(maxLineSpan) }) {
                         Text(partialError, color = Muted, style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(vertical = 8.dp))

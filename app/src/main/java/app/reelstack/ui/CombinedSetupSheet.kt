@@ -3,6 +3,7 @@ package app.reelstack.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
@@ -12,11 +13,13 @@ import androidx.compose.runtime.*
 import app.reelstack.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -24,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.network.PublicUser
 import app.reelstack.ui.components.SpoleSecondaryButton
+import app.reelstack.ui.components.focusBleed
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.readableServerAddress
 
@@ -102,7 +106,8 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
                     } else {
                         val editInteraction = remember { MutableInteractionSource() }
                         TextButton(onClick = { editingAddresses = true }, interactionSource = editInteraction,
-                            modifier = Modifier.focusOutline(editInteraction, buttonShape).testTag("setup-edit-addresses")) {
+                            modifier = Modifier.heightIn(min = 48.dp).focusOutline(editInteraction, ButtonDefaults.textShape)
+                                .testTag("setup-edit-addresses")) {
                             Text(stringResource(R.string.setup_change))
                         }
                     }
@@ -116,17 +121,23 @@ internal fun CombinedSetupSheet(draft: ConnectionDraft, onJellyfin: (String) -> 
                 keyboardType = KeyboardType.Uri, autoCorrect = false, shape = buttonShape,
                 // Next keeps its own move to the Seerr field; Go starts.
                 onImeAction = if (draft.alsoConnect) null else { { onStart() } })
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            val switchInteraction = remember { MutableInteractionSource() }
+            val switchShape = RoundedCornerShape(12.dp)
+            // The whole line is the switch, so the ring frames the words and the track together.
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).focusBleed(8.dp, 4.dp)
+                .focusOutline(switchInteraction, switchShape).clip(switchShape)
+                .toggleable(draft.alsoConnect, interactionSource = switchInteraction,
+                    indication = app.reelstack.ui.components.mediaCardIndication(), role = Role.Switch) {
+                    if (it && draft.companionUrl.isBlank()) editingAddresses = true
+                    onSeerrEnabled(it)
+                }
+                .padding(horizontal = 8.dp, vertical = 4.dp).testTag("setup-seerr-enabled"),
+                verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.setup_also_seerr))
                     Text(stringResource(R.string.setup_also_seerr_why), style = MaterialTheme.typography.bodySmall)
                 }
-                val switchInteraction = remember { MutableInteractionSource() }
-                Switch(draft.alsoConnect, {
-                    if (it && draft.companionUrl.isBlank()) editingAddresses = true
-                    onSeerrEnabled(it)
-                }, Modifier.focusOutline(switchInteraction, RoundedCornerShape(50)).testTag("setup-seerr-enabled"),
-                    interactionSource = switchInteraction)
+                Switch(draft.alsoConnect, onCheckedChange = null)
             }
             if (draft.alsoConnect && editingAddresses) app.reelstack.ui.components.RemoteTextField(draft.companionUrl, onSeerr,
                 television, ImeAction.Go, Modifier.fillMaxWidth().testTag("setup-seerr-url"),

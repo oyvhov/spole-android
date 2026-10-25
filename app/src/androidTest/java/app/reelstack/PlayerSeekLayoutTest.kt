@@ -232,7 +232,7 @@ class PlayerSeekLayoutTest {
             .map { rule.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
         assertTrue("Tablet transport controls need an appropriate visual scale",
             transport.all { it.width >= 72 * renderScale - 2 && it.height >= 72 * renderScale - 2 })
-        val tools = listOf("player-chapters", "player-audio", "player-subtitles", "player-quality", "player-frame-mode")
+        val tools = listOf("player-options")
             .map { rule.onNodeWithTag(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
         assertTrue("Track controls retain at least 48 dp", tools.all { it.width >= 48 * renderScale - 2 })
         rule.onNodeWithTag("player-time-label").assertIsDisplayed()
@@ -324,7 +324,7 @@ class PlayerSeekLayoutTest {
         rule.setContent { ReelstackTheme {
             Box(Modifier.fillMaxSize()) {
                 TvPlaybackOverlay(fixture, false, 120_000, remember { FocusRequester() }, null,
-                    {}, { _, _ -> }, {}, {}, {}, null, {}, {})
+                    {}, { _, _ -> }, null, {}, {}, remember { FocusRequester() }, {})
             }
         } }
         rule.onNodeWithTag("player-seek-feedback").assertIsDisplayed()

@@ -197,11 +197,13 @@ class SmartShelvesTest {
         rule.onNodeWithTag("smart-item-m2").assertExists()
     }
 
-    @Test fun surpriseOpensATitleNotSeenYet() {
-        var opened: String? = null
-        shelfPage(listOf(item("seen", "Movie").copy(played = true), item("fresh", "Movie")), opened = { opened = it })
-        rule.onNodeWithTag("smart-shelf-surprise").performClick()
-        rule.runOnIdle { assertEquals("fresh", opened) }
+    /** «Endre» is the last of the page's choices; the picture at the top carries no buttons. */
+    @Test fun editIsAmongTheChoices() {
+        val actions = Recorder()
+        shelfPage(listOf(item("m1", "Movie"), item("m2", "Movie")), actions)
+        rule.onNodeWithTag("smart-shelf-surprise").assertDoesNotExist()
+        rule.onNode(hasTestTag("smart-shelf-edit") and hasAnyAncestor(hasTestTag("smart-shelf-controls"))).performClick()
+        rule.runOnIdle { assertEquals("halloween" to null, actions.editing) }
     }
 
     /**
@@ -228,8 +230,7 @@ class SmartShelvesTest {
             rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionUp) }
             rule.waitForIdle()
         }
-        assertTrue("Focus did not reach the shelf's buttons", listOf("smart-shelf-surprise", "smart-shelf-edit")
-            .any { tag -> runCatching { rule.onNodeWithTag(tag).assertIsFocused() }.isSuccess })
+        rule.onNode(isFocused() and hasAnyAncestor(hasTestTag("smart-shelf-controls"))).assertExists()
         assertEquals("The top of the page came back only in part", heroTop,
             rule.onNodeWithTag("smart-shelf-hero").fetchSemanticsNode().boundsInRoot.top, 1f)
         rule.onNodeWithTag("smart-shelf-sort").assertIsDisplayed()

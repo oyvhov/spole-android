@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="my_requests_title">Your requests</string>
+    <string name="my_requests_tab_all">All</string>
+    <string name="my_requests_tab_in_progress">On the way</string>
+    <string name="my_requests_tab_ready">Ready</string>
+    <string name="my_requests_tab_server">Server</string>
+    <string name="my_requests_empty">You haven’t requested anything yet.</string>
+    <string name="my_requests_unresolved">Request no. %1$d</string>
+    <string name="my_requests_older">Load older</string>
+    <plurals name="my_requests_seasons">
+        <item quantity="one">Season %1$s</item>
+        <item quantity="other">Seasons %1$s</item>
+    </plurals>
+    <string name="discover_row_trending">Popular now</string>
+    <string name="discover_row_upcoming_movies">Upcoming films</string>
+    <string name="discover_row_upcoming_series">Upcoming series</string>
+    <string name="discover_people">People</string>
+    <string name="discover_genres">Genres</string>
+    <string name="discover_all_count">All %1$d</string>
+    <string name="discover_all">All</string>
+    <string name="discover_rows_failed">Seerr didn’t answer everything.</string>
+    <string name="discover_search_hint">Search films, series and people</string>
+    <string name="person_in_library">In your library</string>
+    <string name="person_more_with">More with %1$s</string>
+    <string name="person_read_more">Read more</string>
+    <string name="person_born">born %1$s</string>
+    <string name="person_failed">Seerr didn’t answer. Try again later.</string>
+    <string name="person_dept_acting">Actor</string>
+    <string name="person_dept_directing">Director</string>
+    <string name="person_dept_writing">Writer</string>
+    <string name="person_dept_production">Producer</string>
+    <string name="person_dept_sound">Sound and music</string>
+    <string name="person_dept_camera">Camera</string>
+    <string name="person_dept_editing">Editing</string>
+    <string name="title_action_request">Request</string>
+    <string name="title_action_request_seasons">Request seasons</string>
+    <string name="title_action_withdraw">Withdraw</string>
+    <string name="title_action_notify_on">Alert on</string>
+    <string name="title_action_notify_off">Alert off</string>
+    <string name="title_similar">Similar titles</string>
+    <string name="title_recommended">Recommended from this</string>
+    <string name="request_edition">Edition</string>
+    <string name="request_edition_standard">Standard</string>
+    <string name="request_edition_4k">4K</string>
+    <string name="request_quality">Quality</string>
+    <string name="request_folder">Location</string>
+    <string name="request_usual_choice">usual choice</string>
+    <string name="request_free_space">%1$s free</string>
+    <string name="request_cancel">Cancel</string>
+    <string name="my_requests_alerts_off">App notifications are off in Settings. The status is shown here.</string>
+    <string name="my_requests_alerts_android">Android needs to allow notifications from Spole before you are told something is ready.</string>
+</resources>

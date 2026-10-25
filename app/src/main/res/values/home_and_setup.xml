@@ -13,7 +13,7 @@
     <string name="skeleton_loading_upcoming">Loading upcoming releases</string>
     <string name="skeleton_loading_downloads">Loading downloads</string>
     <string name="skeleton_loading_search">Loading search results</string>
-    <string name="skeleton_loading_activity">Loading activity</string>
+    <string name="skeleton_loading_activity">Loading requests</string>
     <string name="skeleton_loading_details">Loading more details</string>
     <string name="home_playback_details">Playback details</string>
     <string name="remote_sending_command">Sending command…</string>
@@ -30,9 +30,6 @@
     <string name="setup_finishing_sign_in">Finishing the sign-in…</string>
     <string name="session_paused">Paused</string>
     <string name="session_playing_now">Playing now</string>
-    <string name="activity_filter_all">All</string>
-    <string name="activity_filter_in_progress">Under way</string>
-    <string name="activity_filter_ready">Ready</string>
     <string name="details_eyebrow_in_library">In your library</string>
     <string name="details_eyebrow_discover">Discover in Seerr</string>
     <string name="queue_last_reported_state">Last state reported by %1$s.</string>

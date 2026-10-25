@@ -13,6 +13,37 @@ import org.junit.Test
 class TvPlaybackControlsTest {
     @get:Rule val rule = createComposeRule()
     private lateinit var inputMode: androidx.compose.ui.input.InputModeManager
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @Test fun repeatedPlayAndPauseKeysStayIdempotentBeforeTheUiCatchesUp() {
+        lateinit var player: androidx.media3.exoplayer.ExoPlayer
+        var toggles = 0
+        rule.runOnIdle {
+            player = androidx.media3.exoplayer.ExoPlayer.Builder(
+                androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext).build()
+            player.playWhenReady = true
+        }
+        try {
+            rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current; ReelstackTheme {
+                // Deliberately never publish the player's new state, modelling a delayed UI frame.
+                PlayerScreen(PlayerScreenState(busy = false, playing = true, playWhenReady = true, durationMs = 60_000),
+                    player, {}, { toggles++; player.playWhenReady = !player.playWhenReady },
+                    {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
+            } }
+            rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+            val timeline = rule.onNodeWithTag("player-timeline")
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+            repeat(2) {
+                timeline.performKeyInput { pressKey(Key.MediaPause) }
+                rule.runOnIdle { assertFalse("Pause must stay paused even while UI state is stale", player.playWhenReady) }
+            }
+            repeat(2) {
+                timeline.performKeyInput { pressKey(Key.MediaPlay) }
+                rule.runOnIdle { assertTrue("Play must stay playing even while UI state is stale", player.playWhenReady) }
+            }
+            rule.runOnIdle { assertEquals(2, toggles) }
+        } finally { rule.runOnIdle { player.release() } }
+    }
+
     @Test fun playKeyDuringBufferingDoesNotPauseAndPauseKeyStillWorks() {
         var toggles = 0
         rule.setContent { inputMode = androidx.compose.ui.platform.LocalInputModeManager.current; ReelstackTheme {
@@ -43,7 +74,8 @@ class TvPlaybackControlsTest {
         rule.onNodeWithTag("player-next-episode").assertDoesNotExist()
         rule.runOnIdle { state.value = state.value.copy(positionMs = 1_740_000, nextEpisodeCountdown = 6) }
         rule.onNodeWithTag("player-next-play").assertIsDisplayed().assertIsFocused()
-        rule.onNodeWithTag("player-next-artwork").assertIsDisplayed()
+        // The corner card names the episode without a picture.
+        rule.onNodeWithTag("player-next-artwork").assertDoesNotExist()
         rule.mainClock.advanceTimeBy(4000)
         rule.onNodeWithTag("player-next-play").assertIsFocused()
         rule.onNodeWithTag("player-next-play").performKeyInput { pressKey(Key.DirectionCenter) }
@@ -64,7 +96,8 @@ class TvPlaybackControlsTest {
         }
         rule.onNodeWithTag("player-next-play").assertIsDisplayed()
         rule.onNodeWithTag("player-next-cancel").assertIsDisplayed()
-        rule.onNodeWithTag("player-next-progress").assertIsDisplayed()
+        // The countdown is the fill inside «Spel neste»; at its first second it has barely begun.
+        rule.onNodeWithTag("player-next-progress", useUnmergedTree = true).assertExists()
     }
 
     @Test fun backHidesPlayingControlsThenLeavesPlayer() {
@@ -88,7 +121,7 @@ class TvPlaybackControlsTest {
             PlayerScreen(PlayerScreenState(busy = false, playing = false, durationMs = 60_000), null,
                 { exits++ }, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
-        rule.onNodeWithTag("player-quality").performClick()
+        rule.onNodeWithTag("player-options").performClick()
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         rule.waitForIdle()
         rule.onNodeWithTag("player-timeline").assertIsDisplayed()
@@ -157,8 +190,7 @@ class TvPlaybackControlsTest {
         rule.onNodeWithTag("player-timeline").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
         rule.runOnIdle { assertEquals(40_000L, position) }
         rule.onNodeWithTag("player-timeline").performKeyInput { pressKey(Key.DirectionDown) }
-        rule.onNodeWithTag("player-audio").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
-        rule.onNodeWithTag("player-subtitles").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
+        rule.onNodeWithTag("player-options").assertIsFocused().performKeyInput { pressKey(Key.DirectionUp) }
         rule.onNodeWithTag("player-timeline").assertIsFocused()
     }
 
@@ -168,7 +200,7 @@ class TvPlaybackControlsTest {
                 positionMs = 30_000, durationMs = 120_000), null,
                 {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } } }
-        listOf("player-timeline", "player-audio", "player-subtitles", "player-quality")
+        listOf("player-timeline", "player-options")
             .forEach { rule.onNodeWithTag(it).assertIsDisplayed() }
         rule.onNodeWithTag("player-frame-mode").assertDoesNotExist()
     }

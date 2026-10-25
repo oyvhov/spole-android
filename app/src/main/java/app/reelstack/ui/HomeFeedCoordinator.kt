@@ -1,6 +1,5 @@
 package app.reelstack.ui
 
-import app.reelstack.AppContainer
 import app.reelstack.R
 import app.reelstack.data.model.ConnectionState
 import app.reelstack.data.model.HomeFetchPlan
@@ -26,13 +25,19 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Owns Home's server feed and the lightweight playback notification channel.
  *
- * `ReelstackViewModel` remains the composition root while Library, Profile and Discover still
- * share its state object. Keeping the feed's jobs, retry clock and stale-while-revalidate cache
- * together here makes that temporary boundary explicit: Home data no longer needs to know about
+ * `ReelstackViewModel` remains the composition root and exposes one atomic screen snapshot. The feed's jobs,
+ * retry clock and stale-while-revalidate cache belong to this session owner: Home data no longer needs to know about
  * navigation, PIN prompts or connection-editor state.
  */
 internal class HomeFeedCoordinator(
-    private val container: AppContainer,
+    private val appContext: android.content.Context,
+    private val connectionRepository: app.reelstack.data.repository.ConnectionRepository,
+    private val localPlaybackStore: app.reelstack.data.repository.LocalPlaybackStore,
+    private val mediaFingerprint: (List<ServiceConnection>) -> String,
+    private val mediaSnapshotStore: app.reelstack.data.repository.MediaSnapshotStore,
+    private val mediaSyncRepository: app.reelstack.data.repository.MediaSyncRepository,
+    private val preferencesRepository: app.reelstack.data.repository.AppPreferencesRepository,
+    private val sessionSocket: app.reelstack.data.network.JellyfinSessionSocket,
     private val scope: CoroutineScope,
     private val readState: () -> ReelstackUiState,
     private val updateState: ((ReelstackUiState) -> ReelstackUiState) -> Unit,
@@ -40,6 +45,7 @@ internal class HomeFeedCoordinator(
     private val refreshTrackedRequests: () -> Unit,
     private val openLibraryDetails: (String) -> Unit,
     private val isSigningOut: () -> Boolean,
+    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
 ) {
     private var refreshJob: Job? = null
     private var cacheLoadJob: Job? = null
@@ -95,7 +101,7 @@ internal class HomeFeedCoordinator(
             it.kind == ServiceKind.JELLYFIN && it.token.isNotBlank()
         } ?: return
         sessionChannel = runCatching {
-            container.sessionSocket.connect(
+            sessionSocket.connect(
                 connection = connection,
                 onChanged = {
                     if (playbackJob?.isActive != true) {
@@ -118,19 +124,19 @@ internal class HomeFeedCoordinator(
     }
 
     suspend fun refreshPlayback(sources: Set<ServiceKind> = MEDIA_SERVERS) = playbackLock.withLock {
-        val owner = container.connectionRepository.captureSession()
+        val owner = connectionRepository.captureSession()
         val before = readState()
         val connections = before.connections
         val requested = sources.intersect(MEDIA_SERVERS)
         if (connections.none { it.token.isNotBlank() && it.kind in requested }) return@withLock
-        val result = withContext(Dispatchers.IO) {
-            container.mediaSyncRepository.refreshPlaybackResult(connections, requested)
+        val result = withContext(ioDispatcher) {
+            mediaSyncRepository.refreshPlaybackResult(connections, requested)
         }
         playbackRevision++
         // Never put a response from an account that has since signed out back on screen.
         updateState { current ->
             when {
-                !container.connectionRepository.isCurrent(owner) || current.connections != connections -> current
+                !connectionRepository.isCurrent(owner) || current.connections != connections -> current
                 else -> current.copy(
                     sessions = mergePlaybackSessions(current.sessions, result.sessions, requested),
                     playbackUnavailableSources = (current.playbackUnavailableSources - requested) + result.unavailableSources,
@@ -140,7 +146,7 @@ internal class HomeFeedCoordinator(
         // Session polling/push used to update only "Playing now". Other devices' stops and
         // episode changes must also update Continue Watching and Next up while Home stays open.
         val current = readState()
-        if (container.connectionRepository.isCurrent(owner) && current.connections == connections &&
+        if (connectionRepository.isCurrent(owner) && current.connections == connections &&
             personalProgressChanged(before.sessions, current.sessions, requested - result.unavailableSources)) refresh()
     }
 
@@ -150,7 +156,7 @@ internal class HomeFeedCoordinator(
         freshSources: Set<ServiceKind> = emptySet(),
     ): List<LibraryMedia> = connections
         .filter { it.kind in MEDIA_SERVERS && it.token.isNotBlank() }
-        .fold(items) { result, account -> container.localPlaybackStore.merge(account, result, account.kind in freshSources) }
+        .fold(items) { result, account -> localPlaybackStore.merge(account, result, account.kind in freshSources) }
 
     fun localNextUp(
         items: List<LibraryMedia>,
@@ -158,7 +164,7 @@ internal class HomeFeedCoordinator(
         freshSources: Set<ServiceKind> = emptySet(),
     ): List<LibraryMedia> = connections
         .filter { it.kind in MEDIA_SERVERS && it.token.isNotBlank() }
-        .fold(items) { result, account -> container.localPlaybackStore.nextUp(account, result, account.kind in freshSources) }
+        .fold(items) { result, account -> localPlaybackStore.nextUp(account, result, account.kind in freshSources) }
 
     /** Returning from local playback refreshes personal progress and the next episode. */
     fun returnedToApp() {
@@ -173,17 +179,17 @@ internal class HomeFeedCoordinator(
     /** Hydrates a profile-scoped feed before the network response arrives. */
     fun hydrateCachedFeed() {
         val seedConnections = readState().connections
-        val owner = container.connectionRepository.captureSession()
-        val fingerprint = container.mediaFingerprint(seedConnections)
+        val owner = connectionRepository.captureSession()
+        val fingerprint = mediaFingerprint(seedConnections)
         if (seedConnections.none { it.baseUrl.isNotBlank() && it.token.isNotBlank() }) return
         cancelCacheLoad()
-        cacheLoadJob = scope.launch(Dispatchers.IO) {
+        cacheLoadJob = scope.launch(ioDispatcher) {
             val cached = runCatching {
-                container.mediaSnapshotStore.read(fingerprint)
+                mediaSnapshotStore.read(fingerprint)
             }.getOrNull()
-            if (!isActive || !container.connectionRepository.isCurrent(owner) || cached == null) return@launch
+            if (!isActive || !connectionRepository.isCurrent(owner) || cached == null) return@launch
             updateState { current ->
-                if (!container.connectionRepository.isCurrent(owner) || current.connections != seedConnections) return@updateState current
+                if (!connectionRepository.isCurrent(owner) || current.connections != seedConnections) return@updateState current
                 val configuredKinds = seedConnections.filter { it.baseUrl.isNotBlank() }
                     .mapTo(mutableSetOf()) { it.kind }
                 val hasMediaServer = configuredKinds.any { it in MEDIA_SERVERS }
@@ -238,7 +244,7 @@ internal class HomeFeedCoordinator(
      */
     fun setLayout(layout: HomeLayout) {
         val before = readState().effectiveHomeLayout
-        container.preferencesRepository.homeLayout = layout
+        preferencesRepository.homeLayout = layout
         updateState { it.copy(homeLayout = layout) }
         val newlyFetched = layout.order.any { key ->
             key.kind.skippedWhenHidden && layout.isVisible(key) && !before.isVisible(key)
@@ -247,7 +253,7 @@ internal class HomeFeedCoordinator(
     }
 
     fun setLibraries(connection: ServiceConnection, choice: HomeLibraryChoice) {
-        container.preferencesRepository.setHomeLibraries(connection, choice)
+        preferencesRepository.setHomeLibraries(connection, choice)
         updateState { it.copy(homeLibraries = it.homeLibraries + (connection.kind to choice)) }
         restartRefresh()
     }
@@ -272,8 +278,8 @@ internal class HomeFeedCoordinator(
             return
         }
 
-        val refreshFingerprint = container.mediaFingerprint(state.connections)
-        val refreshOwner = container.connectionRepository.captureSession()
+        val refreshFingerprint = mediaFingerprint(state.connections)
+        val refreshOwner = connectionRepository.captureSession()
         val revisionAtStart = playbackRevision
         lastFeedAttemptMillis = android.os.SystemClock.elapsedRealtime()
         updateState { it.copy(isRefreshing = true) }
@@ -281,20 +287,20 @@ internal class HomeFeedCoordinator(
             val started = System.nanoTime()
             val firstRow = java.util.concurrent.atomic.AtomicBoolean(true)
             val outcome = attempt {
-                val snapshot = withContext(Dispatchers.IO) {
+                val snapshot = withContext(ioDispatcher) {
                     val layout = state.effectiveHomeLayout
-                    container.mediaSyncRepository.refresh(
+                    mediaSyncRepository.refresh(
                         connections = state.connections,
                         includeRecommendations = layout.isVisible(HomeRowKey(HomeRowKind.RECOMMENDATIONS)),
                         homePlan = state.homeFetchPlan(),
                         calendarScope = refreshOwner.profileId, forceCalendar = userInitiated,
                         onCalendarReady = { update -> updateState { current ->
-                            if (!container.connectionRepository.isCurrent(refreshOwner) || container.mediaFingerprint(current.connections) != refreshFingerprint) current
+                            if (!connectionRepository.isCurrent(refreshOwner) || mediaFingerprint(current.connections) != refreshFingerprint) current
                             else current.copy(upcoming = update.upcoming, calendarUndated = update.undated,
-                                calendarHidden = update.hidden, upcomingError = update.error?.text(container.appContext))
+                                calendarHidden = update.hidden, upcomingError = update.error?.text(appContext))
                         } },
                         onLibraryReady = libraryReady@ { update ->
-                            if (!container.connectionRepository.isCurrent(refreshOwner)) return@libraryReady
+                            if (!connectionRepository.isCurrent(refreshOwner)) return@libraryReady
                             if (firstRow.getAndSet(false)) app.reelstack.data.network.PerfLog.milestone("home first-rows ${update.source}", started)
                             updateLibraryRow(refreshFingerprint, update)
                         },
@@ -309,16 +315,16 @@ internal class HomeFeedCoordinator(
                 }
                 return@launch
             }
-            if (!isActive || !container.connectionRepository.isCurrent(refreshOwner) || container.mediaFingerprint(readState().connections) != refreshFingerprint) return@launch
+            if (!isActive || !connectionRepository.isCurrent(refreshOwner) || mediaFingerprint(readState().connections) != refreshFingerprint) return@launch
             if (snapshot.switchedToAlternate.isNotEmpty()) {
                 attempt {
-                    withContext(Dispatchers.IO) {
-                        snapshot.switchedToAlternate.forEach(container.connectionRepository::promoteAlternate)
+                    withContext(ioDispatcher) {
+                        snapshot.switchedToAlternate.forEach(connectionRepository::promoteAlternate)
                     }
                 }
             }
             val refreshedConnections = if (snapshot.switchedToAlternate.isEmpty()) null
-            else runCatching { container.connectionRepository.list() }.getOrNull()
+            else runCatching { connectionRepository.list() }.getOrNull()
             updateState { current -> applySnapshot(current, snapshot, refreshedConnections, userInitiated,
                 keepLivePlayback = playbackRevision != revisionAtStart) }
             retryAttempts = if (snapshot.errors.keys.any { it in MEDIA_SERVERS } ||
@@ -327,8 +333,8 @@ internal class HomeFeedCoordinator(
             // is not a reason to fail a live refresh.
             if (snapshot.successfulServices.isNotEmpty()) {
                 attempt {
-                    withContext(Dispatchers.IO) {
-                        container.mediaSnapshotStore.save(snapshot, refreshFingerprint)
+                    withContext(ioDispatcher) {
+                        mediaSnapshotStore.save(snapshot, refreshFingerprint)
                     }
                 }
             }
@@ -340,7 +346,7 @@ internal class HomeFeedCoordinator(
         update: app.reelstack.data.repository.LibraryFeedUpdate,
     ) {
         updateState { current ->
-            if (container.mediaFingerprint(current.connections) != refreshFingerprint) current else {
+            if (mediaFingerprint(current.connections) != refreshFingerprint) current else {
                 // Merged in the order the final snapshot uses. Appending the fresh server after the
                 // other one flipped the order at every update, and the tablet and TV hero, which
                 // picks from these lists, changed title while it was on screen.
@@ -371,7 +377,7 @@ internal class HomeFeedCoordinator(
         val unreadable = state.connections.filter {
             it.baseUrl.isNotBlank() && it.state == ConnectionState.ERROR
         }
-        val demoContext = app.reelstack.localization.AppLanguages.wrap(container.appContext)
+        val demoContext = app.reelstack.localization.AppLanguages.wrap(appContext)
         val allowDemo = state.connections.none { it.baseUrl.isNotBlank() }
         fun <T> content(demo: () -> List<T>): List<T> = if (allowDemo) demo() else emptyList()
         updateState {
@@ -423,7 +429,7 @@ internal class HomeFeedCoordinator(
         val activityLive = queueLive || seerrLive
         val anySuccess = snapshot.successfulServices.isNotEmpty()
         val serviceWarnings = snapshot.warnings.mapValues { (_, sentences) ->
-            sentences.joinToString(" · ") { it.text(container.appContext) }
+            sentences.joinToString(" · ") { it.text(appContext) }
         }
         return current.copy(
             adminView = snapshot.adminView,
@@ -434,17 +440,17 @@ internal class HomeFeedCoordinator(
             nextUp = localNextUp(snapshot.nextUp, connectionsNow, snapshot.successfulServices - snapshot.warnings.keys),
             favourites = snapshot.favourites,
             libraryShortcuts = current.copy(connections = connectionsNow).libraryConnection
-                ?.let(container.preferencesRepository::libraryShortcuts).orEmpty(),
+                ?.let(preferencesRepository::libraryShortcuts).orEmpty(),
             libraryIcons = current.copy(connections = connectionsNow).libraryConnection
-                ?.let(container.preferencesRepository::libraryIcons).orEmpty(),
+                ?.let(preferencesRepository::libraryIcons).orEmpty(),
             recentMovies = snapshot.recentMovies,
             recentSeries = snapshot.recentSeries,
             recentReleases = snapshot.recentReleases,
             upcoming = snapshot.upcoming,
             calendarUndated = snapshot.calendarUndated,
             calendarHidden = snapshot.calendarHidden,
-            recentReleasesError = snapshot.recentReleasesError?.text(container.appContext),
-            upcomingError = snapshot.upcomingError?.text(container.appContext),
+            recentReleasesError = snapshot.recentReleasesError?.text(appContext),
+            upcomingError = snapshot.upcomingError?.text(appContext),
             incoming = snapshot.incoming,
             discover = when {
                 ServiceKind.SEERR !in configuredKinds -> emptyList()
@@ -466,7 +472,7 @@ internal class HomeFeedCoordinator(
                     )
                     connection.kind in snapshot.errors -> connection.copy(
                         state = ConnectionState.ERROR,
-                        detail = snapshot.errors.getValue(connection.kind).text(container.appContext),
+                        detail = snapshot.errors.getValue(connection.kind).text(appContext),
                     )
                     connection.kind in snapshot.successfulServices -> connection.copy(
                         state = ConnectionState.CONNECTED,
@@ -510,13 +516,13 @@ internal class HomeFeedCoordinator(
     }
 
     private fun appString(@androidx.annotation.StringRes resId: Int, vararg args: Any): String =
-        app.reelstack.localization.AppLanguages.wrap(container.appContext).getString(resId, *args)
+        app.reelstack.localization.AppLanguages.wrap(appContext).getString(resId, *args)
 
     private fun appQuantityString(
         @androidx.annotation.PluralsRes resId: Int,
         quantity: Int,
         vararg args: Any,
-    ): String = app.reelstack.localization.AppLanguages.wrap(container.appContext)
+    ): String = app.reelstack.localization.AppLanguages.wrap(appContext)
         .resources.getQuantityString(resId, quantity, *args)
 
     private companion object {

@@ -1,6 +1,5 @@
 package app.reelstack.ui
 
-import app.reelstack.AppContainer
 import app.reelstack.R
 import app.reelstack.data.model.ServiceKind
 import kotlinx.coroutines.CoroutineScope
@@ -13,15 +12,18 @@ import kotlinx.coroutines.withContext
 /**
  * Refreshes the person behind each authenticated Home connection.
  *
- * This stays separate from profile selection: [app.reelstack.ui.viewmodels.ProfileViewModel]
+ * This stays separate from profile selection: [ProfileCoordinator]
  * owns changing profiles and PIN policy, while this class only reads the account the active
  * profile has already selected.
  */
 internal class AccountRefreshCoordinator(
-    private val container: AppContainer,
+    private val accountProfileClient: app.reelstack.data.network.AccountProfileClient,
+    private val appContext: android.content.Context,
+    private val connectionRepository: app.reelstack.data.repository.ConnectionRepository,
     private val scope: CoroutineScope,
     private val readState: () -> ReelstackUiState,
     private val updateState: ((ReelstackUiState) -> ReelstackUiState) -> Unit,
+    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
 ) {
     private var refreshJob: Job? = null
 
@@ -47,16 +49,16 @@ internal class AccountRefreshCoordinator(
             targets.forEach { connection ->
                 launch profile@ {
                     val result = attempt {
-                        withContext(Dispatchers.IO) { container.accountProfileClient.load(connection) }
+                        withContext(ioDispatcher) { accountProfileClient.load(connection) }
                     }
                     if (!isActive) return@profile
                     // The machine name is not the adult's name. Only the adult profile may update
                     // the durable main-profile label used outside a child shell.
                     val account = result.getOrNull()
-                    if (account != null && !container.connectionRepository.isKidMode &&
+                    if (account != null && !connectionRepository.isKidMode &&
                         connection.kind in MEDIA_SERVERS && account.displayName.isNotBlank()
                     ) {
-                        container.connectionRepository.setMainProfileInfo(account.displayName, account.avatarUrl)
+                        connectionRepository.setMainProfileInfo(account.displayName, account.avatarUrl)
                     }
                     updateState { current ->
                         val configured = current.connections.firstOrNull { it.kind == connection.kind }
@@ -84,7 +86,7 @@ internal class AccountRefreshCoordinator(
     }
 
     private fun appString(@androidx.annotation.StringRes resId: Int, vararg args: Any): String =
-        app.reelstack.localization.AppLanguages.wrap(container.appContext).getString(resId, *args)
+        app.reelstack.localization.AppLanguages.wrap(appContext).getString(resId, *args)
 
     private companion object {
         val ACCOUNT_SERVICES = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY, ServiceKind.SEERR)

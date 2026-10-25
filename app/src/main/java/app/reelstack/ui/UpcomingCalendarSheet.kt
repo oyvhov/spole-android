@@ -134,7 +134,8 @@ internal fun UpcomingCalendarSheet(
             val count = shown.values.sumOf { it.size }
             Text(pluralStringResource(R.plurals.calendar_releases, count, count), color = Muted, fontSize = 12.sp,
                 lineHeight = 18.sp, modifier = Modifier.weight(1f))
-            if (selectedDay != null) TextButton(onClick = { selectedDay = null; resetScroll() }) {
+            if (selectedDay != null) TextButton(onClick = { selectedDay = null; resetScroll() },
+                modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape)) {
                 Text(stringResource(R.string.calendar_all_days))
             }
             if (loading) CircularProgressIndicator(Modifier.padding(start = 10.dp).size(16.dp), color = Muted, strokeWidth = 2.dp)
@@ -219,11 +220,13 @@ private fun CalendarEntry(batch: List<UpcomingMedia>, onOpen: (String) -> Unit, 
             }
         }
         if (batch.size > 1) {
-            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("calendar-batch-${media.id}")) {
+            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.heightIn(min = 48.dp)
+                .focusRing(ButtonDefaults.textShape).testTag("calendar-batch-${media.id}")) {
                 Text(stringResource(if (expanded) R.string.calendar_hide_episodes else R.string.calendar_show_episodes))
             }
             if (expanded) batch.forEach { episode ->
-                TextButton(onClick = { onOpen(episode.id) }, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { onOpen(episode.id) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape)) {
                     Text(episodeLine(episode.season, episode.episode, episode.subtitle),
                         modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurface)
                 }

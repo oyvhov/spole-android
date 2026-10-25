@@ -154,7 +154,7 @@ val DEFAULT_LIBRARY_HUB = listOf("FEATURE", "LIBRARY_NEXT", "FAVOURITES", SMART_
 
 /** The library page's row of smart shelves, which shows only while it has a shelf on it. */
 const val SMART_SHELVES_SECTION = "SMART_SHELVES"
-val DEFAULT_MENU = listOf("HOME", "LIBRARY", "DISCOVER", "ACTIVITY", "SETTINGS")
+val DEFAULT_MENU = listOf("HOME", "LIBRARY", "DISCOVER", "SETTINGS")
 fun Personalization.requiredMenu(): Set<String> =
     setOf("HOME", "SETTINGS") + if (startInLibrary) setOf("LIBRARY") else emptySet()
 

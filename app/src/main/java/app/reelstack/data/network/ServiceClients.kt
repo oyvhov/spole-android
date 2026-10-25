@@ -1,5 +1,7 @@
 package app.reelstack.data.network
 
+import app.reelstack.data.model.canRequest4k
+
 import app.reelstack.R
 import app.reelstack.localization.LocalizedText
 import app.reelstack.BuildConfig
@@ -40,6 +42,8 @@ data class SeerrSearchPage(
     val items: List<RemoteDiscoverItem>,
     val page: Int,
     val totalPages: Int,
+    /** People Seerr found for the words; only the first page carries them. */
+    val people: List<app.reelstack.data.model.DiscoverPerson> = emptyList(),
 ) {
     val hasMore: Boolean get() = page < totalPages
 }
@@ -1305,6 +1309,7 @@ class SeerrServiceClient(
             items = ServicePayloadParser.discover(response.body),
             page = page,
             totalPages = ServicePayloadParser.totalPages(response.body),
+            people = if (page == 1) ServicePayloadParser.searchPeople(response.body) else emptyList(),
         )
     }
 
@@ -1450,7 +1455,8 @@ class SeerrServiceClient(
         return parseRequestHistoryPage(response.body, userId, offset, 20)
     }
 
-    fun request(connection: ServiceConnection, mediaType: String, remoteId: Int, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {
+    fun request(connection: ServiceConnection, mediaType: String, remoteId: Int, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet(),
+        choice: app.reelstack.data.model.RequestChoice = app.reelstack.data.model.RequestChoice()) {
         require(connection.kind == ServiceKind.SEERR)
         require(mediaType == "movie" || mediaType == "tv")
         if (!connection.sessionCookie || expectedUserId.isBlank()) {
@@ -1459,10 +1465,14 @@ class SeerrServiceClient(
         val actor = AccountProfileClient(transport = transport).load(connection)
         if (!actor.isPersonal || actor.id != expectedUserId) serviceError(R.string.err_seerr_konto_endra_send)
         if (!actor.canRequestType(mediaType)) serviceError(R.string.err_seerr_medietype_ikkje_lov)
+        if (choice.is4k && !actor.canRequest4k(mediaType)) serviceError(R.string.err_seerr_medietype_ikkje_lov)
         if (mediaType == "tv") {
             if (seasons.isEmpty() || seasons.any { it < 0 }) serviceError(R.string.err_vel_minst_ein_sesong)
+            // 4K is its own copy with its own season states; check the edition that is asked for.
             val fresh = details(connection, mediaType, remoteId)
-            if (fresh.seerrStatus == 6 || seasons.any { number -> fresh.seasons.none { it.number == number && it.canRequest } }) {
+            val freshStatus = if (choice.is4k) fresh.status4k else fresh.seerrStatus
+            val freshSeasons = if (choice.is4k) fresh.seasons4k else fresh.seasons
+            if (freshStatus == 6 || seasons.any { number -> freshSeasons.none { it.number == number && it.canRequest } }) {
                 serviceError(R.string.err_sesongane_er_endra)
             }
         }
@@ -1470,6 +1480,11 @@ class SeerrServiceClient(
             put("mediaType", mediaType)
             put("mediaId", remoteId)
             if (mediaType == "tv") put("seasons", kotlinx.serialization.json.JsonArray(seasons.sorted().map { kotlinx.serialization.json.JsonPrimitive(it) }))
+            // Only what the sheet showed is sent; anything else stays Seerr's own default.
+            if (choice.is4k) put("is4k", true)
+            choice.serverId?.let { put("serverId", it) }
+            choice.profileId?.let { put("profileId", it) }
+            choice.rootFolder?.let { put("rootFolder", it) }
         }.toString()
         val response = transport.post(
             EndpointValidator.resolve(connection.baseUrl, "api/v1/request"),
@@ -1613,7 +1628,7 @@ private fun encode(value: String): String = java.net.URLEncoder.encode(value, Ch
 
 private fun encodePathSegment(value: String): String = encode(value).replace("+", "%20")
 
-private fun HttpResponse.requireSuccess(kind: ServiceKind) {
+internal fun HttpResponse.requireSuccess(kind: ServiceKind) {
     when (statusCode) {
         in 200..299 -> Unit
         401 -> if (kind == ServiceKind.SEERR) serviceError(R.string.err_seerr_logg_inn_nytt)

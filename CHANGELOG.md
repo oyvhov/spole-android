@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.0.0-beta18 - ny avspelar: roleg OSD, eigne undertekstar og framdrift utan nett
+
+- Avspelaren har eit rolegare OSD. TV har tidslinja og éin knapp, «Avspelingsval»; mobilen har spel/pause og spoling og den same knappen. I menyen ligg lydspor, undertekstar, kapittel, fart (0,5–2×), lyd- og tekstforsinking, kvalitet, biletfylling, rotasjon, minispelar og statistikk. Tilbake går eitt nivå opp.
+- ASS/SSA-undertekstar blir teikna i appen med originale stilar, plasseringar, animasjonar og innebygde fontar, i staden for å bli gjort om til rein tekst. Er originalen for stor eller kan ikkje hentast, får du tenaren sin vanlege tekst i staden for ingen.
+- PGS/SUP og DVD-tekst i MKS blir viste lokalt når tenaren tilbyr fila, utan at tenaren må brenne dei inn i biletet.
+- Førehandsbilete over tidslina når du spolar, for Jellyfin-titlar med trickplay.
+- Mobil: dra opp og ned til venstre for lysstyrke og til høgre for volum; knip for å fylle eller tilpasse biletet.
+- Framdrift frå nedlastingar du ser utan nett, blir lagra og send til tenaren når nettet er tilbake, også etter at appen har vore lukka. Ei innlogging på ei anna teneste tømmer ikkje lenger det som ventar.
+- Ei undertekstline som varer lenger enn videoen, held ikkje lenger episoden i gang ved slutten. Nedteljinga til neste episode kjem som ho skal.
+- Ei undertekstfil som ikkje kan lesast, slår av teksten i staden for å stoppe filmen.
+- TV: heroen på Heim byter tittel også når fokus står på knappane hans, slik han gjorde før; eit trykk på fjernkontrollen startar ventetida på nytt.
+
+## 1.0.0-beta17 - nytt «Neste episode», rolegare TV-sider og fokus som finn heim
+
+- Avspelaren: «Neste episode» er eit roleg hjørnekort utan bilete, med namnet, sesong og episode, «Spel neste» og «Skjul». Nedteljinga fyller «Spel neste» sakte frå venstre i staden for å vise sekund; når knappen er full, startar neste episode.
+- TV: heroen på Heim og i Bibliotek har eit bilete som held fram under første rad og tonar ut i sida, i staden for å stoppe i ei line. Det tonar ut gjennom eiga gjennomsikt, så sesongbakgrunnen viser gjennom.
+- Framsida viser ikkje lenger Jellyfin-logo og namn ved radene. Namnet står berre der to tenarar har same rad.
+- Bibliotek i menyen opnar alltid biblioteksida på TV, ikkje den siste smarthylla eller biblioteket du var i. Tilbake frå eit bibliotek gir fokus til flisa eller «Bla i alt» du kom frå, med sida der ho var.
+- Smarthylle-sida: «Overrask meg» er borte, og «Endre» står sist blant vala. Bileta øvst byter seg og held fram under vala, og fokus startar på første tittel.
+- Oppdag: «Dine førespurnader» og «Alle»-sidene viser bakgrunnsbiletet til det som har fokus, og plakatane har namn der sida ikkje har toppfelt. Tilbake frå «Alle», ein sjanger eller «Dine førespurnader» gir fokus til der du var. Pil høgre sist i ei rad blir verande i rada.
+- Søk på TV: pil ned går frå søkjefeltet til resultata, og fokus blir verande når lista rullar. Treffa under «I biblioteka dine» har ikkje lenger «I biblioteket» på kvart bilete, og titlar du kan be om har namn under plakaten.
+- Tittelsida: Tilbake frå ein tittel i «Liknande titlar» går til tittelen du kom frå. «ferdig 21:25» står berre på titlar som kan spelast.
+- Personsida: «Les meir» blir «Vis mindre» i staden for å forsvinne med fokuset. «Kalender» på Heim har fokusring, og «Dine førespurnader» rullar utan å kutte tittelen.
+
+## 1.0.0-beta16 - fokusringar som følgjer forma, roleg Oppdag
+
+- TV: fokusringen følgjer forma på det du står på. Medverkande og personar får ring rundt ansiktet, ikkje ein boks rundt bilete og namn. Episodar får ring rundt stillbiletet, slik plakatar har.
+- TV: lenker og faner som «Les meir», «Alle 114», «På veg» og samandraget på tittelsida får luft mellom tekst og ring; ringen skjer ikkje lenger gjennom bokstavar.
+- TV: knappane i heroen på Heim og i Bibliotek, «Trailer», «Følg i kalenderen», «Hopp over intro», «Hald fram» og «Prøv igjen» i avspelaren og knappar i dialogar, søk, kalender, profilar og innstillingar har no synleg ring i knappens eiga form. Ringen ligg på knappen, ikkje rundt den usynlege trykkflata.
+- TV: doble ringar på sekundærknappar er borte, menyknappar og sesongfaner har same form på markering og ring, og «Avbryt» i be om-arket er ein pille i staden for ein oval.
+- Oppdag på TV: toppfeltet har fast høgd og to liner: tittel, og år · vurdering · type · status. Samandraget og lange fakta ligg på tittelsida.
+- Tittelsida for titlar frå Seerr viser TMDB-vurdering og Rotten Tomatoes, og toppen er lågare, så medverkande er synlege utan å rulle.
+- TV-tittelsida: pil opp frå knappane går til samandraget når det er meir å lese, og OK opnar heile teksten. Før kunne fjernkontrollen ikkje nå det.
+
+## 1.0.0-beta15 - stødig TV-fokus og lettare førespurnader
+
+- TV-framsida: fokus hoppar ikkje lenger til sidemenyen når heroen byter tittel. Fakta-lina i heroen tok fokus utan synleg ramme, og når heroen byta, sende Android fokus til menyen. Fokus startar no på «Spel av», og ned frå kontoknappen går til heroen.
+- Mobil: «Be om» og «Be om sesongar» ligg fast nedst på tittelsida, slik «Spel av» gjer for titlar du har.
+- Å be om ein film er eitt lite ark: tittel, konto, kvalitet og lagringsstad når kontoen har lov, varsel og «Send førespurnad». På TV får arket plass på éin skjerm og startar på «Send førespurnad». Seriar beheld sesongvalet.
+- Oppdag på TV: rada med fokus legg seg rett under toppfeltet, utan halve rader over. Førespurnadene dine viser eige bakgrunnsbilete og samandrag i toppfeltet.
+
+## 1.0.0-beta14 - Oppdag og førespurnader på éin stad
+
+- Oppdag og Aktivitet er slått saman. Aktivitet er ikkje lenger ei eiga fane: «Dine førespurnader» står øvst i Oppdag, med fanene Alle, På veg og Klare, og Tenaren for administratorar.
+- Oppdag har rolege rader frå Seerr: Populært no, Filmar som kjem, Seriar som kjem, Folk og Sjangrar. Plakatane har verken tekst eller knappar under seg, og kvar rad lastar for seg. «Alle» på slutten av ei rad opnar heile lista.
+- På TV viser toppfeltet tittelen som har fokus, med bakgrunnsbilete, fakta, status og samandrag. Søket er eit ikon øvst.
+- Søket finn folk med bilete. Kvar person har si eiga side med det du alt har og det dei elles har laga.
+- Tittelsida for Seerr-titlar har handlingar som ord med ikon: Be om, Trekk tilbake, Varsel og Trailer. Rollelista opnar personsida, og Liknande titlar og Tilrådd ut frå denne står som plakatrader.
+- Be om-arket kan velje Utgåve (Standard eller 4K), Kvalitet og Lagringsstad med ledig plass, for kontoar som har lov i Seerr. «Send førespurnad» er lime tekst med pil.
+- Etter sending blir du verande på tittelsida, og statuslina seier «Førespurd» med ein gong.
+
 ## Ikkje publisert
 
 - Stova og andre Android-startarar kan opne Jellyfin-/Emby-detaljar eller avspeling gjennom `spole://open`, med streng validering og eksisterande innlogging i Spole.

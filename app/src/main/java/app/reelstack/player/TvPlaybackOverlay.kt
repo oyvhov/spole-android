@@ -24,27 +24,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import app.reelstack.R
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.drawTimelineHandle
 import app.reelstack.ui.components.focusOutline
-import app.reelstack.ui.components.focusScale
+import app.reelstack.ui.components.animateFocusScale
 
 /** One transport row, one timeline and one tools row, with explicit vertical remote paths. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean, seekPreview: Long?,
     playFocus: FocusRequester, nextFocus: FocusRequester?, onToggle: () -> Unit, onSeek: (Long, Long) -> Unit,
-    onAudio: () -> Unit, onSubtitles: () -> Unit, onQuality: () -> Unit, seekFeedback: TvSeekFeedback?,
+    seekFeedback: TvSeekFeedback?,
     onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
-    onChapters: () -> Unit = {}, onStats: () -> Unit = {},
+    optionsFocus: FocusRequester, onOptions: () -> Unit,
+    onPreviewPosition: (Long?) -> Unit = {}, onTimelineTop: (Float) -> Unit = {},
     showPlaybackModeLine: Boolean = false,
     /** Kids mode: no tools row, parental defaults. */
     kids: Boolean = false) {
-    val tools = remember { FocusRequester() }
+    val tools = optionsFocus
     val wantsPlayback = state.playing || state.playWhenReady && !state.ended
     var timelineFocused by remember { mutableStateOf(false) }
     var target by remember(state.itemId) { mutableStateOf<Long?>(null) }
+    LaunchedEffect(target) { onPreviewPosition(target) }
     LaunchedEffect(target) { if (target != null) { kotlinx.coroutines.delay(1600); target = null } }
     val position = (target ?: seekPreview ?: state.positionMs).coerceIn(0, state.durationMs.coerceAtLeast(0))
     val padHours = state.durationMs >= 3_600_000L
@@ -141,6 +145,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         val progress = if (state.durationMs > 0) position.toFloat() / state.durationMs else 0f
         val timelineLabel = stringResource(R.string.player_timeline)
         Box(Modifier.fillMaxWidth().height(48.dp).focusRequester(playFocus)
+            .onGloballyPositioned { onTimelineTop(it.positionInRoot().y) }
             .focusProperties {
                 up = nextFocus ?: FocusRequester.Default
                 down = if (!kids) tools else FocusRequester.Default
@@ -201,19 +206,10 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
                 modifier = Modifier.testTag("player-time-remaining"),
                 style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .85f))
         }
-        if (!kids) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            TvPlayerAction(SpoleIcons.Info, stringResource(R.string.player_stats_title), "player-stats", Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onStats() }
-            if (state.chapters.isNotEmpty()) TvPlayerAction(SpoleIcons.Library, stringResource(R.string.phase_chapters), "player-chapters",
-                Modifier.focusProperties { up = playFocus }, labelVisible = true) { onInteraction(); onChapters() }
-            TvPlayerAction(SpoleIcons.Sound, stringResource(R.string.player_audio), "player-audio",
-                Modifier.then(if (state.audio.isNotEmpty()) Modifier.focusRequester(tools) else Modifier).focusProperties { up = playFocus },
-                enabled = !state.busy && state.audio.isNotEmpty(), labelVisible = true) { onInteraction(); onAudio() }
-            TvPlayerAction(SpoleIcons.Subtitles, stringResource(R.string.player_subtitles_button), "player-subtitles",
-                Modifier.then(if (state.audio.isEmpty() && state.subtitles.isNotEmpty()) Modifier.focusRequester(tools) else Modifier)
-                    .focusProperties { up = playFocus }, enabled = !state.busy && state.subtitles.isNotEmpty(), labelVisible = true) { onInteraction(); onSubtitles() }
-            TvPlayerAction(SpoleIcons.Tune, stringResource(R.string.player_quality), "player-quality",
-                Modifier.then(if (state.audio.isEmpty() && state.subtitles.isEmpty()) Modifier.focusRequester(tools) else Modifier)
-                    .focusProperties { up = playFocus }, enabled = !state.busy, labelVisible = true) { onInteraction(); onQuality() }
+        if (!kids) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TvPlayerAction(SpoleIcons.Tune, stringResource(R.string.player_options), "player-options",
+                Modifier.focusRequester(optionsFocus).focusProperties { up = playFocus },
+                labelVisible = true) { onInteraction(); onOptions() }
         }
         if (showPlaybackModeLine) Text(
             listOfNotNull(
@@ -260,7 +256,7 @@ internal fun TvPlayerAction(icon: ImageVector, label: String, tag: String, modif
     // The transport row used to draw its own 1.5 dp edge while every card in the app used
     // `focusOutline` — two different answers to the same question, and the weaker one sat over
     // moving video where contrast is worst. One treatment now, plus the same lift the rails have.
-    val scale = focusScale(focused, pressed = false)
+    val scale by animateFocusScale(focused, pressed = false)
     val button = @Composable {
         Surface(onClick,
             modifier.size(48.dp).graphicsLayer { scaleX = scale; scaleY = scale }

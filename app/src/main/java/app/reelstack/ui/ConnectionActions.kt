@@ -2,6 +2,7 @@ package app.reelstack.ui
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.focusable
@@ -20,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.ui.components.focusBleed
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.theme.*
 
@@ -29,7 +31,7 @@ internal fun ConnectionTextAction(label: String, onClick: () -> Unit, modifier: 
     val interaction = remember { MutableInteractionSource() }
     app.reelstack.ui.components.SpoleSecondaryButton(onClick, enabled = enabled, interactionSource = interaction,
         colors = ButtonDefaults.textButtonColors(contentColor = if (warning) Warning else Primary),
-        modifier = modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(24.dp))) {
+        modifier = modifier.heightIn(min = 48.dp)) {
         Text(label)
     }
 }
@@ -65,8 +67,8 @@ internal fun SignOutConfirmation(kind: ServiceKind, onCancel: () -> Unit, onConf
                         true
                     } else false
                 }
-                .focusOutline(readingInteraction, RoundedCornerShape(8.dp))
-                .verticalScroll(scroll).focusable(interactionSource = readingInteraction)) } },
+                .focusBleed(10.dp, 6.dp).focusOutline(readingInteraction, RoundedCornerShape(10.dp))
+                .verticalScroll(scroll).focusable(interactionSource = readingInteraction).padding(horizontal = 10.dp, vertical = 6.dp)) } },
         confirmButton = { CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides density) {
             ConnectionTextAction(confirmLabel, onConfirm, Modifier.testTag("sign-out-confirm"), warning = true) } },
         dismissButton = {

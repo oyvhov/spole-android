@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="my_requests_title">Dine forespørsler</string>
+    <string name="my_requests_tab_all">Alle</string>
+    <string name="my_requests_tab_in_progress">På vei</string>
+    <string name="my_requests_tab_ready">Klare</string>
+    <string name="my_requests_tab_server">Serveren</string>
+    <string name="my_requests_empty">Du har ikke bedt om noe ennå.</string>
+    <string name="my_requests_unresolved">Forespørsel nr. %1$d</string>
+    <string name="my_requests_older">Hent eldre</string>
+    <plurals name="my_requests_seasons">
+        <item quantity="one">Sesong %1$s</item>
+        <item quantity="other">Sesong %1$s</item>
+    </plurals>
+    <string name="discover_row_trending">Populært nå</string>
+    <string name="discover_row_upcoming_movies">Filmer som kommer</string>
+    <string name="discover_row_upcoming_series">Serier som kommer</string>
+    <string name="discover_people">Folk</string>
+    <string name="discover_genres">Sjangere</string>
+    <string name="discover_all_count">Alle %1$d</string>
+    <string name="discover_all">Alle</string>
+    <string name="discover_rows_failed">Seerr svarte ikke på alt.</string>
+    <string name="discover_search_hint">Søk etter filmer, serier og folk</string>
+    <string name="person_in_library">I biblioteket ditt</string>
+    <string name="person_more_with">Mer med %1$s</string>
+    <string name="person_read_more">Les mer</string>
+    <string name="person_born">født %1$s</string>
+    <string name="person_failed">Seerr svarte ikke. Prøv igjen senere.</string>
+    <string name="person_dept_acting">Skuespiller</string>
+    <string name="person_dept_directing">Regissør</string>
+    <string name="person_dept_writing">Manusforfatter</string>
+    <string name="person_dept_production">Produsent</string>
+    <string name="person_dept_sound">Lyd og musikk</string>
+    <string name="person_dept_camera">Foto</string>
+    <string name="person_dept_editing">Klipp</string>
+    <string name="title_action_request">Be om</string>
+    <string name="title_action_request_seasons">Be om sesonger</string>
+    <string name="title_action_withdraw">Trekk tilbake</string>
+    <string name="title_action_notify_on">Varsel på</string>
+    <string name="title_action_notify_off">Varsel av</string>
+    <string name="title_similar">Lignende titler</string>
+    <string name="title_recommended">Anbefalt ut fra denne</string>
+    <string name="request_edition">Utgave</string>
+    <string name="request_edition_standard">Standard</string>
+    <string name="request_edition_4k">4K</string>
+    <string name="request_quality">Kvalitet</string>
+    <string name="request_folder">Lagringssted</string>
+    <string name="request_usual_choice">vanlig valg</string>
+    <string name="request_free_space">%1$s ledig</string>
+    <string name="request_cancel">Avbryt</string>
+    <string name="my_requests_alerts_off">Appvarsler er slått av i Innstillinger. Statusen står her.</string>
+    <string name="my_requests_alerts_android">Android må tillate varsler fra Spole før du får beskjed når noe er klart.</string>
+</resources>

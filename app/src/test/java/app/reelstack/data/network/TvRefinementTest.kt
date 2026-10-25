@@ -69,9 +69,9 @@ class TvRefinementTest {
         assertEquals(listOf("1080p", "H264"), detail.quality)
     }
     @Test fun menuSanitizesDuplicatesUnknownItemsAndKeepsSettingsReachable() {
-        val preferences = Personalization(menuOrder = listOf("ACTIVITY", "ACTIVITY", "UNKNOWN", "HOME"),
+        val preferences = Personalization(menuOrder = listOf("LIBRARY", "LIBRARY", "UNKNOWN", "ACTIVITY", "HOME"),
             hiddenMenuItems = setOf("HOME", "SETTINGS", "DISCOVER"))
-        assertEquals(listOf("ACTIVITY", "HOME", "LIBRARY", "SETTINGS"), preferences.visibleMenu())
+        assertEquals(listOf("LIBRARY", "HOME", "SETTINGS"), preferences.visibleMenu())
     }
     @Test fun unresolvedImportsAreDistinguishedFromActualTitles() {
         val item = TrackedRequest("tv:1", 1, "tv", "Serie", null, emptySet())

@@ -61,23 +61,22 @@ class HomeSearchNavigationTest {
 
     @Test fun ordinaryDiscoverVisitDoesNotAutofocusAndSearchLeavesDiscoverAlone() {
         selectTab(R.string.nav_discover)
-        // The tab change travels through StateFlow before AnimatedContent creates the field.
+        // The tab change travels through StateFlow before AnimatedContent creates the page.
         rule.waitUntil(timeoutMillis = 5_000) {
-            rule.onAllNodesWithTag("discover-search").fetchSemanticsNodes().size == 1
+            rule.onAllNodesWithTag("discover-hub").fetchSemanticsNodes().size == 1
         }
-        rule.onNodeWithTag("discover-search").assertIsNotFocused()
-        rule.onNodeWithText(label(R.string.filter_series)).performClick()
+        // Nothing that takes text has focus on arrival, so no keyboard comes up by itself.
+        rule.onAllNodes(hasSetTextAction() and isFocused()).assertCountEquals(0)
         selectTab(R.string.nav_home)
         rule.onNodeWithTag("home-search-button").performClick()
         rule.onNodeWithTag("global-search-field").performTextInput("Silo")
         rule.onNodeWithTag("global-search-close").performClick()
         selectTab(R.string.nav_discover)
         rule.waitUntil(timeoutMillis = 5_000) {
-            rule.onAllNodesWithTag("discover-search").fetchSemanticsNodes().size == 1
+            rule.onAllNodesWithTag("discover-hub").fetchSemanticsNodes().size == 1
         }
-        // Discover keeps its own filter and its own, empty, field.
-        rule.onNodeWithText(label(R.string.filter_series)).assertIsSelected()
-        rule.onNodeWithTag("discover-search").assert(hasText("Silo", substring = true).not())
+        // A search somewhere else does not turn Oppdag into a page of results.
+        rule.onNodeWithTag("discover-grid").assertDoesNotExist()
     }
 
     @Test fun searchOpensEmptyAndTheClearButtonEmptiesIt() {

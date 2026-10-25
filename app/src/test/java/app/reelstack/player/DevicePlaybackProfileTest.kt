@@ -73,12 +73,16 @@ class DevicePlaybackProfileTest {
         val calls = mutableListOf<JsonObject>()
         var imageSubtitle = false
         var direct = true
+        var container = ""
+        var externalSubtitle = false
+        var codec: String? = null
+        var deliveryUrl = ""
         override fun get(url: String, headers: Map<String,String>) = error("Unexpected read")
         override fun post(url: String, headers: Map<String,String>, jsonBody: String): HttpResponse {
             val request = Json.parseToJsonElement(jsonBody).jsonObject; calls += request
-            return HttpResponse(200, """{"PlaySessionId":"session","MediaSources":[{"Id":"source","SupportsDirectPlay":$direct,
+            return HttpResponse(200, """{"PlaySessionId":"session","MediaSources":[{"Id":"source","Container":"$container","SupportsDirectPlay":$direct,
                 "TranscodingUrl":"/Videos/item/master.m3u8","DefaultAudioStreamIndex":1,"DefaultSubtitleStreamIndex":${if(imageSubtitle) 2 else -1},
-                "MediaStreams":[{"Type":"Audio","Index":1},{"Type":"Audio","Index":3},{"Type":"Subtitle","Index":2,"Codec":"${if(imageSubtitle) "pgssub" else "srt"}"}]}]}""")
+                "MediaStreams":[{"Type":"Audio","Index":1},{"Type":"Audio","Index":3},{"Type":"Subtitle","Index":2,"IsExternal":$externalSubtitle,"DeliveryUrl":"$deliveryUrl","Codec":"${codec ?: if(imageSubtitle) "pgssub" else "srt"}"}]}]}""")
         }
     }
     private val connection = ServiceConnection(ServiceKind.JELLYFIN, "Fixture", "https://example.com", "fixture", "user")
@@ -110,6 +114,57 @@ class DevicePlaybackProfileTest {
         assertFalse(plan.direct); assertEquals(2, server.calls.size)
         assertEquals(JsonPrimitive(2), server.calls.last()["SubtitleStreamIndex"])
     }
+
+    @Test fun embeddedPgsInMkvStaysDirectOnBothServers() {
+        for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+            for (staticStream in listOf(false, true)) {
+                val calls = mutableListOf<JsonObject>()
+                val server = object : JsonHttpTransport {
+                    override fun get(url: String, headers: Map<String, String>) = error("Unexpected read")
+                    override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse {
+                        calls += Json.parseToJsonElement(jsonBody).jsonObject
+                        return HttpResponse(200, """{"PlaySessionId":"session","MediaSources":[{"Id":"source","Container":"mkv",
+                            "SupportsDirectPlay":${!staticStream},"SupportsDirectStream":true,
+                            "DirectStreamUrl":"${if (staticStream) "/Videos/item/stream.mkv?Static=true" else ""}",
+                            "DefaultSubtitleStreamIndex":2,"MediaStreams":[
+                            {"Index":2,"Type":"Subtitle","Codec":"pgssub","IsExternal":false,"Language":"nor"}]}]}""")
+                    }
+                }
+                val plan = MediaPlaybackClient(server, "device", { capable }).prepare(connection.copy(kind = kind), "user", item, 80_000_000, subtitle = 2)
+                assertTrue(plan.direct)
+                assertTrue(plan.subtitles.single().embeddedPgs)
+                assertNull(plan.subtitleUrl)
+                assertEquals(1, calls.size)
+                val profile = calls.single().obj("DeviceProfile").objects("SubtitleProfiles")
+                assertTrue(profile.any { it.str("Format") == "pgssub" && it.str("Method") == "Embed" && it.str("Container") == "mkv" })
+            }
+        }
+    }
+
+    @Test fun recoveryProfilesNeverPromisePgsInsideHls() {
+        val profiles = devicePlaybackProfile(20_000_000, capable, embedPgs = false).objects("SubtitleProfiles")
+        assertFalse(profiles.any { it.str("Method") == "Embed" })
+        assertTrue(profiles.any { it.str("Format") == "pgssub" && it.str("Method") == "Encode" })
+    }
+
+    @Test fun externalPgsOtherContainersAndHlsRetainTheBurnInFallback() {
+        for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+            for ((container, external, direct) in listOf(Triple("mkv", true, true), Triple("mp4", false, true), Triple("mkv", false, false))) {
+                val server = Server().apply {
+                    imageSubtitle = true
+                    this.container = container
+                    externalSubtitle = external
+                    this.direct = direct
+                }
+                val plan = MediaPlaybackClient(server, "device", { capable }).prepare(connection.copy(kind = kind), "user", item, 80_000_000, subtitle = 2)
+                assertEquals(PlaybackCompatibility.FULL, plan.compatibility)
+                assertFalse(plan.subtitles.single().embeddedPgs)
+                assertFalse(plan.direct)
+                assertEquals(2, server.calls.size)
+                assertFalse(server.calls.last().obj("DeviceProfile").objects("SubtitleProfiles").any { it.str("Method") == "Embed" })
+            }
+        }
+    }
     @Test fun changedAudioRouteIsReadAgainForTheNextNegotiation() {
         val server=Server(); var detected=capable
         val client=JellyfinPlaybackClient(server,"device",{detected})
@@ -123,6 +178,73 @@ class DevicePlaybackProfileTest {
         val server=Server()
         JellyfinPlaybackClient(server,"device",{error("device query failed")}).prepare(connection,"user",item,4_000_000)
         assertEquals(JsonPrimitive(2),server.calls.single()["MaxAudioChannels"])
+    }
+    @Test fun assDvdAndAdvertisedSupStayLocalOnBothBackends() {
+        for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+            for (codec in listOf("ass", "ssa", "dvdsub", "pgssub")) {
+                val server = Server().apply {
+                    this.codec = codec; container = "mkv"
+                    if (codec == "pgssub") { externalSubtitle = true; deliveryUrl = "/Videos/item/captions.sup?api_key=private" }
+                }
+                val plan = MediaPlaybackClient(server, "device", { capable }).prepare(connection.copy(kind = kind), "user", item, 80_000_000, subtitle = 2)
+                assertTrue(plan.direct); assertEquals(1, server.calls.size)
+                when (codec) {
+                    "ass", "ssa" -> { assertTrue(plan.subtitles.single().nativeAss); assertTrue(plan.subtitleUrl!!.endsWith("Stream.ass")) }
+                    "dvdsub" -> { assertEquals("application/vobsub", plan.subtitles.single().embeddedBitmapMime); assertNull(plan.subtitleUrl) }
+                    else -> { assertEquals("https://example.com/Videos/item/captions.sup", plan.subtitleUrl); assertFalse(plan.subtitleUrl!!.contains("private")) }
+                }
+            }
+        }
+    }
+    @Test fun foreignSupAddressFallsBackToEncodeWithoutAdvertisingTheFailedRouteAgain() {
+        val server = Server().apply { codec = "pgssub"; externalSubtitle = true; deliveryUrl = "https://other.example/captions.sup" }
+        val plan = MediaPlaybackClient(server, "device", { capable }).prepare(connection, "user", item, 80_000_000, subtitle = 2)
+        assertEquals(PlaybackCompatibility.FULL, plan.compatibility)
+        assertNull(plan.subtitleUrl)
+        assertFalse(server.calls.last().obj("DeviceProfile").objects("SubtitleProfiles").any { it.str("Format") == "pgssub" && it.str("Method") != "Encode" })
+    }
+    @Test fun advertisedMksKeepsVideoDirectAndUsesTheServerTrackIdentityOnBothBackends() {
+        for (kind in listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)) {
+            for ((codec, path, mime) in listOf(
+                Triple("dvdsub", "Stream.dvdsub", SPOLE_MKS_DVD_MIME),
+                Triple("vobsub", "captions.mks", SPOLE_MKS_DVD_MIME),
+                Triple("pgssub", "captions.mks", SPOLE_MKS_PGS_MIME),
+                Triple("pgssub", "Stream.pgssub", SPOLE_SUP_MIME),
+            )) {
+                val server = Server().apply {
+                    this.codec = codec; container = "mkv"; externalSubtitle = true
+                    deliveryUrl = "/Videos/item/$path?api_key=private"
+                }
+                val plan = MediaPlaybackClient(server, "device", { capable }).prepare(connection.copy(kind = kind),
+                    "user", item, 80_000_000, subtitle = 2)
+                assertTrue(plan.direct); assertEquals(1, server.calls.size)
+                val subtitle = plan.subtitles.single()
+                assertEquals(2, subtitle.index); assertEquals(mime, subtitle.externalBitmapMime)
+                assertTrue(subtitle.sidecar); assertFalse(subtitle.localBitmap)
+                assertEquals("https://example.com/Videos/item/$path", plan.subtitleUrl)
+            }
+        }
+    }
+    @Test fun advertisedSidecarTakesPrecedenceOverAnEmbeddedBitmapCopy() {
+        val server = Server().apply {
+            codec = "dvdsub"; container = "mkv"; externalSubtitle = false; deliveryUrl = "/Videos/item/Stream.dvdsub"
+        }
+        val plan = MediaPlaybackClient(server, "device", { capable }).prepare(connection, "user", item, 80_000_000, subtitle = 2)
+        assertTrue(plan.direct); assertTrue(plan.subtitles.single().sidecar)
+        assertFalse("Do not accidentally choose the embedded language by ordinal", plan.subtitles.single().localBitmap)
+    }
+    @Test fun invalidMksRoutesKeepServerFallbackAndFullRecoveryCannotReopenTheFailedRoute() {
+        for (path in listOf("https://foreign.example/captions.mks", "/Videos/item/captions.idx", "/Videos/item/captions.sub")) {
+            val server = Server().apply { codec = "dvdsub"; externalSubtitle = true; deliveryUrl = path }
+            val plan = MediaPlaybackClient(server, "device", { capable }).prepare(connection, "user", item, 80_000_000, subtitle = 2)
+            assertEquals(PlaybackCompatibility.FULL, plan.compatibility); assertNull(plan.subtitleUrl)
+            assertFalse(server.calls.last().obj("DeviceProfile").objects("SubtitleProfiles")
+                .any { it.str("Format") in setOf("pgssub", "dvdsub", "vobsub") && it.str("Method") != "Encode" })
+        }
+        val server = Server().apply { codec = "dvdsub"; externalSubtitle = true; deliveryUrl = "/Videos/item/Stream.dvdsub" }
+        val recovery = MediaPlaybackClient(server, "device", { capable }).prepare(connection, "user", item, 80_000_000,
+            subtitle = 2, compatible = true)
+        assertNull(recovery.subtitleUrl); assertFalse(recovery.subtitles.single().sidecar)
     }
     @Test fun hlsCannotCopyVideoThatFailsTheActualDecoderCheck() {
         val server=Server().apply { direct=false }

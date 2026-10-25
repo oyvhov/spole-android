@@ -16,7 +16,10 @@ internal fun TrailerPreview(url: String, title: String) {
     val safe = trailerLink(url) ?: return
     var open by remember(url) { mutableStateOf(false) }
     val context = LocalContext.current
-    TextButton(onClick = { open = true }, modifier = Modifier.testTag("detail-trailer")) {
+    // Words with an icon in the text colour; the accent is kept for the one action that sends.
+    TextButton(onClick = { open = true }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+        contentColor = MaterialTheme.colorScheme.onSurface),
+        modifier = Modifier.heightIn(min = 48.dp).focusRing(androidx.compose.material3.ButtonDefaults.textShape).testTag("detail-trailer")) {
         Icon(SpoleIcons.PlaySimple, null, Modifier.size(20.dp))
         Spacer(Modifier.width(6.dp))
         Text(stringResource(R.string.phase_trailer))

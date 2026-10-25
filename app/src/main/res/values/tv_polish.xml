@@ -16,4 +16,6 @@
     <string name="player_osd_playback_mode_hint">Show text such as “Direct play from Jellyfin” below the player controls.</string>
     <string name="tv_lightweight">Lightweight TV mode</string>
     <string name="tv_lightweight_hint">For slower TVs: still hero artwork, without image transitions, glow or seasonal motion.</string>
+    <string name="next_episode_play">Play next</string>
+    <string name="next_episode_hide">Hide</string>
 </resources>

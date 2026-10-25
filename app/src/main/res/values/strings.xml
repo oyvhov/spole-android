@@ -23,10 +23,6 @@
         does not in Nynorsk either. A plural resource here would be two identical strings.
     -->
     <string name="home_resume_description" tools:ignore="PluralsCandidate">Resume %1$s, %2$d percent watched</string>
-    <string name="activity_updates_here">New updates will appear here.</string>
-    <string name="activity_try_all">Choose All to see the other services.</string>
-    <string name="activity_more_options">More options</string>
-    <string name="activity_less_options">Fewer options</string>
     <string name="services_back">Back to your services</string>
     <string name="services_media_title">Libraries and playback</string>
     <string name="services_media_hint">Your account for each service</string>

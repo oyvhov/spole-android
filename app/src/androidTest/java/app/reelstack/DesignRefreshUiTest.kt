@@ -164,7 +164,8 @@ class DesignRefreshUiTest {
                 .onBackPressedDispatcher
             app.reelstack.player.PlayerScreen(state, null, { exits++ }, {}, { seek = it }, {}, {}, {}, {}, {}, {}, {}, isTelevision = true)
         } }
-        rule.onNodeWithTag("player-chapters").performClick()
+        rule.onNodeWithTag("player-options").performClick()
+        rule.onNodeWithTag("player-option-chapters").performScrollTo().performClick()
         rule.onNodeWithText("0:30 · Andre del", substring = true).performClick()
         assertEquals(30_000L, seek)
         // Selecting a chapter already dismisses its dialog. Exercise the registered Back

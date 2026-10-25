@@ -148,6 +148,7 @@ data class RemoteDiscoverItem(
     val facts: List<LocalizedText> = emptyList(),
     val genres: List<String> = emptyList(),
     val seerrStatus: Int? = null,
+    val backdropUrl: String? = null,
 )
 
 data class RemoteRecommendationItem(
@@ -401,33 +402,115 @@ object ServicePayloadParser {
         }
     }
 
-    fun discover(payload: String): List<RemoteDiscoverItem> {
-        val results = json.parseToJsonElement(payload).jsonObject.array("results")
-        return results.mapNotNull { element ->
-            val item = element as? JsonObject ?: return@mapNotNull null
-            val remoteId = item.int("id") ?: return@mapNotNull null
-            val mediaType = item.string("mediaType") ?: if (item.string("title") != null) "movie" else "tv"
-            if (mediaType != "movie" && mediaType != "tv") return@mapNotNull null
-            val title = item.string("title") ?: item.string("name") ?: return@mapNotNull null
-            val date = item.string("releaseDate") ?: item.string("firstAirDate")
-            val year = date?.take(4)?.takeIf { it.all(Char::isDigit) }
-            val mediaStatus = item.obj("mediaInfo")?.int("status") ?: 1
-            RemoteDiscoverItem(
-                id = "seerr-$mediaType-$remoteId",
-                remoteId = remoteId,
+    fun discover(payload: String): List<RemoteDiscoverItem> =
+        json.parseToJsonElement(payload).jsonObject.array("results").mapNotNull { (it as? JsonObject)?.let(::discoverItem) }
+
+    /** One Seerr title from any of its lists: search, trending, similar, the credits of a person. */
+    internal fun discoverItem(item: JsonObject): RemoteDiscoverItem? {
+        val remoteId = item.int("id") ?: return null
+        val mediaType = item.string("mediaType") ?: if (item.string("title") != null) "movie" else "tv"
+        if (mediaType != "movie" && mediaType != "tv") return null
+        val title = item.string("title") ?: item.string("name") ?: return null
+        val date = item.string("releaseDate") ?: item.string("firstAirDate")
+        val year = date?.take(4)?.takeIf { it.all(Char::isDigit) }
+        val mediaStatus = item.obj("mediaInfo")?.int("status") ?: 1
+        return RemoteDiscoverItem(
+            id = "seerr-$mediaType-$remoteId",
+            remoteId = remoteId,
+            mediaType = mediaType,
+            title = title,
+            metadata = year.orEmpty(),
+            artworkUrl = item.string("posterPath")?.let { safeTmdbArtwork(it) },
+            inLibrary = mediaStatus == 5,
+            requested = mediaStatus in 2..4,
+            seerrStatus = mediaStatus,
+            overview = item.string("overview"),
+            facts = discoverFacts(item, mediaType, year),
+            genres = objectNameArray(item, "genres"),
+            backdropUrl = item.string("backdropPath")?.let { tmdbImage(it, "w1280") },
+        )
+    }
+
+    /** The genre slider of Seerr: a genre and a few backdrops from its titles. */
+    fun genreSlider(payload: String, mediaType: String): List<app.reelstack.data.model.DiscoverGenre> =
+        (runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonArray).orEmpty().mapNotNull { element ->
+            val genre = element as? JsonObject ?: return@mapNotNull null
+            app.reelstack.data.model.DiscoverGenre(
+                id = genre.int("id") ?: return@mapNotNull null,
+                name = genre.string("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null,
                 mediaType = mediaType,
-                title = title,
-                metadata = year.orEmpty(),
-                artworkUrl = item.string("posterPath")?.let { safeTmdbArtwork(it) },
-                inLibrary = mediaStatus == 5,
-                requested = mediaStatus in 2..4,
-                seerrStatus = mediaStatus,
-                overview = item.string("overview"),
-                facts = discoverFacts(item, mediaType, year),
-                genres = objectNameArray(item, "genres"),
+                backdropUrl = genre.array("backdrops").firstOrNull()
+                    ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
+                    ?.let { tmdbImage(it, "w780") },
             )
         }
+
+    /** The people in a Seerr search, with a picture when TMDB has one. Titles are read by [discover]. */
+    fun searchPeople(payload: String): List<app.reelstack.data.model.DiscoverPerson> =
+        (runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonObject)?.array("results").orEmpty().mapNotNull { element ->
+            val item = element as? JsonObject ?: return@mapNotNull null
+            if (item.string("mediaType") != "person") return@mapNotNull null
+            app.reelstack.data.model.DiscoverPerson(
+                id = item.int("id") ?: return@mapNotNull null,
+                name = item.string("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null,
+                portraitUrl = item.string("profilePath")?.let { tmdbImage(it, "w185") },
+                role = item.string("knownForDepartment")?.takeIf(String::isNotBlank),
+            )
+        }
+
+    data class ServiceServer(val id: Int, val is4k: Boolean, val isDefault: Boolean)
+
+    /** The Radarr or Sonarr servers Seerr knows, as `service/radarr` lists them. */
+    fun serviceServers(payload: String): List<ServiceServer> =
+        (runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonArray).orEmpty().mapNotNull {
+            val server = it as? JsonObject ?: return@mapNotNull null
+            ServiceServer(server.int("id") ?: return@mapNotNull null,
+                server["is4k"]?.jsonPrimitive?.booleanOrNull == true, server["isDefault"]?.jsonPrimitive?.booleanOrNull == true)
+        }
+
+    /** One server's profiles and root folders, with the ones Seerr would pick by itself. */
+    fun serviceDetails(payload: String, is4k: Boolean): app.reelstack.data.model.RequestOptions? {
+        val root = runCatching { json.parseToJsonElement(payload) }.getOrNull() as? JsonObject ?: return null
+        val server = root.obj("server") ?: return null
+        return app.reelstack.data.model.RequestOptions(
+            serverId = server.int("id") ?: return null,
+            is4k = is4k,
+            profiles = root.array("profiles").mapNotNull { element ->
+                val profile = element as? JsonObject ?: return@mapNotNull null
+                app.reelstack.data.model.RequestProfile(profile.int("id") ?: return@mapNotNull null,
+                    profile.string("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null)
+            },
+            folders = root.array("rootFolders").mapNotNull { element ->
+                val folder = element as? JsonObject ?: return@mapNotNull null
+                app.reelstack.data.model.RequestFolder(folder.string("path")?.takeIf(String::isNotBlank) ?: return@mapNotNull null,
+                    folder["freeSpace"]?.jsonPrimitive?.longOrNull)
+            },
+            defaultProfileId = server.int("activeProfileId"),
+            defaultFolder = server.string("activeDirectory"),
+        )
     }
+
+    data class RemotePerson(val id: Int, val name: String, val portraitUrl: String?, val department: String?,
+        val birthday: String?, val biography: String?)
+
+    fun person(payload: String): RemotePerson {
+        val item = json.parseToJsonElement(payload).jsonObject
+        return RemotePerson(item.int("id") ?: 0, item.string("name").orEmpty(), item.string("profilePath")?.let { tmdbImage(it, "w342") },
+            item.string("knownForDepartment")?.takeIf(String::isNotBlank), item.string("birthday")?.takeIf(String::isNotBlank),
+            item.string("biography")?.takeIf(String::isNotBlank))
+    }
+
+    /** Everything a person acted in or worked on, once each, newest first. */
+    fun personCredits(payload: String): List<RemoteDiscoverItem> {
+        val root = json.parseToJsonElement(payload).jsonObject
+        return (root.array("cast") + root.array("crew")).mapNotNull { (it as? JsonObject)?.let(::discoverItem) }
+            .distinctBy { it.mediaType to it.remoteId }
+            .sortedByDescending { it.metadata }
+    }
+
+    /** A TMDB image of a chosen size, for a path Seerr gave; anything else is not an image we fetch. */
+    internal fun tmdbImage(path: String, size: String): String? =
+        if (path.startsWith("/")) "https://image.tmdb.org/t/p/$size$path" else null
 
     fun recommendations(payload: String): List<RemoteRecommendationItem> {
         val root = json.parseToJsonElement(payload)
@@ -531,8 +614,13 @@ object ServicePayloadParser {
                 val person = it as? JsonObject ?: return@mapNotNull null
                 val name = person.string("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
                 app.reelstack.data.model.CastMember(name, person.string("character"),
-                    person.string("profilePath")?.let(::safeTmdbArtwork))
+                    person.string("profilePath")?.let { tmdbImage(it, "w185") }, seerrPersonId = person.int("id"))
             }.distinctBy { it.name }.take(16),
+            trailerUrl = item.array("relatedVideos").mapNotNull { it as? JsonObject }
+                .firstOrNull { it.string("type") == "Trailer" && it.string("site") == "YouTube" }?.string("url"),
+            backdropUrl = item.string("backdropPath")?.let { tmdbImage(it, "w1280") },
+            // Out of 100, as Jellyfin's community rating is kept.
+            tmdbRating = item.double("voteAverage")?.takeIf { it > 0 && it <= 10 }?.times(10)?.toFloat(),
         )
     }
 

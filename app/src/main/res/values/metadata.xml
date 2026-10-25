@@ -3,4 +3,7 @@
     <string name="metadata_runtime_minutes">%1$dm · ends %2$s</string>
     <string name="metadata_runtime_hours">%1$dh · ends %2$s</string>
     <string name="metadata_runtime_hours_minutes">%1$dh %2$dm · ends %3$s</string>
+    <string name="metadata_length_minutes">%1$dm</string>
+    <string name="metadata_length_hours">%1$dh</string>
+    <string name="metadata_length_hours_minutes">%1$dh %2$dm</string>
 </resources>

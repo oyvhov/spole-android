@@ -144,7 +144,7 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
                                     val pinInteraction = remember { MutableInteractionSource() }
                                     TextButton(onClick = { pinned = if (inSidebar) pinned - id else pinned + id },
                                         interactionSource = pinInteraction,
-                                        modifier = Modifier.focusOutline(pinInteraction, CircleShape).testTag("library-pin-$id")) {
+                                        modifier = Modifier.heightIn(min = 48.dp).focusOutline(pinInteraction, CircleShape).testTag("library-pin-$id")) {
                                         Icon(if (inSidebar) SpoleIcons.Done else SpoleIcons.Add, null, Modifier.size(18.dp))
                                         Spacer(Modifier.width(8.dp))
                                         Text(if (inSidebar) inMenu else addToMenu, style = MaterialTheme.typography.labelLarge)
@@ -179,7 +179,7 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
                         val newShelf: (@Composable RowScope.() -> Unit)? = if (!smart || shelfActions == null || connection == null) null else { {
                             val newInteraction = remember { MutableInteractionSource() }
                             TextButton(onClick = { close(); shelfActions.edit() }, interactionSource = newInteraction,
-                                modifier = Modifier.focusOutline(newInteraction, CircleShape).testTag("library-editor-new-shelf")) {
+                                modifier = Modifier.heightIn(min = 48.dp).focusOutline(newInteraction, CircleShape).testTag("library-editor-new-shelf")) {
                                 Icon(SpoleIcons.Add, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.smart_shelf_new), style = MaterialTheme.typography.labelLarge)
@@ -217,7 +217,7 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     val doneInteraction = remember { MutableInteractionSource() }
                     Button(onClick = close, interactionSource = doneInteraction,
-                        modifier = Modifier.focusOutline(doneInteraction, CircleShape).testTag("library-editor-done")) {
+                        modifier = Modifier.heightIn(min = 48.dp).focusOutline(doneInteraction, CircleShape).testTag("library-editor-done")) {
                         Text(stringResource(R.string.home_order_done))
                     }
                 }

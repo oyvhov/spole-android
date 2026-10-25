@@ -13,9 +13,31 @@ import app.reelstack.data.model.RequestDraft
 import app.reelstack.data.model.quotaExceeded
 
 @Composable
-internal fun RequestPreflight(draft: RequestDraft, onRetry: () -> Unit) {
+internal fun RequestPreflight(draft: RequestDraft, onRetry: () -> Unit, compact: Boolean = false) {
     val rules = draft.rules
     val quota = rules?.quota
+    if (compact) {
+        // Only what changes the decision: no rights, an approval to wait for, a limit, or no answer.
+        // The usual case, automatic approval without a quota, needs no sentence.
+        Column(Modifier.fillMaxWidth().padding(top = 10.dp).testTag("request-preflight"),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            when {
+                rules == null -> R.string.rules_unknown
+                !rules.canRequest -> R.string.rules_no_permission
+                rules.approvalRequired -> R.string.rules_approval_required
+                else -> null
+            }?.let { Text(stringResource(it), color = app.reelstack.ui.theme.Muted, style = MaterialTheme.typography.bodySmall) }
+            quota?.remaining?.takeIf { quota.unlimited != true }?.let { remaining ->
+                Text(pluralStringResource(if (draft.media.mediaType == "tv") R.plurals.rules_seasons_remaining else R.plurals.rules_movies_remaining,
+                    remaining, remaining), color = app.reelstack.ui.theme.Muted, style = MaterialTheme.typography.bodySmall)
+            }
+            if (draft.quotaExceeded) Text(stringResource(if (draft.media.mediaType == "tv") R.string.rules_exceeded else R.string.rules_movie_exhausted),
+                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("request-quota-exceeded"))
+            if (rules == null || draft.quotaExceeded) app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry,
+                enabled = !draft.sending && draft.savingWatch == null) { Text(stringResource(R.string.rules_recheck)) }
+        }
+        return
+    }
     Column(Modifier.fillMaxWidth().padding(top = 16.dp).testTag("request-preflight"),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(when {

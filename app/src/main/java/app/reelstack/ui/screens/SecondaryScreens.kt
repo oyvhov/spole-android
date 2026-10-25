@@ -2,6 +2,8 @@ package app.reelstack.ui.screens
 import app.reelstack.ui.components.SettingsServiceRow
 
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
+import app.reelstack.data.model.DiscoverGridTarget
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -124,7 +126,6 @@ import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.state.DiscoverUiState
 import app.reelstack.ui.state.toDiscoverUiState
 import app.reelstack.ui.components.MediaArtwork
-import app.reelstack.ui.components.ActivitySkeleton
 import app.reelstack.ui.components.DiscoverSkeleton
 import app.reelstack.ui.components.AccountAvatarButton
 import app.reelstack.ui.components.verifiedPanelAccount
@@ -141,62 +142,6 @@ import app.reelstack.ui.theme.Success
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
-
-/** Stable filter identities. The visible label is a property, never the state itself. */
-enum class DiscoverFilter(val label: String) {
-    ALL("Alt"), MOVIES("Filmar"), SERIES("Seriar")
-}
-
-enum class LibraryFilter(val label: String) {
-    ALL("Alle titlar"), AVAILABLE("I biblioteket"), REQUESTABLE("Kan leggjast til")
-}
-
-/** Stable filter identities; the visible label is a resource, not the state. */
-enum class PersonalActivityFilter(@androidx.annotation.StringRes val label: Int) {
-    ALL(R.string.activity_filter_all),
-    IN_PROGRESS(R.string.activity_filter_in_progress),
-    READY(R.string.activity_filter_ready),
-}
-
-enum class ActivityFilter(val label: String, val source: ServiceKind?) {
-    MINE("Mine", null),
-    ALL("Alt", null),
-    SEERR("Seerr", ServiceKind.SEERR),
-}
-
-
-@Composable
-private fun DiscoverFilter.localizedLabel(): String = when (this) {
-    DiscoverFilter.ALL -> stringResource(R.string.filter_all)
-    DiscoverFilter.MOVIES -> stringResource(R.string.filter_movies)
-    DiscoverFilter.SERIES -> stringResource(R.string.filter_series)
-}
-
-@Composable
-private fun LibraryFilter.localizedLabel(): String = when (this) {
-    LibraryFilter.ALL -> stringResource(R.string.filter_all_titles)
-    LibraryFilter.AVAILABLE -> stringResource(R.string.filter_available)
-    LibraryFilter.REQUESTABLE -> stringResource(R.string.filter_requestable)
-}
-
-@Composable
-private fun PersonalActivityFilter.localizedLabel(): String = when (this) {
-    PersonalActivityFilter.ALL -> stringResource(R.string.filter_personal_all)
-    PersonalActivityFilter.IN_PROGRESS -> stringResource(R.string.filter_in_progress)
-    PersonalActivityFilter.READY -> stringResource(R.string.filter_ready)
-}
-
-@Composable
-private fun ActivityFilter.localizedLabel(): String = when (this) {
-    ActivityFilter.MINE -> stringResource(R.string.filter_mine)
-    ActivityFilter.ALL -> stringResource(R.string.filter_all)
-    else -> label
-}
-@Composable
-private fun ScreenHeader(kicker: String, title: String, lede: String) {
-    Text(title, color = TextColor, style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 6.dp))
-    Text(lede, color = Muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
-}
 
 /**
  * How wide one cell is on a wall of covers.
@@ -240,57 +185,25 @@ private fun screenPadding(contentPadding: PaddingValues) = PaddingValues(
  * rather than obeyed.
  */
 @Suppress("ModifierParameter")
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun DiscoverScreen(
     state: DiscoverUiState,
     contentPadding: PaddingValues,
     onSearch: (String) -> Unit,
-    onRequest: (String) -> Unit,
     onDetails: (String) -> Unit,
+    hubActions: DiscoverHubActions,
     onAccountClick: () -> Unit = {},
     onLibraryDetails: (String) -> Unit = {},
     onLoadMore: () -> Unit = {},
+    onGridMore: () -> Unit = {},
+    onGridBack: () -> Unit = {},
     searchTransitionModifier: Modifier = Modifier,
-    prepareSearch: Boolean = false,
-    searchReady: Boolean = false,
-    globalSearch: Boolean = false,
-    onSearchFocusConsumed: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val searchFocus = remember { FocusRequester() }
-    val gridState = rememberLazyGridState()
-    var filter by rememberSaveable { mutableStateOf(DiscoverFilter.ALL) }
-    var libraryFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
-    // An explicit Home search starts at the field, even after browsing a long filtered grid.
-    // Ordinary tab visits retain their query, filters and scroll position.
-    LaunchedEffect(prepareSearch) {
-        if (prepareSearch) {
-            filter = DiscoverFilter.ALL
-            libraryFilter = LibraryFilter.ALL
-            gridState.scrollToItem(0)
-        }
-    }
-    val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
-        android.content.res.Configuration.UI_MODE_TYPE_MASK ==
-        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    val filterFocus = remember { FocusRequester() }
+    val television = app.reelstack.ui.components.isTelevision()
     var searchOpen by rememberSaveable { mutableStateOf(false) }
-    // Claim the first focus for the type filters. Guarding the search shortcut was not enough: the
-    // field is the first focusable element on the screen, so the focus system handed it the remote
-    // by itself and the on-screen keyboard came with it.
-    //
-    // The filter bar lives in a lazy header, so a fixed two-frame wait asked before it was attached
-    // and the request failed silently. Keep asking until it lands, then stop — bounded, so a screen
-    // where the bar never appears does not spin.
-    LaunchedEffect(television) {
-        if (!television) return@LaunchedEffect
-        repeat(40) {
-            withFrameNanos { }
-            if (runCatching { filterFocus.requestFocus() }.isSuccess) return@LaunchedEffect
-        }
-    }
     LaunchedEffect(searchOpen) {
         if (television && searchOpen) {
             withFrameNanos { }
@@ -298,163 +211,139 @@ fun DiscoverScreen(
             keyboard?.show()
         }
     }
-    LaunchedEffect(prepareSearch, searchReady) {
-        if (prepareSearch && searchReady) {
-            gridState.scrollToItem(0)
-            // Let the lazy header attach before focusing. This is frame-driven, not a timer
-            // that drifts from the transition on a slow device or with animations disabled.
-            withFrameNanos { }
-            // Never on television. A remote has no keyboard, so grabbing the field throws the
-            // on-screen one over the content the moment Discover opens — and getting rid of it
-            // costs a Back press before anything can be browsed. The field is still there to be
-            // chosen deliberately.
-            if (!television) {
-                searchFocus.requestFocus()
-                keyboard?.show()
-            }
-            onSearchFocusConsumed()
-        }
+    val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
+    val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
+    val accountButton: @Composable () -> Unit = {
+        AccountAvatarButton(
+            account = account,
+            connection = connection,
+            onClick = onAccountClick,
+            description = account?.let { stringResource(R.string.account_change_seerr, it.displayName) }
+                ?: stringResource(R.string.account_signin_seerr),
+            testTag = "discover-account",
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
-    val visible = state.visibleDiscover.filter { media ->
-        val matchesType = when (filter) {
-            DiscoverFilter.MOVIES -> !media.isSeries
-            DiscoverFilter.SERIES -> media.isSeries
-            DiscoverFilter.ALL -> true
-        }
-        matchesType && when (libraryFilter) {
-            LibraryFilter.ALL -> true
-            LibraryFilter.AVAILABLE -> media.inLibrary || media.seerrStatus == 5
-            LibraryFilter.REQUESTABLE -> media.canRequest
-        }
+    val discoverTop: @Composable () -> Unit = {
+        app.reelstack.ui.components.DiscoverHeader(heading = {
+            Text(stringResource(R.string.nav_discover), color = TextColor, style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.padding(top = 6.dp))
+        }, account = accountButton, search = {
+            // The box is always on screen. On television it is a button that looks exactly like
+            // the field until it is chosen, because focusing a real text field is what summons
+            // the on-screen keyboard. Pressing it swaps in the field below, focused and with the
+            // keyboard, which is the only moment a remote user wants either.
+            if (television && !searchOpen) TvSearchBox(
+                query = state.searchQuery,
+                modifier = searchTransitionModifier.focusRequester(searchFocus),
+                onClear = { onSearch("") },
+                onOpen = { searchOpen = true },
+            )
+            else androidx.compose.material3.TextField(
+                value = state.searchQuery,
+                onValueChange = onSearch,
+                singleLine = true,
+                leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (state.isSearching) {
+                        CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    } else if (state.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearch("") }) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
+                        }
+                    }
+                },
+                placeholder = { Text(stringResource(R.string.discover_search_hint), fontSize = 14.sp, lineHeight = 20.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    focusManager.clearFocus()
+                    // Back to the button, so the keyboard goes with it and the results are visible.
+                    if (television) searchOpen = false
+                }),
+                shape = RoundedCornerShape(20.dp),
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedIndicatorColor = Primary,
+                    unfocusedIndicatorColor = app.reelstack.ui.theme.ControlOutline,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    cursorColor = Primary,
+                ),
+                modifier = searchTransitionModifier.fillMaxWidth().focusRequester(searchFocus)
+                    .testTag("discover-search"),
+            )
+        })
     }
-    val firstResult = remember { FocusRequester() }
     ReelPage(media = true) {
+        val grid = state.hub.grid
+        Column(Modifier.fillMaxSize()) {
+        // On a phone the field stays where it is while the page under it switches between rows and
+        // results. Inside either list it was a new field after the first letter, and the keyboard
+        // closed under the reader's thumb.
+        if (!television && grid == null) Box(Modifier.padding(start = ReelLayout.Gutter, end = ReelLayout.Gutter,
+            top = ReelLayout.PageTop, bottom = 4.dp)) { discoverTop() }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+        when {
+            grid != null -> DiscoverGridContent(
+                title = when (grid) {
+                    is DiscoverGridTarget.Row -> grid.kind.title()
+                    is DiscoverGridTarget.Genre -> grid.genre.name
+                },
+                row = state.hub.gridRow, contentPadding = contentPadding, onTitle = onDetails, onMore = onGridMore, onBack = onGridBack)
+            state.searchQuery.isBlank() -> DiscoverHubContent(state, contentPadding, hubActions, header = {
+                // On a television the page opens on the posters; search is an icon one press up,
+                // and it opens the full search, where people are found too.
+                if (television) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    IconButton(onClick = hubActions.onSearch, interactionSource = interaction,
+                        modifier = Modifier.size(48.dp).focusOutline(interaction, CircleShape).testTag("discover-search-icon")) {
+                        Icon(app.reelstack.ui.components.SpoleIcons.Search, stringResource(R.string.discover_search_hint), tint = TextColor)
+                    }
+                    accountButton()
+                }
+            })
+            else -> DiscoverSearchGrid(state, contentPadding, { if (television) discoverTop() }, onDetails, onLibraryDetails, onLoadMore,
+                hubActions.onPerson, top = if (television) ReelLayout.PageTop else 8.dp)
+        }
+        }
+        }
+    }
+}
+
+/** People lead the results; three lines leave the titles below them in view. */
+internal const val SEARCH_PEOPLE_SHOWN = 3
+
+/** What the box above found: people, your own titles, then everything Seerr can add. */
+@Composable
+private fun DiscoverSearchGrid(
+    state: DiscoverUiState,
+    contentPadding: PaddingValues,
+    header: @Composable () -> Unit,
+    onDetails: (String) -> Unit,
+    onLibraryDetails: (String) -> Unit,
+    onLoadMore: () -> Unit,
+    onPerson: (Int) -> Unit,
+    top: androidx.compose.ui.unit.Dp = ReelLayout.PageTop,
+) {
+    val gridState = rememberLazyGridState()
+    val visible = state.searchResults
     LazyVerticalGrid(
         columns = GridCells.Adaptive(posterCell()),
         state = gridState,
-        contentPadding = screenPadding(contentPadding),
+        contentPadding = PaddingValues(start = ReelLayout.Gutter, top = top, end = ReelLayout.Gutter,
+            bottom = contentPadding.calculateBottomPadding() + 24.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.fillMaxSize().steadyRemoteRows(gridState).testTag("discover-grid"),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Column {
-                val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
-                val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
-                app.reelstack.ui.components.DiscoverHeader(heading = {
-                    Column {
-                        Text(stringResource(R.string.nav_discover), color = TextColor, style = MaterialTheme.typography.displaySmall,
-                            modifier = Modifier.padding(top = 6.dp))
-                        // The lede says what this page is for. Once there is a query in the box the
-                        // reader knows, and on a television those two lines are the difference
-                        // between seeing the first row of hits and seeing the top half of it.
-                        if (state.searchQuery.isBlank()) Text(stringResource(R.string.discover_subtitle),
-                            color = Muted, fontSize = 13.sp,
-                            lineHeight = 19.sp, modifier = Modifier.padding(top = 7.dp))
-                    }
-                }, account = {
-                    AccountAvatarButton(
-                        account = account,
-                        connection = connection,
-                        onClick = onAccountClick,
-                        description = account?.let { stringResource(R.string.account_change_seerr, it.displayName) }
-                            ?: stringResource(R.string.account_signin_seerr),
-                        testTag = "discover-account",
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }, search = {
-                // The box is always on screen. On television it is a button that looks exactly like
-                // the field until it is chosen, because focusing a real text field is what summons
-                // the on-screen keyboard — and the shell hands focus to the first element in the
-                // content every time a tab is opened. Pressing it swaps in the field below, focused
-                // and with the keyboard, which is the only moment a remote user wants either.
-                if (television && !searchOpen) TvSearchBox(
-                    query = state.searchQuery,
-                    // The same requester as the field it stands in for, so the link from the filter
-                    // row below always has something attached to point at.
-                    modifier = searchTransitionModifier.focusRequester(searchFocus)
-                        .focusProperties { down = filterFocus },
-                    onClear = { onSearch("") },
-                    onOpen = { searchOpen = true },
-                )
-                else androidx.compose.material3.TextField(
-                    value = state.searchQuery,
-                    onValueChange = onSearch,
-                    singleLine = true,
-                    leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (state.isSearching) {
-                            CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                        } else if (state.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { onSearch("") }) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
-                            }
-                        }
-                    },
-                    placeholder = { Text(stringResource(R.string.home_search), fontSize = 14.sp, lineHeight = 20.sp) },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = {
-                        focusManager.clearFocus()
-                        // Back to the button, so the keyboard goes with it and the results are visible.
-                        if (television) searchOpen = false
-                    }),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = androidx.compose.material3.TextFieldDefaults.colors(
-                        focusedIndicatorColor = Primary,
-                        unfocusedIndicatorColor = app.reelstack.ui.theme.ControlOutline,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        cursorColor = Primary,
-                    ),
-                    modifier = searchTransitionModifier.fillMaxWidth().focusRequester(searchFocus)
-                        .testTag("discover-search"),
-                )
-                })
-                Row(
-                    Modifier.padding(top = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    // On a wide television header the search box sits beside the heading, far to
-                    // the right of these chips: nothing is directly above them, so a plain Up press
-                    // finds nothing at all. The link says where Up goes instead of leaving it to
-                    // geometry that does not line up.
-                    DiscoverFilterBar(filter, libraryFilter, { filter = it }, { libraryFilter = it },
-                        Modifier.focusRequester(filterFocus).focusGroup()
-                            .then(if (television) Modifier.focusProperties {
-                                up = searchFocus
-                                if (state.librarySearchResults.isNotEmpty() || visible.isNotEmpty()) down = firstResult
-                            } else Modifier))
-                }
-            }
-        }
-        if (globalSearch && state.searchQuery.isBlank() && state.searchHistory.isNotEmpty()) {
+        item(span = { GridItemSpan(maxLineSpan) }) { header() }
+        if (!state.isSearching && state.searchPeople.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(top = 20.dp, bottom = 6.dp)) {
-                    Text(
-                        stringResource(R.string.search_recent),
-                        color = TextColor,
-                        fontSize = 18.sp,
-                        lineHeight = 24.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        stringResource(R.string.discover_subtitle),
-                        color = Muted,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        state.searchHistory.forEach { query ->
-                            AssistChip(
-                                onClick = { onSearch(query) },
-                                label = { Text(query, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Clock, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                            )
-                        }
-                    }
-                }
+                Text(stringResource(R.string.discover_people), color = Muted, style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(top = 4.dp))
+            }
+            items(state.searchPeople.take(SEARCH_PEOPLE_SHOWN), key = { "search-person-${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { person ->
+                PersonLine(person) { onPerson(person.id) }
             }
         }
         if (state.librarySearchResults.isNotEmpty()) {
@@ -472,27 +361,21 @@ fun DiscoverScreen(
                 }
             }
             items(state.librarySearchResults, key = { "library-hit-${it.id}" }) { media ->
-                Box(if (media.id == state.librarySearchResults.firstOrNull()?.id) Modifier.focusRequester(firstResult) else Modifier) {
-                    LibraryHitCard(media) { onLibraryDetails(media.id) }
-                }
+                LibraryHitCard(media) { onLibraryDetails(media.id) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(stringResource(R.string.search_add_new), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
             }
         }
-        if (state.isSearching || (state.isRefreshing && state.discover.isEmpty() && state.searchQuery.isBlank()
-                && state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() })) {
+        if (state.isSearching) {
             items(8, key = { "discover-loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
-        } else if (visible.isEmpty()) {
+        } else if (visible.isEmpty() && state.searchPeople.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 app.reelstack.ui.components.QuietEmptyState(
                     state.searchError ?: when {
-                        state.searchQuery.isNotBlank() && state.librarySearchResults.isNotEmpty() ->
-                            stringResource(R.string.search_no_new, state.searchQuery.trim())
-                        state.searchQuery.isNotBlank() -> stringResource(R.string.search_no_results, state.searchQuery.trim())
-                        filter != DiscoverFilter.ALL || libraryFilter != LibraryFilter.ALL -> stringResource(R.string.search_empty_filter)
-                        else -> stringResource(R.string.search_not_connected)
+                        state.librarySearchResults.isNotEmpty() -> stringResource(R.string.search_no_new, state.searchQuery.trim())
+                        else -> stringResource(R.string.search_no_results, state.searchQuery.trim())
                     },
                     icon = if (state.searchError != null) app.reelstack.ui.components.SpoleIcons.Wifi else app.reelstack.ui.components.SpoleIcons.Search,
                     modifier = Modifier,
@@ -500,11 +383,8 @@ fun DiscoverScreen(
             }
         } else {
             items(visible, key = DiscoverMedia::id) { media ->
-              Box(if (state.librarySearchResults.isEmpty() && media.id == visible.firstOrNull()?.id) Modifier.focusRequester(firstResult) else Modifier) {
-                DiscoverCard(media, media.id in state.requestingMediaIds,
-                    allowed = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let { media.isSeries || !it.isPersonal || it.canRequestType("movie") } == true,
-                    onRequest = { onRequest(media.id) }, onDetails = { onDetails(media.id) })
-              }
+                if (app.reelstack.ui.components.isTelevision()) NamedPoster(media, { onDetails(media.id) }, Modifier.fillMaxWidth())
+                else PosterOnlyCard(media, { onDetails(media.id) }, Modifier.fillMaxWidth())
             }
             // Seerr answers 20 results at a time. Loading the next page is explicit rather than
             // automatic, so scrolling a long list never fires requests the reader did not ask for.
@@ -515,7 +395,7 @@ fun DiscoverScreen(
                         enabled = !state.loadingMoreSearch,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 52.dp)
-                            .testTag("discover-load-more"),
+                            .focusRing(RoundedCornerShape(14.dp)).testTag("discover-load-more"),
                     ) {
                         if (state.loadingMoreSearch) {
                             CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)
@@ -527,7 +407,6 @@ fun DiscoverScreen(
                 }
             }
         }
-    }
     }
 }
 
@@ -552,58 +431,8 @@ private fun TvSearchBox(query: String, modifier: Modifier, onClear: () -> Unit, 
             fontSize = 14.sp, lineHeight = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(start = 12.dp),
         )
-        if (query.isNotBlank()) IconButton(onClick = onClear, modifier = Modifier.testTag("discover-search-clear")) {
+        if (query.isNotBlank()) IconButton(onClick = onClear, modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("discover-search-clear")) {
             Icon(app.reelstack.ui.components.SpoleIcons.Close, stringResource(R.string.search_clear), tint = Muted)
-        }
-    }
-}
-
-@Composable
-private fun DiscoverFilterBar(
-    type: DiscoverFilter,
-    library: LibraryFilter,
-    onType: (DiscoverFilter) -> Unit,
-    onLibrary: (LibraryFilter) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var statusOpen by rememberSaveable { mutableStateOf(false) }
-    androidx.compose.foundation.lazy.LazyRow(
-        modifier.fillMaxWidth().testTag("discover-filters"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(DiscoverFilter.entries, key = { "type-${it.name}" }) { option ->
-            app.reelstack.ui.components.OpenFilterTab(option.localizedLabel(), option == type) { onType(option) }
-        }
-        item(key = "library-status") {
-            val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            Box {
-                FilterChip(
-                    interactionSource = interaction,
-                    selected = library != LibraryFilter.ALL,
-                    onClick = { statusOpen = true },
-                    label = { Text(if (library == LibraryFilter.ALL) stringResource(R.string.filter_status) else library.localizedLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    trailingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, Modifier.size(18.dp)) },
-                    shape = RoundedCornerShape(10.dp), border = null,
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = Color.Transparent, labelColor = Muted,
-                        selectedContainerColor = Color.Transparent, selectedLabelColor = Primary,
-                    ),
-                    modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(10.dp), glow = false).testTag("discover-status-filter"),
-                )
-                DropdownMenu(expanded = statusOpen, onDismissRequest = { statusOpen = false },
-                    containerColor = SurfaceRaised) {
-                    LibraryFilter.entries.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option.localizedLabel()) },
-                            selected = option == library,
-                            leadingIcon = if (option == library) {
-                                { Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                            } else null,
-                            onClick = { onLibrary(option); statusOpen = false },
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -633,17 +462,8 @@ internal fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
             .testTag("library-hit-artwork-${media.id}")) {
+            // No «I biblioteket» on the cover: every card here sits under «I biblioteka dine».
             MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop, source = media.source)
-            Row(
-                Modifier.align(Alignment.TopStart).padding(8.dp)
-                    .background(Color.Black.copy(alpha = .72f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 7.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(app.reelstack.ui.components.SpoleIcons.DoneCircle, null, tint = Success, modifier = Modifier.size(12.dp))
-                Text(stringResource(R.string.filter_available), color = Color.White, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 5.dp))
-            }
         }
         app.reelstack.ui.components.RailCardCaption(media.title, media.subtitle, titleMaxLines = 2,
             reserveTitleLines = if (app.reelstack.ui.components.isTelevision()) 2 else 1,
@@ -654,420 +474,29 @@ internal fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
     }
 }
 
-@Composable
-internal fun DiscoverCard(media: DiscoverMedia, requesting: Boolean, onRequest: () -> Unit, onDetails: () -> Unit, allowed: Boolean = true) {
-    val artworkShape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
-    val cardInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val pressed by cardInteraction.collectIsPressedAsState()
-    val focused by cardInteraction.collectIsFocusedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed && app.reelstack.ui.theme.LocalMotionEnabled.current) 0.985f else 1f,
-        animationSpec = androidx.compose.animation.core.tween(120),
-        label = "discover-card-spring",
-    )
-    val actionInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val actionable = media.canRequest && allowed
-    val actionLabel = if (media.isSeries) stringResource(R.string.media_seasons_named, media.title) else stringResource(R.string.media_add_named, media.title)
-    val statusLabel = app.reelstack.localization.localizedSeerrStatus(media.seerrStatus, media.inLibrary, media.requested)
-    Column(Modifier.fillMaxWidth()
-        .zIndex(if (focused) 10f else 0f)
-        .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        }
-        // The card's own action is named so a screen reader can tell it apart from the request
-        // button inside it. It must not merge its descendants: that would swallow the button.
-        .clickable(interactionSource = cardInteraction, indication = app.reelstack.ui.components.mediaCardIndication(),
-            onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onDetails)
-        .testTag("discover-cover-${media.id}")) {
-      // The poster carries the picture and two small badges. Everything with words in it sits
-      // below it.
-      //
-      // The title used to be printed across the bottom of the artwork — and a poster almost always
-      // has the title printed on it already, so every card showed it twice, the app's copy landing
-      // on top of the designer's. "Neagley" over NEAGLEY. The library grid has always put the title
-      // under the card; this is the same.
-      Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)
-          .focusOutline(cardInteraction, artworkShape).clip(artworkShape).background(SurfaceRaised)) {
-        MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
-        // Only enough shading for the badges to read against a bright poster.
-        Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-            0f to Color.Black.copy(alpha = .45f), .3f to Color.Transparent)))
-        Row(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            // A type badge classifies, it does not act, so it stays off the accent colour.
-            Text(if (media.isSeries) stringResource(R.string.media_series) else stringResource(R.string.media_movie), color = Color.White, fontSize = 10.sp, lineHeight = 14.sp,
-                fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.background(Color.Black.copy(alpha = .68f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp))
-            Spacer(Modifier.weight(1f))
-            if (media.inLibrary || media.requested || media.seerrStatus in 2..6) {
-                Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.CloudReady,
-                    // Labelled only when no status line follows below, so it is never read twice.
-                    contentDescription = if (actionable) statusLabel else null,
-                    tint = if (media.inLibrary || media.seerrStatus == 5) Success else Color.White,
-                    modifier = Modifier.background(Color.Black.copy(alpha = .75f), CircleShape).padding(7.dp).size(19.dp))
-            }
-        }
-      }
-      Column(Modifier.fillMaxWidth().padding(top = 9.dp)) {
-        Text(media.metadata, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(media.title, color = TextColor, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
-            minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
-        if (actionable) {
-            Button(onClick = onRequest, enabled = !requesting, interactionSource = actionInteraction,
-                shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Ink),
-                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 8.dp),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp)
-                    .focusOutline(actionInteraction, RoundedCornerShape(10.dp), glow = false)
-                    .semantics {
-                        contentDescription = actionLabel
-                    }) {
-                if (requesting) CircularProgressIndicator(Modifier.size(14.dp), color = Ink, strokeWidth = 2.dp)
-                else Icon(if (media.isSeries) app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add, null, Modifier.size(14.dp))
-                Text(when { requesting -> stringResource(R.string.media_sending); media.isSeries -> stringResource(R.string.media_seasons); else -> stringResource(R.string.media_add) },
-                    fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 5.dp))
-            }
-        } else {
-            // Nothing to do here beyond opening the card, so this is a status line, not a button.
-            Row(verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp)) {
-                Icon(if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.Clock,
-                    null, tint = if (media.inLibrary || media.seerrStatus == 5) Success else Muted, modifier = Modifier.size(13.dp))
-                Text(statusLabel, color = Muted, fontSize = 12.sp, maxLines = 2,
-                    lineHeight = 16.sp, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
-            }
-        }
-      }
-    }
-}
-
 /** Compatibility entry point for existing Compose tests while the root state is being split. */
 @Composable
 fun DiscoverScreen(
     state: ReelstackUiState,
     contentPadding: PaddingValues,
     onSearch: (String) -> Unit,
-    onRequest: (String) -> Unit,
     onDetails: (String) -> Unit,
+    hubActions: DiscoverHubActions = DiscoverHubActions({}, {}, {}, {}, {}, {}, {}),
     onAccountClick: () -> Unit = {},
     onLibraryDetails: (String) -> Unit = {},
     onLoadMore: () -> Unit = {},
     searchTransitionModifier: Modifier = Modifier,
-    prepareSearch: Boolean = false,
-    searchReady: Boolean = false,
-    globalSearch: Boolean = false,
-    onSearchFocusConsumed: () -> Unit = {},
 ) = DiscoverScreen(
     state = state.toDiscoverUiState(),
     contentPadding = contentPadding,
     onSearch = onSearch,
-    onRequest = onRequest,
     onDetails = onDetails,
+    hubActions = hubActions,
     onAccountClick = onAccountClick,
     onLibraryDetails = onLibraryDetails,
     onLoadMore = onLoadMore,
     searchTransitionModifier = searchTransitionModifier,
-    prepareSearch = prepareSearch,
-    searchReady = searchReady,
-    globalSearch = globalSearch,
-    onSearchFocusConsumed = onSearchFocusConsumed,
 )
-
-@Composable
-fun ActivityScreen(state: ReelstackUiState, contentPadding: PaddingValues, onDetails: (String) -> Unit,
-                   onNotify: (String, Boolean) -> Unit = { _, _ -> }, onRefresh: () -> Unit = {},
-                   onAccountClick: () -> Unit = {}, onCancelRequest: (String) -> Unit = {},
-                   onHistory: () -> Unit = {}, onCloseHistory: () -> Unit = {}, onLoadHistory: (Boolean) -> Unit = {}) {
-    if (state.showRequestHistory) {
-        RequestHistoryScreen(state.requestHistory, onDetails, onCloseHistory, onLoadHistory)
-        return
-    }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var savedSourceFilter by rememberSaveable {
-        mutableStateOf(if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie }) ActivityFilter.MINE else ActivityFilter.ALL)
-    }
-    val sourceFilter = if (state.adminView || state.configuredCount == 0) savedSourceFilter else ActivityFilter.MINE
-    val personalLabels = PersonalActivityFilter.entries.associateWith { choice ->
-        val count = when (choice) {
-            PersonalActivityFilter.ALL -> state.trackedRequests.size
-            PersonalActivityFilter.READY -> state.trackedRequests.count { it.stage == app.reelstack.data.model.RequestStage.AVAILABLE }
-            PersonalActivityFilter.IN_PROGRESS -> state.trackedRequests.count { it.stage != app.reelstack.data.model.RequestStage.AVAILABLE }
-        }
-        stringResource(R.string.filter_count, choice.localizedLabel(), count)
-    }
-    // What you are waiting for is the reason to open this page; what already arrived is not news.
-    // The page therefore opens on «På vei» — but only while there is something on the way, because
-    // an empty list on arrival reads as a broken page, not as an empty filter.
-    var chosenFilter by rememberSaveable { mutableStateOf<PersonalActivityFilter?>(null) }
-    val waiting = state.trackedRequests.any { it.stage != app.reelstack.data.model.RequestStage.AVAILABLE }
-    val personalFilter = chosenFilter
-        ?: if (waiting) PersonalActivityFilter.IN_PROGRESS else PersonalActivityFilter.ALL
-    var showUnresolved by rememberSaveable { mutableStateOf(false) }
-    val personalRequests = state.trackedRequests.filter {
-        when (personalFilter) {
-            PersonalActivityFilter.ALL -> true
-            PersonalActivityFilter.READY -> it.stage == app.reelstack.data.model.RequestStage.AVAILABLE
-            PersonalActivityFilter.IN_PROGRESS -> it.stage != app.reelstack.data.model.RequestStage.AVAILABLE
-        }
-    }
-    val unresolved = personalRequests.filterNot { it.hasTitleMetadata }
-    val resolved = personalRequests.filter { it.hasTitleMetadata }
-    val requestGroups = remember(resolved) { app.reelstack.data.model.groupActivityRequests(resolved) }
-    val events = state.activity.filter { event ->
-        sourceFilter == ActivityFilter.ALL || event.source == sourceFilter.source
-    }
-    val hasIssues = state.failedServices.isNotEmpty() || state.serviceWarnings.isNotEmpty()
-    val firstActivity = remember { FocusRequester() }
-    ReelPage(media = true) {
-    val wideActivity = app.reelstack.ui.theme.LocalTabletCanvas.current && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.6f
-    val tvActivity = wideActivity && (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
-        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    val activityGrid = rememberLazyGridState()
-    // The same cell and gap as Discover, from the one place that decides it.
-    LazyVerticalGrid(columns = GridCells.Adaptive(posterCell()), state = activityGrid,
-        horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(if (tvActivity) 16.dp else 28.dp),
-        // The television branch used to ignore the padding it was handed and use a flat 24 dp,
-        // which put the second row of cards against the bottom bezel.
-        contentPadding = if (tvActivity) PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp,
-            bottom = 24.dp + contentPadding.calculateBottomPadding()) else screenPadding(contentPadding),
-        modifier = Modifier.fillMaxSize().steadyRemoteRows(activityGrid).testTag("activity-feed")) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-          Column(Modifier.fillMaxWidth().testTag("activity-heading-block")) {
-            val account = state.verifiedPanelAccount(ServiceKind.SEERR)?.takeIf { it.isPersonal }
-            val connection = state.connections.firstOrNull { it.kind == ServiceKind.SEERR }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                    // One page-title level everywhere. This used to be an inline 30 sp SemiBold on
-                    // television while Discover next door was displaySmall, so the two screens had
-                    // visibly different headings at the same level.
-                    if (tvActivity) Text(stringResource(R.string.nav_activity), color = TextColor,
-                        style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 4.dp))
-                    else ScreenHeader("", stringResource(R.string.nav_activity), stringResource(R.string.activity_subtitle))
-                }
-                if (wideActivity && (state.adminView || state.configuredCount == 0)) {
-                    ActivityScopeMenu(sourceFilter, { savedSourceFilter = it })
-                }
-                AccountAvatarButton(
-                    account, connection, onAccountClick,
-                    account?.let { stringResource(R.string.account_change_seerr, it.displayName) } ?: stringResource(R.string.account_signin_seerr),
-                    "activity-account", Modifier.padding(top = 2.dp),
-                )
-            }
-            if ((state.adminView || state.configuredCount == 0) && (state.isRefreshing || hasIssues || state.configuredCount == 0)) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)) {
-                Box(Modifier.size(7.dp).clip(CircleShape)
-                    .background(if (hasIssues) Caution else Muted))
-                Text(when {
-                    state.configuredCount == 0 -> stringResource(R.string.activity_preview)
-                    state.isRefreshing -> stringResource(R.string.activity_refreshing)
-                    hasIssues -> stringResource(R.string.activity_partial_error)
-                    else -> stringResource(R.string.activity_waiting)
-                }, color = if (hasIssues) Caution else Muted, fontSize = 13.sp, lineHeight = 19.sp,
-                    modifier = Modifier.padding(start = 10.dp))
-            }
-            if (!wideActivity && (state.adminView || state.configuredCount == 0)) {
-                // A label and the control it names, side by side. The label used to take
-                // `weight(1f)`, which pushed the two to opposite edges of the phone with half a
-                // screen of nothing between them — they read as two unrelated things.
-                Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.activity_view), color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
-                    ActivityScopeMenu(sourceFilter, { savedSourceFilter = it })
-                }
-            }
-          }
-        }
-        if (sourceFilter == ActivityFilter.MINE) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-              Column(Modifier.fillMaxWidth().testTag("activity-filter-block")
-                  .focusProperties { if (tvActivity && resolved.isNotEmpty()) down = firstActivity }) {
-                val filters: @Composable () -> Unit = {
-                    if (state.trackedRequests.isNotEmpty()) {
-                        AppFilterRow(PersonalActivityFilter.entries, personalFilter, { choice -> personalLabels.getValue(choice) },
-                            { chosenFilter = it }, optionTag = { "activity-personal-${it.name}" })
-                    }
-                }
-                // On the same line as the filters and built from the same chip, because a row of
-                // controls that all do the same kind of thing should look the same. It is not a
-                // filter, though, so it stands after a wider gap and carries a chevron: the
-                // filters change this page, this one leaves it.
-                val history: @Composable () -> Unit = {
-                    if (state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie && it.token.isNotBlank() }) {
-                        app.reelstack.ui.components.AppNavigationChip(
-                            text = stringResource(R.string.history_open),
-                            tag = "open-request-history",
-                            modifier = Modifier.padding(end = 4.dp),
-                            onClick = onHistory,
-                        )
-                    }
-                }
-                val refresh: @Composable () -> Unit = {
-                    IconButton(onClick = onRefresh, enabled = !state.trackingLoading,
-                        modifier = Modifier.testTag("activity-refresh")) {
-                        if (state.trackingLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
-                        else Icon(app.reelstack.ui.components.SpoleIcons.Refresh, stringResource(R.string.activity_refresh), tint = Primary)
-                    }
-                }
-                // On a phone all of that does not fit on one line: «Sjå førespurnadshistorikk» is a
-                // wide chip, and with the refresh icon beside it the filters were squeezed down to
-                // the first of three — the other two were simply not on the screen. Two lines, with
-                // the filters getting the whole of the first, shows all three again.
-                if (wideActivity) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f)) { filters() }
-                        Box(Modifier.padding(start = 16.dp)) { history() }
-                        refresh()
-                    }
-                } else {
-                    filters()
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(Modifier.weight(1f)) { history() }
-                        refresh()
-                    }
-                }
-                state.trackingError?.let { Text(it, color = Caution, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 12.dp)) }
-                if (state.trackingError == null && personalRequests.any { it.statusCheckFailed }) {
-                    Text(stringResource(R.string.tv_unavailable_status), color = Muted,
-                        modifier = Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
-                }
-                if (unresolved.isNotEmpty()) {
-                    Text(androidx.compose.ui.res.pluralStringResource(R.plurals.tv_unresolved, unresolved.size, unresolved.size), color = Muted,
-                        style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
-                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { showUnresolved = !showUnresolved }, modifier = Modifier.testTag("unresolved-toggle")) {
-                        Text(stringResource(if (showUnresolved) R.string.tv_hide_unresolved else R.string.tv_show_unresolved))
-                    }
-                    if (showUnresolved) unresolved.forEach { request ->
-                        app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onDetails(request.key) }, modifier = Modifier.testTag("unresolved-${request.key}")) {
-                            Text(stringResource(R.string.tv_request_number, request.requestId ?: request.mediaId) + " · " +
-                                app.reelstack.localization.requestStageLabel(request.stage))
-                        }
-                    }
-                }
-                if (state.trackedRequests.isNotEmpty()) {
-                    if (personalRequests.isEmpty()) Text(stringResource(R.string.activity_empty_filter), color = Muted,
-                        modifier = Modifier.padding(vertical = 16.dp))
-                }
-                if (state.trackedRequests.any { it.notify } && (!state.notificationsEnabled || !app.reelstack.background.LibraryNotifications.allowed(context))) {
-                    Text(if (!state.notificationsEnabled) stringResource(R.string.activity_notifications_off) else
-                        stringResource(R.string.activity_android_notifications_off), color = Caution, fontSize = 12.sp, lineHeight = 17.sp)
-                    if (state.notificationsEnabled) app.reelstack.ui.components.SpoleSecondaryButton(onClick = {
-                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
-                    }) { Text(stringResource(R.string.activity_notifications_open)) }
-                }
-                if (state.trackedRequests.isEmpty()) Text(if (state.trackingLoading) stringResource(R.string.activity_loading) else
-                    stringResource(R.string.activity_empty),
-                    color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 18.dp))
-              }
-            }
-            items(requestGroups, key = { "follow-${it.key}" }) { group ->
-              Box(if (group.key == requestGroups.firstOrNull()?.key) Modifier.focusRequester(firstActivity) else Modifier) {
-                app.reelstack.ui.components.ActivityRequestCard(group, onDetails, onNotify,
-                    onCancelRequest, state.cancellingRequestKeys)
-              }
-            }
-        } else if (events.isEmpty() && state.isRefreshing && state.configuredCount > 0) {
-            item(span = { GridItemSpan(maxLineSpan) }) { ActivitySkeleton(Modifier.fillMaxWidth()) }
-        } else if (events.isEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(vertical = 24.dp)) {
-                    Text(stringResource(R.string.activity_no_events), color = TextColor, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(if (sourceFilter == ActivityFilter.ALL) R.string.activity_updates_here else R.string.activity_try_all),
-                        color = Muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 6.dp))
-                }
-            }
-        } else {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(stringResource(R.string.activity_services), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 20.dp))
-            }
-            // Group by day so a long feed can be skimmed instead of read as one undifferentiated list.
-            var lastGroup: Int? = null
-            events.forEach { event ->
-                val group = activityDayGroup(event)
-                if (group != lastGroup) {
-                    lastGroup = group
-                    item(key = "group-${event.id}", span = { GridItemSpan(maxLineSpan) }) {
-                        Text(stringResource(group), color = Muted, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 20.dp, bottom = 2.dp).semantics { heading() })
-                    }
-                }
-                item(key = event.id) { ActivityRow(event) { onDetails(event.id) } }
-            }
-        }
-    }
-    }
-}
-
-@Composable
-private fun ActivityScopeMenu(selected: ActivityFilter, onSelect: (ActivityFilter) -> Unit) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Box {
-        app.reelstack.ui.components.SpoleSecondaryButton(onClick = { expanded = true }, modifier = Modifier.testTag("activity-scope")) {
-            Text(selected.localizedLabel(), color = PrimarySoft)
-            Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, tint = PrimarySoft, modifier = Modifier.size(18.dp))
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = SurfaceRaised) {
-            ActivityFilter.entries.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.localizedLabel()) },
-                    leadingIcon = if (option == selected) {
-                        { Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = Primary, modifier = Modifier.size(18.dp)) }
-                    } else null,
-                    onClick = { onSelect(option); expanded = false },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActivityRow(event: ActivityEvent, onClick: () -> Unit) {
-    // Keep source artwork uncropped; episodes use a wide still instead of a stretched poster.
-    val wide = event.mediaType?.equals("Episode", ignoreCase = true) == true
-    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
-                role = Role.Button, onClick = onClick).testTag("activity-event-${event.id}"),
-    ) {
-      Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f).focusOutline(interaction, shape).clip(shape).background(Ink)) {
-        MediaArtwork(
-            url = event.artworkUrl,
-            fallbackRes = event.artworkRes ?: R.drawable.media_placeholder,
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxWidth().align(Alignment.Center).aspectRatio(if (wide) 16f / 9f else 2f / 3f),
-        )
-      }
-        Column(modifier = Modifier.padding(top = 12.dp, start = 2.dp, end = 2.dp)) {
-            Text(event.title, color = TextColor, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 4.dp)) {
-                Icon(
-                    if (event.complete) app.reelstack.ui.components.SpoleIcons.Done else if (event.source == ServiceKind.SEERR) app.reelstack.ui.components.SpoleIcons.CloudReady else app.reelstack.ui.components.SpoleIcons.Download,
-                    contentDescription = null,
-                    tint = if (event.complete) Success else Muted,
-                    modifier = Modifier.padding(top = 1.dp).size(14.dp),
-                )
-                Text(event.detail.text(LocalContext.current), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
-                    modifier = Modifier.weight(1f).padding(start = 6.dp))
-            }
-            // The detail line already names the service, so the meta line carries only the time.
-            event.time.text(LocalContext.current).takeIf { it.isNotBlank() }?.let {
-                Text(it, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 5.dp))
-            }
-            event.progress?.let { progress ->
-                Box(Modifier.fillMaxWidth().padding(top = 10.dp).height(6.dp).clip(CircleShape).background(app.reelstack.ui.theme.SurfaceRaised)) {
-                    Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).height(6.dp).background(Primary))
-                }
-            }
-        }
-    }
-}
 
 private enum class SettingsSection(val label: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     ACCOUNTS(R.string.settings_services, app.reelstack.ui.components.SpoleIcons.Server),

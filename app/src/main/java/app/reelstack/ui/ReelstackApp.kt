@@ -106,7 +106,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import app.reelstack.R
-import app.reelstack.ui.screens.ActivityScreen
 import app.reelstack.ui.screens.DiscoverScreen
 import app.reelstack.ui.screens.HomeScreen
 import app.reelstack.ui.screens.SettingsScreen
@@ -117,6 +116,7 @@ import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.SurfaceRaised
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -164,8 +164,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             onPlayed = { media, played -> viewModel.setMediaPlayed(media.id, played) },
         )
     }
-    var pendingSearchFocus by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val focusScope = androidx.compose.runtime.rememberCoroutineScope()
     val tvRail = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     var tvRailFocused by remember { mutableStateOf(false) }
     var railHasFocus by remember { mutableStateOf(false) }
@@ -176,7 +176,6 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     var contentHasFocus by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val selectTab: (AppTab) -> Unit = { tab ->
-        pendingSearchFocus = false
         focusManager.clearFocus()
         keyboard?.hide()
         viewModel.selectTab(tab)
@@ -260,7 +259,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             while (true) {
                 viewModel.refreshTrackedRequests(background = true)
                 kotlinx.coroutines.delay(
-                    if (viewModel.uiState.value.selectedTab == AppTab.ACTIVITY) 30_000L else 300_000L,
+                    if (viewModel.uiState.value.selectedTab == AppTab.DISCOVER) 30_000L else 300_000L,
                 )
             }
         }
@@ -273,8 +272,14 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     }
     val startTab = if (app.reelstack.ui.theme.LocalPersonalization.current.startInLibrary) AppTab.LIBRARY else AppTab.HOME
     BackHandler(enabled = state.globalSearchOpen) { viewModel.closeGlobalSearch() }
-    BackHandler(enabled = !state.globalSearchOpen && state.activeSheet == null && !state.showOnboarding && state.selectedTab != startTab) {
-        selectTab(startTab)
+    val backAction = shellBack(state, startTab)
+    BackHandler(enabled = backAction != null) {
+        when (backAction) {
+            ShellBack.CLOSE_GRID -> viewModel.closeDiscoverGrid()
+            ShellBack.CLOSE_MY_REQUESTS -> viewModel.closeMyRequests()
+            ShellBack.START_TAB -> selectTab(startTab)
+            null -> Unit
+        }
     }
 
     LaunchedEffect(state.snackbar) {
@@ -324,6 +329,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         if (tvRail && moveIntoContent && !state.showOnboarding && state.activeSheet == null) {
             kotlinx.coroutines.delay(240)
             if (contentHasFocus || runCatching { contentFocus.requestFocus() }.getOrDefault(false)) moveIntoContent = false
+            // Focus that landed on the menu by itself goes back to the page, even when the page's
+            // remembered target is gone.
+            androidx.compose.runtime.withFrameNanos { }
+            if (!contentHasFocus && railHasFocus && !railEntryRequested)
+                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
         }
     }
     // One safe edge for every television screen, rather than each one choosing its own bottom
@@ -363,6 +373,13 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         if (tvRail && event.key == androidx.compose.ui.input.key.Key.DirectionRight &&
                             event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                             contentFocus.requestFocus()
+                            // The restorer can point at a button that has since gone (a hero that
+                            // turned); then nothing visible holds focus. Fall back to the nearest
+                            // thing to the right of the menu.
+                            focusScope.launch {
+                                androidx.compose.runtime.withFrameNanos { }
+                                if (!contentHasFocus) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+                            }
                             true
                         } else false
                     },
@@ -451,19 +468,28 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         showBrand = !showRail,
                         cardActions = cardActions,
                     )
-                    AppTab.DISCOVER -> DiscoverScreen(
+                    AppTab.DISCOVER -> if (state.myRequestsOpen) app.reelstack.ui.screens.MyRequestsScreen(state, screenInsets,
+                        onOpen = viewModel::openActivityDetails, onBack = viewModel::closeMyRequests,
+                        onLoadOlder = { viewModel.loadRequestHistory(true) }, onEvent = viewModel::openActivityDetails,
+                        onFocusRequest = viewModel::focusRequestTitle)
+                    else DiscoverScreen(
                         state = discoverState,
                         contentPadding = screenInsets,
                         onSearch = viewModel::setSearchQuery,
-                        onRequest = viewModel::requestMedia,
                         onDetails = viewModel::openDiscoverDetails,
+                        hubActions = app.reelstack.ui.screens.DiscoverHubActions(
+                            onTitle = viewModel::openDiscoverDetails, onPerson = viewModel::openPerson,
+                            onMyRequests = viewModel::openMyRequests, onRequestLine = viewModel::openActivityDetails,
+                            onGrid = viewModel::openDiscoverGrid, onRetry = { viewModel.refreshDiscoverHub(force = true) },
+                            onSearch = viewModel::openGlobalSearch,
+                            onFocusRequest = viewModel::focusRequestTitle, onLeave = viewModel::leaveDiscoverHub,
+                            onReturned = viewModel::discoverHubReturned),
                         onAccountClick = viewModel::openSeerrAccount,
                         onLibraryDetails = viewModel::openLibraryDetails,
                         onLoadMore = viewModel::loadMoreSearchResults,
+                        onGridMore = viewModel::loadMoreDiscoverGrid,
+                        onGridBack = viewModel::closeDiscoverGrid,
                         searchTransitionModifier = searchTransition,
-                        prepareSearch = pendingSearchFocus,
-                        searchReady = navigation.currentState == AppTab.DISCOVER && !navigation.isRunning,
-                        onSearchFocusConsumed = { pendingSearchFocus = false },
                     )
                     AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary,
                         viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary,
@@ -487,10 +513,6 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                             { selectTab(state.downloadsReturnTab.takeIf { it != AppTab.DOWNLOADS } ?: AppTab.SETTINGS) }
                         } else null,
                     )
-                    AppTab.ACTIVITY -> ActivityScreen(state, screenInsets, viewModel::openActivityDetails,
-                        viewModel::setFollowNotification, viewModel::refreshTrackedRequests, viewModel::openSeerrAccount,
-                        viewModel::cancelTrackedRequest, viewModel::openRequestHistory,
-                        viewModel::closeRequestHistory, viewModel::loadRequestHistory)
                     AppTab.SETTINGS -> SettingsScreen(
                         state = state,
                         contentPadding = screenInsets,
@@ -542,8 +564,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 onClose = viewModel::closeGlobalSearch,
                 onLibraryDetails = viewModel::openLibraryDetails,
                 onDiscoverDetails = viewModel::openDiscoverDetails,
-                onRequest = viewModel::requestMedia,
                 onLoadMore = viewModel::loadMoreGlobalSearch,
+                onPerson = viewModel::openPerson,
             )
         }
     }
@@ -562,7 +584,6 @@ internal val tabs = listOf(
     TabItem(AppTab.LIBRARY, R.string.nav_library, app.reelstack.ui.components.SpoleIcons.Library),
     TabItem(AppTab.DOWNLOADS, R.string.nav_downloads, app.reelstack.ui.components.SpoleIcons.Download),
     TabItem(AppTab.DISCOVER, app.reelstack.R.string.nav_discover, app.reelstack.ui.components.SpoleIcons.Discover),
-    TabItem(AppTab.ACTIVITY, app.reelstack.R.string.nav_activity, app.reelstack.ui.components.SpoleIcons.Activity),
     TabItem(AppTab.SETTINGS, app.reelstack.R.string.nav_settings, app.reelstack.ui.components.SpoleIcons.Settings),
 )
 
@@ -590,7 +611,6 @@ internal fun ReelstackBottomBar(
             AppTab.LIBRARY -> R.string.nav_library_short
             AppTab.DOWNLOADS -> R.string.nav_downloads_short
             AppTab.DISCOVER -> R.string.nav_discover_short
-            AppTab.ACTIVITY -> R.string.nav_activity_short
             AppTab.SETTINGS -> R.string.nav_settings_short
         })
         if (measurer.measure(full, labelStyle, softWrap = false).size.width <= availablePx) full else short

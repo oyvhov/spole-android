@@ -160,7 +160,7 @@ bokstavavstand. Det er motsett av denne skalaen, og det gjorde at sidetittelen p
 ein annan skrifttype enn Oppdag. Ein stil som blir brukt, skal vere definert her; legg til nivået
 i staden for å setje `fontSize` direkte.
 
-**Sidetittel.** Éin storleik for heile nivået: `displaySmall` på Heim, Oppdag, Aktivitet og
+**Sidetittel.** Éin storleik for heile nivået: `displaySmall` på Heim, Oppdag og
 Bibliotek. `headlineSmall` er ikkje ein sidetittel. Etiketten øverst i TV-menyen er ei
 kolonneoverskrift og brukar `titleLarge`, same nivå som alle andre seksjonsoverskrifter.
 

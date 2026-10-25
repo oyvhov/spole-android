@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -23,7 +24,7 @@ internal fun OpenMenuAction(onClick: () -> Unit, modifier: Modifier = Modifier,
     val interaction = remember { MutableInteractionSource() }
     TextButton(onClick, modifier.heightIn(min = 48.dp)
         .focusOutline(interaction, RoundedCornerShape(10.dp), glow = false),
-        enabled = enabled, interactionSource = interaction,
+        enabled = enabled, shape = RoundedCornerShape(10.dp), interactionSource = interaction,
         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp), content = content)
 }
@@ -32,7 +33,7 @@ internal fun OpenMenuAction(onClick: () -> Unit, modifier: Modifier = Modifier,
 internal fun OpenFilterTab(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Column(modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(8.dp), glow = false)
-        .selectable(selected, role = Role.Tab, interactionSource = interaction,
+        .clip(RoundedCornerShape(8.dp)).selectable(selected, role = Role.Tab, interactionSource = interaction,
             indication = androidx.compose.foundation.LocalIndication.current, onClick = onClick)
         .padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(label, style = MaterialTheme.typography.titleSmall,

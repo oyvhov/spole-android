@@ -18,103 +18,15 @@ import app.reelstack.data.model.*
 import app.reelstack.data.network.readableMessage
 import app.reelstack.data.network.serviceError
 import app.reelstack.data.repository.DeviceIdentity
+import app.reelstack.background.PlaybackProgressRuntime
+import app.reelstack.background.PlaybackProgressScheduler
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-data class PlayerScreenState(
-    val title: String = "Spole", val subtitle: String = "", val busy: Boolean = true,
-    val error: String? = null, val warning: String? = null,
-    val choices: List<PlayableItem> = emptyList(), val browsing: Boolean = false, val hasMore: Boolean = false,
-    val playing: Boolean = false, val ended: Boolean = false, val positionMs: Long = 0, val durationMs: Long = 0,
-    val audio: List<PlaybackTrack> = emptyList(), val subtitles: List<PlaybackTrack> = emptyList(),
-    val audioIndex: Int? = null, val subtitleIndex: Int = -1,
-    val mode: PlaybackMode = PlaybackMode.DIRECT_PLAY,
-    /** The server's own reason codes, mapped to a sentence only when they are shown. */
-    val transcodeReasons: List<String> = emptyList(),
-    val quality: Int = 0,
-    /** Playback intent stays true while a seek buffers; playing alone cannot distinguish a pause. */
-    val playWhenReady: Boolean = false,
-    val awaitingResume: Boolean = false,
-    val chapters: List<PlaybackChapter> = emptyList(),
-    val itemId: String = "",
-    val logoUrl: String? = null,
-    /** The numbers behind [subtitle], so the header can write them out rather than show "S03 E01". */
-    val season: Int? = null,
-    val episode: Int? = null,
-    /**
-     * What follows this episode, and how long is left before it starts on its own. Null means
-     * there is nothing after it — a film, the last episode, or a server that could not say.
-     */
-    val nextEpisode: PlayableItem? = null,
-    /** Whether the server has conclusively answered the next-episode lookup for this episode. */
-    val nextEpisodeResolved: Boolean = false,
-    val nextEpisodeCountdown: Int? = null,
-    val nextEpisodeCountdownTotalSeconds: Int = 12,
-    val nextEpisodeOfferEnabled: Boolean = true,
-    val nextEpisodeLeadSeconds: Int = 15,
-    val nextEpisodeDismissed: Boolean = false,
-    /** A child routine was reached. The current episode was allowed to finish first. */
-    val bedtimeReached: Boolean = false,
-    /** Title sequences and closing credits the server has marked, if anything has marked them. */
-    val segments: List<PlaybackSegment> = emptyList(),
-    val source: ServiceKind = ServiceKind.JELLYFIN,
-    val videoCodec: String? = null,
-    val videoWidth: Int = 0,
-    val videoHeight: Int = 0,
-    val videoBitrate: Int = 0,
-    val videoFrameRate: Float = 0f,
-    val videoHdr: String = "SDR",
-    /**
-     * The audio as it arrives, which is not the audio the file holds.
-     *
-     * The panel used to print the source track here -- "English EAC3 5.1" -- directly under a line
-     * saying the server was converting the audio because this device cannot play that format. The
-     * two contradicted each other, and the one in a diagnostics panel that must be true is the one
-     * describing what is actually being decoded.
-     */
-    val audioCodec: String? = null,
-    val audioChannels: Int = 0,
-    val audioDecoder: String = "",
-    val videoDecoder: String = "",
-    val audioUnderruns: Int = 0,
-    val subtitleUnavailable: Boolean = false,
-    /**
-     * The audio codecs this device told the server it can play, and up to how many channels.
-     *
-     * When a server answers "this device cannot play the audio format", the only way to tell a
-     * correct refusal from a detection bug is to see what was actually claimed -- and until now
-     * that was only visible by reading the source. It is one line in Stats for Nerds instead.
-     */
-    val advertisedAudio: String = "",
-    /** The video codecs claimed, with the largest frame each was accepted at. */
-    val advertisedVideo: String = "",
-    /**
-     * Why this stream stepped down, when it did.
-     *
-     * Empty for a stream that started and stayed where it started. Otherwise the Media3 error code,
-     * the format the failing renderer choked on, and the rung playback dropped to — which used to
-     * exist only in logcat, where a television cannot be read.
-     */
-    val fallback: String = "",
-) {
-    /** Kept so every reader that only cares whether the file is untouched still compiles. */
-    val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
-}
-
-/**
- * The marked stretch the playhead is inside right now, if any.
- *
- * A small guard at each end keeps the offer from flickering on and off around the boundary, and
- * from appearing for the last half second of a title sequence nobody would bother skipping.
- */
-fun PlayerScreenState.activeSegment(): PlaybackSegment? = segments.firstOrNull { segment ->
-    positionMs >= segment.startMs && positionMs < segment.endMs - 1_500
-}
 
 /**
  * How long a stall is allowed to stay silent, try something else, and finally give up.
@@ -174,6 +86,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var generation = 0
     private var bufferingSince = 0L
     private var nextEpisodeJob: Job? = null
+    private var previewJob: Job? = null
+    private var previewManifest: Pair<String, List<TrickplayGrid>>? = null
     private var countdownJob: Job? = null
     private var nextEpisodeCancelled = false
 
@@ -201,19 +115,31 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     private var subtitleLoadJob: Job? = null
     /** Text tracks of the current plan whose file is already in memory. Only these are switched on. */
     private val readyTextIndices = mutableSetOf<Int>()
+    /** ASS streams whose original was too large or broken; the server's VTT of them is shown instead. */
+    private val vttFallbackIndices = mutableSetOf<Int>()
     private val reporter = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val reports = Channel<Report>(Channel.UNLIMITED)
-    private data class Report(val connection: ServiceConnection, val plan: PlaybackPlan, val event: String, val position: Long,
-        val paused: Boolean, val journalId: String?)
+    private val reportLease = PlaybackProgressRuntime.acquire()
+    private val reports = PlaybackReportQueue<PlaybackReport>({ it.plan.sessionId }, { it.event })
+
+    private val adjustmentController = PlaybackAdjustmentController()
+    private val subtitleResources = PlaybackSubtitleResources()
+    val adjustments = adjustmentController.state
+    fun adjust(value: PlaybackAdjustments) { if (container.connectionRepository.isCurrent(owner)) adjustmentController.apply(player, value) }
 
     val player: ExoPlayer = ExoPlayer.Builder(container.appContext,
-        PlaybackRenderersFactory(container.appContext, localAudioFallback))
+        PlaybackRenderersFactory(container.appContext, localAudioFallback, adjustmentController, subtitleResources))
         .setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS).build().apply {
         setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         setHandleAudioBecomingNoisy(true)
         setSeekBackIncrementMs(10_000)
         setSeekForwardIncrementMs(10_000)
         addListener(object : Player.Listener {
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                if (videoSize.width > 0 && videoSize.height > 0) {
+                    subtitleResources.width = videoSize.width
+                    subtitleResources.height = videoSize.height
+                }
+            }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 mutable.update { it.copy(playWhenReady = playWhenReady) }
                 // Pausing during buffering does not change isPlaying, but still needs saving.
@@ -231,6 +157,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 }
                 mutable.update { it.copy(busy = playbackState == Player.STATE_BUFFERING, ended = playbackState == Player.STATE_ENDED,
                     durationMs = duration.takeIf { value -> value > 0 } ?: it.durationMs) }
+                if (playbackState == Player.STATE_READY) selectTextTrack()
                 if (playbackState == Player.STATE_ENDED) {
                     report("/Stopped"); started = false
                     if (isKidsBedtimeReached()) {
@@ -310,8 +237,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         val position = player.currentPosition.coerceAtLeast(0)
         val source = activeMediaSource
         val currentPlan = plan
-        if (currentPlan?.subtitleUrl != null && playbackFailureIsSubtitle(error)) {
-            // A broken/missing sidecar is not a broken episode. Disable only the text renderer and
+        if (currentPlan != null && currentPlan.subtitleIndex >= 0 && playbackFailureIsSubtitle(error)) {
+            // A broken subtitle is not a broken episode. Disable only the text renderer and
             // prepare the same video timeline again; the viewer can choose another subtitle later.
             plan = currentPlan.copy(subtitleIndex = -1, subtitleUrl = null)
             mutable.update { it.copy(subtitleIndex = -1, subtitleUnavailable = true, error = null, busy = true) }
@@ -370,22 +297,27 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
 
     private fun selectTextTrack() {
         val current = plan ?: return
-        // A sidecar is switched on only once its file is in memory. While Media3 loads a selected
+        // Keep the initial embedded selection enabled while the extractor discovers its groups.
+        // Disabling it here discards an early PGS cue before onTracksChanged can identify it.
+        if (player.currentTracks.isEmpty && current.direct &&
+            current.subtitles.any { it.index == current.subtitleIndex && it.localBitmap }) return
+        // A sidecar is switched on only once its memory/file cache is ready. While Media3 loads a selected
         // text file it holds the video loader back, so an episode started, ran out of picture after
         // a megabyte and waited for the server to extract the subtitle before it went on.
-        val enabled = current.subtitles.any { it.index == current.subtitleIndex && it.isText } &&
-            current.subtitleIndex in readyTextIndices
-        val group = player.currentTracks.groups.firstOrNull { group -> group.type == C.TRACK_TYPE_TEXT &&
-            (0 until group.length).any { group.getTrackFormat(it).id.orEmpty().substringAfterLast(':') == "spole-subtitle-${current.subtitleIndex}" } }
+        val selected = playbackSubtitleOverride(current, player.currentTracks, readyTextIndices, vttFallbackIndices)
         val builder = player.trackSelectionParameters.buildUpon().clearOverridesOfType(C.TRACK_TYPE_TEXT)
-            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !enabled)
-        if (enabled && group != null) builder.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, 0))
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, selected == null)
+        if (selected != null) builder.setOverrideForType(selected)
         val next = builder.build()
         if (next != player.trackSelectionParameters) player.trackSelectionParameters = next
+        if (player.playbackState == Player.STATE_READY && current.subtitles.any { it.index == current.subtitleIndex && it.localBitmap }) {
+            mutable.update { it.copy(subtitleUnavailable = selected == null) }
+        }
     }
 
-    private fun textUrl(c: ServiceConnection, p: PlaybackPlan, index: Int) = safePlaybackUrl(c.baseUrl,
-        "Videos/${enc(p.item.id)}/${enc(p.sourceId)}/Subtitles/$index/Stream.vtt")
+    private fun textUrl(c: ServiceConnection, p: PlaybackPlan, index: Int, vtt: Boolean = index in vttFallbackIndices) = safePlaybackUrl(c.baseUrl,
+        p.subtitles.firstOrNull { it.index == index }?.externalBitmapUrl ?:
+            "Videos/${enc(p.item.id)}/${enc(p.sourceId)}/Subtitles/$index/Stream.${if (!vtt && p.subtitles.any { it.index == index && it.nativeAss }) "ass" else "vtt"}")
 
     /**
      * Fetches the chosen text file beside the video, not through it, and switches the track on when
@@ -399,20 +331,53 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         val c = connection ?: return
         val cache = subtitleCache ?: return
         val index = current.subtitleIndex
-        if (current.subtitles.none { it.index == index && it.isText } || index in readyTextIndices) {
+        if (current.subtitles.none { it.index == index && it.sidecar }) {
             selectTextTrack()
             return
         }
-        // The same address the sidecar opens, so Media3 then reads these bytes from memory.
-        val url = textUrl(c, current, index)
+        // The sidecar opens this address from memory or a prepared private bitmap file.
+        val url = textUrl(c, current, index) // the VTT one once an ASS original fell back
+        if (index in readyTextIndices && cache.contains(url)) {
+            selectTextTrack()
+            return
+        }
+        // A previously selected language may have been evicted by the bounded cache.
+        readyTextIndices -= index
         subtitleLoadJob = viewModelScope.launch {
             val started = android.os.SystemClock.elapsedRealtime()
-            val loaded = withContext(Dispatchers.IO) { runCatching { cache.load(url) } }
+            var fallback = false
+            val loaded = withContext(Dispatchers.IO) { runCatching {
+                if (current.subtitles.any { it.index == index && it.externalBitmapUrl != null }) cache.loadBitmap(url)
+                else if (current.subtitles.any { it.index == index && it.nativeAss } && index !in vttFallbackIndices) {
+                    // libass takes a bounded original. A larger or unreadable one still has the
+                    // server's VTT (beta17's only route): plain text beats no text.
+                    val original = runCatching { cache.load(url) }
+                    if (original.isFailure) { cache.load(textUrl(c, current, index, vtt = true)); fallback = true }
+                } else cache.load(url)
+                if (!fallback && index !in vttFallbackIndices && current.subtitles.any { it.index == index && it.nativeAss }) {
+                    val fonts = mutableListOf<SubtitleFont>()
+                    var total = 0
+                    val fontDeadline = android.os.SystemClock.elapsedRealtime() + 8_000
+                    for (font in current.fonts) {
+                        val remaining = fontDeadline - android.os.SystemClock.elapsedRealtime()
+                        if (!isActive || total >= 8 * 1024 * 1024 || remaining <= 0) {
+                            break
+                        }
+                        // Font bytes belong to the renderer and must not evict its chosen subtitle.
+                        runCatching { cache.load(font.url, cacheResult = false, timeoutMs = remaining) }.getOrNull()?.let {
+                            if (total + it.size <= 8 * 1024 * 1024) { total += it.size; fonts += SubtitleFont(font.name, it) }
+                        }
+                    }
+                    if (ticket == generation) subtitleResources.fonts = fonts
+                }
+                Unit
+            } }
             val waited = android.os.SystemClock.elapsedRealtime() - started
             android.util.Log.i("SpolePlayback", "source=${serviceKind.name} stage=subtitle ms=$waited " +
                 (loaded.exceptionOrNull()?.let { "result=failed type=${it.javaClass.simpleName}" } ?: "result=ready"))
             if (ticket != generation || plan?.subtitleIndex != index) return@launch
             if (loaded.isSuccess) {
+                if (fallback) vttFallbackIndices += index
                 readyTextIndices += index
                 mutable.update { it.copy(subtitleUnavailable = false) }
                 selectTextTrack()
@@ -427,33 +392,34 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             container.connectionRepository.sessionScope.collect { if (it != owner) ensureSession() }
         }
         reporter.launch {
-            for (event in reports) {
-                val failed = runCatching { client.report(event.connection, event.plan, event.event, event.position, event.paused) }.isFailure
-                if (!failed && event.journalId != null && (event.paused || event.event == "/Stopped" ||
-                        playbackNearEnd(event.position, event.plan.item.durationMs))) {
-                    runCatching { client.resumeState(event.connection, event.plan.item.id) }.getOrNull()?.let { (position, played) ->
-                        container.localPlaybackStore.confirm(event.connection, event.plan.item.id, event.journalId, position, played)
+            val progress = LivePlaybackProgressReporter(container, owner, client, PlaybackProgressClient(deviceId))
+            try {
+                while (true) {
+                    val event = reports.next() ?: break
+                    val failed = progress.send(event) ?: continue
+                    // The session exists on the server from the first report onwards, and it is the
+                    // only place that says whether the picture is being copied or re-encoded. Until
+                    // it answers, the plan's reading of the transcoding URL stands.
+                    val serverMode = if (failed || event.event == "/Stopped" || event.plan.mode == PlaybackMode.DIRECT_PLAY) null
+                        else runCatching { client.serverPlaybackMode(event.connection, event.plan.sourceId) }.getOrNull()
+                    withContext(Dispatchers.Main) {
+                        val current = plan
+                        if (current != null && current.sessionId == event.plan.sessionId) {
+                            val corrected = serverMode?.takeIf { it != current.mode && current.mode != PlaybackMode.DIRECT_PLAY }
+                            // The next progress report must carry the corrected PlayMethod too,
+                            // otherwise the server's dashboard keeps calling a remux a transcode.
+                            if (corrected != null) plan = current.copy(mode = corrected)
+                            mutable.update { state -> state.copy(
+                                warning = if (failed) container.appString(R.string.player_err_progress_not_saved) else null,
+                                mode = corrected ?: state.mode) }
+                        }
                     }
                 }
-                // The session exists on the server from the first report onwards, and it is the
-                // only place that says whether the picture is being copied or re-encoded. Until
-                // it answers, the plan's reading of the transcoding URL stands.
-                val serverMode = if (failed || event.event == "/Stopped" || event.plan.mode == PlaybackMode.DIRECT_PLAY) null
-                    else runCatching { client.serverPlaybackMode(event.connection, event.plan.sourceId) }.getOrNull()
-                withContext(Dispatchers.Main) {
-                    val current = plan
-                    if (current != null && current.sessionId == event.plan.sessionId) {
-                        val corrected = serverMode?.takeIf { it != current.mode && current.mode != PlaybackMode.DIRECT_PLAY }
-                        // The next progress report must carry the corrected PlayMethod too,
-                        // otherwise the server's dashboard keeps calling a remux a transcode.
-                        if (corrected != null) plan = current.copy(mode = corrected)
-                        mutable.update { state -> state.copy(
-                            warning = if (failed) container.appString(R.string.player_err_progress_not_saved) else null,
-                            mode = corrected ?: state.mode) }
-                    }
-                }
+            } finally {
+                PlaybackProgressRuntime.release(reportLease)
+                runCatching { PlaybackProgressScheduler.schedule(container.appContext, afterPlayback = true) }
+                reporter.cancel()
             }
-            reporter.cancel()
         }
         viewModelScope.launch {
             var ticks = 0
@@ -522,7 +488,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     }
 
     private fun sameAccount(): Boolean {
-        if (!container.connectionRepository.isCurrent(owner)) return false
+        // Main thread, every second: never queue behind the progress reporter's guarded write.
+        if (!container.connectionRepository.isCurrentNow(owner)) return false
         val c = connection ?: return false
         val saved = container.connectionRepository.get(serviceKind)
         val seerr = container.connectionRepository.get(ServiceKind.SEERR)
@@ -584,6 +551,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun choose(item: PlayableItem) {
+        previewJob?.cancel(); previewJob = null; previewManifest = null
         networkRecoveries = 0
         countdownJob?.cancel()
         nextEpisodeJob?.cancel()
@@ -604,7 +572,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             mutable.update { it.copy(fallback = "", audioDecoder = "", videoDecoder = "", audioUnderruns = 0) }
             mutable.update { it.copy(title = item.title, subtitle = item.subtitle, season = item.season,
                 episode = item.episode, logoUrl = item.logoUrl, browsing = false, choices = emptyList(),
-                positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id) }
+                positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id, trickplay = null) }
             val start = playbackStartPosition(item.resumeMs, item.durationMs, item.played,
                 playbackOptions().autoResume)
             mutable.update { it.copy(awaitingResume = start == null) }
@@ -699,13 +667,14 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 // keeps nothing when the client gives up; at 8 seconds a subtitle-heavy episode
                 // never got its text, however many times it was chosen.
                 val cache = SubtitleMemoryCache(http.newBuilder().readTimeout(60, TimeUnit.SECONDS)
-                    .callTimeout(90, TimeUnit.SECONDS).build(), client.headers(c)) {
+                    .callTimeout(90, TimeUnit.SECONDS).build(), client.headers(c),
+                    bitmapDirectory = container.appContext.cacheDir.resolve("playback-bitmap-subtitles")) {
                     viewModelScope.launch {
                         if (ticket == generation) mutable.update { it.copy(subtitleUnavailable = true) }
                     }
                 }
                 subtitleCache = cache
-                readyTextIndices.clear()
+                readyTextIndices.clear(); vttFallbackIndices.clear()
                 val upstream = cache.factory(OkHttpDataSource.Factory(http).setDefaultRequestProperties(client.headers(c)))
                 val dataSource = ResolvingDataSource.Factory(upstream) { spec ->
                     spec.withUri(safePlaybackUrl(c.baseUrl, spec.uri.toString()).toUri())
@@ -713,12 +682,22 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 val media = MediaItem.Builder().setUri(prepared.url).setMediaId(item.id)
                     .setMediaMetadata(MediaMetadata.Builder().setTitle(item.title).setSubtitle(item.subtitle).build())
                     .setMimeType(if (prepared.direct) null else MimeTypes.APPLICATION_M3U8)
-                media.setSubtitleConfigurations(prepared.subtitles.filter { it.isText }.map { track ->
-                    MediaItem.SubtitleConfiguration.Builder(textUrl(c, prepared, track.index).toUri())
-                        .setId("spole-subtitle-${track.index}").setMimeType(MimeTypes.TEXT_VTT).setLanguage(track.language)
-                        .setSelectionFlags(if (track.index == prepared.subtitleIndex) C.SELECTION_FLAG_DEFAULT else 0).build()
+                media.setSubtitleConfigurations(prepared.subtitles.filter { it.sidecar }.flatMap { track ->
+                    listOf(MediaItem.SubtitleConfiguration.Builder(textUrl(c, prepared, track.index, vtt = false).toUri())
+                        .setId(subtitleSidecarId(track.index)).setMimeType(when {
+                            track.externalBitmapUrl != null -> track.externalBitmapMime ?: SPOLE_SUP_MIME
+                            track.nativeAss -> MimeTypes.TEXT_SSA
+                            else -> MimeTypes.TEXT_VTT
+                        }).setLanguage(track.language)
+                        .setSelectionFlags(if (track.index == prepared.subtitleIndex) C.SELECTION_FLAG_DEFAULT else 0).build()) +
+                        // Lazy: loads only if the original ASS cannot be used and this one is chosen.
+                        listOfNotNull(MediaItem.SubtitleConfiguration.Builder(textUrl(c, prepared, track.index, vtt = true).toUri())
+                            .setId(subtitleSidecarId(track.index, vtt = true)).setMimeType(MimeTypes.TEXT_VTT)
+                            .setLanguage(track.language).build().takeIf { track.nativeAss && track.externalBitmapUrl == null })
                 })
-                // Text starts off and is switched on by loadChosenSubtitle once its file is here.
+                // Sidecar text starts off until its bytes arrive. Embedded PGS must be enabled
+                // on the first selection so an early bitmap is not discarded by the extractor.
+                val initialPgs = prepared.subtitles.firstOrNull { it.index == prepared.subtitleIndex && it.localBitmap }
                 // Direct play: when its language says which one it is, Media3's first pick is
                 // already the planned audio. Correcting the pick afterwards enables a new track in
                 // the file, and with loadOnlySelectedTracks that throws the buffer away.
@@ -726,18 +705,22 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     ?.takeIf { language -> language.isNotBlank() && prepared.direct &&
                         prepared.audio.count { it.language.equals(language, ignoreCase = true) } == 1 }
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().clearOverrides()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, initialPgs == null)
+                    .setPreferredTextLanguages(*listOfNotNull(initialPgs?.language).toTypedArray())
+                    .setSelectUndeterminedTextLanguage(initialPgs != null)
                     .setPreferredAudioLanguages(*listOfNotNull(plannedAudio).toTypedArray()).build()
-                val source = DefaultMediaSourceFactory(dataSource).setLoadOnlySelectedTracks(true)
-                    .createMediaSource(media.build())
+                val source = playbackMediaSource(dataSource, media.build())
                 activeMediaSource = source
                 player.setMediaSource(source, position.coerceAtLeast(0))
                 mutable.update { it.copy(audio = prepared.audio, subtitles = prepared.subtitles, audioIndex = prepared.audioIndex,
+                    trickplay = (prepared.item.trickplay.ifEmpty { previewManifest?.takeIf { cached -> cached.first == item.id }?.second.orEmpty() })
+                        .filter { grid -> grid.mediaSourceId == prepared.sourceId }.minByOrNull { grid -> grid.width },
                     subtitleIndex = prepared.subtitleIndex, mode = prepared.mode, transcodeReasons = prepared.transcodeReasons) }
                 prepared.audio.firstOrNull { it.index == prepared.audioIndex }?.let { preferredAudioKey = it.key }
                 prepared.subtitles.firstOrNull { it.index == prepared.subtitleIndex }?.let { preferredSubtitleKey = it.key }
                 player.prepare(); player.playWhenReady = foreground && autoplay
                 loadChosenSubtitle(ticket)
+                loadPreviewManifest(c, item)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 android.util.Log.w("SpolePlayback", "source=${serviceKind.name} stage=prepare type=${error.javaClass.simpleName}")
@@ -745,6 +728,19 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     error = error.readableMessage(container.appContext)
                         ?: container.appString(R.string.player_err_start)) }
             }
+        }
+    }
+
+    /** Optional images load beside playback, once per chosen item, never for an entire shelf. */
+    private fun loadPreviewManifest(c: ServiceConnection, item: PlayableItem) {
+        if (kidsMode || c.kind != ServiceKind.JELLYFIN || item.trickplay.isNotEmpty() ||
+            previewManifest?.first == item.id || previewJob?.isActive == true) return
+        previewJob = viewModelScope.launch {
+            val grids = withContext(Dispatchers.IO) { runCatching { client.trickplay(c, userId, item.id) }.getOrDefault(emptyList()) }
+            if (!sameAccount() || selected?.id != item.id) return@launch
+            previewManifest = item.id to grids
+            val sourceId = plan?.sourceId
+            mutable.update { it.copy(trickplay = grids.filter { grid -> grid.mediaSourceId == sourceId }.minByOrNull { grid -> grid.width }) }
         }
     }
 
@@ -858,13 +854,14 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         val current = plan ?: return
         preferredSubtitleKey = current.subtitles.firstOrNull { it.index == index }?.key
         val c = connection ?: return
-        val oldIsImage = current.subtitles.any { it.index == current.subtitleIndex && !it.isText }
-        val newIsImage = current.subtitles.any { it.index == index && !it.isText }
+        val oldIsImage = current.subtitles.any { it.index == current.subtitleIndex && !it.sidecar && !it.localBitmap }
+        val newIsImage = current.subtitles.any { it.index == index && !it.sidecar && !it.localBitmap }
         if (oldIsImage || newIsImage) {
             prepare(player.currentPosition, subtitle = index, autoplay = player.playWhenReady)
         } else {
-            // Text selection must not tear down the HLS session or reset its timeline.
-            plan = current.copy(subtitleIndex = index, subtitleUrl = if (index == -1) null else textUrl(c, current, index))
+            // Local subtitle selection must not renegotiate playback with the server.
+            plan = current.copy(subtitleIndex = index, subtitleUrl = current.subtitles.firstOrNull { it.index == index && it.sidecar }
+                ?.let { textUrl(c, current, index) })
             mutable.update { it.copy(subtitleIndex = index,
                 subtitleUnavailable = it.subtitleUnavailable && index == current.subtitleIndex) }
             // The menu choice shows at once; the text itself follows when its file is here, so
@@ -905,7 +902,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     fun fallbackUrl(): String? = if (ensureSession()) connection?.let { safePlaybackUrl(it.baseUrl, "web/index.html") + "#!/details?id=${enc(selected?.id ?: rootId)}" } else null
 
     private fun ensureSession(): Boolean {
-        if (container.connectionRepository.isCurrent(owner)) return true
+        if (container.connectionRepository.isCurrentNow(owner)) return true
         request?.cancel(); generation++; stopCurrent(); connection = null
         mutable.value = PlayerScreenState(busy = false, error = container.appString(R.string.player_err_account_changed))
         return false
@@ -920,11 +917,13 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         } else if (!started) return
         val journalId = if (started) container.localPlaybackStore.record(c, current.item, player.currentPosition.coerceAtLeast(0),
             player.duration.takeIf { it > 0 } ?: current.item.durationMs, player.playbackState == Player.STATE_ENDED) else null
-        reports.trySend(Report(c, current, event, player.currentPosition.coerceAtLeast(0), !player.playWhenReady, journalId))
+        reports.offer(PlaybackReport(c, current, event, player.currentPosition.coerceAtLeast(0), !player.playWhenReady, journalId,
+            player.playbackState == Player.STATE_ENDED, System.currentTimeMillis()))
     }
     private fun stopCurrent() {
         recoveryJob?.cancel(); recoveryJob = null
-        subtitleLoadJob?.cancel(); subtitleLoadJob = null; subtitleCache?.close(); subtitleCache = null; readyTextIndices.clear()
+        subtitleLoadJob?.cancel(); subtitleLoadJob = null; subtitleCache?.close(); subtitleCache = null; readyTextIndices.clear(); vttFallbackIndices.clear()
+        subtitleResources.fonts = emptyList()
         countdownJob?.cancel()
         mutable.update { it.copy(nextEpisodeCountdown = null) }
         report("/Stopped"); started = false; plan = null; activeMediaSource = null

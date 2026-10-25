@@ -79,8 +79,9 @@ class TvRefinementUiTest {
                 durationMs = 120000, audio = listOf(PlaybackTrack(1, "Norsk", "nor", false), PlaybackTrack(2, "English", "eng", false)), audioIndex = 1),
                 null, {}, {}, {}, {}, {}, {}, { selected = it }, {}, {}, {}, isTelevision = true)
         } }
-        assertEquals(48.dp, rule.onNodeWithTag("player-audio").getUnclippedBoundsInRoot().width)
-        rule.onNodeWithTag("player-audio").performClick()
+        assertTrue(rule.onNodeWithTag("player-options").getUnclippedBoundsInRoot().height >= 48.dp)
+        rule.onNodeWithTag("player-options").performClick()
+        rule.onNodeWithTag("player-option-audio").performClick()
         rule.onNodeWithTag("choice-dialog").assertIsDisplayed()
         rule.onNodeWithText("English").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(2, selected) }
@@ -669,15 +670,6 @@ class TvRefinementUiTest {
         rule.onNodeWithTag("library-search-toggle").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) }
         rule.onNodeWithTag("library-item-film-1").assertIsFocused()
     }
-    @Test fun unresolvedActivityIsGroupedAndCanBeOpenedWithoutBlankPosterRows() {
-        val requests = (1..25).map { TrackedRequest("movie:$it", it, "movie", "Film", null, emptySet(), stage = RequestStage.UNKNOWN, requestId = it) }
-        rule.setContent { ReelstackTheme {
-            ActivityScreen(ReelstackUiState(connections = listOf(connection), trackedRequests = requests), PaddingValues(0.dp), {})
-        } }
-        rule.onNodeWithTag("tracked-request-movie:1").assertDoesNotExist()
-        rule.onNodeWithTag("unresolved-toggle").assertIsDisplayed().performClick()
-        rule.onNodeWithTag("unresolved-movie:1").assertIsDisplayed()
-    }
     @Test fun combinedContinueRailDeduplicatesAndCanReturnToSeparateNextUp() {
         var preferences by mutableStateOf(Personalization(combineContinueWatching = true))
         val resume = LibraryMedia("episode", "Testserie", "S01 E01", .4f, R.drawable.media_placeholder, ServiceKind.JELLYFIN, mediaType = "Episode")
@@ -720,8 +712,8 @@ class TvRefinementUiTest {
         rule.setContent { ReelstackTheme { Column(Modifier.verticalScroll(rememberScrollState())) {
             app.reelstack.ui.components.TvMenuSettings(value) { value = it }
         } } }
-        rule.onNodeWithTag("menu-up-ACTIVITY").performScrollTo().performClick()
-        rule.runOnIdle { assertEquals(listOf("HOME", "LIBRARY", "ACTIVITY", "DISCOVER", "SETTINGS"), value.menuOrder) }
+        rule.onNodeWithTag("menu-up-DISCOVER").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(listOf("HOME", "DISCOVER", "LIBRARY", "SETTINGS"), value.menuOrder) }
         rule.onNodeWithTag("menu-visible-DISCOVER").performScrollTo().performClick()
         rule.runOnIdle { assertFalse("DISCOVER" in value.visibleMenu()); assertTrue("SETTINGS" in value.visibleMenu()) }
         rule.onNodeWithTag("menu-visible-SETTINGS").performScrollTo().assertIsNotEnabled()

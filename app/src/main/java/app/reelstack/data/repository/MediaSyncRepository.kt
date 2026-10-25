@@ -113,6 +113,7 @@ class MediaSyncRepository(
     private val words: (LocalizedText) -> String = { it.literal.orEmpty() },
     private val mediaServerClient: MediaServerClient = MediaServerClient(),
     private val seerrServiceClient: SeerrServiceClient = SeerrServiceClient(),
+    private val seerrDiscoverClient: app.reelstack.data.network.SeerrDiscoverClient = app.reelstack.data.network.SeerrDiscoverClient(),
     private val recommendationsClient: RecommendationsClient = RecommendationsClient(),
     private val accountProfileClient: AccountProfileClient = AccountProfileClient(),
     private val seerrReleaseClient: SeerrReleaseClient = SeerrReleaseClient(),
@@ -483,19 +484,56 @@ class MediaSyncRepository(
         mediaServerClient.userIdentity(connection)
             ?: serviceError(R.string.err_fann_ikkje_profilen, connection.kind.displayName)
 
-    fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet()) {
+    fun request(connection: ServiceConnection, media: DiscoverMedia, expectedUserId: String = connection.userId, seasons: Set<Int> = emptySet(),
+        choice: app.reelstack.data.model.RequestChoice = app.reelstack.data.model.RequestChoice()) {
         val remoteId = requireNotNull(media.remoteId) { "title has no Seerr media id" }
         val mediaType = requireNotNull(media.mediaType) { "title has no Seerr media type" }
-        seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId, seasons)
+        seerrServiceClient.request(connection, mediaType, remoteId, expectedUserId, seasons, choice)
     }
 
+    fun criticScore(connection: ServiceConnection, media: DiscoverMedia): Int? =
+        seerrDiscoverClient.criticScore(connection, requireNotNull(media.mediaType), requireNotNull(media.remoteId))
+
+    fun requestOptions(connection: ServiceConnection, mediaType: String, is4k: Boolean) =
+        seerrDiscoverClient.requestOptions(connection, mediaType, is4k)
+
+    fun fourKEnabled(connection: ServiceConnection, mediaType: String) = seerrDiscoverClient.fourKEnabled(connection, mediaType)
+
     /** One page of Seerr results plus whether another page exists. */
-    data class SearchPage(val items: List<DiscoverMedia>, val page: Int, val hasMore: Boolean)
+    data class SearchPage(
+        val items: List<DiscoverMedia>,
+        val page: Int,
+        val hasMore: Boolean,
+        val people: List<app.reelstack.data.model.DiscoverPerson> = emptyList(),
+    )
 
     fun search(connection: ServiceConnection, query: String, page: Int = 1): SearchPage {
         val result = seerrServiceClient.search(connection, query, page)
-        return SearchPage(result.items.map(::discoverMedia), result.page, result.hasMore)
+        return SearchPage(result.items.map(::discoverMedia), result.page, result.hasMore, result.people)
     }
+
+    fun discoverRow(connection: ServiceConnection, kind: app.reelstack.data.model.DiscoverRowKind, page: Int = 1): SearchPage =
+        seerrDiscoverClient.row(connection, kind, page).let { SearchPage(it.items.map(::discoverMedia), it.page, it.hasMore) }
+
+    fun person(connection: ServiceConnection, id: Int): app.reelstack.data.model.PersonPage {
+        val person = seerrDiscoverClient.person(connection, id)
+        val (owned, more) = app.reelstack.data.model.splitCredits(seerrDiscoverClient.personCredits(connection, id).map(::discoverMedia))
+        return app.reelstack.data.model.PersonPage(
+            app.reelstack.data.model.DiscoverPerson(person.id, person.name, person.portraitUrl, person.department),
+            person.department, person.birthday, person.biography, owned, more)
+    }
+
+    fun discoverGenres(connection: ServiceConnection): List<app.reelstack.data.model.DiscoverGenre> =
+        seerrDiscoverClient.genres(connection, "movie") + seerrDiscoverClient.genres(connection, "tv")
+
+    fun discoverGenrePage(connection: ServiceConnection, genre: app.reelstack.data.model.DiscoverGenre, page: Int = 1): SearchPage =
+        seerrDiscoverClient.genrePage(connection, genre, page).let { SearchPage(it.items.map(::discoverMedia), it.page, it.hasMore) }
+
+    fun similar(connection: ServiceConnection, media: DiscoverMedia): List<DiscoverMedia> =
+        seerrDiscoverClient.similar(connection, requireNotNull(media.mediaType), requireNotNull(media.remoteId)).map(::discoverMedia)
+
+    fun recommended(connection: ServiceConnection, media: DiscoverMedia): List<DiscoverMedia> =
+        seerrDiscoverClient.recommendations(connection, requireNotNull(media.mediaType), requireNotNull(media.remoteId)).map(::discoverMedia)
 
     /** Searches every connected media server, so a title you already own is findable by name. */
     suspend fun searchLibraries(
@@ -696,6 +734,7 @@ class MediaSyncRepository(
         overview = item.overview,
         facts = listOf(words(mediaKind(item.mediaType))) + item.facts.map(words),
         genres = item.genres,
+        backdropUrl = item.backdropUrl,
     )
 
     private fun recommendationMedia(item: RemoteRecommendationItem) = DiscoverMedia(

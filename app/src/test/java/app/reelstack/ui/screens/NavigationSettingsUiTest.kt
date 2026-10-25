@@ -162,7 +162,7 @@ class NavigationSettingsUiTest {
         assertFalse("LIBRARY" in saved.hiddenMenuItems)
         val repository = AppPreferencesRepository(rule.activity)
         repository.personalization = stale
-        assertEquals(setOf("DISCOVER", "ACTIVITY"), repository.personalization.hiddenMenuItems)
+        assertEquals(setOf("DISCOVER"), repository.personalization.hiddenMenuItems)
     }
 
     @Test

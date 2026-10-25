@@ -76,7 +76,7 @@ class TvSettingsRedesignTest {
     }
     @Test fun themeChoicesPersistImmediatelyAndChangeActualSurfacesWithoutChangingAccountOrMenu() {
         val original = repository.personalization
-        val expected = Personalization(menuOrder = listOf("HOME","ACTIVITY","LIBRARY","DISCOVER","SETTINGS"), autoResume = false)
+        val expected = Personalization(menuOrder = listOf("HOME","DISCOVER","LIBRARY","SETTINGS"), autoResume = false)
         var background = Color.Unspecified
         try {
             repository.personalization = expected
@@ -129,14 +129,14 @@ class TvSettingsRedesignTest {
             repository.personalization = Personalization()
             rule.setContent { Television { SettingsScreen(ReelstackUiState(), PaddingValues(0.dp), {}, {}, {}, {_,_->}) } }
             rule.onNodeWithTag("settings-category-HOME").performClick()
-            rule.onNodeWithTag("menu-order-card-ACTIVITY").performScrollTo().assertIsDisplayed()
-            rule.onNodeWithTag("menu-down-ACTIVITY").performScrollTo().performSemanticsAction(SemanticsActions.RequestFocus)
+            rule.onNodeWithTag("menu-order-card-DISCOVER").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithTag("menu-down-DISCOVER").performScrollTo().performSemanticsAction(SemanticsActions.RequestFocus)
                 .performKeyInput { pressKey(Key.DirectionLeft) }
-            rule.onNodeWithTag("menu-up-ACTIVITY").assertIsFocused().performClick()
-            rule.onNodeWithTag("menu-visible-ACTIVITY").performClick()
+            rule.onNodeWithTag("menu-up-DISCOVER").assertIsFocused().performClick()
+            rule.onNodeWithTag("menu-visible-DISCOVER").performClick()
             rule.runOnIdle {
-                assertEquals(listOf("HOME","LIBRARY","ACTIVITY","DISCOVER","SETTINGS"), repository.personalization.menuOrder)
-                assertTrue("ACTIVITY" in repository.personalization.hiddenMenuItems)
+                assertEquals(listOf("HOME","DISCOVER","LIBRARY","SETTINGS"), repository.personalization.menuOrder)
+                assertTrue("DISCOVER" in repository.personalization.hiddenMenuItems)
                 assertTrue(repository.personalization.visibleMenu().containsAll(listOf("HOME","SETTINGS")))
             }
         } finally { rule.runOnIdle { repository.personalization = original } }

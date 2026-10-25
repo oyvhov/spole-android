@@ -29,8 +29,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -183,8 +187,16 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val options = LocalPersonalization.current
     val allowRotation = if (television) !options.lightweightTv else motion
     var interaction by remember { mutableIntStateOf(0) }
+    // The play button exists only for a title that can be played. When the hero turns to one that
+    // cannot, the button goes; if the remote was on it, a television then hands focus to the first
+    // thing on screen, which is the sidebar. Focus moves to «Sjå meir» before the turn instead.
+    val playFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val openFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val playInteraction = remember { MutableInteractionSource() }
+    val playFocused by playInteraction.collectIsFocusedAsState()
+    val playFocusedNow by androidx.compose.runtime.rememberUpdatedState(playFocused)
     // A TV remote leaves focus on a button even when idle. Pause on actual key input instead
-    // of freezing the carousel for as long as that focus remains. System animation scale
+    // of freezing the carousel for as long as that focus remains (beta11). System animation scale
     // and calm transitions control the crossfade; only lightweight TV mode stops rotation.
     LaunchedEffect(identities, focused && !television, interaction, rotationEnabled, allowRotation, lifecycleOwner) {
         if (titles.size > 1 && (!focused || television) && rotationEnabled && allowRotation) {
@@ -192,7 +204,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 while (true) {
                     delay(8_000)
                     val current = shownId?.let(identities::indexOf)?.takeIf { it >= 0 } ?: position
-                    shownId = identities[(current + 1) % identities.size]
+                    val next = (current + 1) % identities.size
+                    if (playFocusedNow && !titles[next].playableNow()) runCatching { openFocus.requestFocus() }
+                    shownId = identities[next]
                 }
             }
         }
@@ -251,8 +265,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             false
         }
         .focusGroup()
-        .then(if (television) Modifier else Modifier.clip(RoundedCornerShape(24.dp)))
-        .background(Ink)
+        .then(if (television) Modifier else Modifier.clip(RoundedCornerShape(24.dp)).background(Ink))
         // On television the whole hero used to take focus, and the only way to show that was a
         // ring round the entire picture — which is exactly what made it look like a selected cell
         // rather than a piece of artwork. The "Sjå meir" button inside is the focus target
@@ -269,7 +282,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 )
         )
         .testTag("tablet-library-feature")) {
-        Box(Modifier.matchParentSize()) {
+        // On a television the picture runs on under the first row and fades into the page, instead of
+        // ending in a line across the screen where the hero stops. It fades by its own transparency,
+        // so a seasonal page shows through rather than a dark band in the hero's colour.
+        Box(Modifier.matchParentSize().then(if (television) Modifier.heroOverflow(.6f) else Modifier).testTag("feature-artwork")) {
           Box(Modifier.matchParentSize()) {
             // Predecode the bounded carousel. Keep the outgoing image opaque beneath the incoming
             // layer until its fade finishes, avoiding a dark dip halfway through the transition.
@@ -286,11 +302,13 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
               }
             }
           }
-            Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-                0f to Ink, .27f to Ink, .52f to Ink.copy(alpha = .88f),
-                .72f to Ink.copy(alpha = .18f), 1f to Color.Transparent)))
-            Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-                0f to Color.Transparent, .55f to Color.Transparent, 1f to Ink.copy(alpha = if (television) 1f else .6f))))
+            if (!television) {
+                Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
+                    0f to Ink, .27f to Ink, .52f to Ink.copy(alpha = .88f),
+                    .72f to Ink.copy(alpha = .18f), 1f to Color.Transparent)))
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+                    0f to Color.Transparent, .55f to Color.Transparent, 1f to Ink.copy(alpha = .6f))))
+            }
             // Above the artwork and its scrims, under every word and control. Draws nothing at all
             // unless a season is running and the ornament is switched on.
             SeasonalOrnament(Modifier.matchParentSize())
@@ -375,6 +393,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             // The hero is usually showing something you are already part-way through. Starting or
             // resuming it is therefore the leading, accent-coloured action; details remain one
             // D-pad press to the right and keep their stable identity while the hero rotates.
+            // On a television the buttons have no touch margin, so each ring lies on its own pill.
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalMinimumInteractiveComponentSize provides
+                if (television) 0.dp else androidx.compose.material3.LocalMinimumInteractiveComponentSize.current) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (selected.playableNow()) {
                     val resuming = (selected.progress ?: 0f) > 0f
@@ -384,7 +405,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                                 context, selected.remoteId.orEmpty(), source = selected.source,
                             )
                         },
+                        interactionSource = playInteraction,
                         modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
+                            .focusRing(ButtonDefaults.shape)
+                            .focusRequester(playFocus)
                             .testTag("tablet-feature-play"),
                     ) {
                         Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null,
@@ -395,6 +419,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 }
                 FilledTonalButton(onClick = { onOpen(selected.id) }, interactionSource = actionInteraction,
                     modifier = Modifier.heightIn(min = app.reelstack.ui.theme.ReelLayout.ControlMinHeight)
+                    .focusRing(ButtonDefaults.filledTonalShape)
+                    .focusRequester(openFocus)
                     .testTag("tablet-feature-open"), colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = Color.White.copy(alpha = .10f), contentColor = Color.White)) {
                     Text(stringResource(R.string.feature_more), style = MaterialTheme.typography.labelLarge)
@@ -402,11 +428,16 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                         Modifier.padding(start = 8.dp).size(16.dp).testTag("tablet-feature-open-icon"))
                 }
             }
+            }
         }
         if (account != null) {
+            val playable = selected.playableNow()
             Box(Modifier.align(Alignment.TopEnd)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .padding(16.dp)
+                // Down from the account goes to the hero's own buttons. The sidebar is nearer by
+                // distance, so without this the remote left the page from the top-right corner.
+                .focusProperties { down = if (playable) playFocus else openFocus }
                 .testTag("feature-account-overlay")) {
                 account()
             }
@@ -442,8 +473,13 @@ internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
     if (facts.isEmpty() && !hasRatings) return
 
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState(), enabled = interactive)
-            .focusProperties { canFocus = interactive }.testTag("hero-metadata"),
+        // A finger can slide a long line of facts; the remote never stops on it. A scrolling row is
+        // focusable by itself, with no ring to show it, and the incoming caption's row was where
+        // a television landed on arrival and on the way back from the menu. When the hero then
+        // turned, that row stopped being focusable and Android handed focus to the sidebar.
+        Modifier.fillMaxWidth()
+            .then(if (isTelevision()) Modifier else Modifier.horizontalScroll(rememberScrollState(), enabled = interactive))
+            .testTag("hero-metadata"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -479,3 +515,24 @@ private fun formatHeroRuntime(minutes: Int): String {
         else -> "${hours}t ${remainder}m"
     }
 }
+
+/**
+ * The hero's picture on a television: [extra] of the hero's height taller, overflowing below it, and
+ * faded by its own transparency. Clear of the words on the left, whole in the upper right, and gone
+ * by the time it reaches the first row's posters.
+ */
+internal fun Modifier.heroOverflow(extra: Float): Modifier = this
+    .layout { measurable, constraints ->
+        val height = (constraints.maxHeight * (1f + extra)).toInt()
+        val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(constraints.maxWidth, height))
+        layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(0, 0) }
+    }
+    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        drawRect(Brush.horizontalGradient(0f to Color.Transparent, .27f to Color.Transparent,
+            .52f to Color.Black.copy(alpha = .14f), .72f to Color.Black.copy(alpha = .8f), 1f to Color.Black),
+            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+        drawRect(Brush.verticalGradient(0f to Color.Black, .42f to Color.Black, .7f to Color.Black.copy(alpha = .45f), 1f to Color.Transparent),
+            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+    }

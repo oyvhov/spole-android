@@ -59,5 +59,6 @@ internal fun negotiateOfflineDownload(
         title = item.title,
         subtitle = item.subtitle,
         mediaType = item.type,
+        progressBaseline = item.progressState,
     )
 }

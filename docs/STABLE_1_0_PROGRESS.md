@@ -4,6 +4,213 @@ Spole skal bli ein stabil offentleg Android-app med dagens mørke design og ferd
 barnemodus. Beta5 rettar minnebruk, bilettoken og profilgrenser før større
 funksjonsutvidingar. Kontrollen legg vekt på bygg, relevante regresjonstestar og vanleg bruk på mobil/TV.
 
+## Samla avspelaroppgradering · 17. oktober 2026
+
+Fjerde lokale runde samlar avanserte val bak éin OSD-inngang og legg til motorstyrt fart
+og forsinking, mobilrørsler, ASS/SSA-rendering, SUP-sidefiler og Jellyfin-trickplay.
+Fråkopla nedlastingar med lagra tenargrunnlag brukar no den varige framdriftskøa.
+[Arbeidslista og verifiseringa](PLAYER_UPGRADE_2026-10-17.md) skil implementert funksjon
+frå format og fysisk maskinvare som framleis treng prøving.
+
+Dei eldre bolkane nedanfor dokumenterer kvar si runde. Omtalen av manglande fråkopla
+opplasting og native ASS-rendering er historisk etter denne oppgraderinga.
+
+## Målte Compose-rettingar · 17. oktober 2026
+
+Tredje lokale oppgraderingsrunde i `spole-sesong`, framleis utan ny release.
+
+- Fokusløftet returnerer no `State<Float>` frå `animateFocusScale`. Verdien blir lesen i
+  `graphicsLayer`, der skaleringa faktisk blir brukt. Dei sju brukarstadene er oppdaterte:
+  TV-spelarknappar, Oppdag-plakatar, «sjå alle», hald-fram-kort, bibliotekskort og dei to
+  smarte hylleflatene. Ei fokusendring oppdaterer framleis innhaldet; kvart animasjonssteg
+  treng ikkje lenger å komponere heile kortet/knappen. Varigheit, skalering og trykkprioritet
+  er bevarte. Ingen ny stabilitetsannotasjon eller cache skjuler tilstandsendringar.
+- Mobilheroen tek rulleposisjonen gjennom ein funksjon som blir kalla i biletlaget.
+  Heim treng ikkje lenger å lese posisjonen under komposisjon av hero-elementet.
+  Redusert rørsle set no parallax til null; når rørsle blir slått på att, blir den nyaste
+  rulleposisjonen brukt. Handlingar og tekst flyttar seg ikkje saman med bakgrunnsbiletet.
+
+| Kontrollert overgang | Før | Etter |
+| --- | --- | --- |
+| Eitt fokusløft, 12 observerte animasjonsrammer | 10 komposisjonar i verten til den felles fokusfunksjonen | 1 komposisjon; animasjonen når framleis 1,035 og målestorleiken er uendra |
+| 12 rulleposisjonar i mobilheroen, 0–96 px | 12 komposisjonar i hero-verten | 0 komposisjonar; biletlaget flyttar seg 96 px |
+| Redusert rørsle etter ei rulleendring | Parallax held fram | Biletlaget går til null og blir der gjennom nye rulleendringar |
+
+Målingane brukar Robolectric API 34 med native teikning, kontrollert Compose-klokke og lokal
+biletfikstur. Dette er tal på komposisjonar ved dei nemnde grensene, ikkje prosentvis betre
+FPS, RAM eller oppstartstid på fysisk TV. Fokusprøva kontrollerer òg trykk, avbrot og redusert
+rørsle. Heroprøva samanliknar faktisk teikna bilete, mål og handlingsposisjon, og lagrar bilete i
+`app/build/outputs/motion-review/`. Utgangsmålingane ligg lokalt i `app/build/focus-baseline.xml`
+og `app/build/parallax-baseline.xml`; dei feila på dei tilsikta regresjonskrava før retting.
+
+### Kontroll av Compose-rettingane
+
+- **1170 av 1171 einingstestar består**, éin medvite hoppa over (`realNetworkWhenAskedFor`).
+  Fire nye prøver dekkjer fokusløft, trykk/redusert rørsle, parallax og endra rørsleval.
+- **20/20 Android-prøver består på endeleg APK**, API 36, eksisterande test-TV 5566:
+  `FocusOutlineTest` (3), `TvPlaybackControlsTest` (14), `TvNavigationIntegrationTest` (2)
+  og `TvLibraryRegressionTest` (1). Dei dekkjer D-pad, fokusretur, spoling, pause/buffering,
+  synlege fokusrammer, navigasjon og dobbel skriftstorleik.
+- `assembleDebug` og `assembleDebugAndroidTest` er ferdige. **Lint: 0 feil, 204 åtvaringar og
+  eitt tips**, same tal som før denne runden. Ingen lint-funn i dei nye måleprøvene,
+  `FocusOutline.kt` eller `MobileLibraryFeature.kt`. Samla Gradle-køyring gav `BUILD SUCCESSFUL`.
+- Bileta `app/build/outputs/motion-review/hero-before.png`, `hero-scrolled.png` og
+  `hero-reduced-motion.png` er laga og visuelt kontrollerte. Det siste er byteidentisk med
+  det første; rullebiletet viser flytta bakgrunn og uendra handling/tekst. Dette er syntetisk
+  innhald med engelsk testlokale. Mobil er prøvd i Robolectric, ikkje på fysisk telefon.
+- Språkressursar, versjonskonsistens, workflow-YAML og `git diff --check` består. CI tek no
+  med `FocusOutlineTest` i TV-utvalet og lagrar dei syntetiske rørslebileta som testartefaktar.
+  Den endra workflowen er ikkje køyrd på GitHub enno.
+
+Debug-APK: **30 937 585 byte**, SHA-256
+`4e30b2d19bddd6633e64cf784707750d4cd091f2be32622c145731d5a438a9d6`.
+Loggar: `app/build/motion-final-gradle.txt` og `app/build/motion-final-tv.txt`.
+Test-TV-en er avslutta normalt med data bevarte. Review-profilar og produksjonspakke er
+ikkje endra. Ingen versjonsauke, commit eller publisering.
+
+## Varig framdriftskø · 17. oktober 2026
+
+Andre lokale oppgraderingsrunde på `oppdag-samla` i `spole-sesong`. Ingen ny release.
+
+- Nettspelaren skriv no eit sjekkpunkt på disk før rapportering. Køa held siste posisjon per
+  profil, tenar, brukar og innlogging; ho lagrar ikkje token, tenaradresse eller avspelingsøkt.
+  Ho er avgrensa til 64 titlar totalt og 30 dagar. Metadata-cache og utkø er separate, og
+  utkøa er unnateken backup/overføring til ei anna eining.
+- Ein WorkManager-jobb prøver att ved oppstart, etter lukking av spelaren og via den eksisterande
+  bakgrunnsoppdateringa. Nettverk er påkravd, Wi-Fi-valet blir respektert og mellombelse feil får
+  eksponentiell ventetid frå 30 sekund. Aktive nett- og fråkopla spelarar held gjentakinga tilbake.
+- Køa brukar brukarframdrift, ikkje gamle `Sessions/Playing/Stopped`-kall. Før skriving blir
+  posisjon, sett-status, teljar og sist-spelt-verdi samanlikna med sist kjende tenarsvar.
+  Ei endring får prioritet, også tilbakespoling eller «ikkje sett». Eit tapt HTTP-svar blir
+  handtert ved å lese att; ein allereie lagra posisjon blir ikkje skriven på nytt.
+- Skriving blir stadfesta med eit nytt tenarsvar. Ein sein kvittering kan berre fjerne sitt
+  eige sjekkpunkt. Konto-/profilgenerasjonen blir kontrollert før skriving og før lokale resultat.
+  «Fjern frå hald fram», sett-status og tømming av lokal framdrift ugyldiggjer køa òg.
+- Rapporteringa er skild ut frå spelarens skjermtilstand. Ventande framdriftsrapportar blir
+  slått saman; minnekøa har ei grense på 32 hendingar. Den normale rapporteringa les no
+  kanonisk tilstand etter vellukka rapport, slik at neste nettbrot har eit samanlikningsgrunnlag.
+
+Jellyfin 10.11 si [ItemsController](https://github.com/jellyfin/jellyfin/blob/v10.11.0/Jellyfin.Api/Controllers/ItemsController.cs)
+stadfestar `POST UserItems/{itemId}/UserData`; den nullable oppdateringsmodellen lèt oss bevare
+favorittar og teljarar. Emby sitt [eige API-svar](https://emby.media/community/topic/110432-how-to-set-the-playbackpositionticks-field-for-an-item/)
+stadfestar `POST Users/{userId}/Items/{itemId}/UserData`. Emby-payloaden bevarer felta frå ei fersk
+lesing. Manglande eller avviste skriveendepunkt blokkerer automatisk gjentaking av sjekkpunktet;
+den lokale framdrifta blir behalden. Eit nytt avspelingsforsøk kan erstatte sjekkpunktet.
+
+Avgrensingar: desse API-a tilbyr ikkje atomisk samanlikning-og-skriving. Ei anna eining kan
+framleis endre tilstanden mellom GET og POST; dette er konfliktvern, ikkje ein garanti om
+global rekkjefølgje. Eit faktisk slutt-signal set «sett» ved gjentaking, ikkje ein gjetta
+tenarprosent. Berre sjekkpunkt som er skrivne på disk overlever brå prosessdød; siste hending
+som enno ventar i minnet kan gå tapt. Ny innlogging med anna token arvar ikkje ei gammal kø.
+Automatisk gjentaking krev lagra brukar-ID og eit gyldig samanlikningsgrunnlag frå tenaren.
+Fråkopla avspeling får ikkje automatisk serveropplasting i denne runden, sidan nedlastingane
+enno manglar eit lagra samanlikningsgrunnlag. Den eksisterande lokale visingsjournalen har
+framleis 24 timars levetid. Ekte Jellyfin-/Emby-tenarar er ikkje brukte i dei syntetiske testane.
+
+### Kontroll av framdriftskøa
+
+- Nye einingstestar dekkjer samanslåing, køgrenser, varig lagring, kontoskilje,
+  tilbakespoling på ei anna eining, endra sett-status/teljar/dato, tapt POST-svar,
+  avvist tilgang, manglande endepunkt og nye lokale sjekkpunkt under ei sein lesing.
+- TV-prøva brukar ekte Media3-avspeling og to syntetiske HTTP-tenarar. Rapportering feilar
+  medan filmen spelar. Etter lukking må WorkManager skrive siste posisjon gjennom UserData,
+  bevare Emby-favoritten og tømme sjekkpunktet etter kanonisk lesing.
+- `scripts/test-progress-restart.sh emulator-5566` køyrer same prøve i to separate
+  instrumenteringsprosessar, med `force-stop` mellom. Ho kontrollerer ulik prosess-ID,
+  lagring gjennom nettbrot og eintydig stadfesting i den nye prosessen. Scriptet nektar
+  å bruke review-seriane 5560 og 5564. PR-matrisa har no òg denne prøva.
+- Fråkoplaprøva vart hoppa over som tilsikta på TV. På den eksisterande testtelefonen
+  `Spole_Instrumentation`/5562 stoppa ho med `STORAGE_LIMIT`: `/data` hadde 280 312 KiB
+  ledig, under den eksisterande 512 MiB-reserven. Dette er ikkje ei bestått fråkoplaprøve.
+  Ingen lagra brukar-/AVD-data vart sletta for å kome rundt plassgrensa.
+
+| Kontroll | Resultat |
+| --- | --- |
+| Heile JVM-suiten | **1166 beståtte av 1167**, éin medvite hoppa over (`realNetworkWhenAskedFor`), null feil. 21 nye einingstestar for denne runden. |
+| TV, endeleg APK | **15/15 beståtte**: lokal journal, kontobytte, pause/bakgrunn, nettfeil, gjentaking, PGS og HLS. |
+| Mobil, endeleg APK | **1/1 bestått**: gjentaking etter lukking mot både Jellyfin- og Emby-fixture. Same prøva er med i TV-talet. |
+| Prosessrestart, endeleg APK | **Begge fasar beståtte på både TV og mobil**, med stadfesta nye prosess-ID-ar. Éi ekstra unik prøve; totalt **16 ulike Android-prøver beståtte** i denne runden. |
+| Fråkopla nedlasting/avspeling | **Ikkje bestått** på telefonen grunna lagringsgrensa omtalt over; medvite hoppa over på TV. |
+| Bygg | `assembleDebug` og `assembleDebugAndroidTest` fullførte. |
+| Lint | **0 feil**, 204 åtvaringar og eitt tips. Ingen nye lint-funn i framdriftskøa. Endeleg samla Gradle-køyring gav `BUILD SUCCESSFUL`. |
+| Andre kontrollar | Språkressursar, versjonskonsistens, workflow-YAML, bash-syntaks og `git diff --check` består. |
+
+Endeleg debug-APK: **30 677 862 byte**, SHA-256
+`8b497f8c9dd7b88934f97e4eb7cb21d55a94ce176e2a3b9538726774acc175c2`.
+Loggar ligg lokalt i `app/build/pgs-fixture/progress-final-gradle.txt`, `progress-final-tv.txt`,
+`progress-final-phone.txt`, `phone-offline-progress.txt` og `app/build/outputs/progress-restart/`.
+Berre debug-/testpakkene på dei eksisterande test-AVD-ane 5562 og 5566 er oppdaterte.
+Test-AVD-ane er avslutta normalt med data bevarte. Ingen versjonsauke, commit eller publisering.
+
+## Kvalitetsløft etter beta17
+
+Lokalt utviklingsarbeid 16. oktober 2026, på `oppdag-samla` etter `b33d1cb`. Dette er den første
+avgrensa oppgraderinga etter den tekniske gjennomgangen, ikkje ein ny publisert versjon.
+
+- **Stabile TV-handlingar:** heroen sluttar å rotere medan ei handling har fokus. Når fokus
+  forlèt heroen, byrjar eit nytt åttesekundsintervall. Redusert rørsle stoppar automatisk
+  rotasjon også på TV. Ved retur til Oppdag sluttar fokusgjenopprettinga etter første
+  vellukka forsøk; ny tastenedtrykking avbryt eit forseinka forsøk.
+- **Lokal PGS:** direkteavspelte MKV-filer kan bruke dei innebygde PGS-spora i Media3.
+  Sporvalet matchar berre PGS mot PGS, kontrollerer tal og støtte, og melder utilgjengeleg
+  undertekst ved eit tvitydig treff. PGS er på frå første sporval slik at ein tidleg
+  undertekst ikkje blir forkasta. VTT ventar framleis på at sidefila er ferdig lasta.
+  Eksterne PGS-filer, andre biletformat og HLS/reservevegar brukar framleis tenaromkoding.
+- **TV i PR-kontrollen:** den eksisterande API 36-matrisa køyrer no både telefon og TV ved
+  pull request. TV-utvalet inkluderer avspelarkontrollar, stor tekst, PGS og kontogrenser.
+  Workflowen er endra lokalt; denne endringa har ikkje køyrt på GitHub enno.
+
+### Kontroll av denne oppgraderinga
+
+Kontrollert lokalt med eksisterande, isolerte TV-testprofil `Spole_TV_Instrumentation` på
+`emulator-5566` og `app.reelstack.SpoleTestRunner`. Review-einingane med ekte kontoar er ikkje
+brukte til instrumentering.
+
+| Kontroll | Resultat |
+| --- | --- |
+| Heile JVM-suiten | 1146 testar: **1145 beståtte**, éin medvite hoppa over (`realNetworkWhenAskedFor`), null feil. |
+| TV-navigasjon, avspelarkontrollar og profilgrense | **17/17 beståtte**, medrekna skriftstorleik 2.0. |
+| Avspeling og undertekstar | **7/7 beståtte** på endeleg APK: lokal PGS, HLS/VTT-byte, undertekstar av ved start, feil/treg sidefil og to kontobyteprøver. PGS-prøva køyrer både Jellyfin- og Emby-fixture. |
+| Android samla | **24 ulike testar beståtte** i målretta køyringar; ikkje heile Android-testpakken. Seks av spelarprøvene er køyrde om att etter siste spelarendring. |
+| Bygg | `assembleDebug` og `assembleDebugAndroidTest` fullførte. |
+| Lint | **0 feil**, 204 åtvaringar og eitt tips. Siste samla Gradle-køyring gav `BUILD SUCCESSFUL`. |
+| Andre kontrollar | Språkressursar, versjonskonsistens, YAML-parsing og `git diff --check` består. |
+
+Gradle vart køyrd med `TEMP`/`TMP=C:/JellyBin/.gradle-tmp`:
+
+```powershell
+./gradlew.bat --gradle-user-home C:/JellyBin/.gradle-home --max-workers=1 :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug
+```
+
+Lokale Android-resultat: `app/build/pgs-fixture/tv-regression.txt` og `player-final.txt`.
+Debug-APK: **30 020 769 byte**, SHA-256
+`e0a8ab28bea1936af9387ff52f922396144caa1af368fd51e128e40741c9881a`.
+Berre debug-pakka på test-TV-en er oppdatert. Versjonsnummeret er ikkje endra og ingen APK er publisert.
+
+Den syntetiske `pgs.mkv` er generert med `scripts/build-pgs-test-fixture.py` frå eksisterande
+testvideo og eigne bitmapdata; inga film-, font- eller undertekstfil er lasta ned.
+Testen må vise den tidlege underteksten før fem sekund, slå han av og vise neste undertekst
+etter spoling, utan ny PlaybackInfo-forhandling eller HLS-/VTT-kall.
+
+Dette er avgrensa PGS-støtte. Ved spoling eller byte av spor kan Media3 vente til neste
+PGS-displaysett dersom det aktive settet byrja før videonøkkelramma spelaren søkte til.
+ASS/SSA med full stilgjengiving, UHD-stresstest, ekte tenarforhandling og HDMI-bitstream er
+ikkje stadfesta av denne syntetiske prøva. Inga ny måling av oppstart, RAM eller rammetider
+ligg til grunn for oppgraderinga; det blir ikkje hevda ein ytingsgevinst utan måling.
+
+### Neste tekniske steg
+
+1. **Framdrift frå nedlasta filmar:** nettspelaren har no utkøa omtalt over. Neste del er å
+   lagre eit samanlikningsgrunnlag med nedlastinga og kople fråkopla avspeling til same flyt.
+   Prøv òg ekte støtta serverversjonar, kontobytte og samtidig avspeling på fleire einingar.
+2. **Mål svak TV-maskinvare:** fokusløft og mobilparallax har no kontrollerte før-/ettermålingar
+   av komposisjon, omtalt øvst. Det står att repeterbare oppstarts-, navigasjons- og spoleprøver med
+   rammetider, PSS/heap og same metadata-/mediesett. Bruk funna til å velje konkrete
+   Compose- og cacheendringar, med eit dokumentert utgangspunkt før optimalisering.
+3. **Avspelarkontrakt og undertekstmatrise:** skil planlegging, sporval og rapportering frå
+   skjermtilstanden stegvis. Bygg formatprøver for fleire PGS-spor, ASS/SSA-stilar,
+   fontvedlegg, tvungne spor og UHD før val av eventuell ekstra mediemotor.
+
 ## Endringar i utviklingsbygget
 
 | Område | Implementasjon | Kontroll |

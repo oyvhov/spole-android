@@ -2,6 +2,7 @@ package app.reelstack.ui.kids
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -24,6 +25,7 @@ import app.reelstack.R
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.network.RemoteLibraryView
 import app.reelstack.ui.components.SpoleIcons
+import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.steadyRemoteRows
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
@@ -75,7 +77,7 @@ internal fun KidsLibraryScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            androidx.compose.material3.IconButton(onClick = onBack, modifier = Modifier.size(56.dp)) {
+            androidx.compose.material3.IconButton(onClick = onBack, modifier = Modifier.size(56.dp).focusRing(CircleShape)) {
                 Icon(SpoleIcons.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = KidsText)
             }
             Column(Modifier.weight(1f)) {
@@ -166,7 +168,7 @@ private fun KidsFilterChip(selected: Boolean, label: String, tag: String, onClic
             selectedContainerColor = Primary.copy(alpha = 0.22f),
             selectedLabelColor = KidsText,
         ),
-        modifier = Modifier.testTag(tag),
+        modifier = Modifier.heightIn(min = 48.dp).focusRing(FilterChipDefaults.shape).testTag(tag),
     )
 }
 

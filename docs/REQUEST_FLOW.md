@@ -2,14 +2,32 @@
 
 ## Flyt
 
-1. Opne ein tittel i Oppdag. Filmar har «Legg til»; seriar har «Sjå sesongar».
+1. Opne ein tittel i Oppdag. Handlinga er tekst med ikon: «Be om» for filmar, «Be om sesongar» for seriar.
 2. Arket viser plakat, tittel og den verifiserte Seerr-kontoen som sender.
 3. Bibliotekstatus blir henta på nytt. Ingen sesongar er valde på førehand: vel berre dei du vil leggje til.
    Komande sesongar får premieredato; udaterte sesongar blir ikkje framstilte som allereie utgjevne.
    Tilgjengelege, delvis tilgjengelege, blokkerte og alt førespurde sesongar kan ikkje sendast på nytt.
 4. «Varsle når det er klart» er på som standard og kan slåast av før sending. Android kan be om varslingsløyve; avslag stoppar ikkje sjølve førespurnaden.
 5. Berre «Send førespurnad» sender til Seerr. Tomt sesongval, lasting, feil og pågåande sending sperrar knappen. Konto og sesongtilgjenge blir kontrollerte igjen rett før sending.
-6. Etter vellukka sending opnar Aktivitet. «Mine» viser eigne førespurnader og varslingsval.
+6. Etter vellukka sending blir tittelsida verande open, og statuslina der seier «Førespurd» med ein gong.
+   Eigne førespurnader står øvst i Oppdag og under «Dine førespurnader»; tittelsida har «Trekk tilbake» og varselet.
+
+## Utgåve, kvalitet og lagringsstad
+
+Arket har liner skilde med tynne strekar, i denne rekkjefølgja: Utgåve, Kvalitet, Lagringsstad, Sesongar,
+Varsle meg, og nedst «Send førespurnad» som lime tekst med pil (på TV med ei dempa «Avbryt» ved sida av).
+
+- **Utgåve: Standard · 4K** viser seg berre når kontoen har `REQUEST_4K` (1024), eller `REQUEST_4K_MOVIE`
+  (2048) / `REQUEST_4K_TV` (4096) for typen, og Seerr sitt `settings/public` seier at 4K er på for typen.
+  4K er ein eigen kopi med eigne sesongstatusar; sesongane i arket følgjer utgåva, og valet blir nullstilt ved byte.
+- **Kvalitet** og **Lagringsstad** viser seg berre for `REQUEST_ADVANCED` (8192), `MANAGE_REQUESTS` (16) eller
+  administrator. Listene kjem frå standardtenaren for vald utgåve (`service/radarr|sonarr` og
+  `service/radarr|sonarr/{id}`). Profilnamnet står som det er; Seerr sitt eige val er merkt «vanleg val».
+  Lagringsstad viser siste mappenamn, ledig plass i SI-einingar med éin desimal («4,8 TB ledig») og full sti dempa.
+  Eit trykk opnar lista rett under lina i same ark.
+- POST `request` får `is4k`, `serverId`, `profileId` og `rootFolder` berre når arket viste dei. Utan desse rettane
+  er arket og førespurnaden som før.
+- Ein 4K-førespurnad blir følgd for seg (`:4k` i nøkkelen), så framdrifta les 4K-kopien.
 
 ## Følgje utan å førespørje
 
@@ -18,7 +36,7 @@ Ho lagrar eit personleg varsel på denne eininga. Ho sender aldri POST/DELETE ti
 ikkje overvaking, søk eller automatisk henting. Ein vanleg Seerr-brukar kan følgje tilgjenge sjølv
 utan løyve til å sende nye førespurnader; serveren avgjer framleis kva metadata kontoen får lese.
 
-- Eit lokalt varsel er merkt «Berre varsel» i Aktivitet og har inga førespurnadsframdriftslinje.
+- Eit lokalt varsel er merkt «Berre varsel» under «Dine førespurnader» og har inga førespurnadsframdriftslinje.
 - «Slutt å følgje» fjernar berre det lokale varselet. Dette er ikkje «Trekk tilbake».
 - Ein eigen førespurnad for nøyaktig same sesong blir brukt om han alt finst, slik at bjølla ikkje
   opprettar ei ekstra rad. Varsel for éin sesong og ein samla fleirsesongsførespurnad har ulike
@@ -51,7 +69,7 @@ Standard- og 4K-status blir haldne frå kvarandre. Ei nedlasting for ein annan s
 - Opptil 100 lokale førespurnader blir lagra; opptil 20 får detaljoppdatering per runde. Eldre postar blir kontrollerte etter tur. Dette er ikkje eit komplett arkiv eller full Seerr-administrasjon.
 - Fylging og varslingsval er skilde etter normalisert tenaradresse og verifisert Seerr-brukar-ID. Ein ny innloggingscookie endrar ikkje denne identiteten.
 - Tilgjengelege TMDB-plakatar kan følgje varselet. Bilethenting har storleiks-/tidsgrenser, sender ingen tenarpassord og følgjer ikkje omdirigeringar. Manglande bilete gir tekstvarsel.
-- Varsel skjuler detaljane på låst skjerm etter Android sine private varslingsreglar. Trykk opnar Aktivitet. Appen endrar ikkje globale Seerr-varslingsinnstillingar.
+- Varsel skjuler detaljane på låst skjerm etter Android sine private varslingsreglar. Trykk opnar Oppdag med «Dine førespurnader». Appen endrar ikkje globale Seerr-varslingsinnstillingar.
 
 ## Kontraktar
 

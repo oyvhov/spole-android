@@ -18,10 +18,14 @@ into one focused experience. Browse each media server as its own library, play f
 Jellyfin or Emby, and track your requests from Seerr.
 
 **Active beta development.** The latest public APK is
-[1.0.0-beta13](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta13).
+[1.0.0-beta18](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta18).
 It is signed for in-place updates over earlier Spole beta releases. The source for
 this build is available on [main](https://github.com/oyvhov/spole-android/tree/main).
 Pre-release builds are published under [Releases](https://github.com/oyvhov/spole-android/releases).
+
+Local development after beta17 includes a consolidated playback menu, offline progress,
+native ASS subtitles and seek previews. These changes are not in the public beta17 APK;
+[implementation and verification status](docs/PLAYER_UPGRADE_2026-10-17.md) records their scope.
 
 ## On your screens
 
@@ -92,7 +96,7 @@ provide media. Your account permissions determine what you can view and do.
 
 - **Emby playback:** Library browsing, artwork and ordinary direct playback are supported. Some transcoded streams and uncommon audio formats may still need fixes for the particular Emby version.
 - **Offline:** Complete, directly compatible Jellyfin and Emby files can be saved from a film, episode or series detail page on phone or tablet. A series opens a clear episode choice; it never starts an accidental whole-series download. The detail page visibly prepares the request, explains a refusal, and opens **Downloads** only after it has queued the job. The adult **Downloads** library shows progress, Wi-Fi-only mode, pause/resume, retry, removal and cache-only playback. Files stay app-private and bound to the exact profile and server account. TV and child mode never offer downloads. See [mobile playback and offline](docs/MOBILE_PLAYBACK_AND_OFFLINE.md).
-- **Physical devices:** Continuous integration and regression testing run on Google Android TV and phone emulators (API 26–36). Manufacturer variants, such as Fire OS or operator-customised boxes, can differ slightly in appearance or remote behaviour.
+- **Device coverage:** Pull requests run selected phone and Google TV emulator tests on API 36, alongside unit tests, lint and builds. API 26 is the minimum supported Android version, not a claim of continuous emulator coverage across API 26–36. Physical manufacturer variants, such as Fire OS or operator-customised boxes, need separate verification.
 - **Parental controls and PIN:** Leaving kids mode is protected with PBKDF2-HMAC-SHA256 (100,000 rounds) and increasing delays after failed attempts. Older lower-cost PIN records are strengthened after a correct PIN. Resetting a forgotten PIN requires the primary adult media-server account.
 
 ## Getting started

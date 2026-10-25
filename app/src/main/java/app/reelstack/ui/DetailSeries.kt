@@ -250,7 +250,7 @@ private const val EPISODE_PREVIEW = 12
 private fun SeasonTab(text: String, chosen: Boolean, tag: String, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    Column(Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(8.dp))
+    Column(Modifier.heightIn(min = 48.dp).focusOutline(interaction, RoundedCornerShape(8.dp)).clip(RoundedCornerShape(8.dp))
         .selectable(chosen, role = Role.RadioButton, interactionSource = interaction,
             indication = androidx.compose.foundation.LocalIndication.current, onClick = onClick)
         .testTag(tag).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -269,13 +269,13 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolea
     val interaction = remember { MutableInteractionSource() }
     val tv = app.reelstack.ui.components.isTelevision()
     val shape = RoundedCornerShape(12.dp)
-    Column(Modifier.fillMaxWidth().clip(shape).focusOutline(interaction, shape)
+    Column(Modifier.fillMaxWidth().clip(shape)
         .then(if (!episode.available) Modifier.focusable(interactionSource = interaction) else Modifier)
         .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
             enabled = episode.available && !episode.remoteId.isNullOrBlank() && episode.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY),
             role = Role.Button) { onEpisodeClick(episode) }
         .padding(6.dp).testTag("episode-${episode.remoteId ?: episode.id}"), verticalArrangement = Arrangement.spacedBy(if (tv) 6.dp else 10.dp)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).focusOutline(interaction, RoundedCornerShape(8.dp)).clip(RoundedCornerShape(8.dp))) {
             MediaArtwork(episode.artworkUrl, null, Modifier.fillMaxSize(), episode.artworkRes, source = episode.source)
             if (!episode.available) EpisodeStatusBadge(episode, Modifier.align(Alignment.TopStart).padding(8.dp))
             if (ready) Icon(SpoleIcons.PlaySimple, stringResource(R.string.detail_next_to_play),

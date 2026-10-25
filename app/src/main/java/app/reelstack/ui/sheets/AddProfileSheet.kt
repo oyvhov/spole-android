@@ -42,6 +42,7 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.network.PublicUser
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.theme.*
 import coil3.compose.AsyncImage
 
@@ -178,7 +179,7 @@ private fun SheetHeader(title: String, onDismiss: () -> Unit) {
         )
         IconButton(
             onClick = onDismiss,
-            modifier = Modifier.size(44.dp).testTag("add-profile-close-button"),
+            modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("add-profile-close-button"),
         ) {
             Icon(SpoleIcons.Close, contentDescription = stringResource(R.string.action_close), tint = Muted)
         }
@@ -233,13 +234,10 @@ private fun AccountTile(
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(20.dp)
 
     Column(
         modifier = Modifier
             .width(104.dp)
-            .clip(shape)
-            .focusOutline(interaction, shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(vertical = 8.dp)
             .testTag("public-user-row-${user.id}"),
@@ -249,6 +247,7 @@ private fun AccountTile(
             Box(
                 modifier = Modifier
                     .size(88.dp)
+                    .focusOutline(interaction, CircleShape)
                     .clip(CircleShape)
                     .background(SurfaceRaised)
                     .border(1.dp, ControlOutline, CircleShape),
@@ -311,13 +310,10 @@ private fun AccountTile(
 @Composable
 private fun ManualTile(onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(20.dp)
 
     Column(
         modifier = Modifier
             .width(104.dp)
-            .clip(shape)
-            .focusOutline(interaction, shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(vertical = 8.dp)
             .testTag("add-profile-manual-toggle"),
@@ -326,6 +322,7 @@ private fun ManualTile(onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(88.dp)
+                .focusOutline(interaction, CircleShape)
                 .clip(CircleShape)
                 .background(Surface)
                 .border(1.dp, ControlOutline, CircleShape),
@@ -423,6 +420,7 @@ private fun PasswordPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 56.dp)
+                .focusRing(RoundedCornerShape(14.dp))
                 .testTag("add-profile-confirm-password-button"),
         ) {
             Text(stringResource(R.string.login_sign_in), fontSize = 16.sp)
@@ -430,7 +428,8 @@ private fun PasswordPanel(
 
         TextButton(
             onClick = onBack,
-            modifier = Modifier.defaultMinSize(minHeight = 48.dp).testTag("add-profile-password-back"),
+            modifier = Modifier.defaultMinSize(minHeight = 48.dp).focusRing(ButtonDefaults.textShape)
+                .testTag("add-profile-password-back"),
         ) {
             Text(stringResource(R.string.action_back), color = Muted, fontSize = 15.sp)
         }
@@ -510,7 +509,7 @@ private fun ManualPanel(
                     border = BorderStroke(1.dp, ControlOutline),
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
-                    modifier = Modifier.defaultMinSize(minHeight = 56.dp),
+                    modifier = Modifier.defaultMinSize(minHeight = 56.dp).focusRing(RoundedCornerShape(14.dp)),
                 ) {
                     Text(stringResource(R.string.action_back), fontSize = 15.sp)
                 }
@@ -528,6 +527,7 @@ private fun ManualPanel(
                 modifier = Modifier
                     .weight(1f)
                     .defaultMinSize(minHeight = 56.dp)
+                    .focusRing(RoundedCornerShape(14.dp))
                     .testTag("add-profile-manual-submit"),
             ) {
                 Text(stringResource(R.string.profile_add_submit_button), fontSize = 16.sp)
@@ -591,7 +591,7 @@ private fun PasswordField(
         trailingIcon = {
             IconButton(
                 onClick = onToggleVisible,
-                modifier = Modifier.size(44.dp).testTag("add-profile-password-visibility"),
+                modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("add-profile-password-visibility"),
             ) {
                 Icon(
                     imageVector = if (visible) SpoleIcons.EyeOff else SpoleIcons.Eye,

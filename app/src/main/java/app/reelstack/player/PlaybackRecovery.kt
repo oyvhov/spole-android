@@ -60,21 +60,32 @@ internal fun playbackFailureIsVideo(error: PlaybackException): Boolean {
     return MimeTypes.isVideo(renderer.rendererFormat?.sampleMimeType ?: return false)
 }
 
+/**
+ * Thrown by Spole's own subtitle extractors. A [androidx.media3.common.ParserException], so Media3
+ * does not retry deterministic garbage, but recognisably a subtitle's: Media3 reports it as a
+ * malformed container, and that used to repackage, or stop, the whole film.
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+internal class SubtitleSourceException(message: String, malformed: Boolean = true) :
+    androidx.media3.common.ParserException(message, null, malformed, androidx.media3.common.C.DATA_TYPE_MEDIA)
+
 /** A failed text sidecar must not stop a video that is otherwise playing. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal fun playbackFailureIsSubtitle(error: PlaybackException): Boolean {
     val renderer = error as? ExoPlaybackException
     if (renderer?.type == ExoPlaybackException.TYPE_RENDERER &&
         MimeTypes.isText(renderer.rendererFormat?.sampleMimeType ?: "")) return true
-    return generateSequence(error.cause) { it.cause }
+    val causes = generateSequence(error.cause) { it.cause }
+    return causes.any { it is SubtitleSourceException } || causes
         .filterIsInstance<HttpDataSource.HttpDataSourceException>()
         .any { exception -> playbackFailureIsSubtitleUrl(exception.dataSpec.uri.toString()) }
 }
 
 internal fun playbackFailureIsSubtitleUrl(url: String): Boolean {
     val path = runCatching { java.net.URI(url).path.orEmpty() }.getOrDefault(url)
+    // Every route Spole opens beside the video: text, original ASS, and the bitmap containers.
     return path.contains("/Subtitles/", ignoreCase = true) &&
-        path.endsWith("/Stream.vtt", ignoreCase = true)
+        path.substringAfterLast('/').lowercase(java.util.Locale.ROOT) in SUBTITLE_STREAM_ROUTES
 }
 
 /**
@@ -130,3 +141,6 @@ internal fun recoverablePlaybackFailure(errorCode: Int, httpStatus: Int?, transc
     return errorCode in setOf(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
 }
+
+private val SUBTITLE_STREAM_ROUTES = setOf("stream.vtt", "stream.srt", "stream.ass", "stream.ssa",
+    "stream.sup", "stream.pgs", "stream.pgssub", "stream.mks", "stream.dvdsub", "stream.vobsub")

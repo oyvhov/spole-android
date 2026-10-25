@@ -1,5 +1,6 @@
 package app.reelstack.ui
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.SpoleSecondaryButton
 
 import androidx.compose.ui.res.pluralStringResource
@@ -26,6 +27,7 @@ import app.reelstack.data.model.resolvedMediaType
 import app.reelstack.data.model.canRequest
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -183,6 +185,14 @@ fun ReelstackSheets(
     onAddKidManual: (String, String, String?) -> Unit = { _, _, _ -> },
     onDetailBack: () -> Boolean = { false },
     onSessionSelected: (String) -> Unit = {},
+    onPersonPageTitle: (String) -> Unit = {},
+    onWithdraw: (String) -> Unit = {},
+    onNotify: (String, Boolean) -> Unit = { _, _ -> },
+    onRelated: (String) -> Unit = {},
+    onSeerrPerson: (Int) -> Unit = {},
+    onRequestEdition: (Boolean) -> Unit = {},
+    onRequestProfile: (Int) -> Unit = {},
+    onRequestFolder: (String) -> Unit = {},
 ) {
     val sheet = state.activeSheet ?: return
     // The profile menu is an anchored popup owned by the shell. Falling through to the dialog here
@@ -200,6 +210,7 @@ fun ReelstackSheets(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.75f))
+                    .focusProperties { canFocus = false }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -208,7 +219,7 @@ fun ReelstackSheets(
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
-                    modifier = Modifier.clickable(
+                    modifier = Modifier.focusProperties { canFocus = false }.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = {},
@@ -234,6 +245,10 @@ fun ReelstackSheets(
         (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    // A person's page is a page like a title's: the whole screen on a television, tall on a phone.
+    val personPage = sheet is AppSheet.Person
+    val tvPerson = personPage && (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val phoneDetails = sheet is AppSheet.TitleDetails && !tvDetails &&
         !app.reelstack.ui.layout.WindowLayoutPolicy(configuration.screenWidthDp.toFloat(),
             configuration.screenHeightDp.toFloat()).useSideBySideMedia
@@ -243,29 +258,35 @@ fun ReelstackSheets(
     val returnFromTitle: () -> Boolean = {
         if (onDetailBack()) true else if (state.returnToCalendar) { onBackToCalendar(); true } else false
     }
+    // A film request is one decision and gets a small sheet; seasons need the full height.
+    val filmRequest = sheet is AppSheet.RequestComposer && state.requestDraft?.media?.mediaType != "tv"
+    val tvSheet = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     StableSheetDialog(dismissEnabled = state.requestDraft?.sending != true, onDismiss = onDismiss,
-        fullScreen = tvDetails,
-        expanded = phoneDetails,
+        maxWidthDp = if (filmRequest && tvSheet) 600f else null,
+        maxHeightDp = if (filmRequest) (if (tvSheet) 420f else 500f) else null,
+        fullScreen = tvDetails || tvPerson,
+        expanded = phoneDetails || (personPage && !tvPerson),
         compact = sheet is AppSheet.ConnectionEditor &&
             state.connections.any { it.kind == connectionDraft?.kind && it.baseUrl.isNotBlank() } &&
             connectionDraft?.simpleSetup != true,
         onCloseStarted = { if (connectionDraft?.simpleSetup == true) onCancelConnection() },
-        onBack = if (sheet is AppSheet.TitleDetails) returnFromTitle else null) { entered, closing, close ->
+        onBack = if (sheet is AppSheet.TitleDetails || personPage) returnFromTitle else null) { entered, closing, close ->
         // Toolbar close and the remote Back use the same detail-history step.  A normal title
         // still closes exactly as before once there is no parent episode to restore.
         val closeOrReturn = {
-            if (sheet is AppSheet.TitleDetails && returnFromTitle()) Unit else close()
+            if ((sheet is AppSheet.TitleDetails || personPage) && returnFromTitle()) Unit else close()
         }
         val detailScroll = androidx.compose.runtime.key(sheet, state.contentDetails?.source) { rememberScrollState() }
         Box(Modifier.fillMaxSize().testTag("sheet-viewport")) {
         Column(Modifier.fillMaxSize()) {
-            if (!tvDetails && !cinematicPhone && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails)) {
+            if (!tvDetails && !tvPerson && !cinematicPhone && (sheet is AppSheet.TitleDetails || sheet is AppSheet.SessionDetails || personPage)) {
                 SheetToolbar(
                     title = if (sheet is AppSheet.SessionDetails) stringResource(R.string.home_now_playing) else "",
                     closeDescription = stringResource(R.string.details_close), onClose = closeOrReturn, enabled = !closing,
                     onBack = if (state.returnToCalendar) onBackToCalendar else null,
                     page = tvDetails,
-                    compact = sheet is AppSheet.TitleDetails,
+                    compact = sheet is AppSheet.TitleDetails || personPage,
                 )
             }
             Box(
@@ -274,7 +295,8 @@ fun ReelstackSheets(
             when (sheet) {
                 AppSheet.RequestComposer -> RequestComposer(state, onRequestSeason, onRequestNotification,
                     onConfirmRequest, close, { state.requestDraft?.media?.id?.let(onAddMedia) }, onSeerrAccount,
-                    onSeasonWatch = onSeasonWatch, entered = entered)
+                    onSeasonWatch = onSeasonWatch, entered = entered,
+                    onEdition = onRequestEdition, onProfile = onRequestProfile, onFolder = onRequestFolder)
                 is AppSheet.SessionDetails -> SessionDetailsContent(state.sessions, sheet.sessionKey,
                     state.pendingSessionKey, state.configuredCount == 0, detailScroll,
                     onPlaybackToggle, onSessionSelected,
@@ -285,8 +307,12 @@ fun ReelstackSheets(
                             onSeerrAccount = onSeerrAccount, scroll = detailScroll, entered = entered, onCalendarFollow = onCalendarFollow,
                             onFavourite = onFavourite, onPlayed = onPlayed, onSeason = onSeason, onEpisodeSeries = onEpisodeSeries,
                             onOfflineDownload = onOfflineDownload,
-                            onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle, onEpisodeClick = onEpisodeClick)
+                            onPersonTitles = onPersonTitles, onPersonTitle = onPersonTitle, onEpisodeClick = onEpisodeClick,
+                            onWithdraw = onWithdraw, onNotify = onNotify, onRelated = onRelated, onSeerrPerson = onSeerrPerson)
                     }
+                }
+                is AppSheet.Person -> androidx.compose.runtime.key(sheet.id) {
+                    PersonSheet(state.personPage, onTitle = onPersonPageTitle)
                 }
                 AppSheet.UpcomingCalendar -> sheetContentStates.SaveableStateProvider("calendar") {
                     UpcomingCalendarSheet(state.upcoming, onUpcomingClick, close, undated = state.calendarUndated, error = state.upcomingError, loading = state.isRefreshing, onTitleClick = onCalendarTitle)
@@ -385,14 +411,18 @@ private fun DetailSheetSkeleton() {
 }
 
 @Composable
-private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
+internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) -> Unit, onSeerrAccount: () -> Unit,
     scroll: ScrollState, entered: Boolean, onFavourite: (String, Boolean) -> Unit = { _, _ -> },
     onPlayed: (String, Boolean) -> Unit = { _, _ -> }, onSeason: (String) -> Unit = {}, onEpisodeSeries: () -> Unit = {},
     onOfflineDownload: (app.reelstack.data.model.LibraryMedia, Int?, Int?, String?, String) -> Unit = { _, _, _, _, _ -> },
     onPersonTitles: suspend (app.reelstack.data.model.CastMember, ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onPersonTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
     onEpisodeClick: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
-    onCalendarFollow: (ContentDetails) -> Unit = {}) {
+    onCalendarFollow: (ContentDetails) -> Unit = {},
+    onWithdraw: (String) -> Unit = {},
+    onNotify: (String, Boolean) -> Unit = { _, _ -> },
+    onRelated: (String) -> Unit = {},
+    onSeerrPerson: (Int) -> Unit = {}) {
     val details = state.contentDetails ?: return
     // Freeze the opening artwork and title. Late metadata must not replace or resize the hero.
     var opening by remember(details.key) { mutableStateOf(details) }
@@ -429,7 +459,82 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (details.cast.isNotEmpty()) {
             Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 18.dp, bottom = 12.dp))
-            app.reelstack.ui.components.CastRail(details.cast, details.source, onPersonTitles, onPersonTitle)
+            app.reelstack.ui.components.CastRail(details.cast, details.source, onPersonTitles, onPersonTitle, onSeerrPerson)
+        }
+    }
+    // What can be done with a Seerr title, as words: ask for it, withdraw your own waiting
+    // request, and turn the alert for it on or off. No filled buttons.
+    // Every request for this title, standard and 4K. One request reads as plain words; several name
+    // their seasons or edition, so a withdrawal can only ever reach the one it says.
+    val trackedHere = state.trackedRequests.filter { discoverMedia != null && it.mediaId == discoverMedia.remoteId &&
+        it.mediaType == discoverMedia.mediaType }
+    val requestParts = trackedHere.associate { tracked ->
+        tracked.key to if (trackedHere.size < 2) null else listOfNotNull(
+            tracked.seasons.sorted().takeIf { it.isNotEmpty() }?.let {
+                androidx.compose.ui.res.pluralStringResource(R.plurals.my_requests_seasons, it.size, it.joinToString(", ")) },
+            "4K".takeIf { tracked.is4k }).joinToString(" · ").ifBlank { null }
+    }
+    val alertContext = androidx.compose.ui.platform.LocalContext.current
+    var pendingAlert by remember(details.key) { mutableStateOf<String?>(null) }
+    val alertPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+        pendingAlert?.let { key -> onNotify(key, true) }
+        pendingAlert = null
+    }
+    val canAsk = discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
+        state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)
+    // Withdrawing removes the request in Seerr, so it is asked once before anything is sent.
+    var confirmWithdraw by remember(details.key) { mutableStateOf<app.reelstack.data.model.TrackedRequest?>(null) }
+    confirmWithdraw?.let { request ->
+        WithdrawConfirm(listOfNotNull(request.title, requestParts[request.key]).joinToString(" · "),
+            onConfirm = { confirmWithdraw = null; onWithdraw(request.key) }, onKeep = { confirmWithdraw = null })
+    }
+    val seerrActions = buildList {
+        if (canAsk && discoverMedia != null) {
+            val adding = discoverMedia.id in state.requestingMediaIds
+            val needsAccount = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() } &&
+                state.accounts[ServiceKind.SEERR]?.isPersonal != true
+            add(app.reelstack.ui.components.TextAction(stringResource(when {
+                adding -> R.string.media_adding
+                needsAccount -> R.string.media_login_add
+                discoverMedia.mediaType == "tv" -> R.string.title_action_request_seasons
+                else -> R.string.title_action_request
+            }), if (discoverMedia.mediaType == "tv") app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add,
+                "title-request") { if (adding) Unit else if (needsAccount) onSeerrAccount() else onAddMedia(discoverMedia.id) })
+        }
+        trackedHere.forEach { tracked ->
+            val part = requestParts[tracked.key]
+            if (tracked.requestId != null && !tracked.availabilityOnly && tracked.stage == app.reelstack.data.model.RequestStage.REQUESTED)
+                add(app.reelstack.ui.components.TextAction(listOfNotNull(stringResource(R.string.title_action_withdraw), part).joinToString(" · "),
+                    app.reelstack.ui.components.SpoleIcons.Close, if (part == null) "title-withdraw" else "title-withdraw-${tracked.key}") {
+                    confirmWithdraw = tracked
+                })
+            add(app.reelstack.ui.components.TextAction(
+                listOfNotNull(stringResource(if (tracked.notify) R.string.title_action_notify_on else R.string.title_action_notify_off), part)
+                    .joinToString(" · "),
+                if (tracked.notify) app.reelstack.ui.components.SpoleIcons.Bell else app.reelstack.ui.components.SpoleIcons.BellOff,
+                if (part == null) "title-notify" else "title-notify-${tracked.key}") {
+                // Turning an alert on asks Android first, as the old request card did.
+                if (!tracked.notify && android.os.Build.VERSION.SDK_INT >= 33 &&
+                    !app.reelstack.background.LibraryNotifications.allowed(alertContext)) {
+                    pendingAlert = tracked.key
+                    alertPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                } else onNotify(tracked.key, !tracked.notify)
+            })
+        }
+    }
+    val relatedBlock: @Composable () -> Unit = {
+        listOf(R.string.title_similar to details.similar, R.string.title_recommended to details.recommended).forEach { (label, titles) ->
+            if (titles.isEmpty()) return@forEach
+            Text(stringResource(label), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 18.dp, bottom = 12.dp).testTag(if (label == R.string.title_similar) "title-similar" else "title-recommended"))
+            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(titles.size, key = { titles[it].id }) { index ->
+                    val width = (if (tv) 120.dp else 104.dp) * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+                    if (tv) app.reelstack.ui.screens.NamedPoster(titles[index], { onRelated(titles[index].id) }, Modifier.width(width))
+                    else app.reelstack.ui.screens.PosterOnlyCard(titles[index], { onRelated(titles[index].id) }, Modifier.width(width))
+                }
+            }
         }
     }
     val aside: @Composable () -> Unit = {
@@ -440,6 +545,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
     var chosenSubtitle by remember(details.key) { mutableStateOf<Int?>(null) }
     var chosenVersion by remember(details.key) { mutableStateOf<String?>(null) }
     val seriesLinkFocus = remember(details.key) { androidx.compose.ui.focus.FocusRequester() }
+    var synopsisReachable by remember(details.key) { mutableStateOf(false) }
     val actions: @Composable () -> Unit = {
         TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed,
             onSeries = if (mediaType == "Episode" && state.seriesBrowse.seriesId.isNotBlank()) onEpisodeSeries else null,
@@ -449,7 +555,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             modifier = Modifier.onFocusChanged { if (tv && it.hasFocus && scroll.value > 0) {
                 detailScope.launch { scroll.animateScrollTo(0) }
             } }.onPreviewKeyEvent { event ->
-                if (tv && event.key == androidx.compose.ui.input.key.Key.DirectionUp) {
+                // Up goes on to a synopsis with more to read; otherwise it only shows the top of the page.
+                if (tv && event.key == androidx.compose.ui.input.key.Key.DirectionUp && !synopsisReachable) {
                     if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                         detailScope.launch { scroll.animateScrollTo(0) }
                     }
@@ -458,7 +565,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             }.focusGroup())
     }
     if (tv) {
-        app.reelstack.ui.components.TvCinematicDetails(details, scroll, opening = opening, heading = {
+        app.reelstack.ui.components.TvCinematicDetails(details, scroll, opening = opening,
+            compactHero = opening.source == ServiceKind.SEERR, heading = {
             app.reelstack.ui.components.DetailLogo(details, opening.title)
             if (mediaType == "Episode") Text(
                 app.reelstack.ui.components.episodeLine(details.season, details.episode, opening.subtitle),
@@ -466,10 +574,11 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                     .testTag("episode-series-name"))
             if (ready) {
                 aside()
-                app.reelstack.ui.components.TvDetailSynopsis(details)
+                app.reelstack.ui.components.TvDetailSynopsis(details) { synopsisReachable = it }
                 actions()
                 if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
-                TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
+                app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
+                    focusFirst = seerrActions.firstOrNull()?.tag == "title-request" || detailPlaybackTarget(state, details) == null)
             } else {
                 DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 24.dp).testTag("detail-loading"))
             }
@@ -477,6 +586,7 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
             if (ready) {
                 SeriesEpisodes(state.seriesBrowse, details.key, onSeason, onEpisodeClick)
                 castBlock()
+                relatedBlock()
                 if (!isSeries) MediaTrackChoices(details, chosenAudio, chosenSubtitle, chosenVersion,
                     { chosenAudio = it }, { chosenSubtitle = it }, { chosenVersion = it })
                 details.error?.let { Text(it, color = Warning, modifier = Modifier.padding(top = 16.dp)) }
@@ -579,7 +689,8 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         if (!tv && mediaType == "Episode") synopsis()
         if (tv && !wideDetail) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
-        if (tv) TvTitleRequestAction(state, details.key, onAddMedia, onSeerrAccount)
+        if (tv) app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
+            focusFirst = seerrActions.firstOrNull()?.tag == "title-request" || detailPlaybackTarget(state, details) == null)
         if (details.title != opening.title) {
             Text(details.title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 20.dp))
@@ -598,10 +709,9 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         // TV has already shown these alongside its smaller poster.
         if (!tv && mediaType != "Episode") synopsis()
         details.statusTitle?.takeUnless { details.libraryAvailable && details.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) }?.let { title ->
-            Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(RoundedCornerShape(14.dp))
-                .background(SurfaceRaised).padding(14.dp), verticalAlignment = Alignment.Top) {
-                if (details.libraryAvailable) Icon(app.reelstack.ui.components.SpoleIcons.Movie, null, tint = Primary, modifier = Modifier.padding(top = 3.dp).size(20.dp))
-                else Icon(app.reelstack.ui.components.SpoleIcons.Clock, null, tint = Muted, modifier = Modifier.padding(top = 3.dp).size(20.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 24.dp).testTag("title-status"), verticalAlignment = Alignment.Top) {
+                Icon(if (details.libraryAvailable) app.reelstack.ui.components.SpoleIcons.Movie else app.reelstack.ui.components.SpoleIcons.Clock,
+                    null, tint = Muted, modifier = Modifier.padding(top = 3.dp).size(20.dp))
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
                     Text(if (discoverMedia?.seerrStatus != null) app.reelstack.localization.localizedSeerrStatus(discoverMedia.seerrStatus, discoverMedia.inLibrary, discoverMedia.requested) else title, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
                     details.statusDescription?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -611,49 +721,17 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
         details.error?.let {
             Text(it, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 12.dp))
         }
+        if (!tv && canAsk) RequestIdentity(state, onSeerrAccount)
+        // «Be om» lives in the bar at the bottom, like Play; the rest stay here as words.
+        if (!tv) app.reelstack.ui.components.TextActions(seerrActions.filterNot { it.tag == "title-request" }, Modifier.padding(top = 18.dp))
         castBlock()
-        if (!tv && discoverMedia != null && discoverMedia.canRequest && (state.configuredCount == 0 ||
-            state.accounts[ServiceKind.SEERR]?.let { discoverMedia.mediaType == "tv" || !it.isPersonal || it.canRequestType(discoverMedia.mediaType ?: "movie") } == true)) {
-            val adding = discoverMedia.id in state.requestingMediaIds
-            val connectedSeerr = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() }
-            val needsAccount = connectedSeerr && state.accounts[ServiceKind.SEERR]?.isPersonal != true
-            RequestIdentity(state, onSeerrAccount)
-            Button(
-                onClick = { if (needsAccount) onSeerrAccount() else onAddMedia(discoverMedia.id) },
-                enabled = !adding,
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Primary,
-                    contentColor = Ink,
-                    // Follows the chosen accent. These used to be fixed greens, so a coral or
-                    // iris accent had a green disabled state.
-                    disabledContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-                modifier = Modifier.fillMaxWidth().padding(top = 22.dp).heightIn(min = 56.dp),
-            ) {
-                if (adding) {
-                    CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(19.dp))
-                } else {
-                    Icon(if (discoverMedia.mediaType == "tv") app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add,
-                        contentDescription = null, modifier = Modifier.size(20.dp))
-                }
-                Text(
-                    when {
-                        adding -> stringResource(R.string.media_adding)
-                        needsAccount -> stringResource(R.string.media_login_add)
-                        discoverMedia.mediaType == "tv" -> stringResource(R.string.media_seasons)
-                        else -> stringResource(R.string.media_add_collection)
-                    },
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-        }
+        relatedBlock()
         }
     }
     }
     // The reading column owns its space above Play. The dialog has already removed the system
     // navigation inset, so the action never sits under the gesture bar or over the synopsis.
+    val askAction = seerrActions.firstOrNull { it.tag == "title-request" }
     if (detailPlaybackTarget(state, details) != null) {
         Surface(color = app.reelstack.ui.theme.Surface, modifier = Modifier.fillMaxWidth()
             .testTag("detail-playback-footer")) {
@@ -662,29 +740,57 @@ private fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String) 
                     chosenAudio, chosenSubtitle, chosenVersion, enabled = ready)
             }
         }
+    } else if (askAction != null) {
+        // A title you can ask for has its one action where Play sits on a title you own: always in
+        // reach at the bottom, however far the page has been read.
+        Surface(color = app.reelstack.ui.theme.Surface, modifier = Modifier.fillMaxWidth()
+            .testTag("detail-request-bar")) {
+            Box(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
+                Button(onClick = askAction.onClick, shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("title-request-footer")) {
+                    Icon(askAction.icon, null, Modifier.size(20.dp))
+                    Text(askAction.label, Modifier.padding(start = 8.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
     }
     }
 }
 
+/** «Trekkje tilbake …?» with Keep as the safe first choice; the remote starts there. */
 @Composable
-private fun TvTitleRequestAction(state: ReelstackUiState, key: String, onAddMedia: (String) -> Unit, onAccount: () -> Unit) {
-    val media = state.knownDiscoverMedia.firstOrNull { it.id == key } ?: return
-    if (!media.canRequest || !(state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.let {
-            media.mediaType == "tv" || !it.isPersonal || it.canRequestType(media.mediaType ?: "movie") } == true)) return
-    val adding = media.id in state.requestingMediaIds
-    val needsAccount = state.connections.any { it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() } && state.accounts[ServiceKind.SEERR]?.isPersonal != true
-    val focus = remember(key) { FocusRequester() }
-    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    LaunchedEffect(key) { androidx.compose.runtime.withFrameNanos { }; focus.requestFocus() }
-    Button(onClick = { if (needsAccount) onAccount() else onAddMedia(media.id) }, enabled = !adding,
-        interactionSource = interaction, shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.padding(top = 16.dp).widthIn(min = 220.dp).heightIn(min = 52.dp)
-            .focusRequester(focus).focusOutline(interaction, RoundedCornerShape(16.dp))
-            .testTag("tv-title-request")) {
-        Icon(if (media.mediaType == "tv") app.reelstack.ui.components.SpoleIcons.ListLines else app.reelstack.ui.components.SpoleIcons.Add, null)
-        Text(stringResource(when { adding -> R.string.media_adding; needsAccount -> R.string.media_login_add;
-            media.mediaType == "tv" -> R.string.media_seasons; else -> R.string.media_add_collection }), Modifier.padding(start = 10.dp))
+private fun WithdrawConfirm(title: String, onConfirm: () -> Unit, onKeep: () -> Unit) {
+    val keep = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        repeat(40) {
+            androidx.compose.runtime.withFrameNanos { }
+            if (runCatching { keep.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
     }
+    AlertDialog(
+        onDismissRequest = onKeep,
+        title = { Text(stringResource(R.string.flow_withdraw_title, title)) },
+        text = { Text(stringResource(R.string.flow_withdraw_note), color = Muted) },
+        confirmButton = {
+            val confirmInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            TextButton(onClick = onConfirm, interactionSource = confirmInteraction, colors = ButtonDefaults.textButtonColors(contentColor = Warning),
+                modifier = Modifier.heightIn(min = 48.dp).focusOutline(confirmInteraction, RoundedCornerShape(24.dp), glow = false)
+                    .testTag("withdraw-confirm")) {
+                Text(stringResource(R.string.flow_withdraw))
+            }
+        },
+        dismissButton = {
+            val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            TextButton(onClick = onKeep, interactionSource = interaction,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                modifier = Modifier.heightIn(min = 48.dp).focusRequester(keep)
+                    .focusOutline(interaction, RoundedCornerShape(24.dp), glow = false).testTag("withdraw-keep")) {
+                Text(stringResource(R.string.flow_keep))
+            }
+        },
+        containerColor = SurfaceRaised,
+        shape = RoundedCornerShape(28.dp),
+    )
 }
 
 @Composable
@@ -824,7 +930,9 @@ private fun TitleActionRow(
                     it.tmdbId == details.tmdbId && (if (it.mediaType.equals("Movie", true)) "movie" else "tv") == type
                 } ||
                     state.calendarUndated.any { it.key == key })
-                TextButton(onClick = { onCalendarFollow(details) }, modifier = Modifier.heightIn(min = 48.dp).testTag("detail-calendar-follow")) {
+                TextButton(onClick = { onCalendarFollow(details) },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape).testTag("detail-calendar-follow")) {
                     Icon(app.reelstack.ui.components.SpoleIcons.Calendar, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(if (following) R.string.calendar_unfollow else R.string.calendar_follow))
@@ -879,7 +987,7 @@ private fun TitleActionRow(
                     colors = ButtonDefaults.textButtonColors(contentColor = Muted),
                     modifier = Modifier.heightIn(min = 48.dp)
                         .then(seriesFocus?.let { Modifier.focusRequester(it) } ?: Modifier)
-                        .focusOutline(interaction, RoundedCornerShape(10.dp), glow = false)
+                        .focusOutline(interaction, ButtonDefaults.textShape, glow = false)
                         .testTag("episode-series-link")) {
                     Icon(app.reelstack.ui.components.SpoleIcons.Library, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -1469,7 +1577,7 @@ internal fun ConnectionEditorSheet(
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ),
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).focusRing(RoundedCornerShape(14.dp)),
                     ) {
                         Text(stringResource(R.string.account_sign_out), fontWeight = FontWeight.SemiBold)
                     }
@@ -1622,6 +1730,7 @@ internal fun ConnectionEditorSheet(
                 val otherName = if (draft.kind == ServiceKind.SEERR) "Jellyfin" else "Seerr"
                 Row(verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                        .focusRing(RoundedCornerShape(14.dp))
                         .then(Modifier.clip(RoundedCornerShape(14.dp)).background(SurfaceRaised))
                         .then(Modifier.toggleableLogin(!draft.saving, draft.alsoConnect) { onCompanionLoginChange(it, draft.companionUrl) })
                         .padding(horizontal = 12.dp, vertical = 6.dp)) {
@@ -1761,6 +1870,7 @@ private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onTogg
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
             .testTag("connected-service-summary")
             .focusOutline(interaction, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
                 onClickLabel = actionText, onClick = onToggle)
             .semantics {

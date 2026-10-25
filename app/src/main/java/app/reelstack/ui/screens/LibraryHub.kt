@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -15,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
@@ -33,7 +35,8 @@ import app.reelstack.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     onTitle: (String) -> Unit, actions: MediaCardActions?, onRetry: () -> Unit,
-    onCustomize: () -> Unit = {}, sourcePicker: @Composable () -> Unit = {}) {
+    onCustomize: () -> Unit = {}, sourcePicker: @Composable () -> Unit = {}, list: LazyListState = rememberLazyListState(),
+    returnTo: String? = null, onReturned: () -> Unit = {}, onLeave: (String) -> Unit = {}) {
     val options = LocalPersonalization.current
     val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
     val today = remember { java.time.LocalDate.now() }
@@ -51,9 +54,17 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         (movies.zip(series).flatMap { listOf(it.first, it.second) } + movies + series +
             state.libraryPeeks.filterKeys { it in libraryIds }.values.flatten()).distinctBy { it.id }.filter { app.reelstack.data.network.libraryHeroArtworkUrl(it) != null || state.configuredCount == 0 }.sortedByDescending { it.heroUrl != null }
     }
-    val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val tv = isTelevision()
+    // Where the remote left from: «tile:<id>» at the top or «all:<id>» under a library's shelf.
+    val returnFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val returnLibrary = returnTo?.substringAfter(':')
+    LaunchedEffect(returnTo, libraries.any { it.id == returnLibrary }) {
+        if (returnTo == null || libraries.none { it.id == returnLibrary }) return@LaunchedEffect
+        androidx.compose.runtime.withFrameNanos { }
+        if (tv) runCatching { returnFocus.requestFocus() }
+        onReturned()
+    }
     val large = LocalTabletCanvas.current || tv
     val inlineHeader = large && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.5f
     // The landing page and the library grid both use 32 dp on TV. Keeping the hub on the same
@@ -98,7 +109,10 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         item("libraries") {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(4.dp)) {
                 items(libraries, key = { it.id }) { library ->
-                    LibraryImageTile(library.id, library.title, library.artworkUrl, options.libraryCardsWide, state.librarySource) { onLibrary(library.id) }
+                    LibraryImageTile(library.id, library.title, library.artworkUrl, options.libraryCardsWide, state.librarySource,
+                        if (returnTo == "tile:${library.id}") Modifier.focusRequester(returnFocus) else Modifier) {
+                        onLeave("tile:${library.id}"); onLibrary(library.id)
+                    }
                 }
             }
         }
@@ -136,7 +150,10 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
                     libraryDisplay = display)
                 else if (state.libraryPeeksLoading) app.reelstack.ui.components.LibraryRailSkeleton(description = stringResource(R.string.library_peek_loading), wide = false)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    AppNavigationChip(stringResource(R.string.design_browse_all), "hub-all-${library.id}") { onLibrary(library.id) }
+                    AppNavigationChip(stringResource(R.string.design_browse_all), "hub-all-${library.id}",
+                        if (returnTo == "all:${library.id}") Modifier.focusRequester(returnFocus) else Modifier) {
+                        onLeave("all:${library.id}"); onLibrary(library.id)
+                    }
                     OpenMenuAction(onClick = { displayOpen = true }, modifier = Modifier.testTag("hub-view-${library.id}")) {
                         Icon(SpoleIcons.ListLines, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
@@ -159,7 +176,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
                 val label = stringResource(R.string.refine_library_edit)
                 TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                     tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
-                    IconButton(onClick = onCustomize, modifier = Modifier.testTag("hub-customize")) {
+                    IconButton(onClick = onCustomize, modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("hub-customize")) {
                         Icon(SpoleIcons.Tune, label)
                     }
                 }
@@ -176,11 +193,12 @@ private fun HubShelf(title: String, content: @Composable () -> Unit) {
     }
 }
 @Composable
-private fun LibraryImageTile(id: String, title: String, image: String?, wide: Boolean, source: ServiceKind, onClick: () -> Unit) {
+private fun LibraryImageTile(id: String, title: String, image: String?, wide: Boolean, source: ServiceKind,
+    focus: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.width(if (wide) 174.dp else 112.dp)) {
-    Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 1.9f else 1f)
+    Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 1.9f else 1f).then(focus)
         .clip(shape).background(MaterialTheme.colorScheme.surfaceVariant)
         .focusOutline(interaction, shape).clickable(interactionSource = interaction,
             indication = mediaCardIndication(), onClick = onClick).semantics { contentDescription = title }.testTag("hub-library-$id")) {

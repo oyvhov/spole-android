@@ -151,4 +151,29 @@ data class RequestDraft(
     val savingWatch: Int? = null,
     val watchError: String? = null,
     val rules: RequestRules? = null,
+    /** 4K is a separate copy with its own seasons; shown only when the user and Seerr both allow it. */
+    val fourK: Boolean = false,
+    val fourKAvailable: Boolean = false,
+    val seasons4k: List<RequestSeason> = emptyList(),
+    val mediaStatus4k: Int? = null,
+    /** Quality and location, for users Seerr lets choose them. Null means the sheet shows neither. */
+    val options: RequestOptions? = null,
+    val optionsLoading: Boolean = false,
+    val profileId: Int? = null,
+    val folder: String? = null,
 )
+
+/** The seasons of the edition that is chosen. */
+val RequestDraft.visibleSeasons: List<RequestSeason> get() = if (fourK) seasons4k else seasons
+
+/** What is sent with the request: only what the sheet showed. */
+val RequestDraft.choice: RequestChoice get() = RequestChoice(
+    is4k = fourK,
+    serverId = options?.serverId,
+    profileId = profileId.takeIf { options != null },
+    rootFolder = folder.takeIf { options != null },
+)
+
+/** One key per request and edition, the same whether the app or Seerr's list made it. */
+fun trackedRequestKey(mediaType: String, id: Int, seasons: Set<Int>, is4k: Boolean): String =
+    "$mediaType:$id:${seasons.sorted().joinToString(",")}" + if (is4k) ":4k" else ""

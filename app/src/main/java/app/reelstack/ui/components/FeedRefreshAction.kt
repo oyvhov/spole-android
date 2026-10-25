@@ -2,7 +2,6 @@ package app.reelstack.ui.components
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,7 +25,7 @@ internal fun FeedRefreshAction(status: String, refreshing: Boolean, onRefresh: (
         app.reelstack.ui.components.SpoleSecondaryButton(
             onClick = { if (!refreshing) onRefresh() },
             interactionSource = interaction,
-            modifier = Modifier.heightIn(min = 48.dp).focusOutline(interaction, CircleShape)
+            modifier = Modifier.heightIn(min = 48.dp)
                 .testTag("feed-refresh").semantics { stateDescription = status },
         ) {
             Text(stringResource(if (refreshing) R.string.home_refreshing else R.string.home_refresh_action))

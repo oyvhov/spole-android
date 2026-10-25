@@ -49,6 +49,8 @@ internal fun transcodeAudioChannels(capabilities: DevicePlaybackCapabilities): I
 
 fun devicePlaybackProfile(bitrate: Int, capabilities: DevicePlaybackCapabilities,
     preferAudioCopy: Boolean = false,
+    embedPgs: Boolean = true,
+    externalBitmap: Boolean = true,
 ): JsonObject = buildJsonObject {
     put("Name", "Spole Android · detected capabilities")
     put("MaxStreamingBitrate", bitrate); put("MaxStaticBitrate", bitrate)
@@ -96,7 +98,14 @@ fun devicePlaybackProfile(bitrate: Int, capabilities: DevicePlaybackCapabilities
     }
     putJsonArray("SubtitleProfiles") {
         add(buildJsonObject { put("Format", "vtt"); put("Method", "External") })
-        for (format in listOf("pgssub", "dvdsub", "dvbsub")) add(buildJsonObject { put("Format", format); put("Method", "Encode") })
+        for (format in listOf("ass", "ssa")) add(buildJsonObject { put("Format", format); put("Method", "External") })
+        // Media3 reads PGS from Matroska. HLS and recovery profiles still request burn-in.
+        if (embedPgs) add(buildJsonObject { put("Format", "pgssub"); put("Method", "Embed"); put("Container", "mkv") })
+        if (embedPgs) add(buildJsonObject { put("Format", "dvdsub"); put("Method", "Embed"); put("Container", "mkv") })
+        if (externalBitmap) for (format in listOf("pgssub", "dvdsub", "vobsub")) {
+            add(buildJsonObject { put("Format", format); put("Method", "External") })
+        }
+        for (format in listOf("pgssub", "dvdsub", "vobsub", "dvbsub")) add(buildJsonObject { put("Format", format); put("Method", "Encode") })
     }
 }
 

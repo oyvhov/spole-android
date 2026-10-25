@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_options">Avspillingsvalg</string>
+    <string name="player_speed">Avspillingsfart</string>
+    <string name="player_audio_delay">Lydforsinkelse</string>
+    <string name="player_subtitle_delay">Tekstforsinkelse</string>
+    <string name="player_frame">Bilde</string>
+    <string name="player_speed_value">%1$.2f×</string>
+    <string name="player_delay_none">I takt</string>
+    <string name="player_delay_late_value">%1$d ms senere</string>
+    <string name="player_delay_early_value">%1$d ms tidligere</string>
+    <string name="player_delay_hint">Positive verdier kommer senere enn bildet. Endringer gjelder med en gang.</string>
+    <string name="player_delay_earlier">100 ms tidligere</string>
+    <string name="player_delay_later">100 ms senere</string>
+    <string name="player_reset">Nullstill</string>
+    <string name="player_brightness">Lysstyrke</string>
+    <string name="player_volume">Volum</string>
+    <string name="player_err_local_progress">Kunne ikke lagre fremdriften på denne enheten.</string>
+</resources>

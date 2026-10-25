@@ -1,6 +1,7 @@
 package app.reelstack.player
 
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.focusRing
 
 import androidx.compose.ui.res.stringResource
 import app.reelstack.R
@@ -21,6 +22,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.border
@@ -55,6 +57,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -80,10 +84,6 @@ import app.reelstack.data.model.readableAudioTrackLabel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class PlayerMenu(val label: Int) {
-    AUDIO(R.string.player_audio_tracks), SUBTITLES(R.string.player_subtitles), QUALITY(R.string.player_quality),
-    CHAPTERS(R.string.phase_chapters)
-}
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
     private var miniPlayer by mutableStateOf(false)
@@ -131,6 +131,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
             ReelstackTheme {
                 LaunchedEffect(id, service) { model.open(id, preferredAudio, preferredSubtitle, preferredSource, service) }
                 val state by model.state.collectAsStateWithLifecycle()
+                val adjustments by model.adjustments.collectAsStateWithLifecycle()
                 DisposableEffect(state.playing, state.busy) {
                     if (state.playing || state.busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -138,7 +139,7 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
                 }
                 PlayerScreen(state, model.player, { if (!model.back()) finish() }, model::toggle, model::seek, model::retry, model::choose,
                     model::loadChildren, model::audio, model::subtitles, model::quality,
-                    kids = kids,
+                    kids = kids, adjustments = adjustments, onAdjust = model::adjust,
                     onExternal = {
                         // Handing the stream to another app is the back door out of kids mode.
                         if (kids || (application as ReelstackApplication).container.connectionRepository.isKidMode) return@PlayerScreen
@@ -199,6 +200,8 @@ fun PlayerScreen(
     state: PlayerScreenState, player: androidx.media3.common.Player?, onClose: () -> Unit,
     onToggle: () -> Unit, onSeek: (Long) -> Unit, onRetry: () -> Unit, onChoose: (PlayableItem) -> Unit,
     onMore: () -> Unit, onAudio: (Int) -> Unit, onSubtitle: (Int) -> Unit, onQuality: (Int) -> Unit, onExternal: () -> Unit,
+    adjustments: PlaybackAdjustments = PlaybackAdjustments(),
+    onAdjust: (PlaybackAdjustments) -> Unit = {},
     onResume: (Boolean) -> Unit = {},
     onRotate: () -> Unit = {},
     onNextEpisode: () -> Unit = {},
@@ -231,6 +234,8 @@ fun PlayerScreen(
         onDispose { stop() }
     }
     val playFocus = remember { FocusRequester() }
+    val optionsFocus = remember { FocusRequester() }
+    var returnToOptions by remember { mutableStateOf(false) }
     val nextFocus = remember { FocusRequester() }
     var nextHasFocus by remember { mutableStateOf(false) }
     var controlsHaveFocus by remember { mutableStateOf(false) }
@@ -242,6 +247,11 @@ fun PlayerScreen(
     var interaction by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf<PlayerMenu?>(null) }
     var statsVisible by remember { mutableStateOf(false) }
+    val touchControls = rememberPlaybackTouchControls()
+    var gestureFeedback by remember { mutableStateOf<PlaybackTouchFeedback?>(null) }
+    var gestureFinished by remember { mutableIntStateOf(0) }
+    var gestureActive by remember { mutableStateOf(false) }
+    LaunchedEffect(gestureFinished, gestureActive) { if (!gestureActive) { delay(900); gestureFeedback = null } }
     var playerHeaderHeightPx by remember { mutableIntStateOf(0) }
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val largeTouchControls = !isTelevision && app.reelstack.ui.layout.WindowLayoutPolicy(
@@ -255,6 +265,8 @@ fun PlayerScreen(
         while (statsVisible) { delay(500); statsTick++ }
     }
     var scrubbing by remember { mutableStateOf(false) }
+    var thumbnailPosition by remember(state.itemId) { mutableStateOf<Long?>(null) }
+    var timelineTop by remember { mutableStateOf(0f) }
     val scope = rememberCoroutineScope()
     var remoteSeekTargetMs by remember(state.itemId) { mutableStateOf<Long?>(null) }
     var remoteSeekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -318,7 +330,7 @@ fun PlayerScreen(
             if ((showNextOffer || showSeriesFinished) && state.ended) nextFocus.requestFocus()
             else if (!showControls && !nextHasFocus) videoFocus.requestFocus()
             else if (!state.busy && !state.awaitingResume && state.error == null && !controlsHaveFocus && !nextHasFocus)
-                playFocus.requestFocus()
+                if (returnToOptions && !kids) { optionsFocus.requestFocus(); returnToOptions = false } else playFocus.requestFocus()
         }
     }
     LaunchedEffect(isTelevision, showNextOffer, showSeriesFinished, state.ended) {
@@ -326,10 +338,11 @@ fun PlayerScreen(
     }
     BackHandler {
         if (statsVisible) { statsVisible = false; controls = true; interaction++ }
-        else if (isTelevision && menu != null && !state.browsing && !state.awaitingResume && state.error == null) {
-            // Back unwinds the local layer first. Closing a track/quality menu should leave the
-            // transport controls visible so the next decision is still in the same context.
-            menu = null
+        else if (menu != null) {
+            // The host callback and the dialog's native Back path must unwind the same depth.
+            if (menu == PlayerMenu.HOME) { menu = null; returnToOptions = true }
+            else menu = PlayerMenu.HOME
+            controls = true; interaction++
         }
         else if (isTelevision && showControls && !state.browsing && !state.awaitingResume && state.error == null) {
             // A paused OSD is still a layer, even though [canHide] is false. Hide it before the
@@ -367,7 +380,11 @@ fun PlayerScreen(
             interaction++
             if (native.repeatCount > 0 && consumedRemoteKey == native.keyCode && key !in setOf(
                     RemotePlaybackKey.LEFT, RemotePlaybackKey.RIGHT, RemotePlaybackKey.REWIND, RemotePlaybackKey.FORWARD)) return@onPreviewKeyEvent true
-            val action = remotePlaybackAction(key, showControls || nextHasFocus, (state.playWhenReady || state.playing) && !state.ended,
+            // Media keys are idempotent commands. Compose can still hold the previous frame after
+            // pause/play; reading that snapshot could turn a second Pause into a resume.
+            val playbackRequested = player?.let { it.playWhenReady && it.playbackState != androidx.media3.common.Player.STATE_ENDED }
+                ?: ((state.playWhenReady || state.playing) && !state.ended)
+            val action = remotePlaybackAction(key, showControls || nextHasFocus, playbackRequested,
                 (state.busy && state.durationMs <= 0) || state.browsing || state.awaitingResume || state.error != null || menu != null || statsVisible)
             if (action == RemotePlaybackAction.DEFAULT) return@onPreviewKeyEvent false
             consumedRemoteKey = native.keyCode
@@ -423,6 +440,11 @@ fun PlayerScreen(
         // An ancestor receives unconsumed video taps; a sibling behind the scroll container cannot.
         Box(Modifier.fillMaxSize().testTag("player-touch-surface")
             .semantics { if (!showControls) onClick(showControlsLabel) { controls = true; interaction++; true } }
+            .playbackTouchGestures(!isTelevision && !kids && latestCanSeek,
+                onStart = { gestureActive = true; touchControls.start(it) },
+                onLevel = { gestureFeedback = touchControls.adjust(it); interaction++ },
+                onZoom = { fillVideo = it > 1f; interaction++ },
+                onFinish = { gestureActive = false; gestureFinished++ })
             .pointerInput(isTelevision, state.itemId) {
                 var lastTap: androidx.compose.ui.geometry.Offset? = null
                 var lastUpTime = 0L
@@ -496,12 +518,11 @@ fun PlayerScreen(
         } else if (isTelevision && !state.awaitingResume && state.error == null) {
             TvPlaybackOverlay(state, showControls, remoteSeekTargetMs, playFocus, nextFocus.takeIf { showNextOffer || showSeriesFinished },
                 onToggle, { from, to -> recordSeek(from, to); onSeek(to) },
-                { menu = PlayerMenu.AUDIO }, { menu = PlayerMenu.SUBTITLES },
-                { menu = PlayerMenu.QUALITY }, seekFeedback,
+                seekFeedback,
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
-                onChapters = { menu = PlayerMenu.CHAPTERS },
-                onStats = { statsVisible = !statsVisible; controls = true; interaction++ }, showPlaybackModeLine = appearance.showPlaybackModeInOsd,
-                kids = kids)
+                optionsFocus = optionsFocus, onOptions = { menu = PlayerMenu.HOME },
+                onPreviewPosition = { thumbnailPosition = it }, onTimelineTop = { timelineTop = it },
+                showPlaybackModeLine = appearance.showPlaybackModeInOsd, kids = kids)
             val offerTopInset = if (showControls) 27.dp + with(androidx.compose.ui.platform.LocalDensity.current) {
                 MaterialTheme.typography.titleMedium.lineHeight.toDp()
             } + 12.dp else 27.dp
@@ -536,23 +557,6 @@ fun PlayerScreen(
                     onClose = { if (statsVisible) { statsVisible = false; controls = true; interaction++ } else onClose() },
                     showBack = !isTelevision,
                     modifier = Modifier.onSizeChanged { playerHeaderHeightPx = it.height },
-                    actions = {
-                        if (onMiniPlayer != null && !state.busy && state.error == null && !state.awaitingResume && state.durationMs > 0) {
-                            IconButton(onClick = onMiniPlayer, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape).testTag("player-mini")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.MiniPlayer, stringResource(R.string.phase_mini), modifier = Modifier.size(20.dp))
-                            }
-                        }
-                        if (!isTelevision) {
-                            IconButton(onClick = onRotate, modifier = Modifier.size(40.dp).background(Color.Black.copy(alpha = .45f), CircleShape)) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.Rotate, stringResource(R.string.player_rotate), modifier = Modifier.size(20.dp))
-                            }
-                        }
-                        if (!offline && !kids) {
-                            IconButton(onClick = { statsVisible = !statsVisible; controls = true; interaction++ }, modifier = Modifier.size(40.dp).background(if (statsVisible) MaterialTheme.colorScheme.primaryContainer else Color.Black.copy(alpha = .45f), CircleShape).testTag("player-stats")) {
-                                Icon(app.reelstack.ui.components.SpoleIcons.Info, "Stats for Nerds", tint = if (statsVisible) MaterialTheme.colorScheme.primary else Color.White, modifier = Modifier.size(20.dp))
-                            }
-                        }
-                    },
                 )
                 if (showNextOffer) NextEpisodeCard(state, onNextEpisode, onCancelNextEpisode, nextFocus,
                     Modifier.align(Alignment.End))
@@ -566,14 +570,18 @@ fun PlayerScreen(
                     Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
                     if (state.awaitingResume) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Button(onClick = { onResume(false) }) { Text(stringResource(R.string.player_resume, playbackTime(state.positionMs))) }
+                            Button(onClick = { onResume(false) }, modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.shape)) {
+                                Text(stringResource(R.string.player_resume, playbackTime(state.positionMs)))
+                            }
                             app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onResume(true) }) { Text(stringResource(R.string.player_restart)) }
                         }
                     } else if (state.error != null) {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(app.reelstack.ui.components.SpoleIcons.Alert, null, tint = MaterialTheme.colorScheme.error)
                             Text(state.error, modifier = Modifier.padding(vertical = 12.dp))
-                            Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                            Button(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.shape)) {
+                                Text(stringResource(R.string.action_retry))
+                            }
                             if (!offline) app.reelstack.ui.components.SpoleSecondaryButton(onClick = onExternal) { Text(stringResource(R.string.player_external, state.source.displayName)) }
                         }
                     } else {
@@ -682,7 +690,7 @@ fun PlayerScreen(
                                     thumbTrackGapSize = 0.dp,
                                 )
                             },
-                            onValueChange = { remoteSeekJob?.cancel(); remoteSeekTargetMs = null; dragging = it; scrubbing = true; interaction++ },
+                            onValueChange = { remoteSeekJob?.cancel(); remoteSeekTargetMs = null; dragging = it; thumbnailPosition = it.toLong(); scrubbing = true; interaction++ },
                             onValueChangeFinished = {
                                 dragging?.toLong()?.let { target ->
                                     // Keep the released position visible while Media3 catches up,
@@ -692,10 +700,11 @@ fun PlayerScreen(
                                     remoteSeekJob?.cancel()
                                     remoteSeekJob = scope.launch { delay(2200); remoteSeekTargetMs = null }
                                 }
-                                dragging = null; scrubbing = false; interaction++
+                                dragging = null; thumbnailPosition = null; scrubbing = false; interaction++
                             },
                             valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(), enabled = !state.busy && state.error == null && state.durationMs > 0,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = if (largeTimeline) 64.dp else 48.dp).testTag("player-timeline"))
+                            modifier = Modifier.fillMaxWidth().heightIn(min = if (largeTimeline) 64.dp else 48.dp)
+                                .onGloballyPositioned { timelineTop = it.positionInRoot().y }.testTag("player-timeline"))
                         Row(
                             Modifier.fillMaxWidth().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -719,34 +728,9 @@ fun PlayerScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                if (!kids) {
-                                if (state.chapters.isNotEmpty()) {
-                                    IconButton(onClick = { menu = PlayerMenu.CHAPTERS }, modifier = Modifier.size(toolSize).testTag("player-chapters")) {
-                                        Icon(app.reelstack.ui.components.SpoleIcons.Library, stringResource(R.string.phase_chapters), Modifier.size(toolIconSize))
-                                    }
-                                }
-                                IconButton(onClick = { menu = PlayerMenu.AUDIO }, enabled = state.audio.isNotEmpty() && !state.busy, modifier = Modifier.size(toolSize).testTag("player-audio")) {
-                                    Icon(app.reelstack.ui.components.SpoleIcons.Sound, stringResource(R.string.player_audio), Modifier.size(toolIconSize))
-                                }
-                                val subActive = state.subtitleIndex != -1
-                                IconButton(onClick = { menu = PlayerMenu.SUBTITLES }, enabled = state.subtitles.isNotEmpty() && !state.busy, modifier = Modifier.size(toolSize).testTag("player-subtitles")) {
-                                    Icon(
-                                        app.reelstack.ui.components.SpoleIcons.Subtitles,
-                                        stringResource(R.string.player_subtitles_button),
-                                        tint = if (subActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                        modifier = Modifier.size(toolIconSize),
-                                    )
-                                }
-                                if (!offline) IconButton(onClick = { menu = PlayerMenu.QUALITY }, enabled = !state.busy, modifier = Modifier.size(toolSize).testTag("player-quality")) {
-                                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_quality), Modifier.size(toolIconSize))
-                                }
-                                }
-                                IconButton(onClick = { fillVideo = !fillVideo; interaction++ }, modifier = Modifier.size(toolSize).testTag("player-frame-mode")) {
-                                    Icon(
-                                        if (fillVideo) app.reelstack.ui.components.SpoleIcons.Contract else app.reelstack.ui.components.SpoleIcons.Expand,
-                                        stringResource(if (fillVideo) R.string.player_frame_fit else R.string.player_frame_fill),
-                                        Modifier.size(toolIconSize),
-                                    )
+                                if (!kids) IconButton(onClick = { menu = PlayerMenu.HOME; interaction++ },
+                                    modifier = Modifier.size(if (largeTouchControls) 48.dp else 48.dp).testTag("player-options")) {
+                                    Icon(app.reelstack.ui.components.SpoleIcons.Tune, stringResource(R.string.player_options), Modifier.size(toolIconSize))
                                 }
                             }
                         }
@@ -885,65 +869,28 @@ fun PlayerScreen(
                 }
             }
         }
-        menu?.let { title ->
-            val selectedTrackFocus = remember(title) { FocusRequester() }
-            LaunchedEffect(title) {
-                withFrameNanos { }
-                runCatching { selectedTrackFocus.requestFocus() }
+        if (!kids && menu == null && !statsVisible && !offline) (thumbnailPosition ?: remoteSeekTargetMs)?.let { position ->
+            val top = with(androidx.compose.ui.platform.LocalDensity.current) { timelineTop.toDp() - 150.dp }
+            PlaybackSeekPreview(position, state.trickplay, state.chapters, state.source,
+                Modifier.align(Alignment.TopCenter).offset(y = top.coerceAtLeast(16.dp)))
+        }
+        gestureFeedback?.let { feedback ->
+            Surface(Modifier.align(Alignment.Center).testTag("player-gesture-feedback"),
+                color = Color.Black.copy(alpha = .76f), shape = RoundedCornerShape(16.dp)) {
+                Text(stringResource(if (feedback.axis == PlaybackTouchAxis.BRIGHTNESS) R.string.player_brightness else R.string.player_volume) +
+                    " · " + java.text.NumberFormat.getPercentInstance().format(feedback.fraction),
+                    Modifier.padding(horizontal = 24.dp, vertical = 16.dp), color = Color.White)
             }
-            app.reelstack.ui.components.SpoleChoiceDialog(stringResource(title.label),
-                icon = when (title) {
-                    PlayerMenu.AUDIO -> app.reelstack.ui.components.SpoleIcons.Sound
-                    PlayerMenu.SUBTITLES -> app.reelstack.ui.components.SpoleIcons.Subtitles
-                    PlayerMenu.CHAPTERS -> app.reelstack.ui.components.SpoleIcons.ListLines
-                    PlayerMenu.QUALITY -> app.reelstack.ui.components.SpoleIcons.Screen
-                },
-                // Closing a local menu should return to the transport controls. A second Back
-                // press then hides the OSD; the dialog must not consume both layers at once.
-                onDismiss = { menu = null }, content = {
-                    val options = when (title) {
-                        PlayerMenu.AUDIO -> state.audio.map { it.index to readableAudioTrackLabel(it.label, it.language) }
-                        PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }
-                        PlayerMenu.CHAPTERS -> state.chapters.mapIndexed { index, chapter -> index to "${playbackTime(chapter.startPositionMs)} · ${chapter.name}" }
-                        else -> listOf(0 to stringResource(R.string.player_auto), 80_000_000 to stringResource(R.string.player_quality_ultra),
-                            20_000_000 to stringResource(R.string.player_quality_high), 4_000_000 to stringResource(R.string.player_medium_data), 2_000_000 to stringResource(R.string.player_low_data))
-                    }
-                    Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState())) {
-                        if (title == PlayerMenu.SUBTITLES) app.reelstack.ui.screens.SubtitleAppearanceSetting(appearance.subtitleStyle) {
-                            appearancePreferences.personalization = appearance.copy(subtitleStyle = it)
-                        }
-                        val selectedId = when (title) {
-                            PlayerMenu.AUDIO -> state.audioIndex
-                            PlayerMenu.SUBTITLES -> state.subtitleIndex
-                            PlayerMenu.CHAPTERS -> state.chapters.indexOfLast { it.startPositionMs <= state.positionMs }
-                            PlayerMenu.QUALITY -> state.quality
-                        }
-                        options.forEachIndexed { index, (id, label) ->
-                            val selected = id == selectedId
-                            val initialFocus = selected || (index == 0 && options.none { it.first == selectedId })
-                            val choose: () -> Unit = {
-                                when (title) {
-                                    PlayerMenu.AUDIO -> onAudio(id)
-                                    PlayerMenu.SUBTITLES -> onSubtitle(id)
-                                    PlayerMenu.QUALITY -> onQuality(id)
-                                    PlayerMenu.CHAPTERS -> state.chapters.getOrNull(id)?.let { onSeek(it.startPositionMs) }
-                                }
-                                menu = null; interaction++
-                            }
-                            app.reelstack.ui.components.SpoleChoiceRow(label, selected,
-                                Modifier.then(if (initialFocus) Modifier.focusRequester(selectedTrackFocus) else Modifier),
-                                checkmark = true,
-                                supportingText = if (title == PlayerMenu.QUALITY) stringResource(when (id) {
-                                    0 -> R.string.quality_hint_auto
-                                    80_000_000 -> R.string.quality_hint_ultra
-                                    20_000_000 -> R.string.quality_hint_high
-                                    4_000_000 -> R.string.quality_hint_medium
-                                    else -> R.string.quality_hint_low
-                                }) else null,
-                                onClick = choose)
-                        }
-                    }
-                })
+        }
+        menu?.let { page ->
+            PlayerOptionsMenu(page, state, adjustments, offline, isTelevision, fillVideo, appearance.subtitleStyle,
+                onPage = { menu = it; interaction++ },
+                onDismiss = { menu = null; controls = true; returnToOptions = true; interaction++ },
+                onAudio = onAudio, onSubtitle = onSubtitle, onQuality = onQuality, onSeek = onSeek, onAdjust = onAdjust,
+                onStyle = { appearancePreferences.personalization = appearance.copy(subtitleStyle = it) },
+                onFrameMode = { fillVideo = !fillVideo },
+                onStats = { menu = null; statsVisible = true; controls = true; interaction++ },
+                onRotate = onRotate, onMiniPlayer = onMiniPlayer?.let { action -> { menu = null; action() } })
         }
     }
     }
@@ -1004,71 +951,71 @@ private fun PlayerHeader(
         }
     }
 }
-/** A compact, Emby-like corner offer; it leaves the picture as the primary surface. */
+/**
+ * «Neste episode» in the corner, as in Emby and as the owner chose it: no picture, the episode's name
+ * and where it is in the series, «Spel neste» and «Skjul». The countdown is calm: it fills «Spel neste»
+ * from the left, from a dimmed accent to the full one, and starts the episode when the button is full.
+ * No seconds are written out; the count is still spoken to TalkBack.
+ */
 @Composable
 private fun NextEpisodeCard(state: PlayerScreenState, onPlay: () -> Unit, onCancel: () -> Unit,
     focus: FocusRequester, modifier: Modifier = Modifier) {
     val next = state.nextEpisode ?: return
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val shape = RoundedCornerShape(12.dp)
-    Surface(modifier.widthIn(max = 292.dp).fillMaxWidth()
-        .focusGroup().testTag("player-next-episode"), shape = shape,
-        color = Color.Black.copy(alpha = .64f), contentColor = Color.White, tonalElevation = 0.dp) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                app.reelstack.ui.components.MediaArtwork(next.artworkUrl, next.title,
-                    Modifier.width(76.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(7.dp))
-                        .testTag("player-next-artwork"),
-                    fallbackRes = R.drawable.media_placeholder,
-                    source = state.source)
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = .7f))
-                    Text(next.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis)
-                    Text(app.reelstack.ui.components.episodeLine(next.season, next.episode, next.subtitle),
-                        style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        color = Color.White.copy(alpha = .7f))
-                }
+    val pill = RoundedCornerShape(50)
+    val accent = MaterialTheme.colorScheme.primary
+    val ink = MaterialTheme.colorScheme.onPrimary
+    val total = state.nextEpisodeCountdownTotalSeconds.coerceAtLeast(1)
+    // Elapsed share of the countdown, eased over each second so the light moves on steadily.
+    val target = state.nextEpisodeCountdown?.let { (1f - it.toFloat() / total).coerceIn(0f, 1f) } ?: 1f
+    val fill by androidx.compose.animation.core.animateFloatAsState(target,
+        tween(if (state.nextEpisodeCountdown != null) 1_000 else 0, easing = androidx.compose.animation.core.LinearEasing),
+        label = "next-episode-fill")
+    val countdownText = state.nextEpisodeCountdown?.let { stringResource(R.string.next_episode_countdown, it) }
+    Surface(modifier.widthIn(max = 296.dp).fillMaxWidth()
+        .focusGroup().testTag("player-next-episode"), shape = RoundedCornerShape(14.dp),
+        color = Color(0xE60D1119), contentColor = Color.White, tonalElevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .06f))) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(stringResource(R.string.player_next_episode), style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = .62f))
+                Text(next.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(app.reelstack.ui.components.episodeLine(next.season, next.episode, next.subtitle),
+                    style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = Color.White.copy(alpha = .62f))
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End,
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                if (!state.ended || state.nextEpisodeCountdown != null) {
-                    val cancelInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                    TextButton(onClick = onCancel, interactionSource = cancelInteraction,
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White), shape = shape,
-                        modifier = Modifier.heightIn(min = 40.dp).neutralPlayerFocus(cancelInteraction, shape).testTag("player-next-cancel")) {
-                        Text(stringResource(if (state.ended) R.string.next_episode_cancel else R.string.next_episode_dismiss))
-                    }
-                }
-                Button(onClick = onPlay, shape = shape, interactionSource = interaction,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = .18f), contentColor = Color.White),
-                    modifier = Modifier.heightIn(min = 40.dp).focusRequester(focus)
-                        .neutralPlayerFocus(interaction, shape).testTag("player-next-play")) {
-                    // Keep the countdown in the one affirmative action, as in Emby.  It gives the
-                    // timeout a home without adding a third line or making the small TV card grow.
-                    Box(Modifier.widthIn(min = 168.dp).heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
-                        state.nextEpisodeCountdown?.let {
-                            LinearProgressIndicator(
-                                progress = { (it.toFloat() / state.nextEpisodeCountdownTotalSeconds.coerceAtLeast(1)).coerceIn(0f, 1f) },
-                                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).height(2.dp)
-                                    .testTag("player-next-progress"),
-                                color = Color.White, trackColor = Color.White.copy(alpha = .18f), drawStopIndicator = {},
-                            )
+                androidx.compose.runtime.CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                    Box(Modifier.weight(1f).heightIn(min = 44.dp).focusRequester(focus)
+                        .neutralPlayerFocus(interaction, pill).clip(pill)
+                        .background(androidx.compose.ui.graphics.lerp(Color(0xFF0D1119), accent, .58f))
+                        .clickable(interactionSource = interaction, indication = null, role = androidx.compose.ui.semantics.Role.Button,
+                            onClick = onPlay)
+                        .semantics { if (countdownText != null) stateDescription = countdownText }
+                        .testTag("player-next-play"), contentAlignment = Alignment.CenterStart) {
+                        Box(Modifier.matchParentSize()) {
+                            Box(Modifier.fillMaxHeight().fillMaxWidth(fill).background(accent).testTag("player-next-progress"))
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null, Modifier.size(18.dp))
-                            AnimatedContent(
-                                targetState = state.nextEpisodeCountdown,
-                                transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(90)) },
-                                label = "next-episode-action",
-                            ) { seconds ->
-                                Text(
-                                    text = if (seconds == null) stringResource(R.string.player_next_play)
-                                    else stringResource(R.string.next_episode_countdown, seconds),
-                                    modifier = Modifier.padding(start = 6.dp), maxLines = 1,
-                                )
-                            }
+                        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 14.dp),
+                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            Icon(app.reelstack.ui.components.SpoleIcons.PlaySimple, null, Modifier.size(16.dp), tint = ink)
+                            Text(stringResource(R.string.next_episode_play), color = ink, fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                    if (!state.ended || state.nextEpisodeCountdown != null) {
+                        val cancelInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                        Box(Modifier.heightIn(min = 44.dp).neutralPlayerFocus(cancelInteraction, pill).clip(pill)
+                            .background(Color.White.copy(alpha = .08f))
+                            .clickable(interactionSource = cancelInteraction, indication = null,
+                                role = androidx.compose.ui.semantics.Role.Button, onClick = onCancel)
+                            .padding(horizontal = 18.dp).testTag("player-next-cancel"), contentAlignment = Alignment.Center) {
+                            Text(stringResource(if (state.ended) R.string.next_episode_cancel else R.string.next_episode_hide),
+                                style = MaterialTheme.typography.labelLarge, maxLines = 1)
                         }
                     }
                 }
@@ -1093,9 +1040,9 @@ private fun SeriesFinishedCard(onClose: () -> Unit, focus: FocusRequester, modif
                 Text(stringResource(R.string.player_series_finished_hint), style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = .7f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            TextButton(onClick = onClose, interactionSource = interaction,
+            TextButton(onClick = onClose, interactionSource = interaction, shape = shape,
                 colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
-                modifier = Modifier.heightIn(min = 40.dp).focusRequester(focus)
+                modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus)
                     .neutralPlayerFocus(interaction, shape).testTag("player-series-finished-close")) {
                 Text(stringResource(R.string.player_return_to_series))
             }
@@ -1125,7 +1072,7 @@ private fun SkipSegmentButton(state: PlayerScreenState, onSkip: () -> Unit) {
         Button(
             onClick = onSkip,
             shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.heightIn(min = 48.dp).focusRequester(focus).testTag("player-skip-segment"),
+            modifier = Modifier.heightIn(min = 48.dp).focusRing(RoundedCornerShape(14.dp)).focusRequester(focus).testTag("player-skip-segment"),
         ) {
             Text(stringResource(
                 if (segment.kind == PlaybackSegment.Kind.INTRO) R.string.player_skip_intro

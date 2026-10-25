@@ -1,0 +1,6 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 320
+PlayResY: 180
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

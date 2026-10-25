@@ -285,7 +285,7 @@ fun PinEntrySheet(
                 Spacer(Modifier.height(8.dp))
                 TextButton(
                     onClick = { showForgotDialog = true },
-                    modifier = Modifier.testTag("pin-forgot-button"),
+                    modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape).testTag("pin-forgot-button"),
                 ) {
                     Text(
                         text = stringResource(R.string.profile_pin_forgot),
@@ -320,13 +320,14 @@ fun PinEntrySheet(
                         showForgotDialog = false
                         onForgotPin(recoveryPassword)
                     },
-                    modifier = Modifier.testTag("recovery-confirm-button"),
+                    modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape).testTag("recovery-confirm-button"),
                 ) {
                     Text(stringResource(R.string.profile_pin_reset_action), color = Primary)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showForgotDialog = false }) {
+                TextButton(onClick = { showForgotDialog = false },
+                    modifier = Modifier.heightIn(min = 48.dp).focusRing(ButtonDefaults.textShape)) {
                     Text(stringResource(R.string.account_cancel), color = Muted)
                 }
             },

@@ -56,7 +56,7 @@ class TvNavigationIntegrationTest {
             rule.onNodeWithTag("resume-card-resume-severance").assertIsFocused()
             rule.onNodeWithTag("side-navigation").assertWidthIsEqualTo(80.dp)
             val railTabs = hasTestTag("wide-tab-HOME") or hasTestTag("wide-tab-LIBRARY") or
-                hasTestTag("wide-tab-DISCOVER") or hasTestTag("wide-tab-ACTIVITY") or hasTestTag("wide-tab-SETTINGS")
+                hasTestTag("wide-tab-DISCOVER") or hasTestTag("wide-tab-SETTINGS")
             repeat(5) {
                 if (rule.onAllNodes(railTabs and isFocused()).fetchSemanticsNodes().isEmpty())
                     rule.onRoot().performKeyInput { pressKey(Key.DirectionLeft) }

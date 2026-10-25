@@ -30,29 +30,25 @@ class FocusOutlineTest {
     @get:Rule val rule = createComposeRule()
     private lateinit var input: InputModeManager
 
-    @Test fun discoverDetailsAndRequestRemainSeparateKeyboardActions() {
+    @Test fun aDiscoverPosterOpensItsTitleAndCarriesNoRequestButton() {
         var details = 0
-        var requests = 0
         rule.setContent {
             input = LocalInputModeManager.current
             ReelstackTheme {
                 app.reelstack.ui.screens.DiscoverScreen(
-                    app.reelstack.ui.ReelstackUiState(discover = listOf(
+                    app.reelstack.ui.ReelstackUiState(searchQuery = "test", searchResults = listOf(
                         app.reelstack.data.model.DiscoverMedia("test", "Testfilm", "2026",
                             R.drawable.media_placeholder, false, mediaType = "movie", seerrStatus = 1))),
-                    PaddingValues(0.dp), {}, { requests++ }, { details++ })
+                    PaddingValues(0.dp), {}, { details++ })
             }
         }
         rule.runOnIdle { input.requestInputMode(InputMode.Keyboard) }
-        val cover = rule.onNodeWithTag("discover-cover-test").performScrollTo()
-        cover.performSemanticsAction(SemanticsActions.RequestFocus)
+        val poster = rule.onNodeWithTag("discover-poster-test").performScrollTo()
+        poster.performSemanticsAction(SemanticsActions.RequestFocus)
             .performKeyInput { pressKey(Key.Enter) }
         assertEquals(1, details)
-        assertEquals(0, requests)
-        rule.onNodeWithText("Legg til").performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.Enter) }
-        assertEquals(1, details)
-        assertEquals(1, requests)
+        // Asking for a title happens on its page, never under the poster.
+        rule.onAllNodes(hasAnyAncestor(hasTestTag("discover-poster-test")) and hasClickAction()).assertCountEquals(0)
     }
 
     @Test fun focusChangesArtworkPixelsWithoutChangingBoundsOrActivatingIt() {

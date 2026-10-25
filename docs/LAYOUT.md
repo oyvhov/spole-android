@@ -18,7 +18,7 @@ ligg ved sida av ved normal skrift. Stor skrift stablar innhaldet. Toppfeltet er
 hald-fram-rader held av to tittellinjer. «Neste» i Bibliotek bruker kompakte bilde-/tekstrader på
 TV og breie vindauge; skriftstorleik 2.0 bruker den romslegare, stabla forma. TV-fokus har svakare
 glød og mindre løft. Eit fokusert ikon i ein samanfalda meny kan vise namnet utan å ta fokus.
-Sesongførespurnader i Aktivitet deler cover når medie-ID, kvalitet og type er like. Ein veljar
+Sesongførespurnader i «Dine førespurnader» deler cover når medie-ID, kvalitet og type er like. Ein veljar
 viser dei opphavlege førespurnadene og statusane; handlingar gjeld berre valt førespurnads-ID.
 
 Kontroll 8. oktober 2026: 62 relevante einingstestar og 37 Android-testar bestod; lint hadde
@@ -73,17 +73,20 @@ text expands inside it. See [the current review](REVIEW_v0.12.0.md) for the late
 
 ## Navigation and hierarchy
 
-Four persistent destinations: **Heim**, **Oppdag**, **Aktivitet**, **Innstillingar**. The navigation owns space rather than covering the feed. Each tab retains its scroll position. Home carries the compact Spole identity; the other pages lead with their task and a personal account target where relevant.
+Four persistent destinations: **Heim**, **Bibliotek**, **Oppdag**, **Innstillingar**. Aktivitet is no longer a tab:
+«Dine førespurnader» lives inside Oppdag (see `OPPDAG_SAMLA_2026-10-16.md`). The navigation owns space rather than covering the feed. Each tab retains its scroll position. Home carries the compact Spole identity; the other pages lead with their task and a personal account target where relevant.
 
 - **Heim:** compact Spole identity and personal avatar, active session cards only when something plays, separate recently-added movie/episode rails for each library service, upcoming releases, download queues. No greeting, date, continue-watching feed or connection-count banner.
-- **Oppdag:** search, media-type filter, adaptive poster grid. Availability is text below artwork, never an overlay
-  obscuring a face. The card opens details. A second, loud button that also opens details is not an action, so a
-  title that cannot be requested shows its status as a line instead; only a requestable title gets a filled button.
-  One classification (`DiscoverMedia.isSeries`) drives the type filter, the type badge and the request wording.
-- **Aktivitet:** personal requests first, using compact completed cards and expanded progress only for work in flight. Administrator source scope is a single menu rather than another chip row. Service activity is grouped by day, then title first, status second, time third. The status line already names the
-  service, so the meta line does not repeat it. Every thumbnail has the same width; films keep 2:3 and episodes
-  16:9, so titles share a left edge without either format being cropped. Source filters keep request and
-  download activity easy to isolate.
+- **Oppdag:** search on top (phone) or a search icon in the header (TV); then «Dine førespurnader», Populært no,
+  Filmar som kjem, Seriar som kjem, Folk and Sjangrar. Posters carry no text or buttons; on TV the focused title fills
+  a header that stays above the scrolling rows, with its length and genres fetched once per title. Rows load
+  independently; a failed row is gone with one quiet retry line. «Alle» at the end of a row opens a paged grid.
+  Search finds people too: at most three lines with a round picture lead the results.
+- **Dine førespurnader:** text tabs Alle · På veg · Klare (+ Tenaren for administrators), one line per request with a
+  thin progress line. Lines open the title page, where withdraw and alerts live.
+- **Seerr title page:** actions are words with an icon (Be om, Trekk tilbake, Varsel på/av, Trailer); the cast opens
+  one page per person; Liknande titlar and Tilrådd ut frå denne are poster rows. Back from a person returns to the
+  title that opened it, and back from a title opened on a person returns to that person.
 - **Innstillingar:** «Kontoen din» says who you are signed in as and appears only once something is configured;
   «Tenestene dine» is the single place to add an address or sign out. Every row in the account card puts its
   action in the same trailing position, and names the service in its spoken label. Home switches appear only for

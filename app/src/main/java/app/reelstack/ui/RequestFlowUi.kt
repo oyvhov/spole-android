@@ -54,7 +54,8 @@ import app.reelstack.ui.theme.Text as TextColor
 @Composable
 fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, onNotify: (Boolean) -> Unit,
                     onConfirm: () -> Unit, onDismiss: () -> Unit, onRetry: () -> Unit, onAccount: () -> Unit,
-                    onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> }, entered: Boolean = true) {
+                    onSeasonWatch: (Int, Boolean) -> Unit = { _, _ -> }, entered: Boolean = true,
+                    onEdition: (Boolean) -> Unit = {}, onProfile: (Int) -> Unit = {}, onFolder: (String) -> Unit = {}) {
     val draft = state.requestDraft ?: return
     val context = LocalContext.current
     val confirm by rememberUpdatedState(onConfirm)
@@ -73,9 +74,21 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
     val hasSelection = !isSeries || draft.selected.isNotEmpty()
     val television = androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val confirmFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
-    LaunchedEffect(ready, television) {
-        if (television && ready && !isSeries && canAdd && draft.error == null && draft.rules?.canRequest != false && !draft.quotaExceeded) {
-            androidx.compose.runtime.withFrameNanos { }; confirmFocus.requestFocus()
+    val choiceFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
+    val seasonFocus = remember(draft.media.id) { androidx.compose.ui.focus.FocusRequester() }
+    val firstOpenSeason = draft.visibleSeasons.firstOrNull { it.canRequest }?.number
+    LaunchedEffect(ready, television, firstOpenSeason) {
+        if (!television || !ready) return@LaunchedEffect
+        // A film starts on Send: the sheet fits on one screen, so every choice above it is in view.
+        // A series starts on its first season, since nothing can be sent before one is chosen.
+        val target = when {
+            isSeries && firstOpenSeason != null -> seasonFocus
+            !isSeries && canAdd && draft.error == null && draft.rules?.canRequest != false && !draft.quotaExceeded -> confirmFocus
+            else -> return@LaunchedEffect
+        }
+        repeat(40) {
+            androidx.compose.runtime.withFrameNanos { }
+            if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
     Column(Modifier.fillMaxSize().testTag("request-composer")) {
@@ -90,18 +103,18 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             // toolbar already says "Seasons" and the picture is the one you just came from. A
             // single-title request has nothing below it, so it keeps the full introduction.
             val wideMedia = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value).useSideBySideMedia
-            val posterWidth = if (isSeries) 48.dp else if (wideMedia) 132.dp else 82.dp
+            // A film is one decision: a small cover, its name and who asks, nothing to read first.
+            val posterWidth = if (isSeries) 48.dp else 56.dp
             Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MediaArtwork(draft.media.artworkUrl, null, Modifier.width(posterWidth).height(posterWidth * 1.5f).clip(RoundedCornerShape(10.dp)), fallbackRes = draft.media.artworkRes, ContentScale.Fit, ServiceKind.SEERR)
-                Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(draft.media.title,
                         modifier = Modifier.testTag("request-title"),
-                        fontSize = if (isSeries) 17.sp else 22.sp, lineHeight = if (isSeries) 22.sp else 26.sp,
+                        fontSize = if (isSeries) 17.sp else 20.sp, lineHeight = if (isSeries) 22.sp else 25.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (!isSeries) Text(stringResource(R.string.flow_movie_intro), color = Muted,
-                        fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 8.dp))
+                    if (!isSeries) RequestIdentity(state, onAccount, compact = true)
                 }
                 if (isSeries && wideMedia) Box(Modifier.widthIn(max = 180.dp).padding(start = 12.dp)) {
                     RequestIdentity(state, onAccount, compact = true)
@@ -110,15 +123,14 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             if (isSeries && !wideMedia) RequestIdentity(state, onAccount, compact = true)
             }
             }
-            if (!isSeries) RequestIdentity(state, onAccount)
         }
         if (isSeries) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("request-header")) { header() }
         Column(Modifier.weight(1f).testTag("request-scroll").verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             if (!isSeries) {
                 header()
-                if (ready && state.configuredCount > 0) RequestPreflight(draft, onRetry)
-                app.reelstack.ui.components.RequestJourney(null, Modifier.padding(top = 20.dp, bottom = 8.dp))
+                if (ready && state.configuredCount > 0) RequestPreflight(draft, onRetry, compact = true)
             }
+            if (ready) RequestChoiceRows(draft, onEdition, onProfile, onFolder, choiceFocus)
             if (!ready) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 24.dp).testTag("seasons-loading"),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -133,14 +145,15 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                     Text(next, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, lineHeight = 20.sp,
                         modifier = Modifier.padding(top = 20.dp).testTag("next-episode"))
                 }
-                Text(if (draft.seasons.any { it.canRequest } && canAdd) stringResource(R.string.flow_choose_only)
+                Text(if (draft.visibleSeasons.any { it.canRequest } && canAdd) stringResource(R.string.flow_choose_only)
                     else stringResource(R.string.flow_status_source), color = Muted, fontSize = 13.sp, lineHeight = 20.sp,
                     modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
-                draft.seasons.forEach { season ->
+                draft.visibleSeasons.forEach { season ->
                     val enabled = season.canRequest && canAdd && !busy && draft.error == null && draft.mediaStatus != 6
                     val interaction = remember(season.number) { MutableInteractionSource() }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.weight(1f).defaultMinSize(minHeight = 56.dp)
+                            .then(if (season.number == firstOpenSeason) Modifier.focusRequester(seasonFocus) else Modifier)
                             .clip(RoundedCornerShape(ReelLayout.ControlCorner))
                             .focusOutline(interaction, RoundedCornerShape(ReelLayout.ControlCorner), glow = false)
                             .focusable(enabled = television && !enabled, interactionSource = interaction)
@@ -178,11 +191,11 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                     }
                     HorizontalDivider(color = SurfaceRaised)
                 }
-                if (draft.seasons.any { it.status == 4 }) {
+                if (draft.visibleSeasons.any { it.status == 4 }) {
                     Text(stringResource(R.string.flow_partial_note),
                         color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 14.dp))
                 }
-                if (draft.seasons.any { it.canWatch } && state.accounts[ServiceKind.SEERR]?.isPersonal == true) {
+                if (draft.visibleSeasons.any { it.canWatch } && state.accounts[ServiceKind.SEERR]?.isPersonal == true) {
                     Text(stringResource(R.string.flow_watch_note),
                         color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
                 }
@@ -197,9 +210,14 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
             // seasons pushed the second one under the fold on a two-season show.
             if (isSeries && ready && state.configuredCount > 0) RequestPreflight(draft, onRetry)
             if (ready && hasSelection && canAdd) {
-            HorizontalDivider(Modifier.padding(vertical = 18.dp), color = SurfaceRaised)
-            Row(Modifier.fillMaxWidth().toggleable(draft.notify, enabled = !draft.sending, role = Role.Checkbox, onValueChange = onNotify)
-                .padding(vertical = 8.dp).testTag("request-notification"), verticalAlignment = Alignment.CenterVertically) {
+            HorizontalDivider(Modifier.padding(vertical = if (isSeries) 18.dp else 4.dp), color = SurfaceRaised)
+            // A rounded row with its ring, as the choices above it; the tint follows the same corners.
+            val notifyInteraction = remember { MutableInteractionSource() }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(ReelLayout.ControlCorner))
+                .focusOutline(notifyInteraction, RoundedCornerShape(ReelLayout.ControlCorner), glow = false)
+                .toggleable(draft.notify, interactionSource = notifyInteraction, indication = androidx.compose.foundation.LocalIndication.current,
+                    enabled = !draft.sending, role = Role.Checkbox, onValueChange = onNotify)
+                .testTag("request-notification").padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(app.reelstack.ui.components.SpoleIcons.Bell, null, tint = Primary, modifier = Modifier.size(22.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(stringResource(R.string.flow_notify_ready), fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
@@ -208,11 +226,13 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 }
                 Checkbox(draft.notify, onCheckedChange = null, enabled = !draft.sending)
             }
-            Text(when {
+            // For a film only a reason the alert would not arrive is worth a line.
+            when {
                 !state.notificationsEnabled -> stringResource(R.string.flow_notifications_off)
                 !LibraryNotifications.allowed(context) -> stringResource(R.string.flow_android_permission)
-                else -> stringResource(R.string.flow_background_note)
-            }, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp))
+                isSeries -> stringResource(R.string.flow_background_note)
+                else -> null
+            }?.let { Text(it, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
             if (ready && isSeries && !hasSelection && draft.watchedSeasons.isNotEmpty() &&
                 (!state.notificationsEnabled || !LibraryNotifications.allowed(context))) {
@@ -223,210 +243,160 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
                 Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 14.dp))
                 app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry, enabled = !draft.sending) { Text(stringResource(R.string.flow_recheck)) }
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(if (isSeries) 18.dp else 4.dp))
         }
-        Column(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 24.dp, vertical = 12.dp)) {
+        Column(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 24.dp, vertical = if (isSeries) 12.dp else 6.dp)) {
             if (state.configuredCount == 0) Text(stringResource(R.string.flow_preview), color = Muted,
                 fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(bottom = 10.dp))
-            if (isSeries && ready && draft.error == null && (!canAdd || draft.seasons.none { it.canRequest })) {
+            if (isSeries && ready && draft.error == null && (!canAdd || draft.visibleSeasons.none { it.canRequest })) {
                 app.reelstack.ui.components.SpoleSecondaryButton(onClick = onDismiss, enabled = !draft.sending, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) { Text(stringResource(R.string.flow_done)) }
-            } else Button(onClick = {
-                if (draft.notify && state.notificationsEnabled && state.configuredCount > 0 && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context))
-                    permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                else onConfirm()
-            }, enabled = ready && !busy && canAdd && draft.rules?.canRequest != false && !draft.quotaExceeded && draft.error == null && hasSelection,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).focusRequester(confirmFocus).testTag("confirm-request")) {
-                if (draft.sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Ink)
-                Text(if (draft.sending) stringResource(R.string.flow_sending) else if (isSeries && draft.selected.isEmpty()) stringResource(R.string.flow_choose_seasons)
-                    else if (isSeries) pluralStringResource(R.plurals.flow_send_seasons, draft.selected.size, draft.selected.size) else stringResource(R.string.flow_send),
-                    modifier = Modifier.padding(horizontal = 8.dp))
+            } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val cancelInteraction = remember { MutableInteractionSource() }
+                if (television) TextButton(onClick = onDismiss, enabled = !draft.sending, interactionSource = cancelInteraction,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Muted),
+                    contentPadding = PaddingValues(horizontal = 28.dp),
+                    modifier = Modifier.heightIn(min = 54.dp).focusOutline(cancelInteraction, ButtonDefaults.textShape, glow = false)
+                        .testTag("cancel-request")) {
+                    Text(stringResource(R.string.request_cancel), style = MaterialTheme.typography.titleMedium)
+                }
+                val confirmInteraction = remember { MutableInteractionSource() }
+                TextButton(onClick = {
+                    if (draft.notify && state.notificationsEnabled && state.configuredCount > 0 && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context))
+                        permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else onConfirm()
+                }, enabled = ready && !busy && canAdd && draft.rules?.canRequest != false && !draft.quotaExceeded && draft.error == null &&
+                    hasSelection && !draft.optionsLoading,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Primary),
+                    interactionSource = confirmInteraction,
+                    modifier = Modifier.weight(1f).heightIn(min = 54.dp).focusRequester(confirmFocus)
+                        .focusOutline(confirmInteraction, ButtonDefaults.textShape, glow = false).testTag("confirm-request")) {
+                    if (draft.sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
+                    Text(if (draft.sending) stringResource(R.string.flow_sending) else if (isSeries && draft.selected.isEmpty()) stringResource(R.string.flow_choose_seasons)
+                        else if (isSeries) pluralStringResource(R.plurals.flow_send_seasons, draft.selected.size, draft.selected.size) else stringResource(R.string.flow_send),
+                        modifier = Modifier.weight(1f, fill = false).padding(horizontal = 8.dp), style = MaterialTheme.typography.titleMedium)
+                    Icon(app.reelstack.ui.components.SpoleIcons.ArrowForward, null)
+                }
             }
         }
     }
 }
 
+/**
+ * Edition, quality and location: a muted name with its value under it, so neither squeezes the
+ * other at large text. A tap on quality or location opens its list right under the line, in the
+ * same sheet, and a choice closes it again.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TrackedRequestCard(
-    item: TrackedRequest,
-    onDetails: () -> Unit,
-    onNotify: (Boolean) -> Unit,
-    onCancel: () -> Unit = {},
-    cancelling: Boolean = false,
-    showActions: Boolean = true,
-    detailsEnabled: Boolean = true,
-    requestChoices: (@Composable () -> Unit)? = null,
-) {
-    val context = LocalContext.current
-    var confirmCancel by rememberSaveable(item.key) { mutableStateOf(false) }
-    val notifyAction by rememberUpdatedState(onNotify)
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifyAction(true) }
-    val active = item.stage != RequestStage.AVAILABLE
-    val television = app.reelstack.ui.components.isTelevision()
-    val detailsInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val notifyInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val artworkShape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
-    var options by rememberSaveable(item.key) { mutableStateOf(false) }
-    val notificationLabel = stringResource(if (item.notify) R.string.flow_notify_on_title else R.string.flow_notify_off_title, item.title)
-    Box(Modifier.widthIn(max = 300.dp).fillMaxWidth().testTag("tracked-request-${item.key}")) {
-        Column {
-                Column(
-                    Modifier.fillMaxWidth()
-                        .clickable(enabled = detailsEnabled, interactionSource = detailsInteraction, indication = app.reelstack.ui.components.mediaCardIndication(),
-                            onClickLabel = stringResource(R.string.flow_detail_named, item.title), onClick = onDetails)
-                        .testTag("tracked-details-${item.key}"),
-                ) {
-                  // The poster stays a poster.
-                  //
-                  // The title used to be printed across the bottom of it, on top of the title the
-                  // poster already carries — "Practical Magic 2" over the PRACTICAL MAGIC logo. The
-                  // words now sit under the picture, where they are legible and appear once.
-                  Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)
-                      .focusOutline(detailsInteraction, artworkShape).clip(artworkShape)) {
-                    MediaArtwork(item.artworkUrl, null, Modifier.fillMaxSize(), fallbackRes = app.reelstack.R.drawable.media_placeholder, ContentScale.Fit, ServiceKind.SEERR)
-                    // A request and a title you only follow looked identical. This says which.
-                    if (item.availabilityOnly) Text(
-                        stringResource(R.string.flow_badge_following),
-                        color = androidx.compose.ui.graphics.Color.White, fontSize = 10.sp, lineHeight = 14.sp,
-                        fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp,
-                        modifier = Modifier.align(Alignment.TopStart).padding(10.dp)
-                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .72f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                  }
-                  Column(Modifier.fillMaxWidth().padding(top = 9.dp)) {
-                        Text(item.title, color = TextColor, fontSize = 15.sp,
-                            lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, minLines = 2, maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        if (requestChoices != null) requestChoices() else {
-                        Text((if (item.seasons.isEmpty()) stringResource(R.string.flow_film) else stringResource(R.string.flow_season_numbers, item.seasons.sorted().joinToString(", "))) +
-                            (if (item.is4k) " · 4K" else ""), color = Muted,
-                            fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                when (item.stage) {
-                                    RequestStage.AVAILABLE -> app.reelstack.ui.components.SpoleIcons.DoneCircle
-                                    RequestStage.DOWNLOADING -> app.reelstack.ui.components.SpoleIcons.Download
-                                    RequestStage.FAILED, RequestStage.DECLINED -> app.reelstack.ui.components.SpoleIcons.Alert
-                                    else -> app.reelstack.ui.components.SpoleIcons.Clock
-                                }, null,
-                                tint = when (item.stage) {
-                                    RequestStage.AVAILABLE -> Success
-                                    RequestStage.FAILED, RequestStage.DECLINED -> Warning
-                                    else -> Muted
-                                }, modifier = Modifier.size(16.dp),
-                            )
-                            Text(
-                                app.reelstack.localization.requestStageLabel(item.stage) + (item.percent?.let { " · $it %" } ?: ""),
-                                color = when (item.stage) {
-                                    RequestStage.AVAILABLE -> Success
-                                    RequestStage.DECLINED, RequestStage.FAILED -> Warning
-                                    else -> TextColor
-                                },
-                                fontSize = 13.sp, lineHeight = 18.sp,
-                                modifier = Modifier.padding(start = 6.dp),
-                            )
-                        }
-                        }
-                    }
-                    // Under the card, not on top of the artwork. As a circle in the poster's
-                    // corner it covered the picture on every card, focused or not — and on a title
-                    // whose name runs along the top edge, it covered that too.
-                    if (television && showActions && active) Box {
-                        IconButton(onClick = { options = true }, interactionSource = notifyInteraction,
-                            modifier = Modifier.focusOutline(notifyInteraction, CircleShape, glow = false)
-                                .testTag("request-options-${item.key}")) {
-                            Icon(app.reelstack.ui.components.SpoleIcons.Tune,
-                                stringResource(R.string.activity_more_options), tint = Muted)
-                        }
-                        DropdownMenu(expanded = options, onDismissRequest = { options = false }) {
-                            DropdownMenuItem(text = { Text(notificationLabel) }, onClick = {
-                                if (!item.notify && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context))
-                                    permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                else onNotify(!item.notify)
-                                options = false
-                            })
-                            if (item.availabilityOnly || item.requestId != null) DropdownMenuItem(
-                                text = { Text(stringResource(if (item.availabilityOnly) R.string.flow_unfollow else R.string.flow_withdraw)) },
-                                enabled = !cancelling,
-                                onClick = { options = false; if (item.availabilityOnly) onCancel() else confirmCancel = true })
-                        }
-                    }
-                  }
-            if (showActions && !television) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (active && !item.availabilityOnly && item.stage != RequestStage.UNKNOWN) CompactRequestProgress(item, Modifier.weight(1f).padding(end = 4.dp))
-                if (active) {
-                    IconToggleButton(
-                        interactionSource = notifyInteraction,
-                        checked = item.notify,
-                        onCheckedChange = { enabled ->
-                            if (enabled && Build.VERSION.SDK_INT >= 33 && !LibraryNotifications.allowed(context)) {
-                                permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            } else onNotify(enabled)
-                        },
-                        modifier = Modifier.focusOutline(notifyInteraction, CircleShape).semantics {
-                            contentDescription = notificationLabel
-                        },
-                    ) {
-                        Icon(
-                            if (item.notify) app.reelstack.ui.components.SpoleIcons.Bell else app.reelstack.ui.components.SpoleIcons.BellOff,
-                            null, tint = if (item.notify) Primary else Muted,
-                        )
-                    }
-                }
-            }
-            if (showActions && !television && item.availabilityOnly) {
-                if (active) Text(stringResource(R.string.flow_watching_note), color = Muted, fontSize = 12.sp,
-                    lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 12.dp))
-                app.reelstack.ui.components.SpoleSecondaryButton(onClick = onCancel, enabled = !cancelling,
-                    modifier = Modifier.padding(start = 4.dp).testTag("remove-watch-${item.key}")) {
-                    Text(if (cancelling) stringResource(R.string.flow_removing) else stringResource(R.string.flow_unfollow))
-                }
-            } else if (showActions && !television && active) {
-                // Withdrawing is only offered once Seerr has given the request an id: without it
-                // there is nothing to withdraw, and a dead button would be worse than none.
-                if (item.requestId != null) {
-                    app.reelstack.ui.components.SpoleSecondaryButton(onClick = { options = !options }, modifier = Modifier.testTag("request-options-${item.key}")) {
-                        Text(stringResource(if (options) R.string.activity_less_options else R.string.activity_more_options))
-                    }
-                }
-                if (item.requestId != null && options) {
-                    app.reelstack.ui.components.SpoleSecondaryButton(
-                        onClick = { confirmCancel = true },
-                        enabled = !cancelling,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp).testTag("cancel-request-${item.key}"),
-                    ) {
-                        if (cancelling) {
-                            CircularProgressIndicator(Modifier.size(14.dp), color = Warning, strokeWidth = 2.dp)
-                            Text(stringResource(R.string.flow_withdrawing), color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
-                                modifier = Modifier.padding(start = 8.dp))
-                        } else {
-                            Icon(app.reelstack.ui.components.SpoleIcons.Close, null, tint = Warning, modifier = Modifier.size(16.dp))
-                            Text(stringResource(R.string.flow_withdraw), color = Warning, fontSize = 13.sp, lineHeight = 18.sp,
-                                modifier = Modifier.padding(start = 6.dp))
-                        }
-                    }
+private fun RequestChoiceRows(draft: RequestDraft, onEdition: (Boolean) -> Unit, onProfile: (Int) -> Unit, onFolder: (String) -> Unit,
+    firstFocus: androidx.compose.ui.focus.FocusRequester) {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    var picking by remember(draft.media.id, draft.fourK) { mutableStateOf<String?>(null) }
+    val options = draft.options
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        if (draft.fourKAvailable) ChoiceRow(stringResource(R.string.request_edition), "request-edition") {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(false to R.string.request_edition_standard, true to R.string.request_edition_4k).forEach { (value, label) ->
+                    val chosen = draft.fourK == value
+                    val interaction = remember(value) { MutableInteractionSource() }
+                    Text(stringResource(label), color = if (chosen) TextColor else Muted,
+                        fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.heightIn(min = 44.dp)
+                            .then(if (!value) Modifier.focusRequester(firstFocus) else Modifier)
+                            .focusOutline(interaction, RoundedCornerShape(8.dp), glow = false)
+                            .toggleable(chosen, interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
+                                role = Role.RadioButton, enabled = !draft.sending) { onEdition(value) }
+                            .padding(horizontal = 8.dp, vertical = 12.dp)
+                            .testTag("request-edition-${if (value) "4k" else "standard"}"))
                 }
             }
         }
+        if (draft.optionsLoading) Text(stringResource(R.string.flow_checking), color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
+            modifier = Modifier.padding(vertical = 12.dp))
+        if (options != null) {
+            val profile = options.profiles.firstOrNull { it.id == draft.profileId }
+            if (options.profiles.isNotEmpty()) ChoiceRow(stringResource(R.string.request_quality), "request-quality",
+                onClick = { picking = if (picking == "quality") null else "quality" }.takeUnless { draft.sending },
+                modifier = if (!draft.fourKAvailable) Modifier.focusRequester(firstFocus) else Modifier) {
+                ValueColumn(profile?.name.orEmpty(), stringResource(R.string.request_usual_choice).takeIf { draft.profileId == options.defaultProfileId })
+            }
+            if (picking == "quality") options.profiles.forEach { p ->
+                ChoiceOption(p.name, null, p.id == draft.profileId, "request-quality-option-${p.id}") { onProfile(p.id); picking = null }
+            }
+            val folder = options.folders.firstOrNull { it.path == draft.folder }
+            if (options.folders.isNotEmpty()) ChoiceRow(stringResource(R.string.request_folder), "request-folder",
+                onClick = { picking = if (picking == "folder") null else "folder" }.takeUnless { draft.sending },
+                modifier = if (!draft.fourKAvailable && options.profiles.isEmpty()) Modifier.focusRequester(firstFocus) else Modifier) {
+                ValueColumn(listOfNotNull(folder?.name, folder?.freeBytes?.let { stringResource(R.string.request_free_space, formatFreeSpace(it, locale)) })
+                    .joinToString("  ·  "),
+                    listOfNotNull(folder?.path, stringResource(R.string.request_usual_choice).takeIf { draft.folder == options.defaultFolder }).joinToString(" · "))
+            }
+            if (picking == "folder") options.folders.forEach { f ->
+                ChoiceOption(f.name, listOfNotNull(f.path, f.freeBytes?.let { stringResource(R.string.request_free_space, formatFreeSpace(it, locale)) })
+                    .joinToString(" · "), f.path == draft.folder, "request-folder-option-${f.path.hashCode()}") { onFolder(f.path); picking = null }
+            }
+        }
+        if (draft.fourKAvailable || options != null) HorizontalDivider(color = TextColor.copy(alpha = .08f))
     }
-    if (confirmCancel) {
-        AlertDialog(
-            onDismissRequest = { confirmCancel = false },
-            title = { Text(stringResource(R.string.flow_withdraw_title, item.title)) },
-            text = {
-                Text(
-                    stringResource(R.string.flow_withdraw_note),
-                )
-            },
-            confirmButton = {
-                app.reelstack.ui.components.SpoleSecondaryButton(onClick = { confirmCancel = false; onCancel() }) {
-                    Text(stringResource(R.string.flow_withdraw), color = Warning)
-                }
-            },
-            dismissButton = { app.reelstack.ui.components.SpoleSecondaryButton(onClick = { confirmCancel = false }) { Text(stringResource(R.string.flow_keep)) } },
-            containerColor = SurfaceRaised,
-            shape = RoundedCornerShape(28.dp),
-        )
+}
+
+@Composable
+private fun ChoiceRow(label: String, tag: String, onClick: (() -> Unit)? = null, modifier: Modifier = Modifier, value: @Composable () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    // A television line is wide enough for name and value side by side, which keeps the whole sheet
+    // on one screen; a phone or large text puts the value under its name instead.
+    val sideBySide = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION &&
+        androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.3f
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = TextColor.copy(alpha = .08f))
+        Row(Modifier.fillMaxWidth().heightIn(min = if (sideBySide) 52.dp else 60.dp).then(modifier)
+            .then(if (onClick != null) Modifier.focusOutline(interaction, RoundedCornerShape(10.dp), glow = false)
+                .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
+                    role = Role.Button, onClick = onClick) else Modifier)
+            // Inside the focus ring, in line with the season rows below.
+            .testTag(tag).padding(horizontal = 12.dp, vertical = if (sideBySide) 6.dp else 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (sideBySide) {
+                Text(label, color = Muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.widthIn(min = 120.dp)
+                    .padding(end = 16.dp).testTag("$tag-label"))
+                Box(Modifier.weight(1f).testTag("$tag-value"), contentAlignment = Alignment.CenterEnd) { value() }
+            } else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, color = Muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("$tag-label"))
+                Box(Modifier.testTag("$tag-value")) { value() }
+            }
+            if (onClick != null) Icon(app.reelstack.ui.components.SpoleIcons.ChevronDown, null, tint = Muted,
+                modifier = Modifier.padding(start = 8.dp).size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun ValueColumn(main: String, detail: String?) {
+    val end = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
+        android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION &&
+        androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.3f
+    Column(horizontalAlignment = if (end) Alignment.End else Alignment.Start) {
+        Text(main, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        detail?.takeIf(String::isNotBlank)?.let {
+            Text(it, color = Muted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** One entry of an open list: its name, a muted detail, and a check on the chosen one. */
+@Composable
+private fun ChoiceOption(name: String, detail: String?, chosen: Boolean, tag: String, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = 16.dp)
+        .focusOutline(interaction, RoundedCornerShape(10.dp), glow = false)
+        .clickable(interactionSource = interaction, indication = androidx.compose.foundation.LocalIndication.current,
+            role = Role.RadioButton, onClick = onClick)
+        .testTag(tag).padding(vertical = 8.dp, horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(name, color = if (chosen) TextColor else Muted, style = MaterialTheme.typography.bodyLarge)
+            detail?.takeIf(String::isNotBlank)?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
+        }
+        if (chosen) Icon(app.reelstack.ui.components.SpoleIcons.Done, null, tint = TextColor, modifier = Modifier.size(20.dp))
     }
 }
 

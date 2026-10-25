@@ -18,26 +18,8 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import app.reelstack.R
 import app.reelstack.ReelstackApplication
-import app.reelstack.data.model.ServiceKind
-import app.reelstack.offline.OfflineDownloadRuntime
-import app.reelstack.offline.OfflinePlaybackSource
-import app.reelstack.offline.offlineServiceHash
 import app.reelstack.ui.theme.ReelstackTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * A cache-only player. It has no network upstream and it is not exported, so a completed file
@@ -71,6 +53,7 @@ class OfflinePlayerActivity : app.reelstack.localization.LocalizedActivity() {
             ReelstackTheme {
                 LaunchedEffect(downloadId) { model.open(downloadId) }
                 val state by model.state.collectAsStateWithLifecycle()
+                val adjustments by model.adjustments.collectAsStateWithLifecycle()
                 DisposableEffect(state.playing, state.busy) {
                     if (state.playing || state.busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -85,11 +68,13 @@ class OfflinePlayerActivity : app.reelstack.localization.LocalizedActivity() {
                     onRetry = model::retry,
                     onChoose = {},
                     onMore = {},
-                    onAudio = {},
-                    onSubtitle = {},
+                    onAudio = model::audio,
+                    onSubtitle = model::subtitles,
                     onQuality = {},
                     onExternal = {},
                     offline = true,
+                    adjustments = adjustments,
+                    onAdjust = model::adjust,
                     onRotate = {
                         requestedOrientation = if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT)
                             android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
@@ -136,164 +121,5 @@ class OfflinePlayerActivity : app.reelstack.localization.LocalizedActivity() {
             is android.content.ContextWrapper -> baseContext?.hostActivity()
             else -> null
         }
-    }
-}
-
-private class OfflinePlayerModel(private val container: app.reelstack.AppContainer) : ViewModel() {
-    private val owner = container.connectionRepository.captureSession()
-    private val mutable = MutableStateFlow(PlayerScreenState())
-    val state = mutable.asStateFlow()
-    private var source: OfflinePlaybackSource? = null
-    // A download is accepted with the same FFmpeg audio the online player uses, so the local player
-    // needs the same renderers. Without them an EAC3 or DTS film played with no sound.
-    private val localAudioFallback = LocalAudioFallback()
-
-    val player: ExoPlayer = ExoPlayer.Builder(container.appContext,
-        PlaybackRenderersFactory(container.appContext, localAudioFallback))
-        .setMediaSourceFactory(DefaultMediaSourceFactory(OfflineDownloadRuntime.offlineDataSourceFactory(container.appContext)))
-        .build()
-        .also { player ->
-            player.addListener(object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    mutable.update { it.copy(playing = isPlaying, playWhenReady = player.playWhenReady) }
-                }
-
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    val duration = player.duration.takeIf { it > 0 && it != androidx.media3.common.C.TIME_UNSET } ?: 0L
-                    mutable.update {
-                        it.copy(
-                            busy = playbackState == Player.STATE_BUFFERING,
-                            ended = playbackState == Player.STATE_ENDED,
-                            durationMs = duration,
-                            positionMs = player.currentPosition.coerceAtLeast(0),
-                            playWhenReady = player.playWhenReady,
-                        )
-                    }
-                    if (playbackState == Player.STATE_ENDED) record(completed = true)
-                }
-
-                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    if (!ensureSession()) return
-                    if (localAudioFallback.tryEnable(error)) {
-                        // A platform decoder that claimed the track and then failed: hand the same
-                        // local file to the bundled decoder, from the same position.
-                        val position = player.currentPosition.coerceAtLeast(0)
-                        val playWhenReady = player.playWhenReady
-                        val item = player.currentMediaItem
-                        if (item != null) {
-                            player.stop()
-                            player.setMediaItem(item, position)
-                            mutable.update { it.copy(error = null, busy = true) }
-                            player.prepare()
-                            player.playWhenReady = playWhenReady
-                            return
-                        }
-                    }
-                    mutable.update { it.copy(busy = false, error = appString(R.string.offline_playback_failed)) }
-                }
-            })
-        }
-
-    init {
-        viewModelScope.launch {
-            container.connectionRepository.sessionScope.collect { if (it != owner) ensureSession() }
-        }
-        viewModelScope.launch {
-            while (isActive) {
-                if (source != null) mutable.update { current ->
-                    current.copy(positionMs = player.currentPosition.coerceAtLeast(0),
-                        durationMs = player.duration.takeIf { it > 0 && it != androidx.media3.common.C.TIME_UNSET } ?: current.durationMs)
-                }
-                delay(500)
-            }
-        }
-    }
-
-    fun open(downloadId: String) {
-        if (!ensureSession()) return
-        viewModelScope.launch {
-            val activeProfile = container.connectionRepository.activeProfileId
-            val resolved = withContext(Dispatchers.IO) { container.offlineDownloads.playbackSource(activeProfile, downloadId) }
-            // The profile may have changed while the local database was read. Refuse rather than
-            // briefly opening an adult file after a switch to a child profile.
-            if (resolved == null || !container.connectionRepository.isCurrent(owner)) {
-                mutable.update { it.copy(busy = false, error = appString(R.string.offline_playback_unavailable)) }
-                return@launch
-            }
-            source = resolved
-            localAudioFallback.reset()
-            val item = MediaItem.Builder()
-                .setMediaId(resolved.id)
-                .setUri(resolved.uri)
-                .setCustomCacheKey(resolved.cacheKey)
-                .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder()
-                    .setTitle(resolved.title).setSubtitle(resolved.subtitle).build())
-                .build()
-            mutable.value = PlayerScreenState(
-                title = resolved.title,
-                subtitle = resolved.subtitle,
-                busy = true,
-                source = resolved.service,
-                itemId = resolved.itemId,
-                mode = PlaybackMode.DIRECT_PLAY,
-            )
-            player.setMediaItem(item)
-            player.prepare()
-            player.play()
-        }
-    }
-
-    fun toggle() {
-        if (!ensureSession()) return
-        if (player.playbackState == Player.STATE_ENDED) {
-            player.seekTo(0)
-            player.play()
-        } else if (player.playWhenReady) player.pause() else player.play()
-    }
-
-    fun seek(positionMs: Long) {
-        if (!ensureSession()) return
-        player.seekTo(positionMs.coerceIn(0, state.value.durationMs.coerceAtLeast(0)))
-        mutable.update { it.copy(positionMs = player.currentPosition.coerceAtLeast(0), ended = false) }
-    }
-
-    fun retry() = source?.let { open(it.id) }
-    fun foreground() { ensureSession() }
-
-    fun background() {
-        player.pause()
-        record(completed = false)
-    }
-
-    private fun record(completed: Boolean) {
-        if (!container.connectionRepository.isCurrent(owner)) return
-        val offline = source ?: return
-        val connection = container.connectionRepository.list().firstOrNull {
-            it.kind == offline.service && it.token.isNotBlank() && offlineServiceHash(it) == offline.serviceScope
-        } ?: return
-        container.localPlaybackStore.record(
-            connection,
-            PlayableItem(id = offline.itemId, title = offline.title, subtitle = offline.subtitle, type = offline.mediaType),
-            player.currentPosition.coerceAtLeast(0),
-            player.duration.takeIf { it > 0 && it != androidx.media3.common.C.TIME_UNSET } ?: state.value.durationMs,
-            completed = completed,
-        )
-    }
-
-    private fun appString(@androidx.annotation.StringRes id: Int): String =
-        app.reelstack.localization.AppLanguages.wrap(container.appContext).getString(id)
-
-    private fun ensureSession(): Boolean {
-        if (container.connectionRepository.isCurrent(owner)) return true
-        source = null
-        player.stop(); player.clearMediaItems()
-        mutable.value = PlayerScreenState(busy = false, error = appString(R.string.offline_playback_unavailable))
-        return false
-    }
-
-    override fun onCleared() {
-        record(completed = player.playbackState == Player.STATE_ENDED)
-        player.release()
-        super.onCleared()
     }
 }

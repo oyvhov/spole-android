@@ -83,6 +83,12 @@ class PlaybackRecoveryTest {
             "https://media.example/Videos/episode/stream"))
     }
 
+    @Test fun everySidecarRouteSpoleOpensCountsAsSubtitle() {
+        for (route in listOf("Stream.ass", "Stream.ssa", "Stream.sup", "Stream.mks", "Stream.dvdsub", "Stream.vobsub", "Stream.srt"))
+            assertTrue(route, playbackFailureIsSubtitleUrl("https://media.example/Videos/episode/source/Subtitles/7/0/$route"))
+        assertFalse(playbackFailureIsSubtitleUrl("https://media.example/Videos/episode/stream.mkv"))
+    }
+
     /**
      * The ladder, which used to be a cliff.
      *

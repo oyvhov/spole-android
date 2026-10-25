@@ -15,6 +15,14 @@ class PlaybackMetadataTest {
             formatMetadataFact("28 min", java.time.LocalTime.NOON).resId)
     }
 
+    @Test fun `a title that cannot be played here has a length but no finish time`() {
+        val text = formatMetadataFact("101 min", java.time.LocalTime.NOON, withFinish = false)
+        assertEquals(app.reelstack.R.string.metadata_length_hours_minutes, text.resId)
+        assertEquals(listOf(1, 41), text.args)
+        assertEquals(app.reelstack.R.string.metadata_length_minutes,
+            formatMetadataFact("28 min", java.time.LocalTime.NOON, withFinish = false).resId)
+    }
+
     @Test fun `non-runtime server facts and unavailable runtime stay untouched`() {
         listOf("2026", "PG-13", "Netflix", "0 min", "-1 min").forEach { fact ->
             assertEquals(fact, formatMetadataFact(fact, java.time.LocalTime.NOON).literal)

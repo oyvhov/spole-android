@@ -137,4 +137,15 @@ class HomeLayoutTest {
         assertTrue(HomeRowKind.CONTINUE_WATCHING.accepts("homevideos"))
         assertTrue(HomeRowKind.NEW_SERIES.accepts(null))
     }
+
+    @Test fun aRowNamesItsServerOnlyWhenAnotherServerHasTheSameRow() {
+        val both = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
+        // One server: «Sjå vidare» needs no «Jellyfin» beside it.
+        assertFalse(HomeLayout.DEFAULT.sourceNeeded(jellyfinContinue, setOf(ServiceKind.JELLYFIN)))
+        // Two servers with the same row: the name tells the two apart.
+        assertTrue(HomeLayout.DEFAULT.sourceNeeded(jellyfinContinue, both))
+        assertTrue(HomeLayout.DEFAULT.sourceNeeded(embyContinue, both))
+        // The other server's row is hidden: nothing to tell apart.
+        assertFalse(HomeLayout.DEFAULT.withVisible(embyContinue, false).sourceNeeded(jellyfinContinue, both))
+    }
 }

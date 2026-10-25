@@ -43,8 +43,8 @@ android {
         applicationId = "app.reelstack"
         minSdk = 26
         targetSdk = 36
-        versionCode = 150
-        versionName = "1.0.0-beta13"
+        versionCode = 155
+        versionName = "1.0.0-beta18"
 
         testInstrumentationRunner = "app.reelstack.SpoleTestRunner"
         vectorDrawables.useSupportLibrary = true
@@ -158,6 +158,9 @@ dependencies {
     implementation("androidx.media3:media3-datasource:1.11.1")
     implementation("androidx.media3:media3-database:1.11.1")
     implementation(project(":playback-ffmpeg"))
+    // Pinned native libass + Kotlin bridge. Media3 integration remains in our playback module.
+    // ass-kt carries libass.so itself; the separate "ass" AAR only repeats it (plus prefab headers).
+    implementation("io.github.peerless2012:ass-kt:0.5.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 

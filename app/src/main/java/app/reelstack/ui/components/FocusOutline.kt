@@ -7,7 +7,10 @@ import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
@@ -18,6 +21,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.inset
+import androidx.compose.ui.layout.layout
 
 /** TV artwork owns focus feedback; a Material state layer must never tint its caption. */
 @Composable
@@ -38,9 +42,12 @@ internal fun mediaCardIndication(): androidx.compose.foundation.Indication? {
  * Deliberately small: 1.035 is enough to see and small enough that a row does not shove its
  * neighbours around. Press still wins, so a card that is being clicked dips under the finger, and
  * reduced motion drops the scaling entirely and leaves the outline and shadow to do the work.
+ *
+ * Keep the animated state unread until graphicsLayer. Returning its value here subscribes the
+ * entire calling card/button to every animation frame, even though its content never changes.
  */
 @Composable
-internal fun focusScale(focused: Boolean, pressed: Boolean): Float {
+internal fun animateFocusScale(focused: Boolean, pressed: Boolean): State<Float> {
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
     val target = when {
         pressed && motion -> 0.985f
@@ -48,14 +55,50 @@ internal fun focusScale(focused: Boolean, pressed: Boolean): Float {
         focused -> 1.035f
         else -> 1f
     }
-    val scale by animateFloatAsState(target, tween(if (motion) 140 else 0), label = "focus-scale")
-    return scale
+    return animateFloatAsState(target, tween(if (motion) 140 else 0), label = "focus-scale")
 }
+
+/**
+ * Room for a ring around words, without moving the words. The element is measured [horizontal]
+ * wider (and [vertical] taller) on each side and still takes only its old room in the layout, so a
+ * text link stays on the edge of its column while its ring, and the padding the caller puts inside
+ * it, stand just outside. Put it before [focusOutline]; fill the extra room with padding after the
+ * clickable.
+ */
+internal fun Modifier.focusBleed(horizontal: androidx.compose.ui.unit.Dp, vertical: androidx.compose.ui.unit.Dp = 0.dp): Modifier =
+    this.layout { measurable, constraints ->
+        val h = horizontal.roundToPx()
+        val v = vertical.roundToPx()
+        fun grow(value: Int, by: Int) = if (value == androidx.compose.ui.unit.Constraints.Infinity || value == 0) value else value + 2 * by
+        val placeable = measurable.measure(androidx.compose.ui.unit.Constraints(
+            minWidth = grow(constraints.minWidth, h), maxWidth = grow(constraints.maxWidth, h),
+            minHeight = grow(constraints.minHeight, v), maxHeight = grow(constraints.maxHeight, v)))
+        layout((placeable.width - 2 * h).coerceAtLeast(0), (placeable.height - 2 * v).coerceAtLeast(0)) {
+            placeable.place(-h, -v)
+        }
+    }
 
 /** Draw-only keyboard focus with soft accent glow and ambient drop shadow. */
 @Composable
 internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow: Boolean = true): Modifier {
     val focused by source.collectIsFocusedAsState()
+    return ring(focused, shape, glow)
+}
+
+/**
+ * The same ring for a Material button, which keeps its interaction source to itself: it follows
+ * focus anywhere inside the element. Give it the button's own [shape], and make the button at least
+ * 48 dp tall ([androidx.compose.foundation.layout.heightIn]) so the ring is not drawn around the
+ * invisible touch margin of a 40 dp button.
+ */
+@Composable
+internal fun Modifier.focusRing(shape: Shape, glow: Boolean = true): Modifier {
+    var focused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    return this.onFocusChanged { focused = it.hasFocus }.ring(focused, shape, glow)
+}
+
+@Composable
+private fun Modifier.ring(focused: Boolean, shape: Shape, glow: Boolean): Modifier {
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
     val alphaState = animateFloatAsState(if (focused) 1f else 0f, tween(if (motion) 140 else 0), label = "focus-outline")
     val style = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle
