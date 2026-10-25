@@ -2,6 +2,7 @@ package app.reelstack.launcher
 
 import android.app.Application
 import android.content.Intent
+import android.content.ComponentName
 import android.net.Uri
 import app.reelstack.MainActivity
 import app.reelstack.R
@@ -90,6 +91,26 @@ class LauncherOpenActivityTest {
         repository.activeProfileId = "kid"
         val next = shadowOf(launch("child-user", "play")).nextStartedActivity
         assertTrue(next.getBooleanExtra("kids_mode", false))
+    }
+
+    @Test fun receiverCannotBecomeTheAffinityRootOfTheMainTask() {
+        val context = RuntimeEnvironment.getApplication()
+        val receiver = context.packageManager.getActivityInfo(ComponentName(context, LauncherOpenActivity::class.java), 0)
+        val main = context.packageManager.getActivityInfo(ComponentName(context, MainActivity::class.java), 0)
+        assertTrue("A NEW_TASK launcher link must use a transient receiver task", receiver.taskAffinity.isNullOrEmpty())
+        assertNotEquals(main.taskAffinity, receiver.taskAffinity)
+    }
+
+    @Test fun reusedReceiverForwardsANewViewIntent() {
+        val controller = Robolectric.buildActivity(TestActivity::class.java,
+            Intent(Intent.ACTION_VIEW, Uri.parse("spole://open?kind=jellyfin&user=adult&item=first&action=details"))).create()
+        val activity = controller.get()
+        assertEquals("first", shadowOf(activity).nextStartedActivity.getStringExtra("launcher_item"))
+        controller.newIntent(Intent(Intent.ACTION_VIEW,
+            Uri.parse("spole://open?kind=jellyfin&user=adult&item=second&action=details")))
+        val next = shadowOf(activity).nextStartedActivity
+        assertNotNull("Every new external intent must be dispatched", next)
+        assertEquals("second", next.getStringExtra("launcher_item"))
     }
 
     private fun launch(user: String, action: String) = Robolectric.buildActivity(TestActivity::class.java,

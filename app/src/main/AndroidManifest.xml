@@ -79,6 +79,7 @@
         <activity android:name=".player.WatchNextActivity" android:exported="true" android:excludeFromRecents="true" />
         <activity
             android:name=".launcher.LauncherOpenActivity"
+            android:taskAffinity=""
             android:exported="true"
             android:excludeFromRecents="true"
             android:noHistory="true"

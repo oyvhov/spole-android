@@ -38,6 +38,12 @@ spole://open?kind=emby&user=synthetic_child_02&item=synthetic_episode_03&action=
 
 Mottakaren `app.reelstack.launcher.LauncherOpenActivity` er eksportert, utan eige grensesnitt (`Theme.NoDisplay`), utan historikk og skjult frå nylege appar. Intent-filteret har `VIEW`, `DEFAULT` og `spole`/`open`. Det har **ikkje `BROWSABLE`**: integrasjonen er eit Android app-til-app-kall, ikkje ei nettlesarlenkje.
 
+Frå lokal beta22 har mottakaren tom `taskAffinity`, slik at han ikkje deler oppgåvetilknyting med
+hovudskjermen. Begge aktivitetsinngangane handterer ei ny lenkjeintensjon. Dersom Android
+gjenbruker ein eldre oppgåvestakk og leverer den rå `ACTION_VIEW`-lenkja til `MainActivity`, går
+ho gjennom same parser, kontooppløysing og øktbundne konsumering som den vanlege mottakaren.
+Rå lenkjer kan ikkje bruke interne ekstra for å overstyre profil eller omgå ei ugyldig URI.
+
 Send `ACTION_VIEW` med pakken `app.reelstack`. Dersom produksjonsappen ikkje kan opnast, kan utviklarintegrasjonen prøve `app.reelstack.debug` som reserve. Til dømes:
 
 ```kotlin

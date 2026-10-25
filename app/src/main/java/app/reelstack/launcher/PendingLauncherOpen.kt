@@ -33,6 +33,15 @@ internal class PendingLauncherOpen private constructor(
 
     companion object {
         fun from(intent: Intent, repository: ConnectionRepository): PendingLauncherOpen? {
+            // NEW_TASK may resume a task whose original base intent was the short-lived
+            // receiver. Android can then deliver that raw VIEW intent to MainActivity.
+            // Resolve it with the same parser and account rules as the receiver, rather
+            // than requiring the internal forwarding extras to have survived task reuse.
+            if (intent.action == Intent.ACTION_VIEW && intent.data != null) {
+                val link = LauncherLinks.parse(intent.dataString) ?: return null
+                val switchProfile = (repository.resolve(link) as? LauncherTarget.SwitchToKid)?.profile?.id
+                return PendingLauncherOpen(link, repository.captureSession(), switchProfile)
+            }
             val kind = intent.getStringExtra("launcher_kind") ?: return null
             val user = intent.getStringExtra("launcher_user") ?: return null
             val item = intent.getStringExtra("launcher_item") ?: return null

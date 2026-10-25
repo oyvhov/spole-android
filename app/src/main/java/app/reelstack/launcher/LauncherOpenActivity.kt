@@ -14,6 +14,16 @@ open class LauncherOpenActivity : app.reelstack.localization.LocalizedActivity()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        dispatchLink(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        dispatchLink(intent)
+    }
+
+    private fun dispatchLink(intent: Intent) {
         val link = LauncherLinks.parse(intent.dataString)
         if (link != null) {
             when (val target = connectionRepository.resolve(link)) {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta22 — lokal Shield-oppdatering, ikkje publisert
+
+- Rettar tittelopning frå eit faktisk Stova-kort når Android gjenbruker ei eksisterande Spole-oppgåve. Hovudskjermen kan no ta imot sjølve tittellenkja, i tillegg til dei interne lenkje-ekstraa, med same validering og konto-/barnegrenser.
+- Den kortliva lenkjemottakaren deler ikkje lenger oppgåvetilknyting med hovudskjermen, og handterer også ein ny lenkjeintensjon på ein eksisterande mottakar.
+- Lokal beta21 synte rett detaljside ved direkte ADB-kall, men faktisk Stova-korttrykk opna framsida. Beta22 krev ny kortprøve på Shield før denne feilen kan reknast som verifisert retta.
+
 ## 1.0.0-beta21 — lokal Shield-oppdatering, ikkje publisert
 
 - Stova og andre Android-startarar kan opne Jellyfin-/Emby-detaljar eller avspeling gjennom `spole://open`, med streng validering og eksisterande innlogging i Spole.

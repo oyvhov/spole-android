@@ -61,5 +61,11 @@ Back-retur. Avspeling, profilbyte og barnemodus er ikkje prøvde på fysisk Shie
 hos hovudagenten; denne dokumentasjonsoppdateringa gjorde ingen nye einingskall eller bygg.
 Det arkiverte artefaktet er framleis frå `92ce694`, slik `SOURCE_COMMIT.txt` oppgir.
 
+Seinare faktisk kortprøve avdekte ein feil: «One Battle After Another» i Stova sende rett
+`ACTION_VIEW` til `LauncherOpenActivity` med `NEW_TASK`, men Spole viste Heim. Loggen hadde
+ikkje det vidare `START MainActivity`-kallet som dei direkte ADB-prøvene hadde. Dei direkte
+prøvene ovanfor er difor ikkje bevis på at sjølve Stova-kortflyten fungerte i beta21.
+Lokal beta22 rettar mottaket ved oppgåvegjenbruk; sjå [beta22-rapporten](VERIFICATION_v1.0.0-beta22-local.md).
+
 Ingen tag, push eller offentleg release er oppretta. Versjonskode 158 er no lokalt distribuert;
 ei seinare annleis utgåve må ha høgare kode.
