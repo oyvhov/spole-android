@@ -34,3 +34,16 @@ den ekte profilen er derfor ikkje gjort i denne runden. Den signerte APK-en er i
 den ekte oppdateringa i appen på isolert TV 5566 (sjå nedanfor). Ingen data på 5564 vart endra.
 
 Ingen førespurnad vart send, og ingen avspeling starta på den ekte kontoen.
+
+## Publisering og oppdatering
+
+- Release `v1.0.0-beta19` publisert 25. oktober 2026 som prerelease med éin APK
+  (28 042 756 byte, SHA-256 `440bfb7dcb5d1fefa6bb5380ff3ad9d4960ee35dd62d62afedf963b7ea5564d7`),
+  mapping, `SOURCE_COMMIT.txt`, `SHA256SUMS.txt` og dei to kjeldearkiva (FFmpeg og native
+  undertekstbibliotek, uendra frå beta18). Alle seks digestane på GitHub var like dei lokale filene,
+  og den offentlege nedlastinga gav same SHA-256 som det bygde APK-et. Sertifikat `36fa94f0…1a10`;
+  dei 20 native biblioteka er byte for byte like beta18.
+- Oppdatering i appen på isolert TV 5566: offisiell beta18 (155) viste «Spole v1.0.0-beta19 er
+  klar». «Sjå oppdatering» → «Last ned oppdatering» → «Installer oppdatering» → Android «Update» →
+  «App installed.». Appen opna som 1.0.0-beta19 (156) med data frå før.
+- CI «Bygg og test» for `88fac15`: grøn.
