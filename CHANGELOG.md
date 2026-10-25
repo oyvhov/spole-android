@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0-beta20 - «Episode 5» i staden for «TBA»
+
+- Episodar som tenaren ikkje har namn på enno, heiter no «Episode 5» på episodekorta, i staden for «5 · TBA». Det gjeld også kommande episodar som Seerr har kunngjort.
+- «TBA», «TBD», «N/A» og «-» er fjerna frå tekstane under smarthyller, i barnemodus, i nedlastingane, i radene og i valet av episodar å laste ned. Ekte namn som «TBA at Midnight» står som før.
+
 ## 1.0.0-beta19 - ingen flytande namn ved ikona på TV
 
 - TV: sidemenyen viser ikkje lenger namnet på ikonet med fokus («Heim», «Bibliotek» …) i ei eiga boble som stakk ut over heroen. Fokusringen viser kvar du er.
