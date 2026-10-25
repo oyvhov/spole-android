@@ -4,7 +4,7 @@
 
 - Rettar tittelopning frå eit faktisk Stova-kort når Android gjenbruker ei eksisterande Spole-oppgåve. Hovudskjermen kan no ta imot sjølve tittellenkja, i tillegg til dei interne lenkje-ekstraa, med same validering og konto-/barnegrenser.
 - Den kortliva lenkjemottakaren deler ikkje lenger oppgåvetilknyting med hovudskjermen, og handterer også ein ny lenkjeintensjon på ein eksisterande mottakar.
-- Lokal beta21 synte rett detaljside ved direkte ADB-kall, men faktisk Stova-korttrykk opna framsida. Beta22 krev ny kortprøve på Shield før denne feilen kan reknast som verifisert retta.
+- Lokal beta21 synte rett detaljside ved direkte ADB-kall, men faktisk Stova-korttrykk opna framsida. Beta22 er signert og installert over beta21 på Shield; faktisk Stova-korttrykk opnar no rette Jellyfin-detaljar både varmt og etter kaldstart. Back lukkar detaljane til Spole-framsida. Sjå [verifiseringa](docs/VERIFICATION_v1.0.0-beta22-local.md).
 
 ## 1.0.0-beta21 — lokal Shield-oppdatering, ikkje publisert
 

@@ -1,6 +1,6 @@
 # Verifisering av Stova-lenkjer
 
-Oppdatering 25. oktober 2026: signert lokal beta21 opna ekte detaljar ved direkte varm/kald ADB-lenkje, men faktisk Stova-korttrykk opna Heim. Lokal beta22 rettar mottaket ved Android-oppgåvegjenbruk; sjå [beta22-verifiseringa](VERIFICATION_v1.0.0-beta22-local.md). Funksjonen er framleis ikkje offentleg publisert.
+Oppdatering 25. oktober 2026: faktisk Stova-korttrykk opna Heim i beta21, trass direkte ADB-pass. Signert beta22 er no installert på Shield og opnar rette Jellyfin-detaljar ved faktisk Stova-korttrykk både varmt og etter force-stop-kaldstart. Back går til Spole Heim. Sjå [beta22-verifiseringa](VERIFICATION_v1.0.0-beta22-local.md). Funksjonen er framleis ikkje offentleg publisert.
 
 Historisk status før lokal Shield-oppdatering: kjeldekode implementert og JVM-testar, debug-bygg og lint grøne. Instrumentering og manuell TV-kontroll var ikkje køyrde, etter brukaren sitt uttrykkelege val om å hoppe over Task 4 steg 2 og 3. [Kontrakten](LAUNCHER_LINK.md) skil forventa åtferd frå faktisk einingsbevis.
 

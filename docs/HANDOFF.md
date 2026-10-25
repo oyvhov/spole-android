@@ -1,8 +1,9 @@
-# Lokal Spole beta22 – retting av faktisk Stova-kortopning
+# Lokal Spole beta22 – faktisk varm og kald Stova-kortopning bestått
 2026-10-25: Faktisk Stova-korttrykk feila i beta21 sjølv om direkte varm/kald ADB-opning fungerte: rett URI vart send, men berre Heim kom fram.
 Beta22/159 tek imot rå ACTION_VIEW i Main med same parser/økt-/konto-/barnevern. Mottakaren har tom affinity og handterer onNewIntent. Seks nye regresjonar feila først og er no grøne (18/18 i målretta klassar).
 Full testDebugUnitTest, lintDebug og signert assembleRelease er grøne: 1293 bestått, 1 skip; lint 0 feil, 212 åtvaringar, 2 hint. APK 28 060 364 byte, SHA-256 f309682bc23f04535877fe0a54624950037d234893f1b77b86957788447351e8, same eigarsignatur og 20 uendra native bibliotek.
-Fysisk beta22-kortprøve står att; hovudagenten har APK-en og eig Shield. Ingen nye einingskall eller konto-/tokenendringar frå denne agenten. Sjå `docs/VERIFICATION_v1.0.0-beta22-local.md`; lokalt arkiv har APK/mapping/kjelder/SOURCE_COMMIT. Ingen push/tag/release; seinare annleis APK må ha kode over 159.
+Hovudagenten installerte beta22 med -r; installert SHA er identisk og firstInstallTime er framleis 10.09.2026. Faktisk Stova-kort + D-pad OK opnar rette «One Battle After Another»-detaljar varmt og etter force-stop-kaldstart, med Jellyfin, Trailer og «Hald fram · 143 min att».
+Back frå detaljar går til Spole Heim; Stova vart opna uttrykkeleg etterpå. Ingen avspeling, utlogging, kontoimport eller datatømming. Emby/profilbyte/barnemodus er ikkje fysisk prøvde her. Sjå `docs/VERIFICATION_v1.0.0-beta22-local.md`; artefaktcommit er 830cd4d. Berre dokumentasjon er endra etterpå; ingen push/tag/release.
 
 ## Beta21: direkte lenkjeopning før faktisk kortprøve
 2026-10-25: Brukaren logga inn. Hovudagenten stadfesta ekte Spole-heim og både varm og force-stop-kald `spole://open`-opning med `action=details` for «One Battle After Another» frå Stova sitt Jellyfin-snapshot.

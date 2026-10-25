@@ -51,9 +51,28 @@ Lint: **0 feil, 212 åtvaringar, 2 hint**. Ingen Android-instrumentering i denne
 
 ## Fysisk prøve
 
-Hovudagenten eig Shield-UI og gjer den nye faktiske kortprøva. Denne agenten har ikkje gjort
-einingskall eller endra kontoar. Vellukka ADB-kall i beta21 blir ikkje brukte som godkjenning
-av Stova-kortflyten i beta22. Ingen avspeling er del av prøva.
+Hovudagenten installerte beta22 med `install -r` på Shield. Android stadfestar beta22/159;
+SHA-256 av den installerte APK-en er identisk med det lokale artefaktet ovanfor.
+`firstInstallTime` er framleis 10.09.2026. Prøvene vart samordna med brukaren gjennom ein
+om lag eitt minutt lang pause i fjernkontrollbruken.
 
-Artefaktet er levert til hovudagenten for signaturbevarande `install -r` og ny faktisk Stova-kortprøve.
-Fysisk resultat er enno ikkje ført inn. Ei seinare annleis APK må ha høgare versjonskode enn 159.
+| Faktisk kortprøve på Shield | Resultat |
+| --- | --- |
+| Spole køyrer: fokuser «One Battle After Another» i Stova og send D-pad OK | Rett detaljside i Spole, med Jellyfin, Trailer og «Hald fram · 143 min att». Bestått. |
+| Stopp Spole-prosessen med `am force-stop app.reelstack` i bakgrunnen; trykk same Stova-kort med D-pad OK | Same rette detaljside etter kald oppstart. Bestått. |
+| Back frå detaljsida | Spole Heim. Bestått; Back går ikkje direkte til Stova. |
+| Opne Stova uttrykkeleg etterpå | Stova Heim. Bestått. |
+
+Begge kortprøvene venta til oppstartsskjermen var borte og både rett tittel og Trailer var
+synlege. Det lokale skjermbiletet `C:/Launcher/.superpowers/spole-beta22-actual-card.png`
+viser den kalde kortprøva og er kontrollert visuelt; det er ikkje lagt i Git. Dette er faktisk
+Stova-kortopning, ikkje berre eit direkte ADB-kall av lenkja.
+
+Ingen avspeling, utlogging, kontoimport, tokenmigrering eller datatømming vart utført av
+agentane. Jellyfin-innlogginga frå beta21 var tilgjengeleg etter beta22-oppdateringa, og
+det eksisterande halde-fram-punktet vart vist. Emby, avspeling, profilbyte og barnemodus er
+ikkje fysisk prøvde i denne oppdateringa.
+
+Berre dokumentasjon vart endra etter artefaktcommit `830cd4d`, som det arkiverte
+`SOURCE_COMMIT.txt` peikar på. Denne dokumentasjonsoppdateringa gjorde ingen nye bygg eller
+einingskall. Ei seinare annleis APK må ha høgare versjonskode enn 159.
