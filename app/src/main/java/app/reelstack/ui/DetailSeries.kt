@@ -296,9 +296,8 @@ private fun TvEpisodeCard(episode: LibraryMedia, current: Boolean, ready: Boolea
                 Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().background(Primary))
             }
         }
-        val name = episodeName(episode)
         val numberLabel = episode.episode?.let { stringResource(R.string.episode_number, it) }
-        Text(if (name.equals(numberLabel, true)) name else listOfNotNull(episode.episode?.toString(), name).joinToString(" · "),
+        Text(episodeCardName(episode.subtitle, episode.episode, numberLabel),
             style = MaterialTheme.typography.titleMedium, maxLines = if (showOverview) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
             color = if (current || ready) PrimarySoft else MaterialTheme.colorScheme.onSurface)
         // On TV the play glyph already identifies the next episode. Keep the caption for its name.
@@ -335,12 +334,22 @@ private fun EpisodeRow(episode: LibraryMedia, current: Boolean = false, ready: B
     TvEpisodeCard(episode, current, ready, showOverview = true, onEpisodeClick = onEpisodeClick)
 }
 
-/** The episode's own name without the "Episode 9 - " the number already said. */
-@Composable
-private fun episodeName(episode: LibraryMedia): String =
-    app.reelstack.ui.components.episodeTitle(episode.subtitle, episode.episode)
-        .takeIf(String::isNotBlank)
-        ?: episode.subtitle.substringAfter(" · ", episode.subtitle)
+/**
+ * What an episode card is called: «5 · Pilot», or «Episode 5» when the episode has no name of its own.
+ *
+ * A server line carries the number first ("S01 E05 · Pilot"); an episode announced through Seerr has
+ * only its bare name. Either way the name is cleaned, so «TBA», a release file name or a repeated
+ * «Episode 5» never reaches the card. The raw text used to be the fallback, and it printed «5 · TBA».
+ */
+internal fun episodeCardName(subtitle: String, episode: Int?, numberLabel: String?): String {
+    val name = if (subtitle.contains(" · ")) app.reelstack.ui.components.episodeTitle(subtitle, episode)
+        else app.reelstack.data.model.episodeNameOf(subtitle, episode)
+    return when {
+        name.isNotBlank() && !name.equals(numberLabel, true) -> listOfNotNull(episode?.toString(), name).joinToString(" · ")
+        numberLabel != null -> numberLabel
+        else -> name
+    }
+}
 
 /**
  * Where "Play" on a series page should land.

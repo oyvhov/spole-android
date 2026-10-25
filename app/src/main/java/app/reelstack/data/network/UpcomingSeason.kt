@@ -17,7 +17,8 @@ internal fun parseUpcomingSeason(payload: String, tmdbId: Int, season: Int,
             ?: return@mapNotNull null
         if (date.isBefore(today) || number < 1) return@mapNotNull null
         if (field("seasonNumber")?.toIntOrNull()?.let { it != season } == true) return@mapNotNull null
-        val name = field("name").orEmpty()
+        // TMDB calls unnamed episodes «TBA» or «Episode 6»; the card writes the number itself.
+        val name = app.reelstack.data.model.episodeNameOf(field("name").orEmpty(), number)
         val still = field("stillPath")?.takeIf { it.matches(Regex("/[A-Za-z0-9_.-]+")) }
         LibraryMedia(id = "upcoming-$tmdbId-$season-$number", title = name, subtitle = name,
             artworkRes = app.reelstack.R.drawable.media_placeholder, source = ServiceKind.SEERR,

@@ -480,7 +480,8 @@ private fun SmartShelfCard(entry: RemoteLibraryItem, source: ServiceKind, onClic
         }
         Text(entry.title, Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp), style = MaterialTheme.typography.titleSmall,
             maxLines = if (density.fontScale >= 1.5f) 1 else 2, overflow = TextOverflow.Ellipsis)
-        if (entry.subtitle.isNotBlank()) Text(entry.subtitle, Modifier.padding(horizontal = 2.dp),
+        val caption = app.reelstack.ui.components.withoutPlaceholders(entry.subtitle)
+        if (caption.isNotBlank()) Text(caption, Modifier.padding(horizontal = 2.dp),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

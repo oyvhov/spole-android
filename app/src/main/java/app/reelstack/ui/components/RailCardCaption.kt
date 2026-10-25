@@ -27,6 +27,7 @@ internal fun RailCardCaption(
     titleModifier: Modifier = Modifier,
     subtitleModifier: Modifier = Modifier,
 ) {
+    @Suppress("NAME_SHADOWING") val subtitle = withoutPlaceholders(subtitle)
     val hasSubtitle = subtitle.isNotBlank()
     Layout(modifier = modifier, content = {
         Text(title, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,

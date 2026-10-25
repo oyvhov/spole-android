@@ -104,7 +104,7 @@ internal fun calendarEpisode(root: JsonObject, episode: JsonObject, tmdbId: Int,
     val title = root.text("name") ?: return null
     val label = "S${season.toString().padStart(2, '0')} E${number.toString().padStart(2, '0')}"
     return RemoteUpcomingItem("tv-$tmdbId-$season-$number", title,
-        listOfNotNull(label, episode.text("name")?.takeIf { it.isNotBlank() && it != "TBA" }).joinToString(" · "),
+        listOfNotNull(label, episode.text("name")?.takeUnless { app.reelstack.data.model.isEpisodePlaceholder(it) }).joinToString(" · "),
         date.toString(), ServiceKind.SEERR, art(episode.text("stillPath")) ?: art(root.text("backdropPath")) ?: art(root.text("posterPath")),
         "Episode", episode.text("overview")?.takeIf { it.isNotBlank() } ?: root.text("overview"),
         listOf(LocalizedText.raw(label)), tmdbId = tmdbId, season = season, episode = number)

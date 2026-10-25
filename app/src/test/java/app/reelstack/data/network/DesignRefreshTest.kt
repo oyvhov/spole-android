@@ -24,6 +24,21 @@ class DesignRefreshTest {
         assertEquals("https://image.tmdb.org/t/p/w780/still.jpg", result.single().artworkUrl)
     }
 
+    @Test fun anAnnouncedEpisodeCalledTbaHasNoNameInsteadOfThePlaceholder() {
+        val result = parseUpcomingSeason("""{"episodes":[
+            {"name":"TBA","episodeNumber":5,"seasonNumber":3,"airDate":"2026-09-20"},
+            {"name":"Episode 6","episodeNumber":6,"seasonNumber":3,"airDate":"2026-09-27"},
+            {"name":"Finale","episodeNumber":7,"seasonNumber":3,"airDate":"2026-10-04"}
+        ]}""", 22, 3, LocalDate.of(2026, 9, 15))
+        assertEquals(listOf("", "", "Finale"), result.map { it.subtitle })
+        assertEquals(listOf("", "", "Finale"), result.map { it.title })
+    }
+
+    @Test fun calendarPlaceholdersAreRecognisedWhateverTheirCase() {
+        listOf("TBA", "tba", " TBD ", "N/A", "-", "").forEach { assertTrue(it, isEpisodePlaceholder(it)) }
+        listOf("TBA at Midnight", "Pilot", "Episode 5").forEach { assertFalse(it, isEpisodePlaceholder(it)) }
+    }
+
     private fun card(id: String, number: Int? = 2) = LibraryMedia(id, "Series", "Episode",
         artworkRes = 0, source = ServiceKind.JELLYFIN, mediaType = "Episode",
         season = 3, episode = number, remoteId = id)

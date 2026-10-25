@@ -780,7 +780,7 @@ private fun KidsWideCard(
             modifier = Modifier.padding(horizontal = 2.dp),
         )
 
-        val sub = media.subtitle.takeIf { it.isNotBlank() }
+        val sub = app.reelstack.ui.components.withoutPlaceholders(media.subtitle).takeIf { it.isNotBlank() }
         if (sub != null) {
             Text(
                 text = sub,

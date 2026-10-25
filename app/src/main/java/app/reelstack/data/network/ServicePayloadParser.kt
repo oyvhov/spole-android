@@ -347,7 +347,9 @@ object ServicePayloadParser {
                 title = when {
                     mediaType == "Season" -> name
                     series != null -> series
-                    else -> app.reelstack.data.model.episodeNameOf(name, episode).ifBlank { name }
+                    else -> app.reelstack.data.model.episodeNameOf(name, episode).ifBlank {
+                        if (app.reelstack.data.model.isEpisodePlaceholder(name)) episodeLabel.orEmpty() else name
+                    }
                 },
                 // The year belongs to a film or a series, never to an episode: "Sesong 19 · Episode
                 // 9 – 2025" reads as though the year were the episode's name.

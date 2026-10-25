@@ -27,3 +27,7 @@ internal fun titleSubtitle(season: Int?, episode: Int?, subtitle: String, facts:
         season == null && episode == null && it.matches(Regex("\\d{4}")) && facts.any { fact -> fact.trim() == it }
     }.orEmpty()
 }
+
+/** A raw caption without «TBA»-like parts: «S01 E05 · TBA» is «S01 E05». Real names stay as written. */
+internal fun withoutPlaceholders(subtitle: String): String =
+    subtitle.split(" · ").filterNot { app.reelstack.data.model.isEpisodePlaceholder(it) }.joinToString(" · ")
