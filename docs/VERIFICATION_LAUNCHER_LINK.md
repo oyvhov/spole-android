@@ -1,6 +1,8 @@
 # Verifisering av Stova-lenkjer
 
-Status 25. oktober 2026: kjeldekode implementert og JVM-testar, debug-bygg og lint grøne. **Instrumentering og manuell TV-kontroll er ikkje køyrde**, etter brukaren sitt uttrykkelege val om å hoppe over Task 4 steg 2 og 3. Funksjonen er ikkje publisert. [Kontrakten](LAUNCHER_LINK.md) skil forventa åtferd frå faktisk einingsbevis.
+Oppdatering 25. oktober 2026: signert lokal beta21 er installert på Shield. Sjå [den nye lokale verifiseringa](VERIFICATION_v1.0.0-beta21-local.md) for resultat og grenser. Funksjonen er framleis ikkje offentleg publisert.
+
+Historisk status før lokal Shield-oppdatering: kjeldekode implementert og JVM-testar, debug-bygg og lint grøne. Instrumentering og manuell TV-kontroll var ikkje køyrde, etter brukaren sitt uttrykkelege val om å hoppe over Task 4 steg 2 og 3. [Kontrakten](LAUNCHER_LINK.md) skil forventa åtferd frå faktisk einingsbevis.
 
 ## Omfang og arbeidsmappe
 

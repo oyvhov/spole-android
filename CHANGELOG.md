@@ -1,10 +1,10 @@
 # Changelog
 
-## Ikkje publisert
+## 1.0.0-beta21 — lokal Shield-oppdatering, ikkje publisert
 
 - Stova og andre Android-startarar kan opne Jellyfin-/Emby-detaljar eller avspeling gjennom `spole://open`, med streng validering og eksisterande innlogging i Spole.
 - Lenkjene følgjer kontogrenser og barnemodus. Barn opnar berre eige innhald i sitt eige skal; ei lenkje kan ikkje gå tilbake til vaksenkontoen eller eit anna barn.
-- Sjå [lenkjekontrakten](docs/LAUNCHER_LINK.md) og [verifiseringa](docs/VERIFICATION_LAUNCHER_LINK.md). Einingstestar, debug-bygg og lint er køyrde; instrumentering og manuell TV-kontroll er utsette etter brukaren sitt uttrykkelege val. Ingen ny APK-release er publisert.
+- Sjå [lenkjekontrakten](docs/LAUNCHER_LINK.md) og [lokal Shield-verifisering](docs/VERIFICATION_v1.0.0-beta21-local.md). Signert produksjons-APK er installert over beta20 på Shield. Vanleg kaldstart og tittellenkje viser innlogging på denne eininga, så ekte detaljopning er enno ikkje stadfesta. Ingen ny APK-release er publisert.
 
 ## 1.0.0-beta20 - «Episode 5» i staden for «TBA»
 
