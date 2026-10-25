@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta19 - ingen flytande namn ved ikona på TV
+
+- TV: sidemenyen viser ikkje lenger namnet på ikonet med fokus («Heim», «Bibliotek» …) i ei eiga boble som stakk ut over heroen. Fokusringen viser kvar du er.
+- TV: knappen «Avspelingsval» i avspelaren og «Tilpass biblioteksida» i biblioteket viser heller ikkje namnet sitt over biletet når dei får fokus.
+- Namna er framleis med for TalkBack. På telefon og nettbrett viser «Tilpass biblioteksida» namnet når du held inne knappen.
+
 ## 1.0.0-beta18 - ny avspelar: roleg OSD, eigne undertekstar og framdrift utan nett
 
 - Avspelaren har eit rolegare OSD. TV har tidslinja og éin knapp, «Avspelingsval»; mobilen har spel/pause og spoling og den same knappen. I menyen ligg lydspor, undertekstar, kapittel, fart (0,5–2×), lyd- og tekstforsinking, kvalitet, biletfylling, rotasjon, minispelar og statistikk. Tilbake går eitt nivå opp.
