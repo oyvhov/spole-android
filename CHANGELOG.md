@@ -1,5 +1,11 @@
 # Changelog
 
+## Ikkje publisert
+
+- Stova og andre Android-startarar kan opne Jellyfin-/Emby-detaljar eller avspeling gjennom `spole://open`, med streng validering og eksisterande innlogging i Spole.
+- Lenkjene følgjer kontogrenser og barnemodus. Barn opnar berre eige innhald i sitt eige skal; ei lenkje kan ikkje gå tilbake til vaksenkontoen eller eit anna barn.
+- Sjå [lenkjekontrakten](docs/LAUNCHER_LINK.md) og [verifiseringa](docs/VERIFICATION_LAUNCHER_LINK.md). Einingstestar, debug-bygg og lint er køyrde; instrumentering og manuell TV-kontroll er utsette etter brukaren sitt uttrykkelege val. Ingen ny APK-release er publisert.
+
 ## 1.0.0-beta18 - ny avspelar: roleg OSD, eigne undertekstar og framdrift utan nett
 
 - Avspelaren har eit rolegare OSD. TV har tidslinja og éin knapp, «Avspelingsval»; mobilen har spel/pause og spoling og den same knappen. I menyen ligg lydspor, undertekstar, kapittel, fart (0,5–2×), lyd- og tekstforsinking, kvalitet, biletfylling, rotasjon, minispelar og statistikk. Tilbake går eitt nivå opp.
@@ -50,12 +56,6 @@
 - Tittelsida for Seerr-titlar har handlingar som ord med ikon: Be om, Trekk tilbake, Varsel og Trailer. Rollelista opnar personsida, og Liknande titlar og Tilrådd ut frå denne står som plakatrader.
 - Be om-arket kan velje Utgåve (Standard eller 4K), Kvalitet og Lagringsstad med ledig plass, for kontoar som har lov i Seerr. «Send førespurnad» er lime tekst med pil.
 - Etter sending blir du verande på tittelsida, og statuslina seier «Førespurd» med ein gong.
-
-## Ikkje publisert
-
-- Stova og andre Android-startarar kan opne Jellyfin-/Emby-detaljar eller avspeling gjennom `spole://open`, med streng validering og eksisterande innlogging i Spole.
-- Lenkjene følgjer kontogrenser og barnemodus. Barn opnar berre eige innhald i sitt eige skal; ei lenkje kan ikkje gå tilbake til vaksenkontoen eller eit anna barn.
-- Sjå [lenkjekontrakten](docs/LAUNCHER_LINK.md) og [verifiseringa](docs/VERIFICATION_LAUNCHER_LINK.md). Einingstestar, debug-bygg og lint er køyrde; instrumentering og manuell TV-kontroll er utsette etter brukaren sitt uttrykkelege val. Ingen ny APK-release er publisert.
 
 ## 1.0.0-beta13 - smarte hyller med valt innhald
 
