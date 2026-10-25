@@ -344,7 +344,7 @@ private fun OfflineDownloadRow(
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val detail = listOfNotNull(
-                        item.subtitle.takeIf(String::isNotBlank),
+                        app.reelstack.ui.components.withoutPlaceholders(item.subtitle).takeIf(String::isNotBlank),
                         item.service?.displayName,
                     ).joinToString(" · ")
                     // Two lines and an ellipsis: an episode title used to stop mid-sentence with no

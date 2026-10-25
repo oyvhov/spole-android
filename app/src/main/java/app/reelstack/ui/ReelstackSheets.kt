@@ -1049,7 +1049,9 @@ private fun OfflineEpisodePicker(
                                 textAlign = TextAlign.Start,
                                 modifier = Modifier.fillMaxWidth(),
                             )
-                            val name = episode.subtitle.takeIf(String::isNotBlank) ?: episode.title
+                            // The number is the line above; only a real name goes here, never «TBA».
+                            val name = if (episode.episode != null) app.reelstack.ui.components.episodeTitle(episode.subtitle, episode.episode)
+                                else app.reelstack.ui.components.withoutPlaceholders(episode.subtitle).ifBlank { episode.title }
                             if (name.isNotBlank()) Text(name, color = Muted, style = MaterialTheme.typography.bodySmall,
                                 textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth())
                         }

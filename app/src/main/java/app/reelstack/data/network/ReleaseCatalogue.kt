@@ -136,7 +136,7 @@ internal fun seerrReleases(payload: String, type: String, window: ReleaseWindow)
         val number = episode.number("episodeNumber") ?: return@mapNotNull null
         val label = "S${season.toString().padStart(2, '0')} E${number.toString().padStart(2, '0')}"
         RemoteUpcomingItem("tv-$id-$season-$number", title,
-            listOfNotNull(label, episode.text("name")?.takeIf { it.isNotBlank() && it != "TBA" }).joinToString(" · "),
+            listOfNotNull(label, episode.text("name")?.takeUnless { app.reelstack.data.model.isEpisodePlaceholder(it) }).joinToString(" · "),
             date, ServiceKind.SEERR, art(episode.text("stillPath")) ?: art(root.text("backdropPath")) ?: details.artworkUrl,
             "Episode", episode.text("overview")?.takeIf(String::isNotBlank) ?: details.overview,
             details.facts + LocalizedText.raw(label), genres)

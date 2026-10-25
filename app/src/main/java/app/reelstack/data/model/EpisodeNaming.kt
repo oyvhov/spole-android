@@ -47,5 +47,9 @@ internal fun episodeNameOf(name: String, episode: Int?): String {
 }
 
 private val EPISODE_PLACEHOLDERS = setOf("TBA", "TBD", "N/A", "-")
+
+/** «TBA», «TBD», «N/A», «-» or nothing: the server has no name for this episode yet. */
+internal fun isEpisodePlaceholder(name: String?): Boolean =
+    name.isNullOrBlank() || name.trim().uppercase(java.util.Locale.ROOT) in EPISODE_PLACEHOLDERS
 private val NUMBERED_EPISODE_SEGMENT = Regex("""^S\d+\s*(?:-\s*)?E(\d+)(?:\s*·\s*|$)""", RegexOption.IGNORE_CASE)
 private val RELEASE_MARK = Regex("""[Ss]\d{1,2}[Ee]\d{1,3}""")

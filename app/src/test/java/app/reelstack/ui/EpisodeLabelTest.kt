@@ -176,4 +176,34 @@ class EpisodeLabelTest {
         assertEquals(19, item.season)
         assertEquals(9, item.episode)
     }
+
+    /**
+     * «TBA» is the server saying it has no name yet. The episode card writes the number with its word
+     * instead, «Episode 5», the way it already does for «Episode 5» names.
+     */
+    @Test fun `an episode without a real name is called by its number on the card`() {
+        val five = "Episode 5"
+        for (placeholder in listOf("TBA", " tba ", "TBD", "N/A")) {
+            assertEquals(five, app.reelstack.ui.episodeCardName("S01 E05 · $placeholder", 5, five))
+            // Announced episodes from Seerr carry the bare name, without a numbered prefix.
+            assertEquals(five, app.reelstack.ui.episodeCardName(placeholder, 5, five))
+        }
+        assertEquals(five, app.reelstack.ui.episodeCardName("S01 E05 · Episode 5", 5, five))
+        assertEquals(five, app.reelstack.ui.episodeCardName("", 5, five))
+        assertEquals("5 · Pilot", app.reelstack.ui.episodeCardName("S01 E05 · Pilot", 5, five))
+        assertEquals("5 · Pilot", app.reelstack.ui.episodeCardName("Pilot", 5, five))
+        assertEquals("5 · Real title", app.reelstack.ui.episodeCardName("S01 E05 · Episode 5 - Real title", 5, five))
+        assertEquals("Special", app.reelstack.ui.episodeCardName("Special", null, null))
+        assertEquals("", app.reelstack.ui.episodeCardName("TBA", null, null))
+    }
+
+    @Test fun `a raw caption loses its placeholder part and keeps everything else`() {
+        val clean: (String) -> String = { app.reelstack.ui.components.withoutPlaceholders(it) }
+        assertEquals("S01 E05", clean("S01 E05 · TBA"))
+        assertEquals("S01 E05", clean("S01 E05 · tba"))
+        assertEquals("", clean("TBA"))
+        assertEquals("S01 E05 · Pilot", clean("S01 E05 · Pilot"))
+        assertEquals("S01 E05 · TBA at Midnight", clean("S01 E05 · TBA at Midnight"))
+        assertEquals("Film · 2024", clean("Film · 2024"))
+    }
 }

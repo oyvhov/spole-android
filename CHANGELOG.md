@@ -6,6 +6,17 @@
 - Lenkjene følgjer kontogrenser og barnemodus. Barn opnar berre eige innhald i sitt eige skal; ei lenkje kan ikkje gå tilbake til vaksenkontoen eller eit anna barn.
 - Sjå [lenkjekontrakten](docs/LAUNCHER_LINK.md) og [verifiseringa](docs/VERIFICATION_LAUNCHER_LINK.md). Einingstestar, debug-bygg og lint er køyrde; instrumentering og manuell TV-kontroll er utsette etter brukaren sitt uttrykkelege val. Ingen ny APK-release er publisert.
 
+## 1.0.0-beta20 - «Episode 5» i staden for «TBA»
+
+- Episodar som tenaren ikkje har namn på enno, heiter no «Episode 5» på episodekorta, i staden for «5 · TBA». Det gjeld også kommande episodar som Seerr har kunngjort.
+- «TBA», «TBD», «N/A» og «-» er fjerna frå tekstane under smarthyller, i barnemodus, i nedlastingane, i radene og i valet av episodar å laste ned. Ekte namn som «TBA at Midnight» står som før.
+
+## 1.0.0-beta19 - ingen flytande namn ved ikona på TV
+
+- TV: sidemenyen viser ikkje lenger namnet på ikonet med fokus («Heim», «Bibliotek» …) i ei eiga boble som stakk ut over heroen. Fokusringen viser kvar du er.
+- TV: knappen «Avspelingsval» i avspelaren og «Tilpass biblioteksida» i biblioteket viser heller ikkje namnet sitt over biletet når dei får fokus.
+- Namna er framleis med for TalkBack. På telefon og nettbrett viser «Tilpass biblioteksida» namnet når du held inne knappen.
+
 ## 1.0.0-beta18 - ny avspelar: roleg OSD, eigne undertekstar og framdrift utan nett
 
 - Avspelaren har eit rolegare OSD. TV har tidslinja og éin knapp, «Avspelingsval»; mobilen har spel/pause og spoling og den same knappen. I menyen ligg lydspor, undertekstar, kapittel, fart (0,5–2×), lyd- og tekstforsinking, kvalitet, biletfylling, rotasjon, minispelar og statistikk. Tilbake går eitt nivå opp.
