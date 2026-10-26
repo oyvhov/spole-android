@@ -36,7 +36,7 @@ kjende fjernkontroll-fokusfeilen som er dokumentert for tidlegare betaer.
 ## Release-APK
 
 Den signerte universal-APK-en er 28 060 364 byte, SHA-256
-`3af39cc630d6946e56ad3eee227fa7509711a7b02c3b1964377f700c1daac54`.
+`3af39ccc630d6946e56ad3eee227fa7509711a7b02c3b1964377f700c1daac54`.
 Pakken er `app.reelstack`, versjon `1.0.0-beta23`, kode 160, minSdk 26; ho er
 ikkje debug-flagga. Same signeringssertifikat som tidlegare Spole-utgåver.
 
@@ -49,11 +49,31 @@ hashlista blir kontrollert før opplasting.
 
 ## Oppdatering og kontodata
 
-Før publisering vart den signerte beta23-APK-en installert med `adb install -r` på
-den lagra mobilprofilen `Spole_Review` / 5560. Ho viser `versionCode=160` og
-`versionName=1.0.0-beta23`; `firstInstallTime` er uendra frå 15. september 2026.
-Etter oppdateringa viste startskjermen Jellyfin-innhald, utan innloggingsskjerm.
-Ingen konto eller appdata vart sletta. Den lagra TV-profilen skal stå på førre
-versjon til den offentlege GitHub-oppdateringsflyten er prøvd.
+Beta23 vart publisert 26. oktober som GitHub prerelease:
+[v1.0.0-beta23](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta23).
+Den offentlege, uautentiserte API-en viser `draft=false` og `prerelease=true`.
+Nedlasta APK er 28 060 364 byte og har same SHA-256 som byggfila og GitHub sin
+asset-digest: `3af39ccc630d6946e56ad3eee227fa7509711a7b02c3b1964377f700c1daac54`.
 
-Stova-koplinga vart fysisk prøvd på Shield med beta22: varmt og kaldt korttrykk opna rett Jellyfin-detalj, og Back gjekk til Spole Heim. Den offentlege GitHub-oppdateringsflyten på lagra TV-profil blir stadfesta etter publisering.
+Den signerte beta23-APK-en vart først installert med `adb install -r` på den
+lagra mobilprofilen `Spole_Review` / 5560. Ho viser `versionCode=160` og
+`versionName=1.0.0-beta23`; `firstInstallTime` er uendra frå 15. september 2026.
+Startskjermen viste Jellyfin-innhald utan innloggingsskjerm.
+
+På den lagra TV-profilen `Spole_GoogleTV_Test` / 5564 stod beta18/155 før prøva.
+Updateren hadde først ei lagra beta20-oppføring; «Check now» henta så den ferske
+beta23-utgåva og release-notatet frå GitHub. «Download update» fullførte, Spole
+kontrollerte fila, og Android viste den vanlege installasjonsdialogen. Etter
+«Update» viste Android «App installed.». Pakken er no beta23/160.
+`firstInstallTime` står framleis på 9. september 2026. Etter «Open» viste Spole
+framleis Jellyfin-innhald og ikkje innloggingsskjermen. Ingen konto eller appdata
+vart sletta.
+
+På same TV-profil opna eg filmdetaljen «One Battle After Another» frå Jellyfin.
+Ved 1920 × 1080 er portretta, namna og rollene i den første rada synlege på same
+skjerm. `DPAD_DOWN` flytta fokus frå «Resume» til det første personkortet utan at
+detaljvisinga eller resten av rada vart kutta. Ingen avspeling vart starta.
+Kontrollbiletet er berre lagra lokalt i den ignorerte byggmappa:
+`app/build/emulators/spole-beta23-cast-focus.png`.
+
+Stova-koplinga vart fysisk prøvd på Shield med beta22: varmt og kaldt korttrykk opna rett Jellyfin-detalj, og Back gjekk til Spole Heim. Denne rapporten dokumenterer beta23-publiseringa og den verkelege oppdateringa på TV-profilen.

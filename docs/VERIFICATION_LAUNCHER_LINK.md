@@ -1,6 +1,6 @@
 # Verifisering av Stova-lenkjer
 
-Oppdatering 26. oktober 2026: beta23-releasekandidaten samlar Stova-koplinga og TV-rettinga for medverkande. Den fysiske Shield-prøva av varm og kald Stova-opning vart først stadfesta med lokal beta22; beta23-release- og oppdateringskontroll ligg i [beta23-verifiseringa](VERIFICATION_v1.0.0-beta23.md). Den historiske beta22-rapporten ligg [her](VERIFICATION_v1.0.0-beta22-local.md).
+Oppdatering 26. oktober 2026: offentlege prerelease [beta23](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta23) samlar Stova-koplinga og TV-rettinga for medverkande. Den fysiske Shield-prøva av varm og kald Stova-opning vart først stadfesta med lokal beta22; beta23 vart publisert og appoppdateringa vart deretter stadfesta på den lagra TV-profilen. Sjå [beta23-verifiseringa](VERIFICATION_v1.0.0-beta23.md) og den historiske [beta22-rapporten](VERIFICATION_v1.0.0-beta22-local.md).
 
 Oppdatering 25. oktober 2026: faktisk Stova-korttrykk opna Heim i beta21, trass direkte ADB-pass. Signert beta22 retta dette og opna rette Jellyfin-detaljar både varmt og etter force-stop-kaldstart. Back gjekk til Spole Heim.
 
