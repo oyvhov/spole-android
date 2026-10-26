@@ -70,9 +70,10 @@ framleis Jellyfin-innhald og ikkje innloggingsskjermen. Ingen konto eller appdat
 vart sletta.
 
 På same TV-profil opna eg filmdetaljen «One Battle After Another» frå Jellyfin.
-Ved 1920 × 1080 er portretta, namna og rollene i den første rada synlege på same
-skjerm. `DPAD_DOWN` flytta fokus frå «Resume» til det første personkortet utan at
-detaljvisinga eller resten av rada vart kutta. Ingen avspeling vart starta.
+Ved 1920 × 1080 er portretta, namna og rollene for korta i visningsfeltet synlege
+heilt ned. Resten av rollebesetninga ligg vidare i det vassrette rullefeltet.
+`DPAD_DOWN` flytta fokus frå «Resume» til det første personkortet utan vertikal
+avskjering. Ingen avspeling vart starta.
 Kontrollbiletet er berre lagra lokalt i den ignorerte byggmappa:
 `app/build/emulators/spole-beta23-cast-focus.png`.
 

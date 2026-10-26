@@ -32,7 +32,8 @@ Release- og einingskontroll for beta23 er ført i
 [release-verifiseringa](VERIFICATION_v1.0.0-beta23.md).
 
 Etter den offentlege beta23-oppdateringa vart same «One Battle After Another»-detalj
-opna frå Jellyfin på den lagra TV-profilen 5564. Ved 1920 × 1080 var heile den
-første rada med portrett, namn og roller innanfor skjermen. `DPAD_DOWN` fokuserte
+opna frå Jellyfin på den lagra TV-profilen 5564. Ved 1920 × 1080 var portretta,
+namna og rollene for korta i visningsfeltet synlege heilt ned. Resten av
+rollebesetninga ligg vidare i det vassrette rullefeltet. `DPAD_DOWN` fokuserte
 det første personkortet. Skjermbiletet ligg lokalt i
 `app/build/emulators/spole-beta23-cast-focus.png`.
