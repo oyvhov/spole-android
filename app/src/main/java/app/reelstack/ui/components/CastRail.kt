@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +38,8 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
     var failed by remember { mutableStateOf(false) }
     val tv = isTelevision()
     val portraitSize = if (tv) 84.dp else 64.dp
+    // Keep names readable with large TV text instead of splitting words around a fixed portrait.
+    val cardWidth = if (tv) 104.dp * LocalDensity.current.fontScale.coerceAtLeast(1f) else 104.dp
     LaunchedEffect(selected) {
         titles = emptyList()
         failed = false
@@ -54,7 +57,7 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
             key = { it.remoteId ?: it.seerrPersonId?.toString() ?: it.name }) { person ->
             val interaction = remember { MutableInteractionSource() }
             // The ring follows the face; the name under it is part of the same button.
-            Column(Modifier.width(104.dp)
+            Column(Modifier.width(cardWidth)
                 .clickable(interactionSource = interaction, indication = mediaCardIndication(),
                     enabled = person.seerrPersonId != null || (person.remoteId != null && source != null), role = Role.Button) {
                     val seerrId = person.seerrPersonId

@@ -47,10 +47,17 @@ internal fun TvCinematicDetails(
     val options = LocalPersonalization.current
     val largeText = LocalDensity.current.fontScale >= 1.5f
     BoxWithConstraints(Modifier.fillMaxSize().background(Ink).testTag("tv-cinematic-detail")) {
-        // Keep the episode rail near the actions, with breathing room for the title and logo.
-        // The heading grows naturally for expanded synopsis or large type.
+        // A film's cast follows its actions instead of starting at 76% of the screen,
+        // where even the portraits were cut off. Keep the cinematic space when there
+        // is no cast; headings still grow naturally for expanded synopsis or large type.
         val episodic = details.mediaType == "Series" || details.mediaType == "Episode"
-        val heroHeight = maxHeight * if (compactHero) .4f else if (episodic) .52f else .76f
+        val hasCast = details.cast.isNotEmpty()
+        val heroHeight = when {
+            !episodic && hasCast -> 0.dp
+            compactHero -> maxHeight * .4f
+            episodic -> maxHeight * .52f
+            else -> maxHeight * .76f
+        }
         if (options.detailBackdrop) {
             Box(Modifier.fillMaxWidth().height(maxHeight)) {
                 MediaArtwork(app.reelstack.data.network.detailBackdropUrl(opening, details), null,
@@ -71,7 +78,11 @@ internal fun TvCinematicDetails(
                 Box(Modifier.fillMaxWidth().heightIn(min = heroHeight).testTag("tv-detail-hero")) {
                     Column(Modifier.fillMaxWidth(if (largeText) .92f else .62f)
                         .padding(start = 40.dp, top = 24.dp, end = 20.dp,
-                            bottom = if (episodic) 16.dp else 20.dp)) { heading() }
+                            bottom = when {
+                                episodic -> 16.dp
+                                hasCast -> 0.dp // The cast heading supplies the gap below the actions.
+                                else -> 20.dp
+                            })) { heading() }
                 }
                 Column(Modifier.fillMaxWidth().padding(start = 40.dp, end = 32.dp, bottom = 40.dp), content = content)
             }

@@ -458,7 +458,7 @@ internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String)
     val castBlock: @Composable () -> Unit = {
         if (details.cast.isNotEmpty()) {
             Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 18.dp, bottom = 12.dp))
+                modifier = Modifier.padding(top = if (tv) 12.dp else 18.dp, bottom = 12.dp))
             app.reelstack.ui.components.CastRail(details.cast, details.source, onPersonTitles, onPersonTitle, onSeerrPerson)
         }
     }

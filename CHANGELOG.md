@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0-beta23 — Stova-lenkjer og medverkande på TV
+
+- Stova og andre Android-startarar kan opne rett Jellyfin-/Emby-tittel i Spole, både når appen køyrer og etter kaldstart. Lenkja bruker den eksisterande innlogginga og respekterer kontogrensene og barnemodus. Dette er første offentlege APK med Stova-koplinga som vart prøvd på Shield.
+- TV: filmar med medverkande brukar plassen under handlingane i staden for å halde av tre firedelar av skjermen til heroen. Heile portrett, namn og rollar kjem fram; korta får meir breidde ved stor skrift.
+
 ## 1.0.0-beta22 — lokal Shield-oppdatering, ikkje publisert
 
 - Rettar tittelopning frå eit faktisk Stova-kort når Android gjenbruker ei eksisterande Spole-oppgåve. Hovudskjermen kan no ta imot sjølve tittellenkja, i tillegg til dei interne lenkje-ekstraa, med same validering og konto-/barnegrenser.
