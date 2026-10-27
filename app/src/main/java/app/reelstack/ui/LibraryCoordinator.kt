@@ -77,6 +77,7 @@ internal class LibraryCoordinator(
 
     private var libraryChoicesJob: Job? = null
     private var libraryJob: Job? = null
+    private var launcherLibraryJob: Job? = null
     private var shelfJob: Job? = null
     private var peekJob: Job? = null
 
@@ -104,11 +105,18 @@ internal class LibraryCoordinator(
     }
 
     fun selectLibrarySource(source: ServiceKind) {
+        if (prepareLibrarySource(source) == null) return
+        browseLibrary()
+    }
+
+    private fun prepareLibrarySource(source: ServiceKind): ServiceConnection? {
         val connection = _uiState.value.connections.firstOrNull {
             it.kind == source && source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
                 it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        } ?: return
+        } ?: return null
         preferencesRepository.preferredLibrarySource = source
+        launcherLibraryJob?.cancel()
+        launcherLibraryJob = null
         libraryJob?.cancel()
         peekJob?.cancel()
         shelfJob?.cancel()
@@ -126,7 +134,41 @@ internal class LibraryCoordinator(
             libraryChoicesOpen = false, libraryChoices = emptyList(), selectedLibraryIds = emptySet(),
             libraryShortcuts = preferencesRepository.libraryShortcuts(connection),
             libraryIcons = preferencesRepository.libraryIcons(connection)) }
-        browseLibrary()
+        return connection
+    }
+
+    /** Resolve the view on the requested account before opening the normal library browser. */
+    fun openLauncherLibrary(source: ServiceKind, libraryId: String) {
+        val connection = prepareLibrarySource(source) ?: return
+        _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, globalSearchOpen = false,
+            libraryLoading = true, libraryError = null) }
+        val owner = _uiState.value.sessionScope
+        launcherLibraryJob = operationScope.launch {
+            fun isCurrentRequest(): Boolean = isActive && _uiState.isCurrent &&
+                _uiState.value.sessionScope == owner && _uiState.value.selectedTab == AppTab.LIBRARY &&
+                _uiState.value.libraryConnection == connection && _uiState.value.libraryPath.isEmpty()
+            try {
+                val view = withContext(ioDispatcher) {
+                    mediaServerClient.launcherLibraryView(connection, libraryId)
+                }
+                if (!isCurrentRequest()) return@launch
+                if (view == null) {
+                    _uiState.update { it.copy(libraryLoading = false, libraryError = appString(R.string.library_failed)) }
+                    return@launch
+                }
+                _uiState.update { it.copy(libraryPath = listOf(view.id to view.name),
+                    libraryCollectionType = view.collectionType, libraryEntries = emptyList(),
+                    libraryOffset = 0, libraryHasMore = false) }
+                launcherLibraryJob = null
+                browseLibrary()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (isCurrentRequest()) _uiState.update {
+                    it.copy(libraryLoading = false, libraryError = error.readableMessage(appContext) ?: appString(R.string.library_failed))
+                }
+            }
+        }
     }
 
     /** Opens «Tilpass biblioteksida». Its library list needs a server; its rows and look do not. */
@@ -188,6 +230,8 @@ internal class LibraryCoordinator(
     }
 
     fun browseLibrary(more: Boolean = false) {
+        launcherLibraryJob?.cancel()
+        launcherLibraryJob = null
         if (!more) loadLibraryShelves()
         if (more && (_uiState.value.libraryLoading || !_uiState.value.libraryHasMore)) return
         libraryJob?.cancel()
@@ -278,6 +322,8 @@ internal class LibraryCoordinator(
     }
 
     fun libraryBack() {
+        launcherLibraryJob?.cancel()
+        launcherLibraryJob = null
         _uiState.update { it.copy(libraryPath = it.libraryPath.dropLast(1), libraryFilters = app.reelstack.data.model.LibraryFilters(),
             libraryEntries = emptyList(), libraryOffset = 0, libraryHasMore = false) }
         browseLibrary()
@@ -378,6 +424,8 @@ internal class LibraryCoordinator(
         }
     }
     fun openLibraryShortcut(id: String) {
+        launcherLibraryJob?.cancel()
+        launcherLibraryJob = null
         SmartShelf.idOfPath(id)?.let { openSmartShelf(it); return }
         val shortcut = _uiState.value.libraryShortcuts.firstOrNull { it.first == id } ?: return
         _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shortcut), libraryCollectionType = null,

@@ -99,5 +99,58 @@ class LauncherLinkTest {
         }
     }
 
+    @Test fun parsesLibraryLinksForBothServicesAndDecodesOnce() {
+        assertEquals(
+            LauncherLink(ServiceKind.JELLYFIN, "user_1", "library-2", LauncherAction.LIBRARY),
+            LauncherLinks.parse("spole://library?%6bind=jellyfin&user=%75ser%5F1&library=library%2D2"),
+        )
+        assertEquals(
+            LauncherLink(ServiceKind.EMBY, "U", "L", LauncherAction.LIBRARY),
+            LauncherLinks.parse("spole://library?extra=%C3%B8&library=L&kind=emby&user=U&extra=again"),
+        )
+        val id = "a".repeat(128)
+        assertEquals(
+            LauncherLink(ServiceKind.EMBY, id, id, LauncherAction.LIBRARY),
+            LauncherLinks.parse("spole://library?kind=emby&user=$id&library=$id"),
+        )
+    }
+
+    @Test fun rejectsMissingDuplicateAndInvalidLibraryParameters() {
+        val valid = "kind=jellyfin&user=a&library=b"
+        valid.split('&').indices.forEach { omitted ->
+            val query = valid.split('&').filterIndexed { index, _ -> index != omitted }.joinToString("&")
+            assertNull(query, LauncherLinks.parse("spole://library?$query"))
+        }
+        listOf("kind=jellyfin", "user=a", "%75ser=a", "library=b", "%6cibrary=b").forEach { duplicate ->
+            assertNull(duplicate, LauncherLinks.parse("spole://library?$valid&$duplicate"))
+        }
+        listOf("", "..", "a%2Fb", "a%5Cb", "%252F", "a+b", "%00", "%C3%B8", "a%26b", "a".repeat(129)).forEach { id ->
+            assertNull("user=$id", LauncherLinks.parse("spole://library?kind=jellyfin&user=$id&library=b"))
+            assertNull("library=$id", LauncherLinks.parse("spole://library?kind=jellyfin&user=a&library=$id"))
+        }
+        listOf("seerr", "JELLYFIN", "", "emby%20").forEach { kind ->
+            assertNull(kind, LauncherLinks.parse("spole://library?kind=$kind&user=a&library=b"))
+        }
+    }
+
+    @Test fun rejectsMalformedLibraryUrisAndDecodingEvenInUnknownParameters() {
+        val valid = "kind=jellyfin&user=a&library=b"
+        listOf(
+            "spole://library/?$valid", "spole://library/path?$valid", "spole://library:80?$valid",
+            "spole://user@library?$valid", "spole://%6cibrary?$valid", "spole://library?$valid#",
+            "spole://library?$valid&extra=%", "spole://library?$valid&extra=%FF",
+            "spole://library?$valid&extra=%C3%28", "spole://library?$valid&%FF=value",
+            "spole://library", "spole://library?",
+        ).forEach { raw -> assertNull(raw, LauncherLinks.parse(raw)) }
+    }
+
+    @Test fun openHostNeverTreatsLibraryAsAnItem() {
+        assertNull(LauncherLinks.parse("spole://open?kind=jellyfin&user=a&library=b"))
+        assertEquals(
+            LauncherLink(ServiceKind.JELLYFIN, "a", "b", LauncherAction.PLAY),
+            LauncherLinks.parse("spole://open?$validQuery&library=ignored"),
+        )
+    }
+
     private val validQuery = "kind=jellyfin&user=a&item=b&action=play"
 }

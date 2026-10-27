@@ -71,12 +71,15 @@ fun KidsApp(viewModel: ReelstackViewModel) {
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
 
     var libraryOpenId by rememberSaveable(state.activeProfileId, state.launcherHomeRequest) { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.kidsLauncherLibrary?.source, state.kidsLauncherLibrary?.libraryId, state.launcherHomeRequest) {
+        state.kidsLauncherLibrary?.let { libraryOpenId = it.libraryId }
+    }
 
     // Back walks the child-facing navigation stack. It never exits the shell by accident.
     BackHandler(enabled = state.activeSheet == null && (state.kidsBrowse.open || libraryOpenId != null)) {
         when {
             state.kidsBrowse.open -> viewModel.closeKidsSeries()
-            libraryOpenId != null -> libraryOpenId = null
+            libraryOpenId != null -> { viewModel.closeKidsLauncherLibrary(); libraryOpenId = null }
         }
     }
 
@@ -270,16 +273,22 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                         modifier = if (television) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)) else Modifier,
                     )
                 } else if (visiblePage == "library") {
-                    val library = state.kidsLibraries.firstOrNull { it.id == libraryOpenId }
+                    val requested = state.kidsLauncherLibrary?.takeIf { it.libraryId == libraryOpenId }
+                    val library = if (requested != null) requested.view ?: app.reelstack.data.network.RemoteLibraryView(
+                        requested.libraryId, stringResource(R.string.nav_library), null)
+                    else state.kidsLibraries.firstOrNull { it.id == libraryOpenId }
                     if (library != null) {
                         KidsLibraryScreen(
                             library = library,
-                            media = state.kidsLibrary.filter { it.libraryId == library.id },
+                            media = requested?.media ?: state.kidsLibrary.filter { it.libraryId == library.id },
                             onPlay = choose,
-                            onBack = { libraryOpenId = null },
+                            onBack = { viewModel.closeKidsLauncherLibrary(); libraryOpenId = null },
                             columns = if (television) 6 else cardColumns,
                             contentPadding = gridPadding,
                             modifier = if (television) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)) else Modifier,
+                            loading = requested?.loading == true,
+                            error = requested?.error == true,
+                            onRetry = viewModel::retryKidsLauncherLibrary,
                         )
                     }
                 } else {
@@ -308,7 +317,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                             )
                         },
                         onPlay = choose,
-                        onLibraryOpen = { libraryOpenId = it.id },
+                        onLibraryOpen = { viewModel.closeKidsLauncherLibrary(); libraryOpenId = it.id },
                         columns = cardColumns,
                         contentPadding = gridPadding,
                         loading = state.kidsLibraryLoading,

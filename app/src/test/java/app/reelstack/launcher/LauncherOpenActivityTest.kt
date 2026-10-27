@@ -58,6 +58,25 @@ class LauncherOpenActivityTest {
         assertTrue(activity.isFinishing)
     }
 
+    @Test fun libraryLinkForwardsToMainWithoutOpeningAnItem() {
+        val activity = Robolectric.buildActivity(TestActivity::class.java,
+            Intent(Intent.ACTION_VIEW, Uri.parse("spole://library?kind=jellyfin&user=adult&library=films"))).create().get()
+        val next = shadowOf(activity).nextStartedActivity
+        assertEquals(MainActivity::class.java.name, next.component?.className)
+        assertEquals("JELLYFIN", next.getStringExtra("launcher_kind"))
+        assertEquals("adult", next.getStringExtra("launcher_user"))
+        assertEquals("films", next.getStringExtra("launcher_library"))
+        assertEquals("LIBRARY", next.getStringExtra("launcher_action"))
+        assertFalse(next.hasExtra("launcher_item"))
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test fun unmatchedLibraryLinkUsesTheSameNotSignedInMessage() {
+        val activity = Robolectric.buildActivity(TestActivity::class.java,
+            Intent(Intent.ACTION_VIEW, Uri.parse("spole://library?kind=jellyfin&user=unknown&library=films"))).create().get()
+        assertEquals(activity.getString(R.string.launcher_not_signed_in), shadowOf(activity).nextStartedActivity.getStringExtra("launcher_message"))
+    }
+
     @Test fun invalidLinkFinishesWithoutStartingAnything() {
         val activity = Robolectric.buildActivity(TestActivity::class.java, Intent(Intent.ACTION_VIEW, Uri.parse("spole://open?item=abc"))).create().get()
         assertNull(shadowOf(activity).nextStartedActivity)
@@ -99,6 +118,16 @@ class LauncherOpenActivityTest {
         val main = context.packageManager.getActivityInfo(ComponentName(context, MainActivity::class.java), 0)
         assertTrue("A NEW_TASK launcher link must use a transient receiver task", receiver.taskAffinity.isNullOrEmpty())
         assertNotEquals(main.taskAffinity, receiver.taskAffinity)
+    }
+
+    @Test fun manifestResolvesOpenAndLibraryAsSeparateLauncherHosts() {
+        val context = RuntimeEnvironment.getApplication()
+        listOf("open", "library").forEach { host ->
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("spole://$host"))
+                .addCategory(Intent.CATEGORY_DEFAULT).setPackage(context.packageName)
+            val matches = context.packageManager.queryIntentActivities(intent, 0)
+            assertTrue(host, matches.any { it.activityInfo.name == LauncherOpenActivity::class.java.name })
+        }
     }
 
     @Test fun reusedReceiverForwardsANewViewIntent() {

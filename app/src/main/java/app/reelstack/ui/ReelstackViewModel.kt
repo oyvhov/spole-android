@@ -143,6 +143,7 @@ class ReelstackViewModel(
         features.details.closeDetails()
         closeSheet()
         closeKidsSeries()
+        features.kids.closeLauncherLibrary()
         selectTab(AppTab.HOME)
         _uiState.update { it.copy(contentDetails = null, seriesBrowse = SeriesBrowse(),
             launcherHomeRequest = it.launcherHomeRequest + 1) }
@@ -154,6 +155,17 @@ class ReelstackViewModel(
         synchronizeSession()
         openLauncherHome()
         features.details.openRemoteDetails(kind, itemId)
+    }
+
+    /** A library link remains bound to the user that the launcher receiver authenticated. */
+    fun openRemoteLibrary(kind: ServiceKind, userId: String, libraryId: String) {
+        synchronizeSession()
+        if (_uiState.value.connections.none {
+                it.kind == kind && it.userId == userId && it.token.isNotBlank() && it.baseUrl.isNotBlank()
+            }) return
+        openLauncherHome()
+        if (_uiState.value.isKidMode) features.kids.openLauncherLibrary(kind, libraryId)
+        else features.library.openLauncherLibrary(kind, libraryId)
     }
 
     fun closeSheet() {
@@ -398,6 +410,10 @@ class ReelstackViewModel(
     fun pauseOfflineDownloads() = features.offline.pauseOfflineDownloads()
     fun resumeOfflineDownloads() = features.offline.resumeOfflineDownloads()
     fun loadKidsLibrary() = features.kids.loadKidsLibrary()
+    fun closeKidsLauncherLibrary() = features.kids.closeLauncherLibrary()
+    fun retryKidsLauncherLibrary() {
+        _uiState.value.kidsLauncherLibrary?.let { features.kids.openLauncherLibrary(it.source, it.libraryId) }
+    }
     fun openKidsSeries(media: LibraryMedia) = features.kids.openKidsSeries(media)
     fun selectKidsSeason(seasonId: String) = features.kids.selectKidsSeason(seasonId)
     fun closeKidsSeries() = features.kids.closeKidsSeries()

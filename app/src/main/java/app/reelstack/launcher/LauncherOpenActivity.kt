@@ -45,6 +45,7 @@ open class LauncherOpenActivity : app.reelstack.localization.LocalizedActivity()
         Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
     private fun Intent.withLauncherLink(link: LauncherLink): Intent =
-        putExtra("launcher_kind", link.kind.name).putExtra("launcher_item", link.itemId)
+        putExtra("launcher_kind", link.kind.name)
+            .putExtra(if (link.action == LauncherAction.LIBRARY) "launcher_library" else "launcher_item", link.itemId)
             .putExtra("launcher_user", link.userId).putExtra("launcher_action", link.action.name)
 }

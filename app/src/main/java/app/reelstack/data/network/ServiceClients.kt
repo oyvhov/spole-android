@@ -670,6 +670,19 @@ class MediaServerClient(
         return libraryViews(connection, encodePathSegment(user)).map { it.copy(artworkUrl = artworkUrl(connection, it.id)) }
     }
 
+    /** Resolve the exact user view that an external launcher obtained from /Users/{user}/Views. */
+    fun launcherLibraryView(connection: ServiceConnection, libraryId: String): RemoteLibraryView? {
+        require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && connection.userId.isNotBlank())
+        val user = encodePathSegment(connection.userId)
+        val response = transport.get(
+            EndpointValidator.resolve(connection.baseUrl, "Users/$user/Views"),
+            headers(connection, deviceId),
+        )
+        response.requireSuccess(connection.kind)
+        return ServicePayloadParser.libraryViews(response.body).firstOrNull { it.id == libraryId }
+            ?.let { it.copy(artworkUrl = artworkUrl(connection, it.id)) }
+    }
+
     fun libraryFacets(connection: ServiceConnection, parentId: String): app.reelstack.data.model.LibraryFacets {
         require(connection.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && parentId.isNotBlank())
         val user = connection.userId.takeIf(String::isNotBlank) ?: currentUserId(connection)

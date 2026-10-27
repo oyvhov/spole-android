@@ -56,6 +56,16 @@ data class KidsBrowse(
     val open: Boolean get() = seriesId.isNotBlank()
 }
 
+/** A launcher-requested view and its titles, kept separate for the selected child account and source. */
+data class KidsLauncherLibrary(
+    val source: ServiceKind,
+    val libraryId: String,
+    val view: app.reelstack.data.network.RemoteLibraryView? = null,
+    val media: List<LibraryMedia> = emptyList(),
+    val loading: Boolean = true,
+    val error: Boolean = false,
+)
+
 data class ConnectionDraft(
     val kind: ServiceKind,
     val name: String,
@@ -136,6 +146,7 @@ data class ReelstackUiState(
     /** Everything the kid's own account may open, from the server's own library views. */
     val kidsLibrary: List<LibraryMedia> = emptyList(),
     val kidsLibraries: List<app.reelstack.data.network.RemoteLibraryView> = emptyList(),
+    val kidsLauncherLibrary: KidsLauncherLibrary? = null,
     val kidsLibraryNames: List<Pair<String, String>> = emptyList(),
     val kidsLibraryLoading: Boolean = false,
     val kidsLibraryError: Boolean = false,

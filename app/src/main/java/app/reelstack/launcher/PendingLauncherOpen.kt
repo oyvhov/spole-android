@@ -44,14 +44,18 @@ internal class PendingLauncherOpen private constructor(
             }
             val kind = intent.getStringExtra("launcher_kind") ?: return null
             val user = intent.getStringExtra("launcher_user") ?: return null
-            val item = intent.getStringExtra("launcher_item") ?: return null
             val action = intent.getStringExtra("launcher_action") ?: return null
-            // Reuse the strict external parser; all four fields are mandatory at this boundary too.
-            if (kind !in setOf("JELLYFIN", "EMBY") || action !in setOf("PLAY", "DETAILS")) return null
-            val link = LauncherLinks.parse("spole://open?kind=${kind.lowercase(java.util.Locale.ROOT)}&user=$user&item=$item&action=${action.lowercase(java.util.Locale.ROOT)}")
+            if (kind !in setOf("JELLYFIN", "EMBY") || action !in setOf("PLAY", "DETAILS", "LIBRARY")) return null
+            val library = action == "LIBRARY"
+            val id = intent.getStringExtra(if (library) "launcher_library" else "launcher_item") ?: return null
+            // Reuse the external parser at this exported boundary, including its strict id checks.
+            val host = if (library) "library" else "open"
+            val parameter = if (library) "library" else "item"
+            val actionQuery = if (library) "" else "&action=${action.lowercase(java.util.Locale.ROOT)}"
+            val link = LauncherLinks.parse("spole://$host?kind=${kind.lowercase(java.util.Locale.ROOT)}&user=$user&$parameter=$id$actionQuery")
                 ?: return null
             // Compare the parsed values as well: query injection in an exported intent is invalid.
-            if (link.userId != user || link.itemId != item) return null
+            if (link.userId != user || link.itemId != id || link.action.name != action) return null
             return PendingLauncherOpen(link, repository.captureSession(), intent.getStringExtra("launcher_switch_profile"))
         }
     }

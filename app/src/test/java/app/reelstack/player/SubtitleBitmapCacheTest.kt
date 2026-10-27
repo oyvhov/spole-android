@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], application = android.app.Application::class)
 class SubtitleBitmapCacheTest {
     @get:Rule val temporary = TemporaryFolder()
     private val url = "https://media.example/Videos/1/Subtitles/2/Stream.mks"

@@ -49,6 +49,9 @@ internal fun KidsLibraryScreen(
     columns: Int,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    loading: Boolean = false,
+    error: Boolean = false,
+    onRetry: () -> Unit = {},
 ) {
     var status by rememberSaveable(library.id) { mutableStateOf(KidsLibraryStatus.ALL) }
     var sort by rememberSaveable(library.id) { mutableStateOf(KidsLibrarySort.ADDED) }
@@ -140,7 +143,20 @@ internal fun KidsLibraryScreen(
                     }
                 }
             }
-            if (filtered.isEmpty()) {
+            if (loading) {
+                item(span = { GridItemSpan(columns) }) {
+                    androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+                }
+            } else if (error) {
+                item(span = { GridItemSpan(columns) }) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(stringResource(R.string.library_failed), color = Muted)
+                        app.reelstack.ui.components.SpoleSecondaryButton(onClick = onRetry, modifier = Modifier.heightIn(min = 64.dp)) {
+                            Text(stringResource(R.string.kids_retry))
+                        }
+                    }
+                }
+            } else if (filtered.isEmpty()) {
                 item(span = { GridItemSpan(columns) }) {
                     Text(
                         stringResource(R.string.kids_library_empty),

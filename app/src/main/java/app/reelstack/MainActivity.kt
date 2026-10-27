@@ -15,6 +15,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import app.reelstack.ui.ReelstackApp
 import app.reelstack.ui.ReelstackViewModel
 import app.reelstack.ui.theme.ReelstackTheme
+import app.reelstack.launcher.routeInMain
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -119,11 +120,12 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     pendingLauncherOpen = null
                     val target = pending?.consume(container.connectionRepository, reelstackViewModel::selectProfile) { link, _ ->
                         reelstackViewModel.synchronizeSession()
-                        when (link.action) {
-                            app.reelstack.launcher.LauncherAction.DETAILS -> reelstackViewModel.openRemoteDetails(link.kind, link.itemId)
-                            app.reelstack.launcher.LauncherAction.PLAY -> app.reelstack.player.JellyfinPlayerActivity.open(
-                                this@MainActivity, link.itemId, source = link.kind, kidsMode = container.connectionRepository.isKidMode)
-                        }
+                        link.routeInMain(
+                            details = { reelstackViewModel.openRemoteDetails(it.kind, it.itemId) },
+                            play = { app.reelstack.player.JellyfinPlayerActivity.open(
+                                this@MainActivity, it.itemId, source = it.kind, kidsMode = container.connectionRepository.isKidMode) },
+                            library = { reelstackViewModel.openRemoteLibrary(it.kind, it.userId, it.itemId) },
+                        )
                     }
                     when (target) {
                         app.reelstack.launcher.LauncherTarget.BlockedInKidMode -> pendingLauncherMessage = R.string.launcher_kid_mode

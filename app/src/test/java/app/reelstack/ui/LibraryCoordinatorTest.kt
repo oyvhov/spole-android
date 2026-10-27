@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.reelstack.data.model.*
 import app.reelstack.data.network.*
 import app.reelstack.data.repository.*
+import app.reelstack.launcher.routeInMain
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
@@ -24,8 +25,12 @@ class LibraryCoordinatorTest {
     private val views = listOf(RemoteLibraryView("films", "Filmar", "movies"), RemoteLibraryView("series", "Seriar", "tvshows"))
     private class Transport : JsonHttpTransport {
         var fail = false
-        override fun get(url: String, headers: Map<String, String>): HttpResponse = if (fail) HttpResponse(503, "{}")
-            else HttpResponse(200, """{"Items":[{"Id":"films","Name":"Filmar","CollectionType":"movies"},{"Id":"series","Name":"Seriar","CollectionType":"tvshows"}]}""")
+        val urls = mutableListOf<String>()
+        override fun get(url: String, headers: Map<String, String>): HttpResponse {
+            urls += url
+            return if (fail) HttpResponse(503, "{}")
+                else HttpResponse(200, """{"Items":[{"Id":"films","Name":"Filmar","CollectionType":"movies"},{"Id":"series","Name":"Seriar","CollectionType":"tvshows"}]}""")
+        }
         override fun post(url: String, headers: Map<String, String>, jsonBody: String): HttpResponse = error("read only")
     }
     private fun TestScope.feature(snapshot: MutableStateFlow<ReelstackUiState>, transport: Transport = Transport(),
@@ -94,5 +99,94 @@ class LibraryCoordinatorTest {
         assertEquals(listOf("library" to "Bibliotek"), snapshot.value.libraryPath)
         assertEquals(LibraryFilters(), snapshot.value.libraryFilters)
         assertEquals("kept", snapshot.value.searchQuery)
+    }
+
+    @Test fun `parsed launcher library opens the requested view for the selected connection`() = runTest {
+        val emby = connection.copy(kind = ServiceKind.EMBY, baseUrl = "https://emby.example", userId = "emby-user")
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection, emby)))
+        val transport = Transport()
+        val link = app.reelstack.launcher.LauncherLinks.parse("spole://library?kind=emby&user=emby-user&library=series")!!
+        assertEquals(app.reelstack.launcher.LauncherAction.LIBRARY, link.action)
+        val feature = feature(snapshot, transport)
+        link.routeInMain(
+            details = { fail("A library view must not open item details") },
+            play = { fail("A library view must not start playback") },
+            library = { feature.openLauncherLibrary(it.kind, it.itemId) },
+        )
+        runCurrent()
+        assertEquals(AppTab.LIBRARY, snapshot.value.selectedTab)
+        assertEquals(ServiceKind.EMBY, snapshot.value.librarySource)
+        assertEquals(listOf("series" to "Seriar"), snapshot.value.libraryPath)
+        assertEquals("tvshows", snapshot.value.libraryCollectionType)
+        assertTrue(transport.urls.any { it.contains("emby.example") && it.contains("Users/emby-user/Views") })
+        assertTrue(transport.urls.any { it.contains("emby.example") && it.contains("ParentId=series") })
+        assertFalse(transport.urls.any { it.contains("media.example") })
+    }
+
+    @Test fun `child launcher library uses the requested source and child account`() = runTest {
+        val emby = connection.copy(kind = ServiceKind.EMBY, baseUrl = "https://emby.example", userId = "child-user")
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, activeProfileId = "kid",
+            isKidMode = true, connections = listOf(connection, emby)))
+        val transport = Transport()
+        val client = MediaServerClient(transport)
+        val feature = KidsLibraryCoordinator(SessionUiState(snapshot), backgroundScope, client,
+            MediaSyncRepository(mediaServerClient = client), StandardTestDispatcher(testScheduler))
+        val link = app.reelstack.launcher.LauncherLinks.parse("spole://library?kind=emby&user=child-user&library=series")!!
+        feature.openLauncherLibrary(link.kind, link.itemId)
+        runCurrent()
+        val destination = snapshot.value.kidsLauncherLibrary!!
+        assertEquals(ServiceKind.EMBY, destination.source)
+        assertEquals("series", destination.libraryId)
+        assertEquals("Seriar", destination.view?.name)
+        assertFalse(destination.loading)
+        assertFalse(destination.error)
+        assertTrue(transport.urls.any { it.contains("emby.example") && it.contains("Users/child-user/Views") })
+        assertFalse(transport.urls.any { it.contains("media.example") })
+    }
+
+    @Test fun `missing launcher view never opens an arbitrary item`() = runTest {
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+        val transport = Transport()
+        feature(snapshot, transport).openLauncherLibrary(ServiceKind.JELLYFIN, "not-a-view")
+        runCurrent()
+        assertEquals(AppTab.LIBRARY, snapshot.value.selectedTab)
+        assertTrue(snapshot.value.libraryPath.isEmpty())
+        assertNotNull(snapshot.value.libraryError)
+        assertFalse(transport.urls.any { it.contains("ParentId=not-a-view") })
+    }
+
+    @Test fun `jellyfin launcher looks up the view in the same user views endpoint as the sender`() = runTest {
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+        val transport = Transport()
+        feature(snapshot, transport).openLauncherLibrary(ServiceKind.JELLYFIN, "films")
+        runCurrent()
+        assertEquals(listOf("films" to "Filmar"), snapshot.value.libraryPath)
+        assertTrue(transport.urls.any { it.contains("Users/adult/Views") })
+        assertFalse(transport.urls.any { it.contains("UserViews?") })
+    }
+
+    @Test fun `a newer library request replaces an earlier request before it loads`() = runTest {
+        val emby = connection.copy(kind = ServiceKind.EMBY, baseUrl = "https://emby.example", userId = "emby-user")
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection, emby)))
+        val transport = Transport()
+        val feature = feature(snapshot, transport)
+        feature.openLauncherLibrary(ServiceKind.JELLYFIN, "films")
+        feature.openLauncherLibrary(ServiceKind.EMBY, "series")
+        runCurrent()
+        assertEquals(ServiceKind.EMBY, snapshot.value.librarySource)
+        assertEquals(listOf("series" to "Seriar"), snapshot.value.libraryPath)
+        assertFalse(transport.urls.any { it.contains("media.example") })
+    }
+
+    @Test fun `retired session cannot publish a launcher library view`() = runTest {
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+        val writer = SessionUiState(snapshot)
+        val feature = feature(snapshot, port = writer)
+        feature.openLauncherLibrary(ServiceKind.JELLYFIN, "films")
+        writer.revoke()
+        snapshot.value = ReelstackUiState(sessionScope = owner.copy(generation = 2))
+        runCurrent()
+        assertTrue(snapshot.value.libraryPath.isEmpty())
+        assertNotEquals(AppTab.LIBRARY, snapshot.value.selectedTab)
     }
 }

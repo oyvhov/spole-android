@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 import java.time.LocalTime
 
 @RunWith(AndroidJUnit4::class)
-@Config(sdk = [34])
+@Config(sdk = [34], application = android.app.Application::class)
 class KidsPreferencesTest {
     private lateinit var context: Context
     @Before fun setup() {

@@ -62,6 +62,30 @@ class LibraryBrowserTest {
         assertTrue(transport.urls.isEmpty())
     }
 
+    @Test fun launcherLookupUsesTheExactUserViewsForBothServices() {
+        listOf(ServiceKind.JELLYFIN, ServiceKind.EMBY).forEach { kind ->
+            val transport = Recording("""{"Items":[{"Id":"series","Name":"Seriar","CollectionType":"tvshows"},{"Id":"mixed","Name":"Blanda","Type":"CollectionFolder"},{"Id":"movie","Name":"Film","Type":"Movie","IsFolder":false}]}""")
+            val client = MediaServerClient(transport)
+            val view = client.launcherLibraryView(connection.copy(kind = kind), "series")
+            assertEquals("Seriar", view?.name)
+            assertEquals("tvshows", view?.collectionType)
+            assertTrue(transport.urls.single().endsWith("/Users/me/Views"))
+            assertEquals("Blanda", client.launcherLibraryView(connection.copy(kind = kind), "mixed")?.name)
+            assertNull(client.launcherLibraryView(connection.copy(kind = kind), "movie"))
+        }
+    }
+
+    @Test fun launcherLookupDoesNotGuessAUserOrFallBackAfterDeniedAccess() {
+        val missingUser = Recording("{}")
+        assertThrows(IllegalArgumentException::class.java) {
+            MediaServerClient(missingUser).launcherLibraryView(connection.copy(userId = ""), "films")
+        }
+        assertTrue(missingUser.urls.isEmpty())
+        val denied = Recording("{}", 403)
+        assertThrows(Exception::class.java) { MediaServerClient(denied).launcherLibraryView(connection, "films") }
+        assertEquals(1, denied.urls.size)
+    }
+
     @Test fun embyFacetsRemainScopedToTheSelectedLibrary() {
         val transport = Recording("""{"Genres":["Drama"],"Years":[2024,2020]}""")
         val facets = MediaServerClient(transport).libraryFacets(connection.copy(kind = ServiceKind.EMBY), "films")

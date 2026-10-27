@@ -298,7 +298,9 @@ object ServicePayloadParser {
             val id = view.string("Id") ?: view.string("id") ?: return@mapNotNull null
             val name = view.string("Name") ?: view.string("name") ?: return@mapNotNull null
             val collectionType = view.string("CollectionType") ?: view.string("collectionType")
-            val isFolder = view.bool("IsFolder") ?: view.bool("isFolder") ?: (collectionType != null)
+            val type = view.string("Type") ?: view.string("type")
+            val isFolder = view.bool("IsFolder") ?: view.bool("isFolder")
+                ?: (collectionType != null || type.equals("CollectionFolder", ignoreCase = true))
             if (!isFolder) return@mapNotNull null
             RemoteLibraryView(id, name, collectionType?.lowercase())
         }

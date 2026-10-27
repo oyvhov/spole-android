@@ -27,7 +27,7 @@ class InMemoryTokenStore : TokenStore {
 }
 
 @RunWith(AndroidJUnit4::class)
-@Config(sdk = [34])
+@Config(sdk = [34], application = android.app.Application::class)
 class ProfileStorageTest {
     private lateinit var context: Context
     private lateinit var tokenStore: InMemoryTokenStore

@@ -220,6 +220,21 @@ class KidsComposeTest {
     }
 
     @Test
+    @Config(qualifiers = "nn-rNO-w960dp-h1200dp-television-xhdpi")
+    fun kidsLibraryScreenShowsRetryInsteadOfAnEmptyLibraryOnFailure() {
+        val library = TestFixtures.sampleLibraryView(id = "lib-link", name = "Barneseriar")
+        var retries = 0
+        composeTestRule.setContent {
+            KidsLibraryScreen(library, emptyList(), {}, {}, columns = 2, contentPadding = PaddingValues(12.dp),
+                error = true, onRetry = { retries++ })
+        }
+        composeTestRule.onNodeWithText("Barneseriar").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Fekk ikkje lasta biblioteket. Prøv igjen.").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Prøv igjen").assertIsDisplayed().performClick()
+        assertEquals(1, retries)
+    }
+
+    @Test
     fun pinEntrySheet_rendersCleanCardAndKeypad_andEntersDigits() {
         var completedPin: String? = null
         var cancelled = false

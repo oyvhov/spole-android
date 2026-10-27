@@ -89,6 +89,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="spole" android:host="open" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="spole" android:host="library" />
+            </intent-filter>
         </activity>
         <provider android:name=".player.WatchNextArtworkProvider" android:authorities="${applicationId}.watchart" android:exported="true" />
         <activity

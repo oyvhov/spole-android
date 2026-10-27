@@ -23,6 +23,7 @@ internal class KidsLibraryCoordinator(
 ) {
     private var kidsBrowseJob: Job? = null
     private var kidsLibraryJob: Job? = null
+    private var launcherLibraryJob: Job? = null
     private var kidsEpisodesJob: Job? = null
 
     /**
@@ -75,6 +76,41 @@ internal class KidsLibraryCoordinator(
                 )
             }
         }
+    }
+
+    /** Open only a view offered to this child by the requested server. */
+    fun openLauncherLibrary(source: ServiceKind, libraryId: String) {
+        if (!_uiState.value.isKidMode) return
+        val connection = _uiState.value.connections.firstOrNull {
+            it.kind == source && source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
+                it.token.isNotBlank() && it.baseUrl.isNotBlank()
+        } ?: return
+        launcherLibraryJob?.cancel()
+        val request = KidsLauncherLibrary(source, libraryId)
+        _uiState.update { it.copy(kidsLauncherLibrary = request) }
+        launcherLibraryJob = operationScope.launch {
+            try {
+                val result = withContext(ioDispatcher) {
+                    val view = mediaServerClient.launcherLibraryView(connection, libraryId)
+                    view?.let { it to mediaSyncRepository.accountLibrary(connection, allViews = listOf(it)) }
+                }
+                if (!isActive || !_uiState.isCurrent || _uiState.value.kidsLauncherLibrary != request) return@launch
+                _uiState.update { it.copy(kidsLauncherLibrary = if (result == null) request.copy(loading = false, error = true)
+                    else request.copy(view = result.first, media = result.second, loading = false)) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (isActive && _uiState.isCurrent && _uiState.value.kidsLauncherLibrary == request) {
+                    _uiState.update { it.copy(kidsLauncherLibrary = request.copy(loading = false, error = true)) }
+                }
+            }
+        }
+    }
+
+    fun closeLauncherLibrary() {
+        launcherLibraryJob?.cancel()
+        launcherLibraryJob = null
+        _uiState.update { it.copy(kidsLauncherLibrary = null) }
     }
 
     /**
