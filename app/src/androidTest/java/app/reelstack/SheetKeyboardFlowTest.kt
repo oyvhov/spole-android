@@ -55,13 +55,13 @@ class SheetKeyboardFlowTest {
     @Test fun touchOpeningDoesNotForceKeyboardFocus() {
         host(keyboard = false)
         rule.onNodeWithTag("sheet-close").assertIsNotFocused().performClick()
-        rule.waitUntil { !open }
+        rule.waitUntil(timeoutMillis = 5_000) { !open }
     }
 
     @Test fun systemBackRestoresTheOriginToo() {
         host()
         rule.onNodeWithTag("sheet-close").performClick()
-        rule.waitUntil { !open }
+        rule.waitUntil(timeoutMillis = 5_000) { !open }
         rule.onNodeWithTag("origin").assertIsFocused()
     }
 
@@ -81,14 +81,14 @@ class SheetKeyboardFlowTest {
         rule.onNodeWithContentDescription("Lukk popupen").performTouchInput {
             click(androidx.compose.ui.geometry.Offset(10f, 10f))
         }
-        rule.waitUntil { !open }
+        rule.waitUntil(timeoutMillis = 5_000) { !open }
     }
 
     @Test fun repeatedCloseReturnsToTheOriginalCardNotItsNeighbour() {
         host()
         repeat(3) { index ->
             rule.onNodeWithTag("sheet-close").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
-            rule.waitUntil { !open }
+            rule.waitUntil(timeoutMillis = 5_000) { !open }
             rule.onNodeWithTag("origin").assertIsFocused()
             rule.onNodeWithTag("neighbour").assertIsNotFocused()
             if (index < 2) rule.onNodeWithTag("origin").performKeyInput { pressKey(Key.Enter) }

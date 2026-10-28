@@ -2,6 +2,16 @@
 
 Denne låste kontrakten lèt Stova eller ein annan Android-startar opne ein tittel i Spole med ei app-til-app-lenkje. Lenkja gir ingen nye tilgangsrettar. Sjå [verifisering og attståande prøver](VERIFICATION_LAUNCHER_LINK.md).
 
+## Opne eit bibliotek
+
+Frå 1.0.0-beta26 kan startaren opne eitt bestemt bibliotek med:
+
+```text
+spole://library?kind=jellyfin|emby&user=<id>&library=<id>
+```
+
+Vel éi teneste. `user` er brukar-ID-en i tenesta, og `library` er ID-en til biblioteket på den same tenaren. Begge følgjer ID-krava nedanfor. Spole brukar den lagra kontoen, kontrollerer at biblioteket er tilgjengeleg for kontoen og opnar det i vaksen- eller barneskalet. Dei same konto- og barnemodusgrensene som for tittellenkjer gjeld. Lenkja er eit Android app-til-app-kall utan `BROWSABLE`, og skal ikkje innehalde tilgangsteikn, passord eller tenesteadresser.
+
 ## Låst format
 
 ```text

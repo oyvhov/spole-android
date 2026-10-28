@@ -37,9 +37,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +60,7 @@ import app.reelstack.ui.components.TabletLibraryFeature
 import app.reelstack.ui.components.cinematicBleed
 import app.reelstack.ui.components.tabletFeaturedTitles
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +72,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -83,6 +89,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.data.model.IncomingMedia
@@ -647,6 +655,35 @@ private fun Modifier.shelfBleed(): Modifier = layout { measurable, constraints -
     layout(constraints.maxWidth, child.height) { child.placeRelative(-margin, 0) }
 }
 
+/** Keep the focused card inside the start gutter, even when returning from further along the row. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun ShelfRow(
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    spacing: Dp = 12.dp,
+    content: LazyListScope.() -> Unit,
+) {
+    val inset = with(LocalDensity.current) { ReelLayout.Gutter.toPx() }
+    val direction = LocalLayoutDirection.current
+    val shelfSpec = remember(inset, direction) {
+        object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+            override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+                val leftInset = if (direction == LayoutDirection.Ltr) inset else 0f
+                return app.reelstack.ui.components.DetailBringIntoView.calculateScrollDistance(
+                    offset - leftInset, size, (containerSize - inset).coerceAtLeast(0f),
+                )
+            }
+        }
+    }
+    val inheritedSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
+    CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
+        if (isTelevision()) shelfSpec else inheritedSpec) {
+        LazyRow(state = state, modifier = Modifier.shelfBleed().then(modifier), contentPadding = shelfPadding(),
+            horizontalArrangement = Arrangement.spacedBy(spacing), content = content)
+    }
+}
+
 /** One size for every section heading on Home. */
 @Composable
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
@@ -688,7 +725,7 @@ internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Mod
 
 @Composable
 private fun RecommendationRail(items: List<DiscoverMedia>, onClick: (String) -> Unit) {
-    LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    ShelfRow {
         items(items, key = DiscoverMedia::id) { media ->
             RecommendationCard(media) { onClick(media.id) }
         }
@@ -766,7 +803,7 @@ private fun NowPlayingRail(
     if (LocalTabletCanvas.current) {
         // A cover and two readable title lines share one frame on every source.
         val width = 360.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
-        LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        ShelfRow {
             items(sessions, key = PlaybackSession::key) { session ->
                 app.reelstack.ui.components.CompactSessionCard(session, pendingSessionKey == session.key,
                     controlsLocked = pendingSessionKey != null, onOpen = { onOpen(session.key) },
@@ -787,7 +824,7 @@ private fun NowPlayingRail(
         )
         return
     }
-    LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    ShelfRow(spacing = 14.dp) {
         items(sessions, key = PlaybackSession::key) { session ->
             NowPlayingCard(
                 session = session,
@@ -826,7 +863,7 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
     val titleLines = if (isTelevision()) 2 else if (items.any { it.title.length > if (chosenWide) 26 else 15 }) 2 else 1
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide, libraryDisplay = libraryDisplay)
-    LazyRow(state = railState, modifier = Modifier.shelfBleed().testTag("library-rail"), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    ShelfRow(state = railState, modifier = Modifier.testTag("library-rail")) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             LibraryCard(
                 media = media,
@@ -909,7 +946,7 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     val nextActions = actions.withoutResumeRemoval()
-    LazyRow(state = railState, modifier = Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    ShelfRow(state = railState) {
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
             ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30,
                 actions = if (resumeIds == null || media.id in resumeIds) actions else nextActions,
@@ -1233,7 +1270,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
 
 @Composable
 private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
-    LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    ShelfRow {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             UpcomingCard(media, revealDelay = index.coerceAtMost(2) * 30) { onClick(media.id) }
         }
@@ -1242,7 +1279,7 @@ private fun UpcomingRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) 
 
 @Composable
 private fun RecentReleaseRail(items: List<UpcomingMedia>, onClick: (String) -> Unit) {
-    LazyRow(Modifier.shelfBleed(), contentPadding = shelfPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    ShelfRow {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
             UpcomingCard(media, revealDelay = index.coerceAtMost(2) * 30, recent = true) { onClick(media.id) }
         }

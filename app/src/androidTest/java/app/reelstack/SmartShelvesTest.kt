@@ -39,6 +39,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -364,7 +365,8 @@ class SmartShelvesTest {
         rule.onNodeWithText("dog").assertDoesNotExist()
         rule.onNodeWithTag("smart-shelf-halloween").performClick()
         assertEquals("halloween", actions.opened)
-        rule.onNodeWithTag("smart-shelf-new").performScrollTo().performClick()
+        rule.onNodeWithTag("smart-shelf-row").performScrollToKey("new")
+        rule.onNodeWithTag("smart-shelf-new").assertIsDisplayed().performClick()
         assertEquals(null to null, actions.editing)
     }
 

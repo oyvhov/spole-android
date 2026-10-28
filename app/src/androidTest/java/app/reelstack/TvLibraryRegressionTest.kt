@@ -60,6 +60,13 @@ class TvLibraryRegressionTest {
             instrumentation.runOnMainSync { model.closeSheet(); model.openLibraryShortcut("films") }
             assertEquals(listOf("films" to "Filmar"), model.uiState.value.libraryPath)
             instrumentation.runOnMainSync { model.selectTab(AppTab.HOME); model.selectTab(AppTab.LIBRARY) }
+            val television = instrumentation.targetContext.resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+            if (!television) {
+                // A phone restores its last library on return, then opens the root on a second tap.
+                assertEquals(listOf("films" to "Filmar"), model.uiState.value.libraryPath)
+                instrumentation.runOnMainSync { model.selectTab(AppTab.LIBRARY) }
+            }
             assertTrue(model.uiState.value.libraryPath.isEmpty())
             assertNull(model.uiState.value.libraryCollectionType)
         } finally {

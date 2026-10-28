@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -101,10 +102,16 @@ internal fun LibraryEditorDialog(state: ReelstackUiState, onRetry: () -> Unit, o
     // but not while the libraries are still on their way, or focus would jump when they land.
     val firstRow = ordered.firstOrNull()?.let { "library-$it" }
         ?: hubOrder.firstOrNull()?.takeIf { !state.libraryChoicesLoading }?.let { "hub-$it" }
-    LaunchedEffect(firstRow) {
-        if (television && firstRow != null) { withFrameNanos { }; runCatching { firstFocus.requestFocus() } }
-    }
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        val windowFocused = LocalWindowInfo.current.isWindowFocused
+        var didFocusFirst by remember { mutableStateOf(false) }
+        LaunchedEffect(firstRow, television, windowFocused) {
+            if (television && firstRow != null && windowFocused && !didFocusFirst) {
+                // The dialog has its own window; its row must be placed after that window receives focus.
+                withFrameNanos { }
+                didFocusFirst = runCatching { firstFocus.requestFocus() }.getOrDefault(false)
+            }
+        }
         Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f).fillMaxHeight(.92f).testTag("library-customize-dialog"),
             shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

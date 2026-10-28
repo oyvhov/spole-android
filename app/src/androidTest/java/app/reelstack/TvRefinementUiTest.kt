@@ -620,6 +620,18 @@ class TvRefinementUiTest {
         rule.waitForIdle()
         rule.onNodeWithTag("library-visible-films").assertIsFocused()
     }
+    @Test fun libraryEditorFocusesTheFirstLibraryAfterLoading() {
+        val state = mutableStateOf(ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
+            libraryChoicesLoading = true))
+        rule.setContent { Tv {
+            val mode = LocalInputModeManager.current
+            SideEffect { mode.requestInputMode(InputMode.Keyboard) }
+            LibraryEditorDialog(state.value, {}, {}, { _, _, _ -> })
+        } }
+        rule.runOnIdle { state.value = state.value.copy(libraryChoicesLoading = false,
+            libraryChoices = listOf(app.reelstack.data.network.RemoteLibraryView("films", "Filmar", "movies"))) }
+        rule.onNodeWithTag("library-visible-films").assertIsFocused()
+    }
     @Test fun libraryEditorKeepsSavedChoicesWhenServerListArrives() {
         val state = mutableStateOf(ReelstackUiState(connections = listOf(connection), libraryChoicesOpen = true,
             libraryChoicesLoading = true))

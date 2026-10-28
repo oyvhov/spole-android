@@ -1,6 +1,7 @@
 package app.reelstack.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.onFocusedBoundsChanged
 import androidx.compose.runtime.Composable
@@ -57,7 +58,10 @@ internal fun Modifier.steadyRemoteRows(grid: LazyGridState): Modifier {
                 }
                 when {
                     event.type != KeyEventType.KeyDown -> false
-                    !press.busy && press.rowIsReady(direction) -> false
+                    !press.busy && !press.awaitingLayout && press.rowIsReady(direction) -> {
+                        press.awaitNextLayout()
+                        false
+                    }
                     else -> { press.wait(direction); true }
                 }
             }
@@ -70,7 +74,19 @@ private class WaitingPress(val grid: LazyGridState, val focusManager: FocusManag
     var direction: FocusDirection? = null
     var inside = false
     private var job: Job? = null
+    var awaitingLayout = false
+        private set
     val busy get() = job?.isActive == true
+
+    /** Focus can move again before its new bounds have reached the next layout frame. */
+    fun awaitNextLayout() {
+        if (awaitingLayout) return
+        awaitingLayout = true
+        scope.launch {
+            withFrameNanos { }
+            awaitingLayout = false
+        }
+    }
 
     /**
      * Whether the row a press would move to is laid out: an item lies wholly past the focused one in
@@ -90,11 +106,27 @@ private class WaitingPress(val grid: LazyGridState, val focusManager: FocusManag
         }
     }
 
+    /** Bring the edge of the next row into the viewport so the grid lays out all its columns. */
+    private suspend fun revealNextRow(direction: FocusDirection) {
+        val box = container?.takeIf { it.isAttached } ?: return
+        val item = focused?.takeIf { it.isAttached } ?: return
+        val bounds = box.localBoundingBoxOf(item, clipBounds = false)
+        val spacing = grid.layoutInfo.mainAxisItemSpacing
+        val distance = if (direction == FocusDirection.Down) {
+            (bounds.bottom + spacing - box.size.height + 1f).coerceAtLeast(1f)
+        } else {
+            (bounds.top - spacing - 1f).coerceAtMost(-1f)
+        }
+        grid.scrollBy(distance)
+    }
+
     /** Holds a press until its row is laid out, or the scroll has stopped without it, then makes it. */
     fun wait(next: FocusDirection) {
         direction = next
         if (busy) return
         job = scope.launch {
+            // A previous key may have moved focus during this frame; wait for its new bounds.
+            withFrameNanos { }
             while (true) {
                 val waiting = direction ?: break
                 if (!rowIsReady(waiting)) {
@@ -104,8 +136,16 @@ private class WaitingPress(val grid: LazyGridState, val focusManager: FocusManag
                     snapshotFlow { rowIsReady(waiting) || !grid.isScrollInProgress }.first { it }
                 }
                 if (direction != waiting) continue
+                if (!rowIsReady(waiting)) {
+                    revealNextRow(waiting)
+                    withFrameNanos { }
+                }
+                if (direction != waiting) continue
                 direction = null
-                if (inside) focusManager.moveFocus(waiting)
+                if (inside) {
+                    focusManager.moveFocus(waiting)
+                    awaitNextLayout()
+                }
             }
         }
     }

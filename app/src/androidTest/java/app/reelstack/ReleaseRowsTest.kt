@@ -32,7 +32,8 @@ class ReleaseRowsTest {
         ) } }
         rule.onNodeWithText("Ny lokal film").performScrollTo().performClick()
         assertEquals("emby-film", opened)
-        rule.onNodeWithText("Kalenderkjelda er ikkje kopla til enno.").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Ingen komande utgjevingar med kjend dato dei neste 28 dagane.").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Kalenderkjelda er ikkje kopla til enno.").assertDoesNotExist()
         rule.onNodeWithText("Nedlastingar").assertDoesNotExist()
     }
     @Test fun failedReleaseLookupIsNotShownAsAValidEmptyLibrary() {

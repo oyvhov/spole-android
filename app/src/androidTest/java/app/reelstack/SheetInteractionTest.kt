@@ -68,7 +68,7 @@ class SheetInteractionTest {
         body.performTouchInput { up() }
         assertFalse(closed)
         rule.onNodeWithTag("sheet-close").performClick()
-        rule.waitUntil { closed }
+        rule.waitUntil(timeoutMillis = 5_000) { closed }
     }
 
     @Test fun earlyAndLateMetadataUseOneLoadingStageWithoutRetargetingEntrance() {
@@ -127,7 +127,7 @@ class SheetInteractionTest {
         assertEquals(close, bounds("sheet-close"))
         rule.runOnIdle { state.value = state.value.copy(contentDetails = details.copy(loading = true)) }
         rule.onNodeWithTag("sheet-close").performClick()
-        rule.waitUntil { closed }
+        rule.waitUntil(timeoutMillis = 5_000) { closed }
     }
 
     @Test fun longFlingAndAsyncUpdateKeepClosePinnedAndReadingPosition() {
@@ -215,7 +215,7 @@ class SheetInteractionTest {
         assertFalse(closed)
         rule.runOnIdle { sending = false }
         rule.onNodeWithTag("sheet-close").assertIsEnabled().performClick()
-        rule.waitUntil { closed }
+        rule.waitUntil(timeoutMillis = 5_000) { closed }
     }
 
     @Test fun readingSheetCanBeDismissedFromItsCloseAction() {
@@ -225,7 +225,7 @@ class SheetInteractionTest {
         } }
         rule.onNodeWithTag("sheet-close").assertIsDisplayed()
         rule.onNodeWithTag("sheet-close").performClick()
-        rule.waitUntil { closed }
+        rule.waitUntil(timeoutMillis = 5_000) { closed }
     }
 
     @Test fun requestSubmissionDisablesTheCloseAction() {

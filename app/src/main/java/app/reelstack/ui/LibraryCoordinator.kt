@@ -144,9 +144,16 @@ internal class LibraryCoordinator(
             libraryLoading = true, libraryError = null) }
         val owner = _uiState.value.sessionScope
         launcherLibraryJob = operationScope.launch {
-            fun isCurrentRequest(): Boolean = isActive && _uiState.isCurrent &&
-                _uiState.value.sessionScope == owner && _uiState.value.selectedTab == AppTab.LIBRARY &&
-                _uiState.value.libraryConnection == connection && _uiState.value.libraryPath.isEmpty()
+            fun isCurrentRequest(): Boolean {
+                val current = _uiState.value
+                val selected = current.libraryConnection
+                return isActive && _uiState.isCurrent && current.sessionScope == owner &&
+                    current.selectedTab == AppTab.LIBRARY && current.libraryPath.isEmpty() &&
+                    selected != null && selected.kind == connection.kind &&
+                    selected.baseUrl == connection.baseUrl && selected.identity == connection.identity &&
+                    selected.token == connection.token && selected.userId == connection.userId &&
+                    selected.sessionCookie == connection.sessionCookie
+            }
             try {
                 val view = withContext(ioDispatcher) {
                     mediaServerClient.launcherLibraryView(connection, libraryId)

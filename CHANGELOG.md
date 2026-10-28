@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta26 — biblioteklenkjer og TV-navigasjon
+
+- Stova og andre Android-startarar kan opne eit bestemt Jellyfin- eller Emby-bibliotek i Spole. Opninga brukar den lagra kontoen og følgjer grensene for barnemodus.
+- TV: Når du går bortover i «Hald fram å sjå» og tilbake, kjem den første flisa tilbake med rett avstand til kanten. Rettinga gjeld også andre rader med same rulling.
+- Raske trykk opp og ned i eit rutenett held fjernkontrollfokuset i same kolonne.
+- TV: Bibliotekredigeraren får fokus på den første raden, også når biblioteka må lastast først.
+
 ## 1.0.0-beta23 — Stova-lenkjer og medverkande på TV
 
 - Stova og andre Android-startarar kan opne rett Jellyfin-/Emby-tittel i Spole, både når appen køyrer og etter kaldstart. Lenkja bruker den eksisterande innlogginga og respekterer kontogrensene og barnemodus. Dette er første offentlege APK med Stova-koplinga som vart prøvd på Shield.

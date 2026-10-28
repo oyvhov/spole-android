@@ -123,6 +123,34 @@ class LibraryCoordinatorTest {
         assertFalse(transport.urls.any { it.contains("media.example") })
     }
 
+    @Test fun `launcher library survives a status refresh for the same account`() = runTest {
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+        feature(snapshot).openLauncherLibrary(ServiceKind.JELLYFIN, "films")
+        snapshot.value = snapshot.value.copy(connections = listOf(connection.copy(
+            state = ConnectionState.CONNECTED, latencyMs = 24, detail = "Updated status",
+        )))
+        runCurrent()
+        assertEquals(listOf("films" to "Filmar"), snapshot.value.libraryPath)
+        assertFalse(snapshot.value.libraryLoading)
+    }
+
+    @Test fun `launcher library rejects a changed account or server while loading`() = runTest {
+        val changes = listOf(
+            connection.copy(kind = ServiceKind.EMBY),
+            connection.copy(token = "replacement"),
+            connection.copy(userId = "other-user"),
+            connection.copy(baseUrl = "https://other.example"),
+            connection.copy(identityUrl = "https://other-identity.example"),
+        )
+        changes.forEach { replacement ->
+            val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+            feature(snapshot).openLauncherLibrary(ServiceKind.JELLYFIN, "films")
+            snapshot.value = snapshot.value.copy(connections = listOf(replacement))
+            runCurrent()
+            assertTrue(snapshot.value.libraryPath.isEmpty())
+        }
+    }
+
     @Test fun `child launcher library uses the requested source and child account`() = runTest {
         val emby = connection.copy(kind = ServiceKind.EMBY, baseUrl = "https://emby.example", userId = "child-user")
         val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, activeProfileId = "kid",

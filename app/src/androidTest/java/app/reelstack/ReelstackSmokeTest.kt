@@ -89,11 +89,11 @@ class ReelstackSmokeTest {
         composeRule.onNodeWithText("Oppdag").performClick()
         // Posters carry no buttons: the request starts on the title page.
         composeRule.onNodeWithContentDescription("The Last Horizon").performScrollTo().performClick()
-        composeRule.onNodeWithTag("title-request").performScrollTo().performClick()
+        composeRule.onNodeWithTag("title-request-footer").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("confirm-request").performClick()
 
         composeRule.onNodeWithText("Tittelen er lagd til lokalt · kople til Seerr for å sende han vidare").assertIsDisplayed()
-        composeRule.onNode(hasText("Lagd til") and hasAnyAncestor(hasTestTag("sheet-viewport"))).performScrollTo().assertIsDisplayed()
+        composeRule.onNode(hasText("Lagd til lokalt") and hasAnyAncestor(hasTestTag("title-status"))).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -114,7 +114,7 @@ class ReelstackSmokeTest {
         composeRule.onNode(hasText("Oppdag i Seerr") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
         composeRule.onNode(hasText("The Last Horizon") and hasAnyAncestor(hasTestTag("sheet-viewport"))).assertIsDisplayed()
         composeRule.onNodeWithText("Om filmen").assertIsDisplayed()
-        composeRule.onNode(hasTestTag("title-request") and hasText("Be om")).performScrollTo().assertIsDisplayed()
+        composeRule.onNode(hasTestTag("title-request-footer") and hasText("Be om")).assertIsDisplayed()
     }
 
     @Test
