@@ -40,13 +40,22 @@ bibliotekinnhald. Fem trykk til høgre og fem tilbake i «Hald fram å sjå» ga
 same venstremarg på første flis som før navigeringa. Bileta frå kontrollen er
 berre lagra lokalt i den Git-ignorerte byggmappa.
 
-Den lagra mobilprofilen `Spole_Review` / 5560 står på beta24-kandidaten (kode
-161) for kontroll av oppdateringsflyten etter publisering. Biblioteklenkja er
-prøvd ende til ende med syntetisk tenar på både mobil og TV; ho er ikkje prøvd
-med ekte brukar- og bibliotek-ID i denne kontrollen.
+Den lagra mobilprofilen `Spole_Review` / 5560 stod på beta24-kandidaten (kode
+161) før kontrollen av oppdateringsflyten. Etter oppdateringa viser Android
+beta26 (kode 163) og den same opphavlege installasjonstida frå 15. september
+2026. Appen opna att med den eksisterande kontoen og ekte bibliotekinnhald.
+Biblioteklenkja er prøvd ende til ende med syntetisk tenar på både mobil og TV;
+ho er ikkje prøvd med ekte brukar- og bibliotek-ID i denne kontrollen.
 
 ## Publisering
 
-GitHub-asset, offentleg nedlasting og oppdateringsflyten gjennom appen blir
-kontrollerte etter at utgåva er publisert. Resultatet blir lagt til her i ein
-eigen dokumentasjonscommit utan å flytte release-taggen.
+Utgåva er publisert som [Spole 1.0.0-beta26](https://github.com/oyvhov/spole-android/releases/tag/v1.0.0-beta26),
+med release-commit `2291a7bdb622b5fa793ea0b2a12e83a333159e2a`.
+Den offentlege release-lista vart henta utan innlogging og viste éin APK med
+rett SHA-256. Den offentlege APK-nedlastinga vart kontrollert mot same hash.
+Alle seks releasefilene hadde rett storleik og SHA-256 i GitHub-kladden.
+
+På mobilprofilen fann Spole beta26 gjennom «Sjekk no», lasta ned fila og opna
+Android sin installasjonsdialog. Google Play Protect skanna den offentlege
+APK-en og tillét installasjon. Oppdateringa vart fullført gjennom appen, utan
+`adb install`, og eksisterande kontodata og bibliotek var synlege etterpå.
