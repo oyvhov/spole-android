@@ -104,6 +104,12 @@ Ei ventande opning er knytt til økta som tok imot henne, blir konsumert høgst 
 
 `details` fører til Heim og nullstiller tidlegare detaljnavigasjon. Eit lokalt treff må samsvare med både kjelde og ekstern `remoteId`. Utan treff blir tittelen henta direkte frå tenesta, også før framsideradene er lasta. Detaljarket viser skeleton under lasting, deretter dei rike metadataa tenesta tilbyr; manglande felt fell bort. Ved feil blir den vanlege detaljfeilen vist utan oppdikta innhald.
 
+Tilbake frå eksternt opna detaljar går først gjennom detaljhistorikken (til dømes episode → serie).
+Når det yttarste detaljarket blir lukka, legg Main Spole-oppgåva i bakgrunnen, slik at launcheren
+som opna tittelen kjem fram att. Returen blir konsumert éin gong og er bunden til den same økta;
+profilbyte, eksplisitt Heim og vanleg fanenavigasjon fjernar han. Vanlege detaljar inne i Spole
+har ingen slik retur. Sjå [prøva på Shield og Loftet](verification/2026-10-29-launcher-return.md).
+
 I barnemodus blir detaljane viste i barnet sitt eige skal, med avspeling av eigen tittel eller episodeval og lukking. Vaksenverten for detaljar blir ikkje opna. Ei sesonglenkje brukar foreldreserien til episodeoversikta og vel den etterspurde sesongen.
 
 `play` går gjennom den eksisterande spelaren og den eksisterande logikken for å halde fram. Spelaren har standard aktivitetsmodus og blir opna med `CLEAR_TOP`, slik at ein eksisterande spelar blir oppretta på nytt for måltittelen utan å stable fleire spelarar. Faktisk vidareføring av posisjon, byte av tittel under avspeling og Android-stakken på TV er **ikkje prøvde på eining i denne oppgåva**.

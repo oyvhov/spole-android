@@ -1,3 +1,10 @@
+# Retur til Stova etter eksterne detaljar
+2026-10-29: Funn M1 implementert i `720979c`: siste Tilbake frå eksterne detaljar legg Spole i bakgrunnen; underdetaljar går eitt nivå først. Vanleg navigasjon og økt-/profilvern er bevarte.
+73 målretta testar består (tre nye raude først); signert assembleRelease og lintRelease består, 0 lint-feil, 214 åtvaringar og 2 hint.
+Same beta26/163 med lokal fiks er installert med -r på Shield og Loftet etter uttrykkeleg løyve. Faktisk Stova-kort → Spole-detaljar → BACK → same Stova-kort er stadfesta på begge; installert SHA er b2b29163…9cef39b, same eigarsignatur og bevarte første installasjonsdatoar.
+Ingen avspeling, utlogging eller endring av kontoar/favorittar. Emby, barnemodus og underdetaljar er ikkje fysisk prøvde; sjå `docs/verification/2026-10-29-launcher-return.md`.
+Stova-popupane blir ferdigstilte og prøvde vidare i C:/Launcher. Ingen push, tag eller release er gjort; ingen spørsmål står att i Spole.
+
 # Lokal Spole beta22 – faktisk varm og kald Stova-kortopning bestått
 2026-10-25: Faktisk Stova-korttrykk feila i beta21 sjølv om direkte varm/kald ADB-opning fungerte: rett URI vart send, men berre Heim kom fram.
 Beta22/159 tek imot rå ACTION_VIEW i Main med same parser/økt-/konto-/barnevern. Mottakaren har tom affinity og handterer onNewIntent. Seks nye regresjonar feila først og er no grøne (18/18 i målretta klassar).
