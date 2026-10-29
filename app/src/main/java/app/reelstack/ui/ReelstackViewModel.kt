@@ -29,6 +29,21 @@ class ReelstackViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(initialState(container))
     val uiState: StateFlow<ReelstackUiState> = _uiState.asStateFlow()
+    private var launcherDetailOwner: SessionScope? = null
+    private val _launcherReturn = MutableStateFlow<SessionScope?>(null)
+    val launcherReturn: StateFlow<SessionScope?> = _launcherReturn.asStateFlow()
+
+    /** A one-shot request owned by the same account that opened the external details. */
+    fun consumeLauncherReturn(): Boolean {
+        val owner = _launcherReturn.value ?: return false
+        _launcherReturn.value = null
+        return container.connectionRepository.isCurrent(owner)
+    }
+
+    private fun clearLauncherReturn() {
+        launcherDetailOwner = null
+        _launcherReturn.value = null
+    }
     val sessionScope = container.connectionRepository.sessionScope
     val renderingSession = uiState.project { it.sessionScope }
     val homeUiState = uiState.project(ReelstackUiState::toHomeUiState)
@@ -70,6 +85,7 @@ class ReelstackViewModel(
         // Downloads are intentionally a personal mobile/tablet space. There is no TV or kids-mode
         // loophole through a notification, a restored tab, or a direct ViewModel call.
         if (tab == AppTab.DOWNLOADS && (_uiState.value.isKidMode || isTelevision())) return
+        clearLauncherReturn()
         // Keep the last library location when moving between tabs on a phone. The library loader can
         // refresh it in place, but dropping the path made a return to Films look like a new visit to the
         // library root every time. On a television Bibliotek is the library page itself.
@@ -108,6 +124,7 @@ class ReelstackViewModel(
 
     fun openGlobalSearch() {
         if (_uiState.value.isKidMode) return
+        clearLauncherReturn()
         features.globalSearch.cancel()
         _uiState.update {
             it.copy(
@@ -138,6 +155,7 @@ class ReelstackViewModel(
 
     /** An external launcher destination resets both the shared and the child-local navigation. */
     fun openLauncherHome() {
+        clearLauncherReturn()
         // Clears detail history, the episode return and the person trail first, so closing the
         // sheet closes it instead of stepping back to an earlier title.
         features.details.closeDetails()
@@ -155,6 +173,7 @@ class ReelstackViewModel(
         synchronizeSession()
         openLauncherHome()
         features.details.openRemoteDetails(kind, itemId)
+        if (_uiState.value.activeSheet is AppSheet.TitleDetails) launcherDetailOwner = boundSession
     }
 
     /** A library link remains bound to the user that the launcher receiver authenticated. */
@@ -173,10 +192,13 @@ class ReelstackViewModel(
         if (returnFromDetail()) return
         if (_uiState.value.returnToCalendar) { backToCalendar(); return }
         if (!features.requests.closeComposer()) return
+        val returnOwner = launcherDetailOwner.takeIf { _uiState.value.activeSheet is AppSheet.TitleDetails }
+        launcherDetailOwner = null
         features.details.closeDetails()
         features.connections.cancelConnectionSetup()
         _uiState.update { it.copy(activeSheet = null, contentDetails = null, returnToCalendar = false,
             seriesBrowse = SeriesBrowse(), connectionDraft = null) }
+        if (returnOwner != null && container.connectionRepository.isCurrent(returnOwner)) _launcherReturn.value = returnOwner
     }
 
     fun backToCalendar() {
@@ -185,6 +207,7 @@ class ReelstackViewModel(
 
     fun openAccountsSettings() {
         if (_uiState.value.isKidMode) return
+        clearLauncherReturn()
         _uiState.update { it.copy(activeSheet = null, selectedTab = AppTab.SETTINGS,
             accountsSettingsRequest = it.accountsSettingsRequest + 1) }
     }
@@ -199,6 +222,7 @@ class ReelstackViewModel(
         if (_uiState.value.signingOut || signOutJob?.isActive == true) return
         val next = container.connectionRepository.captureSession()
         if (next == boundSession || committingSession && next.profileId == boundSession.profileId) return
+        clearLauncherReturn()
         val previousProfileId = boundSession.profileId
         features.close()
         boundSession = next

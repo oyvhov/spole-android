@@ -154,4 +154,57 @@ class RemoteDetailsTest {
 
     private fun vm(loader: suspend (ServiceConnection, String) -> RemoteMediaDetails) =
         ReelstackViewModel(container, loader).also { store.put("vm", it) }
+
+    @Test fun closingExternalDetailsReturnsToLauncherExactlyOnceEvenWhileLoading() = runTest(dispatcher) {
+        val answer = CompletableDeferred<RemoteMediaDetails>()
+        val vm = vm { _, _ -> answer.await() }
+        vm.openRemoteDetails(ServiceKind.JELLYFIN, "abc")
+        assertFalse(vm.consumeLauncherReturn())
+        vm.closeSheet()
+        assertTrue(vm.consumeLauncherReturn())
+        assertFalse(vm.consumeLauncherReturn())
+    }
+
+    @Test fun backFromAnEpisodeReturnsToExternalSeriesBeforeReturningToLauncher() = runTest(dispatcher) {
+        val vm = vm { _, _ -> RemoteMediaDetails("Series", null, mediaType = "Series") }
+        vm.openRemoteDetails(ServiceKind.JELLYFIN, "series"); runCurrent()
+        vm.openEpisodeDetail(LibraryMedia("jellyfin-episode", "Episode", "", artworkRes = R.drawable.media_placeholder,
+            source = ServiceKind.JELLYFIN, remoteId = "episode", mediaType = "Episode"))
+        vm.closeSheet()
+        assertFalse(vm.consumeLauncherReturn())
+        assertEquals("series", vm.uiState.value.contentDetails?.remoteId)
+        vm.closeSheet()
+        assertTrue(vm.consumeLauncherReturn())
+    }
+
+    @Test fun aNewExternalLinkDoesNotReturnWhileResettingPreviousDetails() = runTest(dispatcher) {
+        val vm = vm { _, _ -> RemoteMediaDetails("Title", null) }
+        vm.openRemoteDetails(ServiceKind.JELLYFIN, "abc")
+        vm.openRemoteDetails(ServiceKind.EMBY, "def")
+        assertFalse(vm.consumeLauncherReturn())
+        vm.closeSheet()
+        assertTrue(vm.consumeLauncherReturn())
+    }
+
+    @Test fun ordinaryDetailsAndExplicitHomeDoNotReturnToLauncher() = runTest(dispatcher) {
+        val vm = vm { _, _ -> RemoteMediaDetails("Title", null) }
+        vm.openPersonTitle(LibraryMedia("jellyfin-abc", "Title", "", artworkRes = R.drawable.media_placeholder,
+            source = ServiceKind.JELLYFIN, remoteId = "abc"))
+        vm.closeSheet()
+        assertFalse(vm.consumeLauncherReturn())
+        vm.openRemoteDetails(ServiceKind.JELLYFIN, "abc")
+        vm.openLauncherHome()
+        assertFalse(vm.consumeLauncherReturn())
+        vm.closeSheet()
+        assertFalse(vm.consumeLauncherReturn())
+    }
+
+    @Test fun aReturnRequestCannotSurviveChangingProfile() = runTest(dispatcher) {
+        val vm = vm { _, _ -> RemoteMediaDetails("Title", null) }
+        vm.openRemoteDetails(ServiceKind.JELLYFIN, "abc")
+        vm.closeSheet()
+        repository.registerKidProfile("kid", "Barn", null)
+        repository.activeProfileId = "kid"
+        assertFalse(vm.consumeLauncherReturn())
+    }
 }

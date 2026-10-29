@@ -69,6 +69,10 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     factory = ReelstackViewModel.Factory(container),
                 )
                 activeViewModel = reelstackViewModel
+                val launcherReturn by reelstackViewModel.launcherReturn.collectAsStateWithLifecycle()
+                androidx.compose.runtime.LaunchedEffect(launcherReturn) {
+                    if (reelstackViewModel.consumeLauncherReturn()) moveTaskToBack(true)
+                }
                 // Every key on its way to the focused control passes here first. It is only
                 // reported, never handled, so the remote works exactly as it did. See SpoleEggs.
                 androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
