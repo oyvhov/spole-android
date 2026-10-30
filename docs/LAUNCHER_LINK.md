@@ -12,6 +12,35 @@ spole://library?kind=jellyfin|emby&user=<id>&library=<id>
 
 Vel éi teneste. `user` er brukar-ID-en i tenesta, og `library` er ID-en til biblioteket på den same tenaren. Begge følgjer ID-krava nedanfor. Spole brukar den lagra kontoen, kontrollerer at biblioteket er tilgjengeleg for kontoen og opnar det i vaksen- eller barneskalet. Dei same konto- og barnemodusgrensene som for tittellenkjer gjeld. Lenkja er eit Android app-til-app-kall utan `BROWSABLE`, og skal ikkje innehalde tilgangsteikn, passord eller tenesteadresser.
 
+Når startaren opna biblioteket, går siste Tilbake frå rota av det tilbake til startaren, slik ho gjer
+frå tittel-detaljar (`LibraryCoordinator.atLauncherLibraryRoot`). Inne i ei mappe går Tilbake først opp
+i biblioteket.
+
+## Godkjenn innlogging for Stova
+
+Stova viser ein Jellyfin Quick Connect-kode og kan be Spole godkjenne han som ein av kontoane Spole er
+logga inn med på den same tenaren. Stova får då si eiga innlogging frå tenaren: ingen tilgangsteikn,
+passord eller adresseliste går frå Spole.
+
+- Aktiviteten `app.reelstack.launcher.LauncherApproveActivity` har handlinga
+  `app.reelstack.action.APPROVE_SIGN_IN` og må startast med `startActivityForResult`, slik at Spole ser
+  kva app som spør. Berre `app.stova` og `app.stova.debug` får svar.
+- Ekstra: `app.reelstack.extra.SERVER_URL`, `app.reelstack.extra.SERVER_ID` (Jellyfin-`Id` frå
+  `System/Info/Public`, valfri), `app.reelstack.extra.CODE` (4–10 siffer) og
+  `app.reelstack.extra.FOR_CHILD` (barnekontoar først).
+- Spole tilbyr berre Jellyfin-kontoar på same tenar: same adresse (også den andre ruta), eller same
+  `Id` når adressene er ulike. Brukaren vel kontoen, og PIN-en til Spole må skrivast når han er sett.
+- Svar: `RESULT_OK` når koden er godkjend. Elles `RESULT_CANCELED` med `app.reelstack.extra.ERROR`:
+  `not_signed_in`, `declined` eller `failed`.
+
+## Framdrift tilbake til Stova
+
+Når spelaren stoppar eller går i bakgrunnen, sender Spole ein eksplisitt kringkasting til
+`app.stova` og `app.stova.debug` (`LauncherProgress`) med handlinga
+`app.reelstack.action.PLAYBACK_PROGRESS` og felta `kind` (`jellyfin`/`emby`), `user`, `item`,
+`position_ms`, `duration_ms` og `ended`. Meldinga er ikkje hemmeleg og gir ingen rettar; Stova rettar
+radene sine med ho til tenaren har fått stopprapporten.
+
 ## Låst format
 
 ```text

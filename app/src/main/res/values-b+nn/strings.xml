@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="launcher_not_signed_in">Denne kontoen er ikkje logga inn i Spole.</string>
+    <string name="launcher_approve_title">%1$s vil logge inn</string>
+    <string name="launcher_approve_body">Vel kontoen %1$s får bruke på %2$s. Han får si eiga innlogging; den i Spole blir verande her.</string>
+    <string name="launcher_approve_main">Hovudprofil</string>
+    <string name="launcher_approve_child">Barn</string>
+    <string name="launcher_approve_pin">Skriv PIN-koden for å godkjenne</string>
     <string name="launcher_kid_mode">Spole er i barnemodus. Gå ut av barnemodus i Spole først.</string>
     <string name="widget_title">Spelar no</string>
     <string name="widget_description">Viser kva som spelar på Jellyfin og Emby akkurat no.</string>

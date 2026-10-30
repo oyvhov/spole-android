@@ -43,6 +43,7 @@ class ReelstackViewModel(
     private fun clearLauncherReturn() {
         launcherDetailOwner = null
         _launcherReturn.value = null
+        features.library.forgetLauncherLibrary()
     }
     val sessionScope = container.connectionRepository.sessionScope
     val renderingSession = uiState.project { it.sessionScope }
@@ -374,7 +375,12 @@ class ReelstackViewModel(
     fun saveLibraryChoices(ids: Set<String>, shortcuts: List<String> = _uiState.value.libraryShortcuts.map { it.first },
         icons: Map<String, app.reelstack.data.model.LibraryIcon> = _uiState.value.libraryIcons) = features.library.saveLibraryChoices(ids, shortcuts, icons)
     fun browseLibrary(more: Boolean = false) = features.library.browseLibrary(more)
-    fun libraryBack() = features.library.libraryBack()
+    /** Back from a library a launcher opened, at its root, returns to the launcher as external details do. */
+    fun libraryBack() {
+        val toLauncher = features.library.atLauncherLibraryRoot()
+        features.library.libraryBack()
+        if (toLauncher) _launcherReturn.value = boundSession
+    }
     fun filterLibrary(filters: app.reelstack.data.model.LibraryFilters) = features.library.filterLibrary(filters)
     fun openLibraryEntry(id: String) = features.library.openLibraryEntry(id)
     fun openLibraryShortcut(id: String) = features.library.openLibraryShortcut(id)

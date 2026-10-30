@@ -78,6 +78,11 @@ internal class LibraryCoordinator(
     private var libraryChoicesJob: Job? = null
     private var libraryJob: Job? = null
     private var launcherLibraryJob: Job? = null
+    /** The library a launcher opened, while the viewer is still at its root: Back from there returns to the launcher. */
+    private var launcherLibraryRoot: String? = null
+
+    fun atLauncherLibraryRoot(): Boolean = launcherLibraryRoot != null && _uiState.value.libraryPath.singleOrNull()?.first == launcherLibraryRoot
+    fun forgetLauncherLibrary() { launcherLibraryRoot = null }
     private var shelfJob: Job? = null
     private var peekJob: Job? = null
 
@@ -166,6 +171,7 @@ internal class LibraryCoordinator(
                 _uiState.update { it.copy(libraryPath = listOf(view.id to view.name),
                     libraryCollectionType = view.collectionType, libraryEntries = emptyList(),
                     libraryOffset = 0, libraryHasMore = false) }
+                launcherLibraryRoot = view.id
                 launcherLibraryJob = null
                 browseLibrary()
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -331,6 +337,7 @@ internal class LibraryCoordinator(
     fun libraryBack() {
         launcherLibraryJob?.cancel()
         launcherLibraryJob = null
+        if (atLauncherLibraryRoot()) launcherLibraryRoot = null
         _uiState.update { it.copy(libraryPath = it.libraryPath.dropLast(1), libraryFilters = app.reelstack.data.model.LibraryFilters(),
             libraryEntries = emptyList(), libraryOffset = 0, libraryHasMore = false) }
         browseLibrary()

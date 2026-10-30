@@ -919,6 +919,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             player.duration.takeIf { it > 0 } ?: current.item.durationMs, player.playbackState == Player.STATE_ENDED) else null
         reports.offer(PlaybackReport(c, current, event, player.currentPosition.coerceAtLeast(0), !player.playWhenReady, journalId,
             player.playbackState == Player.STATE_ENDED, System.currentTimeMillis()))
+        // The TV's launcher (Stova) hears where the title stopped or was left, so its Continue row is right at once.
+        if (event == "/Stopped" || !foreground) app.reelstack.launcher.LauncherProgress.send(container.appContext, c.kind, c.userId,
+            current.item.id, player.currentPosition.coerceAtLeast(0), player.duration.takeIf { it > 0 } ?: current.item.durationMs,
+            player.playbackState == Player.STATE_ENDED)
     }
     private fun stopCurrent() {
         recoveryJob?.cancel(); recoveryJob = null

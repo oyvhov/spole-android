@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="launcher_not_signed_in">This account is not signed in to Spole.</string>
+    <string name="launcher_approve_title">%1$s wants to sign in</string>
+    <string name="launcher_approve_body">Pick the account %1$s may use on %2$s. It gets a sign-in of its own; Spole\'s stays here.</string>
+    <string name="launcher_approve_main">Main profile</string>
+    <string name="launcher_approve_child">Child</string>
+    <string name="launcher_approve_pin">Enter the PIN to approve</string>
     <string name="launcher_kid_mode">Spole is in kids mode. Leave kids mode in Spole first.</string>
     <string name="app_name" translatable="false">Spole</string>
     <string name="widget_title">Now playing</string>

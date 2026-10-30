@@ -123,6 +123,24 @@ class LibraryCoordinatorTest {
         assertFalse(transport.urls.any { it.contains("media.example") })
     }
 
+    @Test fun `back from the launcher's library root is the way back to the launcher`() = runTest {
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+        val feature = feature(snapshot)
+        assertFalse(feature.atLauncherLibraryRoot())
+        feature.openLauncherLibrary(ServiceKind.JELLYFIN, "films")
+        runCurrent()
+        assertTrue(feature.atLauncherLibraryRoot())
+        snapshot.value = snapshot.value.copy(libraryPath = snapshot.value.libraryPath + ("folder" to "Mappe"))
+        assertFalse("inside a folder, Back goes up in the library first", feature.atLauncherLibraryRoot())
+        feature.libraryBack()
+        assertTrue(feature.atLauncherLibraryRoot())
+        feature.libraryBack()
+        assertFalse("once left, the library is an ordinary one", feature.atLauncherLibraryRoot())
+        feature.openLauncherLibrary(ServiceKind.JELLYFIN, "films"); runCurrent()
+        feature.forgetLauncherLibrary()
+        assertFalse(feature.atLauncherLibraryRoot())
+    }
+
     @Test fun `launcher library survives a status refresh for the same account`() = runTest {
         val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
         feature(snapshot).openLauncherLibrary(ServiceKind.JELLYFIN, "films")

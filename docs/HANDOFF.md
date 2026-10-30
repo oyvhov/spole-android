@@ -1,3 +1,9 @@
+# Brua til Stova: godkjenn innlogging, framdrift og Tilbake frå bibliotek
+2026-10-31, greina `launcher-bridge` (bestilling i Stova: `docs/superpowers/plans/2026-10-30-spole-bridge.md`). `LauncherApproveActivity` godkjenner Quick Connect-koden Stova viser, berre for `app.stova`/`app.stova.debug`, berre med Jellyfin-kontoar på same tenar (adresse eller `Id`), med kontoval og PIN når han er sett. Stova får sin eigen token. `LauncherProgress` sender stopp/bakgrunn til Stova. Siste Tilbake frå rota av eit bibliotek startaren opna, går til startaren. Kontrakten står i `docs/LAUNCHER_LINK.md`.
+Kontroll: 1333 einingstestar (1 hoppa over), 0 feil; lint 0 feil; omsetjingar OK; signert assembleRelease (sertifikat 36fa94…, APK SHA-256 9c6b4338…). Android-testpakken på 5562 er ikkje køyrd.
+Loftet (eigaren: «installere det du vil»): same beta26/163 med greina installert med -r. Prøvd på eininga: Stova godkjende med Spole og fekk eigen konto; bibliotekflis → Barnefilmar → eitt Tilbake → same Stova-flis. Framdrift prøvd med debug-bygget på emulator-5580 (Stova sin): ekte avspeling → Tilbake → tittelen fremst i «Hald fram» med ny framdrift.
+Ikkje gjort: Shield, Emby (Quick Connect finst ikkje der), godkjenning med barnekonto og PIN. Ingen push, tag eller release.
+
 # Retur til Stova etter eksterne detaljar
 2026-10-29: Funn M1 implementert i `720979c`: siste Tilbake frå eksterne detaljar legg Spole i bakgrunnen; underdetaljar går eitt nivå først. Vanleg navigasjon og økt-/profilvern er bevarte.
 73 målretta testar består (tre nye raude først); signert assembleRelease og lintRelease består, 0 lint-feil, 214 åtvaringar og 2 hint.
