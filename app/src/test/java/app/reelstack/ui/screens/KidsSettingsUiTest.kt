@@ -67,16 +67,25 @@ class KidsSettingsUiTest {
         val shown = androidx.compose.runtime.mutableStateOf(two)
         rule.setContent {
             app.reelstack.ui.theme.ReelstackTheme {
+                // A TV moves focus with the remote; Robolectric starts in touch mode, where rows take no focus.
+                val input = androidx.compose.ui.platform.LocalInputModeManager.current
+                androidx.compose.runtime.SideEffect { input.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
                 Surface { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                     ServicesSettings(shown.value, {}, {}, {}, {}, onOwnProfile = { kind, name, avatar -> made += Triple(kind, name, avatar) })
                 } }
             }
         }
-        rule.onNodeWithTag("make-own-profile-EMBY").performScrollTo().assertIsDisplayed().performClick()
+        rule.onNodeWithTag("make-own-profile-JELLYFIN").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("make-own-profile-EMBY").performScrollTo().assertIsDisplayed()
+        rule.runOnIdle { }
+        rule.onNodeWithTag("make-own-profile-EMBY").requestFocus().assertIsFocused().performClick()
         rule.runOnIdle { assertEquals(listOf(Triple(ServiceKind.EMBY, "Eilev", "https://emby.example/Users/eilev/Images/Primary?tag=a")), made) }
         shown.value = two.copy(profiles = two.profiles + UserProfile("emby-eilev", "Eilev", isKid = false))
         rule.onNodeWithTag("make-own-profile-EMBY").assertDoesNotExist()
+        // Found on the Shield: the pressed row turned into another node, focus fell to the menu and changed section.
+        rule.onNodeWithTag("own-profile-emby-eilev").assertIsFocused()
         rule.onNodeWithTag("own-profile-emby-eilev").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("make-own-profile-JELLYFIN").assertDoesNotExist()
         // From a child's profile, or an own one, there is nothing to make.
         shown.value = two.copy(activeProfileId = "emby-eilev")
         rule.onNodeWithTag("make-own-profile-EMBY").assertDoesNotExist()

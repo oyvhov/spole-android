@@ -86,20 +86,22 @@ private fun OwnProfiles(state: ReelstackUiState, onOwnProfile: (ServiceKind, Str
     val own = state.profiles.filter { !it.isMain && !it.isKid }
     if (library.size < 2 && own.isEmpty()) return
     SettingsGroup(stringResource(R.string.own_profiles_title), stringResource(R.string.own_profiles_hint))
+    fun ownOf(connection: ServiceConnection) =
+        own.firstOrNull { it.id == app.reelstack.data.repository.ownProfileId(connection.kind, connection.userId) }
+    // The last account without its own profile is the main profile's own: nothing to make for it.
+    val offered = library.count { ownOf(it) == null } >= 2
     library.forEach { connection ->
-        val id = app.reelstack.data.repository.ownProfileId(connection.kind, connection.userId)
-        val existing = own.firstOrNull { it.id == id }
-        if (existing != null) {
-            SettingsActionRow(existing.name, stringResource(R.string.own_profile_exists, connection.kind.displayName),
-                "own-profile-$id", SpoleIcons.Person) {}
-            return@forEach
-        }
-        val account = state.accounts[connection.kind] ?: return@forEach
-        SettingsActionRow(stringResource(R.string.own_profile_make, account.displayName),
-            stringResource(R.string.own_profile_make_hint, account.displayName, connection.kind.displayName),
-            "make-own-profile-${connection.kind}", SpoleIcons.Person) {
-            onOwnProfile(connection.kind, account.displayName, account.avatarUrl)
-        }
+        val existing = ownOf(connection)
+        val account = state.accounts[connection.kind]
+        if (existing == null && (!offered || account == null)) return@forEach
+        // One row per account that changes from offer to profile, so it keeps the focus it was
+        // pressed with even as the main profile's own offer above it goes.
+        key(connection.kind) { SettingsActionRow(
+            existing?.name ?: stringResource(R.string.own_profile_make, account!!.displayName),
+            if (existing != null) stringResource(R.string.own_profile_exists, connection.kind.displayName)
+            else stringResource(R.string.own_profile_make_hint, account!!.displayName, connection.kind.displayName),
+            if (existing != null) "own-profile-${existing.id}" else "make-own-profile-${connection.kind}", SpoleIcons.Person,
+        ) { if (existing == null && account != null) onOwnProfile(connection.kind, account.displayName, account.avatarUrl) } }
     }
 }
 
