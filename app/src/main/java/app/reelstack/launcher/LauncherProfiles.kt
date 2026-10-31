@@ -37,7 +37,35 @@ fun launcherProfiles(profiles: List<UserProfile>, connectionsOf: (String) -> Lis
     }
 }
 
-/** `content://<package>.launcher/profiles`, for Stova only: the profiles it may offer as tiles. Read-only. */
+/** What Spole does when the person changes in Stova. */
+sealed interface LauncherSelection {
+    data class To(val profileId: String) : LauncherSelection
+    data object Already : LauncherSelection
+    /** Out of a child's profile past Spole's PIN: a launcher cannot do that, a parent can in Spole. */
+    data object Blocked : LauncherSelection
+    data object Unknown : LauncherSelection
+}
+
+/**
+ * The profile with this account, an own or child profile before the main one, as for `spole://profile`.
+ * Spole follows the person chosen in Stova, but never out of a child's profile when Spole has a PIN.
+ */
+fun launcherSelection(kind: ServiceKind, user: String, activeProfileId: String, profiles: List<UserProfile>,
+    connectionsOf: (String) -> List<ServiceConnection>, pinConfigured: Boolean): LauncherSelection {
+    fun has(id: String) = connectionsOf(id).any { it.kind == kind && it.userId == user && it.token.isNotBlank() }
+    val target = profiles.filterNot { it.isMain }.sortedBy { it.isKid }.firstOrNull { has(it.id) }
+        ?: profiles.firstOrNull { it.isMain }?.takeIf { has("") } ?: return LauncherSelection.Unknown
+    if (target.id == activeProfileId) return LauncherSelection.Already
+    val active = profiles.firstOrNull { it.id == activeProfileId }
+    val kidMode = activeProfileId.isNotBlank() && active?.isKid != false
+    if (kidMode && pinConfigured) return LauncherSelection.Blocked
+    return LauncherSelection.To(target.id)
+}
+
+/**
+ * `content://<package>.launcher/profiles`, for Stova only: the profiles it may offer as tiles, and
+ * `call("select_profile", kind, user)` to follow the person chosen in Stova. Nothing else is written.
+ */
 class LauncherProfilesProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
@@ -49,6 +77,25 @@ class LauncherProfilesProvider : ContentProvider() {
             cursor.addRow(arrayOf<Any?>(it.id, it.name, it.kind, it.user, it.avatar, if (it.kid) 1 else 0))
         }
         return cursor
+    }
+
+    override fun call(method: String, arg: String?, extras: android.os.Bundle?): android.os.Bundle? {
+        if (method != "select_profile" || !launcherMayList(callingPackage)) return null
+        val kind = when (extras?.getString("kind")) { "jellyfin" -> ServiceKind.JELLYFIN; "emby" -> ServiceKind.EMBY; else -> return null }
+        val user = extras.getString("user")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return null
+        val container = (context?.applicationContext as? ReelstackApplication)?.container ?: return null
+        val repository = container.connectionRepository
+        val result = launcherSelection(kind, user, repository.activeProfileId, repository.listProfiles(), repository::list,
+            container.pinSecurity.isPinConfigured())
+        if (result is LauncherSelection.To) repository.activeProfileId = result.profileId
+        // Fixed words: R8 renames classes in a release.
+        val word = when (result) {
+            is LauncherSelection.To -> "to"
+            LauncherSelection.Already -> "already"
+            LauncherSelection.Blocked -> "blocked"
+            LauncherSelection.Unknown -> "unknown"
+        }
+        return android.os.Bundle().apply { putString("result", word) }
     }
 
     override fun getType(uri: Uri): String = "vnd.android.cursor.dir/vnd.app.reelstack.profile"

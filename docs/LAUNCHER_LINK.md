@@ -39,8 +39,13 @@ barneprofil er aktiv», ikkje «ein annan profil enn hovudprofilen er aktiv».
 `app.reelstack.debug.launcher`) gir éi rad per profil med ein innlogga Jellyfin- eller Emby-konto:
 `id`, `name`, `kind` (`jellyfin`/`emby`), `user`, `avatar` og `kid` (0/1). Hovudprofilen gir ein konto
 som ikkje har eigen profil, Jellyfin før Emby. `avatar` er adressa til brukarbiletet på tenaren og har
-ingen token. Berre `app.stova` og `app.stova.debug` får rader; andre får ingen. Lista er berre for
-lesing.
+ingen token. Berre `app.stova` og `app.stova.debug` får rader; andre får ingen.
+
+Når nokon byter profil i Stova, kallar Stova `call("select_profile", null, {kind, user})` på same
+leverandør. Spole byter til profilen med den kontoen (eigen profil eller barneprofil før
+hovudprofilen) og svarar `result` = `to`, `already`, `blocked` eller `unknown`. Spole går aldri ut av
+ein barneprofil på denne måten når Spole har PIN (`blocked`); det gjer ein vaksen i Spole. Andre enn
+Stova får `null`, og ingenting anna blir skrive.
 
 ## Godkjenn innlogging for Stova
 

@@ -33,6 +33,27 @@ class LauncherProfilesTest {
         assertFalse(rows.toString().contains("secret"))
     }
 
+    private fun select(user: String, kind: ServiceKind = ServiceKind.EMBY, active: String = "", pin: Boolean = false) =
+        launcherSelection(kind, user, active, profiles, { connections[it].orEmpty() }, pin)
+
+    @Test fun stovasProfileSwitchTakesSpoleToThatPersonsProfile() {
+        assertEquals(LauncherSelection.To("emby-eilev"), select("eilev"))
+        assertEquals(LauncherSelection.To(""), select("oyvind", ServiceKind.JELLYFIN, active = "emby-eilev"))
+        assertEquals(LauncherSelection.Already, select("eilev", active = "emby-eilev"))
+        assertEquals(LauncherSelection.Unknown, select("nobody"))
+    }
+
+    @Test fun stovaCannotTakeSpoleOutOfAChildsProfilePastItsPin() {
+        assertEquals(LauncherSelection.Blocked, select("oyvind", ServiceKind.JELLYFIN, active = "kid", pin = true))
+        assertEquals(LauncherSelection.To(""), select("oyvind", ServiceKind.JELLYFIN, active = "kid", pin = false))
+    }
+
+    @Test fun theProviderSwitchesForNoOneButStova() {
+        val provider = Robolectric.setupContentProvider(LauncherProfilesProvider::class.java, "app.reelstack.launcher")
+        val extras = android.os.Bundle().apply { putString("kind", "emby"); putString("user", "eilev") }
+        assertEquals(null, provider.call("select_profile", null, extras))
+    }
+
     @Test fun onlyStovaMayAsk() {
         assertTrue(launcherMayList("app.stova"))
         assertTrue(launcherMayList("app.stova.debug"))

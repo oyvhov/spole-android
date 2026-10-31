@@ -36,6 +36,7 @@ internal inline fun LauncherLink.routeInMain(
 
 object LauncherLinks {
     private val identifier = Regex("[A-Za-z0-9_-]{1,128}")
+    fun isIdentifier(value: String): Boolean = identifier.matches(value)
     private val encodedBytes = Regex("(?:%[0-9A-Fa-f]{2})+")
 
     fun parse(raw: String?): LauncherLink? {
