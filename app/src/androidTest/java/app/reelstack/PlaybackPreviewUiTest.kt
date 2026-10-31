@@ -64,7 +64,16 @@ class PlaybackPreviewUiTest {
         timeline.performKeyInput { pressKey(Key.DirectionRight) }
         rule.onNodeWithTag("player-thumbnail-preview").assertIsDisplayed()
         assertEquals(bounds, timeline.fetchSemanticsNode().boundsInRoot)
-        assertTrue(rule.onNodeWithTag("player-thumbnail-preview").fetchSemanticsNode().boundsInRoot.bottom <= bounds.top)
+        val early = rule.onNodeWithTag("player-thumbnail-preview").fetchSemanticsNode().boundsInRoot
+        val density = rule.density.density
+        // Just above the timeline, not halfway up the screen.
+        assertTrue(early.bottom <= bounds.top && early.bottom >= bounds.top - 32 * density)
+        // 10 s of 60: the picture is in the left part of the screen, not centred on it.
+        assertTrue("centre ${early.center.x} of ${bounds.right}", early.center.x < (bounds.left + bounds.right) / 2)
+        timeline.performKeyInput { repeat(3) { pressKey(Key.DirectionRight) } }
+        rule.waitUntil(2_000) { rule.onNodeWithTag("player-thumbnail-preview").fetchSemanticsNode().boundsInRoot.center.x > early.center.x }
+        val later = rule.onNodeWithTag("player-thumbnail-preview").fetchSemanticsNode().boundsInRoot
+        assertTrue("40 s of 60 lies right of the middle", later.center.x > (bounds.left + bounds.right) / 2)
         saveTvReview("player-trickplay-tv", rule.onNodeWithTag("jellyfin-player").captureToImage())
     }
 }
