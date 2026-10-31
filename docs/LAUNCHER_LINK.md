@@ -22,7 +22,8 @@ i biblioteket.
 spole://profile?kind=jellyfin|emby&user=<id>
 ```
 
-Opnar Spole på Heim som profilen som har kontoen, for ei profilflis i startaren. Ein eigen profil
+Opnar Spole på Heim som profilen som har kontoen, for ei profilflis i startaren. Lenkja har eige
+filter for verten `profile` i manifestet, som `open` og `library`. Ein eigen profil
 (vaksen eller barn) med kontoen vinn over hovudprofilen; finst kontoen berre i hovudprofilen, blir det
 hovudprofilen. Spole byter profil først når det trengst. Frå barnemodus byter ei lenkje aldri profil.
 `user` følgjer ID-krava nedanfor.

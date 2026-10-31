@@ -71,6 +71,19 @@ class LauncherOpenActivityTest {
         assertTrue(activity.isFinishing)
     }
 
+    @Test fun profileLinkForwardsToMainAsThatProfileWithNoItem() {
+        val activity = Robolectric.buildActivity(TestActivity::class.java,
+            Intent(Intent.ACTION_VIEW, Uri.parse("spole://profile?kind=jellyfin&user=child-user"))).create().get()
+        val next = shadowOf(activity).nextStartedActivity
+        assertEquals(MainActivity::class.java.name, next.component?.className)
+        assertEquals("PROFILE", next.getStringExtra("launcher_action"))
+        assertEquals("child-user", next.getStringExtra("launcher_user"))
+        assertEquals("kid", next.getStringExtra("launcher_switch_profile"))
+        assertFalse(next.hasExtra("launcher_item"))
+        assertFalse(next.hasExtra("launcher_library"))
+        assertTrue(activity.isFinishing)
+    }
+
     @Test fun unmatchedLibraryLinkUsesTheSameNotSignedInMessage() {
         val activity = Robolectric.buildActivity(TestActivity::class.java,
             Intent(Intent.ACTION_VIEW, Uri.parse("spole://library?kind=jellyfin&user=unknown&library=films"))).create().get()
@@ -120,9 +133,9 @@ class LauncherOpenActivityTest {
         assertNotEquals(main.taskAffinity, receiver.taskAffinity)
     }
 
-    @Test fun manifestResolvesOpenAndLibraryAsSeparateLauncherHosts() {
+    @Test fun manifestResolvesOpenLibraryAndProfileAsSeparateLauncherHosts() {
         val context = RuntimeEnvironment.getApplication()
-        listOf("open", "library").forEach { host ->
+        listOf("open", "library", "profile").forEach { host ->
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("spole://$host"))
                 .addCategory(Intent.CATEGORY_DEFAULT).setPackage(context.packageName)
             val matches = context.packageManager.queryIntentActivities(intent, 0)
