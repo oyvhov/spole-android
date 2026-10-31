@@ -30,3 +30,16 @@ No:
 - Isolert TV 5566: PlaybackPreviewUiTest 2/2, PlayerSeekLayoutTest 14/14, TvPlaybackControlsTest 15/15, JellyfinPlayerUiTest 14/14, JellyfinPlayerTest 44/44.
 
 Ingen førespurnad vart send, og ingen avspeling starta på den ekte kontoen.
+
+## Publisering og oppdatering
+
+- Release `v1.0.0-beta27` publisert 31. oktober 2026 som prerelease med éin APK
+  (28 060 400 byte, SHA-256 `909ddc8b93399e8aa4eb936aafd5c2b2eb702234ad039f3cc42f700018769a36`),
+  mapping, `SOURCE_COMMIT.txt`, `SHA256SUMS.txt`, FFmpeg-kjelda og kjeldearkivet for dei native
+  undertekstbiblioteka (begge med same digest som ved beta26). Alle seks digestane på GitHub var like
+  dei lokale filene, og den offentlege nedlastinga gav same SHA-256 som det bygde APK-et. Sertifikat
+  `36fa94f0…1a10`; dei 20 native biblioteka er byte for byte like beta26.
+- Oppdatering i appen på isolert TV 5566: den installerte offisielle utgåva viste at beta27 var klar.
+  «Sjå oppdatering» → «Last ned oppdatering» → «Installer oppdatering» → Android «Update» →
+  «App installed.», og appen opna att med data frå før.
+- CI «Bygg og test» for `1ffcdea`: grøn.
