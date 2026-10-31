@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta27 — førehandsbiletet ved spoling ligg der du spolar
+
+- Biletet som viser kvar du spolar til, ligg no rett over punktet på tidslina og følgjer det, i staden for midt på skjermen. Det stoppar ved endane av tidslina.
+- Biletet er enklare: berre sjølve biletet med ein tynn kant og tida inni, utan boks rundt. «+10 s»-merket blir ikkje vist oppå når biletet viser tida.
+- Spolar du med skjulte kontrollar på TV, ligg biletet rett over den vesle tida nedst på skjermen.
+
 ## 1.0.0-beta26 — biblioteklenkjer og TV-navigasjon
 
 - Stova og andre Android-startarar kan opne eit bestemt Jellyfin- eller Emby-bibliotek i Spole. Opninga brukar den lagra kontoen og følgjer grensene for barnemodus.
