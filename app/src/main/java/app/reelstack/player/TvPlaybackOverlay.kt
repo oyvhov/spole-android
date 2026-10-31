@@ -25,7 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.boundsInRoot
 import app.reelstack.R
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.drawTimelineHandle
@@ -40,7 +40,9 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     seekFeedback: TvSeekFeedback?,
     onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
     optionsFocus: FocusRequester, onOptions: () -> Unit,
-    onPreviewPosition: (Long?) -> Unit = {}, onTimelineTop: (Float) -> Unit = {},
+    onPreviewPosition: (Long?) -> Unit = {}, onTimelineTrack: (androidx.compose.ui.geometry.Rect) -> Unit = {},
+    /** A seek picture is shown with its own time: no «+10 s» badge on top of it. */
+    seekPicture: Boolean = false,
     showPlaybackModeLine: Boolean = false,
     /** Kids mode: no tools row, parental defaults. */
     kids: Boolean = false) {
@@ -75,7 +77,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     // One number, number-free direction glyphs, and a quiet fade. Keep the last value through exit.
     val transientIndicator = @Composable {
         AnimatedVisibility(
-            visible = feedbackVisible,
+            visible = feedbackVisible && !seekPicture,
             enter = fadeIn(tween(if (motion) 120 else 0)),
             exit = fadeOut(tween(if (motion) 240 else 0)),
             modifier = Modifier.align(Alignment.Center),
@@ -144,8 +146,13 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val progress = if (state.durationMs > 0) position.toFloat() / state.durationMs else 0f
         val timelineLabel = stringResource(R.string.player_timeline)
+        val trackInset = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.toPx() }
         Box(Modifier.fillMaxWidth().height(48.dp).focusRequester(playFocus)
-            .onGloballyPositioned { onTimelineTop(it.positionInRoot().y) }
+            .onGloballyPositioned { coordinates ->
+                // The visible track runs inside the 12 dp padding at either end of this box.
+                val bounds = coordinates.boundsInRoot()
+                onTimelineTrack(androidx.compose.ui.geometry.Rect(bounds.left + trackInset, bounds.top, bounds.right - trackInset, bounds.bottom))
+            }
             .focusProperties {
                 up = nextFocus ?: FocusRequester.Default
                 down = if (!kids) tools else FocusRequester.Default

@@ -58,7 +58,7 @@ import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -266,7 +266,9 @@ fun PlayerScreen(
     }
     var scrubbing by remember { mutableStateOf(false) }
     var thumbnailPosition by remember(state.itemId) { mutableStateOf<Long?>(null) }
-    var timelineTop by remember { mutableStateOf(0f) }
+    // The timeline's track in root coordinates: the seek picture sits above the point being sought.
+    var timelineTrack by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val seekPicture = !kids && !offline && (state.trickplay != null || state.chapters.any { it.imageUrl != null })
     val scope = rememberCoroutineScope()
     var remoteSeekTargetMs by remember(state.itemId) { mutableStateOf<Long?>(null) }
     var remoteSeekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -521,7 +523,7 @@ fun PlayerScreen(
                 seekFeedback,
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
                 optionsFocus = optionsFocus, onOptions = { menu = PlayerMenu.HOME },
-                onPreviewPosition = { thumbnailPosition = it }, onTimelineTop = { timelineTop = it },
+                onPreviewPosition = { thumbnailPosition = it }, onTimelineTrack = { timelineTrack = it }, seekPicture = seekPicture,
                 showPlaybackModeLine = appearance.showPlaybackModeInOsd, kids = kids)
             val offerTopInset = if (showControls) 27.dp + with(androidx.compose.ui.platform.LocalDensity.current) {
                 MaterialTheme.typography.titleMedium.lineHeight.toDp()
@@ -654,6 +656,7 @@ fun PlayerScreen(
                             kids -> 24.dp
                             else -> 20.dp
                         }
+                        val handleSizePx = with(androidx.compose.ui.platform.LocalDensity.current) { handleSize.toPx() }
                         val timelineColors = SliderDefaults.colors(thumbColor = Color.White,
                             activeTrackColor = Color.White, inactiveTrackColor = Color.White.copy(alpha = .28f),
                             disabledActiveTrackColor = Color.White.copy(alpha = .5f),
@@ -704,7 +707,12 @@ fun PlayerScreen(
                             },
                             valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(), enabled = !state.busy && state.error == null && state.durationMs > 0,
                             modifier = Modifier.fillMaxWidth().heightIn(min = if (largeTimeline) 64.dp else 48.dp)
-                                .onGloballyPositioned { timelineTop = it.positionInRoot().y }.testTag("player-timeline"))
+                                .onGloballyPositioned { coordinates ->
+                                    // Material's track runs between the centres of the handle at either end.
+                                    val bounds = coordinates.boundsInRoot()
+                                    val inset = handleSizePx / 2f
+                                    timelineTrack = androidx.compose.ui.geometry.Rect(bounds.left + inset, bounds.top, bounds.right - inset, bounds.bottom)
+                                }.testTag("player-timeline"))
                         Row(
                             Modifier.fillMaxWidth().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -870,9 +878,18 @@ fun PlayerScreen(
             }
         }
         if (!kids && menu == null && !statsVisible && !offline) (thumbnailPosition ?: remoteSeekTargetMs)?.let { position ->
-            val top = with(androidx.compose.ui.platform.LocalDensity.current) { timelineTop.toDp() - 150.dp }
-            PlaybackSeekPreview(position, state.trickplay, state.chapters, state.source,
-                Modifier.align(Alignment.TopCenter).offset(y = top.coerceAtLeast(16.dp)))
+            val width = if (isTelevision) 200.dp else 168.dp
+            if (showControls && timelineTrack != androidx.compose.ui.geometry.Rect.Zero) {
+                // Over the point being sought, following it along the timeline.
+                val fraction = if (state.durationMs > 0) position.toFloat() / state.durationMs else 0f
+                SeekPreviewPlacement(timelineTrack, fraction) {
+                    PlaybackSeekPreview(position, state.trickplay, state.chapters, state.source, width = width)
+                }
+            } else if (isTelevision) {
+                // Seeking with the controls hidden: just above the small time at the bottom.
+                PlaybackSeekPreview(position, state.trickplay, state.chapters, state.source,
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = 104.dp), width = width)
+            }
         }
         gestureFeedback?.let { feedback ->
             Surface(Modifier.align(Alignment.Center).testTag("player-gesture-feedback"),
