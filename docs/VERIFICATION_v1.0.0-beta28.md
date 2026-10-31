@@ -34,3 +34,16 @@ med greinene `launcher-bridge` og `launcher-profiles`.
 - Loftet (release, `install -r`): Stova-flisa → `LauncherOpenActivity` → Heim som Øyvind; lenkjefilteret for
   `profile` vart funne mangla her og retta. Profilbyte i Stova utan krasj.
 - Emulator-5580 (debug): profillista svarar ikkje `adb shell`; Tilbake frå Spole går til Stova.
+
+## Publisering og oppdatering
+
+- Release `v1.0.0-beta28` publisert 1. november 2026 som prerelease med éin APK (28 082 972 byte, SHA-256
+  `380993628cd1b717d7880d9563bd997953ce0a5c0af4d71d56e6951a389a3789`), mapping, `SOURCE_COMMIT.txt`
+  (`680d440`), `SHA256SUMS.txt`, FFmpeg-kjelda og kjeldearkivet for dei native undertekstbiblioteka. Alle
+  digestane på GitHub var like dei lokale filene. Den offentlege lista (utan token) viste utgåva som ikkje
+  kladd, og den offentlege nedlastinga gav same SHA-256 som det bygde APK-et.
+- Oppdatering i appen på isolert TV 5566 frå den offisielle beta27: Appoppdateringar → «Sjekk no» viste
+  beta28 med release-notata → «Last ned oppdatering» → «Installer oppdatering» → Android «Update» → «App
+  installed.». Installert versjonskode 165, og appen opna att med same innhald som før.
+- CI «Bygg og test» for `680d440`: grøn.
+
