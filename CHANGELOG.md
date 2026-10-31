@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta28 — eigne profilar, og Spole saman med Stova
+
+- Ein konto i hovudprofilen, til dømes Emby-kontoen til eit barn ved sida av Jellyfin-kontoen til ein forelder, kan få sin eigen profil: Tenestene dine → Profilar → «Eigen profil for …». Profilen er vanlege Spole med berre den kontoen, han ligg i profilmenyen i hjørnet, og ingen ny innlogging trengst. Hovudprofilen held fram med alt.
+- Frå ein barneprofil til ein eigen profil krev PIN-en, som til hovudprofilen. Frå ein eigen profil til hovudprofilen krev han ikkje.
+- Hovudprofilen blir ikkje lenger kalla opp etter ein konto som har sin eigen profil, så han får att namnet og biletet til eigaren.
+- Stova kan logge inn med Spole: i Quick Connect-steget i Stova godkjenner Spole koden, og Stova får si eiga innlogging frå Jellyfin. Ingen innlogging blir delt mellom appane.
+- Stova får vite kvar avspelinga stoppa, så «Hald fram» i Stova er rett med ein gong.
+- Stova kan opne Spole som ein bestemt person (`spole://profile`), vise profilane i Spole som fliser med profilbiletet, og ta Spole med når nokon byter profil i Stova. Spole går aldri ut av ein barneprofil med PIN på denne måten.
+- Opnar Stova eit bibliotek, går siste Tilbake frå rota av det tilbake til Stova. Det same gjeld tittel-detaljar Stova opna.
+
 ## 1.0.0-beta27 — førehandsbiletet ved spoling ligg der du spolar
 
 - Biletet som viser kvar du spolar til, ligg no rett over punktet på tidslina og følgjer det, i staden for midt på skjermen. Det stoppar ved endane av tidslina.
