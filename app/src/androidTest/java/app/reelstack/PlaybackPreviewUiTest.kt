@@ -64,6 +64,8 @@ class PlaybackPreviewUiTest {
         timeline.performKeyInput { pressKey(Key.DirectionRight) }
         rule.onNodeWithTag("player-thumbnail-preview").assertIsDisplayed()
         assertEquals(bounds, timeline.fetchSemanticsNode().boundsInRoot)
+        // The picture carries the time; a second «+10 s» badge over it is clutter.
+        rule.onNodeWithTag("player-seek-transient-indicator").assertDoesNotExist()
         val early = rule.onNodeWithTag("player-thumbnail-preview").fetchSemanticsNode().boundsInRoot
         val density = rule.density.density
         // Just above the timeline, not halfway up the screen.

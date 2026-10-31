@@ -41,6 +41,8 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     onInteraction: () -> Unit, onFocusWithin: (Boolean) -> Unit,
     optionsFocus: FocusRequester, onOptions: () -> Unit,
     onPreviewPosition: (Long?) -> Unit = {}, onTimelineTrack: (androidx.compose.ui.geometry.Rect) -> Unit = {},
+    /** A seek picture is shown with its own time: no «+10 s» badge on top of it. */
+    seekPicture: Boolean = false,
     showPlaybackModeLine: Boolean = false,
     /** Kids mode: no tools row, parental defaults. */
     kids: Boolean = false) {
@@ -75,7 +77,7 @@ internal fun BoxScope.TvPlaybackOverlay(state: PlayerScreenState, shown: Boolean
     // One number, number-free direction glyphs, and a quiet fade. Keep the last value through exit.
     val transientIndicator = @Composable {
         AnimatedVisibility(
-            visible = feedbackVisible,
+            visible = feedbackVisible && !seekPicture,
             enter = fadeIn(tween(if (motion) 120 else 0)),
             exit = fadeOut(tween(if (motion) 240 else 0)),
             modifier = Modifier.align(Alignment.Center),

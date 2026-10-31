@@ -268,6 +268,7 @@ fun PlayerScreen(
     var thumbnailPosition by remember(state.itemId) { mutableStateOf<Long?>(null) }
     // The timeline's track in root coordinates: the seek picture sits above the point being sought.
     var timelineTrack by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val seekPicture = !kids && !offline && (state.trickplay != null || state.chapters.any { it.imageUrl != null })
     val scope = rememberCoroutineScope()
     var remoteSeekTargetMs by remember(state.itemId) { mutableStateOf<Long?>(null) }
     var remoteSeekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -522,7 +523,7 @@ fun PlayerScreen(
                 seekFeedback,
                 onInteraction = { interaction++ }, onFocusWithin = { controlsHaveFocus = it },
                 optionsFocus = optionsFocus, onOptions = { menu = PlayerMenu.HOME },
-                onPreviewPosition = { thumbnailPosition = it }, onTimelineTrack = { timelineTrack = it },
+                onPreviewPosition = { thumbnailPosition = it }, onTimelineTrack = { timelineTrack = it }, seekPicture = seekPicture,
                 showPlaybackModeLine = appearance.showPlaybackModeInOsd, kids = kids)
             val offerTopInset = if (showControls) 27.dp + with(androidx.compose.ui.platform.LocalDensity.current) {
                 MaterialTheme.typography.titleMedium.lineHeight.toDp()
@@ -877,10 +878,17 @@ fun PlayerScreen(
             }
         }
         if (!kids && menu == null && !statsVisible && !offline) (thumbnailPosition ?: remoteSeekTargetMs)?.let { position ->
-            val fraction = if (state.durationMs > 0) position.toFloat() / state.durationMs else 0f
-            SeekPreviewPlacement(timelineTrack, fraction) {
+            val width = if (isTelevision) 200.dp else 168.dp
+            if (showControls && timelineTrack != androidx.compose.ui.geometry.Rect.Zero) {
+                // Over the point being sought, following it along the timeline.
+                val fraction = if (state.durationMs > 0) position.toFloat() / state.durationMs else 0f
+                SeekPreviewPlacement(timelineTrack, fraction) {
+                    PlaybackSeekPreview(position, state.trickplay, state.chapters, state.source, width = width)
+                }
+            } else if (isTelevision) {
+                // Seeking with the controls hidden: just above the small time at the bottom.
                 PlaybackSeekPreview(position, state.trickplay, state.chapters, state.source,
-                    width = if (isTelevision) 224.dp else 168.dp)
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = 104.dp), width = width)
             }
         }
         gestureFeedback?.let { feedback ->
