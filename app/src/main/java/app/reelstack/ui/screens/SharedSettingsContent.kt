@@ -33,7 +33,8 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
     onHomeRowOrderChange: (List<HomeRow>) -> Unit, onSignOutAll: () -> Unit, onAddProfile: () -> Unit = {},
     onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {},
-    onDisablePin: () -> Unit = {}, homeEditor: HomeEditorActions = HomeEditorActions()) {
+    onDisablePin: () -> Unit = {}, homeEditor: HomeEditorActions = HomeEditorActions(),
+    onOwnProfile: (ServiceKind, String, String?) -> Unit = { _, _, _ -> }) {
     val context = LocalContext.current.applicationContext
     val preferences = remember(context) { AppPreferencesRepository(context) }
     val options = LocalPersonalization.current
@@ -67,7 +68,7 @@ internal fun SharedSettingsContent(category: SettingsCategory, state: ReelstackU
                 options.slowStartup, "slow-startup") { change(options.copy(slowStartup = it)) }
         }
         SettingsCategory.ACCOUNTS -> ServicesSettings(state, onConnectionClick, onAccountClick, onSignOutAll, onAddProfile,
-            onRequestPinSetup, onDisablePin)
+            onRequestPinSetup, onDisablePin, onOwnProfile)
         SettingsCategory.UPDATES -> {
             app.reelstack.update.AppUpdateSettings(grouped = !isTelevision())
             val isTelevision = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION

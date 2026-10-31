@@ -57,6 +57,31 @@ class KidsSettingsUiTest {
         rule.onNodeWithTag("settings-add-child").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun anotherPersonsAccountInTheMainProfileCanGetItsOwnProfile() {
+        val two = ReelstackUiState(profiles = listOf(UserProfile("", "Øyvind", false)), connections = listOf(
+            ServiceConnection(ServiceKind.JELLYFIN, "Jellyfin", "https://jf.example", "t1", userId = "oyvind"),
+            ServiceConnection(ServiceKind.EMBY, "Emby", "https://emby.example", "t2", userId = "eilev")),
+            accounts = mapOf(ServiceKind.JELLYFIN to ServiceAccount(ServiceKind.JELLYFIN, "oyvind", "Øyvind"),
+                ServiceKind.EMBY to ServiceAccount(ServiceKind.EMBY, "eilev", "Eilev", avatarUrl = "https://emby.example/Users/eilev/Images/Primary?tag=a")))
+        val made = mutableListOf<Triple<ServiceKind, String, String?>>()
+        val shown = androidx.compose.runtime.mutableStateOf(two)
+        rule.setContent {
+            app.reelstack.ui.theme.ReelstackTheme {
+                Surface { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    ServicesSettings(shown.value, {}, {}, {}, {}, onOwnProfile = { kind, name, avatar -> made += Triple(kind, name, avatar) })
+                } }
+            }
+        }
+        rule.onNodeWithTag("make-own-profile-EMBY").performScrollTo().assertIsDisplayed().performClick()
+        rule.runOnIdle { assertEquals(listOf(Triple(ServiceKind.EMBY, "Eilev", "https://emby.example/Users/eilev/Images/Primary?tag=a")), made) }
+        shown.value = two.copy(profiles = two.profiles + UserProfile("emby-eilev", "Eilev", isKid = false))
+        rule.onNodeWithTag("make-own-profile-EMBY").assertDoesNotExist()
+        rule.onNodeWithTag("own-profile-emby-eilev").performScrollTo().assertIsDisplayed()
+        // From a child's profile, or an own one, there is nothing to make.
+        shown.value = two.copy(activeProfileId = "emby-eilev")
+        rule.onNodeWithTag("make-own-profile-EMBY").assertDoesNotExist()
+    }
+
     @Test fun accountShortcutOpensServicesOnPhoneAtDoubleFontScale() {
         var opened: ServiceKind? = null
         rule.setContent {

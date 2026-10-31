@@ -26,6 +26,11 @@
     <string name="services_back">Tilbake til tenestene dine</string>
     <string name="services_media_title">Bibliotek og avspeling</string>
     <string name="services_media_hint">Kontoen din hos kvar teneste</string>
+    <string name="own_profiles_title">Profilar</string>
+    <string name="own_profiles_hint">Kontoen til ein annan får eigen profil i hjørnet, med berre den kontoen.</string>
+    <string name="own_profile_make">Eigen profil for %1$s</string>
+    <string name="own_profile_make_hint">%1$s får sin eigen profil i hjørnet, med berre %2$s-biblioteka sine.</string>
+    <string name="own_profile_exists">Eigen profil i hjørnet · %1$s</string>
     <string name="services_children_title">Barneprofilar</string>
     <string name="services_children_hint">Trykk på eit barn for å velje utsjånad og avspeling.</string>
     <string name="services_needs_login">Treng innlogging</string>

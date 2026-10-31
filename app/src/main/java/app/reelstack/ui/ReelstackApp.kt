@@ -529,6 +529,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         ),
                         onSignOutAll = viewModel::signOutAll,
                         onAddProfile = viewModel::openAddProfile,
+                        onOwnProfile = viewModel::createOwnProfile,
                         onClearLibraryCache = viewModel::clearLibraryCache,
                         onRequestPinSetup = viewModel::requestPinSetup,
                         onDisablePin = viewModel::disablePinProtection,

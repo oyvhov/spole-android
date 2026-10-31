@@ -34,7 +34,8 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
     onAccountClick: (ServiceKind) -> Unit, onManageLibraries: () -> Unit,
     onHomeRowOrderChange: (List<HomeRow>) -> Unit = {}, onSignOutAll: () -> Unit = {}, onAddProfile: () -> Unit = {},
     onClearLibraryCache: () -> Unit = {}, onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {},
-    homeEditor: HomeEditorActions = HomeEditorActions(), onOpenDownloads: () -> Unit = {}) {
+    homeEditor: HomeEditorActions = HomeEditorActions(), onOpenDownloads: () -> Unit = {},
+    onOwnProfile: (ServiceKind, String, String?) -> Unit = { _, _, _ -> }) {
     val television = isTelevision()
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
     var category by rememberSaveable { mutableStateOf(SettingsCategory.APPEARANCE) }
@@ -130,7 +131,7 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SharedSettingsContent(activeCategory, state, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
                             onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
-                            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor)
+                            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor, onOwnProfile)
                         Spacer(Modifier.height(16.dp))
                     }
                 }

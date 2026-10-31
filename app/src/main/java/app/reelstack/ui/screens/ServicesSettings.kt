@@ -25,7 +25,8 @@ import app.reelstack.ui.kids.*
 @Composable
 internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKind) -> Unit,
     onAccount: (ServiceKind) -> Unit, onSignOutAll: () -> Unit, onAddProfile: () -> Unit,
-    onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {}) {
+    onRequestPinSetup: (String) -> Unit = {}, onDisablePin: () -> Unit = {},
+    onOwnProfile: (ServiceKind, String, String?) -> Unit = { _, _, _ -> }) {
     var editingChild by rememberSaveable { mutableStateOf<String?>(null) }
     val child = state.profiles.firstOrNull { it.id == editingChild && it.isKid }
     if (child != null) {
@@ -45,6 +46,7 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
             tag = "tv-service-$kind",
         ) { onConnection(kind) }
     }
+    if (!state.isKidMode && state.activeProfileId.isBlank()) OwnProfiles(state, onOwnProfile)
     val children = state.profiles.filter { it.isKid }
     SettingsGroup(stringResource(R.string.services_children_title), stringResource(R.string.services_children_hint))
     if (children.isNotEmpty()) {
@@ -70,6 +72,35 @@ internal fun ServicesSettings(state: ReelstackUiState, onConnection: (ServiceKin
     SettingsGroup(stringResource(R.string.services_device))
     SignOutAllSetting(state, onSignOutAll)
     PrivacyCard(state)
+}
+
+/**
+ * Another person's account in the main profile, such as a child's Emby account beside the parent's
+ * Jellyfin, can get its own profile in the corner: regular Spole with only that account.
+ */
+@Composable
+private fun OwnProfiles(state: ReelstackUiState, onOwnProfile: (ServiceKind, String, String?) -> Unit) {
+    val library = state.connections.filter {
+        (it.kind == ServiceKind.JELLYFIN || it.kind == ServiceKind.EMBY) && it.token.isNotBlank() && it.userId.isNotBlank()
+    }
+    val own = state.profiles.filter { !it.isMain && !it.isKid }
+    if (library.size < 2 && own.isEmpty()) return
+    SettingsGroup(stringResource(R.string.own_profiles_title), stringResource(R.string.own_profiles_hint))
+    library.forEach { connection ->
+        val id = app.reelstack.data.repository.ownProfileId(connection.kind, connection.userId)
+        val existing = own.firstOrNull { it.id == id }
+        if (existing != null) {
+            SettingsActionRow(existing.name, stringResource(R.string.own_profile_exists, connection.kind.displayName),
+                "own-profile-$id", SpoleIcons.Person) {}
+            return@forEach
+        }
+        val account = state.accounts[connection.kind] ?: return@forEach
+        SettingsActionRow(stringResource(R.string.own_profile_make, account.displayName),
+            stringResource(R.string.own_profile_make_hint, account.displayName, connection.kind.displayName),
+            "make-own-profile-${connection.kind}", SpoleIcons.Person) {
+            onOwnProfile(connection.kind, account.displayName, account.avatarUrl)
+        }
+    }
 }
 
 @Composable

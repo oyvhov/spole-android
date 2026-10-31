@@ -526,6 +526,7 @@ fun SettingsScreen(
     homeEditor: HomeEditorActions = HomeEditorActions(),
     /** Downloads have their own row in Settings whether or not they are also in the menu. */
     onOpenDownloads: () -> Unit = {},
+    onOwnProfile: (ServiceKind, String, String?) -> Unit = { _, _, _ -> },
 ) {
     val television = app.reelstack.ui.components.isTelevision()
     androidx.compose.runtime.CompositionLocalProvider(app.reelstack.ui.components.LocalSettingsButtonStyle provides true) {
@@ -534,10 +535,10 @@ fun SettingsScreen(
         val wide = television || policy.useSettingsPanes(androidx.compose.ui.platform.LocalDensity.current.fontScale)
         if (wide) TvSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange,
             onWifiOnlyChange, onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
-            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor, onOpenDownloads = onOpenDownloads)
+            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor, onOpenDownloads = onOpenDownloads, onOwnProfile = onOwnProfile)
         else MobileSettingsScreen(state, contentPadding, onConnectionClick, onNotificationsChange,
             onWifiOnlyChange, onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
-            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor, onOpenDownloads = onOpenDownloads)
+            onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor, onOpenDownloads = onOpenDownloads, onOwnProfile = onOwnProfile)
     }
     }
 }

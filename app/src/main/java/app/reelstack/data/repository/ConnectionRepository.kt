@@ -26,7 +26,7 @@ class ConnectionRepository(
     val changes = revision.asStateFlow()
 
     private val session = kotlinx.coroutines.flow.MutableStateFlow(
-        SessionScope(activeProfileId, MediaSnapshotStore.fingerprint(list()), 0),
+        SessionScope(activeProfileId, MediaSnapshotStore.fingerprint(list()), 0, isKidProfile(activeProfileId)),
     )
     val sessionScope = session.asStateFlow()
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -40,10 +40,11 @@ class ConnectionRepository(
     @Synchronized fun captureSession(): SessionScope {
         val profile = activeProfileId
         val fingerprint = MediaSnapshotStore.fingerprint(list(profile))
+        val kids = isKidProfile(profile)
         val previous = session.value
         val persistedGeneration = preferences.getLong("session_generation", 0)
-        if (previous.profileId != profile || previous.accountFingerprint != fingerprint) {
-            session.value = SessionScope(profile, fingerprint, maxOf(previous.generation + 1, persistedGeneration))
+        if (previous.profileId != profile || previous.accountFingerprint != fingerprint || previous.kids != kids) {
+            session.value = SessionScope(profile, fingerprint, maxOf(previous.generation + 1, persistedGeneration), kids)
         } else if (persistedGeneration > previous.generation) {
             session.value = previous.copy(generation = persistedGeneration)
         }
@@ -88,7 +89,13 @@ class ConnectionRepository(
             signalSessionChange()
         }
 
-    val isKidMode: Boolean get() = activeProfileId.isNotBlank()
+    val isKidMode: Boolean get() = isKidProfile(activeProfileId)
+
+    /** Any profile but the main one is a child's, unless it was made as an own, grown-up profile. */
+    fun isKidProfile(profileId: String): Boolean {
+        val id = profileId.trim().removePrefix("kid.")
+        return id.isNotBlank() && !preferences.getBoolean("kid.$id.adult", false)
+    }
 
     fun prefixFor(kind: ServiceKind, profileId: String = activeProfileId): String {
         val base = kind.name.lowercase()
@@ -115,7 +122,7 @@ class ConnectionRepository(
     fun get(kind: ServiceKind, profileId: String = activeProfileId): ServiceConnection {
         val prefix = prefixFor(kind, profileId)
         val savedUrl = preferences.getString("$prefix.url", null)
-            ?: if (profileId.isNotBlank() && (kind == ServiceKind.JELLYFIN || kind == ServiceKind.EMBY)) {
+            ?: if (isKidProfile(profileId) && (kind == ServiceKind.JELLYFIN || kind == ServiceKind.EMBY)) {
                 preferences.getString("${kind.name.lowercase()}.url", null)
             } else null
         val token = tokenFor(kind, profileId)
@@ -207,7 +214,7 @@ class ConnectionRepository(
     fun getKidProfileIds(): Set<String> =
         preferences.getStringSet("kid_profile_ids", emptySet()).orEmpty()
 
-    fun registerKidProfile(id: String, name: String, avatarUrl: String?) {
+    fun registerKidProfile(id: String, name: String, avatarUrl: String?, adult: Boolean = false) {
         val sanitized = id.trim().removePrefix("kid.")
         val current = getKidProfileIds().toMutableSet()
         current.add(sanitized)
@@ -216,8 +223,24 @@ class ConnectionRepository(
             putString("kid.$sanitized.name", name.trim())
             if (avatarUrl != null) putString("kid.$sanitized.avatar_url", avatarUrl)
             else remove("kid.$sanitized.avatar_url")
+            if (adult) putBoolean("kid.$sanitized.adult", true) else remove("kid.$sanitized.adult")
         }
         revision.value++
+    }
+
+    /**
+     * An own, grown-up profile for one of the main profile's library accounts, such as a second
+     * person's Emby account: regular Spole with only that account. The account is copied, so no new
+     * sign-in, and the main profile keeps it. Made once per account; the id says which.
+     */
+    @Synchronized fun createProfileFrom(kind: ServiceKind, name: String, avatarUrl: String?): String? {
+        if (kind != ServiceKind.JELLYFIN && kind != ServiceKind.EMBY) return null
+        val account = get(kind, "").takeIf { it.token.isNotBlank() && it.userId.isNotBlank() } ?: return null
+        val id = ownProfileId(kind, account.userId)
+        if (id in getKidProfileIds()) return id
+        registerKidProfile(id, name, avatarUrl, adult = true)
+        save(account, id)
+        return id
     }
 
     fun setMainProfileInfo(name: String, avatarUrl: String?) {
@@ -240,6 +263,7 @@ class ConnectionRepository(
             putStringSet("kid_profile_ids", current)
             remove("kid.$sanitized.name")
             remove("kid.$sanitized.avatar_url")
+            remove("kid.$sanitized.adult")
         }
         if (activeProfileId == sanitized || activeProfileId == "kid.$sanitized") {
             activeProfileId = ""
@@ -274,7 +298,7 @@ class ConnectionRepository(
         for (kidId in kidIds) {
             val name = preferences.getString("kid.$kidId.name", null) ?: "Barn"
             val avatar = preferences.getString("kid.$kidId.avatar_url", null)
-            list.add(UserProfile(id = kidId, name = name, isKid = true, avatarUrl = avatar))
+            list.add(UserProfile(id = kidId, name = name, isKid = isKidProfile(kidId), avatarUrl = avatar))
         }
         return list
     }
@@ -296,3 +320,6 @@ class ConnectionRepository(
 private object EndpointValidatorFacade {
     fun normalize(value: String): String = app.reelstack.data.network.EndpointValidator.normalizeBaseUrl(value)
 }
+
+/** The id of the own profile made for one of the main profile's accounts: one per account. */
+fun ownProfileId(kind: ServiceKind, userId: String): String = "${kind.name.lowercase()}-$userId"

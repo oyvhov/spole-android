@@ -449,6 +449,7 @@ class ReelstackViewModel(
     fun closeKidsSeries() = features.kids.closeKidsSeries()
     fun openProfileSwitcher() = features.profiles.openProfileSwitcher()
     fun selectProfile(profile: app.reelstack.data.model.UserProfile) = features.profiles.selectProfile(profile)
+    fun createOwnProfile(kind: ServiceKind, name: String, avatarUrl: String?) = features.profiles.createOwnProfile(kind, name, avatarUrl)
     fun submitPin(pin: String, targetProfileId: String, isSetup: Boolean) {
         synchronizeSession()
         features.profiles.submitPin(pin, targetProfileId, isSetup)

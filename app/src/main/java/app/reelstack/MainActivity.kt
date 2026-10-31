@@ -129,6 +129,7 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                             play = { app.reelstack.player.JellyfinPlayerActivity.open(
                                 this@MainActivity, it.itemId, source = it.kind, kidsMode = container.connectionRepository.isKidMode) },
                             library = { reelstackViewModel.openRemoteLibrary(it.kind, it.userId, it.itemId) },
+                            profile = { reelstackViewModel.openLauncherHome() },
                         )
                     }
                     when (target) {

@@ -21,8 +21,8 @@ internal fun AppOverlayHost(
             profiles = state.profiles,
             activeProfileId = state.activeProfileId,
             isKidMode = state.isKidMode,
-            mainAccountName = (state.accounts[ServiceKind.EMBY] ?: state.accounts[ServiceKind.JELLYFIN])?.displayName,
-            mainAccountAvatarUrl = (state.accounts[ServiceKind.EMBY] ?: state.accounts[ServiceKind.JELLYFIN])?.avatarUrl,
+            mainAccountName = state.mainProfileAccount()?.displayName,
+            mainAccountAvatarUrl = state.mainProfileAccount()?.avatarUrl,
             onSelectProfile = viewModel::selectProfile,
             onOpenSettings = viewModel::openAccountsSettings,
             onDeleteProfile = viewModel::deleteKidProfile,
@@ -103,3 +103,10 @@ internal fun AppOverlayHost(
         state.selectedTab == startTab && state.activeSheet == null && !state.showOnboarding && !state.libraryChoicesOpen,
     )
 }
+
+/** The account that names the main profile: Emby before Jellyfin, but never one that has its own profile. */
+private fun ReelstackUiState.mainProfileAccount(): app.reelstack.data.model.ServiceAccount? =
+    listOf(ServiceKind.EMBY, ServiceKind.JELLYFIN).firstNotNullOfOrNull { kind ->
+        val userId = connections.firstOrNull { it.kind == kind }?.userId.orEmpty()
+        accounts[kind]?.takeIf { userId.isBlank() || profiles.none { it.id == app.reelstack.data.repository.ownProfileId(kind, userId) } }
+    }

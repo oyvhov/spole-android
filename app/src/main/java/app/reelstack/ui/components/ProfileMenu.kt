@@ -123,7 +123,8 @@ fun ProfileMenu(
                     )
 
                     profiles.forEachIndexed { index, profile ->
-                        val resolved = if (profile.isMain && !isKidMode) {
+                        // The session's accounts name the main row only while the main profile is active.
+                        val resolved = if (profile.isMain && !isKidMode && activeProfileId.isBlank()) {
                             profile.copy(
                                 name = mainAccountName?.takeIf { it.isNotBlank() } ?: profile.name,
                                 avatarUrl = profile.avatarUrl ?: mainAccountAvatarUrl,
@@ -135,7 +136,7 @@ fun ProfileMenu(
                             ProfileMenuRow(
                                 profile = resolved,
                                 selected = profile.id == activeProfileId,
-                                canDelete = !isKidMode && !profile.isMain && profile.id != activeProfileId,
+                                canDelete = !isKidMode && activeProfileId.isBlank() && !profile.isMain,
                                 onClick = { onSelectProfile(profile) },
                                 onDelete = { onDeleteProfile(profile) },
                             )
@@ -219,10 +220,10 @@ private fun ProfileMenuRow(
             )
             Spacer(Modifier.height(4.dp))
             RolePill(
-                text = if (profile.isMain) {
-                    stringResource(R.string.profile_role_main)
-                } else {
-                    stringResource(R.string.profile_role_kid)
+                text = when {
+                    profile.isMain -> stringResource(R.string.profile_role_main)
+                    profile.isKid -> stringResource(R.string.profile_role_kid)
+                    else -> stringResource(R.string.profile_role_own)
                 },
             )
         }

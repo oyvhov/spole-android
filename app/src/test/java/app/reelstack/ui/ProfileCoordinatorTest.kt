@@ -63,6 +63,36 @@ class ProfileCoordinatorTest {
         assertEquals("child", repository.activeProfileId)
     }
 
+    @Test fun `child to an own grown-up profile requires the PIN too, and back to main from it does not`() = runTest {
+        pin.setPin("1234")
+        repository.save(ServiceConnection(ServiceKind.EMBY, "Emby", "http://media.local", token = "t", userId = "eilev"), "")
+        val own = repository.createProfileFrom(ServiceKind.EMBY, "Eilev", null)!!
+        repository.activeProfileId = "child"
+        feature().selectProfile(UserProfile(own, "Eilev", isKid = false))
+        assertNull(switched)
+        assertEquals(AppSheet.PinPrompt(own), state.value.activeSheet)
+
+        repository.activeProfileId = own
+        feature().selectProfile(UserProfile("", "Adult", isKid = false))
+        assertEquals("", repository.activeProfileId)
+        assertFalse(state.value.isKidMode)
+    }
+
+    @Test fun `an own profile can be made from a main account and is listed at once`() = runTest {
+        repository.save(ServiceConnection(ServiceKind.EMBY, "Emby", "http://media.local", token = "t", userId = "eilev"), "")
+        repository.save(ServiceConnection(ServiceKind.JELLYFIN, "Jellyfin", "http://media.local", token = "t", userId = "oyvind"), "")
+        repository.setMainProfileInfo("Eilev", null)
+        val coordinator = feature()
+        state.value = state.value.copy(accounts = mapOf(
+            ServiceKind.JELLYFIN to ServiceAccount(ServiceKind.JELLYFIN, "oyvind", "Øyvind", avatarUrl = "http://media.local/Users/oyvind/Images/Primary"),
+            ServiceKind.EMBY to ServiceAccount(ServiceKind.EMBY, "eilev", "Eilev")))
+        coordinator.createOwnProfile(ServiceKind.EMBY, "Eilev", null)
+        assertEquals(listOf("", "emby-eilev"), state.value.profiles.map { it.id })
+        assertEquals("the main profile is no longer named after the account that left", "Øyvind", state.value.profiles.first().name)
+        assertFalse(state.value.profiles.last().isKid)
+        assertEquals("", repository.activeProfileId)
+    }
+
     @Test fun `unreadable persisted PIN still prevents an adult switch`() = runTest {
         repository.activeProfileId = "child"
         val unreadable = object : TokenStore {

@@ -108,6 +108,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Stova lists Spole's profiles to offer a tile per person. Read-only, and it answers Stova only. -->
+        <provider android:name=".launcher.LauncherProfilesProvider" android:authorities="${applicationId}.launcher" android:exported="true" />
         <provider android:name=".player.WatchNextArtworkProvider" android:authorities="${applicationId}.watchart" android:exported="true" />
         <activity
             android:name=".MainActivity"

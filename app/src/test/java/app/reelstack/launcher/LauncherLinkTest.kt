@@ -6,6 +6,14 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LauncherLinkTest {
+    @Test fun parsesAProfileLinkWithKindAndUserOnly() {
+        assertEquals(LauncherLink(ServiceKind.EMBY, "eilev", "", LauncherAction.PROFILE),
+            LauncherLinks.parse("spole://profile?kind=emby&user=eilev"))
+        assertEquals(null, LauncherLinks.parse("spole://profile?kind=emby"))
+        assertEquals(null, LauncherLinks.parse("spole://profile?kind=plex&user=eilev"))
+        assertEquals(null, LauncherLinks.parse("spole://profile?kind=emby&user=ei%20lev"))
+    }
+
     @Test fun parsesJellyfinPlayLink() {
         assertEquals(
             LauncherLink(ServiceKind.JELLYFIN, "user_123", "item-456", LauncherAction.PLAY),

@@ -19,7 +19,7 @@ internal class PendingLauncherOpen private constructor(
         consumed = true
         if (!repository.isCurrent(owner)) return null
         var target = repository.resolve(link)
-        if (target is LauncherTarget.SwitchToKid) {
+        if (target is LauncherTarget.SwitchToProfile) {
             // MainActivity is exported: a raw profile extra is never authority to switch accounts.
             if (switchProfileId != target.profile.id || owner.kidsMode) return null
             val profile = target.profile
@@ -39,13 +39,18 @@ internal class PendingLauncherOpen private constructor(
             // than requiring the internal forwarding extras to have survived task reuse.
             if (intent.action == Intent.ACTION_VIEW && intent.data != null) {
                 val link = LauncherLinks.parse(intent.dataString) ?: return null
-                val switchProfile = (repository.resolve(link) as? LauncherTarget.SwitchToKid)?.profile?.id
+                val switchProfile = (repository.resolve(link) as? LauncherTarget.SwitchToProfile)?.profile?.id
                 return PendingLauncherOpen(link, repository.captureSession(), switchProfile)
             }
             val kind = intent.getStringExtra("launcher_kind") ?: return null
             val user = intent.getStringExtra("launcher_user") ?: return null
             val action = intent.getStringExtra("launcher_action") ?: return null
-            if (kind !in setOf("JELLYFIN", "EMBY") || action !in setOf("PLAY", "DETAILS", "LIBRARY")) return null
+            if (kind !in setOf("JELLYFIN", "EMBY") || action !in setOf("PLAY", "DETAILS", "LIBRARY", "PROFILE")) return null
+            if (action == "PROFILE") {
+                val link = LauncherLinks.parse("spole://profile?kind=${kind.lowercase(java.util.Locale.ROOT)}&user=$user") ?: return null
+                if (link.userId != user) return null
+                return PendingLauncherOpen(link, repository.captureSession(), intent.getStringExtra("launcher_switch_profile"))
+            }
             val library = action == "LIBRARY"
             val id = intent.getStringExtra(if (library) "launcher_library" else "launcher_item") ?: return null
             // Reuse the external parser at this exported boundary, including its strict id checks.
@@ -62,6 +67,6 @@ internal class PendingLauncherOpen private constructor(
 }
 
 internal fun ConnectionRepository.resolve(link: LauncherLink): LauncherTarget {
-    val kids = listProfiles().filter { it.isKid }
-    return resolveLauncherTarget(link, list(""), activeProfileId, kids, kids.associate { it.id to list(it.id) })
+    val others = listProfiles().filterNot { it.isMain }
+    return resolveLauncherTarget(link, list(""), activeProfileId, others, others.associate { it.id to list(it.id) })
 }

@@ -47,6 +47,7 @@
     <string name="kids_empty_title">Her er det tomt ennå</string>
     <string name="kids_empty_body">Nye ting dukker opp her når de er klare.</string>
     <string name="profile_role_kid">Barneprofil</string>
+    <string name="profile_role_own">Egen profil</string>
     <string name="profile_role_main">Hovedkonto</string>
     <string name="kids_season_number">Sesong %1$d</string>
     <string name="kids_latest_in_library">Siste i %1$s</string>

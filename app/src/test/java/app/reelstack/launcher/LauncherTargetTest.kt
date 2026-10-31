@@ -23,7 +23,7 @@ class LauncherTargetTest {
     }
 
     @Test fun switchesToKnownKidFromMainMode() {
-        assertEquals(LauncherTarget.SwitchToKid(kid), resolveLauncherTarget(link(kid.id), listOf(main), "", kids))
+        assertEquals(LauncherTarget.SwitchToProfile(kid), resolveLauncherTarget(link(kid.id), listOf(main), "", kids))
     }
 
     @Test fun blocksMainUserInKidMode() {
@@ -132,7 +132,7 @@ class LauncherTargetTest {
         val embyMain = main.copy(kind = ServiceKind.EMBY)
         val embyKid = kidConnection.copy(kind = ServiceKind.EMBY, userId = "emby-child")
         assertEquals(
-            LauncherTarget.SwitchToKid(kid),
+            LauncherTarget.SwitchToProfile(kid),
             resolveLauncherTarget(
                 link(embyKid.userId, ServiceKind.EMBY), listOf(embyMain), "", kids,
                 mapOf(kid.id to listOf(embyKid)),
@@ -149,6 +149,47 @@ class LauncherTargetTest {
                 childConnections + (otherKid.id to listOf(other)),
             ),
         )
+    }
+
+    private val eilev = UserProfile("emby-eilev", "Eilev", isKid = false)
+    private val eilevAccount = ServiceConnection(ServiceKind.EMBY, "Emby", "https://emby.example.test", "fake-eilev-token", userId = "eilev")
+    private val mainEmby = eilevAccount.copy(token = "fake-main-emby-token")
+    private val withEilev = listOf(eilev, kid)
+    private val eilevConnections = childConnections + (eilev.id to listOf(eilevAccount))
+    private fun profileLink(userId: String, kind: ServiceKind = ServiceKind.EMBY) = LauncherLink(kind, userId, "", LauncherAction.PROFILE)
+
+    @Test fun profileLinkSwitchesFromMainToTheOwnProfileWithThatAccount() {
+        assertEquals(LauncherTarget.SwitchToProfile(eilev),
+            resolveLauncherTarget(profileLink("eilev"), listOf(main, mainEmby), "", withEilev, eilevConnections))
+    }
+
+    @Test fun profileLinkOpensWhenThatProfileIsAlreadyActive() {
+        assertEquals(LauncherTarget.Open(eilevAccount),
+            resolveLauncherTarget(profileLink("eilev"), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections))
+    }
+
+    @Test fun profileLinkForAnAccountOnlyInTheMainProfileOpensTheMainProfile() {
+        val toMain = resolveLauncherTarget(profileLink("adult", ServiceKind.JELLYFIN), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections)
+        assertEquals("", (toMain as LauncherTarget.SwitchToProfile).profile.id)
+        assertEquals(LauncherTarget.Open(main),
+            resolveLauncherTarget(profileLink("adult", ServiceKind.JELLYFIN), listOf(main, mainEmby), "", withEilev, eilevConnections))
+    }
+
+    @Test fun profileLinkCannotLeaveKidModeOrNameAnUnknownAccount() {
+        assertEquals(LauncherTarget.BlockedInKidMode,
+            resolveLauncherTarget(profileLink("eilev"), listOf(main, mainEmby), kid.id, withEilev, eilevConnections))
+        assertEquals(LauncherTarget.NotSignedIn,
+            resolveLauncherTarget(profileLink("nobody"), listOf(main, mainEmby), "", withEilev, eilevConnections))
+    }
+
+    @Test fun anOwnProfileIsNotKidModeForOtherLinks() {
+        // Its own account opens with its own sign-in; the main user's title takes the main profile back first.
+        assertEquals(LauncherTarget.Open(eilevAccount),
+            resolveLauncherTarget(link("eilev", ServiceKind.EMBY), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections))
+        val back = resolveLauncherTarget(link(main.userId), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections)
+        assertEquals("", (back as LauncherTarget.SwitchToProfile).profile.id)
+        assertEquals(LauncherTarget.SwitchToProfile(kid),
+            resolveLauncherTarget(link(kid.id), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections))
     }
 
     @Test fun requiresMainSignInEvenForActiveKid() {

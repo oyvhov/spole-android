@@ -55,8 +55,10 @@ internal class AccountRefreshCoordinator(
                     // The machine name is not the adult's name. Only the adult profile may update
                     // the durable main-profile label used outside a child shell.
                     val account = result.getOrNull()
-                    if (account != null && !connectionRepository.isKidMode &&
-                        connection.kind in MEDIA_SERVERS && account.displayName.isNotBlank()
+                    // Nor may an own profile, or an account that has one: that is someone else's name.
+                    if (account != null && connectionRepository.activeProfileId.isBlank() &&
+                        connection.kind in MEDIA_SERVERS && account.displayName.isNotBlank() &&
+                        app.reelstack.data.repository.ownProfileId(connection.kind, connection.userId) !in connectionRepository.getKidProfileIds()
                     ) {
                         connectionRepository.setMainProfileInfo(account.displayName, account.avatarUrl)
                     }

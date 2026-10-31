@@ -56,8 +56,8 @@ internal class ProfileCoordinator(
             return
         }
 
-        // Switching from kid mode to adult mode requires PIN if configured
-        if (connectionRepository.isKidMode && profile.isMain) {
+        // Leaving kid mode, for the main profile or an own grown-up one, requires the PIN if configured
+        if (connectionRepository.isKidMode && !profile.isKid) {
             if (pinSecurity.isPinConfigured()) {
                 _uiState.update {
                     it.copy(
@@ -78,7 +78,7 @@ internal class ProfileCoordinator(
         _uiState.update {
             it.copy(
                 activeProfileId = profileId,
-                isKidMode = profileId.isNotBlank(),
+                isKidMode = connectionRepository.isKidMode,
                 pinError = null,
                 pinLockoutSeconds = 0,
             )
@@ -402,8 +402,19 @@ internal class ProfileCoordinator(
         }
     }
 
+    /** An own profile for one of the main profile's accounts, listed in the corner at once; the main profile stays active. */
+    fun createOwnProfile(kind: ServiceKind, name: String, avatarUrl: String?) {
+        if (connectionRepository.isKidMode || connectionRepository.activeProfileId.isNotBlank()) return
+        connectionRepository.createProfileFrom(kind, name, avatarUrl) ?: return
+        // The main profile was named after one of its accounts; one with its own profile names it no longer.
+        _uiState.value.accounts.entries.firstOrNull { (other, account) ->
+            other != kind && (other == ServiceKind.JELLYFIN || other == ServiceKind.EMBY) && account.displayName.isNotBlank()
+        }?.value?.let { connectionRepository.setMainProfileInfo(it.displayName, it.avatarUrl) }
+        loadProfiles()
+    }
+
     fun deleteKidProfile(profile: app.reelstack.data.model.UserProfile) {
-        if (connectionRepository.isKidMode || profile.isMain) return
+        if (connectionRepository.isKidMode || connectionRepository.activeProfileId.isNotBlank() || profile.isMain) return
         connectionRepository.list(profile.id).filter {
             it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         }

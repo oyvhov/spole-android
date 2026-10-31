@@ -31,6 +31,11 @@
     <string name="services_back">Back to your services</string>
     <string name="services_media_title">Libraries and playback</string>
     <string name="services_media_hint">Your account for each service</string>
+    <string name="own_profiles_title">Profiles</string>
+    <string name="own_profiles_hint">Someone else’s account gets its own profile in the corner, with only that account.</string>
+    <string name="own_profile_make">Own profile for %1$s</string>
+    <string name="own_profile_make_hint">%1$s gets their own profile in the corner, with only their %2$s libraries.</string>
+    <string name="own_profile_exists">Own profile in the corner · %1$s</string>
     <string name="services_children_title">Child profiles</string>
     <string name="services_children_hint">Choose a child to adjust appearance and playback.</string>
     <string name="services_needs_login">Sign-in needed</string>

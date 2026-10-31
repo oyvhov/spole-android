@@ -32,7 +32,7 @@ open class LauncherOpenActivity : app.reelstack.localization.LocalizedActivity()
                         source = link.kind, kidsMode = connectionRepository.isKidMode)
                     else startActivity(mainIntent().withLauncherLink(link))
                 }
-                is LauncherTarget.SwitchToKid -> startActivity(mainIntent().withLauncherLink(link)
+                is LauncherTarget.SwitchToProfile -> startActivity(mainIntent().withLauncherLink(link)
                     .putExtra("launcher_switch_profile", target.profile.id))
                 LauncherTarget.BlockedInKidMode -> startActivity(mainIntent().putExtra("launcher_message", getString(R.string.launcher_kid_mode)))
                 LauncherTarget.NotSignedIn -> startActivity(mainIntent().putExtra("launcher_message", getString(R.string.launcher_not_signed_in)))
@@ -46,6 +46,7 @@ open class LauncherOpenActivity : app.reelstack.localization.LocalizedActivity()
 
     private fun Intent.withLauncherLink(link: LauncherLink): Intent =
         putExtra("launcher_kind", link.kind.name)
-            .putExtra(if (link.action == LauncherAction.LIBRARY) "launcher_library" else "launcher_item", link.itemId)
+            .apply { if (link.action != LauncherAction.PROFILE)
+                putExtra(if (link.action == LauncherAction.LIBRARY) "launcher_library" else "launcher_item", link.itemId) }
             .putExtra("launcher_user", link.userId).putExtra("launcher_action", link.action.name)
 }

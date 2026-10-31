@@ -16,6 +16,31 @@ Når startaren opna biblioteket, går siste Tilbake frå rota av det tilbake til
 frå tittel-detaljar (`LibraryCoordinator.atLauncherLibraryRoot`). Inne i ei mappe går Tilbake først opp
 i biblioteket.
 
+## Opne Spole som ein profil
+
+```text
+spole://profile?kind=jellyfin|emby&user=<id>
+```
+
+Opnar Spole på Heim som profilen som har kontoen, for ei profilflis i startaren. Ein eigen profil
+(vaksen eller barn) med kontoen vinn over hovudprofilen; finst kontoen berre i hovudprofilen, blir det
+hovudprofilen. Spole byter profil først når det trengst. Frå barnemodus byter ei lenkje aldri profil.
+`user` følgjer ID-krava nedanfor.
+
+Ein eigen, vaksen profil blir laga under Tenestene dine → Profilar → «Eigen profil for …», frå ein
+Jellyfin- eller Emby-konto i hovudprofilen. Kontoen blir kopiert, så hovudprofilen held fram med alt,
+og profilen er vanlege Spole med berre den kontoen (`kid.<id>.adult`). Barnemodus er «ein
+barneprofil er aktiv», ikkje «ein annan profil enn hovudprofilen er aktiv».
+
+## Profillista til Stova
+
+`content://<pakke>.launcher/profiles` (`LauncherProfilesProvider`, `app.reelstack.launcher` eller
+`app.reelstack.debug.launcher`) gir éi rad per profil med ein innlogga Jellyfin- eller Emby-konto:
+`id`, `name`, `kind` (`jellyfin`/`emby`), `user`, `avatar` og `kid` (0/1). Hovudprofilen gir ein konto
+som ikkje har eigen profil, Jellyfin før Emby. `avatar` er adressa til brukarbiletet på tenaren og har
+ingen token. Berre `app.stova` og `app.stova.debug` får rader; andre får ingen. Lista er berre for
+lesing.
+
 ## Godkjenn innlogging for Stova
 
 Stova viser ein Jellyfin Quick Connect-kode og kan be Spole godkjenne han som ein av kontoane Spole er

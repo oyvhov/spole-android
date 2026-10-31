@@ -47,6 +47,7 @@
     <string name="kids_empty_title">Nothing here yet</string>
     <string name="kids_empty_body">New things show up here when they are ready.</string>
     <string name="profile_role_kid">Kid profile</string>
+    <string name="profile_role_own">Own profile</string>
     <string name="profile_role_main">Main account</string>
     <string name="kids_season_number">Season %1$d</string>
     <string name="kids_latest_in_library">Latest in %1$s</string>

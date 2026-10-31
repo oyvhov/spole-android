@@ -151,4 +151,53 @@ class ProfileStorageTest {
         val deleted = repo.get(ServiceKind.JELLYFIN, "kid-1")
         assertEquals("", deleted.token)
     }
+
+    private fun account(kind: ServiceKind, user: String) = ServiceConnection(kind, kind.name, "http://media.local:8096",
+        token = "token-$user", userId = user, state = ConnectionState.CONNECTED)
+
+    @Test
+    fun `an own profile made from a main account is a grown-up profile with a copy of that account`() {
+        val repo = ConnectionRepository(context, tokenStore = tokenStore)
+        repo.save(account(ServiceKind.JELLYFIN, "oyvind"), "")
+        repo.save(account(ServiceKind.EMBY, "eilev"), "")
+
+        val id = repo.createProfileFrom(ServiceKind.EMBY, "Eilev", "http://media.local:8096/Users/eilev/Images/Primary")
+
+        assertEquals("emby-eilev", id)
+        val profile = repo.listProfiles().single { it.id == id }
+        assertEquals("Eilev", profile.name)
+        assertFalse("an own profile is grown-up Spole, not the children's", profile.isKid)
+        assertEquals("http://media.local:8096/Users/eilev/Images/Primary", profile.avatarUrl)
+        val own = repo.list(id!!).filter { it.token.isNotBlank() }
+        assertEquals(listOf(ServiceKind.EMBY), own.map { it.kind })
+        assertEquals("eilev", own.single().userId)
+        assertEquals("token-eilev", own.single().token)
+        assertEquals("the main profile keeps everything", setOf("oyvind", "eilev"),
+            repo.list("").filter { it.token.isNotBlank() }.map { it.userId }.toSet())
+        assertEquals("made twice, still one profile", id, repo.createProfileFrom(ServiceKind.EMBY, "Eilev", null))
+        assertEquals(2, repo.listProfiles().size)
+        assertEquals(null, repo.createProfileFrom(ServiceKind.SEERR, "Nobody", null))
+    }
+
+    @Test
+    fun `kid mode means a child profile is active, not any profile but the main one`() {
+        val repo = ConnectionRepository(context, tokenStore = tokenStore)
+        repo.save(account(ServiceKind.EMBY, "eilev"), "")
+        val own = repo.createProfileFrom(ServiceKind.EMBY, "Eilev", null)!!
+        repo.registerKidProfile("child", "Barn", null)
+
+        repo.activeProfileId = own
+        assertFalse(repo.isKidMode)
+        assertFalse(repo.captureSession().kidsMode)
+        repo.activeProfileId = "child"
+        assertTrue(repo.isKidMode)
+        assertTrue(repo.captureSession().kidsMode)
+        repo.activeProfileId = "unknown"
+        assertTrue("a profile Spole cannot place is treated as a child's", repo.isKidMode)
+
+        repo.activeProfileId = ""
+        repo.deleteProfile(own)
+        repo.registerKidProfile(own, "Eilev", null)
+        assertTrue("a deleted own profile leaves no grown-up mark behind", repo.listProfiles().single { it.id == own }.isKid)
+    }
 }
