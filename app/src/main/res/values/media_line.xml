@@ -8,6 +8,7 @@
 -->
 <resources>
     <string name="media_age_years">Age %1$d</string>
+    <string name="media_age_all">All ages</string>
     <string name="media_kind_movie">Film</string>
     <string name="media_kind_series">Series</string>
     <string name="media_kind_episode">Episode</string>

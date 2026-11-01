@@ -688,8 +688,10 @@ private fun ShelfRow(
         object : androidx.compose.foundation.gestures.BringIntoViewSpec {
             override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
                 val leftInset = if (direction == LayoutDirection.Ltr) inset else 0f
+                // The far edge keeps a gutter as well: a card that ended at the screen's edge was cut off
+                // once focus lifted it, with its title running off the screen (Shield, 2026-11-01).
                 return app.reelstack.ui.components.DetailBringIntoView.calculateScrollDistance(
-                    offset - leftInset, size, (containerSize - inset).coerceAtLeast(0f),
+                    offset - leftInset, size, (containerSize - inset - leftInset).coerceAtLeast(0f),
                 )
             }
         }

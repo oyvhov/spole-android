@@ -32,11 +32,16 @@ class MediaLineTest {
     }
 
     @Test fun agePresentationDoesNotTranslateForeignClassificationCodesOrInventMissingAges() {
-        for (rating in listOf("PG-13", "TV-MA", "NO-15", "15+", "Unrated")) {
+        for (rating in listOf("PG-13", "TV-MA", "15+", "Unrated")) {
             val facts = ServicePayloadParser.libraryItems(
                 """{"Items":[{"Id":"m","Name":"Film","Type":"Movie","OfficialRating":"$rating"}]}""").single().facts
             assertEquals(listOf(LocalizedText.raw(rating)), facts)
         }
+        // Norwegian ages read as Stova reads them: «NO-15» is 15 år, «NO-A» is for everyone.
+        fun fact(rating: String) = ServicePayloadParser.libraryItems(
+            """{"Items":[{"Id":"m","Name":"Film","Type":"Movie","OfficialRating":"$rating"}]}""").single().facts
+        assertEquals(listOf(LocalizedText(R.string.media_age_years, 15)), fact("NO-15"))
+        assertEquals(listOf(LocalizedText(R.string.media_age_all)), fact("NO-A"))
         val facts = ServicePayloadParser.libraryItems(
             """{"Items":[{"Id":"m","Name":"Film","Type":"Movie","ProductionYear":2026}]}""").single().facts
         assertEquals(listOf(LocalizedText.raw("2026")), facts)
