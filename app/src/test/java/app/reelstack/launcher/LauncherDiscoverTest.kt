@@ -115,6 +115,8 @@ class LauncherDiscoverTest {
         assertEquals("The Matrix", none["title"])
         assertEquals(1999, none["year"])
         assertEquals("Free your mind.", none["tagline"])
+        // A blank tagline is none: Stova would draw an empty line for it.
+        assertNull(title(LauncherSeerrAccess.PERSONAL, details = fetched.copy(tagline = "  "))["tagline"])
         assertEquals("Ein datamaskin vaknar.", none["overview"])
         assertEquals("https://image.tmdb.org/t/p/w500/p2.jpg", none["poster"])
         assertEquals("https://image.tmdb.org/t/p/w1280/b2.jpg", none["backdrop"])
@@ -125,6 +127,16 @@ class LauncherDiscoverTest {
         assertEquals(1, none["status"])
         assertEquals("https://www.youtube.com/watch?v=abc", none["trailer"])
         assertNull(title(LauncherSeerrAccess.PERSONAL, critic = null)["critic"])
+    }
+
+    @Test fun discoverMinimalIsTheBareCardATitleOpensFrom() {
+        val media = discoverMinimal("movie", 603)
+        assertEquals("seerr-movie-603", media.id)
+        assertEquals(603, media.remoteId)
+        assertEquals("movie", media.mediaType)
+        // It knows no status: whether the title can be asked for is judged by what Seerr says about it.
+        assertNull(media.seerrStatus)
+        assertEquals("seerr-tv-1399", discoverMinimal("tv", 1399).id)
     }
 
     @Test fun seasonAndRequestRowsFollowTheColumns() {

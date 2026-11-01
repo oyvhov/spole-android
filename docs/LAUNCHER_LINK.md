@@ -70,6 +70,49 @@ nemner, og svarar `result` = `ok`, `failed` eller `unknown` (Spole har ikkje kon
 til profilen Spole har open, gløymer Spole tittelen i sin eigen avspelingslogg òg, så Heim i Spole er
 samd neste gong han blir vist. Andre enn Stova får `null`.
 
+## Oppdag for Stova
+
+Stova kan vise Oppdag (Seerr) for personen med Seerr-innlogginga til Spole, så Stova treng ingen
+Seerr-konto sjølv. Alle stiane ligg på same leverandør, krev at kallaren er Stova (`launcherMayList`),
+og `kind`+`user` peikar på Spole-profilen, funnen som i `select_profile`. Spole spør Seerr-kontoen til
+den profilen på tråden kallet kjem på, så Stova kallar utanfor hovudtråden. Bilete er fulle
+TMDB-adresser (`https://image.tmdb.org/t/p/w500…` plakat, `w1280` bakgrunn), som Stova lastar direkte;
+ingen token eller Seerr-adresse går over.
+
+| Kall | Svar |
+|---|---|
+| `discover?kind=&user=` | Rader `trending`, `upcoming_movies`, `upcoming_series` med kolonnane `row, type, tmdb, title, year, overview, poster, backdrop, status, community, genres`. Extras: `seerr` = `none`/`browse`/`personal`. |
+| `discover/requests?kind=&user=[&refresh=1]` | `type, tmdb, title, poster, backdrop, stage, percent, seasons, request_id, is4k` for brukaren sine følgde førespurnader. `refresh=1` ber Spole hente status frå Seerr først. |
+| `discover/title?kind=&user=&type=&tmdb=` | Éi rad: `type, tmdb, title, year, tagline, overview, poster, backdrop, runtime, genres, community, critic, status, can_request, request_id, request_status, trailer`. |
+| `discover/seasons?…&type=tv&tmdb=` | `number, name, episodes, status, air_date`. |
+| `discover/related?…&type=&tmdb=` | Rader `similar` og `recommended` med radkolonnane. |
+| `discover/search?kind=&user=&q=&page=` | Rad `search` med radkolonnane. Extras: `page`, `has_more`. |
+| `call("discover_request", {kind,user,type,tmdb,seasons})` | `result` = `ok`, `already`, `not_personal`, `forbidden`, `failed`, `unknown`. |
+| `call("discover_withdraw", {kind,user,request_id})` | `result` = `ok`, `failed`, `unknown`. |
+| `spole://discover?kind=&user=&type=&tmdb=` | Opnar tittelen i Spole sitt Oppdag. |
+
+- Kvart svar frå `discover…` til Stova har extra `seerr`: `none` (ukjend person, barneprofil eller
+  ingen Seerr som er sett opp; då kjem ingen rader), `browse` (API-nøkkel: sjå, men ikkje be om) eller
+  `personal` (ei personleg Seerr-økt: alt). Oppdag er berre for vaksne profilar, og aldersgrensa til
+  profilen gjeld ikkje her: Seerr gir ingen aldersgrense på radene.
+- `type` er `movie` eller `tv`, og `tmdb` er eit tal over null; `discover/seasons` svarer berre for
+  `tv`. Ein tittel utan type eller TMDB-ID blir ikkje send.
+- `discover` hentar dei tre radene samstundes, og `discover/related` gir `similar` før `recommended`.
+  Ei rad som feilar, blir borte utan å ta dei andre med seg.
+- `discover/title`: `can_request` er 1 berre for ei personleg økt og ein tittel Seerr lèt nokon be
+  om. `request_id` og `request_status` er førespurnaden personen følgjer for tittelen. `community` er
+  0–10, `critic` prosent (Rotten Tomatoes), og `runtime` blir ikkje sendt enno.
+- `discover/requests` les førespurnadene Spole følgjer for Seerr-kontoen. `refresh=1` spør Seerr berre
+  med ei personleg økt; feilar det, kjem det Spole hadde frå før.
+- `discover/search` krev `q` med minst to teikn, og `page` byrjar på 1. Kortare `q` gir ingen rader,
+  `page` = 1 og `has_more` = false.
+- Andre enn Stova får ein tom markør med kolonnane og utan extras.
+
+`status` er Seerr sin mediestatus (1 ukjend, 2 ventar, 3 på veg, 4 delvis, 5 i biblioteket,
+6 sperra). `stage` er Spole sitt steg (`requested`, `downloading`, `importing`, `available`,
+`declined`, `failed`, `unknown`, `watching`). Ein eldre Spole utan desse stiane svarer med den tomme
+profilmarkøren utan `seerr`-extra; Stova les det som «ikkje svart» og viser ingenting.
+
 ## Godkjenn innlogging for Stova
 
 Stova viser ein Jellyfin Quick Connect-kode og kan be Spole godkjenne han som ein av kontoane Spole er

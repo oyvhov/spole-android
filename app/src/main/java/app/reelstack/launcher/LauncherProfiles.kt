@@ -66,7 +66,8 @@ fun launcherSelection(kind: ServiceKind, user: String, activeProfileId: String, 
  * - `rows?kind=&user=`: that person's Home rows, fetched with Spole's own sign-in, so a Stova profile
  *   that follows the person needs no account of its own (see [launcherRowItems]);
  * - `call("select_profile", kind, user)`: follow the person chosen in Stova;
- * - `call("item_action", kind, user, item, action)`: mark a title watched, or take it out of «Hald fram».
+ * - `call("item_action", kind, user, item, action)`: mark a title watched, or take it out of «Hald fram»;
+ * - `discover…?kind=&user=`: that person's Seerr, through Spole's sign-in (see [LauncherDiscoverPath]).
  * No token or address of a server ever crosses; picture addresses carry none.
  */
 class LauncherProfilesProvider : ContentProvider() {
@@ -74,6 +75,7 @@ class LauncherProfilesProvider : ContentProvider() {
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor {
         if (uri.pathSegments == listOf("rows")) return rows(uri)
+        LauncherDiscoverPath.of(uri.pathSegments)?.let { return discover(it, uri) }
         val cursor = MatrixCursor(COLUMNS)
         if (!launcherMayList(callingPackage) || uri.pathSegments != listOf("profiles")) return cursor
         val repository = (context?.applicationContext as? ReelstackApplication)?.container?.connectionRepository ?: return cursor
@@ -90,8 +92,7 @@ class LauncherProfilesProvider : ContentProvider() {
     private fun rows(uri: Uri): Cursor {
         val cursor = MatrixCursor(ROW_COLUMNS)
         if (!launcherMayList(callingPackage)) return cursor
-        val kind = serviceKind(uri.getQueryParameter("kind")) ?: return cursor
-        val user = uri.getQueryParameter("user")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return cursor
+        val (kind, user) = accountIn(uri) ?: return cursor
         val container = (context?.applicationContext as? ReelstackApplication)?.container ?: return cursor
         val repository = container.connectionRepository
         val profile = launcherProfileFor(kind, user, repository.listProfiles(), repository::list) ?: return cursor
@@ -104,6 +105,39 @@ class LauncherProfilesProvider : ContentProvider() {
                 }
         }
         return cursor
+    }
+
+    /**
+     * Discover for one person, asked of their Seerr on this binder thread as [rows] is. Every answer
+     * to Stova says in the `seerr` extra what the person may do; an unknown person, a child or a
+     * profile without a Seerr that is set up gets `none` and no rows. A search says its `page` and
+     * `has_more` too.
+     */
+    private fun discover(path: LauncherDiscoverPath, uri: Uri): Cursor {
+        val cursor = MatrixCursor(path.columns)
+        if (!launcherMayList(callingPackage)) return cursor
+        val (profile, seerr) = accountIn(uri)?.let { (kind, user) -> seerrFor(kind, user) } ?: (null to null)
+        val access = if (profile == null) LauncherSeerrAccess.NONE else launcherSeerrAccess(profile.isKid, seerr)
+        val container = (context?.applicationContext as? ReelstackApplication)?.container
+        val answer = if (access == LauncherSeerrAccess.NONE || seerr == null || container == null) LauncherDiscoverAnswer.EMPTY
+            else LauncherDiscoverQueries(container.mediaSyncRepository, container.requestTrackingRepository) { it.text(container.appContext) }
+                .answer(path, uri, seerr, access)
+        answer.rows.forEach(cursor::addRow)
+        cursor.extras = android.os.Bundle().apply {
+            putString("seerr", access.wire)
+            if (path == LauncherDiscoverPath.SEARCH) {
+                putInt("page", answer.page)
+                putBoolean("has_more", answer.hasMore)
+            }
+        }
+        return cursor
+    }
+
+    /** The Spole profile with this account, found as for [rows], and that profile's Seerr. */
+    private fun seerrFor(kind: ServiceKind, user: String): Pair<UserProfile?, ServiceConnection?> {
+        val repository = (context?.applicationContext as? ReelstackApplication)?.container?.connectionRepository ?: return null to null
+        val profile = launcherProfileFor(kind, user, repository.listProfiles(), repository::list) ?: return null to null
+        return profile to repository.list(profile.id).firstOrNull { it.kind == ServiceKind.SEERR }
     }
 
     override fun call(method: String, arg: String?, extras: android.os.Bundle?): android.os.Bundle? {
@@ -152,6 +186,13 @@ class LauncherProfilesProvider : ContentProvider() {
         }.isSuccess
         if (done && profile.id == repository.activeProfileId) container.localPlaybackStore.forget(connection, item)
         return answer(if (done) LauncherActionResult.OK else LauncherActionResult.FAILED)
+    }
+
+    /** The account a query names with `kind` and `user`, as `spole://profile` takes them. */
+    private fun accountIn(uri: Uri): Pair<ServiceKind, String>? {
+        val kind = serviceKind(uri.getQueryParameter("kind")) ?: return null
+        val user = uri.getQueryParameter("user")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return null
+        return kind to user
     }
 
     private fun serviceKind(value: String?) = when (value) {

@@ -74,6 +74,13 @@ private fun yearIn(text: String): Int? = YEAR.find(text)?.value?.toIntOrNull()
  */
 private fun outOfTen(score: Float?): Double? = score?.let { Math.round(it) / 10.0 }
 
+/**
+ * The bare card a title Stova names is asked about by: its type and TMDB id, with Spole's own id for
+ * a Seerr title. It knows no status, so whether it can be asked for is judged by what Seerr says.
+ */
+fun discoverMinimal(type: String, tmdb: Int): DiscoverMedia =
+    DiscoverMedia("seerr-$type-$tmdb", "", "", 0, false, remoteId = tmdb, mediaType = type)
+
 /** One title of a Discover row as a card: [row] is one of [LauncherDiscoverRows], the columns [LauncherDiscoverColumns.ITEM]. */
 fun discoverItemRow(row: String, media: DiscoverMedia): Array<Any?> = arrayOf(
     row,
@@ -109,7 +116,7 @@ fun discoverTitleRow(media: DiscoverMedia, details: RemoteMediaDetails, critic: 
         details.title?.takeIf { it.isNotBlank() } ?: media.title,
         yearIn(media.metadata)
             ?: details.facts.firstNotNullOfOrNull { fact -> fact.literal?.takeIf { it.length == 4 && it.all(Char::isDigit) }?.toIntOrNull() },
-        details.tagline,
+        details.tagline?.takeIf { it.isNotBlank() },
         details.overview ?: media.overview,
         details.artworkUrl ?: media.artworkUrl,
         details.backdropUrl ?: media.backdropUrl,

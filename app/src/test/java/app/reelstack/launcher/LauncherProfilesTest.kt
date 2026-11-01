@@ -68,4 +68,25 @@ class LauncherProfilesTest {
             assertEquals(0, it.count)
         }
     }
+
+    @Test fun outsiderGetsEmptyDiscoverCursorsWithTheColumns() {
+        val provider = Robolectric.setupContentProvider(LauncherProfilesProvider::class.java, "app.reelstack.launcher")
+        val person = "kind=emby&user=eilev"
+        mapOf(
+            "discover?$person" to LauncherDiscoverColumns.ITEM,
+            "discover/requests?$person&refresh=1" to LauncherDiscoverColumns.REQUEST,
+            "discover/title?$person&type=movie&tmdb=603" to LauncherDiscoverColumns.TITLE,
+            "discover/seasons?$person&type=tv&tmdb=1399" to LauncherDiscoverColumns.SEASON,
+            "discover/related?$person&type=movie&tmdb=603" to LauncherDiscoverColumns.ITEM,
+            "discover/search?$person&q=matrix&page=2" to LauncherDiscoverColumns.ITEM,
+        ).forEach { (path, columns) ->
+            provider.query(Uri.parse("content://app.reelstack.launcher/$path"), null, null, null, null).use {
+                assertEquals(path, columns.toList(), it.columnNames.toList())
+                assertEquals(path, 0, it.count)
+                // No `seerr`, as from a Spole without these paths: Stova reads it as no answer and shows nothing.
+                assertFalse(path, it.extras.containsKey("seerr"))
+                assertTrue(path, it.extras.isEmpty)
+            }
+        }
+    }
 }
