@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-beta29 — Heim på TV som i Stova
+
+- Heim på TV har eit stort toppbilete som går ned til den første hylla, og den hylla står heil nedst på skjermen. Dei andre radene kjem når du går ned, og tonar ut litt over botnen i staden for å kike fram. Biletet går vidare bak hylla heilt ned og brukar det reine bakgrunnsbiletet, så ein trykt tittel ikkje står to gonger.
+- Toppbiletet seier det du treng: ratingane fyrst (TMDB, Rotten Tomatoes og serverens eigen poengsum når TMDB manglar), så år, lengd og aldersgrense. «Episode» og «Film» står ikkje lenger. Har du byrja, står det kor mykje som er att («10m att»). To liner med handling, og logoen er like stor som i Stova.
+- Biletet i toppbiletet syner meir, som bakgrunnen i Stova, og heile toppbiletet er mindre mørkt.
+- Korta har Stova sin stil som standard: 20 dp runde hjørne, og eit nytt fokusval, «Løft, som Stova», der kortet du står på veks utan ring og dei andre på hylla dempast. Framdrifta i «Sjå vidare» er ei 4 dp linje i aksentfargen. Knappar og menyar har framleis ring. Ei eining som framleis hadde den gamle standarden (mjuke hjørne og kvit ring) får den nye éin gong; andre val blir ståande.
+- Miniatyrbileta i «Sjå vidare» var 1,26 gonger for store etter at dei tona inn, så titlar som «Kongen befaler» miste starten. No får dei sin eigen storleik.
+
 ## 1.0.0-beta28 — eigne profilar, og Spole saman med Stova
 
 - Ein konto i hovudprofilen, til dømes Emby-kontoen til eit barn ved sida av Jellyfin-kontoen til ein forelder, kan få sin eigen profil: Tenestene dine → Profilar → «Eigen profil for …». Profilen er vanlege Spole med berre den kontoen, han ligg i profilmenyen i hjørnet, og ingen ny innlogging trengst. Hovudprofilen held fram med alt.
