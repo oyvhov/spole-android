@@ -54,7 +54,7 @@ class TvRefinementTest {
 
         assertEquals(82f, item.tmdbRating)
         assertEquals(93, item.criticRating)
-        assertTrue(urls.single().contains("Fields=Overview,PrimaryImageAspectRatio,CommunityRating,CriticRating"))
+        assertTrue(urls.single().contains("Fields=Overview,PrimaryImageAspectRatio,CommunityRating,CriticRating,OfficialRating"))
     }
     @Test fun missingStreamsDoNotInventQualityOrProgress() {
         val detail = ServicePayloadParser.libraryDetails("""{"Name":"Test","Type":"Movie"}""")

@@ -72,6 +72,9 @@ class LauncherRowsTest {
         assertEquals("6", cards[1].official)
         assertEquals(null, first.official)
         assertFalse(cards.toString().contains("secret"))
+        // Four new episodes of one series are one card in Stova's new-series row.
+        val turtles = (1..4).map { n -> episode.copy(id = "emby-t$n", remoteId = "t$n", seriesId = "tmnt", progress = null) }
+        assertEquals(listOf("t1"), launcherRowItems(emby, AccountRows(emptyList(), emptyList(), turtles)).map { it.id })
     }
 
     @Test fun nobodyButStovaGetsRowsOrActions() {

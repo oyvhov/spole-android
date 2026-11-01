@@ -34,8 +34,9 @@ private data class ServiceProbe(
 
 // Emby omits these scalar values from item lists unless they are explicitly requested.
 // CommunityRating is the server's TMDB/IMDb/TVDB community score; the parser presents it with
-// the TMDB mark when no more specific provider value is available.
-private const val LIBRARY_RATING_FIELDS = "CommunityRating,CriticRating"
+// the TMDB mark when no more specific provider value is available. OfficialRating is the age
+// Stova's hero keeps to; without it every Emby title had an unknown age and the hero stood empty.
+private const val LIBRARY_RATING_FIELDS = "CommunityRating,CriticRating,OfficialRating"
 
 /** One page of Seerr results, so Discover can ask for the next one instead of truncating at 20. */
 data class SeerrSearchPage(

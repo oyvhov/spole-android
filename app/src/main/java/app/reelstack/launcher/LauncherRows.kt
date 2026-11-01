@@ -60,7 +60,8 @@ fun launcherLibraryAccounts(connections: List<ServiceConnection>): List<ServiceC
 fun launcherRowItems(connection: ServiceConnection, rows: AccountRows): List<LauncherRowItem> =
     rows.watching.map { it.card(LauncherRowNames.WATCHING, connection) } +
         rows.recentMovies.map { it.card(LauncherRowNames.MOVIES, connection) } +
-        rows.recentSeries.map { it.card(LauncherRowNames.SERIES, connection) }
+        // New episodes of one series are one series to Stova: the same picture four times said nothing.
+        rows.recentSeries.distinctBy { it.seriesId ?: it.id }.map { it.card(LauncherRowNames.SERIES, connection) }
 
 private fun LibraryMedia.card(row: String, connection: ServiceConnection): LauncherRowItem {
     val episodeLike = mediaType.equals("Episode", true) || (season != null && episode != null)
