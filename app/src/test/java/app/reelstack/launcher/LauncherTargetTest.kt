@@ -192,6 +192,36 @@ class LauncherTargetTest {
             resolveLauncherTarget(link(kid.id), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections))
     }
 
+    private fun discoverLink(userId: String, kind: ServiceKind = ServiceKind.JELLYFIN) =
+        LauncherLink(kind, userId, "", LauncherAction.DISCOVER, discover = "seerr-movie-603")
+
+    @Test fun discoverOpensAsTheGrownUpWhoHasTheAccount() {
+        assertEquals(LauncherTarget.Open(main), resolveLauncherTarget(discoverLink(main.userId), listOf(main), "", kids))
+        assertEquals(LauncherTarget.Open(eilevAccount),
+            resolveLauncherTarget(discoverLink("eilev", ServiceKind.EMBY), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections))
+    }
+
+    @Test fun discoverIsNeverForAChild() {
+        // A title link switches to the child; Discover is for grown-ups only.
+        assertEquals(LauncherTarget.BlockedInKidMode,
+            resolveLauncherTarget(discoverLink(kid.id), listOf(main), "", kids, childConnections))
+        assertEquals(LauncherTarget.BlockedInKidMode,
+            resolveLauncherTarget(discoverLink(kid.id), listOf(main), "", kids))
+        assertEquals(LauncherTarget.BlockedInKidMode,
+            resolveLauncherTarget(discoverLink(kid.id), listOf(main), kid.id, kids, childConnections))
+        assertEquals(LauncherTarget.BlockedInKidMode,
+            resolveLauncherTarget(discoverLink(main.userId), listOf(main), kid.id, kids, childConnections))
+        assertEquals(LauncherTarget.BlockedInKidMode,
+            resolveLauncherTarget(discoverLink(kid.id), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections))
+    }
+
+    @Test fun discoverNeedsTheAccountSignedIn() {
+        assertEquals(LauncherTarget.NotSignedIn, resolveLauncherTarget(discoverLink("unknown"), listOf(main), "", kids))
+        assertEquals(LauncherTarget.NotSignedIn, resolveLauncherTarget(discoverLink(main.userId), emptyList(), "", kids))
+        assertEquals(LauncherTarget.NotSignedIn,
+            resolveLauncherTarget(discoverLink(main.userId), listOf(main.copy(token = "")), "", kids))
+    }
+
     @Test fun requiresMainSignInEvenForActiveKid() {
         assertEquals(
             LauncherTarget.NotSignedIn,

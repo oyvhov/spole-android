@@ -162,6 +162,38 @@ class LauncherLinkTest {
         ).forEach { raw -> assertNull(raw, LauncherLinks.parse(raw)) }
     }
 
+    @Test fun discoverLinkParses() {
+        assertEquals(
+            LauncherLink(ServiceKind.JELLYFIN, "u1", "", LauncherAction.DISCOVER, discover = "seerr-movie-603"),
+            LauncherLinks.parse("spole://discover?kind=jellyfin&user=u1&type=movie&tmdb=603"),
+        )
+        assertEquals(
+            LauncherLink(ServiceKind.EMBY, "U_1", "", LauncherAction.DISCOVER, discover = "seerr-tv-123456789"),
+            LauncherLinks.parse("spole://discover?tmdb=123456789&extra=%C3%B8&%74ype=tv&user=U_1&kind=emby"),
+        )
+        // Only a discover link carries a Seerr title.
+        assertNull(LauncherLinks.parse("spole://open?$validQuery")!!.discover)
+        assertNull(LauncherLinks.parse("spole://open?$validQuery&type=movie&tmdb=603")!!.discover)
+    }
+
+    @Test fun discoverLinkRejectsBadTypeAndTmdb() {
+        listOf(
+            "type=book&tmdb=603", "type=movie&tmdb=0x", "type=movie", "tmdb=603",
+            "type=MOVIE&tmdb=603", "type=&tmdb=603", "type=movie&tmdb=", "type=movie&tmdb=0",
+            "type=movie&tmdb=0603", "type=movie&tmdb=1234567890", "type=movie&tmdb=-1",
+            "type=movie&tmdb=+603", "type=movie&tmdb=6%2003", "type=movie&tmdb=%C3%B8",
+        ).forEach { query -> assertNull(query, LauncherLinks.parse("spole://discover?kind=jellyfin&user=u1&$query")) }
+        val valid = "kind=jellyfin&user=u1&type=movie&tmdb=603"
+        listOf(
+            "spole://discover/?$valid", "spole://discover/title?$valid", "spole://discover?$valid#",
+            "spole://discover:80?$valid", "spole://%64iscover?$valid",
+            "spole://discover?$valid&type=movie", "spole://discover?$valid&tmdb=603", "spole://discover?$valid&%75ser=u1",
+            "spole://discover?user=u1&type=movie&tmdb=603", "spole://discover?kind=jellyfin&type=movie&tmdb=603",
+            "spole://discover?kind=plex&user=u1&type=movie&tmdb=603", "spole://discover?kind=jellyfin&user=a%2Fb&type=movie&tmdb=603",
+            "spole://discover?$valid&extra=%FF", "spole://discover", "spole://discover?",
+        ).forEach { raw -> assertNull(raw, LauncherLinks.parse(raw)) }
+    }
+
     @Test fun openHostNeverTreatsLibraryAsAnItem() {
         assertNull(LauncherLinks.parse("spole://open?kind=jellyfin&user=a&library=b"))
         assertEquals(

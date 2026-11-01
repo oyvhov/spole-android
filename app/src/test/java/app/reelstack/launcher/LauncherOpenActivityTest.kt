@@ -93,6 +93,30 @@ class LauncherOpenActivityTest {
         assertTrue(activity.isFinishing)
     }
 
+    @Test fun discoverLinkForwardsTheSeerrTitleToMain() {
+        val activity = Robolectric.buildActivity(TestActivity::class.java,
+            Intent(Intent.ACTION_VIEW, Uri.parse("spole://discover?kind=jellyfin&user=adult&type=tv&tmdb=1399"))).create().get()
+        val next = shadowOf(activity).nextStartedActivity
+        assertEquals(MainActivity::class.java.name, next.component?.className)
+        assertEquals("JELLYFIN", next.getStringExtra("launcher_kind"))
+        assertEquals("adult", next.getStringExtra("launcher_user"))
+        assertEquals("DISCOVER", next.getStringExtra("launcher_action"))
+        assertEquals("seerr-tv-1399", next.getStringExtra("launcher_discover"))
+        assertFalse(next.hasExtra("launcher_item"))
+        assertFalse(next.hasExtra("launcher_library"))
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test fun discoverLinkForAChildShowsTheKidModeMessageWithoutSwitching() {
+        val activity = Robolectric.buildActivity(TestActivity::class.java,
+            Intent(Intent.ACTION_VIEW, Uri.parse("spole://discover?kind=jellyfin&user=child-user&type=movie&tmdb=603"))).create().get()
+        val next = shadowOf(activity).nextStartedActivity
+        assertEquals(activity.getString(R.string.launcher_kid_mode), next.getStringExtra("launcher_message"))
+        assertFalse(next.hasExtra("launcher_discover"))
+        assertFalse(next.hasExtra("launcher_switch_profile"))
+        assertEquals("", repository.activeProfileId)
+    }
+
     @Test fun unmatchedLibraryLinkUsesTheSameNotSignedInMessage() {
         val activity = Robolectric.buildActivity(TestActivity::class.java,
             Intent(Intent.ACTION_VIEW, Uri.parse("spole://library?kind=jellyfin&user=unknown&library=films"))).create().get()
@@ -142,9 +166,9 @@ class LauncherOpenActivityTest {
         assertNotEquals(main.taskAffinity, receiver.taskAffinity)
     }
 
-    @Test fun manifestResolvesOpenLibraryAndProfileAsSeparateLauncherHosts() {
+    @Test fun manifestResolvesOpenLibraryProfileAndDiscoverAsSeparateLauncherHosts() {
         val context = RuntimeEnvironment.getApplication()
-        listOf("open", "library", "profile").forEach { host ->
+        listOf("open", "library", "profile", "discover").forEach { host ->
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("spole://$host"))
                 .addCategory(Intent.CATEGORY_DEFAULT).setPackage(context.packageName)
             val matches = context.packageManager.queryIntentActivities(intent, 0)

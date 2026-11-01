@@ -102,6 +102,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="spole" android:host="profile" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="spole" android:host="discover" />
+            </intent-filter>
         </activity>
         <!-- Stova asks to sign in with one of Spole's accounts; started for a result, so Spole sees who asks. -->
         <activity

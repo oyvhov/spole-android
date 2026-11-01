@@ -45,10 +45,20 @@ internal class PendingLauncherOpen private constructor(
             val kind = intent.getStringExtra("launcher_kind") ?: return null
             val user = intent.getStringExtra("launcher_user") ?: return null
             val action = intent.getStringExtra("launcher_action") ?: return null
-            if (kind !in setOf("JELLYFIN", "EMBY") || action !in setOf("PLAY", "DETAILS", "LIBRARY", "PROFILE")) return null
+            if (kind !in setOf("JELLYFIN", "EMBY") || action !in setOf("PLAY", "DETAILS", "LIBRARY", "PROFILE", "DISCOVER")) return null
             if (action == "PROFILE") {
                 val link = LauncherLinks.parse("spole://profile?kind=${kind.lowercase(java.util.Locale.ROOT)}&user=$user") ?: return null
                 if (link.userId != user) return null
+                return PendingLauncherOpen(link, repository.captureSession(), intent.getStringExtra("launcher_switch_profile"))
+            }
+            if (action == "DISCOVER") {
+                val id = intent.getStringExtra("launcher_discover") ?: return null
+                val parts = id.split('-')
+                if (parts.size != 3 || parts[0] != "seerr") return null
+                val link = LauncherLinks.parse("spole://discover?kind=${kind.lowercase(java.util.Locale.ROOT)}&user=$user" +
+                    "&type=${parts[1]}&tmdb=${parts[2]}") ?: return null
+                // The parser checks type and tmdb; the round trip rejects anything it decoded or dropped.
+                if (link.userId != user || link.discover != id) return null
                 return PendingLauncherOpen(link, repository.captureSession(), intent.getStringExtra("launcher_switch_profile"))
             }
             val library = action == "LIBRARY"

@@ -46,8 +46,12 @@ open class LauncherOpenActivity : app.reelstack.localization.LocalizedActivity()
 
     private fun Intent.withLauncherLink(link: LauncherLink): Intent =
         putExtra("launcher_kind", link.kind.name)
-            .apply { if (link.action != LauncherAction.PROFILE)
-                putExtra(if (link.action == LauncherAction.LIBRARY) "launcher_library" else "launcher_item", link.itemId) }
+            .apply { when (link.action) {
+                LauncherAction.DETAILS, LauncherAction.PLAY -> putExtra("launcher_item", link.itemId)
+                LauncherAction.LIBRARY -> putExtra("launcher_library", link.itemId)
+                LauncherAction.DISCOVER -> putExtra("launcher_discover", link.discover)
+                LauncherAction.PROFILE -> Unit
+            } }
             .putExtra("launcher_user", link.userId).putExtra("launcher_action", link.action.name)
             .apply { if (link.fromStart) putExtra("launcher_start", true) }
 }

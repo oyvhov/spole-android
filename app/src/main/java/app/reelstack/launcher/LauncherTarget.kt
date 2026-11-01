@@ -57,6 +57,8 @@ fun resolveLauncherTarget(
             ?: (profile.isKid && profile.id == link.userId)
     } ?: return LauncherTarget.NotSignedIn
 
+    // Discover is for grown-ups: a child's account never opens it, and neither does kid mode.
+    if (link.action == LauncherAction.DISCOVER && (isKidMode || owner.isKid)) return LauncherTarget.BlockedInKidMode
     if (!isKidMode) {
         if (owner.id != activeProfileId) return LauncherTarget.SwitchToProfile(owner)
         return ownOf(owner)?.let { LauncherTarget.Open(it) } ?: LauncherTarget.NotSignedIn

@@ -118,6 +118,15 @@ ingen token eller Seerr-adresse går over.
   `discover/title`. Spole trekkjer tilbake førespurnaden personen følgjer med den ID-en, og sluttar å
   følgje han. `unknown` òg når Spole ikkje følgjer nokon førespurnad med den ID-en; `not_personal` for
   ein API-nøkkel; `failed` når Seerr ikkje tek imot.
+- `spole://discover` går til `LauncherOpenActivity` (eige filter for verten `discover` i manifestet),
+  utan sti og fragment. `kind`, `user`, `type` (`movie`/`tv`) og `tmdb` (over null, utan leiande null,
+  høgst ni siffer) må vere med nøyaktig éin gong; ukjende parameter blir ignorerte, som for `open`.
+  Spole finn profilen som for `spole://open`, går til Heim og opnar tittelen (`seerr-<type>-<tmdb>`) i
+  sitt eige Oppdag-detaljark. Ein barnekonto eller barnemodus gir `launcher_kid_mode`, og Spole byter
+  aldri til eit barn for Oppdag; ukjend eller utlogga konto gir `launcher_not_signed_in`. Manglar
+  Seerr, stoppar ikkje lenkja: Oppdag i Spole viser sin eigen tilstand. Enno opnar arket berre når
+  Spole alt kjenner tittelen frå ei rad han har lasta (Oppdag, søk, tilrådingar); elles endar lenkja på
+  Heim.
 - Andre enn Stova får ein tom markør med kolonnane og utan extras, og `null` frå kalla.
 
 `status` er Seerr sin mediestatus (1 ukjend, 2 ventar, 3 på veg, 4 delvis, 5 i biblioteket,

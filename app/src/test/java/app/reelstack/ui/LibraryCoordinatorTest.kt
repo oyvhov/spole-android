@@ -113,6 +113,7 @@ class LibraryCoordinatorTest {
             play = { fail("A library view must not start playback") },
             library = { feature.openLauncherLibrary(it.kind, it.itemId) },
             profile = { fail("A library view must not just open a profile") },
+            discover = { fail("A library view must not open a Seerr title") },
         )
         runCurrent()
         assertEquals(AppTab.LIBRARY, snapshot.value.selectedTab)
