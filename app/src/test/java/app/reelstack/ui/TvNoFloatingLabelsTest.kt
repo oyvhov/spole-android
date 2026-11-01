@@ -55,6 +55,8 @@ class TvNoFloatingLabelsTest {
 
     @Test fun theLibraryCustomiseButtonShowsNoTooltip() {
         remote { app.reelstack.ui.screens.LibraryHub(ReelstackUiState(), {}, {}, null, {}) }
+        // The footer is a lazy item; with two lines of story in the hero it starts below the screen.
+        rule.onNodeWithTag("library-hub").performScrollToKey("customize")
         rule.onNodeWithTag("hub-customize").performScrollTo().performSemanticsAction(SemanticsActions.RequestFocus).assertIsFocused()
         rule.mainClock.advanceTimeBy(1_000)
         rule.waitForIdle()

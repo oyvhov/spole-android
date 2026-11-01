@@ -259,7 +259,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val metadataReserve = heroMetadataReservedHeight()
     val numberLine = measuredHeroTextHeight(MaterialTheme.typography.labelLarge)
     val episodeReserve = measuredHeroTextHeight(MaterialTheme.typography.bodyMedium, if (compactTelevision) 1 else 2)
-    val overviewLines = if (television && density.fontScale < 1.6f) 1 else 2
+    // Two lines of story: enough to tell what a film or an episode is about.
+    val overviewLines = 2
     val overviewReserve = measuredHeroTextHeight(overviewStyle, overviewLines)
     Box(modifier.fillMaxWidth().then(featureSize)
         .bringIntoViewRequester(featureIntoView)
@@ -397,7 +398,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             readableMediaText(title.overview)?.let { overview -> Text(overview, color = Color.White.copy(alpha = .78f),
                 fontSize = if (compactTelevision) 13.sp else 14.sp,
                 lineHeight = if (compactTelevision) 17.sp else 20.sp,
-                maxLines = if (television && density.fontScale < 1.6f) 1 else 2, overflow = TextOverflow.Ellipsis)
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
            }
            } }
@@ -466,6 +467,9 @@ internal fun heroMetadataReservedHeight(): Dp = maxOf(
 /** One restrained line keeps the hero informative without turning it into a details sheet. */
 @Composable
 internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
+    // What a viewer needs to decide: how it is rated, when it is from, how long it is — or, part-way
+    // through, how much is left — and who may watch it. Whether it is a film or an episode the logo
+    // and the episode line already say, so the kind of title is no longer written out.
     val type = title.facts.firstOrNull()?.takeUnless { it.startsWith("S") }
     val year = title.facts.firstOrNull { it.matches(Regex("\\d{4}")) }
     val runtime = title.runtimeMinutes?.takeIf { it > 0 } ?: title.facts.firstNotNullOfOrNull {
@@ -475,13 +479,18 @@ internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
         fact != type && fact != year && !fact.matches(Regex("^\\d+ min$")) &&
             !fact.startsWith("★") && !fact.matches(Regex("(?i)^S\\d+\\s+E\\d+.*"))
     }
+    val left = heroMinutesLeft(runtime, title.progress)
+    // The server's own community score, when TMDB's is not there to say the same thing. A score
+    // out of ten only: some servers carry a percentage there, and «★ 95,0» says nothing.
+    val community = title.facts.firstOrNull { it.startsWith("★") }?.takeIf { fact ->
+        title.tmdbRating == null && fact.drop(1).trim().replace(',', '.').toFloatOrNull()?.let { it in 0f..10f } == true
+    }
     val facts = listOfNotNull(
-        type,
         year,
-        runtime?.let(::formatHeroRuntime),
+        left?.let { stringResource(R.string.hero_time_left, formatHeroRuntime(it)) } ?: runtime?.let(::formatHeroRuntime),
         certification,
     )
-    val hasRatings = (title.criticRating != null || title.tmdbRating != null || title.mdblistRating != null)
+    val hasRatings = (title.criticRating != null || title.tmdbRating != null || title.mdblistRating != null || community != null)
     if (facts.isEmpty() && !hasRatings) return
 
     Row(
@@ -495,20 +504,22 @@ internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Ratings lead, as they do on Stova's hero: they are what most people look for first.
+        if (hasRatings) {
+            title.tmdbRating?.let { TmdbRating(it, Modifier.testTag("hero-tmdb-rating")) }
+            title.criticRating?.let { RottenTomatoesRating(it, Modifier.testTag("hero-critic-rating")) }
+            community?.let { Text(it, color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1, modifier = Modifier.testTag("hero-community-rating")) }
+            title.mdblistRating?.let {
+                Text("MDBList ${"%.1f".format(java.util.Locale.ROOT, it / 10f)}", color = Muted,
+                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.testTag("hero-mdblist-rating"))
+            }
+        }
+        if (hasRatings && facts.isNotEmpty()) HeroMetadataDot()
         facts.forEachIndexed { index, fact ->
             if (index > 0) HeroMetadataDot()
             Text(fact, color = Color.White.copy(alpha = .68f), style = MaterialTheme.typography.labelMedium,
                 maxLines = 1)
-        }
-        if (hasRatings && facts.isNotEmpty()) HeroMetadataDot()
-        if (hasRatings) {
-            title.tmdbRating?.let { TmdbRating(it, Modifier.testTag("hero-tmdb-rating")) }
-            title.criticRating?.let { RottenTomatoesRating(it, Modifier.testTag("hero-critic-rating")) }
-            title.mdblistRating?.let {
-                if (title.tmdbRating != null || title.criticRating != null) HeroMetadataDot()
-                Text("MDBList ${"%.1f".format(java.util.Locale.ROOT, it / 10f)}", color = Muted,
-                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.testTag("hero-mdblist-rating"))
-            }
         }
     }
 }
@@ -516,6 +527,12 @@ internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
 @Composable
 private fun HeroMetadataDot() {
     Text("·", color = Color.White.copy(alpha = .35f), style = MaterialTheme.typography.labelMedium)
+}
+
+/** Minutes left of a title part-way through; nothing before it is started or once it is nearly done. */
+internal fun heroMinutesLeft(runtime: Int?, progress: Float?): Int? {
+    if (runtime == null || runtime <= 0 || progress == null || progress < .02f || progress > .97f) return null
+    return kotlin.math.ceil(runtime * (1f - progress)).toInt().coerceAtLeast(1)
 }
 
 private fun formatHeroRuntime(minutes: Int): String {
@@ -542,8 +559,10 @@ internal fun Modifier.heroOverflow(extra: Float): Modifier = this
     .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
     .drawWithContent {
         drawContent()
-        drawRect(Brush.horizontalGradient(0f to Color.Transparent, .27f to Color.Transparent,
-            .52f to Color.Black.copy(alpha = .14f), .72f to Color.Black.copy(alpha = .8f), 1f to Color.Black),
+        // The picture shows as much as Stova's backdrop does: faint behind the words, whole from
+        // two thirds across. It used to wait until three quarters, and the hero read as mostly dark.
+        drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = .04f), .35f to Color.Black.copy(alpha = .1f),
+            .47f to Color.Black.copy(alpha = .16f), .62f to Color.Black.copy(alpha = .8f), .8f to Color.Black, 1f to Color.Black),
             blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
         drawRect(Brush.verticalGradient(0f to Color.Black, .42f to Color.Black, .7f to Color.Black.copy(alpha = .45f), 1f to Color.Transparent),
             blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)

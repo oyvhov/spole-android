@@ -1,3 +1,4 @@
 <resources>
+    <string name="hero_time_left">%1$s left</string>
     <string name="feature_more">View details</string>
 </resources>
