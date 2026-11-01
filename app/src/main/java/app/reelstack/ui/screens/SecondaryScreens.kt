@@ -337,7 +337,7 @@ private fun DiscoverSearchGrid(
         modifier = Modifier.fillMaxSize().steadyRemoteRows(gridState).testTag("discover-grid"),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) { header() }
-        if (!state.isSearching && state.searchPeople.isNotEmpty()) {
+        if (state.searchPeople.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(stringResource(R.string.discover_people), color = Muted, style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(top = 4.dp))
@@ -368,9 +368,9 @@ private fun DiscoverSearchGrid(
                     modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
             }
         }
-        if (state.isSearching) {
+        if (state.isSearching && visible.isEmpty() && state.librarySearchResults.isEmpty() && state.searchPeople.isEmpty()) {
             items(8, key = { "discover-loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
-        } else if (visible.isEmpty() && state.searchPeople.isEmpty()) {
+        } else if (!state.isSearching && visible.isEmpty() && state.searchPeople.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 app.reelstack.ui.components.QuietEmptyState(
                     state.searchError ?: when {
@@ -392,7 +392,7 @@ private fun DiscoverSearchGrid(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     OutlinedButton(
                         onClick = onLoadMore,
-                        enabled = !state.loadingMoreSearch,
+                        enabled = !state.loadingMoreSearch && !state.isSearching,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 52.dp)
                             .focusRing(RoundedCornerShape(14.dp)).testTag("discover-load-more"),

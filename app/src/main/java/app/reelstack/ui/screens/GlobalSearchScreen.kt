@@ -208,7 +208,7 @@ fun GlobalSearchScreen(
                     }
                     return@LazyVerticalGrid
                 }
-                if (!search.searching && search.people.isNotEmpty()) {
+                if (search.people.isNotEmpty()) {
                     item(key = "people-heading", span = { GridItemSpan(maxLineSpan) }) {
                         SearchHeading(stringResource(R.string.discover_people), Modifier.padding(top = 12.dp), SpoleIcons.Person)
                     }
@@ -238,7 +238,8 @@ fun GlobalSearchScreen(
                     }
                 }
                 when {
-                    search.searching -> items(6, key = { "loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
+                    search.searching && requestable.isEmpty() && search.libraryResults.isEmpty() && search.people.isEmpty() ->
+                        items(6, key = { "loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
                     requestable.isNotEmpty() -> {
                         item(key = "requestable-heading", span = { GridItemSpan(maxLineSpan) }) {
                             SearchHeading(stringResource(R.string.search_add_new), Modifier.padding(top = 12.dp), SpoleIcons.Discover)
@@ -251,7 +252,7 @@ fun GlobalSearchScreen(
                         if (search.hasMore) item(key = "more", span = { GridItemSpan(maxLineSpan) }) {
                             OutlinedButton(
                                 onClick = onLoadMore,
-                                enabled = !search.loadingMore,
+                                enabled = !search.loadingMore && !search.searching,
                                 shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).focusRing(RoundedCornerShape(14.dp)).testTag("global-search-more"),
                             ) {
@@ -262,7 +263,7 @@ fun GlobalSearchScreen(
                             }
                         }
                     }
-                    search.libraryResults.isEmpty() && search.people.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
+                    !search.searching && search.libraryResults.isEmpty() && search.people.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
                         QuietEmptyState(search.error ?: stringResource(R.string.search_global_no_results, query),
                             if (search.error != null) SpoleIcons.Wifi else SpoleIcons.Search,
                             modifier = Modifier.testTag("global-search-empty"))

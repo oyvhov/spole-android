@@ -215,6 +215,21 @@ class DownloadsAndSearchUiTest {
         }
     }
 
+    @Test fun existingSearchCardsRemainVisibleWhileTheNextQueryLoads() {
+        rule.setContent {
+            ReelstackTheme {
+                GlobalSearchScreen(
+                    state = GlobalSearchUiState(search = SearchSlice(query = "silo two", searching = true,
+                        libraryResults = listOf(owned), results = listOf(newTitle))),
+                    onQuery = {}, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("library-hit-jf-1").assertIsDisplayed()
+        rule.onNodeWithTag("discover-poster-seerr-tv-2").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("global-search-empty").assertDoesNotExist()
+    }
+
     @Test fun anEmptySearchOffersEarlierSearches() {
         var query = ""
         rule.setContent {

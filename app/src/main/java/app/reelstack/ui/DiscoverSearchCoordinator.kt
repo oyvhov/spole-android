@@ -26,6 +26,10 @@ internal class DiscoverSearchCoordinator(
     private val slice: (ReelstackUiState) -> SearchSlice = ::discoverSlice,
     private val withSlice: (ReelstackUiState, SearchSlice) -> ReelstackUiState = ::withDiscoverSlice,
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
+    private val searchLibraries: suspend (List<app.reelstack.data.model.ServiceConnection>, String) -> List<app.reelstack.data.model.LibraryMedia> =
+        { connections, query -> withContext(ioDispatcher) { mediaSyncRepository.searchLibraries(connections, query) } },
+    private val searchDiscover: suspend (app.reelstack.data.model.ServiceConnection, String) -> app.reelstack.data.repository.MediaSyncRepository.SearchPage =
+        { connection, query -> withContext(ioDispatcher) { mediaSyncRepository.search(connection, query, page = 1) } },
 ) {
     private var searchJob: Job? = null
     private var loadMoreJob: Job? = null
@@ -66,7 +70,9 @@ internal class DiscoverSearchCoordinator(
             }
             return
         }
-        edit { SearchSlice(query = value, searching = true) }
+        // Keep the last answer while typing and fetching. Pagination belongs to the new query,
+        // so the old page cannot be appended while those cards are still visible.
+        edit { it.copy(query = value, searching = true, error = null, page = 1, hasMore = false, loadingMore = false) }
         searchJob = scope.launch {
             delay(DEBOUNCE_MILLIS)
             // Your own libraries and Seerr answer independently. A title you own must remain
@@ -74,17 +80,19 @@ internal class DiscoverSearchCoordinator(
             // one media server is down.
             val libraryDeferred = async {
                 if (mediaServers.isEmpty()) Result.success(emptyList()) else attempt {
-                    withContext(ioDispatcher) {
-                        mediaSyncRepository.searchLibraries(mediaServers, query)
-                    }
+                    searchLibraries(mediaServers, query)
                 }
             }
-            val discoverResult = if (seerr == null) {
-                Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
-            } else attempt {
-                withContext(ioDispatcher) { mediaSyncRepository.search(seerr, query, page = 1) }
+            val discoverDeferred = async {
+                if (seerr == null) {
+                    Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
+                } else attempt { searchDiscover(seerr, query) }
             }
             val libraryResult = libraryDeferred.await()
+            if (!isActive || slice(readState()).query.trim() != query) return@launch
+            // A slow Seerr must not hold back a title that can already be played at home.
+            edit { it.copy(libraryResults = libraryResult.getOrDefault(emptyList())) }
+            val discoverResult = discoverDeferred.await()
             if (!isActive || slice(readState()).query.trim() != query) return@launch
             preferencesRepository.rememberSearch(readState().activeProfileId, query)
             updateState {
