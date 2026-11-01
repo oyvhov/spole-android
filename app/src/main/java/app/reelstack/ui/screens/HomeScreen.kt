@@ -72,6 +72,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -703,7 +704,13 @@ private fun ShelfRow(
         var shelfFocused by remember { mutableStateOf(false) }
         CompositionLocalProvider(app.reelstack.ui.components.LocalShelfFocused provides shelfFocused) {
             LazyRow(state = state, modifier = Modifier.shelfBleed().then(modifier)
-                .onFocusChanged { shelfFocused = it.hasFocus }, contentPadding = shelfPadding(),
+                .onFocusChanged { shelfFocused = it.hasFocus }
+                // Right at the end of a row stays there, as on Discover. It used to drop to a card in the
+                // next row, far along it and mostly below the screen (Shield, 2026-11-01). Left still
+                // leaves for the sidebar.
+                .focusProperties {
+                    onExit = { if (requestedFocusDirection == androidx.compose.ui.focus.FocusDirection.Right) cancelFocusChange() }
+                }, contentPadding = shelfPadding(),
                 horizontalArrangement = Arrangement.spacedBy(spacing), content = content)
         }
     }

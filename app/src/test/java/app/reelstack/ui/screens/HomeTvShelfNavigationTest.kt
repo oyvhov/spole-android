@@ -23,6 +23,8 @@ import app.reelstack.ui.theme.LocalMotionEnabled
 import app.reelstack.ui.theme.LocalPersonalization
 import app.reelstack.ui.theme.ReelstackTheme
 import org.junit.Assert.assertEquals
+import androidx.compose.ui.test.isRoot
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -99,6 +101,23 @@ class HomeTvShelfNavigationTest {
         // itself remains intact.
         val tolerance = if (direction == LayoutDirection.Rtl) 8f else 1f
         assertEquals("The first card should return to its original inset", originalStart, returnedStart, tolerance)
+    }
+
+    // On the Shield the focused card at the far edge was cut off, and Right on the last card dropped to
+    // a card in the next row, mostly below the screen (2026-11-01).
+    @Test fun theFocusedCardStaysOnScreenAndRightStopsAtTheEndOfTheRow() {
+        showHome()
+        val first = rule.onNodeWithTag("resume-card-episode-0")
+        first.requestFocus()
+        val screen = rule.onAllNodes(isRoot()).fetchSemanticsNodes().maxOf { it.boundsInRoot.right }
+        repeat(9) { index ->
+            rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionRight) }
+            rule.mainClock.advanceTimeBy(1_000)
+            val card = rule.onNodeWithTag("resume-card-episode-${index + 1}").assertIsFocused().fetchSemanticsNode().boundsInRoot
+            assertTrue("card ${index + 1} ends inside the screen: ${card.right} of $screen", card.right <= screen)
+        }
+        rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionRight) }
+        rule.onNodeWithTag("resume-card-episode-9").assertIsFocused()
     }
 
     @Test fun returningToTheFirstResumeCardRestoresItsMargin() {
