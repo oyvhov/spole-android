@@ -52,4 +52,14 @@
 
 ## Publisering og oppdatering
 
-(fyllest ut)
+- Release `v1.0.0-beta30` publisert 1. november 2026 som prerelease med éin APK (28 084 292 byte, SHA-256
+  `f934528236ae5ff87c4df3eaba5da8612e3837aa46e0e2b7dbd6302fd82f58bd`), mapping, `SOURCE_COMMIT.txt`
+  (`a277303`), `SHA256SUMS.txt`, FFmpeg-kjelda og kjeldearkivet for dei native undertekstbiblioteka. Alle
+  digestane på GitHub var like dei lokale filene, og taggen peikar på `a277303`. Den offentlege lista (utan
+  token) viste utgåva som ikkje kladd, og den offentlege nedlastinga gav same SHA-256 som det bygde APK-et.
+- Oppdatering i appen på isolert TV 5566 frå den offisielle beta29: Appoppdateringar → «Sjekk no» viste
+  beta30 med release-notata → «Last ned oppdatering» → «Installer oppdatering» → Android «Update» → «App
+  installed.». Installert versjonskode 167, og appen opna att med same innhald som før.
+- Shield og Loftet: den offentlege APK-en lagd inn med `adb install -r`; versjonskode 167 på begge, og
+  Home-knapptenesta til Stova er framleis på.
+- CI «Bygg og test» for `a277303`: grøn.
