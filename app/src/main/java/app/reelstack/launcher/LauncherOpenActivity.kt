@@ -29,7 +29,7 @@ open class LauncherOpenActivity : app.reelstack.localization.LocalizedActivity()
             when (val target = connectionRepository.resolve(link)) {
                 is LauncherTarget.Open -> {
                     if (link.action == LauncherAction.PLAY) JellyfinPlayerActivity.open(this, link.itemId,
-                        source = link.kind, kidsMode = connectionRepository.isKidMode)
+                        source = link.kind, kidsMode = connectionRepository.isKidMode, fromStart = link.fromStart)
                     else startActivity(mainIntent().withLauncherLink(link))
                 }
                 is LauncherTarget.SwitchToProfile -> startActivity(mainIntent().withLauncherLink(link)
@@ -49,4 +49,5 @@ open class LauncherOpenActivity : app.reelstack.localization.LocalizedActivity()
             .apply { if (link.action != LauncherAction.PROFILE)
                 putExtra(if (link.action == LauncherAction.LIBRARY) "launcher_library" else "launcher_item", link.itemId) }
             .putExtra("launcher_user", link.userId).putExtra("launcher_action", link.action.name)
+            .apply { if (link.fromStart) putExtra("launcher_start", true) }
 }

@@ -52,9 +52,7 @@ sealed interface LauncherSelection {
  */
 fun launcherSelection(kind: ServiceKind, user: String, activeProfileId: String, profiles: List<UserProfile>,
     connectionsOf: (String) -> List<ServiceConnection>, pinConfigured: Boolean): LauncherSelection {
-    fun has(id: String) = connectionsOf(id).any { it.kind == kind && it.userId == user && it.token.isNotBlank() }
-    val target = profiles.filterNot { it.isMain }.sortedBy { it.isKid }.firstOrNull { has(it.id) }
-        ?: profiles.firstOrNull { it.isMain }?.takeIf { has("") } ?: return LauncherSelection.Unknown
+    val target = launcherProfileFor(kind, user, profiles, connectionsOf) ?: return LauncherSelection.Unknown
     if (target.id == activeProfileId) return LauncherSelection.Already
     val active = profiles.firstOrNull { it.id == activeProfileId }
     val kidMode = activeProfileId.isNotBlank() && active?.isKid != false
@@ -63,13 +61,19 @@ fun launcherSelection(kind: ServiceKind, user: String, activeProfileId: String, 
 }
 
 /**
- * `content://<package>.launcher/profiles`, for Stova only: the profiles it may offer as tiles, and
- * `call("select_profile", kind, user)` to follow the person chosen in Stova. Nothing else is written.
+ * `content://<package>.launcher`, for Stova only:
+ * - `profiles`: the profiles it may offer as tiles;
+ * - `rows?kind=&user=`: that person's Home rows, fetched with Spole's own sign-in, so a Stova profile
+ *   that follows the person needs no account of its own (see [launcherRowItems]);
+ * - `call("select_profile", kind, user)`: follow the person chosen in Stova;
+ * - `call("item_action", kind, user, item, action)`: mark a title watched, or take it out of «Hald fram».
+ * No token or address of a server ever crosses; picture addresses carry none.
  */
 class LauncherProfilesProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor {
+        if (uri.pathSegments == listOf("rows")) return rows(uri)
         val cursor = MatrixCursor(COLUMNS)
         if (!launcherMayList(callingPackage) || uri.pathSegments != listOf("profiles")) return cursor
         val repository = (context?.applicationContext as? ReelstackApplication)?.container?.connectionRepository ?: return cursor
@@ -79,7 +83,31 @@ class LauncherProfilesProvider : ContentProvider() {
         return cursor
     }
 
+    /**
+     * One person's rows, asked of the server on this binder thread: Stova calls it off its own main
+     * thread. Every library account of the person's profile gives its rows, one after another.
+     */
+    private fun rows(uri: Uri): Cursor {
+        val cursor = MatrixCursor(ROW_COLUMNS)
+        if (!launcherMayList(callingPackage)) return cursor
+        val kind = serviceKind(uri.getQueryParameter("kind")) ?: return cursor
+        val user = uri.getQueryParameter("user")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return cursor
+        val container = (context?.applicationContext as? ReelstackApplication)?.container ?: return cursor
+        val repository = container.connectionRepository
+        val profile = launcherProfileFor(kind, user, repository.listProfiles(), repository::list) ?: return cursor
+        launcherLibraryAccounts(repository.list(profile.id)).forEach { connection ->
+            runCatching { launcherRowItems(connection, container.mediaSyncRepository.launcherRows(connection)) }
+                .getOrNull().orEmpty().forEach {
+                    cursor.addRow(arrayOf<Any?>(it.row, it.kind, it.user, it.server, it.id, it.type, it.title, it.seriesName,
+                        it.season, it.episode, it.year, it.runtime, it.progress, it.overview, it.wide, it.poster, it.backdrop,
+                        it.logo, it.community, it.critic))
+                }
+        }
+        return cursor
+    }
+
     override fun call(method: String, arg: String?, extras: android.os.Bundle?): android.os.Bundle? {
+        if (method == "item_action") return itemAction(extras)
         if (method != "select_profile" || !launcherMayList(callingPackage)) return null
         val kind = when (extras?.getString("kind")) { "jellyfin" -> ServiceKind.JELLYFIN; "emby" -> ServiceKind.EMBY; else -> return null }
         val user = extras.getString("user")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return null
@@ -98,6 +126,40 @@ class LauncherProfilesProvider : ContentProvider() {
         return android.os.Bundle().apply { putString("result", word) }
     }
 
+    /**
+     * A title marked watched, or taken out of «Hald fram», with the account Stova named. Spole's own
+     * journal forgets the title too when that account belongs to the profile Spole has open, so
+     * Spole's Home agrees the next time it is shown.
+     */
+    private fun itemAction(extras: android.os.Bundle?): android.os.Bundle? {
+        if (!launcherMayList(callingPackage)) return null
+        val kind = serviceKind(extras?.getString("kind")) ?: return null
+        val user = extras?.getString("user")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return null
+        val item = extras.getString("item")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return null
+        val action = LauncherItemAction.of(extras.getString("action")) ?: return null
+        val container = (context?.applicationContext as? ReelstackApplication)?.container ?: return null
+        val repository = container.connectionRepository
+        fun answer(word: String) = android.os.Bundle().apply { putString("result", word) }
+        val profile = launcherProfileFor(kind, user, repository.listProfiles(), repository::list)
+            ?: return answer(LauncherActionResult.UNKNOWN)
+        val connection = repository.list(profile.id).firstOrNull { it.kind == kind && it.userId == user && it.token.isNotBlank() }
+            ?: return answer(LauncherActionResult.UNKNOWN)
+        val done = runCatching {
+            when (action) {
+                LauncherItemAction.WATCHED -> container.mediaServerClient.setPlayed(connection, connection.userId, item, true)
+                LauncherItemAction.REMOVE_RESUME -> container.mediaServerClient.clearResume(connection, connection.userId, item)
+            }
+        }.isSuccess
+        if (done && profile.id == repository.activeProfileId) container.localPlaybackStore.forget(connection, item)
+        return answer(if (done) LauncherActionResult.OK else LauncherActionResult.FAILED)
+    }
+
+    private fun serviceKind(value: String?) = when (value) {
+        "jellyfin" -> ServiceKind.JELLYFIN
+        "emby" -> ServiceKind.EMBY
+        else -> null
+    }
+
     override fun getType(uri: Uri): String = "vnd.android.cursor.dir/vnd.app.reelstack.profile"
     override fun insert(uri: Uri, values: ContentValues?): Uri? = null
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
@@ -105,5 +167,7 @@ class LauncherProfilesProvider : ContentProvider() {
 
     private companion object {
         val COLUMNS = arrayOf("id", "name", "kind", "user", "avatar", "kid")
+        val ROW_COLUMNS = arrayOf("row", "kind", "user", "server", "id", "type", "title", "series", "season", "episode",
+            "year", "runtime", "progress", "overview", "wide", "poster", "backdrop", "logo", "community", "critic")
     }
 }

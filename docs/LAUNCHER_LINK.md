@@ -47,6 +47,29 @@ hovudprofilen) og svarar `result` = `to`, `already`, `blocked` eller `unknown`. 
 ein barneprofil på denne måten når Spole har PIN (`blocked`); det gjer ein vaksen i Spole. Andre enn
 Stova får `null`, og ingenting anna blir skrive.
 
+## Radene til ein person
+
+`query(content://<pakke>.launcher/rows?kind=<jellyfin|emby>&user=<id>)` gir radene til personen med
+den kontoen, funnen som i `select_profile`: «Hald fram» (`row` = `continue`, halvsett og så neste
+episode), nye filmar (`latest_movies`) og nye episodar (`latest_series`). Kvar Jellyfin- og Emby-konto i
+profilen gir sine rader. Kolonnar: `row`, `kind`, `user`, `server` (namnet på tenesta), `id` (tittel-ID-en
+til `spole://open`), `type`, `title`, `series`, `season`, `episode`, `year`, `runtime`, `progress` (0–1),
+`overview`, `wide`, `poster`, `backdrop`, `logo` (bildeadresser utan token), `community` (0–10) og `critic`
+(prosent).
+
+Spole hentar radene frå tenaren med si eiga innlogging når Stova spør, på tråden kallet kjem på. Stova
+kallar difor utanfor hovudtråden. Spole sine eigne lagra rader, som berre finst for den aktive profilen,
+blir ikkje rørte. Ein Stova-profil som følgjer personen, treng då ingen eigen konto: Eilev får Emby-radene
+sine i Stova utan Emby-passord der. Andre enn Stova får ingen rader.
+
+## Handlingar på ein tittel
+
+`call("item_action", null, {kind, user, item, action})` på same leverandør: `action` = `watched` (merk
+som sett) eller `remove_resume` (fjern frå «Hald fram»). Spole gjer handlinga på tenaren med kontoen Stova
+nemner, og svarar `result` = `ok`, `failed` eller `unknown` (Spole har ikkje kontoen). Når kontoen høyrer
+til profilen Spole har open, gløymer Spole tittelen i sin eigen avspelingslogg òg, så Heim i Spole er
+samd neste gong han blir vist. Andre enn Stova får `null`.
+
 ## Godkjenn innlogging for Stova
 
 Stova viser ein Jellyfin Quick Connect-kode og kan be Spole godkjenne han som ein av kontoane Spole er
@@ -86,8 +109,9 @@ spole://open?kind=jellyfin|emby&user=<id>&item=<id>&action=details|play
 | `user` | Brukar-ID-en i den valde medietenesta. |
 | `item` | Den eksterne tittel-ID-en i same teneste. |
 | `action` | Nøyaktig `details` eller `play`. |
+| `start` | Valfri, berre `0` og berre med `play`: spel frå starten utan spørsmålet om å halde fram. |
 
-Begge ID-ane skal etter dekoding passe heile uttrykket `[A-Za-z0-9_-]{1,128}`. Alle fire parametrane er påkravde og skal finnast éin gong kvar. Rekkjefølgja er fri. Ukjende parametrar blir ignorerte, men må framleis ha gyldig URI-/prosentkoding. Namn og verdiar blir prosentdekoda éin gong som UTF-8; ugyldig prosentkoding eller UTF-8 blir avvist, også i ukjende felt. Dobbelkoda ID-ar gir ikkje ein ny dekodingsrunde.
+Begge ID-ane skal etter dekoding passe heile uttrykket `[A-Za-z0-9_-]{1,128}`. Dei fire første parametrane er påkravde og skal finnast éin gong kvar. Rekkjefølgja er fri. Ukjende parametrar blir ignorerte, men må framleis ha gyldig URI-/prosentkoding. Namn og verdiar blir prosentdekoda éin gong som UTF-8; ugyldig prosentkoding eller UTF-8 blir avvist, også i ukjende felt. Dobbelkoda ID-ar gir ikkje ein ny dekodingsrunde.
 
 Ruta er nøyaktig `spole://open`, utan sti, avsluttande skråstrek, port, brukarinfo eller fragment (heller ikkje eit tomt `#`). Andre skjema, vertar, store bokstavar i dei faste verdiane, manglande/tomme felt, dupliserte påkravde parameter og ugyldige ID-ar blir avviste. Duplikat blir avviste også når verdiane er like eller parameternamnet er prosentkoda. Ved ugyldig input opnar mottakaren verken detaljar eller avspeling og avsluttar.
 
@@ -171,5 +195,9 @@ profilbyte, eksplisitt Heim og vanleg fanenavigasjon fjernar han. Vanlege detalj
 har ingen slik retur. Sjå [prøva på Shield og Loftet](verification/2026-10-29-launcher-return.md).
 
 I barnemodus blir detaljane viste i barnet sitt eige skal, med avspeling av eigen tittel eller episodeval og lukking. Vaksenverten for detaljar blir ikkje opna. Ei sesonglenkje brukar foreldreserien til episodeoversikta og vel den etterspurde sesongen.
+
+`play&start=0` («Spel frå starten» i Stova) startar tittelen på null utan å spørje om å halde fram;
+neste episode etterpå følgjer vanleg logikk igjen. `start` med andre verdiar, med `details` eller to
+gonger blir avvist.
 
 `play` går gjennom den eksisterande spelaren og den eksisterande logikken for å halde fram. Spelaren har standard aktivitetsmodus og blir opna med `CLEAR_TOP`, slik at ein eksisterande spelar blir oppretta på nytt for måltittelen utan å stable fleire spelarar. Faktisk vidareføring av posisjon, byte av tittel under avspeling og Android-stakken på TV er **ikkje prøvde på eining i denne oppgåva**.

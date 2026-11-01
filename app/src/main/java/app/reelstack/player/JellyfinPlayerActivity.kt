@@ -123,13 +123,14 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         val preferredAudio = intent.getIntExtra(AUDIO_INDEX, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
         val preferredSubtitle = intent.getIntExtra(SUBTITLE_INDEX, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
         val preferredSource = intent.getStringExtra(SOURCE_ID)?.takeIf { it.isNotBlank() && it.length <= 128 }
+        val fromStart = intent.getBooleanExtra(FROM_START, false)
         val kids = (application as ReelstackApplication).container.connectionRepository.isKidMode
         model.kidsMode = kids
         // Covers Back during the first frame too; the screen's menu handler takes precedence later.
         onBackPressedDispatcher.addCallback(this) { if (!model.back()) finish() }
         setContent {
             ReelstackTheme {
-                LaunchedEffect(id, service) { model.open(id, preferredAudio, preferredSubtitle, preferredSource, service) }
+                LaunchedEffect(id, service) { model.open(id, preferredAudio, preferredSubtitle, preferredSource, service, fromStart) }
                 val state by model.state.collectAsStateWithLifecycle()
                 val adjustments by model.adjustments.collectAsStateWithLifecycle()
                 DisposableEffect(state.playing, state.busy) {
@@ -177,14 +178,17 @@ class JellyfinPlayerActivity : app.reelstack.localization.LocalizedActivity() {
         private const val SOURCE_ID = "jellyfin_source_id"
         private const val SERVICE_KIND = "media_service_kind"
         private const val KIDS_MODE = "kids_mode"
+        private const val FROM_START = "jellyfin_from_start"
         fun open(context: Context, itemId: String, audioIndex: Int? = null, subtitleIndex: Int? = null,
-            sourceId: String? = null, source: ServiceKind = ServiceKind.JELLYFIN, kidsMode: Boolean = false) =
+            sourceId: String? = null, source: ServiceKind = ServiceKind.JELLYFIN, kidsMode: Boolean = false,
+            fromStart: Boolean = false) =
             context.startActivity(
                 Intent(context, JellyfinPlayerActivity::class.java).putExtra(ITEM_ID, itemId).apply {
                     // Recreate an existing player for the new item instead of stacking players.
                     addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                     putExtra(SERVICE_KIND, source.name)
                     if (kidsMode) putExtra(KIDS_MODE, true)
+                    if (fromStart) putExtra(FROM_START, true)
                     audioIndex?.let { putExtra(AUDIO_INDEX, it) }
                     subtitleIndex?.let { putExtra(SUBTITLE_INDEX, it) }
                     sourceId?.takeIf(String::isNotBlank)?.let { putExtra(SOURCE_ID, it) }

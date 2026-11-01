@@ -46,6 +46,15 @@ class LauncherOpenActivityTest {
         assertTrue(activity.isFinishing)
     }
 
+    @Test fun playFromTheStartTellsThePlayerSo() {
+        val activity = Robolectric.buildActivity(TestActivity::class.java, Intent(Intent.ACTION_VIEW,
+            Uri.parse("spole://open?kind=jellyfin&user=adult&item=abc&action=play&start=0"))).create().get()
+        val next = shadowOf(activity).nextStartedActivity
+        assertEquals("abc", next.getStringExtra("jellyfin_item_id"))
+        assertTrue(next.getBooleanExtra("jellyfin_from_start", false))
+        assertFalse(shadowOf(launch("adult", "play")).nextStartedActivity.getBooleanExtra("jellyfin_from_start", false))
+    }
+
     @Test fun detailsForwardsCompleteActionAndMainTaskFlags() {
         val activity = launch("adult", "details")
         val next = shadowOf(activity).nextStartedActivity

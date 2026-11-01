@@ -14,6 +14,8 @@ data class LauncherLink(
     /** An item id for play/details, a library view id for LIBRARY, and empty for PROFILE. */
     val itemId: String,
     val action: LauncherAction,
+    /** `start=0` on a play link: from the beginning, without the question about where it stopped. */
+    val fromStart: Boolean = false,
 )
 
 /** PROFILE opens Spole as the profile that has the account, at Home: a launcher's tile for a person. */
@@ -52,7 +54,7 @@ object LauncherLinks {
             val requiredParameters = when {
                 library -> setOf("kind", "user", "library")
                 profile -> setOf("kind", "user")
-                else -> setOf("kind", "user", "item", "action")
+                else -> setOf("kind", "user", "item", "action", "start")
             }
             val query = uri.rawQuery ?: return null
             val parameters = mutableMapOf<String, String>()
@@ -77,7 +79,10 @@ object LauncherLinks {
             val userId = parameters["user"]?.takeIf(identifier::matches) ?: return null
             if (profile) return LauncherLink(kind, userId, "", action)
             val itemId = parameters[if (library) "library" else "item"]?.takeIf(identifier::matches) ?: return null
-            LauncherLink(kind, userId, itemId, action)
+            // Only «from the start» exists, and only for playing.
+            val start = parameters["start"]
+            if (start != null && (start != "0" || action != LauncherAction.PLAY)) return null
+            LauncherLink(kind, userId, itemId, action, fromStart = start != null)
         } catch (_: URISyntaxException) {
             null
         } catch (_: IllegalArgumentException) {

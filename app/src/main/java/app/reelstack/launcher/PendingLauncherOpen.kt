@@ -56,7 +56,8 @@ internal class PendingLauncherOpen private constructor(
             // Reuse the external parser at this exported boundary, including its strict id checks.
             val host = if (library) "library" else "open"
             val parameter = if (library) "library" else "item"
-            val actionQuery = if (library) "" else "&action=${action.lowercase(java.util.Locale.ROOT)}"
+            val fromStart = !library && action == "PLAY" && intent.getBooleanExtra("launcher_start", false)
+            val actionQuery = if (library) "" else "&action=${action.lowercase(java.util.Locale.ROOT)}" + if (fromStart) "&start=0" else ""
             val link = LauncherLinks.parse("spole://$host?kind=${kind.lowercase(java.util.Locale.ROOT)}&user=$user&$parameter=$id$actionQuery")
                 ?: return null
             // Compare the parsed values as well: query injection in an exported intent is invalid.

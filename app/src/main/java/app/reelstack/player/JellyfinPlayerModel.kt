@@ -468,10 +468,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
      * quality or stepping to the next episode does not quietly undo a choice made inside the player.
      */
     fun open(id: String, audio: Int? = null, subtitle: Int? = null, sourceId: String? = null,
-        source: ServiceKind = ServiceKind.JELLYFIN) {
+        source: ServiceKind = ServiceKind.JELLYFIN, fromStart: Boolean = false) {
         if (!ensureSession()) return
         kidsMode = owner.kidsMode
         if (rootId.isNotEmpty()) return
+        startFromBeginning = fromStart
         require(source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY))
         if (isKidsBedtimeReached()) {
             mutable.value = PlayerScreenState(busy = false, source = source, bedtimeReached = true)
@@ -550,6 +551,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    private var startFromBeginning = false
+
     fun choose(item: PlayableItem) {
         previewJob?.cancel(); previewJob = null; previewManifest = null
         networkRecoveries = 0
@@ -573,8 +576,10 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             mutable.update { it.copy(title = item.title, subtitle = item.subtitle, season = item.season,
                 episode = item.episode, logoUrl = item.logoUrl, browsing = false, choices = emptyList(),
                 positionMs = item.resumeMs, durationMs = item.durationMs, ended = false, error = null, chapters = item.chapters, itemId = item.id, trickplay = null) }
-            val start = playbackStartPosition(item.resumeMs, item.durationMs, item.played,
+            // «Spel frå starten» from a launcher applies to the title it named, not to the next episode.
+            val start = if (startFromBeginning) 0L else playbackStartPosition(item.resumeMs, item.durationMs, item.played,
                 playbackOptions().autoResume)
+            startFromBeginning = false
             mutable.update { it.copy(awaitingResume = start == null) }
             if (start == null) mutable.update { it.copy(busy = false) }
             else prepare(start)

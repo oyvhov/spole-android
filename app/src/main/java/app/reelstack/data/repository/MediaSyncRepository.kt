@@ -678,6 +678,21 @@ class MediaSyncRepository(
         episode = item.episode,
     )
 
+    /**
+     * One account's Home rows for Stova, straight from the server and through the account's other
+     * address when the first fails. Spole keeps saved rows for the active profile only, and this
+     * leaves them alone: Stova asks for whichever person its own profile follows.
+     */
+    fun launcherRows(connection: ServiceConnection): AccountRows {
+        val feed = runCatching { mediaServerClient.feed(connection) }.getOrElse { error ->
+            if (!connection.hasAlternate) throw error
+            mediaServerClient.feed(connection.copy(baseUrl = connection.alternateUrl, alternateUrl = connection.baseUrl))
+        }
+        fun List<RemoteLibraryItem>.media() = map { libraryMedia(it, connection.kind) }
+        return AccountRows(app.reelstack.data.model.combinedWatching(feed.resume.media(), feed.nextUp.media()),
+            feed.recentMovies.media(), feed.recentSeries.media())
+    }
+
     private fun libraryMedia(item: RemoteLibraryItem, source: ServiceKind) = item.toLibraryMedia(source,
         R.drawable.media_placeholder, listOf(words(mediaKind(item.mediaType))) + item.facts.map(words))
 
@@ -907,3 +922,10 @@ private fun <T> interleave(groups: List<List<T>>): List<T> = buildList {
         groups.forEach { group -> group.getOrNull(index)?.let(::add) }
     }
 }
+
+/** One account's Home rows as Stova shows them: «Hald fram» (part-watched, then next up), new films, new episodes. */
+data class AccountRows(
+    val watching: List<LibraryMedia>,
+    val recentMovies: List<LibraryMedia>,
+    val recentSeries: List<LibraryMedia>,
+)

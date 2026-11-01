@@ -21,6 +21,16 @@ class LauncherLinkTest {
         )
     }
 
+    @Test fun aPlayLinkCanStartFromTheBeginningAndNothingElseCan() {
+        assertEquals(
+            LauncherLink(ServiceKind.EMBY, "eilev", "ep1", LauncherAction.PLAY, fromStart = true),
+            LauncherLinks.parse("spole://open?kind=emby&user=eilev&item=ep1&action=play&start=0"),
+        )
+        assertEquals(null, LauncherLinks.parse("spole://open?kind=emby&user=eilev&item=ep1&action=details&start=0"))
+        assertEquals(null, LauncherLinks.parse("spole://open?kind=emby&user=eilev&item=ep1&action=play&start=120"))
+        assertEquals(null, LauncherLinks.parse("spole://open?kind=emby&user=eilev&item=ep1&action=play&start=0&start=0"))
+    }
+
     @Test fun parsesEmbyDetailsAndIgnoresUnknownParameters() {
         assertEquals(
             LauncherLink(ServiceKind.EMBY, "User", "Item", LauncherAction.DETAILS),

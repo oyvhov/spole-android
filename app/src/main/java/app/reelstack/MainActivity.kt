@@ -127,7 +127,8 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                         link.routeInMain(
                             details = { reelstackViewModel.openRemoteDetails(it.kind, it.itemId) },
                             play = { app.reelstack.player.JellyfinPlayerActivity.open(
-                                this@MainActivity, it.itemId, source = it.kind, kidsMode = container.connectionRepository.isKidMode) },
+                                this@MainActivity, it.itemId, source = it.kind, kidsMode = container.connectionRepository.isKidMode,
+                                fromStart = it.fromStart) },
                             library = { reelstackViewModel.openRemoteLibrary(it.kind, it.userId, it.itemId) },
                             profile = { reelstackViewModel.openLauncherHome() },
                         )
