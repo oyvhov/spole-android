@@ -79,6 +79,14 @@ class LauncherDiscoverTest {
         assertNull(named(LauncherDiscoverColumns.ITEM, discoverItemRow("search", media(metadata = "Episode 12345")))["year"])
     }
 
+    @Test fun aCardWithoutTypeOrIdIsNotSent() {
+        val cards = discoverCards(LauncherDiscoverRows.SIMILAR,
+            listOf(media(), media().copy(id = "x", mediaType = null), media().copy(id = "y", remoteId = null)))
+        assertEquals(1, cards.size)
+        assertEquals(listOf("similar", "movie", 603), named(LauncherDiscoverColumns.ITEM, cards.single()).let { listOf(it["row"], it["type"], it["tmdb"]) })
+        assertEquals(emptyList<Array<Any?>>(), discoverCards(LauncherDiscoverRows.SEARCH, emptyList()))
+    }
+
     @Test fun titleRowRequestsOnlyWhenPersonalAndRequestable() {
         val fetched = RemoteMediaDetails(title = "The Matrix", artworkUrl = "https://image.tmdb.org/t/p/w500/p2.jpg", tagline = "Free your mind.",
             overview = "Ein datamaskin vaknar.", genres = listOf("Action"), trailerUrl = "https://www.youtube.com/watch?v=abc",

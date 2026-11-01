@@ -114,23 +114,14 @@ class LauncherProfilesProvider : ContentProvider() {
      * `has_more` too.
      */
     private fun discover(path: LauncherDiscoverPath, uri: Uri): Cursor {
-        val cursor = MatrixCursor(path.columns)
-        if (!launcherMayList(callingPackage)) return cursor
+        if (!launcherMayList(callingPackage)) return MatrixCursor(path.columns)
         val (profile, seerr) = accountIn(uri)?.let { (kind, user) -> seerrFor(kind, user) } ?: (null to null)
         val access = if (profile == null) LauncherSeerrAccess.NONE else launcherSeerrAccess(profile.isKid, seerr)
         val container = (context?.applicationContext as? ReelstackApplication)?.container
         val answer = if (access == LauncherSeerrAccess.NONE || seerr == null || container == null) LauncherDiscoverAnswer.EMPTY
             else LauncherDiscoverQueries(container.mediaSyncRepository, container.requestTrackingRepository) { it.text(container.appContext) }
                 .answer(path, uri, seerr, access)
-        answer.rows.forEach(cursor::addRow)
-        cursor.extras = android.os.Bundle().apply {
-            putString("seerr", access.wire)
-            if (path == LauncherDiscoverPath.SEARCH) {
-                putInt("page", answer.page)
-                putBoolean("has_more", answer.hasMore)
-            }
-        }
-        return cursor
+        return answer.cursor(path, access)
     }
 
     /** The Spole profile with this account, found as for [rows], and that profile's Seerr. */

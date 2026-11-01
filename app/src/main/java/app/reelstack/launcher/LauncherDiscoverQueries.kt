@@ -1,6 +1,8 @@
 package app.reelstack.launcher
 
+import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Bundle
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.DiscoverRowKind
 import app.reelstack.data.model.ServiceConnection
@@ -30,6 +32,18 @@ enum class LauncherDiscoverPath(val segment: String?, val columns: Array<String>
 
 /** What one Discover path answers: its rows, and for a search the page they are and whether another follows. */
 internal class LauncherDiscoverAnswer(val rows: List<Array<Any?>>, val page: Int = 1, val hasMore: Boolean = false) {
+    /** The answer as Stova reads it: the path's columns and rows, with `seerr` and a search's `page` and `has_more` as extras. */
+    fun cursor(path: LauncherDiscoverPath, access: LauncherSeerrAccess): MatrixCursor = MatrixCursor(path.columns).also { cursor ->
+        rows.forEach(cursor::addRow)
+        cursor.extras = Bundle().apply {
+            putString("seerr", access.wire)
+            if (path == LauncherDiscoverPath.SEARCH) {
+                putInt("page", page)
+                putBoolean("has_more", hasMore)
+            }
+        }
+    }
+
     companion object {
         val EMPTY = LauncherDiscoverAnswer(emptyList())
     }
@@ -103,17 +117,13 @@ internal class LauncherDiscoverQueries(
     private fun search(seerr: ServiceConnection, query: String?, page: Int): LauncherDiscoverAnswer {
         val text = query?.trim()?.takeIf { it.length >= 2 } ?: return LauncherDiscoverAnswer.EMPTY
         val result = runCatching { media.search(seerr, text, page) }.getOrNull() ?: return LauncherDiscoverAnswer(emptyList(), page)
-        return LauncherDiscoverAnswer(cards(LauncherDiscoverRows.SEARCH, result.items), result.page, result.hasMore)
+        return LauncherDiscoverAnswer(discoverCards(LauncherDiscoverRows.SEARCH, result.items), result.page, result.hasMore)
     }
 
     /** The rows asked all at once, in the order given; a row that fails is left out and the others still come. */
     private fun inParallel(fetches: List<Pair<String, () -> List<DiscoverMedia>>>): List<Array<Any?>> = runBlocking {
-        fetches.map { (row, fetch) -> async(Dispatchers.IO) { cards(row, runCatching(fetch).getOrDefault(emptyList())) } }.awaitAll()
+        fetches.map { (row, fetch) -> async(Dispatchers.IO) { discoverCards(row, runCatching(fetch).getOrDefault(emptyList())) } }.awaitAll()
     }.flatten()
-
-    /** A title without a type or TMDB id could be neither opened nor asked for, so it is not sent. */
-    private fun cards(row: String, items: List<DiscoverMedia>) =
-        items.filter { it.mediaType != null && it.remoteId != null }.map { discoverItemRow(row, it) }
 
     private companion object {
         val DISCOVER_ROWS = listOf(

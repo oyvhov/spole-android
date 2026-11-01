@@ -97,6 +97,10 @@ fun discoverItemRow(row: String, media: DiscoverMedia): Array<Any?> = arrayOf(
     media.genres.joinToString(", "),
 )
 
+/** A row's cards. A title without a type or TMDB id could be neither opened nor asked for, so it is not sent. */
+fun discoverCards(row: String, items: List<DiscoverMedia>): List<Array<Any?>> =
+    items.filter { it.mediaType != null && it.remoteId != null }.map { discoverItemRow(row, it) }
+
 /**
  * The title page: the card the person came from, completed by what Seerr says about the title
  * itself ([details], [critic] for Rotten Tomatoes, [tracked] for the request they follow). The page
