@@ -12,6 +12,6 @@ fun RemoteLibraryItem.toLibraryMedia(source: ServiceKind, artworkRes: Int, words
     lastActivityEpochMillis = lastActivityEpochMillis, addedAtEpochMillis = addedAtEpochMillis,
     season = season, episode = episode, runtimeMinutes = runtimeMinutes, childCount = childCount,
     libraryId = libraryId, seriesId = seriesId, favourite = favourite, played = played, available = available,
-    premiereDate = premiereDate, tmdbId = tmdbId, criticRating = criticRating, tmdbRating = tmdbRating,
+    premiereDate = premiereDate, tmdbId = tmdbId, criticRating = criticRating, officialRating = officialRating, tmdbRating = tmdbRating,
     mdblistRating = mdblistRating, unplayedItemCount = unplayedItemCount, thumbnailUrl = thumbnailUrl, bannerUrl = bannerUrl,
 )

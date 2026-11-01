@@ -14,6 +14,7 @@ internal fun encodeLibraryMetadata(item: LibraryMedia): String = buildJsonObject
     put("available", item.available); put("premiere", item.premiereDate); put("tmdb", item.tmdbId)
     put("added", item.addedAtEpochMillis)
     put("critic", item.criticRating); put("tmdbRating", item.tmdbRating); put("mdblist", item.mdblistRating)
+    put("official", item.officialRating)
 }.toString()
 
 internal fun LibraryMedia.restoreLibraryMetadata(value: String): LibraryMedia {
@@ -28,5 +29,5 @@ internal fun LibraryMedia.restoreLibraryMetadata(value: String): LibraryMedia {
         childCount = number("children"), favourite = flag("favourite", false), played = flag("played", false),
         available = flag("available", true), premiereDate = text("premiere"), tmdbId = number("tmdb"),
         addedAtEpochMillis = text("added")?.toLongOrNull(),
-        criticRating = number("critic"), tmdbRating = decimal("tmdbRating"), mdblistRating = decimal("mdblist"))
+        criticRating = number("critic"), officialRating = text("official"), tmdbRating = decimal("tmdbRating"), mdblistRating = decimal("mdblist"))
 }

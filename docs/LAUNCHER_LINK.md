@@ -54,8 +54,8 @@ den kontoen, funnen som i `select_profile`: «Hald fram» (`row` = `continue`, h
 episode), nye filmar (`latest_movies`) og nye episodar (`latest_series`). Kvar Jellyfin- og Emby-konto i
 profilen gir sine rader. Kolonnar: `row`, `kind`, `user`, `server` (namnet på tenesta), `id` (tittel-ID-en
 til `spole://open`), `type`, `title`, `series`, `season`, `episode`, `year`, `runtime`, `progress` (0–1),
-`overview`, `wide`, `poster`, `backdrop`, `logo` (bildeadresser utan token), `community` (0–10) og `critic`
-(prosent).
+`overview`, `wide`, `poster`, `backdrop`, `logo` (bildeadresser utan token), `community` (0–10), `critic`
+(prosent) og `official` (aldersgrensa slik tenaren gir ho, til dømes «15» eller «PG-13»).
 
 Spole hentar radene frå tenaren med si eiga innlogging når Stova spør, på tråden kallet kjem på. Stova
 kallar difor utanfor hovudtråden. Spole sine eigne lagra rader, som berre finst for den aktive profilen,

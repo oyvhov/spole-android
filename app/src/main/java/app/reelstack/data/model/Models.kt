@@ -144,6 +144,8 @@ data class LibraryMedia(
     val premiereDate: String? = null,
     val tmdbId: Int? = null,
     val criticRating: Int? = null,
+    /** The server's own rating ("15", "PG-13"), passed on to Stova so its hero can keep to an age. */
+    val officialRating: String? = null,
     val tmdbRating: Float? = null,
     val mdblistRating: Float? = null,
     /** Background art kept separately from the often lettered TV/card thumbnail. */

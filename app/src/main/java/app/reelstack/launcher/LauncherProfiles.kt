@@ -100,7 +100,7 @@ class LauncherProfilesProvider : ContentProvider() {
                 .getOrNull().orEmpty().forEach {
                     cursor.addRow(arrayOf<Any?>(it.row, it.kind, it.user, it.server, it.id, it.type, it.title, it.seriesName,
                         it.season, it.episode, it.year, it.runtime, it.progress, it.overview, it.wide, it.poster, it.backdrop,
-                        it.logo, it.community, it.critic))
+                        it.logo, it.community, it.critic, it.official))
                 }
         }
         return cursor
@@ -168,6 +168,6 @@ class LauncherProfilesProvider : ContentProvider() {
     private companion object {
         val COLUMNS = arrayOf("id", "name", "kind", "user", "avatar", "kid")
         val ROW_COLUMNS = arrayOf("row", "kind", "user", "server", "id", "type", "title", "series", "season", "episode",
-            "year", "runtime", "progress", "overview", "wide", "poster", "backdrop", "logo", "community", "critic")
+            "year", "runtime", "progress", "overview", "wide", "poster", "backdrop", "logo", "community", "critic", "official")
     }
 }

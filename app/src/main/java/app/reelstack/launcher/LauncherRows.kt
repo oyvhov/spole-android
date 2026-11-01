@@ -32,6 +32,8 @@ data class LauncherRowItem(
     val logo: String?,
     val community: Double?,
     val critic: Int?,
+    /** The server's rating as it gives it ("15", "PG-13"); Stova keeps its hero within the profile's age with it. */
+    val official: String? = null,
 )
 
 /** The rows Stova gets, in the order it shows them. */
@@ -85,6 +87,7 @@ private fun LibraryMedia.card(row: String, connection: ServiceConnection): Launc
         logo = logoUrl,
         community = tmdbRating?.let { it / 10.0 },
         critic = criticRating,
+        official = officialRating,
     )
 }
 

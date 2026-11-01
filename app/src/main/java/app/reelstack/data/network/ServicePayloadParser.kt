@@ -91,6 +91,8 @@ data class RemoteLibraryItem(
     /** Episodes in a season, so a season row can say "8 episodar". */
     val childCount: Int? = null,
     val criticRating: Int? = null,
+    /** What the server says the title is rated, as it says it ("15", "PG-13"); Stova's hero keeps to an age with it. */
+    val officialRating: String? = null,
     val tmdbRating: Float? = null,
     val mdblistRating: Float? = null,
     val backdropImagePath: String? = null,
@@ -396,6 +398,7 @@ object ServicePayloadParser {
                 childCount = item.int("ChildCount") ?: item.int("childCount")
                     ?: item.int("RecursiveItemCount") ?: item.int("recursiveItemCount"),
                 criticRating = criticRating(item),
+                officialRating = officialRating(item),
                 tmdbRating = tmdbRating(item),
                 mdblistRating = mdblistRating(item),
                 favourite = userData?.get("IsFavorite")?.jsonPrimitive?.booleanOrNull == true ||
@@ -836,6 +839,9 @@ object ServicePayloadParser {
     private fun JsonObject.bool(key: String): Boolean? = this[key]?.jsonPrimitive?.booleanOrNull
     private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
     private fun JsonObject.array(key: String): JsonArray = this[key] as? JsonArray ?: JsonArray(emptyList())
+
+    private fun officialRating(item: JsonObject): String? =
+        (item.string("OfficialRating") ?: item.string("officialRating"))?.trim()?.takeIf(String::isNotEmpty)
 
     private fun criticRating(item: JsonObject): Int? =
         (item.double("CriticRating") ?: item.double("criticRating"))

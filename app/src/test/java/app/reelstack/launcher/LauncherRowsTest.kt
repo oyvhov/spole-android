@@ -53,7 +53,7 @@ class LauncherRowsTest {
             backdropUrl = "http://emby.local:8096/Items/s1/Images/Backdrop/0?tag=b", logoUrl = "http://emby.local:8096/Items/s1/Images/Logo",
             tmdbRating = 72f)
         val film = LibraryMedia("emby-f1", "Oppdrag Nemo", "2003", artworkRes = R.drawable.media_placeholder, source = ServiceKind.EMBY,
-            remoteId = "f1", mediaType = "Movie", posterUrl = "http://emby.local:8096/Items/f1/Images/Primary", criticRating = 99)
+            remoteId = "f1", mediaType = "Movie", posterUrl = "http://emby.local:8096/Items/f1/Images/Primary", criticRating = 99, officialRating = "6")
         val cards = launcherRowItems(emby, AccountRows(listOf(episode), listOf(film), emptyList()))
         assertEquals(listOf("continue", "latest_movies"), cards.map { it.row })
         val first = cards[0]
@@ -68,6 +68,9 @@ class LauncherRowsTest {
         assertEquals("http://emby.local:8096/Items/s1/Images/Thumb?maxWidth=1080&quality=85&tag=t", first.wide)
         assertNull(cards[1].seriesName)
         assertEquals(99, cards[1].critic)
+        // The rating as the server gives it, so Stova's hero can keep to the profile's age.
+        assertEquals("6", cards[1].official)
+        assertEquals(null, first.official)
         assertFalse(cards.toString().contains("secret"))
     }
 
@@ -75,7 +78,7 @@ class LauncherRowsTest {
         val provider = Robolectric.setupContentProvider(LauncherProfilesProvider::class.java, "app.reelstack.launcher")
         provider.query(Uri.parse("content://app.reelstack.launcher/rows?kind=emby&user=eilev"), null, null, null, null)!!.use {
             assertEquals(listOf("row", "kind", "user", "server", "id", "type", "title", "series", "season", "episode",
-                "year", "runtime", "progress", "overview", "wide", "poster", "backdrop", "logo", "community", "critic"), it.columnNames.toList())
+                "year", "runtime", "progress", "overview", "wide", "poster", "backdrop", "logo", "community", "critic", "official"), it.columnNames.toList())
             assertEquals(0, it.count)
         }
         val extras = android.os.Bundle().apply {
