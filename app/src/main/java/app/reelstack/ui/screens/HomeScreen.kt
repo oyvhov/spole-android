@@ -72,9 +72,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -276,6 +278,19 @@ fun HomeScreen(
         val featureVisible by remember { androidx.compose.runtime.derivedStateOf {
             feedState.layoutInfo.visibleItemsInfo.any { it.key == "tablet-feature" || it.key == "mobile-feature" }
         } }
+        // On a television the hero reaches down to the first shelf, which stands whole at the
+        // bottom of the screen, as Home does in Stova. The shelf is measured rather than guessed,
+        // so text size and card size keep it on screen; the last measurement holds once it scrolls away.
+        val density = LocalDensity.current
+        var tvHeroHeight by remember { mutableStateOf<Dp?>(null) }
+        if (television && tablet && featured != null) androidx.compose.runtime.LaunchedEffect(feedState, density) {
+            androidx.compose.runtime.snapshotFlow {
+                val info = feedState.layoutInfo
+                val shelf = info.visibleItemsInfo.firstOrNull { it.index == 1 }
+                if (shelf == null || shelf.key == "freshness" || info.viewportSize.height <= 0) null
+                else info.viewportSize.height - shelf.size
+            }.collect { room -> if (room != null) tvHeroHeight = tvHeroHeightFor(with(density) { room.toDp() }) }
+        }
         androidx.compose.runtime.CompositionLocalProvider(
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
                 if (television) app.reelstack.ui.components.DetailBringIntoView
@@ -288,7 +303,9 @@ fun HomeScreen(
                 end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
-            modifier = Modifier.fillMaxSize().testTag("home-feed"),
+            modifier = Modifier.fillMaxSize()
+                .then(if (television && tablet && featured != null) Modifier.tvHomeBottomFade(TV_SHELF_BOTTOM) else Modifier)
+                .testTag("home-feed"),
         ) {
             if (featured == null) item(key = "home-header") {
                 Box(Modifier.padding(end = if (edge) ReelLayout.Gutter else 0.dp)) {
@@ -309,6 +326,7 @@ fun HomeScreen(
                             },
                             candidates = features,
                             rotationEnabled = featureVisible && state.activeSheet == null,
+                            televisionHeight = tvHeroHeight,
                             onFocusWithin = { focused -> if (television && focused) feedScope.launch {
                                 // Let the focus target finish its own bring-into-view request first.
                                 androidx.compose.runtime.withFrameNanos { }
@@ -679,8 +697,13 @@ private fun ShelfRow(
     val inheritedSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
     CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
         if (isTelevision()) shelfSpec else inheritedSpec) {
-        LazyRow(state = state, modifier = Modifier.shelfBleed().then(modifier), contentPadding = shelfPadding(),
-            horizontalArrangement = Arrangement.spacedBy(spacing), content = content)
+        // Under the lifting focus the cards beside the focused one dim, so the shelf says where focus is.
+        var shelfFocused by remember { mutableStateOf(false) }
+        CompositionLocalProvider(app.reelstack.ui.components.LocalShelfFocused provides shelfFocused) {
+            LazyRow(state = state, modifier = Modifier.shelfBleed().then(modifier)
+                .onFocusChanged { shelfFocused = it.hasFocus }, contentPadding = shelfPadding(),
+                horizontalArrangement = Arrangement.spacedBy(spacing), content = content)
+        }
     }
 }
 
@@ -912,7 +935,7 @@ private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: ap
             role = Role.Button, onClick = seeAll.onClick)
         .semantics { contentDescription = seeAll.label }.testTag(seeAll.tag)) {
         Box(Modifier.fillMaxWidth().height(cardWidth / railArtType(wide, libraryDisplay).ratio).clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant).focusOutline(interactionSource, shape), contentAlignment = Alignment.Center) {
+            .background(MaterialTheme.colorScheme.surfaceVariant).focusOutline(interactionSource, shape, artwork = true), contentAlignment = Alignment.Center) {
             Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
                 Icon(seeAll.icon, null, Modifier.size(28.dp), tint = TextColor)
             }
@@ -1001,6 +1024,32 @@ internal fun railArtworkUrl(
  * wide, so a row of them downloaded three times the pixels it could show.
  */
 internal fun railSizedHero(url: String): String = url.replace(HERO_IMAGE_SIZE, RAIL_IMAGE_SIZE)
+
+/**
+ * The television hero's height when [room] is what the screen leaves above the first shelf. The
+ * hero item's own 4 dp of bottom padding comes off it, and so does a margin under the shelf, so the
+ * shelf's captions do not sit on the edge of the screen.
+ */
+internal fun tvHeroHeightFor(room: Dp): Dp = room - 4.dp - TV_SHELF_BOTTOM
+
+internal val TV_SHELF_BOTTOM = 28.dp
+
+/**
+ * Rows end a margin above the bottom of the screen, in a short fade, as they do on Stova's Home: the
+ * shelf under the first one never peeks in, and a row scrolled past the margin leaves softly.
+ */
+private fun Modifier.tvHomeBottomFade(margin: Dp): Modifier = this
+    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val end = size.height - margin.toPx()
+        val fade = 8.dp.toPx()
+        drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black,
+            startY = end - fade, endY = end), topLeft = androidx.compose.ui.geometry.Offset(0f, end - fade),
+            size = androidx.compose.ui.geometry.Size(size.width, fade), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+        drawRect(Color.Black, topLeft = androidx.compose.ui.geometry.Offset(0f, end),
+            size = androidx.compose.ui.geometry.Size(size.width, margin.toPx()), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+    }
 
 private const val HERO_IMAGE_SIZE = "maxWidth=1920&quality=90"
 private const val RAIL_IMAGE_SIZE = "maxWidth=1080&quality=85"
@@ -1101,15 +1150,19 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
             val isEpisode = media.mediaType.equals("Episode", true) || (media.season != null && media.episode != null)
             val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
             Box(Modifier.fillMaxWidth().height(artworkHeight).testTag("resume-artwork-${media.id}")
-                .clip(shape).focusOutline(interactionSource, shape)) {
+                .clip(shape).focusOutline(interactionSource, shape, artwork = true)) {
                 app.reelstack.ui.components.RailArtwork(
                     url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode),
                     contentDescription = null, frameRatio = frameRatio, fallbackRes = media.artworkRes,
                     source = media.source, modifier = Modifier.fillMaxSize(), fitMismatched = false)
-                if (percent > 0) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp)
-                    .background(Color.Black.copy(alpha = .55f))) {
+                // Stova's progress: a 4 dp line in the accent and nothing behind it. The other
+                // focus styles keep the white line on its dark track.
+                val lifted = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle == app.reelstack.data.model.FocusStyle.LIFT
+                if (percent > 0) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(if (lifted) 4.dp else 3.dp)
+                    .then(if (lifted) Modifier else Modifier.background(Color.Black.copy(alpha = .55f)))
+                    .testTag("resume-progress-${media.id}")) {
                     Box(Modifier.fillMaxWidth((media.progress ?: 0f).coerceIn(0f, 1f)).fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.onSurface))
+                        .background(if (lifted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface))
                 }
             }
         }
@@ -1229,7 +1282,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .fillMaxWidth()
                 .height(artworkHeight)
                 .testTag("library-artwork-${media.id}")
-                .clip(artworkShape).focusOutline(interactionSource, artworkShape),
+                .clip(artworkShape).focusOutline(interactionSource, artworkShape, artwork = true),
         ) {
             val image = if (libraryDisplay == null) railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode = isEpisode)
                 else app.reelstack.data.model.librarySizedArtwork(app.reelstack.data.model.libraryArtworkUrl(media, artType), widthPx)

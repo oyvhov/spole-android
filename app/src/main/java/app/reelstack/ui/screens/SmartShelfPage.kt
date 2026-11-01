@@ -461,7 +461,7 @@ private fun SmartShelfCard(entry: RemoteLibraryItem, source: ServiceKind, onClic
         .testTag("smart-item-${entry.id}")) {
         BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(2f / 3f)
             .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .focusOutline(interaction, shape).clip(shape)) {
+            .focusOutline(interaction, shape, artwork = true).clip(shape)) {
             val widthPx = with(density) { maxWidth.roundToPx() }.coerceAtLeast(1)
             RailArtwork(librarySizedArtwork(libraryArtworkUrl(entry, LibraryArtType.POSTER), widthPx), null, 2f / 3f,
                 Modifier.fillMaxSize(), fallbackRes = R.drawable.media_placeholder, source = source,

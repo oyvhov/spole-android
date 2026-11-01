@@ -188,7 +188,7 @@ private fun SmartShelfTile(shelf: SmartShelf, items: List<RemoteLibraryItem>, so
         .graphicsLayer { scaleX = scale; scaleY = scale }
         .clip(shape)
         .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceVariant)))
-        .focusOutline(interaction, shape)
+        .focusOutline(interaction, shape, artwork = true)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .semantics { contentDescription = name }
         .testTag("smart-shelf-${shelf.id}")) {

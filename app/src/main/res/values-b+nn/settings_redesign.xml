@@ -14,6 +14,7 @@
     <string name="theme_soft">Mjuke</string>
     <string name="theme_round">Avrunda</string>
     <string name="theme_focus">Fokusmarkering</string>
+    <string name="theme_focus_lift">Løft, som Stova</string>
     <string name="theme_focus_white">Rein kvit</string>
     <string name="theme_focus_accent">Aksentfargen</string>
     <string name="theme_focus_bold">Kraftig kvit</string>

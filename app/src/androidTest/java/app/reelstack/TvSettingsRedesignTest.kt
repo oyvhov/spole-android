@@ -98,7 +98,7 @@ class TvSettingsRedesignTest {
             rule.runOnIdle { assertEquals(expected.copy(visualTheme = VisualTheme.MIDNIGHT, accent = AccentPalette.MINT,
                 artworkCorners = ArtworkCorners.CRISP, focusStyle = FocusStyle.BOLD, highContrast = true), repository.personalization) }
             rule.onNodeWithTag("appearance-reset").performScrollTo().performClick()
-            rule.runOnIdle { assertEquals(expected.copy(focusStyle = FocusStyle.BOLD), repository.personalization) }
+            rule.runOnIdle { assertEquals(expected, repository.personalization) }
         } finally { rule.runOnIdle { repository.personalization = original } }
     }
     @Test fun pagesAndMenuShareOneCategoryWithOneLibraryEntry() {

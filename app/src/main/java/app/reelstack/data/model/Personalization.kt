@@ -62,21 +62,22 @@ enum class VisualTheme(
     companion object { fun decode(value: String?) = entries.firstOrNull { it.name == value } ?: FOREST }
 }
 
+/** ROUND is the standard, and the same 20 dp as Stova's cards, so the two apps' shelves match. */
 enum class ArtworkCorners(val radius: Int) {
-    CRISP(4), SOFT(12), ROUND(24);
-    companion object { fun decode(value: String?) = entries.firstOrNull { it.name == value } ?: SOFT }
+    CRISP(4), SOFT(12), ROUND(20);
+    companion object { fun decode(value: String?) = entries.firstOrNull { it.name == value } ?: ROUND }
 }
 
-enum class FocusStyle { WHITE, ACCENT, BOLD;
+/**
+ * LIFT is Stova's card focus and the standard: the focused card grows and has no ring, and the other
+ * cards on its shelf dim. Buttons and menus still get a ring, white and as bold as BOLD's on a
+ * television, because focus is the only orientation a D-pad user has and a hairline does not read
+ * from three metres away. A stored choice always wins.
+ */
+enum class FocusStyle { LIFT, WHITE, ACCENT, BOLD;
     companion object {
-        /**
-         * Focus is the only orientation a D-pad user has, and a 3 dp ring is six pixels on a
-         * 1080p panel — a hairline from three metres away. Television therefore starts at BOLD.
-         * A stored choice always wins, so nobody's setting is overridden; this only decides what
-         * happens before anyone has chosen.
-         */
-        fun decode(value: String?, television: Boolean = false) =
-            entries.firstOrNull { it.name == value } ?: if (television) BOLD else WHITE
+        @Suppress("UNUSED_PARAMETER")
+        fun decode(value: String?, television: Boolean = false) = entries.firstOrNull { it.name == value } ?: LIFT
     }
 }
 
@@ -126,8 +127,8 @@ data class Personalization(
     val showMediaInfo: Boolean = false,
     val slowStartup: Boolean = false,
     val visualTheme: VisualTheme = VisualTheme.FOREST,
-    val artworkCorners: ArtworkCorners = ArtworkCorners.SOFT,
-    val focusStyle: FocusStyle = FocusStyle.WHITE,
+    val artworkCorners: ArtworkCorners = ArtworkCorners.ROUND,
+    val focusStyle: FocusStyle = FocusStyle.LIFT,
     val highContrast: Boolean = false,
     /**
      * How much of a season shows beyond its colours. FULL by default when a seasonal mood is

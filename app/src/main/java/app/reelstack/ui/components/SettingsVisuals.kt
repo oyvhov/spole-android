@@ -142,7 +142,12 @@ internal fun SettingsOptionPreview(value: Any?) {
                 repeat(3) { index -> card(3f + index * (width + 3f), (44f - height) / 2f,
                     width, height, 3f, colors.onSurfaceVariant.copy(alpha = .3f + index * .2f)) }
             }
-            is FocusStyle -> {
+            is FocusStyle -> if (value == FocusStyle.LIFT) {
+                // The middle card a little larger and the others dim, with no ring at all.
+                card(3f, 9f, 16f, 27f, 3f, colors.onSurfaceVariant.copy(alpha = .12f))
+                card(43f, 9f, 16f, 27f, 3f, colors.onSurfaceVariant.copy(alpha = .12f))
+                card(21.5f, 6.5f, 19f, 32f, 3.5f, colors.onSurfaceVariant.copy(alpha = .45f))
+            } else {
                 repeat(3) { index -> card(3f + index * 20f, 9f, 16f, 27f, 3f,
                     colors.onSurfaceVariant.copy(alpha = .22f)) }
                 drawRoundRect(if (value == FocusStyle.ACCENT) colors.primary else colors.onSurface,

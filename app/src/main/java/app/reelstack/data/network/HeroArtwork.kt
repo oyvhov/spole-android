@@ -23,6 +23,12 @@ fun mobileHeroArtworkUrl(media: LibraryMedia): String? {
     }
 }
 
+/**
+ * The television hero fills the screen under its clear logo, so it takes the clean backdrop when
+ * there is one. A Thumb's printed title would read twice, the second time under the first shelf.
+ */
+fun televisionHeroArtworkUrl(media: LibraryMedia): String? = mobileHeroArtworkUrl(media) ?: libraryHeroArtworkUrl(media)
+
 /** Older snapshots only contain card art. Reuse it only when its image owner is suitable. */
 fun libraryHeroArtworkUrl(media: LibraryMedia): String? {
     media.heroUrl?.takeIf { it.isNotBlank() }?.let { return it }

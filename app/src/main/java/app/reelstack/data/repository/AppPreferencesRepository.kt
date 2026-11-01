@@ -37,6 +37,24 @@ class AppPreferencesRepository(context: Context) {
         (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
             android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
 
+    init {
+        // Cards took Stova's look as their standard: round corners, and focus that lifts the card.
+        // Settings are saved whole, so the old standard is on disk even where nobody chose it — and
+        // a television could hold WHITE as well as BOLD, from before BOLD became its standard. A
+        // device still on soft corners and a white ring moves once; any other choice is kept.
+        if (!preferences.getBoolean("card_style_stova_applied", false)) {
+            val corners = preferences.getString("artwork_corners", null)
+            val focus = preferences.getString("focus_style", null)
+            preferences.edit {
+                if (corners in setOf(null, "SOFT") && focus in setOf(null, "WHITE", "BOLD")) {
+                    putString("artwork_corners", app.reelstack.data.model.ArtworkCorners.ROUND.name)
+                    putString("focus_style", app.reelstack.data.model.FocusStyle.LIFT.name)
+                }
+                putBoolean("card_style_stova_applied", true)
+            }
+        }
+    }
+
     /**
      * View, card size and image type per library, the way Jellyfin keeps them. Stored by library id
      * so a film library and a recordings library can differ, and read back with defaults when the

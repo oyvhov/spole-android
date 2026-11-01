@@ -95,8 +95,9 @@ class HomeTvShelfNavigationTest {
 
         val returnedStart = start(first.getUnclippedBoundsInRoot())
         // The test API combines the scaled position with the unscaled width, so RTL's right edge
-        // can differ by half the focused card's growth while the inset itself remains intact.
-        val tolerance = if (direction == LayoutDirection.Rtl) 6f else 1f
+        // can differ by half the focused card's growth (6 % under the standard lift) while the inset
+        // itself remains intact.
+        val tolerance = if (direction == LayoutDirection.Rtl) 8f else 1f
         assertEquals("The first card should return to its original inset", originalStart, returnedStart, tolerance)
     }
 

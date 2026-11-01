@@ -114,6 +114,10 @@ private val TITLE_LINE_HEIGHT = 36.sp
 private val TV_TITLE_SIZE = 26.sp
 private val TV_TITLE_LINE_HEIGHT = 28.sp
 
+/** As large as the clear logo in Stova's hero. */
+private val TV_LOGO_WIDTH = 380.dp
+private val TV_LOGO_HEIGHT = 88.dp
+
 /** Native text includes font metrics that sp-to-dp line-height arithmetic does not capture. */
 @Composable
 internal fun measuredHeroTextHeight(style: TextStyle, lines: Int = 1): Dp {
@@ -166,6 +170,8 @@ internal fun Modifier.cinematicBleed(inset: Dp): Modifier = layout { measurable,
 internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit, modifier: Modifier = Modifier,
     account: (@Composable () -> Unit)? = null,
     candidates: List<LibraryMedia> = listOf(media), rotationEnabled: Boolean = true,
+    /** On a television, the height that leaves the first shelf whole at the bottom of the screen. */
+    televisionHeight: Dp? = null,
     onFocusWithin: (Boolean) -> Unit = {}) {
     val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
@@ -231,8 +237,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val heroScale = LocalPersonalization.current.artworkSize.scale
     val titleSize = if (compactTelevision) TV_TITLE_SIZE else TITLE_SIZE
     val titleLineHeight = if (compactTelevision) TV_TITLE_LINE_HEIGHT else TITLE_LINE_HEIGHT
+    // A television hero has the room of Stova's, and a clear logo there grows to match its height.
     val titleSlot = measuredHeroTextHeight(TextStyle(fontSize = titleSize, lineHeight = titleLineHeight,
-        fontWeight = FontWeight.SemiBold), 2)
+        fontWeight = FontWeight.SemiBold), 2).let { if (television) maxOf(it, TV_LOGO_HEIGHT) else it }
     val overviewStyle = TextStyle(fontSize = if (compactTelevision) 13.sp else 14.sp,
         lineHeight = if (compactTelevision) 17.sp else 20.sp)
     // Window and text scale reserve the scene before its artwork has loaded.
@@ -241,8 +248,9 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         measuredHeroTextHeight(overviewStyle, 2)
     // Reserve room for the first shelf's heading, artwork and captions at normal text size.
     // Large text can grow the scene instead of clipping its controls.
-    val televisionHeight = with(density) { windowInfo.containerSize.height.toDp() } * .44f
-    val sceneHeight = maxOf(if (television) televisionHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
+    // At least the old 44 % of the window, so a shelf too tall for the screen never shrinks the hero.
+    val tvSceneHeight = maxOf(televisionHeight ?: 0.dp, with(density) { windowInfo.containerSize.height.toDp() } * .44f)
+    val sceneHeight = maxOf(if (television) tvSceneHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
         reservedText + if (compactTelevision) 80.dp else 130.dp)
     // The caption slot measures every carousel candidate. Its real height can exceed the text
     // estimate at large font sizes; a fixed touch height then squeezed the actions down to 16 dp.
@@ -285,7 +293,11 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         // On a television the picture runs on under the first row and fades into the page, instead of
         // ending in a line across the screen where the hero stops. It fades by its own transparency,
         // so a seasonal page shows through rather than a dark band in the hero's colour.
-        Box(Modifier.matchParentSize().then(if (television) Modifier.heroOverflow(.6f) else Modifier).testTag("feature-artwork")) {
+        // On Home, which sizes the hero to its first shelf, the picture runs on behind that shelf to
+        // the bottom of the screen, as Stova's backdrop does.
+        val tvOverflow = if (televisionHeight == null) .6f
+            else maxOf(.6f, with(density) { windowInfo.containerSize.height.toDp() } / sceneHeight - 1f)
+        Box(Modifier.matchParentSize().then(if (television) Modifier.heroOverflow(tvOverflow) else Modifier).testTag("feature-artwork")) {
           Box(Modifier.matchParentSize()) {
             // Predecode the bounded carousel. Keep the outgoing image opaque beneath the incoming
             // layer until its fade finishes, avoiding a dark dip halfway through the transition.
@@ -297,7 +309,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                     tween(durationMillis = if (motion && incoming) duration else 0,
                         delayMillis = if (motion && !incoming) duration else 0), label = "feature-artwork-${title.id}")
                 Box(Modifier.matchParentSize().zIndex(if (incoming) 1f else 0f).graphicsLayer { alpha = opacity }) {
-                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false, alignment = Alignment.TopCenter, crossfadeDurationMillis = 0)
+                    MediaArtwork(app.reelstack.data.network.heroArtworkUrl(if (television) app.reelstack.data.network.televisionHeroArtworkUrl(title) else app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false, alignment = Alignment.TopCenter, crossfadeDurationMillis = 0)
                 }
               }
             }
@@ -340,7 +352,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             val logo = title.logoUrl
             var logoFailed by remember(title.id, logo) { mutableStateOf(false) }
             var logoRatio by remember(title.id, logo) { mutableStateOf<Float?>(null) }
-            val logoWidth = if (television) 320.dp else 240.dp
+            val logoWidth = if (television) TV_LOGO_WIDTH else 240.dp
                 if (!logo.isNullOrBlank() && !logoFailed) {
                     MediaArtwork(
                         url = logo,

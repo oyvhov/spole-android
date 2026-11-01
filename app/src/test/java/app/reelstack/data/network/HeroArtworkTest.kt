@@ -35,6 +35,14 @@ class HeroArtworkTest {
         assertTrue(opening.backdropUrl!!.contains("maxWidth=1920"))
     }
 
+    @Test fun theFullScreenTelevisionHeroTakesSceneryAndFallsBackToTheThumb() {
+        // Seen on the Shield: «Skal vi danse» showed its clear logo, and the Thumb's printed logo again under the first shelf.
+        val backdrop = "https://media.example/Items/series/Images/Backdrop/0?tag=scenery"
+        val thumb = "https://media.example/Items/series/Images/Thumb?tag=lettering"
+        assertEquals(backdrop, televisionHeroArtworkUrl(media.copy(backdropUrl = backdrop, heroUrl = thumb)))
+        assertEquals(thumb, televisionHeroArtworkUrl(media.copy(heroUrl = thumb)))
+    }
+
     @Test fun mobileChoosesSceneryEvenWhenTvHeroAndCardUseLetteredImages() {
         val backdrop = "https://media.example/Items/film/Images/Backdrop/0?tag=scenery"
         val thumb = "https://media.example/Items/film/Images/Thumb?tag=lettering"

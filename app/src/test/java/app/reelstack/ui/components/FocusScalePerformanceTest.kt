@@ -95,8 +95,8 @@ class FocusScalePerformanceTest {
         val samples = frames()
         val compositions = rule.runOnIdle { probe.compositions - before }
         println("focus-lift: compositions=$compositions, scale=${samples.last()}, frames=${samples.size}")
-        assertTrue("The lift must still animate", samples.any { it > 1f && it < 1.035f })
-        assertEquals(1.035f, samples.last(), .0001f)
+        assertTrue("The lift must still animate", samples.any { it > 1f && it < LIFTED })
+        assertEquals(LIFTED, samples.last(), .0001f)
         assertEquals(initialSize, rule.runOnIdle { probe.size })
         assertTrue("Focus state may recompose the card; animation frames must not: $compositions", compositions <= 2)
 
@@ -107,12 +107,12 @@ class FocusScalePerformanceTest {
     @Test fun pressOverridesFocusAndReducedMotionRestoresUnscaledContent() {
         content()
         emit(FocusInteraction.Focus())
-        assertEquals(1.035f, frames().last(), .0001f)
+        assertEquals(LIFTED, frames().last(), .0001f)
         val press = PressInteraction.Press(Offset.Zero)
         emit(press)
         assertEquals(.985f, frames().last(), .0001f)
         emit(PressInteraction.Cancel(press))
-        assertEquals(1.035f, frames().last(), .0001f)
+        assertEquals(LIFTED, frames().last(), .0001f)
 
         rule.runOnIdle { motion.value = false }
         assertEquals(1f, frames().last(), .0001f)
@@ -123,3 +123,6 @@ class FocusScalePerformanceTest {
         assertEquals(1f, frames().last(), .0001f)
     }
 }
+
+/** The standard focus lifts a card as much as Stova does. */
+private const val LIFTED = 1.06f

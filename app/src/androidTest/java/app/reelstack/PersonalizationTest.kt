@@ -108,9 +108,8 @@ class PersonalizationTest {
         rule.onNodeWithTag("artwork-LARGE").performScrollTo().performClick()
         rule.runOnIdle { assertEquals(Personalization(AccentPalette.OCEAN, ArtworkSize.LARGE, false), value) }
         rule.onNodeWithTag("appearance-reset").performScrollTo().performClick()
-        val tv = InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.uiMode and
-            android.content.res.Configuration.UI_MODE_TYPE_MASK == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-        rule.runOnIdle { assertEquals(Personalization(autoResume = false, focusStyle = if (tv) FocusStyle.BOLD else FocusStyle.WHITE), value) }
+        // The standard is Stova's card style on every device: round corners and lifted focus.
+        rule.runOnIdle { assertEquals(Personalization(autoResume = false), value) }
     }
 
     @Test fun savedChoicesUpdateTheThemeAndSurviveRepositoryRecreation() {

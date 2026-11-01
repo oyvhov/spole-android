@@ -341,7 +341,7 @@ internal fun PosterOnlyCard(media: DiscoverMedia, onClick: () -> Unit, modifier:
     LaunchedEffect(focusedNow) { if (focusedNow) onFocused() }
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val scale by animateFocusScale(focusedNow, false)
-    Box(modifier.aspectRatio(2f / 3f).graphicsLayer { scaleX = scale; scaleY = scale }.focusOutline(interaction, shape).clip(shape)
+    Box(modifier.aspectRatio(2f / 3f).graphicsLayer { scaleX = scale; scaleY = scale }.focusOutline(interaction, shape, artwork = true).clip(shape)
         .background(SurfaceRaised)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .semantics(mergeDescendants = true) { contentDescription = media.title }

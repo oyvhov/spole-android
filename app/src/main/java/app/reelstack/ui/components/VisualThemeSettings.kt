@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -234,7 +235,7 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
         SettingsGroup(stringResource(R.string.refine_group_reading))
         SettingsToggleRow(stringResource(R.string.design_reduce_motion), stringResource(R.string.refine_motion_hint), value.reduceMotion, "reduce-motion") { onChange(value.copy(reduceMotion = it)) }
         ThemeChoice(stringResource(R.string.theme_focus), value.focusStyle, FocusStyle.entries, "focus",
-            { stringResource(when(it) { FocusStyle.WHITE -> R.string.theme_focus_white
+            { stringResource(when(it) { FocusStyle.LIFT -> R.string.theme_focus_lift; FocusStyle.WHITE -> R.string.theme_focus_white
                 FocusStyle.ACCENT -> R.string.theme_focus_accent; FocusStyle.BOLD -> R.string.theme_focus_bold }) }) {
             onChange(value.copy(focusStyle = it)) }
         SettingsToggleRow(stringResource(R.string.theme_contrast), stringResource(R.string.theme_contrast_hint),
@@ -246,8 +247,8 @@ internal fun VisualThemeSettings(value: Personalization, onChange: (Personalizat
         if (isTelevision()) SettingsToggleRow(stringResource(R.string.tv_lightweight), stringResource(R.string.tv_lightweight_hint),
             value.lightweightTv, "tv-lightweight") { onChange(value.copy(lightweightTv = it)) }
         app.reelstack.ui.components.SpoleSecondaryButton(onClick = { onChange(value.copy(accent = AccentPalette.LIME, artworkSize = ArtworkSize.STANDARD,
-            visualTheme = VisualTheme.FOREST, artworkCorners = ArtworkCorners.SOFT,
-            focusStyle = if (television) FocusStyle.BOLD else FocusStyle.WHITE,
+            visualTheme = VisualTheme.FOREST, artworkCorners = ArtworkCorners.ROUND,
+            focusStyle = FocusStyle.LIFT,
             highContrast = false, seasonalDecor = SeasonalDecor.FULL, seasonCalendar = false, seasonOverlay = null,
             reduceMotion = false)) },
             modifier = Modifier.testTag("appearance-reset")) { Text(stringResource(R.string.personal_reset)) }
@@ -323,8 +324,12 @@ internal fun ThemePreview(value: Personalization, artwork: List<LibraryMedia> = 
                             // The progress bar is inside the card, so the card's corners have to
                             // hold it — without this it squared off the bottom-left of the artwork.
                             .clip(shape)
-                            .then(if (index == 0) Modifier.border(
-                                if (value.focusStyle == FocusStyle.BOLD) 3.dp else 2.dp, focus, shape) else Modifier),
+                            .then(if (index == 0 && value.focusStyle != FocusStyle.LIFT) Modifier.border(
+                                if (value.focusStyle == FocusStyle.BOLD) 3.dp else 2.dp, focus, shape) else Modifier)
+                            // Lifted focus has no ring: the cards beside the focused one dim instead.
+                            .then(if (index != 0 && value.focusStyle == FocusStyle.LIFT) Modifier.drawWithContent {
+                                drawContent(); drawRect(Color(value.visualTheme.background).copy(alpha = .30f))
+                            } else Modifier),
                         contentAlignment = Alignment.BottomStart,
                     ) {
                         artwork.getOrNull(index)?.let { media ->
