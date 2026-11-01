@@ -84,6 +84,15 @@ private fun outOfTen(score: Float?): Double? = score?.let { Math.round(it) / 10.
 fun discoverMinimal(type: String, tmdb: Int): DiscoverMedia =
     DiscoverMedia("seerr-$type-$tmdb", "", "", 0, false, remoteId = tmdb, mediaType = type)
 
+/**
+ * The title a DISCOVER link names, for Spole's own details before any loaded row holds it: the sheet
+ * shows the placeholder artwork until Seerr answers with the real details.
+ */
+internal fun LauncherLink.discoverTitle(): DiscoverMedia? {
+    val (type, tmdb) = discover?.let(LauncherLinks::discoverParts) ?: return null
+    return discoverMinimal(type, tmdb.toIntOrNull() ?: return null).copy(artworkRes = R.drawable.media_placeholder)
+}
+
 /** One title of a Discover row as a card: [row] is one of [LauncherDiscoverRows], the columns [LauncherDiscoverColumns.ITEM]. */
 fun discoverItemRow(row: String, media: DiscoverMedia): Array<Any?> = arrayOf(
     row,

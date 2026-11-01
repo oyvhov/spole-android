@@ -177,6 +177,12 @@ class ReelstackViewModel(
         if (_uiState.value.activeSheet is AppSheet.TitleDetails) launcherDetailOwner = boundSession
     }
 
+    /** A Seerr title from the launcher, from a clean Home, even before Discover has fetched a row with it. */
+    fun openLauncherDiscover(title: app.reelstack.data.model.DiscoverMedia) {
+        openLauncherHome()
+        features.details.openLauncherDiscover(title)
+    }
+
     /** A library link remains bound to the user that the launcher receiver authenticated. */
     fun openRemoteLibrary(kind: ServiceKind, userId: String, libraryId: String) {
         synchronizeSession()

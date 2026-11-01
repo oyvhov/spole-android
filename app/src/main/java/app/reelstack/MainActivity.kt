@@ -131,8 +131,7 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                                 fromStart = it.fromStart) },
                             library = { reelstackViewModel.openRemoteLibrary(it.kind, it.userId, it.itemId) },
                             profile = { reelstackViewModel.openLauncherHome() },
-                            // Like the other launcher destinations, from a clean Home; Discover shows its own Seerr state.
-                            discover = { reelstackViewModel.openLauncherHome(); reelstackViewModel.openDiscoverDetails(it) },
+                            discover = { reelstackViewModel.openLauncherDiscover(it) },
                         )
                     }
                     when (target) {

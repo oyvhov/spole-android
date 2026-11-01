@@ -516,6 +516,18 @@ internal class DetailsCoordinator(
         }
     }
 
+    /**
+     * A Seerr title a launcher names, opened even when no loaded row holds it, as on a cold start:
+     * [title] stands in, as a followed request's does, and Seerr fills in the rest. A title Spole
+     * already holds opens from its row.
+     */
+    fun openLauncherDiscover(title: DiscoverMedia) {
+        val state = _uiState.value
+        if (state.isKidMode) return
+        if (state.knownDiscoverMedia.none { it.id == title.id }) _uiState.update { it.copy(detailMedia = title) }
+        openDiscoverDetails(title.id)
+    }
+
     fun openDiscoverDetails(id: String) {
         invalidateDetailRequest()
         val media = _uiState.value.knownDiscoverMedia.firstOrNull { it.id == id } ?: return

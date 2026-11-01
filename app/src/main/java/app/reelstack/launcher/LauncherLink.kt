@@ -1,5 +1,6 @@
 package app.reelstack.launcher
 
+import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.ServiceKind
 import java.net.URI
 import java.net.URISyntaxException
@@ -32,14 +33,14 @@ internal inline fun LauncherLink.routeInMain(
     play: (LauncherLink) -> Unit,
     library: (LauncherLink) -> Unit,
     profile: (LauncherLink) -> Unit,
-    discover: (String) -> Unit,
+    discover: (DiscoverMedia) -> Unit,
 ) {
     when (action) {
         LauncherAction.DETAILS -> details(this)
         LauncherAction.PLAY -> play(this)
         LauncherAction.LIBRARY -> library(this)
         LauncherAction.PROFILE -> profile(this)
-        LauncherAction.DISCOVER -> this.discover?.let(discover)
+        LauncherAction.DISCOVER -> discoverTitle()?.let(discover)
     }
 }
 
@@ -49,6 +50,10 @@ object LauncherLinks {
     private val encodedBytes = Regex("(?:%[0-9A-Fa-f]{2})+")
     /** A TMDB id as Spole writes it: above zero, no leading zero, at most nine digits. */
     private val tmdbId = Regex("[1-9][0-9]{0,8}")
+
+    /** The type and TMDB id written in a `seerr-<type>-<tmdb>` id, unchecked: [parse] is what checks them. */
+    internal fun discoverParts(id: String): Pair<String, String>? =
+        id.split('-').takeIf { it.size == 3 && it[0] == "seerr" }?.let { it[1] to it[2] }
 
     fun parse(raw: String?): LauncherLink? {
         if (raw.isNullOrEmpty()) return null

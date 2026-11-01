@@ -53,10 +53,9 @@ internal class PendingLauncherOpen private constructor(
             }
             if (action == "DISCOVER") {
                 val id = intent.getStringExtra("launcher_discover") ?: return null
-                val parts = id.split('-')
-                if (parts.size != 3 || parts[0] != "seerr") return null
+                val (type, tmdb) = LauncherLinks.discoverParts(id) ?: return null
                 val link = LauncherLinks.parse("spole://discover?kind=${kind.lowercase(java.util.Locale.ROOT)}&user=$user" +
-                    "&type=${parts[1]}&tmdb=${parts[2]}") ?: return null
+                    "&type=$type&tmdb=$tmdb") ?: return null
                 // The parser checks type and tmdb; the round trip rejects anything it decoded or dropped.
                 if (link.userId != user || link.discover != id) return null
                 return PendingLauncherOpen(link, repository.captureSession(), intent.getStringExtra("launcher_switch_profile"))
