@@ -1,3 +1,10 @@
+# Vidareført etter beta30: TV-meny, radinngang og hopp-knapp
+2026-11-02: Codex arbeider på `oppdag-samla` i `C:/JellyBin/spole-sesong`, vidare frå
+Claude sin `fd03154`. Toppmeny med migrering og fjernkontrollnavigasjon, inngang til heimradene
+og TV-hoppknappen er implementerte. Profilflukta og resten av Swiftly-planen står att.
+Les [overleveringa til Claude](HANDOFF_CODEX_2026-11-02.md) før vidare arbeid.
+Ingen ny release, push eller installasjon på ekte kontoar i denne runden.
+
 # Spole 1.0.0-beta28: eigne profilar og Spole saman med Stova
 2026-11-01, eigaren: «Lag en skikkelig release om dette fungerer, for Stova og Spole». Greinene `launcher-bridge` og `launcher-profiles` er flette med beta27 på `release-beta28` og gitt ut som 1.0.0-beta28 (165). Sjå `docs/VERIFICATION_v1.0.0-beta28.md`. Nytt sidan førre oppføring: `select_profile` på `LauncherProfilesProvider` (Spole følgjer personen som blir vald i Stova; aldri ut av ein barneprofil med PIN), fokushoppet og tilbodet i Profilar retta.
 

@@ -3,6 +3,13 @@
 1. november 2026. Bygd oppå beta30. Idéane kjem frå Swiftly Player (MPL-2.0); tal og åtferd er
 lånte, koden er skriven her.
 
+## Status 2. november, overlevering kl. 00:50
+
+Rørslespråket vart ferdig i `fd03154`. Codex har vidareført hopp-knappen, inngangen til
+heimradene og den valfrie toppmenyen på TV. Profilflukta og koplinga til landing står att,
+og beta31 er ikkje gitt ut. Sjå [overleveringa](HANDOFF_CODEX_2026-11-02.md) for testbevis,
+implementasjonsavvik og neste steg. Resten av dokumentet er den opphavlege planen.
+
 ## Kvifor
 
 Spole har 55 animasjonar i 30 filer med 18 ulike lengder, og alt blir kutta til 0 ms når rørsle er
