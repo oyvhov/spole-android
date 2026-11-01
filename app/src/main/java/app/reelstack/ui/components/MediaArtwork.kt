@@ -51,23 +51,7 @@ fun MediaArtwork(
     // One binder call per frame per poster is what this used to be. The theme reads it once.
     val fadeDuration = if (app.reelstack.ui.theme.LocalMotionEnabled.current) crossfadeDurationMillis else 0
     val model = remember(url, fallbackRes, source, fadeDuration, trimTransparent, requestSize) {
-        runCatching {
-            val builder = ImageRequest.Builder(context)
-                .data(url ?: fallbackRes.takeIf { it != 0 })
-                .crossfade(fadeDuration)
-            requestSize?.let {
-                builder.size(it.width.coerceAtLeast(1), it.height.coerceAtLeast(1))
-                // A portrait placeholder must not change a loaded thumbnail's crop during the fade.
-                builder.preferEndFirstIntrinsicSize(true)
-            }
-            if (url != null) MediaAuthHeaders.forUrl(context, source, url)?.let(builder::httpHeaders)
-            if (trimTransparent) builder.allowHardware(false).transformations(ClearLogoTransformation)
-            builder.build()
-        }.getOrElse {
-            ImageRequest.Builder(context)
-                .apply { if (fallbackRes != 0) data(fallbackRes) }
-                .build()
-        }
+        artworkRequest(context, url, fallbackRes, source, fadeDuration, trimTransparent, requestSize)
     }
     AsyncImage(
         model = model,
@@ -88,6 +72,38 @@ fun MediaArtwork(
         modifier = modifier,
         alignment = alignment,
     )
+}
+
+/**
+ * The request behind a piece of artwork.
+ *
+ * During the crossfade Coil's painter is as large as the larger of the placeholder and the picture.
+ * The portrait placeholder made a wide picture's painter taller than the picture, and the fade's last
+ * frame stayed drawn that way: on the Shield every «Sjå vidare» thumbnail was 1.26 times too large,
+ * with the title cut off at the sides. The picture's own size therefore always comes first, not only
+ * when a size is requested.
+ */
+internal fun artworkRequest(
+    context: android.content.Context,
+    url: String?,
+    @DrawableRes fallbackRes: Int,
+    source: ServiceKind?,
+    fadeDuration: Int,
+    trimTransparent: Boolean,
+    requestSize: androidx.compose.ui.unit.IntSize?,
+): ImageRequest = runCatching {
+    val builder = ImageRequest.Builder(context)
+        .data(url ?: fallbackRes.takeIf { it != 0 })
+        .crossfade(fadeDuration)
+        .preferEndFirstIntrinsicSize(true)
+    requestSize?.let { builder.size(it.width.coerceAtLeast(1), it.height.coerceAtLeast(1)) }
+    if (url != null) MediaAuthHeaders.forUrl(context, source, url)?.let(builder::httpHeaders)
+    if (trimTransparent) builder.allowHardware(false).transformations(ClearLogoTransformation)
+    builder.build()
+}.getOrElse {
+    ImageRequest.Builder(context)
+        .apply { if (fallbackRes != 0) data(fallbackRes) }
+        .build()
 }
 
 /**
