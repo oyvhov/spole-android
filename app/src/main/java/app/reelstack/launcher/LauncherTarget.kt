@@ -1,5 +1,7 @@
 package app.reelstack.launcher
 
+import androidx.annotation.StringRes
+import app.reelstack.R
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.UserProfile
 
@@ -12,6 +14,19 @@ sealed interface LauncherTarget {
 }
 
 private val MAIN = UserProfile(id = "", name = "", isKid = false)
+
+/**
+ * The sentence for a link Spole does not open, or null when it opens. [LauncherTarget.BlockedInKidMode]
+ * means kid mode, except a Discover link for a child's account while Spole is not in kid mode: only
+ * Discover refuses that one, and saying «kid mode» there would be false.
+ */
+@StringRes
+fun LauncherTarget.refusal(link: LauncherLink, kidMode: Boolean): Int? = when (this) {
+    LauncherTarget.BlockedInKidMode ->
+        if (link.action == LauncherAction.DISCOVER && !kidMode) R.string.launcher_discover_grown_ups else R.string.launcher_kid_mode
+    LauncherTarget.NotSignedIn -> R.string.launcher_not_signed_in
+    is LauncherTarget.Open, is LauncherTarget.SwitchToProfile -> null
+}
 
 /**
  * [connections] belongs to the main profile (explicitly `list("")` in the repository).

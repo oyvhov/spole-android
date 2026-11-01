@@ -7,6 +7,7 @@
     <string name="launcher_approve_child">Barn</string>
     <string name="launcher_approve_pin">Skriv PIN-koden for å godkjenne</string>
     <string name="launcher_kid_mode">Spole er i barnemodus. Gå ut av barnemodus i Spole først.</string>
+    <string name="launcher_discover_grown_ups">Oppdag er berre for vaksne profilar.</string>
     <string name="widget_title">Spelar no</string>
     <string name="widget_description">Viser kva som spelar på Jellyfin og Emby akkurat no.</string>
     <string name="widget_loading">Hentar…</string>

@@ -3,7 +3,6 @@ package app.reelstack.launcher
 import android.os.Bundle
 import android.content.Intent
 import app.reelstack.MainActivity
-import app.reelstack.R
 import app.reelstack.ReelstackApplication
 import app.reelstack.data.repository.ConnectionRepository
 import app.reelstack.player.JellyfinPlayerActivity
@@ -34,8 +33,8 @@ open class LauncherOpenActivity : app.reelstack.localization.LocalizedActivity()
                 }
                 is LauncherTarget.SwitchToProfile -> startActivity(mainIntent().withLauncherLink(link)
                     .putExtra("launcher_switch_profile", target.profile.id))
-                LauncherTarget.BlockedInKidMode -> startActivity(mainIntent().putExtra("launcher_message", getString(R.string.launcher_kid_mode)))
-                LauncherTarget.NotSignedIn -> startActivity(mainIntent().putExtra("launcher_message", getString(R.string.launcher_not_signed_in)))
+                LauncherTarget.BlockedInKidMode, LauncherTarget.NotSignedIn -> target.refusal(link, connectionRepository.isKidMode)
+                    ?.let { startActivity(mainIntent().putExtra("launcher_message", getString(it))) }
             }
         }
         finish()

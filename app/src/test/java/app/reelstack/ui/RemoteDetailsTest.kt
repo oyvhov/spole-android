@@ -10,6 +10,7 @@ import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.network.RemoteMediaDetails
 import app.reelstack.data.repository.ConnectionRepository
 import app.reelstack.launcher.MemoryTokens
+import app.reelstack.launcher.discoverTitle
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -184,6 +185,25 @@ class RemoteDetailsTest {
         assertFalse(vm.consumeLauncherReturn())
         vm.closeSheet()
         assertTrue(vm.consumeLauncherReturn())
+    }
+
+    @Test fun backFromDiscoverDetailsStaysInSpoleEvenAfterAnOpenLink() = runTest(dispatcher) {
+        val vm = vm { _, _ -> RemoteMediaDetails("Title", null) }
+        val title = app.reelstack.launcher.LauncherLinks.parse("spole://discover?kind=jellyfin&user=adult&type=movie&tmdb=603")!!
+            .discoverTitle()!!
+        // Cold: no row holds the title, and Back closes it into Spole's Home.
+        vm.openLauncherDiscover(title)
+        assertEquals(AppSheet.TitleDetails("seerr-movie-603"), vm.uiState.value.activeSheet)
+        vm.closeSheet()
+        assertFalse(vm.consumeLauncherReturn())
+        assertNull(vm.uiState.value.activeSheet)
+        // An open link armed the return to the launcher; the discover link after it disarms it.
+        vm.openRemoteDetails(ServiceKind.JELLYFIN, "abc")
+        vm.openLauncherDiscover(title)
+        assertEquals(AppSheet.TitleDetails("seerr-movie-603"), vm.uiState.value.activeSheet)
+        vm.closeSheet()
+        assertFalse(vm.consumeLauncherReturn())
+        assertEquals(AppTab.HOME, vm.uiState.value.selectedTab)
     }
 
     @Test fun ordinaryDetailsAndExplicitHomeDoNotReturnToLauncher() = runTest(dispatcher) {

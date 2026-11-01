@@ -123,11 +123,12 @@ ingen token eller Seerr-adresse går over.
   høgst ni siffer) må vere med nøyaktig éin gong; ukjende parameter blir ignorerte, som for `open`.
   Spole finn profilen som for `spole://open`, går til Heim og opnar tittelen (`seerr-<type>-<tmdb>`) i
   sitt eige Oppdag-detaljark, også når ingen rad med tittelen er lasta (til dømes når Stova startar
-  Spole): arket viser plasshaldaren til Seerr har svart med detaljane. Ein barnekonto eller barnemodus
-  gir `launcher_kid_mode`, og Spole byter aldri til eit barn for Oppdag; ukjend eller utlogga konto gir
-  `launcher_not_signed_in`. Manglar Seerr, stoppar ikkje lenkja: Oppdag i Spole viser sin eigen
-  tilstand. Tilbake frå arket blir verande i Spole; det går ikkje attende til startaren slik det gjer
-  frå `open`.
+  Spole): arket viser plasshaldaren til Seerr har svart med detaljane, og ei rad som blir lasta seinare,
+  går føre plasshaldaren. Spole byter aldri til eit barn for Oppdag: barnemodus gir `launcher_kid_mode`,
+  og ein barnekonto medan Spole ikkje er i barnemodus gir `launcher_discover_grown_ups` («Oppdag er
+  berre for vaksne profilar.»). Ukjend eller utlogga konto gir `launcher_not_signed_in`. Manglar Seerr,
+  stoppar ikkje lenkja: Oppdag i Spole viser sin eigen tilstand. Tilbake frå arket blir verande i Spole;
+  det går ikkje attende til startaren slik det gjer frå `open`.
 - Andre enn Stova får ein tom markør med kolonnane og utan extras, og `null` frå kalla.
 
 `status` er Seerr sin mediestatus (1 ukjend, 2 ventar, 3 på veg, 4 delvis, 5 i biblioteket,
@@ -246,6 +247,7 @@ Dei nynorske meldingane i `values-b+nn/strings.xml` er:
 
 - `launcher_not_signed_in`: «Denne kontoen er ikkje logga inn i Spole.»
 - `launcher_kid_mode`: «Spole er i barnemodus. Gå ut av barnemodus i Spole først.»
+- `launcher_discover_grown_ups`: «Oppdag er berre for vaksne profilar.» (berre `spole://discover`)
 
 Ei ventande opning er knytt til økta som tok imot henne, blir konsumert høgst éin gong og blir validert på nytt før opning. Eit profilbyte frå ei slik opning krev ny kontroll etter bytet. Gamle førespurnader og seine detaljsvar skal ikkje opne innhald i ei ny økt.
 

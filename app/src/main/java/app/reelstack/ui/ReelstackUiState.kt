@@ -268,6 +268,11 @@ data class ReelstackUiState(
     val myRequestsOpen: Boolean = false,
     /** A title opened from outside the Discover lists, such as a request line, so details and requests can find it. */
     val detailMedia: DiscoverMedia? = null,
+    /**
+     * A Seerr title a launcher opened before any row held it, as on a cold start. It is the last place a
+     * title is looked for, so a row that loads later wins over this stand-in.
+     */
+    val launcherDiscoverMedia: DiscoverMedia? = null,
     /** The Seerr rows of Oppdag, each loaded on its own. */
     val discoverHub: app.reelstack.data.model.DiscoverHubState = app.reelstack.data.model.DiscoverHubState(),
     /** The Seerr person page that is open, or was last open. */
@@ -299,11 +304,12 @@ data class ReelstackUiState(
             } } + calendarUndated.map { title ->
                 DiscoverMedia("calendar:${title.key}", title.title, "", R.drawable.media_placeholder, false,
                     artworkUrl = title.artworkUrl, remoteId = title.tmdbId, mediaType = title.mediaType)
-            }
+            } + listOfNotNull(launcherDiscoverMedia)
 
     /** Applies one change to a Seerr title wherever it is listed. */
     fun mapDiscoverMedia(transform: (DiscoverMedia) -> DiscoverMedia): ReelstackUiState = copy(
         detailMedia = detailMedia?.let(transform),
+        launcherDiscoverMedia = launcherDiscoverMedia?.let(transform),
         personPage = personPage?.let { it.copy(inLibrary = it.inLibrary.map(transform), more = it.more.map(transform)) },
         contentDetails = contentDetails?.let { it.copy(similar = it.similar.map(transform), recommended = it.recommended.map(transform)) },
         discoverHub = discoverHub.copy(

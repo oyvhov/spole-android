@@ -107,14 +107,24 @@ class LauncherOpenActivityTest {
         assertTrue(activity.isFinishing)
     }
 
-    @Test fun discoverLinkForAChildShowsTheKidModeMessageWithoutSwitching() {
+    @Test fun discoverLinkForAChildSaysDiscoverIsForGrownUpsWithoutSwitching() {
         val activity = Robolectric.buildActivity(TestActivity::class.java,
             Intent(Intent.ACTION_VIEW, Uri.parse("spole://discover?kind=jellyfin&user=child-user&type=movie&tmdb=603"))).create().get()
         val next = shadowOf(activity).nextStartedActivity
-        assertEquals(activity.getString(R.string.launcher_kid_mode), next.getStringExtra("launcher_message"))
+        assertEquals(activity.getString(R.string.launcher_discover_grown_ups), next.getStringExtra("launcher_message"))
         assertFalse(next.hasExtra("launcher_discover"))
         assertFalse(next.hasExtra("launcher_switch_profile"))
         assertEquals("", repository.activeProfileId)
+    }
+
+    @Test fun discoverLinkInKidModeShowsTheKidModeMessage() {
+        repository.activeProfileId = "kid"
+        val activity = Robolectric.buildActivity(TestActivity::class.java,
+            Intent(Intent.ACTION_VIEW, Uri.parse("spole://discover?kind=jellyfin&user=adult&type=movie&tmdb=603"))).create().get()
+        val next = shadowOf(activity).nextStartedActivity
+        assertEquals(activity.getString(R.string.launcher_kid_mode), next.getStringExtra("launcher_message"))
+        assertFalse(next.hasExtra("launcher_discover"))
+        assertEquals("kid", repository.activeProfileId)
     }
 
     @Test fun unmatchedLibraryLinkUsesTheSameNotSignedInMessage() {

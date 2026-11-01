@@ -134,11 +134,7 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                             discover = { reelstackViewModel.openLauncherDiscover(it) },
                         )
                     }
-                    when (target) {
-                        app.reelstack.launcher.LauncherTarget.BlockedInKidMode -> pendingLauncherMessage = R.string.launcher_kid_mode
-                        app.reelstack.launcher.LauncherTarget.NotSignedIn -> pendingLauncherMessage = R.string.launcher_not_signed_in
-                        else -> Unit
-                    }
+                    pending?.messageFor(target, container.connectionRepository)?.let { pendingLauncherMessage = it }
                 }
                 androidx.compose.runtime.LaunchedEffect(pendingLauncherMessage) {
                     pendingLauncherMessage?.let { resource ->
@@ -164,7 +160,8 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
         pendingLauncherOpen = app.reelstack.launcher.PendingLauncherOpen.from(intent, repository)
         // The child shell has no snackbar host; this short message is visible in either shell.
         val message = intent.getStringExtra("launcher_message")
-        pendingLauncherMessage = listOf(R.string.launcher_not_signed_in, R.string.launcher_kid_mode).firstOrNull {
+        pendingLauncherMessage = listOf(R.string.launcher_not_signed_in, R.string.launcher_kid_mode,
+            R.string.launcher_discover_grown_ups).firstOrNull {
             message == getString(it)
         }
     }

@@ -1,9 +1,11 @@
 package app.reelstack.launcher
 
+import app.reelstack.R
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UserProfile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LauncherTargetTest {
@@ -213,6 +215,20 @@ class LauncherTargetTest {
             resolveLauncherTarget(discoverLink(main.userId), listOf(main), kid.id, kids, childConnections))
         assertEquals(LauncherTarget.BlockedInKidMode,
             resolveLauncherTarget(discoverLink(kid.id), listOf(main, mainEmby), eilev.id, withEilev, eilevConnections))
+    }
+
+    @Test fun aRefusedLinkSaysWhyInTheRightWords() {
+        // From grown-up mode only Discover refuses a child's account; kid mode is not on, so it must not say so.
+        val child = resolveLauncherTarget(discoverLink(kid.id), listOf(main), "", kids, childConnections)
+        assertEquals(R.string.launcher_discover_grown_ups, child.refusal(discoverLink(kid.id), kidMode = false))
+        val inKidMode = resolveLauncherTarget(discoverLink(main.userId), listOf(main), kid.id, kids, childConnections)
+        assertEquals(R.string.launcher_kid_mode, inKidMode.refusal(discoverLink(main.userId), kidMode = true))
+        val title = resolveLauncherTarget(link(main.userId), listOf(main), kid.id, kids, childConnections)
+        assertEquals(R.string.launcher_kid_mode, title.refusal(link(main.userId), kidMode = true))
+        assertEquals(R.string.launcher_not_signed_in,
+            LauncherTarget.NotSignedIn.refusal(discoverLink("unknown"), kidMode = false))
+        assertNull(LauncherTarget.Open(main).refusal(discoverLink(main.userId), kidMode = false))
+        assertNull(LauncherTarget.SwitchToProfile(kid).refusal(link(kid.id), kidMode = false))
     }
 
     @Test fun discoverNeedsTheAccountSignedIn() {

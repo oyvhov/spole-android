@@ -31,6 +31,10 @@ internal class PendingLauncherOpen private constructor(
         return target
     }
 
+    /** The sentence for what [consume] answered, when it did not open this link. */
+    @androidx.annotation.StringRes
+    fun messageFor(target: LauncherTarget?, repository: ConnectionRepository): Int? = target?.refusal(link, repository.isKidMode)
+
     companion object {
         fun from(intent: Intent, repository: ConnectionRepository): PendingLauncherOpen? {
             // NEW_TASK may resume a task whose original base intent was the short-lived

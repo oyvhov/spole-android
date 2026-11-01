@@ -7,6 +7,7 @@
     <string name="launcher_approve_child">Child</string>
     <string name="launcher_approve_pin">Enter the PIN to approve</string>
     <string name="launcher_kid_mode">Spole is in kids mode. Leave kids mode in Spole first.</string>
+    <string name="launcher_discover_grown_ups">Discover is for grown-up profiles only.</string>
     <string name="app_name" translatable="false">Spole</string>
     <string name="widget_title">Now playing</string>
     <string name="widget_description">Shows what is playing on Jellyfin and Emby right now.</string>

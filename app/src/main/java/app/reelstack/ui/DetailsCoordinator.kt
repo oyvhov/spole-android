@@ -518,13 +518,13 @@ internal class DetailsCoordinator(
 
     /**
      * A Seerr title a launcher names, opened even when no loaded row holds it, as on a cold start:
-     * [title] stands in, as a followed request's does, and Seerr fills in the rest. A title Spole
-     * already holds opens from its row.
+     * [title] stands in as the last place the title is looked for, and Seerr fills in the rest. A
+     * title Spole already holds opens from its row, and a row that loads later wins over the stand-in.
      */
     fun openLauncherDiscover(title: DiscoverMedia) {
         val state = _uiState.value
         if (state.isKidMode) return
-        if (state.knownDiscoverMedia.none { it.id == title.id }) _uiState.update { it.copy(detailMedia = title) }
+        if (state.knownDiscoverMedia.none { it.id == title.id }) _uiState.update { it.copy(launcherDiscoverMedia = title) }
         openDiscoverDetails(title.id)
     }
 
@@ -610,6 +610,12 @@ internal class DetailsCoordinator(
                         ).mapDiscoverMedia { item ->
                             if (item.id == id && remote.seerrStatus != null) item.copy(seerrStatus = remote.seerrStatus,
                                 inLibrary = remote.seerrStatus == 5, requested = remote.seerrStatus in 2..4) else item
+                        }.let { answered ->
+                            // A launcher's stand-in learns the title, so a request from this sheet carries its name.
+                            val standIn = answered.launcherDiscoverMedia?.takeIf { it.id == id } ?: return@let answered
+                            answered.copy(launcherDiscoverMedia = standIn.copy(title = remote.title ?: standIn.title,
+                                artworkUrl = remote.artworkUrl ?: standIn.artworkUrl, backdropUrl = remote.backdropUrl ?: standIn.backdropUrl,
+                                overview = remote.overview ?: standIn.overview))
                         }
                     },
                     onFailure = {
