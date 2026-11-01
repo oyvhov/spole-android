@@ -144,10 +144,13 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 mutable.update { it.copy(playWhenReady = playWhenReady) }
                 // Pausing during buffering does not change isPlaying, but still needs saving.
                 if (started) report("/Progress")
+                // Stova's cinema mode: a pause puts the lights back. Buffering is not a pause.
+                if (started && !playWhenReady) app.reelstack.launcher.LauncherPlayback.send(container.appContext, app.reelstack.launcher.LauncherPlayback.State.PAUSED)
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 mutable.update { it.copy(playing = isPlaying) }
                 if (isPlaying && !started) { started = true; report("") }
+                if (isPlaying) app.reelstack.launcher.LauncherPlayback.send(container.appContext, app.reelstack.launcher.LauncherPlayback.State.PLAYING)
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 bufferingSince = if (playbackState == Player.STATE_BUFFERING) android.os.SystemClock.elapsedRealtime() else 0L
@@ -160,6 +163,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                 if (playbackState == Player.STATE_READY) selectTextTrack()
                 if (playbackState == Player.STATE_ENDED) {
                     report("/Stopped"); started = false
+                    app.reelstack.launcher.LauncherPlayback.send(container.appContext, app.reelstack.launcher.LauncherPlayback.State.STOPPED)
                     if (isKidsBedtimeReached()) {
                         countdownJob?.cancel()
                         mutable.update { it.copy(bedtimeReached = true, nextEpisodeCountdown = null) }
@@ -900,6 +904,8 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     fun background() {
         val wasPlaying = player.playWhenReady
         foreground = false; countdownJob?.cancel(); player.pause()
+        // Leaving the player is the end of the film as far as the room's lights are concerned.
+        app.reelstack.launcher.LauncherPlayback.send(container.appContext, app.reelstack.launcher.LauncherPlayback.State.STOPPED)
         // Save synchronously before onStop returns; Media3 dispatches its pause listener later.
         if (started && wasPlaying) report("/Progress")
     }
@@ -936,6 +942,7 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         countdownJob?.cancel()
         mutable.update { it.copy(nextEpisodeCountdown = null) }
         report("/Stopped"); started = false; plan = null; activeMediaSource = null
+        app.reelstack.launcher.LauncherPlayback.send(container.appContext, app.reelstack.launcher.LauncherPlayback.State.STOPPED)
         player.stop(); player.clearMediaItems()
     }
     override fun onCleared() {
