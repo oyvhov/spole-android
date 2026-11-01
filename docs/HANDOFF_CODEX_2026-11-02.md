@@ -4,10 +4,17 @@ Arbeidsmappe: `C:/JellyBin/spole-sesong`, grein `oppdag-samla`. Utgangspunktet v
 Claude sin reine commit `fd03154` (rørslespråk), oppå offentleg beta30. Brukaren bad
 Codex arbeide vidare fram til kl. 00:50 og levere tilbake til den eksisterande Claude-økta.
 
-Kodecommit-ar: `c1e8f83` (hopp-knappen) og `a597f75` (toppmeny og radinngang).
+Kodecommit-ar: `c1e8f83` (hopp-knappen), `a597f75` (toppmeny og radinngang) og
+`123b4c9` (rolegare søk, vidareført etter at brukaren bad om meir av Swiftly-lista).
 
 ## Vidareført
 
+- **Swiftly punkt 2, delvis:** gamle treff blir ståande under ny skriving og nettlast,
+  både i globalt søk og det gamle Oppdag-søket. Dei eigne bibliotektreffa blir publiserte
+  straks dei kjem, utan å vente på Seerr. Ny søking nullstiller paginering og sperrar «fleire».
+  Personar og plakatar blir heller ikkje erstatta av skjelett medan dei gamle treffa finst.
+  Avbrot og kontroll av gjeldande søk hindrar at gamle svar overtek. **Historikk først ved
+  inngang til resultata står att**; dagens historikklagring er ikkje endra.
 - **Hopp-knappen på TV:** eiget fokusflagg held OK unna pause/spel-handteraren også når
   OSD er skjult. Fokusflagget blir rydda når segmentet forsvinn. Ein ny instrumenteringstest
   feila før rettinga (knappen mista fokus), og består etterpå med eitt hopp og ingen pause.
@@ -45,13 +52,27 @@ medan migreringa blir testa i Robolectric. Skjermbileta er testdata, ikkje ekte 
    `MainActivity.kt:96`. `synchronizeSession()` stengjer dei gamle koordinatorane og tømer
    førre profil sine medielister; hald denne grensa intakt. Ny profil bør få sitt eige
    starttidspunkt etter landing, også når rørsle er redusert eller byte kjem via Stova.
-2. Punkt 1–7 og kosmetikken i `SWIFTLY_LAN_2026-11-01.md` står att, bortsett frå den særskilde
-   hopp-feilen som no er retta.
+2. Punkt 1–7 og kosmetikken i `SWIFTLY_LAN_2026-11-01.md`: punkt 2 er delvis ferdig som over,
+   og den særskilde hopp-feilen i punkt 4 er retta. Resten står att.
 3. Beta31/168 etter at resten er ferdig og verifisert. Versjonen er framleis beta30/167.
    Ingen push, tag, publisering eller installasjon på ekte kontoar i denne runden.
 
 ## Verifikasjon
 
+- Tillegget for rolegare søk: **24/24 målretta JVM-testar bestod**, inkludert fire nye
+  koordinatortestar og ein ny UI-test. Dekker gamle kort under lasting, bibliotek før sein
+  Seerr, feil i Seerr, sletting av søket og eit seint svar som ignorerer avbrot.
+  Logg: `app/build/codex-calmer-search-tests.log`.
+- Samla JVM-runde etter søkjetillegget: **1 389 totalt, 1 388 bestått, 0 feil, 1 hoppa over**.
+  `lintDebug`: **0 feil**, 215 åtvaringar og 1 hint. Debug, Android-test-APK og signert
+  `assembleRelease` bestod samla på 5 min 31 s. Logg: `app/build/codex-calmer-search-final-validation.log`.
+- Ny TV-kontroll etter søkjetillegget: **7/7 bestått**, `TvTopBarUiTest` og
+  `TvNavigationIntegrationTest`. Logg: `app/build/codex-calmer-search-tv.log`.
+- Endeleg kontroll-APK og mapping: `app/build/codex-verification-123b4c9/`, 28 102 512 byte,
+  SHA-256 `e6c434fe55194525466e141a19d067e20a5ddb73885d6c8f6c736788eb3c8187`.
+  Same faste eigarsignatur, `app.reelstack`, beta30/167, ikkje debuggable. Native-/lisenskontroll
+  bestod igjen. Dette er berre lokal verifikasjon, ikkje ein ny distribuert beta30.
+- Tala og release-artefaktet nedanfor gjeld den ferdige TV-/rørsleblokka før søkjetillegget.
 - Endeleg `testDebugUnitTest`: **1 384 totalt, 1 383 bestått, 0 feil, 1 hoppa over**.
 - `lintDebug`: **0 feil**, 215 åtvaringar og 1 hint.
 - `assembleDebug` og `assembleDebugAndroidTest`: bestått.

@@ -1,7 +1,8 @@
 # Vidareført etter beta30: TV-meny, radinngang og hopp-knapp
 2026-11-02: Codex arbeider på `oppdag-samla` i `C:/JellyBin/spole-sesong`, vidare frå
 Claude sin `fd03154`. Toppmeny med migrering og fjernkontrollnavigasjon, inngang til heimradene
-og TV-hoppknappen er implementerte. Profilflukta og resten av Swiftly-planen står att.
+og TV-hoppknappen er implementerte. Swiftly punkt 2 er delvis ferdig: søket held gamle treff
+under lasting og viser eigne bibliotek før sein Seerr. Profilflukta og resten av Swiftly-planen står att.
 Les [overleveringa til Claude](HANDOFF_CODEX_2026-11-02.md) før vidare arbeid.
 Ingen ny release, push eller installasjon på ekte kontoar i denne runden.
 

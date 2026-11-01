@@ -4,6 +4,11 @@
 aldri kode). Kvart punkt vart sjekka mot Spole-koden før det kom med. Eigaren har bede om 1–7 og
 det kosmetiske etter runden i `RORSLE_OG_TOPPMENY_2026-11-01.md`.
 
+Status ved Codex-overleveringa 2. november kl. 00:50: punkt 2 er delvis implementert
+(behald førre treff under lasting, eigne bibliotek før sein Seerr). Historikk først ved
+inngang i resultata står att. TV-hoppfeilen i punkt 4 er retta; resten av punkt 4 og dei
+andre punkta står att. Sjå `HANDOFF_CODEX_2026-11-02.md` for verifikasjon.
+
 ## Først
 
 1. **Søk på TV med eige skjermtastatur** ved sida av resultata (`GlobalSearchScreen.kt` opnar IME over
