@@ -242,6 +242,7 @@ fun PlayerScreen(
     var returnToOptions by remember { mutableStateOf(false) }
     val nextFocus = remember { FocusRequester() }
     var nextHasFocus by remember { mutableStateOf(false) }
+    var skipHasFocus by remember { mutableStateOf(false) }
     var controlsHaveFocus by remember { mutableStateOf(false) }
     var consumedRemoteKey by remember { mutableIntStateOf(-1) }
     val showControlsLabel = stringResource(R.string.player_show_controls)
@@ -331,11 +332,11 @@ fun PlayerScreen(
             controls = false
         }
     }
-    LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu, statsVisible) {
+    LaunchedEffect(isTelevision, showControls, state.busy, state.browsing, state.awaitingResume, state.error, menu, statsVisible, skipHasFocus) {
         if (isTelevision && menu == null && !statsVisible && !state.browsing) {
             if ((showNextOffer || showSeriesFinished) && state.ended) nextFocus.requestFocus()
-            else if (!showControls && !nextHasFocus) videoFocus.requestFocus()
-            else if (!state.busy && !state.awaitingResume && state.error == null && !controlsHaveFocus && !nextHasFocus)
+            else if (!showControls && !nextHasFocus && !skipHasFocus) videoFocus.requestFocus()
+            else if (!state.busy && !state.awaitingResume && state.error == null && !controlsHaveFocus && !nextHasFocus && !skipHasFocus)
                 if (returnToOptions && !kids) { optionsFocus.requestFocus(); returnToOptions = false } else playFocus.requestFocus()
         }
     }
@@ -390,7 +391,7 @@ fun PlayerScreen(
             // pause/play; reading that snapshot could turn a second Pause into a resume.
             val playbackRequested = player?.let { it.playWhenReady && it.playbackState != androidx.media3.common.Player.STATE_ENDED }
                 ?: ((state.playWhenReady || state.playing) && !state.ended)
-            val action = remotePlaybackAction(key, showControls || nextHasFocus, playbackRequested,
+            val action = remotePlaybackAction(key, showControls || nextHasFocus || skipHasFocus, playbackRequested,
                 (state.busy && state.durationMs <= 0) || state.browsing || state.awaitingResume || state.error != null || menu != null || statsVisible)
             if (action == RemotePlaybackAction.DEFAULT) return@onPreviewKeyEvent false
             consumedRemoteKey = native.keyCode
@@ -541,7 +542,7 @@ fun PlayerScreen(
                     .padding(start = 48.dp, end = 48.dp, top = offerTopInset, bottom = 27.dp)
                     .onFocusChanged { nextHasFocus = it.hasFocus })
             else Box(Modifier.align(Alignment.TopEnd).padding(horizontal = 48.dp, vertical = 80.dp)) {
-                SkipSegmentButton(state, onSkipSegment)
+                SkipSegmentButton(state, onSkipSegment, onFocusWithin = { skipHasFocus = it })
             }
         } else {
             Column(Modifier.fillMaxSize()
@@ -1084,16 +1085,19 @@ private fun SeriesFinishedCard(onClose: () -> Unit, focus: FocusRequester, modif
  * as long as it is on screen, so a remote can reach it without hunting.
  */
 @Composable
-private fun SkipSegmentButton(state: PlayerScreenState, onSkip: () -> Unit) {
+private fun SkipSegmentButton(state: PlayerScreenState, onSkip: () -> Unit, onFocusWithin: (Boolean) -> Unit = {}) {
     val segment = state.activeSegment() ?: return
     if (state.busy || state.error != null || state.awaitingResume || state.ended) return
-    val focus = remember(segment.startMs) { FocusRequester() }
-    LaunchedEffect(segment.startMs) { androidx.compose.runtime.withFrameNanos { }; runCatching { focus.requestFocus() } }
+    val focus = remember(state.itemId, segment) { FocusRequester() }
+    val currentFocusCallback by androidx.compose.runtime.rememberUpdatedState(onFocusWithin)
+    DisposableEffect(state.itemId, segment) { onDispose { currentFocusCallback(false) } }
+    LaunchedEffect(state.itemId, segment) { androidx.compose.runtime.withFrameNanos { }; runCatching { focus.requestFocus() } }
     Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End) {
         Button(
             onClick = onSkip,
             shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.heightIn(min = 48.dp).focusRing(RoundedCornerShape(14.dp)).focusRequester(focus).testTag("player-skip-segment"),
+            modifier = Modifier.heightIn(min = 48.dp).focusRing(RoundedCornerShape(14.dp)).focusRequester(focus)
+                .onFocusChanged { currentFocusCallback(it.hasFocus) }.testTag("player-skip-segment"),
         ) {
             Text(stringResource(
                 if (segment.kind == PlaybackSegment.Kind.INTRO) R.string.player_skip_intro
