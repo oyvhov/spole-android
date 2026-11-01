@@ -117,6 +117,9 @@ import app.reelstack.ui.theme.ReelLayout
 import app.reelstack.ui.theme.SurfaceRaised
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
+import app.reelstack.ui.theme.motionSpec
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -435,15 +438,15 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
             val navigation = updateTransition(state.selectedTab, label = "navigation-state")
             navigation.AnimatedContent(
-                transitionSpec = { fadeIn(tween(if (motion) 220 else 0)) togetherWith fadeOut(tween(if (motion) 150 else 0)) },
+                transitionSpec = { fadeIn(motionSpec(motion, SpoleMotion.ChangeMs)) togetherWith fadeOut(motionSpec(motion, SpoleMotion.FocusMs)) },
                 modifier = Modifier.fillMaxSize(),
             ) { tab ->
                 val searchTransition = Modifier.sharedBounds(
                     rememberSharedContentState(key = "home-discover-search"),
                     animatedVisibilityScope = this,
-                    boundsTransform = { _, _ -> tween(if (motion) 320 else 0, easing = FastOutSlowInEasing) },
-                    enter = fadeIn(tween(if (motion) 180 else 0, delayMillis = if (motion) 80 else 0)),
-                    exit = fadeOut(tween(if (motion) 120 else 0)),
+                    boundsTransform = { _, _ -> motionSpec(motion, SpoleMotion.SheetEnterMs) },
+                    enter = fadeIn(motionTween(SpoleMotion.ChangeMs, delayMs = 80)),
+                    exit = fadeOut(motionTween(SpoleMotion.FocusMs)),
                 )
                 tabStates.SaveableStateProvider(tab) {
                 when (tab) {

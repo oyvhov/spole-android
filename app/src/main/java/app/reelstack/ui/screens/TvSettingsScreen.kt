@@ -25,6 +25,7 @@ import app.reelstack.data.repository.AppPreferencesRepository
 import app.reelstack.ui.ReelstackUiState
 import app.reelstack.ui.components.*
 import app.reelstack.ui.theme.LocalPersonalization
+import app.reelstack.ui.theme.SpoleMotion
 
 /** Television is an input mode, not a width breakpoint: 1080p TVs are often only 960 dp wide. */
 @Composable
@@ -112,8 +113,8 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
             androidx.compose.animation.AnimatedContent(
                 targetState = category,
                 transitionSpec = {
-                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(if (motion) 140 else 0)) togetherWith
-                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(if (motion) 90 else 0))
+                    androidx.compose.animation.fadeIn(app.reelstack.ui.theme.motionSpec(motion, SpoleMotion.ChangeMs)) togetherWith
+                        androidx.compose.animation.fadeOut(app.reelstack.ui.theme.motionSpec(motion, SpoleMotion.FocusMs))
                 },
                 label = "settings-pane-crossfade",
                 modifier = Modifier.weight(1f).fillMaxWidth(),

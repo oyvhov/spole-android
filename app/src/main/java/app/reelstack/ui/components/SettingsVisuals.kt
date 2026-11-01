@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.reelstack.data.model.*
 import app.reelstack.ui.theme.LocalMotionEnabled
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 /** Open list rows at rest; a soft wash and outline locate selection and remote focus. */
 @Composable
@@ -50,9 +52,9 @@ internal fun Modifier.settingsSurface(
             selected -> colors.onSurface.copy(alpha = .045f)
             else -> Color.Transparent
         },
-        tween(if (motion) 140 else 0), label = "settings-surface")
+        motionTween(SpoleMotion.FocusMs), label = "settings-surface")
     val scale by animateFloatAsState(if (pressed && motion) .988f else 1f,
-        tween(if (motion) 100 else 0), label = "settings-press")
+        motionTween(SpoleMotion.FocusMs), label = "settings-press")
     return graphicsLayer { scaleX = scale; scaleY = scale }
         .clip(shape).background(background).focusOutline(interaction, shape, glow = false)
 }

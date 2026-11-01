@@ -131,6 +131,8 @@ import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 /**
@@ -599,7 +601,7 @@ private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        animationSpec = tween(durationMillis = 220),
+        animationSpec = motionTween(SpoleMotion.ChangeMs),
         label = "home-header-reveal",
     )
     Column {
@@ -1136,7 +1138,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
         if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        tween(durationMillis = 240, delayMillis = revealDelay), label = "resume-card-reveal")
+        motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay), label = "resume-card-reveal")
     var menuOpen by remember(media.id) { mutableStateOf(false) }
     val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
     val resumeLabel = if (percent > 0) stringResource(R.string.home_resume_description, media.title, percent)
@@ -1256,7 +1258,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
+        animationSpec = motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay),
         label = "library-card-reveal",
     )
     val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
@@ -1354,12 +1356,12 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
+        animationSpec = motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay),
         label = "upcoming-card-reveal",
     )
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.965f else 1f,
-        animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
+        animationSpec = motionTween(SpoleMotion.FocusMs),
         label = "upcoming-card-press",
     )
     Box(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).heightIn(min = 226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).graphicsLayer {

@@ -59,6 +59,8 @@ import app.reelstack.data.model.touchMenu
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.shelfIcon
 import app.reelstack.ui.components.vector
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 @Composable
 internal fun AppSidebarSlot(
@@ -95,9 +97,9 @@ internal fun AppNavigationRail(
     }
     val selectedFocus = remember { FocusRequester() }
     val width by animateDpAsState(
-        if (expanded) 200.dp else 80.dp, tween(220, easing = FastOutSlowInEasing), label = "sidebar-width")
+        if (expanded) 200.dp else 80.dp, motionTween(SpoleMotion.ChangeMs), label = "sidebar-width")
     val labelAlpha by animateFloatAsState(
-        if (expanded) 1f else 0f, tween(140), label = "sidebar-labels")
+        if (expanded) 1f else 0f, motionTween(SpoleMotion.FocusMs), label = "sidebar-labels")
     val tv = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val toggleLabel = stringResource(if (expanded) R.string.sidebar_collapse else R.string.sidebar_expand)

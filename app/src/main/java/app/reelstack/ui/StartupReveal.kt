@@ -27,6 +27,8 @@ import kotlinx.coroutines.delay
 import coil3.imageLoader
 import coil3.network.httpHeaders
 import kotlinx.coroutines.withTimeoutOrNull
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 /** A bounded opening reveal. Network work continues behind the cover. */
 @Composable
@@ -80,7 +82,7 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
         // Compose immediately: image requests and network data load throughout the animation.
         Box(if (opening) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
             .onPreviewKeyEvent { true } else Modifier) { content() }
-        AnimatedVisibility(visible = coverVisible, exit = fadeOut(tween(280))) {
+        AnimatedVisibility(visible = coverVisible, exit = fadeOut(motionTween(SpoleMotion.ChangeMs))) {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
                     .testTag("startup-cover")

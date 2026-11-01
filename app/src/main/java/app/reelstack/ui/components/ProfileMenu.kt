@@ -44,6 +44,8 @@ import app.reelstack.R
 import app.reelstack.data.model.UserProfile
 import app.reelstack.ui.theme.*
 import coil3.compose.AsyncImage
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 /**
  * Profiles fall out of the account picture rather than arriving as a sheet from the bottom.
@@ -72,7 +74,6 @@ fun ProfileMenu(
     modifier: Modifier = Modifier,
 ) {
     val visible = remember { MutableTransitionState(false) }
-    val motion = LocalMotionEnabled.current
     LaunchedEffect(Unit) { visible.targetState = true }
 
     // A television draws to the panel edge, so the menu keeps clear of the overscan the way every
@@ -90,14 +91,14 @@ fun ProfileMenu(
     ) {
         AnimatedVisibility(
             visibleState = visible,
-            enter = fadeIn(tween(if (motion) 100 else 0)) +
+            enter = fadeIn(motionTween(SpoleMotion.FocusMs)) +
                 scaleIn(
-                    animationSpec = tween(if (motion) 120 else 0, easing = LinearOutSlowInEasing),
+                    animationSpec = motionTween(SpoleMotion.FocusMs, easing = LinearOutSlowInEasing),
                     initialScale = 0.98f,
                     // The corner the avatar sits in. Everything unfolds from that point.
                     transformOrigin = TransformOrigin(1f, 0f),
                 ),
-            exit = fadeOut(tween(if (motion) 80 else 0)),
+            exit = fadeOut(motionTween(SpoleMotion.FocusMs)),
         ) {
             Surface(
                 modifier = modifier

@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.reelstack.ui.theme.*
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 /** A shared tablet destination: touch, keyboard and D-pad use the same focus/selection model. */
 @Composable
@@ -35,14 +37,14 @@ internal fun WideDestination(
     val targetTint = if (selected || focused) Primary else Muted
     val animatedTint by animateColorAsState(
         targetValue = targetTint,
-        animationSpec = tween(durationMillis = if (LocalMotionEnabled.current) 140 else 0),
+        animationSpec = motionTween(SpoleMotion.FocusMs),
         label = "wide-destination-tint",
     )
 
     val targetTextColor = if (selected || focused) app.reelstack.ui.theme.Text else Muted
     val animatedTextColor by animateColorAsState(
         targetValue = targetTextColor,
-        animationSpec = tween(durationMillis = if (LocalMotionEnabled.current) 140 else 0),
+        animationSpec = motionTween(SpoleMotion.FocusMs),
         label = "wide-destination-text",
     )
 

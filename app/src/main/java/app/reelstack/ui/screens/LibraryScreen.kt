@@ -229,7 +229,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                 val focused by interaction.collectIsFocusedAsState()
                 val scale by animateFloatAsState(
                     targetValue = if (pressed && app.reelstack.ui.theme.LocalMotionEnabled.current) 0.985f else 1f,
-                    animationSpec = androidx.compose.animation.core.tween(120),
+                    animationSpec = app.reelstack.ui.theme.motionTween(app.reelstack.ui.theme.SpoleMotion.FocusMs),
                     label = "library-grid-spring",
                 )
                 val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)

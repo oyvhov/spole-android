@@ -230,7 +230,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     else -> "home"
                 }
                 androidx.compose.animation.Crossfade(targetState = page,
-                    animationSpec = androidx.compose.animation.core.tween(if (LocalMotionEnabled.current) 220 else 0),
+                    animationSpec = app.reelstack.ui.theme.motionTween(app.reelstack.ui.theme.SpoleMotion.ChangeMs),
                     label = "kids-page", modifier = Modifier.weight(1f)) { visiblePage ->
                 if (visiblePage == "appearance") {
                     Column(

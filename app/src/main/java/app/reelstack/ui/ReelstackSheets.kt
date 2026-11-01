@@ -133,6 +133,8 @@ import app.reelstack.ui.components.SheetToolbar
 import app.reelstack.ui.components.StableSheetDialog
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.text.style.TextOverflow
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -429,7 +431,7 @@ internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String)
     // A launcher may open before any title/artwork is cached. Adopt its first actual metadata.
     if (opening.title.isBlank() && !details.loading) opening = details
     val ready = entered && !details.loading
-    val metadataAlpha by animateFloatAsState(if (ready) 1f else 0f, tween(180), label = "metadata-reveal")
+    val metadataAlpha by animateFloatAsState(if (ready) 1f else 0f, motionTween(SpoleMotion.ChangeMs), label = "metadata-reveal")
     val discoverMedia = state.knownDiscoverMedia.firstOrNull { it.id == details.key }
     val mediaType = resolvedMediaType(opening.mediaType, opening.subtitle)
     val isMovie = mediaType == "Movie"
@@ -1865,7 +1867,7 @@ private fun ConnectedServiceSummary(kind: ServiceKind, expanded: Boolean, onTogg
         if (expanded) R.string.account_hide_login else R.string.account_show_login
     } else if (expanded) R.string.account_hide_connection else R.string.account_show_connection)
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(180), label = "connection-details-arrow")
+    val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f, motionTween(SpoleMotion.ChangeMs), label = "connection-details-arrow")
     Surface(
         color = Success.copy(alpha = .09f),
         shape = RoundedCornerShape(16.dp),

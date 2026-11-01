@@ -34,6 +34,8 @@ import app.reelstack.data.repository.KidsPreferencesRepository
 import app.reelstack.ui.components.*
 import app.reelstack.ui.theme.LocalMotionEnabled
 import kotlin.math.sin
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionSpec
 
 @Composable
 internal fun rememberKidsPreferences(profileId: String): KidsPreferences {
@@ -50,8 +52,8 @@ internal fun rememberKidsPreferences(profileId: String): KidsPreferences {
 @Composable
 internal fun KidsWorldTheme(options: KidsPreferences, content: @Composable () -> Unit) {
     val motion = LocalMotionEnabled.current && !options.reduceMotion
-    val sky by animateColorAsState(Color(options.world.sky), tween(if (motion) 450 else 0), label = "kids-world-sky")
-    val glow by animateColorAsState(Color(options.world.glow), tween(if (motion) 450 else 0), label = "kids-world-glow")
+    val sky by animateColorAsState(Color(options.world.sky), motionSpec(motion, SpoleMotion.ChangeMs), label = "kids-world-sky")
+    val glow by animateColorAsState(Color(options.world.glow), motionSpec(motion, SpoleMotion.ChangeMs), label = "kids-world-glow")
     CompositionLocalProvider(LocalMotionEnabled provides motion) {
         MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
             background = sky,
