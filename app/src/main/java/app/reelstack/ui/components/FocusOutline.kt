@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawOutline
@@ -81,13 +80,10 @@ internal fun Modifier.focusBleed(horizontal: androidx.compose.ui.unit.Dp, vertic
         }
     }
 
-/** Whether focus is somewhere on the shelf a card sits on. A shelf that knows provides it. */
-internal val LocalShelfFocused = androidx.compose.runtime.compositionLocalOf { false }
-
 /**
  * Draw-only keyboard focus with soft accent glow and ambient drop shadow. On [artwork], under
- * [app.reelstack.data.model.FocusStyle.LIFT], there is no ring: the card grows, and while focus is on
- * its shelf the cards that do not have it dim, as Stova's shelves do.
+ * [app.reelstack.data.model.FocusStyle.LIFT], there is no ring: the card grows, and the rest of its
+ * shelf stays as it is, as in Stova (which stopped dimming them on 2026-11-01).
  */
 @Composable
 internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow: Boolean = true, artwork: Boolean = false): Modifier {
@@ -113,14 +109,7 @@ private fun Modifier.ring(focused: Boolean, shape: Shape, glow: Boolean, artwork
     val alphaState = animateFloatAsState(if (focused) 1f else 0f, tween(if (motion) 140 else 0), label = "focus-outline")
     val style = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle
     val lift = style == app.reelstack.data.model.FocusStyle.LIFT
-    val dimmed = lift && artwork && LocalShelfFocused.current && !focused
-    val dimState = animateFloatAsState(if (dimmed) LIFT_DIM else 0f, tween(if (motion) 120 else 0), label = "focus-dim")
-    val ink = MaterialTheme.colorScheme.background
-    if (lift && artwork) return this.drawWithContent {
-        drawContent()
-        val dim = dimState.value
-        if (dim > 0.001f) drawRect(ink.copy(alpha = dim))
-    }
+    if (lift && artwork) return this
     val color = if (style == app.reelstack.data.model.FocusStyle.ACCENT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     val strokeWidthDp = if (style == app.reelstack.data.model.FocusStyle.BOLD || (lift && isTelevision())) 4.dp else 2.dp
 
@@ -165,6 +154,3 @@ private fun Modifier.ring(focused: Boolean, shape: Shape, glow: Boolean, artwork
         }
     }
 }
-
-/** How far Stova dims the cards beside the focused one. */
-private const val LIFT_DIM = .30f

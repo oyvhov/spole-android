@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta30 — Stova får radene, handlingane og spelestatusen
+
+- Stova kan vise radene til ein Spole-person: ein Stova-profil som følgjer ein person i Spole og ikkje har eigen konto der, får «Hald fram», nye filmar og nye seriar frå Spole, henta med Spole si innlogging (til dømes Eilev sine Emby-rader utan passordet hans i Stova). Radene har aldersgrensa med, så Stova sin hero held seg innanfor alderen til profilen, og nye episodar av same serie er eitt kort.
+- Stova kan be Spole merkje ein tittel som sett eller fjerne han frå «Hald fram», og opne ein tittel frå starten.
+- Spole seier frå til Stova når ein film spelar, pausar eller stoppar, så kino-modus i Stova kan dimme lysa.
+- Emby sender no aldersgrensa på titlane, sidan Spole ber om ho.
+- Norske aldersgrenser står som alder: «NO-15» blir «15 år», og «NO-A» blir «Alle».
+- På TV har kortet du står på marg til høgre kant også, så det ikkje blir kutta. Høgre-pila på siste kortet i ei rad blir verande der i staden for å hoppe ned i neste rad.
+- Som i Stova blir resten av hylla ikkje lenger dempa når du står på eit kort; berre kortet med fokus veks.
+
 ## 1.0.0-beta29 — Heim på TV som i Stova
 
 - Heim på TV har eit stort toppbilete som går ned til den første hylla, og den hylla står heil nedst på skjermen. Dei andre radene kjem når du går ned, og tonar ut litt over botnen i staden for å kike fram. Biletet går vidare bak hylla heilt ned og brukar det reine bakgrunnsbiletet, så ein trykt tittel ikkje står to gonger.

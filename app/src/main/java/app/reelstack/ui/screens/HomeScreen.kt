@@ -700,11 +700,8 @@ private fun ShelfRow(
     val inheritedSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
     CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
         if (isTelevision()) shelfSpec else inheritedSpec) {
-        // Under the lifting focus the cards beside the focused one dim, so the shelf says where focus is.
-        var shelfFocused by remember { mutableStateOf(false) }
-        CompositionLocalProvider(app.reelstack.ui.components.LocalShelfFocused provides shelfFocused) {
+        run {
             LazyRow(state = state, modifier = Modifier.shelfBleed().then(modifier)
-                .onFocusChanged { shelfFocused = it.hasFocus }
                 // Right at the end of a row stays there, as on Discover. It used to drop to a card in the
                 // next row, far along it and mostly below the screen (Shield, 2026-11-01). Left still
                 // leaves for the sidebar.
