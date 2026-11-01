@@ -54,6 +54,18 @@ class LauncherProfilesTest {
         assertEquals(null, provider.call("select_profile", null, extras))
     }
 
+    @Test fun outsiderGetsNullFromDiscoverCalls() {
+        val provider = Robolectric.setupContentProvider(LauncherProfilesProvider::class.java, "app.reelstack.launcher")
+        val request = android.os.Bundle().apply {
+            putString("kind", "emby"); putString("user", "eilev"); putString("type", "tv"); putInt("tmdb", 1399)
+            putIntArray("seasons", intArrayOf(1, 2))
+        }
+        val withdraw = android.os.Bundle().apply { putString("kind", "emby"); putString("user", "eilev"); putInt("request_id", 42) }
+        // Not even a word: a caller that is not Stova learns nothing, not whether the person exists.
+        assertEquals(null, provider.call("discover_request", null, request))
+        assertEquals(null, provider.call("discover_withdraw", null, withdraw))
+    }
+
     @Test fun onlyStovaMayAsk() {
         assertTrue(launcherMayList("app.stova"))
         assertTrue(launcherMayList("app.stova.debug"))

@@ -1,11 +1,14 @@
 package app.reelstack.launcher
 
+import app.reelstack.R
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.TrackedRequest
 import app.reelstack.data.model.canRequest
 import app.reelstack.data.model.tmdbScore
 import app.reelstack.data.network.RemoteMediaDetails
+import app.reelstack.data.network.ServiceMessage
+import app.reelstack.data.network.localizedFailure
 import app.reelstack.localization.LocalizedText
 
 /**
@@ -163,3 +166,29 @@ fun discoverRequestRow(request: TrackedRequest): Array<Any?> = arrayOf(
     request.requestId,
     if (request.is4k) 1 else 0,
 )
+
+/**
+ * The word for a request Seerr did not take. Spole's Seerr client throws a [ServiceMessage] that
+ * names a sentence, not the HTTP status, so the status is read from which sentence it chose:
+ * - [LauncherDiscoverResult.ALREADY]: Seerr's 409; its 202, which the client says as «no new
+ *   seasons»; seasons that are asked for already or in the library; or a message saying «already»
+ *   or «exists»;
+ * - [LauncherDiscoverResult.FORBIDDEN]: Seerr's 401 or 403, on the request or on the check of who is
+ *   signed in, or an account Seerr does not let ask for this type of title;
+ * - [LauncherDiscoverResult.FAILED]: everything else, a network that is down too.
+ */
+fun discoverResultFor(error: Throwable): LauncherDiscoverResult {
+    val said = error.localizedFailure()
+    val status = said?.takeIf { it.resId == R.string.err_svara_med_status_2 }?.args?.getOrNull(1)
+    val message = error.message.orEmpty()
+    return when {
+        status == 409 || said?.resId in ALREADY_SAID ||
+            message.contains("already", ignoreCase = true) || message.contains("exists", ignoreCase = true) -> LauncherDiscoverResult.ALREADY
+        said?.resId in FORBIDDEN_SAID -> LauncherDiscoverResult.FORBIDDEN
+        else -> LauncherDiscoverResult.FAILED
+    }
+}
+
+private val ALREADY_SAID = setOf(R.string.err_ingen_nye_sesongar, R.string.err_sesongane_er_endra)
+private val FORBIDDEN_SAID = setOf(R.string.err_seerr_logg_inn_nytt, R.string.err_seerr_ingen_tilgang,
+    R.string.err_avviste_kontotilgangen_logg_inn, R.string.err_seerr_medietype_ikkje_lov)

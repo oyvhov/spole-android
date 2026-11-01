@@ -67,7 +67,9 @@ fun launcherSelection(kind: ServiceKind, user: String, activeProfileId: String, 
  *   that follows the person needs no account of its own (see [launcherRowItems]);
  * - `call("select_profile", kind, user)`: follow the person chosen in Stova;
  * - `call("item_action", kind, user, item, action)`: mark a title watched, or take it out of «Hald fram»;
- * - `discover…?kind=&user=`: that person's Seerr, through Spole's sign-in (see [LauncherDiscoverPath]).
+ * - `discover…?kind=&user=`: that person's Seerr, through Spole's sign-in (see [LauncherDiscoverPath]);
+ * - `call("discover_request", kind, user, type, tmdb, seasons)` and `call("discover_withdraw", kind, user, request_id)`:
+ *   ask that Seerr for a title, or withdraw a request the person follows (see [LauncherDiscoverActions]).
  * No token or address of a server ever crosses; picture addresses carry none.
  */
 class LauncherProfilesProvider : ContentProvider() {
@@ -115,8 +117,7 @@ class LauncherProfilesProvider : ContentProvider() {
      */
     private fun discover(path: LauncherDiscoverPath, uri: Uri): Cursor {
         if (!launcherMayList(callingPackage)) return MatrixCursor(path.columns)
-        val (profile, seerr) = accountIn(uri)?.let { (kind, user) -> seerrFor(kind, user) } ?: (null to null)
-        val access = if (profile == null) LauncherSeerrAccess.NONE else launcherSeerrAccess(profile.isKid, seerr)
+        val (seerr, access) = seerrFor(accountIn(uri))
         val container = (context?.applicationContext as? ReelstackApplication)?.container
         val answer = if (access == LauncherSeerrAccess.NONE || seerr == null || container == null) LauncherDiscoverAnswer.EMPTY
             else LauncherDiscoverQueries(container.mediaSyncRepository, container.requestTrackingRepository) { it.text(container.appContext) }
@@ -124,15 +125,39 @@ class LauncherProfilesProvider : ContentProvider() {
         return answer.cursor(path, access)
     }
 
-    /** The Spole profile with this account, found as for [rows], and that profile's Seerr. */
-    private fun seerrFor(kind: ServiceKind, user: String): Pair<UserProfile?, ServiceConnection?> {
-        val repository = (context?.applicationContext as? ReelstackApplication)?.container?.connectionRepository ?: return null to null
-        val profile = launcherProfileFor(kind, user, repository.listProfiles(), repository::list) ?: return null to null
-        return profile to repository.list(profile.id).firstOrNull { it.kind == ServiceKind.SEERR }
+    /**
+     * A request sent to the person's Seerr, or one they follow withdrawn, on this binder thread as
+     * [discover] is (see [LauncherDiscoverActions]). Stova only ever gets a word back: when Spole
+     * itself trips, that is `failed` too.
+     */
+    private fun discoverAction(method: String, extras: android.os.Bundle?): android.os.Bundle? {
+        if (!launcherMayList(callingPackage)) return null
+        val result = runCatching {
+            val (seerr, access) = seerrFor(account(extras?.getString("kind"), extras?.getString("user")))
+            val container = (context?.applicationContext as? ReelstackApplication)?.container
+                ?: return@runCatching LauncherDiscoverResult.UNKNOWN
+            val actions = LauncherDiscoverActions(container.mediaSyncRepository, container.requestTrackingRepository)
+            if (method == DISCOVER_REQUEST) actions.request(extras, seerr, access) else actions.withdraw(extras, seerr, access)
+        }.getOrDefault(LauncherDiscoverResult.FAILED)
+        return android.os.Bundle().apply { putString("result", result.wire) }
+    }
+
+    /**
+     * The Seerr of the Spole profile with this account, found as for [rows], and what the person may
+     * do with it. An unknown person may do nothing.
+     */
+    private fun seerrFor(account: Pair<ServiceKind, String>?): Pair<ServiceConnection?, LauncherSeerrAccess> {
+        val repository = (context?.applicationContext as? ReelstackApplication)?.container?.connectionRepository
+            ?: return null to LauncherSeerrAccess.NONE
+        val (kind, user) = account ?: return null to LauncherSeerrAccess.NONE
+        val profile = launcherProfileFor(kind, user, repository.listProfiles(), repository::list) ?: return null to LauncherSeerrAccess.NONE
+        val seerr = repository.list(profile.id).firstOrNull { it.kind == ServiceKind.SEERR }
+        return seerr to launcherSeerrAccess(profile.isKid, seerr)
     }
 
     override fun call(method: String, arg: String?, extras: android.os.Bundle?): android.os.Bundle? {
         if (method == "item_action") return itemAction(extras)
+        if (method == DISCOVER_REQUEST || method == DISCOVER_WITHDRAW) return discoverAction(method, extras)
         if (method != "select_profile" || !launcherMayList(callingPackage)) return null
         val kind = when (extras?.getString("kind")) { "jellyfin" -> ServiceKind.JELLYFIN; "emby" -> ServiceKind.EMBY; else -> return null }
         val user = extras.getString("user")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return null
@@ -180,10 +205,11 @@ class LauncherProfilesProvider : ContentProvider() {
     }
 
     /** The account a query names with `kind` and `user`, as `spole://profile` takes them. */
-    private fun accountIn(uri: Uri): Pair<ServiceKind, String>? {
-        val kind = serviceKind(uri.getQueryParameter("kind")) ?: return null
-        val user = uri.getQueryParameter("user")?.takeIf { LauncherLinks.isIdentifier(it) } ?: return null
-        return kind to user
+    private fun accountIn(uri: Uri): Pair<ServiceKind, String>? = account(uri.getQueryParameter("kind"), uri.getQueryParameter("user"))
+
+    private fun account(kind: String?, user: String?): Pair<ServiceKind, String>? {
+        val service = serviceKind(kind) ?: return null
+        return service to (user?.takeIf { LauncherLinks.isIdentifier(it) } ?: return null)
     }
 
     private fun serviceKind(value: String?) = when (value) {
@@ -201,5 +227,7 @@ class LauncherProfilesProvider : ContentProvider() {
         val COLUMNS = arrayOf("id", "name", "kind", "user", "avatar", "kid")
         val ROW_COLUMNS = arrayOf("row", "kind", "user", "server", "id", "type", "title", "series", "season", "episode",
             "year", "runtime", "progress", "overview", "wide", "poster", "backdrop", "logo", "community", "critic", "official")
+        const val DISCOVER_REQUEST = "discover_request"
+        const val DISCOVER_WITHDRAW = "discover_withdraw"
     }
 }

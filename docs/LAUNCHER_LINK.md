@@ -88,7 +88,7 @@ ingen token eller Seerr-adresse går over.
 | `discover/related?…&type=&tmdb=` | Rader `similar` og `recommended` med radkolonnane. |
 | `discover/search?kind=&user=&q=&page=` | Rad `search` med radkolonnane. Extras: `page`, `has_more`. |
 | `call("discover_request", {kind,user,type,tmdb,seasons})` | `result` = `ok`, `already`, `not_personal`, `forbidden`, `failed`, `unknown`. |
-| `call("discover_withdraw", {kind,user,request_id})` | `result` = `ok`, `failed`, `unknown`. |
+| `call("discover_withdraw", {kind,user,request_id})` | `result` = `ok`, `not_personal`, `failed`, `unknown`. |
 | `spole://discover?kind=&user=&type=&tmdb=` | Opnar tittelen i Spole sitt Oppdag. |
 
 - Kvart svar frå `discover…` til Stova har extra `seerr`: `none` (ukjend person, barneprofil eller
@@ -106,7 +106,19 @@ ingen token eller Seerr-adresse går over.
   med ei personleg økt; feilar det, kjem det Spole hadde frå før.
 - `discover/search` krev `q` med minst to teikn, og `page` byrjar på 1. Kortare `q` gir ingen rader,
   `page` = 1 og `has_more` = false.
-- Andre enn Stova får ein tom markør med kolonnane og utan extras.
+- `discover_request` tek `tmdb` som Int og, for `tv`, `seasons` som IntArray (utelaten for film). Spole
+  ber om tittelen som personen, med Seerr sine eigne val for kvalitet og mappe, og følgjer han etterpå
+  med varsel på. `unknown`: ukjend person, barneprofil eller ingen Seerr som er sett opp. `not_personal`:
+  ein API-nøkkel; då spør ikkje Spole Seerr i det heile. `already`: nokon har alt bede om tittelen eller
+  sesongane, eller dei er i biblioteket (Seerr svarar 409 eller 202, eller ein sesong er ikkje open for
+  førespurnad lenger). `forbidden`: Seerr svarar 401 eller 403, eller kontoen får ikkje be om denne
+  typen. `failed`: alt anna, òg ein `type` eller `tmdb` Spole ikkje kan lese. Ein førespurnad frå Stova
+  får `request_id` først når Spole hentar status frå Seerr, til dømes med `discover/requests?refresh=1`.
+- `discover_withdraw` tek `request_id` som Int, Seerr sin ID frå `discover/requests` eller
+  `discover/title`. Spole trekkjer tilbake førespurnaden personen følgjer med den ID-en, og sluttar å
+  følgje han. `unknown` òg når Spole ikkje følgjer nokon førespurnad med den ID-en; `not_personal` for
+  ein API-nøkkel; `failed` når Seerr ikkje tek imot.
+- Andre enn Stova får ein tom markør med kolonnane og utan extras, og `null` frå kalla.
 
 `status` er Seerr sin mediestatus (1 ukjend, 2 ventar, 3 på veg, 4 delvis, 5 i biblioteket,
 6 sperra). `stage` er Spole sitt steg (`requested`, `downloading`, `importing`, `available`,

@@ -1,12 +1,16 @@
 package app.reelstack.launcher
 
+import app.reelstack.R
 import app.reelstack.data.model.DiscoverMedia
 import app.reelstack.data.model.RequestSeason
 import app.reelstack.data.model.RequestStage
 import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.TrackedRequest
+import app.reelstack.data.network.HttpResponse
 import app.reelstack.data.network.RemoteMediaDetails
+import app.reelstack.data.network.ServiceMessage
+import app.reelstack.data.network.requireSuccess
 import app.reelstack.localization.LocalizedText
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
@@ -188,5 +192,27 @@ class LauncherDiscoverTest {
             listOf(LauncherDiscoverRows.TRENDING, LauncherDiscoverRows.UPCOMING_MOVIES, LauncherDiscoverRows.UPCOMING_SERIES,
                 LauncherDiscoverRows.SIMILAR, LauncherDiscoverRows.RECOMMENDED, LauncherDiscoverRows.SEARCH))
         assertEquals(listOf("ok", "already", "not_personal", "forbidden", "failed", "unknown"), LauncherDiscoverResult.entries.map { it.wire })
+    }
+
+    @Test fun discoverResultForMapsErrors() {
+        // What Spole's Seerr client throws for an answer with this status.
+        fun seerrSaid(status: Int) = requireNotNull(runCatching { HttpResponse(status, "{}").requireSuccess(ServiceKind.SEERR) }.exceptionOrNull())
+        fun spoleSaid(resId: Int, vararg args: Any) = ServiceMessage(LocalizedText(resId, *args))
+
+        // Already asked for: Seerr's 409, its 202 («no new seasons»), seasons that are asked for already, or a message saying so.
+        listOf(seerrSaid(409), spoleSaid(R.string.err_ingen_nye_sesongar), spoleSaid(R.string.err_sesongane_er_endra),
+            IllegalStateException("Request already exists"), IllegalStateException("Media EXISTS")).forEach {
+            assertEquals(it.toString(), LauncherDiscoverResult.ALREADY, discoverResultFor(it))
+        }
+        // Not allowed: Seerr's 401 or 403, on the request or on the sign-in check, or an account that may not ask for this type.
+        listOf(seerrSaid(401), seerrSaid(403), spoleSaid(R.string.err_avviste_kontotilgangen_logg_inn, "Seerr"),
+            spoleSaid(R.string.err_seerr_medietype_ikkje_lov)).forEach {
+            assertEquals(it.toString(), LauncherDiscoverResult.FORBIDDEN, discoverResultFor(it))
+        }
+        // Anything else failed: another status, another of Spole's messages, no network.
+        listOf(seerrSaid(500), seerrSaid(404), seerrSaid(418), spoleSaid(R.string.err_seerr_konto_endra_send),
+            java.io.IOException("timeout")).forEach {
+            assertEquals(it.toString(), LauncherDiscoverResult.FAILED, discoverResultFor(it))
+        }
     }
 }
