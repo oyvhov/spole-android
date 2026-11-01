@@ -101,6 +101,8 @@ fun GlobalSearchScreen(
     onDiscoverDetails: (String) -> Unit,
     onLoadMore: () -> Unit,
     onPerson: (Int) -> Unit = {},
+    /** On TV, leave the first input row for the optional top navigation. */
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -159,7 +161,12 @@ fun GlobalSearchScreen(
                     // A text field keeps the remote's down for itself; on a television the results are
                     // what down is for, so it leaves the field and the keyboard steps aside.
                     modifier = Modifier.weight(1f).focusRequester(field).onFocusChanged { fieldFocused = it.isFocused }.onPreviewKeyEvent { event ->
-                        if (event.key == androidx.compose.ui.input.key.Key.DirectionDown &&
+                        if (onNavigateUp != null && event.key == androidx.compose.ui.input.key.Key.DirectionUp &&
+                            event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                            keyboard?.hide()
+                            onNavigateUp()
+                            true
+                        } else if (event.key == androidx.compose.ui.input.key.Key.DirectionDown &&
                             event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                             keyboard?.hide()
                             focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)

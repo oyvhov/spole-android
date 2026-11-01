@@ -293,7 +293,7 @@ fun DiscoverScreen(
             state.searchQuery.isBlank() -> DiscoverHubContent(state, contentPadding, hubActions, header = {
                 // On a television the page opens on the posters; search is an icon one press up,
                 // and it opens the full search, where people are found too.
-                if (television) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (television && !app.reelstack.ui.LocalTopBarCarriesAccount.current) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     IconButton(onClick = hubActions.onSearch, interactionSource = interaction,
                         modifier = Modifier.size(48.dp).focusOutline(interaction, CircleShape).testTag("discover-search-icon")) {

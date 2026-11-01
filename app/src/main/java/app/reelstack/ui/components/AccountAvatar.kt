@@ -74,6 +74,7 @@ fun AccountAvatarButton(
     modifier: Modifier = Modifier,
     onArtwork: Boolean = false,
 ) {
+    if (app.reelstack.ui.LocalTopBarCarriesAccount.current) return
     val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     IconButton(
         onClick = onClick,

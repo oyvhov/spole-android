@@ -120,11 +120,11 @@ class PersonalizationTest {
         try {
             repository.personalization = Personalization()
             rule.setContent { ReelstackTheme { primary = MaterialTheme.colorScheme.primary } }
-            rule.runOnIdle { repository.personalization = Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false, hideTvSidebar = true) }
+            rule.runOnIdle { repository.personalization = Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false, tvMenuStyle = app.reelstack.data.model.TvMenuStyle.HIDDEN_SIDEBAR) }
             rule.waitForIdle()
             rule.runOnIdle {
                 assertEquals(Color(AccentPalette.IRIS.argb), primary)
-                assertEquals(Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false, hideTvSidebar = true),
+                assertEquals(Personalization(AccentPalette.IRIS, ArtworkSize.COMPACT, false, sidebarExpanded = false, tvMenuStyle = app.reelstack.data.model.TvMenuStyle.HIDDEN_SIDEBAR),
                     AppPreferencesRepository(context).personalization)
             }
         } finally {

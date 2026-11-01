@@ -82,6 +82,13 @@ enum class FocusStyle { LIFT, WHITE, ACCENT, BOLD;
 }
 
 /** Device-local display choices, never account permissions or credentials. */
+enum class TvMenuStyle { SIDEBAR, HIDDEN_SIDEBAR, TOP_BAR;
+    companion object {
+        fun decode(value: String?, legacyHidden: Boolean = false): TvMenuStyle =
+            entries.firstOrNull { it.name == value } ?: if (legacyHidden) HIDDEN_SIDEBAR else SIDEBAR
+    }
+}
+
 data class Personalization(
     val accent: AccentPalette = AccentPalette.LIME,
     val artworkSize: ArtworkSize = ArtworkSize.STANDARD,
@@ -95,7 +102,7 @@ data class Personalization(
     val showPlaybackModeInOsd: Boolean = false,
     val lightweightTv: Boolean = false,
     val sidebarExpanded: Boolean? = null,
-    val hideTvSidebar: Boolean = false,
+    val tvMenuStyle: TvMenuStyle = TvMenuStyle.SIDEBAR,
     val menuOrder: List<String> = DEFAULT_MENU,
     val hiddenMenuItems: Set<String> = emptySet(),
     /**
@@ -147,7 +154,9 @@ data class Personalization(
     val watchNextEnabled: Boolean = false,
     /** Device-local name shown beside the Spole mark in the main header. */
     val appLabel: String = "Spole",
-)
+) {
+    val hideTvSidebar: Boolean get() = tvMenuStyle == TvMenuStyle.HIDDEN_SIDEBAR
+}
 
 enum class SubtitleStyle { CLEAN, CINEMA, HIGH_CONTRAST, LARGE }
 

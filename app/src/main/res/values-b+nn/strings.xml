@@ -90,4 +90,9 @@
         <item quantity="one">%1$d episode</item>
         <item quantity="other">%1$d episodar</item>
     </plurals>
+    <string name="tv_menu_style">Meny</string>
+    <string name="tv_menu_sidebar">Sidemeny</string>
+    <string name="tv_menu_hidden_sidebar">Skjult sidemeny</string>
+    <string name="tv_menu_top_bar">Toppmeny</string>
+    <string name="tv_menu_search">Søk</string>
 </resources>

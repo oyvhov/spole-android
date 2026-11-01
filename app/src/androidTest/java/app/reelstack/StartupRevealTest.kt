@@ -85,16 +85,23 @@ class StartupRevealTest {
     }
 
     @Test fun coverFinishesAndReleasesUnderlyingAccessibility() {
+        var rowsMayEnter = false
         rule.mainClock.autoAdvance = false
-        rule.setContent { ReelstackTheme { StartupCover({}) { Text("Innhald klart") } } }
+        rule.setContent { ReelstackTheme { StartupCover({}) {
+            val revealed = app.reelstack.ui.LocalStartupRevealed.current
+            SideEffect { rowsMayEnter = revealed }
+            Text("Innhald klart")
+        } } }
         rule.onNodeWithTag("startup-cover").assertExists()
         rule.onNodeWithText("Innhald klart").assertDoesNotExist()
+        rule.runOnIdle { assertFalse("Rows wait while the startup art is visible", rowsMayEnter) }
         rule.mainClock.advanceTimeBy(1_700)
         rule.mainClock.autoAdvance = true
         rule.waitUntil(timeoutMillis = 2_000) {
             rule.onAllNodesWithTag("startup-cover").fetchSemanticsNodes().isEmpty()
         }
         rule.onNodeWithText("Innhald klart").assertIsDisplayed()
+        rule.runOnIdle { assertTrue("Rows are released after the cover disappears", rowsMayEnter) }
     }
 
     @Test fun slowNetworkCannotTrapTheUserInTheSplash() {

@@ -9,6 +9,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onKeyEvent
 import app.reelstack.data.model.touchMenu
+import app.reelstack.data.model.visibleMenu
 import app.reelstack.data.model.ServiceKind
 import androidx.compose.ui.res.stringResource
 
@@ -110,6 +111,8 @@ import app.reelstack.ui.screens.DiscoverScreen
 import app.reelstack.ui.screens.HomeScreen
 import app.reelstack.ui.screens.SettingsScreen
 import app.reelstack.ui.state.toGlobalSearchUiState
+import app.reelstack.ui.state.preferredHomeAccount
+import app.reelstack.data.model.shelfId
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
@@ -157,6 +160,12 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     }
     val snackbarHostState = remember { SnackbarHostState() }
     val tabStates = rememberSaveableStateHolder()
+    val startupRevealed = LocalStartupRevealed.current
+    // A fresh presentation on return to Home or after a session change. Loading and recomposition
+    // within the same page keep the epoch, so scrolling never replays an entrance.
+    val homePresentSince = remember(startupRevealed, state.sessionScope, state.selectedTab) {
+        android.os.SystemClock.uptimeMillis().takeIf { startupRevealed && state.selectedTab == AppTab.HOME }
+    }
     var appReadyForBackgroundWork by remember { mutableStateOf(false) }
     // Built once and handed to every rail that shows library cards, so a title offers the same
     // three choices wherever it appears.
@@ -170,11 +179,17 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val focusManager = LocalFocusManager.current
     val focusScope = androidx.compose.runtime.rememberCoroutineScope()
     val tvRail = (LocalConfiguration.current.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val topMenu = tvRail && !state.isKidMode && !state.showOnboarding &&
+        app.reelstack.ui.theme.LocalPersonalization.current.tvMenuStyle == app.reelstack.data.model.TvMenuStyle.TOP_BAR
+    val topFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    var topHasFocus by remember { mutableStateOf(false) }
+    var topBarHeight by remember { mutableStateOf(88.dp) }
     var tvRailFocused by remember { mutableStateOf(false) }
     var railHasFocus by remember { mutableStateOf(false) }
     var railEntryRequested by remember { mutableStateOf(false) }
     var moveIntoContent by remember { mutableStateOf(tvRail) }
     val contentFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val searchPageFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     val railFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     var contentHasFocus by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -294,8 +309,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     // A wide window moves navigation to a side rail so the bottom bar does not stretch four
     // icons across a tablet, and so the content column keeps its own width. Measured from the
     // window, not the device configuration, so split-screen is handled correctly.
+    androidx.compose.runtime.CompositionLocalProvider(LocalTopBarCarriesAccount provides topMenu) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Ink).onPreviewKeyEvent { event ->
-        if (tvRail && event.key == androidx.compose.ui.input.key.Key.DirectionLeft) {
+        if (tvRail && !topMenu && event.key == androidx.compose.ui.input.key.Key.DirectionLeft) {
             if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) railEntryRequested = true
             else if (!railHasFocus) railEntryRequested = false
         }
@@ -303,7 +319,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     }) {
     val windowLayout = app.reelstack.ui.layout.WindowLayoutPolicy(maxWidth.value, maxHeight.value)
     val wideWindow = windowLayout.useNavigationRail
-    val showRail = !state.showOnboarding && wideWindow
+    val showRail = !state.showOnboarding && wideWindow && !topMenu
     val personalization = app.reelstack.ui.theme.LocalPersonalization.current
     val activityContext = androidx.compose.ui.platform.LocalContext.current
     val appContext = activityContext.applicationContext
@@ -325,7 +341,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     LaunchedEffect(state.isRefreshing) {
         // Home replaces its header with the feature when the first library response arrives.
         // Recover only an empty focus path, never move focus away from the remote's current target.
-        if (tvRail && !state.isRefreshing && !contentHasFocus && !tvRailFocused && state.activeSheet == null)
+        if (tvRail && !state.isRefreshing && !contentHasFocus && !tvRailFocused && !topHasFocus && state.activeSheet == null)
             moveIntoContent = true
     }
     LaunchedEffect(moveIntoContent, state.selectedTab, state.showOnboarding, state.libraryLoading, state.isRefreshing) {
@@ -408,16 +424,19 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 )
                 }
             }
-            Box(Modifier.weight(1f).fillMaxSize().focusRequester(contentFocus).focusRestorer()
+            Box(Modifier.weight(1f).fillMaxSize().padding(top = if (topMenu) topBarHeight else 0.dp)
+                .focusRequester(contentFocus).focusRestorer()
+                .focusProperties { onEnter = { if (state.globalSearchOpen) cancelFocusChange() } }
+                .then(if (state.globalSearchOpen) Modifier.clearAndSetSemantics {} else Modifier)
                 .onKeyEvent { event ->
-                    if (tvRail && showRail && state.activeSheet == null &&
-                        event.key == androidx.compose.ui.input.key.Key.DirectionLeft &&
+                    if (tvRail && (showRail || topMenu) && state.activeSheet == null &&
+                        event.key == (if (topMenu) androidx.compose.ui.input.key.Key.DirectionUp else androidx.compose.ui.input.key.Key.DirectionLeft) &&
                         event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                         // Compose's default directional traversal happens after onKeyEvent.
                         // Give the row its left-hand neighbour before falling back to the rail.
-                        if (!focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) {
-                            railEntryRequested = true
-                            railFocus.requestFocus()
+                        if (!focusManager.moveFocus(if (topMenu) androidx.compose.ui.focus.FocusDirection.Up else androidx.compose.ui.focus.FocusDirection.Left)) {
+                            if (topMenu) topFocus.requestFocus()
+                            else { railEntryRequested = true; railFocus.requestFocus() }
                         }
                         true
                     } else false
@@ -452,6 +471,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 when (tab) {
                     AppTab.HOME -> HomeScreen(
                         state = homeState,
+                        presentSince = homePresentSince,
                         contentPadding = screenInsets,
                         onSessionClick = { viewModel.openSheet(AppSheet.SessionDetails(it)) },
                         onPlaybackToggle = viewModel::togglePlayback,
@@ -466,9 +486,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         searchTransitionModifier = searchTransition,
                         // Search opens from the icon beside the profile on every touch layout. The
                         // line under the header is the owner's choice, and off unless chosen.
-                        showSearch = windowLayout.showHomeSearch && personalization.showHomeSearchBar,
+                        showSearch = !topMenu && windowLayout.showHomeSearch && personalization.showHomeSearchBar,
                         showSearchIcon = !tvRail && !state.isKidMode,
-                        showBrand = !showRail,
+                        showBrand = !showRail && !topMenu,
                         cardActions = cardActions,
                     )
                     AppTab.DISCOVER -> if (state.myRequestsOpen) app.reelstack.ui.screens.MyRequestsScreen(state, screenInsets,
@@ -561,7 +581,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         val search = remember(state.globalSearch, state.searchHistory, state.requestingMediaIds, state.accounts, state.connections) {
             state.toGlobalSearchUiState()
         }
-        Surface(Modifier.fillMaxSize(), color = Ink) {
+        Surface(Modifier.fillMaxSize().padding(top = if (topMenu) topBarHeight else 0.dp)
+            .focusRequester(searchPageFocus).focusRestorer().focusGroup(), color = Ink) {
             app.reelstack.ui.screens.GlobalSearchScreen(
                 state = search,
                 onQuery = viewModel::setGlobalSearchQuery,
@@ -570,11 +591,42 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 onDiscoverDetails = viewModel::openDiscoverDetails,
                 onLoadMore = viewModel::loadMoreGlobalSearch,
                 onPerson = viewModel::openPerson,
+                onNavigateUp = if (topMenu) { { topFocus.requestFocus(); Unit } } else null,
             )
         }
     }
 
+    if (topMenu) {
+        val season = app.reelstack.ui.components.touchSeason()
+        val seasonId = season.takeIf { it != app.reelstack.data.model.Season.NONE }?.shelfId()
+        val seasonName = if (season == app.reelstack.data.model.Season.CHRISTMAS) stringResource(R.string.theme_season_christmas)
+            else stringResource(R.string.theme_season_halloween)
+        val shelves = app.reelstack.data.model.menuShelves(state.smartShelves, java.time.LocalDate.now())
+            .filter { shelf -> state.libraryConnection?.let(shelf::appliesTo) == true && shelf.pathId != seasonId }
+        val shortcuts = listOfNotNull(seasonId?.let { it to seasonName }) +
+            shelves.map { it.pathId to app.reelstack.ui.components.smartShelfName(it) } + state.libraryShortcuts
+        val account = homeState.preferredHomeAccount()
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        TvTopBar(state.selectedTab, selectTab, shortcuts,
+            state.libraryPath.firstOrNull()?.first, { id ->
+                focusManager.clearFocus()
+                viewModel.closeGlobalSearch()
+                viewModel.openLibraryShortcut(id)
+                moveIntoContent = true
+            }, AppTab.DISCOVER.name in app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu(),
+            state.globalSearchOpen, { if (!state.globalSearchOpen) viewModel.openGlobalSearch() }, account,
+            state.connections.firstOrNull { it.kind == account?.source }, viewModel::openProfileSwitcher,
+            visible = state.activeSheet == null,
+            onDown = {
+                if (state.globalSearchOpen) runCatching { searchPageFocus.requestFocus() }
+                else if (!focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down))
+                    runCatching { contentFocus.requestFocus() }
+            }, modifier = Modifier.focusRequester(topFocus), onFocusWithin = { topHasFocus = it },
+            onHeightChanged = { topBarHeight = with(density) { it.toDp() } })
+    }
+
     AppOverlayHost(viewModel, state, connectionDraft, startTab)
+    }
 }
 
 internal data class TabItem(

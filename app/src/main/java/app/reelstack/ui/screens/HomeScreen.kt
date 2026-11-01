@@ -5,6 +5,7 @@ import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.vector
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.playableNow
+import app.reelstack.ui.components.rowEntrance
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -163,6 +164,7 @@ fun HomeScreen(
     showSearchIcon: Boolean = false,
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
+    presentSince: Long? = 0L,
 ) = HomeScreen(
     state = state.toHomeUiState(),
     contentPadding = contentPadding,
@@ -181,6 +183,7 @@ fun HomeScreen(
     showSearchIcon = showSearchIcon,
     showBrand = showBrand,
     cardActions = cardActions,
+    presentSince = presentSince,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -204,6 +207,7 @@ fun HomeScreen(
     showSearchIcon: Boolean = false,
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
+    presentSince: Long? = 0L,
 ) {
     var showTopRefreshIndicatorByUser by rememberSaveable { mutableStateOf(false) }
     val triggerRefresh = {
@@ -310,14 +314,21 @@ fun HomeScreen(
                 .then(if (television && tablet && featured != null) Modifier.tvHomeBottomFade(TV_SHELF_BOTTOM) else Modifier)
                 .testTag("home-feed"),
         ) {
-            if (featured == null) item(key = "home-header") {
+            var entranceIndex = 0
+            fun entranceItem(key: String, content: @Composable () -> Unit) {
+                val index = entranceIndex++
+                item(key = key) {
+                    Column(Modifier.fillMaxWidth().rowEntrance(index, presentSince)) { content() }
+                }
+            }
+            if (featured == null) entranceItem(key = "home-header") {
                 Box(Modifier.padding(end = if (edge) ReelLayout.Gutter else 0.dp)) {
                     HomeHeader(state, onAccountClick, showBrand, onSearchClick.takeIf { showSearchIcon })
                 }
             }
             if (featured != null) {
                 if (tablet) {
-                    item(key = "tablet-feature") {
+                    entranceItem(key = "tablet-feature") {
                         TabletLibraryFeature(featured, onLibraryClick,
                             Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp)
                                 .then(if (television) Modifier.cinematicBleed(ReelLayout.Gutter) else Modifier),
@@ -338,7 +349,7 @@ fun HomeScreen(
                         )
                     }
                 } else {
-                    item(key = "mobile-feature") {
+                    entranceItem(key = "mobile-feature") {
                         app.reelstack.ui.components.MobileLibraryFeature(
                             media = featured,
                             onOpen = onLibraryClick,
@@ -360,7 +371,7 @@ fun HomeScreen(
                     }
                 }
             }
-            if (showSearch) item(key = "search-entry") {
+            if (showSearch) entranceItem(key = "search-entry") {
                 Box(Modifier.padding(top = 8.dp, end = mediaEndInset())) {
                     HomeSearchEntry(onSearchClick, searchTransitionModifier)
                 }
@@ -379,7 +390,7 @@ fun HomeScreen(
                 val source = row.source
                 if (row.kind == HomeRowKind.NOW_PLAYING && state.sessions.isNotEmpty()) {
                     val sectionTop = nextSectionTop()
-                    item(key = "now-playing") {
+                    entranceItem(key = "now-playing") {
                             Row(Modifier.fillMaxWidth().padding(top = sectionTop, bottom = ReelLayout.SectionBottom, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
                                 SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
                                 // A count is status, not an action, so it stays out of the accent colour.
@@ -402,7 +413,7 @@ fun HomeScreen(
                     val firstLoad = state.isRefreshing && state.configuredCount > 0 && source !in state.loadedSources
                     if (items.isNotEmpty() || incomplete || firstLoad) {
                         val sectionTop = nextSectionTop(if (television && featured != null) 14.dp else ReelLayout.SectionTop)
-                        item(key = "continue-watching-${source.name}") {
+                        entranceItem(key = "continue-watching-${source.name}") {
                             Column(Modifier.testTag("continue-watching-${source.name}")) {
                                 MediaSectionTitle(stringResource(if (combine(source)) R.string.tv_continue_combined else R.string.home_continue), source, Modifier.padding(
                                     top = sectionTop,
@@ -421,7 +432,7 @@ fun HomeScreen(
                     val items = state.favourites.filter { it.source == source }
                     if (items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      item(key = "favourites-${source.name}") {
+                      entranceItem(key = "favourites-${source.name}") {
                         MediaSectionTitle(stringResource(R.string.home_favourites), source,
                             Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom), showSource = layout.sourceNeeded(row, homeSources))
                         LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions)
@@ -432,7 +443,7 @@ fun HomeScreen(
                     val items = nextRows[source].orEmpty()
                     if (items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      item(key = "next-up-${source.name}") {
+                      entranceItem(key = "next-up-${source.name}") {
                         Column(Modifier.testTag("next-up-${source.name}")) {
                             MediaSectionTitle(stringResource(R.string.tv_next_up), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
@@ -444,7 +455,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.NEW_MOVIES && source != null && source in mediaSources) {
                         val sectionTop = nextSectionTop()
-                        item(key = "recent-movies-${source.name}") {
+                        entranceItem(key = "recent-movies-${source.name}") {
                             MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
                             val items = state.recentMovies.filter { it.source == source }
@@ -461,7 +472,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.NEW_SERIES && source != null && source in mediaSources) {
                         val sectionTop = nextSectionTop()
-                        item(key = "recent-series-${source.name}") {
+                        entranceItem(key = "recent-series-${source.name}") {
                             MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
                             val items = state.recentSeries.filter { it.source == source }
@@ -485,7 +496,7 @@ fun HomeScreen(
                     val items = state.homeShelfMedia[row.id].orEmpty()
                     if (shelf != null && items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      item(key = "smart-shelf-${row.id}") {
+                      entranceItem(key = "smart-shelf-${row.id}") {
                         Column(Modifier.testTag("home-shelf-${row.id}")) {
                             // The shelf's own icon marks the row as a shelf; the way into all of it is the row's last card.
                             MediaSectionTitle(app.reelstack.ui.components.smartShelfName(shelf), source,
@@ -500,7 +511,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.RECOMMENDATIONS) {
                     val sectionTop = nextSectionTop()
-                    item(key = "recommendations") {
+                    entranceItem(key = "recommendations") {
                         SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = sectionTop, bottom = 4.dp))
                         Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                             modifier = Modifier.padding(bottom = 12.dp))
@@ -515,7 +526,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.RECENT_RELEASES) {
                     val sectionTop = nextSectionTop()
-                    item(key = "recent-releases") {
+                    entranceItem(key = "recent-releases") {
                         Column(Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom)) {
                             SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
                             Text(
@@ -540,7 +551,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.UPCOMING) {
                     val sectionTop = nextSectionTop()
-                    item(key = "upcoming") {
+                    entranceItem(key = "upcoming") {
                         UpcomingSectionTitle(
                             onCalendarClick = onCalendarClick,
                             modifier = Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
