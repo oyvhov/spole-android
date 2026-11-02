@@ -21,6 +21,62 @@ class TvNavigationIntegrationTest {
     @Test fun appStartsCollapsedExpandsOnlyOnLeftAndCollapsesAfterSelection() = checkNavigation(false)
     @Test fun hiddenSidebarOpensFromLeftEdgeWithoutMovingContent() = checkNavigation(true)
 
+    @Test fun topMenuReplacesTheRailAndRemoteCanReturnToThePage() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        org.junit.Assume.assumeTrue(context.getSystemService(android.app.UiModeManager::class.java).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
+        val container = AppContainer(context)
+        val oldOptions = container.preferencesRepository.personalization
+        val oldOnboarding = container.preferencesRepository.onboardingCompleted
+        val store = ViewModelStore()
+        try {
+            ServiceKind.entries.forEach(container.connectionRepository::delete)
+            container.preferencesRepository.onboardingCompleted = true
+            container.preferencesRepository.personalization = Personalization(tvMenuStyle = app.reelstack.data.model.TvMenuStyle.TOP_BAR)
+            lateinit var model: ReelstackViewModel
+            instrumentation.runOnMainSync { model = ReelstackViewModel(container); store.put("top-navigation", model) }
+            rule.setContent {
+                val mode = androidx.compose.ui.platform.LocalInputModeManager.current
+                androidx.compose.runtime.SideEffect { mode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+                ReelstackTheme { androidx.compose.foundation.layout.Box { ReelstackApp(model) } }
+            }
+            rule.mainClock.advanceTimeBy(1000)
+            rule.onNodeWithTag("side-navigation").assertDoesNotExist()
+            rule.onNodeWithTag("home-account").assertDoesNotExist()
+            saveTvReview("top-menu-home", rule.onRoot().captureToImage())
+            rule.onNodeWithTag("resume-card-resume-severance")
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+            repeat(8) {
+                if (rule.onAllNodes(hasTestTag("tv-top-HOME") and isFocused()).fetchSemanticsNodes().isEmpty())
+                    rule.onRoot().performKeyInput { pressKey(Key.DirectionUp) }
+            }
+            rule.onNodeWithTag("tv-top-HOME").assertIsFocused()
+                .performKeyInput { pressKey(Key.DirectionRight) }
+            rule.runOnIdle { assertEquals(AppTab.HOME, model.uiState.value.selectedTab) }
+            rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionDown) }
+            rule.onNodeWithTag("tv-top-HOME").assertIsNotFocused()
+            rule.onNodeWithTag("tv-top-account").performClick()
+            rule.onNodeWithTag("profile-menu").assertIsDisplayed()
+            rule.onNodeWithTag("tv-top-HOME").assertDoesNotExist()
+            rule.runOnIdle { model.closeSheet() }
+            rule.onNodeWithTag("tv-top-search").performClick()
+            rule.runOnIdle { assertTrue(model.uiState.value.globalSearchOpen) }
+            rule.onNodeWithTag("tv-top-search").assertIsSelected().assertIsDisplayed()
+            rule.onNodeWithTag("tv-top-search")
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
+                .performKeyInput { pressKey(Key.DirectionDown) }
+            rule.onNodeWithTag("tv-top-search").assertIsNotFocused()
+            rule.onNodeWithTag("resume-card-resume-severance").assertDoesNotExist()
+            rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionUp) }
+            rule.onNodeWithTag("tv-top-search").assertIsFocused()
+            saveTvReview("top-menu-search", rule.onRoot().captureToImage())
+        } finally {
+            instrumentation.runOnMainSync { store.clear() }
+            container.preferencesRepository.personalization = oldOptions
+            container.preferencesRepository.onboardingCompleted = oldOnboarding
+        }
+    }
+
     private fun checkNavigation(hidden: Boolean) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
@@ -32,7 +88,8 @@ class TvNavigationIntegrationTest {
         try {
             ServiceKind.entries.forEach(container.connectionRepository::delete)
             container.preferencesRepository.onboardingCompleted = true
-            container.preferencesRepository.personalization = Personalization(hideTvSidebar = hidden)
+            container.preferencesRepository.personalization = Personalization(tvMenuStyle = if (hidden)
+                app.reelstack.data.model.TvMenuStyle.HIDDEN_SIDEBAR else app.reelstack.data.model.TvMenuStyle.SIDEBAR)
             lateinit var model: ReelstackViewModel
             instrumentation.runOnMainSync { model = ReelstackViewModel(container); store.put("navigation", model) }
             rule.setContent {

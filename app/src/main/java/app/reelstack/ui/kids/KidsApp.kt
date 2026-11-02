@@ -230,7 +230,7 @@ fun KidsApp(viewModel: ReelstackViewModel) {
                     else -> "home"
                 }
                 androidx.compose.animation.Crossfade(targetState = page,
-                    animationSpec = androidx.compose.animation.core.tween(if (LocalMotionEnabled.current) 220 else 0),
+                    animationSpec = app.reelstack.ui.theme.motionTween(app.reelstack.ui.theme.SpoleMotion.ChangeMs),
                     label = "kids-page", modifier = Modifier.weight(1f)) { visiblePage ->
                 if (visiblePage == "appearance") {
                     Column(
@@ -619,6 +619,7 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
 
     // Falls out of the account picture in the corner, the same motion as the adult app.
     if (sheet is AppSheet.ProfileSwitcher) {
+        val motionWanted = app.reelstack.ui.theme.LocalMotionEnabled.current
         ProfileMenu(
             profiles = state.profiles,
             activeProfileId = state.activeProfileId,
@@ -627,7 +628,7 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
                 ?.displayName,
             mainAccountAvatarUrl = (state.accounts[ServiceKind.EMBY] ?: state.accounts[ServiceKind.JELLYFIN])
                 ?.avatarUrl,
-            onSelectProfile = viewModel::selectProfile,
+            onSelectProfile = { viewModel.selectProfile(it, motionWanted) },
             onOpenSettings = { },
             onDeleteProfile = { },
             onDismiss = viewModel::closeSheet,

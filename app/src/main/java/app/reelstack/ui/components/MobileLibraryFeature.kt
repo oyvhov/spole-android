@@ -30,7 +30,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,6 +73,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import app.reelstack.R
 import app.reelstack.data.model.LibraryMedia
+import app.reelstack.ui.theme.ArtworkTextSecondary
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.LocalMotionEnabled
 import app.reelstack.ui.theme.Primary
@@ -332,7 +332,7 @@ private fun MobileHeroPage(
                 if (episodeInfo.isNotBlank()) {
                     Text(
                         text = episodeInfo,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = ArtworkTextSecondary,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -344,15 +344,7 @@ private fun MobileHeroPage(
 
                 val progress = title.progress ?: 0f
                 if (progress > 0f) {
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth(0.48f)
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(1.5.dp)),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        trackColor = Color.White.copy(alpha = 0.25f),
-                    )
+                    WatchProgressBar(progress, Modifier.fillMaxWidth(0.48f), round = true)
                 }
               }
              } }

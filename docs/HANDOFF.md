@@ -1,3 +1,18 @@
+# Beta31: rørslespråk, profilflukt, toppmeny og Swiftly-punkta 1–7
+2026-11-02: Claude tok over att frå Codex (`1152599`), bygde profilflukta (`d96bc8a`) og fletta inn
+fire parallelle agentgreiner: seriesida (`1d8f002`), spelaren (`932b18e`…`a81f2c6`), kosmetikken
+(`175df9c`…`680256e`) og søk på TV (`4a15420`). Alt frå `RORSLE_OG_TOPPMENY_2026-11-01.md` og
+punkt 1–7 med kosmetikk frå `SWIFTLY_LAN_2026-11-01.md` er med i beta31/168; sjå
+`VERIFICATION_v1.0.0-beta31.md` for testbevis. Ingen installasjon på ekte kontoar.
+
+## Tidlegare: vidareført etter beta30 av Codex
+2026-11-02: Codex arbeider på `oppdag-samla` i `C:/JellyBin/spole-sesong`, vidare frå
+Claude sin `fd03154`. Toppmeny med migrering og fjernkontrollnavigasjon, inngang til heimradene
+og TV-hoppknappen er implementerte. Swiftly punkt 2 er delvis ferdig: søket held gamle treff
+under lasting og viser eigne bibliotek før sein Seerr. Profilflukta og resten av Swiftly-planen står att.
+Les [overleveringa til Claude](HANDOFF_CODEX_2026-11-02.md) før vidare arbeid.
+Ingen ny release, push eller installasjon på ekte kontoar i denne runden.
+
 # Spole 1.0.0-beta28: eigne profilar og Spole saman med Stova
 2026-11-01, eigaren: «Lag en skikkelig release om dette fungerer, for Stova og Spole». Greinene `launcher-bridge` og `launcher-profiles` er flette med beta27 på `release-beta28` og gitt ut som 1.0.0-beta28 (165). Sjå `docs/VERIFICATION_v1.0.0-beta28.md`. Nytt sidan førre oppføring: `select_profile` på `LauncherProfilesProvider` (Spole følgjer personen som blir vald i Stova; aldri ut av ein barneprofil med PIN), fokushoppet og tilbodet i Profilar retta.
 

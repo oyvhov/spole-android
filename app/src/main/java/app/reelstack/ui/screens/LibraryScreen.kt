@@ -229,7 +229,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                 val focused by interaction.collectIsFocusedAsState()
                 val scale by animateFloatAsState(
                     targetValue = if (pressed && app.reelstack.ui.theme.LocalMotionEnabled.current) 0.985f else 1f,
-                    animationSpec = androidx.compose.animation.core.tween(120),
+                    animationSpec = app.reelstack.ui.theme.motionTween(app.reelstack.ui.theme.SpoleMotion.FocusMs),
                     label = "library-grid-spring",
                 )
                 val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
@@ -264,9 +264,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                         if (!listView && rating != null) app.reelstack.ui.components.LibraryRating(rating,
                             Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(6.dp).testTag("library-rating-${entry.id}"))
                         entry.progress?.takeIf { it > 0f && !entry.played }?.let { progress ->
-                            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(4.dp)
-                                .align(androidx.compose.ui.Alignment.BottomCenter), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .8f),
-                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = .65f), drawStopIndicator = {})
+                            app.reelstack.ui.components.WatchProgressBar(progress, Modifier.align(androidx.compose.ui.Alignment.BottomStart))
                         }
                     }
                 }

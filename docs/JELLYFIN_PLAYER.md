@@ -49,6 +49,31 @@ Første utgåve spelar berre verifiserte Jellyfin-element. Eit Seerr-treff utan 
 får ikkje ein gjetta avspelingsknapp. Emby-avspeling, casting, PiP, nedlasting, automatisk neste
 episode, kapittel og introhopp er ikkje med i denne runden.
 
+## Hopp over (november 2026)
+
+Jellyfin sine merkte strekk blir henta for intro, rulletekst, resymé («Recap») og førehandsvising
+(«Preview»); Emby kan berre intro og rulletekst, og reklame blir ikkje teken med. Reglane ligg i
+`SegmentPolicy.kt` med éin test per grense:
+
+- Eit strekk under 3 sekund får ingen knapp, og ingenting blir tilbode dei siste 1,5 sekunda.
+- Knappen står på biletet i 6 sekund frå byrjinga av strekket; etter det berre medan kontrollane er
+  synlege. På TV tek han fokus berre når han kjem fyrste gongen, slik at kontrollane ikkje mistar
+  fokuset når han kjem att saman med dei. OK på knappen hoppar.
+- Rulletekst som tek slutt innan 2 sekund frå slutten av fila «går ut fila»: då heiter knappen
+  «Neste episode» og startar neste episode, og finst det inga neste episode, er det ingen knapp
+  (eit hopp til siste bilete er ikkje noko hopp). Ukjend lengd gir aldri «Neste episode».
+
+## Lyd og undertekst per serie
+
+Val i spelaren blir hugsa per profil og serie (ein film er si eiga «serie») i `TrackChoiceStore`
+(lokalt, ingen hemmelegheiter): språk, tittel, tvungen, SDH, kodek, kanalar og plass, og eit
+eksplisitt «av» for undertekst. Neste episode får det beste treffet (`TrackMatching.kt`): språket
+må vere likt (norsk `nor`/`nob`/`nb`/`nn` er eitt språk), deretter tel tittel, tvungen og SDH mest,
+så kodek, kanalar og plass; under minstepoeng, eller utan treff i språket, gjeld vanleg standard.
+«Av» blir hugsa som av. Valet frå tittelsida gjeld framfor minnet for den tittelen, og blir
+sjølv lagra fyrste gongen. Profil-ID er med i nøkkelen, så barneprofilar har sitt eige val.
+Avspelaren utan nett (`OfflinePlayerActivity`) er ikkje kopla til minnet.
+
 ## Referansar og opphav
 
 [Findroid](https://github.com/jarnedemeulemeester/findroid) vart undersøkt som referanse for

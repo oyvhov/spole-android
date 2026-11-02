@@ -17,13 +17,16 @@ internal fun AppOverlayHost(
     // The profile menu belongs to the corner the avatar sits in, so it is rendered above the
     // destination content rather than inside one particular screen.
     if (state.activeSheet is AppSheet.ProfileSwitcher) {
+        val motionWanted = app.reelstack.ui.theme.LocalMotionEnabled.current
         app.reelstack.ui.components.ProfileMenu(
             profiles = state.profiles,
             activeProfileId = state.activeProfileId,
             isKidMode = state.isKidMode,
             mainAccountName = state.mainProfileAccount()?.displayName,
             mainAccountAvatarUrl = state.mainProfileAccount()?.avatarUrl,
-            onSelectProfile = viewModel::selectProfile,
+            onSelectProfile = { viewModel.selectProfile(it, motionWanted) },
+            onPicked = { profile, bounds -> viewModel.profileSwitchMotion.pickedFrom(bounds,
+                ProfileSwitchMotion.Picture(profile.avatarUrl, profile.name.trim().firstOrNull()?.uppercase()), onScreen = true) },
             onOpenSettings = viewModel::openAccountsSettings,
             onDeleteProfile = viewModel::deleteKidProfile,
             onDismiss = viewModel::closeSheet,

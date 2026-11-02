@@ -26,6 +26,10 @@ internal class DiscoverSearchCoordinator(
     private val slice: (ReelstackUiState) -> SearchSlice = ::discoverSlice,
     private val withSlice: (ReelstackUiState, SearchSlice) -> ReelstackUiState = ::withDiscoverSlice,
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
+    private val searchLibraries: suspend (List<app.reelstack.data.model.ServiceConnection>, String) -> List<app.reelstack.data.model.LibraryMedia> =
+        { connections, query -> withContext(ioDispatcher) { mediaSyncRepository.searchLibraries(connections, query) } },
+    private val searchDiscover: suspend (app.reelstack.data.model.ServiceConnection, String) -> app.reelstack.data.repository.MediaSyncRepository.SearchPage =
+        { connection, query -> withContext(ioDispatcher) { mediaSyncRepository.search(connection, query, page = 1) } },
 ) {
     private var searchJob: Job? = null
     private var loadMoreJob: Job? = null
@@ -66,7 +70,9 @@ internal class DiscoverSearchCoordinator(
             }
             return
         }
-        edit { SearchSlice(query = value, searching = true) }
+        // Keep the last answer while typing and fetching. Pagination belongs to the new query,
+        // so the old page cannot be appended while those cards are still visible.
+        edit { it.copy(query = value, searching = true, error = null, page = 1, hasMore = false, loadingMore = false) }
         searchJob = scope.launch {
             delay(DEBOUNCE_MILLIS)
             // Your own libraries and Seerr answer independently. A title you own must remain
@@ -74,19 +80,22 @@ internal class DiscoverSearchCoordinator(
             // one media server is down.
             val libraryDeferred = async {
                 if (mediaServers.isEmpty()) Result.success(emptyList()) else attempt {
-                    withContext(ioDispatcher) {
-                        mediaSyncRepository.searchLibraries(mediaServers, query)
-                    }
+                    searchLibraries(mediaServers, query)
                 }
             }
-            val discoverResult = if (seerr == null) {
-                Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
-            } else attempt {
-                withContext(ioDispatcher) { mediaSyncRepository.search(seerr, query, page = 1) }
+            val discoverDeferred = async {
+                if (seerr == null) {
+                    Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
+                } else attempt { searchDiscover(seerr, query) }
             }
             val libraryResult = libraryDeferred.await()
             if (!isActive || slice(readState()).query.trim() != query) return@launch
-            preferencesRepository.rememberSearch(readState().activeProfileId, query)
+            // A slow Seerr must not hold back a title that can already be played at home.
+            edit { it.copy(libraryResults = libraryResult.getOrDefault(emptyList())) }
+            val discoverResult = discoverDeferred.await()
+            if (!isActive || slice(readState()).query.trim() != query) return@launch
+            // Nothing is remembered here. This runs for every pause in typing, so "Ga" and "Gam" on
+            // the way to "Game" would all land in history; [commitSearchToHistory] decides what counts.
             updateState {
                 withSlice(it, slice(it).copy(
                     results = discoverResult.getOrNull()?.items.orEmpty(),
@@ -101,9 +110,27 @@ internal class DiscoverSearchCoordinator(
                         libraryResult.isFailure -> appString(R.string.error_search_libraries)
                         else -> null
                     },
-                )).copy(searchHistory = preferencesRepository.searchHistory(it.activeProfileId))
+                ))
             }
         }
+    }
+
+    /**
+     * The reader has moved from typing to the results: that is the one moment a term is worth
+     * remembering. The screen calls this when a result gets focus or is opened (or, with a touch
+     * screen, when the keyboard's search action is pressed). Terms typed on the way never get here, so
+     * the history reads as what was looked for. It is the typed term, trimmed, and not the answer
+     * that is on screen: the last answer may still be on its way.
+     */
+    fun commitSearchToHistory() {
+        val state = readState()
+        val query = slice(state).query.trim()
+        if (query.length < MIN_REMEMBERED) return
+        // Already first: nothing to write, and no new state to redraw the page for.
+        if (state.searchHistory.firstOrNull() == query) return
+        preferencesRepository.rememberSearch(state.activeProfileId, query)
+        val history = preferencesRepository.searchHistory(state.activeProfileId)
+        updateState { it.copy(searchHistory = history) }
     }
 
     /** Appends one verified Seerr page; a changed query discards a late response. */
@@ -146,6 +173,7 @@ internal class DiscoverSearchCoordinator(
 
     companion object {
         private const val DEBOUNCE_MILLIS = 350L
+        private const val MIN_REMEMBERED = 2
         private val MEDIA_SERVERS = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
 
         /** Discover's search still lives in the flat fields its screen and tests read. */

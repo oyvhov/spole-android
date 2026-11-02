@@ -30,6 +30,7 @@ internal class ReelstackFeatures(
     commitConnections: suspend (SessionScope, List<ServiceConnection>) -> SessionScope,
     onConnected: (SessionScope, ServiceConnection, ServiceConnection?, String?) -> Unit,
     remoteDetails: suspend (ServiceConnection, String) -> app.reelstack.data.network.RemoteMediaDetails,
+    switchMotion: ProfileSwitchMotion? = null,
 ) {
     private val state = SessionUiState(snapshot)
     private val lifetime = SupervisorJob(parent.coroutineContext[Job])
@@ -126,6 +127,7 @@ internal class ReelstackFeatures(
         pinSecurity = container.pinSecurity,
         switchProfileNow = { if (state.isCurrent) switchProfile(it) },
         closeSheet = { if (state.isCurrent) closeSheet() },
+        switchMotion = switchMotion,
     )
 
     val connections: ConnectionSetupCoordinator = ConnectionSetupCoordinator(

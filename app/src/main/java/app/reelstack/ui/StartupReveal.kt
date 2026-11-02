@@ -2,6 +2,7 @@ package app.reelstack.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -27,8 +28,12 @@ import kotlinx.coroutines.delay
 import coil3.imageLoader
 import coil3.network.httpHeaders
 import kotlinx.coroutines.withTimeoutOrNull
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 /** A bounded opening reveal. Network work continues behind the cover. */
+internal val LocalStartupRevealed = compositionLocalOf { true }
+
 @Composable
 fun StartupReveal(viewModel: ReelstackViewModel, content: @Composable () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -74,13 +79,17 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
             opening = false
         }
     }
-    val coverVisible by remember { derivedStateOf { opening } }
+    val cover = remember { MutableTransitionState(opening) }
+    cover.targetState = opening
+    val revealed = !cover.currentState && cover.isIdle
     Box(Modifier.fillMaxSize()) {
         // Loading continues, but TalkBack must not focus controls hidden by the cover.
         // Compose immediately: image requests and network data load throughout the animation.
-        Box(if (opening) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
-            .onPreviewKeyEvent { true } else Modifier) { content() }
-        AnimatedVisibility(visible = coverVisible, exit = fadeOut(tween(280))) {
+        Box(if (!revealed) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
+            .onPreviewKeyEvent { true } else Modifier) {
+            CompositionLocalProvider(LocalStartupRevealed provides revealed) { content() }
+        }
+        AnimatedVisibility(visibleState = cover, exit = fadeOut(motionTween(SpoleMotion.ChangeMs))) {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
                     .testTag("startup-cover")

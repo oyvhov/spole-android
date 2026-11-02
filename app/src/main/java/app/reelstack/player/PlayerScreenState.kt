@@ -82,13 +82,3 @@ data class PlayerScreenState(
     /** Kept so every reader that only cares whether the file is untouched still compiles. */
     val direct: Boolean get() = mode == PlaybackMode.DIRECT_PLAY
 }
-
-/**
- * The marked stretch the playhead is inside right now, if any.
- *
- * A small guard at each end keeps the offer from flickering on and off around the boundary, and
- * from appearing for the last half second of a title sequence nobody would bother skipping.
- */
-fun PlayerScreenState.activeSegment(): PlaybackSegment? = segments.firstOrNull { segment ->
-    positionMs >= segment.startMs && positionMs < segment.endMs - 1_500
-}

@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.layout.layout
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 /** TV artwork owns focus feedback; a Material state layer must never tint its caption. */
 @Composable
@@ -57,7 +59,7 @@ internal fun animateFocusScale(focused: Boolean, pressed: Boolean): State<Float>
         focused -> if (lift) 1.06f else 1.035f
         else -> 1f
     }
-    return animateFloatAsState(target, tween(if (motion) 140 else 0), label = "focus-scale")
+    return animateFloatAsState(target, motionTween(SpoleMotion.FocusMs), label = "focus-scale")
 }
 
 /**
@@ -106,7 +108,7 @@ internal fun Modifier.focusRing(shape: Shape, glow: Boolean = true): Modifier {
 @Composable
 private fun Modifier.ring(focused: Boolean, shape: Shape, glow: Boolean, artwork: Boolean = false): Modifier {
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
-    val alphaState = animateFloatAsState(if (focused) 1f else 0f, tween(if (motion) 140 else 0), label = "focus-outline")
+    val alphaState = animateFloatAsState(if (focused) 1f else 0f, motionTween(SpoleMotion.FocusMs), label = "focus-outline")
     val style = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle
     val lift = style == app.reelstack.data.model.FocusStyle.LIFT
     if (lift && artwork) return this

@@ -50,6 +50,8 @@ import app.reelstack.ui.components.SheetToolbar
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.theme.*
 import app.reelstack.ui.theme.Text as TextColor
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 @Composable
 fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, onNotify: (Boolean) -> Unit,
@@ -62,7 +64,7 @@ fun RequestComposer(state: ReelstackUiState, onSeason: (Int, Boolean) -> Unit, o
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { confirm() }
     val isSeries = draft.media.mediaType == "tv"
     val ready = entered && !draft.loading
-    val contentAlpha by animateFloatAsState(if (ready) 1f else 0f, tween(180), label = "season-content")
+    val contentAlpha by animateFloatAsState(if (ready) 1f else 0f, motionTween(SpoleMotion.ChangeMs), label = "season-content")
     val canAdd = state.configuredCount == 0 || state.accounts[ServiceKind.SEERR]?.canRequestType(if (isSeries) "tv" else "movie") == true
     var pendingWatch by remember(draft.media.id) { mutableStateOf<Int?>(null) }
     val watchAction by rememberUpdatedState(onSeasonWatch)

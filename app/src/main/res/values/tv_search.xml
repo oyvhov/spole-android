@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_keyboard">Search keyboard</string>
+    <string name="search_key_space">Space</string>
+    <string name="search_key_delete">Delete. Hold to clear the search.</string>
+    <string name="search_key_speak">Search by voice</string>
+    <string name="search_speak_prompt">Say what you are looking for</string>
+    <string name="search_query_described">Search: %1$s</string>
+</resources>

@@ -1,13 +1,32 @@
 package app.reelstack.data.model
 
-enum class AccentPalette(val argb: Long, val softArgb: Long, val containerArgb: Long) {
+/**
+ * [warningArgb] is the colour of an error and [cautionArgb] the colour of something that works but
+ * not fully. They belong to the palette because an accent is a hue too: with the one fixed pair
+ * Spole used to have, HOLLY sat 10 degrees from the red and GOLD 4 degrees from the amber, so in
+ * the Christmas season a failed server and a chosen row looked alike.
+ *
+ * Each pair keeps at least 40 degrees of OKLCH hue to its accent and holds the accents' own
+ * lightness (7:1 against the ink). A palette whose accent is nowhere near red or amber keeps the
+ * original pair; the others move away from the accent along the hue circle. The warning is the
+ * same lightness as the old one, so it is not louder than the red it replaces; for the warm
+ * accents the only red left 40 degrees away is the crimson end, which is why CORAL and HOLLY get
+ * a raspberry error and not a brick one. `AccentContrastTest` holds all of it.
+ */
+enum class AccentPalette(
+    val argb: Long,
+    val softArgb: Long,
+    val containerArgb: Long,
+    val warningArgb: Long = 0xFFFF7A7D,
+    val cautionArgb: Long = 0xFFFFC66D,
+) {
     LIME(0xFFD5F478, 0xFFDCE9BD, 0xFF344024),
     OCEAN(0xFF96D5FF, 0xFFC8E5F7, 0xFF243B4A),
     IRIS(0xFFCAB8FF, 0xFFE1D6FA, 0xFF39304C),
-    CORAL(0xFFFFB5A0, 0xFFFADACF, 0xFF4B332C),
-    GOLD(0xFFFFD478, 0xFFFFE7B5, 0xFF493A22),
+    CORAL(0xFFFFB5A0, 0xFFFADACF, 0xFF4B332C, warningArgb = 0xFFF479B8, cautionArgb = 0xFFF2CD64),
+    GOLD(0xFFFFD478, 0xFFFFE7B5, 0xFF493A22, warningArgb = 0xFFFD7795, cautionArgb = 0xFFFFA37F),
     MINT(0xFF86E2C2, 0xFFBDEDDD, 0xFF213E35),
-    ROSE(0xFFF4ABD0, 0xFFF8D5E7, 0xFF482B3B),
+    ROSE(0xFFF4ABD0, 0xFFF8D5E7, 0xFF482B3B, warningArgb = 0xFFFF7D65),
     PEARL(0xFFE3E7EF, 0xFFF0F2F7, 0xFF353942),
 
     // Two seasons. Spole holds its accents to 7:1 against the ink, which is why neither of these
@@ -15,8 +34,8 @@ enum class AccentPalette(val argb: Long, val softArgb: Long, val containerArgb: 
     // luminance, so a saturated red simply cannot reach that ratio against near-black without
     // being lightened. The rule is there so accent text stays readable, and a decoration is the
     // last thing that should be allowed to bend it.
-    HOLLY(0xFFF6806C, 0xFFF6B3AC, 0xFF4A1F1C),
-    PUMPKIN(0xFFFFA74F, 0xFFFFD9AE, 0xFF4B3018);
+    HOLLY(0xFFF6806C, 0xFFF6B3AC, 0xFF4A1F1C, warningArgb = 0xFFF17ABF),
+    PUMPKIN(0xFFFFA74F, 0xFFFFD9AE, 0xFF4B3018, warningArgb = 0xFFFE798A, cautionArgb = 0xFFE4DE4F);
 
     companion object {
         fun decode(value: String?) = entries.firstOrNull { it.name == value } ?: LIME
@@ -82,6 +101,13 @@ enum class FocusStyle { LIFT, WHITE, ACCENT, BOLD;
 }
 
 /** Device-local display choices, never account permissions or credentials. */
+enum class TvMenuStyle { SIDEBAR, HIDDEN_SIDEBAR, TOP_BAR;
+    companion object {
+        fun decode(value: String?, legacyHidden: Boolean = false): TvMenuStyle =
+            entries.firstOrNull { it.name == value } ?: if (legacyHidden) HIDDEN_SIDEBAR else SIDEBAR
+    }
+}
+
 data class Personalization(
     val accent: AccentPalette = AccentPalette.LIME,
     val artworkSize: ArtworkSize = ArtworkSize.STANDARD,
@@ -95,7 +121,7 @@ data class Personalization(
     val showPlaybackModeInOsd: Boolean = false,
     val lightweightTv: Boolean = false,
     val sidebarExpanded: Boolean? = null,
-    val hideTvSidebar: Boolean = false,
+    val tvMenuStyle: TvMenuStyle = TvMenuStyle.SIDEBAR,
     val menuOrder: List<String> = DEFAULT_MENU,
     val hiddenMenuItems: Set<String> = emptySet(),
     /**
@@ -147,7 +173,9 @@ data class Personalization(
     val watchNextEnabled: Boolean = false,
     /** Device-local name shown beside the Spole mark in the main header. */
     val appLabel: String = "Spole",
-)
+) {
+    val hideTvSidebar: Boolean get() = tvMenuStyle == TvMenuStyle.HIDDEN_SIDEBAR
+}
 
 enum class SubtitleStyle { CLEAN, CINEMA, HIGH_CONTRAST, LARGE }
 

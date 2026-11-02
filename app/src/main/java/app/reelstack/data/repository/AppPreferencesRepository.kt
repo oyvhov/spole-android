@@ -84,7 +84,8 @@ class AppPreferencesRepository(context: Context) {
             nextEpisodeDelaySeconds = preferences.getInt("next_episode_delay", 12).coerceIn(5, 60),
             showPlaybackModeInOsd = preferences.getBoolean("show_playback_mode_in_osd", false),
             lightweightTv = preferences.getBoolean("lightweight_tv", false),
-            hideTvSidebar = preferences.getBoolean("hide_tv_sidebar", false),
+            tvMenuStyle = app.reelstack.data.model.TvMenuStyle.decode(preferences.getString("tv_menu_style", null),
+                preferences.getBoolean("hide_tv_sidebar", false)),
             sidebarExpanded = if (preferences.contains("sidebar_expanded")) preferences.getBoolean("sidebar_expanded", true) else null,
             menuOrder = preferences.getString("menu_order", null)?.split(',') ?: app.reelstack.data.model.DEFAULT_MENU,
             hiddenMenuItems = preferences.getStringSet("menu_hidden", emptySet()).orEmpty().toSet(),
@@ -134,6 +135,7 @@ class AppPreferencesRepository(context: Context) {
             putBoolean("show_playback_mode_in_osd", value.showPlaybackModeInOsd)
             putBoolean("lightweight_tv", value.lightweightTv)
             putBoolean("hide_tv_sidebar", value.hideTvSidebar)
+            putString("tv_menu_style", value.tvMenuStyle.name)
             value.sidebarExpanded?.let { putBoolean("sidebar_expanded", it) } ?: remove("sidebar_expanded")
             putString("menu_order", value.menuOrder.joinToString(","))
             putStringSet("menu_hidden", value.hiddenMenuItems.intersect(app.reelstack.data.model.DEFAULT_MENU.toSet()) - value.requiredMenu())
@@ -173,7 +175,7 @@ class AppPreferencesRepository(context: Context) {
 
     fun observePersonalization(onChange: (app.reelstack.data.model.Personalization) -> Unit): () -> Unit {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key in setOf("app_label", "watch_next_enabled", "subtitle_style", "library_card_names", "accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "hide_tv_sidebar", "menu_order", "menu_hidden",
+            if (key in setOf("app_label", "watch_next_enabled", "subtitle_style", "library_card_names", "accent_palette", "artwork_size", "auto_resume", "sidebar_expanded", "hide_tv_sidebar", "tv_menu_style", "menu_order", "menu_hidden",
                     "menu_downloads", "home_search_bar",
                     "show_next_up", "combine_continue", "show_hero", "slow_startup",
                     "visual_theme", "artwork_corners", "focus_style", "high_contrast",

@@ -11,7 +11,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import coil3.compose.AsyncImage
 import coil3.compose.preferEndFirstIntrinsicSize
 import coil3.network.NetworkHeaders
@@ -46,8 +45,13 @@ fun MediaArtwork(
     trimTransparent: Boolean = false,
     requestSize: androidx.compose.ui.unit.IntSize? = null,
 ) {
+    // Nothing to load and only the placeholder to show: the theme's own surface, not the drawable.
+    if (url == null && isMediaPlaceholder(fallbackRes)) {
+        PlaceholderBlock(contentDescription, modifier)
+        return
+    }
     val context = LocalContext.current
-    val fallback = if (fallbackRes != 0) painterResource(fallbackRes) else null
+    val fallback = if (fallbackRes != 0) placeholderPainter(fallbackRes) else null
     // One binder call per frame per poster is what this used to be. The theme reads it once.
     val fadeDuration = if (app.reelstack.ui.theme.LocalMotionEnabled.current) crossfadeDurationMillis else 0
     val model = remember(url, fallbackRes, source, fadeDuration, trimTransparent, requestSize) {

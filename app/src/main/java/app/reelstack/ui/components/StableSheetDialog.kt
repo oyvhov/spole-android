@@ -34,12 +34,13 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import app.reelstack.ui.theme.SpoleMotion
 
 internal val LocalSheetKeyboardEntry = staticCompositionLocalOf { false }
 
 /** Entrance and exit durations, and the bounds that keep either from becoming a focus trap. */
-internal const val ENTER_MS = 320
-internal const val EXIT_MS = 200
+internal const val ENTER_MS = SpoleMotion.SheetEnterMs
+internal const val EXIT_MS = SpoleMotion.SheetExitMs
 private const val ENTER_TIMEOUT_MS = 900L
 private const val EXIT_TIMEOUT_MS = 600L
 

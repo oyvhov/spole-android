@@ -96,4 +96,9 @@
         <item quantity="one">%1$d episode</item>
         <item quantity="other">%1$d episodes</item>
     </plurals>
+    <string name="tv_menu_style">Menu</string>
+    <string name="tv_menu_sidebar">Sidebar</string>
+    <string name="tv_menu_hidden_sidebar">Hidden sidebar</string>
+    <string name="tv_menu_top_bar">Top bar</string>
+    <string name="tv_menu_search">Search</string>
 </resources>

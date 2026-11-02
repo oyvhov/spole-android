@@ -5,6 +5,7 @@ import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.vector
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.playableNow
+import app.reelstack.ui.components.rowEntrance
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -55,6 +56,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.res.stringResource
+import app.reelstack.ui.theme.ArtworkTextSecondary
 import app.reelstack.ui.theme.LocalTabletCanvas
 import app.reelstack.ui.components.TabletLibraryFeature
 import app.reelstack.ui.components.cinematicBleed
@@ -131,6 +133,8 @@ import app.reelstack.ui.theme.PrimarySoft
 import app.reelstack.ui.theme.SurfaceRaised
 import app.reelstack.ui.theme.Text as TextColor
 import app.reelstack.ui.theme.Warning
+import app.reelstack.ui.theme.SpoleMotion
+import app.reelstack.ui.theme.motionTween
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 /**
@@ -161,6 +165,7 @@ fun HomeScreen(
     showSearchIcon: Boolean = false,
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
+    presentSince: Long? = 0L,
 ) = HomeScreen(
     state = state.toHomeUiState(),
     contentPadding = contentPadding,
@@ -179,6 +184,7 @@ fun HomeScreen(
     showSearchIcon = showSearchIcon,
     showBrand = showBrand,
     cardActions = cardActions,
+    presentSince = presentSince,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -202,6 +208,7 @@ fun HomeScreen(
     showSearchIcon: Boolean = false,
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
+    presentSince: Long? = 0L,
 ) {
     var showTopRefreshIndicatorByUser by rememberSaveable { mutableStateOf(false) }
     val triggerRefresh = {
@@ -308,14 +315,21 @@ fun HomeScreen(
                 .then(if (television && tablet && featured != null) Modifier.tvHomeBottomFade(TV_SHELF_BOTTOM) else Modifier)
                 .testTag("home-feed"),
         ) {
-            if (featured == null) item(key = "home-header") {
+            var entranceIndex = 0
+            fun entranceItem(key: String, content: @Composable () -> Unit) {
+                val index = entranceIndex++
+                item(key = key) {
+                    Column(Modifier.fillMaxWidth().rowEntrance(index, presentSince)) { content() }
+                }
+            }
+            if (featured == null) entranceItem(key = "home-header") {
                 Box(Modifier.padding(end = if (edge) ReelLayout.Gutter else 0.dp)) {
                     HomeHeader(state, onAccountClick, showBrand, onSearchClick.takeIf { showSearchIcon })
                 }
             }
             if (featured != null) {
                 if (tablet) {
-                    item(key = "tablet-feature") {
+                    entranceItem(key = "tablet-feature") {
                         TabletLibraryFeature(featured, onLibraryClick,
                             Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp)
                                 .then(if (television) Modifier.cinematicBleed(ReelLayout.Gutter) else Modifier),
@@ -336,7 +350,7 @@ fun HomeScreen(
                         )
                     }
                 } else {
-                    item(key = "mobile-feature") {
+                    entranceItem(key = "mobile-feature") {
                         app.reelstack.ui.components.MobileLibraryFeature(
                             media = featured,
                             onOpen = onLibraryClick,
@@ -358,7 +372,7 @@ fun HomeScreen(
                     }
                 }
             }
-            if (showSearch) item(key = "search-entry") {
+            if (showSearch) entranceItem(key = "search-entry") {
                 Box(Modifier.padding(top = 8.dp, end = mediaEndInset())) {
                     HomeSearchEntry(onSearchClick, searchTransitionModifier)
                 }
@@ -377,7 +391,7 @@ fun HomeScreen(
                 val source = row.source
                 if (row.kind == HomeRowKind.NOW_PLAYING && state.sessions.isNotEmpty()) {
                     val sectionTop = nextSectionTop()
-                    item(key = "now-playing") {
+                    entranceItem(key = "now-playing") {
                             Row(Modifier.fillMaxWidth().padding(top = sectionTop, bottom = ReelLayout.SectionBottom, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
                                 SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
                                 // A count is status, not an action, so it stays out of the accent colour.
@@ -400,7 +414,7 @@ fun HomeScreen(
                     val firstLoad = state.isRefreshing && state.configuredCount > 0 && source !in state.loadedSources
                     if (items.isNotEmpty() || incomplete || firstLoad) {
                         val sectionTop = nextSectionTop(if (television && featured != null) 14.dp else ReelLayout.SectionTop)
-                        item(key = "continue-watching-${source.name}") {
+                        entranceItem(key = "continue-watching-${source.name}") {
                             Column(Modifier.testTag("continue-watching-${source.name}")) {
                                 MediaSectionTitle(stringResource(if (combine(source)) R.string.tv_continue_combined else R.string.home_continue), source, Modifier.padding(
                                     top = sectionTop,
@@ -419,7 +433,7 @@ fun HomeScreen(
                     val items = state.favourites.filter { it.source == source }
                     if (items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      item(key = "favourites-${source.name}") {
+                      entranceItem(key = "favourites-${source.name}") {
                         MediaSectionTitle(stringResource(R.string.home_favourites), source,
                             Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom), showSource = layout.sourceNeeded(row, homeSources))
                         LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions)
@@ -430,7 +444,7 @@ fun HomeScreen(
                     val items = nextRows[source].orEmpty()
                     if (items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      item(key = "next-up-${source.name}") {
+                      entranceItem(key = "next-up-${source.name}") {
                         Column(Modifier.testTag("next-up-${source.name}")) {
                             MediaSectionTitle(stringResource(R.string.tv_next_up), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
@@ -442,7 +456,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.NEW_MOVIES && source != null && source in mediaSources) {
                         val sectionTop = nextSectionTop()
-                        item(key = "recent-movies-${source.name}") {
+                        entranceItem(key = "recent-movies-${source.name}") {
                             MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
                             val items = state.recentMovies.filter { it.source == source }
@@ -459,7 +473,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.NEW_SERIES && source != null && source in mediaSources) {
                         val sectionTop = nextSectionTop()
-                        item(key = "recent-series-${source.name}") {
+                        entranceItem(key = "recent-series-${source.name}") {
                             MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
                             val items = state.recentSeries.filter { it.source == source }
@@ -483,7 +497,7 @@ fun HomeScreen(
                     val items = state.homeShelfMedia[row.id].orEmpty()
                     if (shelf != null && items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      item(key = "smart-shelf-${row.id}") {
+                      entranceItem(key = "smart-shelf-${row.id}") {
                         Column(Modifier.testTag("home-shelf-${row.id}")) {
                             // The shelf's own icon marks the row as a shelf; the way into all of it is the row's last card.
                             MediaSectionTitle(app.reelstack.ui.components.smartShelfName(shelf), source,
@@ -498,7 +512,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.RECOMMENDATIONS) {
                     val sectionTop = nextSectionTop()
-                    item(key = "recommendations") {
+                    entranceItem(key = "recommendations") {
                         SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = sectionTop, bottom = 4.dp))
                         Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                             modifier = Modifier.padding(bottom = 12.dp))
@@ -513,7 +527,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.RECENT_RELEASES) {
                     val sectionTop = nextSectionTop()
-                    item(key = "recent-releases") {
+                    entranceItem(key = "recent-releases") {
                         Column(Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom)) {
                             SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
                             Text(
@@ -538,7 +552,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.UPCOMING) {
                     val sectionTop = nextSectionTop()
-                    item(key = "upcoming") {
+                    entranceItem(key = "upcoming") {
                         UpcomingSectionTitle(
                             onCalendarClick = onCalendarClick,
                             modifier = Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
@@ -599,7 +613,7 @@ private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand
     LaunchedEffect(Unit) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        animationSpec = tween(durationMillis = 220),
+        animationSpec = motionTween(SpoleMotion.ChangeMs),
         label = "home-header-reveal",
     )
     Column {
@@ -812,7 +826,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             }
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 54.dp)) {
-            Text(media.metadata, color = Color.White.copy(alpha = .78f), fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(media.metadata, color = ArtworkTextSecondary, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 20.sp,
                 fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp))
@@ -1136,7 +1150,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
         if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        tween(durationMillis = 240, delayMillis = revealDelay), label = "resume-card-reveal")
+        motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay), label = "resume-card-reveal")
     var menuOpen by remember(media.id) { mutableStateOf(false) }
     val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
     val resumeLabel = if (percent > 0) stringResource(R.string.home_resume_description, media.title, percent)
@@ -1161,15 +1175,9 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
                     url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode),
                     contentDescription = null, frameRatio = frameRatio, fallbackRes = media.artworkRes,
                     source = media.source, modifier = Modifier.fillMaxSize(), fitMismatched = false)
-                // Stova's progress: a 4 dp line in the accent and nothing behind it. The other
-                // focus styles keep the white line on its dark track.
-                val lifted = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle == app.reelstack.data.model.FocusStyle.LIFT
-                if (percent > 0) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(if (lifted) 4.dp else 3.dp)
-                    .then(if (lifted) Modifier else Modifier.background(Color.Black.copy(alpha = .55f)))
-                    .testTag("resume-progress-${media.id}")) {
-                    Box(Modifier.fillMaxWidth((media.progress ?: 0f).coerceIn(0f, 1f)).fillMaxHeight()
-                        .background(if (lifted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface))
-                }
+                // The same bar as every other card, whichever focus style is chosen.
+                if (percent > 0) app.reelstack.ui.components.WatchProgressBar(media.progress ?: 0f,
+                    Modifier.align(Alignment.BottomStart).testTag("resume-progress-${media.id}"))
             }
         }
         val caption: @Composable () -> Unit = {
@@ -1256,7 +1264,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
+        animationSpec = motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay),
         label = "library-card-reveal",
     )
     val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
@@ -1354,12 +1362,12 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
     LaunchedEffect(media.id) { appeared = true }
     val reveal by animateFloatAsState(
         targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
-        animationSpec = tween(durationMillis = 240, delayMillis = revealDelay),
+        animationSpec = motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay),
         label = "upcoming-card-reveal",
     )
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.965f else 1f,
-        animationSpec = spring(stiffness = 460f, dampingRatio = 0.7f),
+        animationSpec = motionTween(SpoleMotion.FocusMs),
         label = "upcoming-card-press",
     )
     Box(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).heightIn(min = 226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).graphicsLayer {
@@ -1383,10 +1391,10 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
             Text(if (recent) {
                 if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_new_movie) else stringResource(R.string.media_new_episode)
             } else if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_home_release) else stringResource(R.string.media_new_episode),
-                color = Color.White.copy(alpha = .8f), fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                color = ArtworkTextSecondary, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text(media.title, color = Color.White, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
-            Text(app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle), color = Color.White.copy(alpha = .85f),
+            Text(app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle), color = ArtworkTextSecondary,
                 fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
         }
     }
@@ -1465,9 +1473,8 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
                 Text(media.status, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 6.dp))
             }
             media.progress?.let { progress ->
-                Box(Modifier.fillMaxWidth().padding(top = 8.dp).height(4.dp).clip(CircleShape).background(SurfaceRaised)) {
-                    Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).height(4.dp).background(Primary))
-                }
+                // A download, in a row and away from any artwork edge: the same bar, as a capsule.
+                app.reelstack.ui.components.WatchProgressBar(progress / 100f, Modifier.padding(top = 8.dp), round = true)
             }
         }
         Icon(app.reelstack.ui.components.SpoleIcons.ChevronRight, contentDescription = null, tint = app.reelstack.ui.theme.Muted, modifier = Modifier.size(17.dp))

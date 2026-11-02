@@ -55,6 +55,8 @@ class ReelstackViewModel(
     private var boundSession = container.connectionRepository.captureSession()
     private var committingSession = false
     private var signOutJob: Job? = null
+    /** The picked picture flying to the corner on a profile switch; see [ProfileSwitchMotion]. */
+    val profileSwitchMotion = ProfileSwitchMotion(viewModelScope)
     private var features = newFeatures()
 
     private fun newFeatures() = ReelstackFeatures(
@@ -64,6 +66,7 @@ class ReelstackViewModel(
         synchronizeSession = ::synchronizeSession,
         switchProfile = ::switchProfileNow, commitConnections = ::commitConnections, onConnected = ::onConnected,
         remoteDetails = remoteDetailsLoader,
+        switchMotion = profileSwitchMotion,
     )
 
     init {
@@ -454,7 +457,8 @@ class ReelstackViewModel(
     fun selectKidsSeason(seasonId: String) = features.kids.selectKidsSeason(seasonId)
     fun closeKidsSeries() = features.kids.closeKidsSeries()
     fun openProfileSwitcher() = features.profiles.openProfileSwitcher()
-    fun selectProfile(profile: app.reelstack.data.model.UserProfile) = features.profiles.selectProfile(profile)
+    fun selectProfile(profile: app.reelstack.data.model.UserProfile, motionWanted: Boolean = true) =
+        features.profiles.selectProfile(profile, motionWanted)
     fun createOwnProfile(kind: ServiceKind, name: String, avatarUrl: String?) = features.profiles.createOwnProfile(kind, name, avatarUrl)
     fun submitPin(pin: String, targetProfileId: String, isSetup: Boolean) {
         synchronizeSession()
@@ -513,6 +517,8 @@ class ReelstackViewModel(
     fun setSearchQuery(value: String) = features.search.setQuery(value)
     fun loadMoreSearchResults() = features.search.loadMore()
     fun setGlobalSearchQuery(value: String) = features.globalSearch.setQuery(value)
+    /** The reader moved from typing into the results: that term is worth keeping in history. */
+    fun commitGlobalSearchToHistory() = features.globalSearch.commitSearchToHistory()
     fun loadMoreGlobalSearch() = features.globalSearch.loadMore()
     fun openSessionChannel() = features.home.openSessionChannel()
     fun closeSessionChannel() = features.home.closeSessionChannel()

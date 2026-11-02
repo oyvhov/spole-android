@@ -30,6 +30,10 @@ import app.reelstack.ui.theme.SurfaceRaised
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.graphics.graphicsLayer
 
 private object ProfileImageMemory {
     private val images = object : LinkedHashMap<String, ByteArray>(12, .75f, true) {
@@ -53,14 +57,26 @@ fun AccountAvatar(account: ServiceAccount?, connection: ServiceConnection?, modi
             }.getOrNull()?.also { data -> cacheKey?.let { ProfileImageMemory.put(it, data) } }
         }
     }
-    Box(modifier.clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
+    Box(modifier.clip(CircleShape).background(profileBackground(account?.displayName)), contentAlignment = Alignment.Center) {
         val initial = account?.displayName?.trim()?.firstOrNull()?.uppercase()
-        if (initial != null) Text(initial, color = Primary, fontSize = 20.sp, lineHeight = 24.sp)
+        if (initial != null) Text(initial, color = ProfileLetter, fontSize = 20.sp, lineHeight = 24.sp)
         else Icon(app.reelstack.ui.components.SpoleIcons.Person, contentDescription = null, tint = Muted, modifier = Modifier.size(24.dp))
         image?.let { data ->
             AsyncImage(model = data, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
     }
+}
+
+/**
+ * The corner circle is where the picked picture lands on a profile switch: it reports its place
+ * and stays out of sight while the picture is on its way, so the two never show side by side.
+ */
+@Composable
+fun Modifier.profileFlightTarget(): Modifier {
+    val motion = app.reelstack.ui.LocalProfileSwitchMotion.current ?: return this
+    return this
+        .onGloballyPositioned { motion.reportTarget(it.boundsInRoot(), it.findRootCoordinates().size.width.toFloat()) }
+        .graphicsLayer { alpha = if (motion.flight != null) 0f else 1f }
 }
 
 /** The same account affordance on Home, Discover and Activity. */
@@ -74,11 +90,13 @@ fun AccountAvatarButton(
     modifier: Modifier = Modifier,
     onArtwork: Boolean = false,
 ) {
+    if (app.reelstack.ui.LocalTopBarCarriesAccount.current) return
     val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     IconButton(
         onClick = onClick,
         interactionSource = interaction,
         modifier = modifier.size(48.dp).focusOutline(interaction, androidx.compose.foundation.shape.CircleShape)
+            .profileFlightTarget()
             .testTag(testTag).semantics { contentDescription = description },
     ) {
         AccountAvatar(account, connection, Modifier.size(40.dp).then(

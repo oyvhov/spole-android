@@ -17,13 +17,15 @@ class JellyfinPlayerUiTest {
     private lateinit var inputMode: androidx.compose.ui.input.InputModeManager
     private lateinit var backDispatcher: androidx.activity.OnBackPressedDispatcher
     private fun screen(state: PlayerScreenState, scale: Float = 1f, close: () -> Unit = {}, subtitle: (Int) -> Unit = {},
-        choose: (PlayableItem) -> Unit = {}, player: androidx.media3.common.Player? = null, television: Boolean = false) {
+        choose: (PlayableItem) -> Unit = {}, player: androidx.media3.common.Player? = null, television: Boolean = false,
+        toggle: () -> Unit = {}, skip: () -> Unit = {}) {
         rule.setContent { val density = LocalDensity.current
             inputMode = androidx.compose.ui.platform.LocalInputModeManager.current
             backDispatcher = checkNotNull(androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current)
                 .onBackPressedDispatcher
             CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
-                ReelstackTheme { PlayerScreen(state, player, close, {}, {}, {}, choose, {}, {}, subtitle, {}, {}, isTelevision = television) }
+                ReelstackTheme { PlayerScreen(state, player, close, toggle, {}, {}, choose, {}, {}, subtitle, {}, {},
+                    onSkipSegment = skip, isTelevision = television) }
             }
         }
     }
@@ -68,6 +70,26 @@ class JellyfinPlayerUiTest {
         // BACK key into this standalone host does not synchronise API 36's predictive Back.
         rule.runOnIdle { backDispatcher.onBackPressed() }
         rule.waitForIdle()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun televisionSelectSkipsTheFocusedSegmentWithHiddenControls() {
+        rule.mainClock.autoAdvance = false
+        var skips = 0
+        var toggles = 0
+        screen(PlayerScreenState(busy = false, playing = true, durationMs = 60_000, positionMs = 5_000,
+            segments = listOf(PlaybackSegment(PlaybackSegment.Kind.INTRO, 0, 20_000))),
+            television = true, toggle = { toggles++ }, skip = { skips++ })
+        rule.runOnIdle { inputMode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
+        rule.mainClock.advanceTimeBy(4_000)
+        rule.onNodeWithTag("player-timeline").assertDoesNotExist()
+        rule.onNodeWithTag("player-skip-segment").assertIsDisplayed().assertIsFocused()
+            .performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
+        rule.runOnIdle {
+            assertEquals("OK must activate the focused skip offer", 1, skips)
+            assertEquals("OK on the offer must not pause playback", 0, toggles)
+        }
+        rule.mainClock.autoAdvance = true
     }
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)

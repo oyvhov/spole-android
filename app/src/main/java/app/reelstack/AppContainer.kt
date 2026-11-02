@@ -66,6 +66,8 @@ class AppContainer(context: Context, val connectionRepository: ConnectionReposit
     val offlineStorage by lazy { app.reelstack.offline.OfflineStorage(appContext) }
     val offlineDownloads by lazy { app.reelstack.offline.OfflineDownloadRepository(appContext) }
     val watchNextSync by lazy { app.reelstack.player.WatchNextSync(this) }
+    /** Which audio and subtitles each series was last watched with, per profile. */
+    val trackChoiceStore by lazy { app.reelstack.data.repository.TrackChoiceStore(appContext) }
     /**
      * What the cached rows belong to.
      *
