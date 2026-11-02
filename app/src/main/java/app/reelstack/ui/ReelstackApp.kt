@@ -187,7 +187,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         app.reelstack.ui.theme.LocalPersonalization.current.tvMenuStyle == app.reelstack.data.model.TvMenuStyle.TOP_BAR
     val topFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     var topHasFocus by remember { mutableStateOf(false) }
-    var topBarHeight by remember { mutableStateOf(72.dp) }
+    var topBarHeight by remember { mutableStateOf(52.dp) }
     val menuLift = remember { TopMenuLift() }
     var tvRailFocused by remember { mutableStateOf(false) }
     var railHasFocus by remember { mutableStateOf(false) }

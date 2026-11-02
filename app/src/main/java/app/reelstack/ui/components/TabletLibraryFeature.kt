@@ -119,6 +119,8 @@ private val TV_TITLE_LINE_HEIGHT = 28.sp
 /** As large as the clear logo in Stova's hero. */
 private val TV_LOGO_WIDTH = 380.dp
 private val TV_LOGO_HEIGHT = 88.dp
+/** The smallest a television logo gets when the first shelf needs the room. */
+private val TV_LOGO_MIN_HEIGHT = 48.dp
 
 /** Native text includes font metrics that sp-to-dp line-height arithmetic does not capture. */
 @Composable
@@ -242,10 +244,34 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     val titleSize = if (compactTelevision) TV_TITLE_SIZE else TITLE_SIZE
     val titleLineHeight = if (compactTelevision) TV_TITLE_LINE_HEIGHT else TITLE_LINE_HEIGHT
     // A television hero has the room of Stova's, and a clear logo there grows to match its height.
-    val titleSlot = measuredHeroTextHeight(TextStyle(fontSize = titleSize, lineHeight = titleLineHeight,
-        fontWeight = FontWeight.SemiBold), 2).let { if (television) maxOf(it, TV_LOGO_HEIGHT) else it }
+    val titleTwoLines = measuredHeroTextHeight(TextStyle(fontSize = titleSize, lineHeight = titleLineHeight,
+        fontWeight = FontWeight.SemiBold), 2)
+    val fullTitleSlot = if (television) maxOf(titleTwoLines, TV_LOGO_HEIGHT) else titleTwoLines
     val overviewStyle = TextStyle(fontSize = if (compactTelevision) 13.sp else 14.sp,
         lineHeight = if (compactTelevision) 17.sp else 20.sp)
+    val featureSpacing = if (television) 8.dp else if (compactTelevision) 4.dp else 10.dp
+    val metadataReserve = heroMetadataReservedHeight()
+    val numberLine = measuredHeroTextHeight(MaterialTheme.typography.labelLarge)
+    val episodeReserve = measuredHeroTextHeight(MaterialTheme.typography.bodyMedium, if (compactTelevision) 1 else 2)
+    val storyTwoLines = measuredHeroTextHeight(overviewStyle, 2)
+    val storyOneLine = measuredHeroTextHeight(overviewStyle, 1)
+    // Under the television's menu line the words sit close below it, so the hero gives the line's height back.
+    val wordsTop = if (television) (if (topInset > 0.dp) topInset + 4.dp else 24.dp)
+        else (if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp) + topInset
+    val wordsBottom = if (television) (if (topInset > 0.dp) 12.dp else 24.dp)
+        else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp
+    // On Home the first shelf stands whole under the hero, above the faded edge, whichever menu the television
+    // has: the words get the room above it, and the logo gives way first, down to TV_LOGO_MIN_HEIGHT. Only
+    // past that does the hero grow and push the shelf.
+    // Two lines of story tell what a film or an episode is about; when even the smallest logo would not fit,
+    // one line does.
+    fun logoRoom(story: Dp): Dp? = televisionHeight?.takeIf { television }?.let { height ->
+        height - wordsTop - wordsBottom - app.reelstack.ui.theme.ReelLayout.ControlMinHeight - featureSpacing * 2 -
+            (metadataReserve + featureSpacing + story + episodeReserve + featureSpacing)
+    }
+    val overviewLines = if ((logoRoom(storyTwoLines) ?: fullTitleSlot) < minOf(TV_LOGO_MIN_HEIGHT, fullTitleSlot)) 1 else 2
+    val overviewReserve = if (overviewLines == 1) storyOneLine else storyTwoLines
+    val titleSlot = logoRoom(overviewReserve)?.coerceIn(minOf(TV_LOGO_MIN_HEIGHT, fullTitleSlot), fullTitleSlot) ?: fullTitleSlot
     // Window and text scale reserve the scene before its artwork has loaded.
     val reservedText = titleSlot +
         measuredHeroTextHeight(MaterialTheme.typography.bodyMedium, if (compactTelevision) 2 else 4) +
@@ -253,20 +279,17 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     // Reserve room for the first shelf's heading, artwork and captions at normal text size.
     // Large text can grow the scene instead of clipping its controls.
     // At least the old 44 % of the window, so a shelf too tall for the screen never shrinks the hero.
-    // The menu line's height is part of the scene, not taken from it: the picture runs behind the line.
-    val tvSceneHeight = maxOf(televisionHeight ?: 0.dp, with(density) { windowInfo.containerSize.height.toDp() } * .44f + topInset)
-    val sceneHeight = maxOf(if (television) tvSceneHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
-        reservedText + topInset + if (compactTelevision) 80.dp else 130.dp)
+    // The picture runs behind the menu line. Until the shelf is measured the line's height is added to the
+    // scene; the measured room already counts it.
+    val screenHeight = with(density) { windowInfo.containerSize.height.toDp() }
+    val tvSceneHeight = televisionHeight?.let { maxOf(it, screenHeight * .44f) } ?: (screenHeight * .44f + topInset)
+    // A measured room is the scene: the logo above has already made the words fit it.
+    val sceneHeight = if (television && televisionHeight != null) tvSceneHeight
+        else maxOf(if (television) tvSceneHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
+            reservedText + topInset + if (compactTelevision) 80.dp else 130.dp)
     // The caption slot measures every carousel candidate. Its real height can exceed the text
     // estimate at large font sizes; a fixed touch height then squeezed the actions down to 16 dp.
     val featureSize = Modifier.heightIn(min = sceneHeight)
-    val featureSpacing = if (television) 8.dp else if (compactTelevision) 4.dp else 10.dp
-    val metadataReserve = heroMetadataReservedHeight()
-    val numberLine = measuredHeroTextHeight(MaterialTheme.typography.labelLarge)
-    val episodeReserve = measuredHeroTextHeight(MaterialTheme.typography.bodyMedium, if (compactTelevision) 1 else 2)
-    // Two lines of story: enough to tell what a film or an episode is about.
-    val overviewLines = 2
-    val overviewReserve = measuredHeroTextHeight(overviewStyle, overviewLines)
     Box(modifier.fillMaxWidth().then(featureSize)
         .bringIntoViewRequester(featureIntoView)
         .onFocusChanged {
@@ -333,8 +356,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         }
         Column(Modifier.align(if (television) Alignment.CenterStart else Alignment.TopStart)
             .fillMaxWidth(if (television && density.fontScale >= 1.5f) .82f else .54f).padding(
-            top = (if (television) 24.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp) + topInset,
-            bottom = if (television) 24.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
+            top = wordsTop,
+            bottom = wordsBottom,
             start = if (television) 40.dp else 28.dp,
             end = if (television) 40.dp else 28.dp,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
@@ -377,7 +400,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                     )
                 } else {
                     Text(title.title, color = Color.White, fontSize = titleSize, lineHeight = titleLineHeight,
-                        fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.SemiBold, maxLines = if (titleSlot >= titleTwoLines) 2 else 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.testTag("hero-title"))
                 }
            }) {
@@ -405,7 +429,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             readableMediaText(title.overview)?.let { overview -> Text(overview, color = ArtworkTextSecondary,
                 fontSize = if (compactTelevision) 13.sp else 14.sp,
                 lineHeight = if (compactTelevision) 17.sp else 20.sp,
-                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                maxLines = overviewLines, overflow = TextOverflow.Ellipsis)
             }
            }
            } }
@@ -454,7 +478,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             val playable = selected.playableNow()
             Box(Modifier.align(Alignment.TopEnd)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                .padding(16.dp)
+                // Under the television's menu line, not under its profile circle.
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 16.dp + topInset)
                 // Down from the account goes to the hero's own buttons. The sidebar is nearer by
                 // distance, so without this the remote left the page from the top-right corner.
                 .focusProperties { down = if (playable) playFocus else openFocus }

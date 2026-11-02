@@ -56,6 +56,13 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
     }
 }
 
+/** As [DetailBringIntoView], but the container's last [hidden] px do not count: a faded edge hides them. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+internal class FadedEdgeBringIntoView(private val hidden: Float) : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+        DetailBringIntoView.calculateScrollDistance(offset, size, (containerSize - hidden).coerceAtLeast(0f))
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 internal object DetailBringIntoView : BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = when {

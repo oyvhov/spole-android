@@ -1,3 +1,17 @@
+# Første hylla heil med toppmenyen, Heim heilt ned, kjeldeveljaren fri (`main`, ikkje gitt ut)
+2026-11-03 natt, eigaren på Shield etter beta35: «nederste rada viser ikkje heile når toppbar er satt på still dette
+inn slik det fungerer fint på begge», «Barneprofilen går ikkje heilt ned» (Eilev), og kjeldeveljaren låg under
+profilsirkelen. Så: «Bruk Shield Tv. Men sett den i ventemodus når du er ferdig.»
+Gjort: helten tek den målte plassen over første hylla, logoen viker (ned til 48 dp) og handlinga går til éi line om
+det trengst; lina er 52 dp; Heim har `FadedEdgeBringIntoView` og luft nedst, så fokus aldri står i det sletta feltet;
+kjeldeveljaren ligg under lina. Sjå `RORSLE_OG_TOPPMENY_2026-11-01.md` 4d. Versjonen står som 1.0.0-beta36 (173).
+Kontroll: 1 623 testar (1 hoppa over), lint 0 feil; dei nye testane feila på den gamle koden. Shield (signert
+testbygg 173, `app/build/shield-v1.0.0-beta36/`, installert med `-r`): Øyvind og Eilev har heile «Sjå vidare» med
+episodelinjene over botnen, Eilev kjem heilt ned til ein heil «Oppdater biblioteket», og «Emby»-veljaren på
+biblioteksida står under lina. Shield er i ventemodus på Stova, tenestene for Heim-knappen er på.
+Står att: ikkje gitt ut (ein release må vere 173 eller høgare, og treng CHANGELOG/README/notat); biblioteksida sin
+første rad («Smarte hyller») kikar framleis inn nedst, som før; Oppdag, Nedlastingar og Innstillingar har lina fast.
+
 # Spole 1.0.0-beta35 er ute: toppmenyen liten og berre øvst
 2026-11-02, eigaren: «Lag ny versjon av Spole». Release `v1.0.0-beta35` (172, `4ad2b04`, prerelease): toppmenyen
 frå `c95668f..e8925b9` (sjå under). Beta34 (171) var testbygget på Loftet, så denne heiter beta35.

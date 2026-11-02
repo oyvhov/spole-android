@@ -173,6 +173,30 @@ eksempelet eg sendte deg i går» (videoen av Swiftly Player) og «Den skal ikkj
 **Test:** `TvTopBarScrollTest` (Robolectric TV): lina står øvst i ro, rir opp med sida og kjem att med henne, og
 fjernkontrollen hentar ho fram.
 
+## 4d. Heile første hylla med toppmenyen, og heilt ned (3. november, natt)
+
+Eigaren på Shield etter beta35: «nederste rada viser ikkje heile når toppbar er satt på still dette inn slik det
+fungerer fint på begge», «Barneprofilen går ikkje heilt ned», og eit bilete der kjeldeveljaren (Jellyfin/Emby) låg
+under profilsirkelen.
+
+- **Kvifor.** Helten hadde fått høgda til menylina lagd til (`reservedText + topInset + 80 dp` og `44 % + topInset`),
+  så første hylla hamna like langt under skjermen (72 dp på 960×540 dp). I tillegg slettar Heim dei nedste
+  `TV_SHELF_BOTTOM` (28 dp) og 8 dp over dei (`tvHomeBottomFade`), men lista hadde berre 22 dp luft nedst, og
+  regelen som rullar fokus inn (`DetailBringIntoView`) rekna heile høgda som synleg. Siste knappen («Oppdater
+  biblioteket») stod difor halvt i det sletta feltet.
+- **Plassen er målt, og orda får han.** Når hylla er målt (`televisionHeight`), er det høgda til helten. Logoen viker
+  først, ned til 48 dp (`TV_LOGO_MIN_HEIGHT`); handlinga går til éi line berre når sjølv den minste logoen ikkje får
+  plass. Under menylina står orda 4 dp under lina og 12 dp over knappane. Med sidemenyen er alt som før, berre at
+  hylla no står over det sletta feltet òg der.
+- **Lågare line.** 8 dp luft over og under, faner med 5 dp, profilsirkel 36/30 dp: lina er 52 dp (var 72).
+- **Heilt ned.** Heim har `FadedEdgeBringIntoView`: fokus stoppar over det sletta feltet, og lista har så mykje luft
+  nedst. Radene inni har den vanlege regelen.
+- **Kjeldeveljaren** på biblioteksida ligg under menylina (`16 dp + topInset`), ikkje under profilsirkelen.
+
+**Test:** `HomeTvHeroLayoutTest` (med uklipte mål; den gamle testen las avklipte og såg ikkje feilen): hylla heil over
+det sletta feltet med begge menyane, orda under lina, og med fjernkontrollen ned til ein heil siste knapp.
+`TvTopBarScrollTest.theMenuLineIsLow` (≤ 54 dp). Alle tre feila på den gamle koden.
+
 ## 5. Hopp-knappen i spelaren
 
 `SkipSegmentButton` tek fokus på TV medan han er på skjermen, men seier ikkje frå, så

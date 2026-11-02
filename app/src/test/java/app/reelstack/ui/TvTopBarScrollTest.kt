@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.reelstack.ui.theme.ReelstackTheme
+import androidx.compose.ui.unit.dp
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,19 +31,28 @@ import org.robolectric.annotation.GraphicsMode
 class TvTopBarScrollTest {
     @get:Rule val rule = createComposeRule()
     private var lift by mutableIntStateOf(0)
+    private var lineHeight = 0
 
     private fun show() = rule.setContent {
         val mode = androidx.compose.ui.platform.LocalInputModeManager.current
         androidx.compose.runtime.SideEffect { mode.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
         ReelstackTheme { Box(Modifier.fillMaxSize()) {
             TvTopBar(AppTab.HOME, {}, emptyList(), null, {}, true, false, {}, null, null, {}, true, {},
-                lift = { lift })
+                onHeightChanged = { lineHeight = it }, lift = { lift })
         } }
     }
 
     @Test fun theMenuStandsAtTheTopOfAPageAtRest() {
         show()
         rule.onNodeWithTag("tv-top-HOME").assertIsDisplayed()
+    }
+
+    // Low, as in Swiftly: every dp it takes, the hero under it has to find for its words above the first shelf.
+    @Test fun theMenuLineIsLow() {
+        show()
+        // The whole line as the page makes room for it, padding included.
+        val height = rule.runOnIdle { with(rule.density) { lineHeight.toDp() } }
+        org.junit.Assert.assertTrue("the line is at most 54 dp: $height", height <= 54.dp)
     }
 
     @Test fun theMenuRidesUpWithThePageAndComesBackWithIt() {

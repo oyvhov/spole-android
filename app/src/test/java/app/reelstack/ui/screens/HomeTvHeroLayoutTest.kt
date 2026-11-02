@@ -6,9 +6,14 @@ import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.FontScale
 import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -44,9 +49,10 @@ class HomeTvHeroLayoutTest {
         artworkRes = R.drawable.media_placeholder, source = ServiceKind.JELLYFIN, mediaType = "Episode",
         heroUrl = "https://example.com/Items/series-$index/Images/Thumb?maxWidth=1920&quality=90&tag=t",
         season = 1, episode = index + 1,
+        overview = "Ein galen vitskapsmann viser fram ein robot som skal fange rotter, og så går alt gale i kloakken under byen.",
     ) }
 
-    private fun showHome(fontScale: Float = 1f) {
+    private fun showHome(fontScale: Float = 1f, topInset: androidx.compose.ui.unit.Dp = 0.dp) {
         val state = ReelstackUiState(
             connections = listOf(ServiceConnection(ServiceKind.JELLYFIN, "Jellyfin", "https://example.com", "fixture", userId = "u")),
             resume = episodes,
@@ -56,8 +62,10 @@ class HomeTvHeroLayoutTest {
         rule.setContent {
             ReelstackTheme {
                 DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) {
+                    val input = androidx.compose.ui.platform.LocalInputModeManager.current
+                    androidx.compose.runtime.SideEffect { input.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard) }
                     CompositionLocalProvider(LocalPersonalization provides Personalization(showHero = true)) {
-                        HomeScreen(state, PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}, showSearch = false)
+                        HomeScreen(state, PaddingValues(0.dp), {}, {}, {}, {}, {}, {}, {}, showSearch = false, topInset = topInset)
                     }
                 }
             }
@@ -69,15 +77,51 @@ class HomeTvHeroLayoutTest {
         showHome()
         val screen = rule.onRoot().getBoundsInRoot()
         val hero = rule.onNodeWithTag("tablet-library-feature").getBoundsInRoot()
-        val shelf = rule.onNodeWithTag("continue-watching-JELLYFIN").getBoundsInRoot()
+        // Unclipped: a shelf running off the bottom of the screen must not read as ending at the edge.
+        val shelf = rule.onNodeWithTag("continue-watching-JELLYFIN").getUnclippedBoundsInRoot()
         assertTrue("the hero is larger than the old 44 %: ${hero.height}", hero.height > screen.height * .44f)
-        assertTrue("the whole shelf is on screen: ${shelf.bottom} of ${screen.bottom}", shelf.bottom <= screen.bottom)
+        assertTrue("the whole shelf is above the faded edge: ${shelf.bottom} of ${screen.bottom}",
+            shelf.bottom <= screen.bottom - TV_SHELF_BOTTOM + 1.dp)
         assertTrue("and it stands at the bottom, not half-way up: ${screen.bottom - shelf.bottom}",
             screen.bottom - shelf.bottom < 48.dp)
         assertTrue("nothing but that shelf is on screen under the hero: ${shelf.top - hero.bottom}",
             shelf.top - hero.bottom < 8.dp)
         val picture = rule.onNodeWithTag("feature-artwork", useUnmergedTree = true).getBoundsInRoot()
         assertTrue("the picture runs on behind the shelf to the bottom: ${picture.bottom}", picture.bottom >= screen.bottom - 1.dp)
+    }
+
+    // With «Toppmeny» the picture runs on behind the menu line, and the hero had the line's height added to
+    // it: the first shelf stood half under the bottom of the screen (the owner's TV, 2026-11-02). The words
+    // make room instead, and the shelf stands whole as it does with the side menu.
+    @Test fun withTheMenuLineOnTopTheShelfStillStandsWholeAndTheWordsStayBelowTheLine() {
+        val line = 54.dp
+        showHome(topInset = line)
+        val screen = rule.onRoot().getBoundsInRoot()
+        val shelf = rule.onNodeWithTag("continue-watching-JELLYFIN").getUnclippedBoundsInRoot()
+        assertTrue("the whole shelf is above the faded edge: ${shelf.bottom} of ${screen.bottom}",
+            shelf.bottom <= screen.bottom - TV_SHELF_BOTTOM + 1.dp)
+        assertTrue("and it stands at the bottom: ${screen.bottom - shelf.bottom}", screen.bottom - shelf.bottom < 48.dp)
+        val caption = rule.onNodeWithTag("feature-caption").getBoundsInRoot()
+        assertTrue("the words begin below the line: ${caption.top}", caption.top >= line)
+        val picture = rule.onNodeWithTag("feature-artwork", useUnmergedTree = true).getBoundsInRoot()
+        assertTrue("the picture still starts at the top, behind the line: ${picture.top}", picture.top <= 0.dp)
+    }
+
+    // Eilev's Home on the Shield ended with the refresh button half hidden in the faded edge: the remote
+    // reached it, but the page could not go all the way down.
+    @Test fun thePageGoesAllTheWayDownToAWholeLastButton() {
+        showHome(topInset = 54.dp)
+        // With the remote, as on the TV: Down from the hero until the last button has focus.
+        rule.onNodeWithTag("tablet-feature-open").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+        repeat(8) {
+            rule.onNode(androidx.compose.ui.test.isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) }
+            rule.waitForIdle()
+        }
+        rule.onNodeWithTag("feed-refresh").assertIsFocused()
+        val screen = rule.onRoot().getBoundsInRoot()
+        val button = rule.onNodeWithTag("feed-refresh").getUnclippedBoundsInRoot()
+        assertTrue("the last button is whole above the faded edge: ${button.bottom} of ${screen.bottom}",
+            button.bottom <= screen.bottom - TV_SHELF_BOTTOM - 8.dp + 1.dp)
     }
 
     @Test fun largeTextKeepsTheShelfOnScreenByShrinkingTheHero() {

@@ -303,9 +303,15 @@ fun HomeScreen(
                 else info.viewportSize.height - shelf.size
             }.collect { room -> if (room != null) tvHeroHeight = tvHeroHeightFor(with(density) { room.toDp() }) }
         }
+        // The faded edge hides the screen's last TV_SHELF_BOTTOM and the 8 dp over it. The page stops what the
+        // remote reaches above them, so the last button on Home is whole (Eilev's Home on the Shield, 2026-11-02).
+        val fadedEdge = television && tablet && featured != null
+        val hiddenEdge = with(density) { (TV_SHELF_BOTTOM + 8.dp).toPx() }
+        val feedSpec = remember(hiddenEdge) { app.reelstack.ui.components.FadedEdgeBringIntoView(hiddenEdge) }
         androidx.compose.runtime.CompositionLocalProvider(
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
-                if (television) app.reelstack.ui.components.DetailBringIntoView
+                if (fadedEdge) feedSpec
+                else if (television) app.reelstack.ui.components.DetailBringIntoView
                 else androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current) {
         // The television's menu lies on the top of this page and leaves with it, so nothing ever scrolls behind it.
         if (topInset > 0.dp) app.reelstack.ui.LendTopMenuLift(feedState)
@@ -316,7 +322,10 @@ fun HomeScreen(
                 top = (if (television && featured != null) 0.dp else if (!tablet && featured != null) 0.dp else ReelLayout.PageTop) +
                     (if (featured == null) topInset else 0.dp),
                 end = if (edge) 0.dp else ReelLayout.Gutter,
-                bottom = contentPadding.calculateBottomPadding() + 22.dp,
+                // The faded edge hides the screen's last TV_SHELF_BOTTOM and the 8 dp over it; the page's end
+                // stops above them, so the last button on Home is whole when the remote reaches it.
+                bottom = contentPadding.calculateBottomPadding() + 22.dp +
+                    (if (television && tablet && featured != null) TV_SHELF_BOTTOM + 8.dp else 0.dp),
             ),
             modifier = Modifier.fillMaxSize()
                 .then(if (television && tablet && featured != null) Modifier.tvHomeBottomFade(TV_SHELF_BOTTOM) else Modifier)
@@ -326,7 +335,13 @@ fun HomeScreen(
             fun entranceItem(key: String, content: @Composable () -> Unit) {
                 val index = entranceIndex++
                 item(key = key) {
-                    Column(Modifier.fillMaxWidth().rowEntrance(index, presentSince)) { content() }
+                    Column(Modifier.fillMaxWidth().rowEntrance(index, presentSince)) {
+                        // The faded edge is the page's alone; anything that scrolls sideways inside a row keeps the plain rule.
+                        if (fadedEdge) androidx.compose.runtime.CompositionLocalProvider(
+                            androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
+                                app.reelstack.ui.components.DetailBringIntoView) { content() }
+                        else content()
+                    }
                 }
             }
             if (featured == null) entranceItem(key = "home-header") {

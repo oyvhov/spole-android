@@ -129,7 +129,8 @@ internal fun TvTopBar(
         }
         .then(if (!visible) Modifier.clearAndSetSemantics {} else Modifier)
         .onSizeChanged { lineHeight = it.height; onHeightChanged(it.height) }
-        .padding(horizontal = 48.dp, vertical = 16.dp)
+        // Low as Swiftly's: the hero under it gets the room back for its words.
+        .padding(horizontal = 48.dp, vertical = 8.dp)
         .onFocusChanged { focusWithin = it.hasFocus; onFocusWithin(it.hasFocus) }
         .focusProperties { onEnter = { if (visible) selectedFocus.requestFocus() } }
         .onPreviewKeyEvent {
@@ -161,9 +162,9 @@ internal fun TvTopBar(
         val interaction = remember { MutableInteractionSource() }
         val accountDescription = stringResource(R.string.profile_switch_title)
         IconButton(onClick = onAccount, enabled = visible, interactionSource = interaction,
-            modifier = Modifier.size(40.dp).focusOutline(interaction, androidx.compose.foundation.shape.CircleShape)
+            modifier = Modifier.size(36.dp).focusOutline(interaction, androidx.compose.foundation.shape.CircleShape)
                 .profileFlightTarget().testTag("tv-top-account").semantics { contentDescription = accountDescription }) {
-            AccountAvatar(account, connection, Modifier.size(32.dp))
+            AccountAvatar(account, connection, Modifier.size(30.dp))
         }
     }
 }
@@ -191,7 +192,7 @@ private fun TopBarTab(label: String, selected: Boolean, enabled: Boolean, tag: S
         .focusOutline(interaction, shape, glow = false)
         .selectable(selected, enabled = enabled, role = Role.Tab, interactionSource = interaction,
             indication = null, onClick = onClick)
-        .padding(horizontal = 12.dp, vertical = 6.dp).width(IntrinsicSize.Max).testTag(tag),
+        .padding(horizontal = 12.dp, vertical = 5.dp).width(IntrinsicSize.Max).testTag(tag),
         horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, color = if (selected || focused) colors.onSurface else colors.onSurface.copy(alpha = .78f),
             style = MaterialTheme.typography.titleSmall.copy(
