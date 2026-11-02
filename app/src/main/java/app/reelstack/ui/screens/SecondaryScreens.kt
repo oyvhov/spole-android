@@ -449,6 +449,8 @@ internal fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
         label = "hit-card-spring",
     )
     val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
+    // An episode is a wide still; in a tall frame it was a thin band between two dark bars.
+    val episode = media.mediaType.equals("Episode", true)
     Column(
         Modifier.fillMaxWidth()
             .zIndex(if (focused) 10f else 0f)
@@ -460,10 +462,11 @@ internal fun LibraryHitCard(media: LibraryMedia, onClick: () -> Unit) {
                 onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
             .testTag("library-hit-${media.id}"),
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
+        Box(Modifier.fillMaxWidth().aspectRatio(if (episode) 16f / 9f else 2f / 3f).focusOutline(interaction, shape).clip(shape).background(SurfaceRaised)
             .testTag("library-hit-artwork-${media.id}")) {
             // No «I biblioteket» on the cover: every card here sits under «I biblioteka dine».
-            MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop, source = media.source)
+            MediaArtwork(if (episode) railArtworkUrl(true, media.heroUrl, media.posterUrl, media.artworkUrl, true) else media.artworkUrl,
+                null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop, source = media.source)
         }
         app.reelstack.ui.components.RailCardCaption(media.title, media.subtitle, titleMaxLines = 2,
             reserveTitleLines = if (app.reelstack.ui.components.isTelevision()) 2 else 1,

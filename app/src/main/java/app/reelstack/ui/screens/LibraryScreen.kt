@@ -32,6 +32,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import app.reelstack.ui.components.softTopEdge
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.TextButton
 import app.reelstack.R
@@ -53,12 +55,19 @@ import app.reelstack.ui.components.steadyRemoteRows
 fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
     onFilter: (app.reelstack.data.model.LibraryFilters) -> Unit = {},
     onShelfOpen: (String) -> Unit = {}, cardActions: MediaCardActions? = null,
-    onSource: (ServiceKind) -> Unit = {}, onCustomize: () -> Unit = {}) {
+    onSource: (ServiceKind) -> Unit = {}, onCustomize: () -> Unit = {},
+    /** How far the television's menu line reaches down. */
+    topInset: Dp = 0.dp) {
     val sources = state.connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
         it.baseUrl.isNotBlank() && it.token.isNotBlank() }.map { it.kind }.distinct()
     key(state.librarySource) {
-        LibraryContent(state, onLoad, onOpen, onBack, onFilter, onShelfOpen, cardActions, onCustomize,
-            sourcePicker = { if (sources.size > 1) LibrarySourceMenu(state.librarySource, sources, onSource) })
+        val atHub = state.libraryPath.isEmpty()
+        Box(Modifier.fillMaxSize().padding(top = if (atHub) 0.dp else topInset)
+            .then(if (atHub || topInset <= 0.dp) Modifier else Modifier.softTopEdge())) {
+            LibraryContent(state, onLoad, onOpen, onBack, onFilter, onShelfOpen, cardActions, onCustomize,
+                sourcePicker = { if (sources.size > 1) LibrarySourceMenu(state.librarySource, sources, onSource) },
+                hubInset = if (atHub) topInset else 0.dp)
+        }
     }
 }
 
@@ -92,7 +101,7 @@ private fun LibrarySourceMenu(selected: ServiceKind, sources: List<ServiceKind>,
 private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
     onFilter: (app.reelstack.data.model.LibraryFilters) -> Unit,
     onShelfOpen: (String) -> Unit, cardActions: MediaCardActions?, onCustomize: () -> Unit,
-    sourcePicker: @Composable () -> Unit) {
+    sourcePicker: @Composable () -> Unit, hubInset: Dp = 0.dp) {
     BackHandler(state.libraryPath.isNotEmpty() && state.activeSheet == null) { onBack() }
     // The library page keeps its place while a library is open, and the remote comes back to the
     // tile it left from rather than to the top of the page.
@@ -132,7 +141,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     if (folders) {
         LibraryHub(state, onOpen, onShelfOpen, cardActions, onRetry = { onLoad(false) }, onCustomize = onCustomize,
             sourcePicker = sourcePicker, list = hubList, returnTo = returnTo, onReturned = { returnTo = null },
-            onLeave = { returnTo = it })
+            onLeave = { returnTo = it }, topInset = hubInset)
         return
     }
     val pageStates = rememberSaveableStateHolder()
@@ -199,7 +208,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             if (showShelves) item(key = "shelves", span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(bottom = 8.dp).focusRequester(firstContent)) {
                     LibraryShelfTitle(stringResource(R.string.library_next), cardActions != null)
-                    ResumeRail(nextItems, onShelfOpen, cardActions, resumeIds = shelfResume.map { it.id }.toSet(), compact = true)
+                    ResumeRail(nextItems, onShelfOpen, cardActions, resumeIds = shelfResume.map { it.id }.toSet())
                 }
             }
             if (!connected) item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.library_connect)) }

@@ -135,6 +135,24 @@ endar på sirkelen.
 Bibliotek-reserven, inga Innstillingar-fane, lina usynleg og utan fokus med ark ope, Opp/Ned.
 `TvTopBarUiTest` på 5566: D-pad Opp når lina, Høgre byter fane, Ned går attende til innhaldet.
 
+## 4b. Toppmenyen etter første møte med ei ekte TV (beta32)
+
+Eigaren såg beta31 på Loftet og sa frå: biletet skal gå *bak* menylina, ikkje starte under ho, og menyen skal vere
+moderne og fleksibel. Avgjerdene:
+
+- **Biletet bak lina.** Innhaldet er ikkje lenger polstra med lina si høgd. Heltebiletet på Heim og på biblioteksida
+  tek høgda som `topInset` (biletet går til toppen, orda får `topInset` ekstra luft over seg). Sider utan helt
+  startar under lina (`BelowMenu`, `LibraryScreen`), og søkesida har ei flate over heile skjermen med innhaldet under
+  lina. Lina har eigen skugge (0,75 → 0 over 150 dp) så kvit tekst held over lyse bilete.
+- **Fleksibel.** Oppføringane kjem frå `visibleMenu()` (`TopMenuEntries.kt`): rekkjefølgja og avslåtte sider frå
+  «Sider og meny». Biblioteka står der Bibliotek står. Festa bibliotek held si rekkjefølgje; utan festing viser menyen
+  biblioteka til lesaren (`LibraryCoordinator.loadMenuLibraries`, knytt til kontoen), sortert og avgrensa som
+  biblioteksida. Innstillingar ligg bak profilsirkelen, søk er alltid sist. Er det mange, rullar kapselen.
+- **Moderne.** Fanene ligg i ein halvgjennomsiktig kapsel mellom merket og profilsirkelen; vald side er ei fylt pille
+  i aksentfargen, fokus er ein ring.
+- **Fokus.** Fokus som landar på lina utan eit Opp-trykk (flisa fokus låg på forsvann) går attende til sida.
+- **Bak dette:** «Neste» på biblioteksidene brukar Heim-korta, ikkje det vesle kortet med tekst ved sida.
+
 ## 5. Hopp-knappen i spelaren
 
 `SkipSegmentButton` tek fokus på TV medan han er på skjermen, men seier ikkje frå, så

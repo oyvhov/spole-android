@@ -44,6 +44,9 @@ sealed interface AppSheet {
 }
 
 /** Framside → Episodar → Spelar. Three levels, and this is the middle one. */
+/** The libraries a top menu with nothing pinned lists, and the account they belong to. */
+data class MenuLibraries(val connection: ServiceConnection, val items: List<Pair<String, String>>)
+
 data class KidsBrowse(
     val seriesId: String = "",
     val title: String = "",
@@ -176,6 +179,8 @@ data class ReelstackUiState(
     val selectedLibrarySource: ServiceKind = ServiceKind.JELLYFIN,
     val selectedLibraryIds: Set<String> = emptySet(),
     val libraryShortcuts: List<Pair<String, String>> = emptyList(),
+    /** What the television's top menu lists while nothing is pinned: every library the reader has not hidden. */
+    val menuLibraries: MenuLibraries? = null,
     val libraryIcons: Map<String, app.reelstack.data.model.LibraryIcon> = emptyMap(),
     val libraryFilters: app.reelstack.data.model.LibraryFilters = app.reelstack.data.model.LibraryFilters(),
     val libraryFacets: app.reelstack.data.model.LibraryFacets = app.reelstack.data.model.LibraryFacets(),
@@ -289,6 +294,10 @@ data class ReelstackUiState(
             available.firstOrNull { it.kind == selectedLibrarySource } ?: available.firstOrNull()
         }
     val librarySource: ServiceKind get() = libraryConnection?.kind ?: selectedLibrarySource
+
+    /** The pinned libraries, or, with none pinned, the reader's libraries — never another account's. */
+    val menuLibraryShortcuts: List<Pair<String, String>>
+        get() = libraryShortcuts.ifEmpty { menuLibraries?.takeIf { it.connection == libraryConnection }?.items.orEmpty() }
 
     val visibleDiscover: List<DiscoverMedia>
         get() = if (searchQuery.isBlank()) discover else searchResults

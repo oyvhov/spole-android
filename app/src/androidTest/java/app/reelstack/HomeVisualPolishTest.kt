@@ -73,7 +73,7 @@ class HomeVisualPolishTest {
         assertTrue(toggled)
     }
 
-    @Test fun compactLibraryShelfKeepsTheSameTitleAndRemoteAction() {
+    @Test fun libraryShelfUsesTheSameCardAsHomeAndKeepsTheRemoteAction() {
         var opened = ""
         lateinit var inputMode: androidx.compose.ui.input.InputModeManager
         val film = LibraryMedia("film", "Ein film med ein lang tittel", "2026", .4f,
@@ -85,13 +85,14 @@ class HomeVisualPolishTest {
                 }
                 inputMode = LocalInputModeManager.current
                 CompositionLocalProvider(LocalConfiguration provides config, LocalTabletCanvas provides true) {
-                    ReelstackTheme { ResumeRail(listOf(film), { opened = it }, compact = true) }
+                    ReelstackTheme { ResumeRail(listOf(film), { opened = it }) }
                 }
             }
         }
-        rule.onNodeWithTag("compact-resume-film", true).assertExists()
+        // The owner found the small side-by-side card small and ugly: a shelf card is the Home card, picture over title.
+        rule.onNodeWithTag("compact-resume-film", true).assertDoesNotExist()
         val bounds = rule.onNodeWithTag("resume-card-film").fetchSemanticsNode().boundsInRoot
-        assertTrue(bounds.height < 120 * rule.density.density)
+        assertTrue(bounds.height > 130 * rule.density.density)
         rule.runOnIdle { inputMode.requestInputMode(InputMode.Keyboard) }
         rule.onNodeWithTag("resume-card-film").performSemanticsAction(SemanticsActions.RequestFocus)
             .assertIsFocused().performKeyInput { pressKey(Key.Enter) }

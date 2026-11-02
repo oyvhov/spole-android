@@ -1,5 +1,6 @@
 package app.reelstack.ui
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.softTopEdge
 import app.reelstack.ui.components.vector
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.focus.onFocusChanged
@@ -427,7 +428,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 )
                 }
             }
-            Box(Modifier.weight(1f).fillMaxSize().padding(top = if (topMenu) topBarHeight else 0.dp)
+            val menuInset = if (topMenu) topBarHeight else 0.dp
+            Box(Modifier.weight(1f).fillMaxSize()
                 .focusRequester(contentFocus).focusRestorer()
                 .focusProperties { onEnter = { if (state.globalSearchOpen) cancelFocusChange() } }
                 .then(if (state.globalSearchOpen) Modifier.clearAndSetSemantics {} else Modifier)
@@ -475,6 +477,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     AppTab.HOME -> HomeScreen(
                         state = homeState,
                         presentSince = homePresentSince,
+                        topInset = menuInset,
                         contentPadding = screenInsets,
                         onSessionClick = { viewModel.openSheet(AppSheet.SessionDetails(it)) },
                         onPlaybackToggle = viewModel::togglePlayback,
@@ -494,7 +497,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         showBrand = !showRail && !topMenu,
                         cardActions = cardActions,
                     )
-                    AppTab.DISCOVER -> if (state.myRequestsOpen) app.reelstack.ui.screens.MyRequestsScreen(state, screenInsets,
+                    AppTab.DISCOVER -> BelowMenu(menuInset) { if (state.myRequestsOpen) app.reelstack.ui.screens.MyRequestsScreen(state, screenInsets,
                         onOpen = viewModel::openActivityDetails, onBack = viewModel::closeMyRequests,
                         onLoadOlder = { viewModel.loadRequestHistory(true) }, onEvent = viewModel::openActivityDetails,
                         onFocusRequest = viewModel::focusRequestTitle)
@@ -516,12 +519,15 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onGridMore = viewModel::loadMoreDiscoverGrid,
                         onGridBack = viewModel::closeDiscoverGrid,
                         searchTransitionModifier = searchTransition,
-                    )
+                    ) }
                     AppTab.LIBRARY -> app.reelstack.ui.screens.LibraryScreen(state, viewModel::browseLibrary,
-                        viewModel::openLibraryEntry, viewModel::libraryBack, viewModel::filterLibrary,
+                        // The tile the remote stood on is gone once the page it opens is up: the remote follows into it,
+                        // not to the menu line that was nearest.
+                        { id -> viewModel.openLibraryEntry(id); if (tvRail) moveIntoContent = true }, viewModel::libraryBack, viewModel::filterLibrary,
                         onShelfOpen = viewModel::openLibraryDetails, cardActions = cardActions,
-                        onSource = viewModel::selectLibrarySource, onCustomize = viewModel::openLibraryChoices)
-                    AppTab.DOWNLOADS -> app.reelstack.ui.screens.OfflineDownloadsScreen(
+                        onSource = viewModel::selectLibrarySource, onCustomize = viewModel::openLibraryChoices,
+                        topInset = menuInset)
+                    AppTab.DOWNLOADS -> BelowMenu(menuInset) { app.reelstack.ui.screens.OfflineDownloadsScreen(
                         snapshot = state.offlineDownloads,
                         wifiOnly = state.wifiOnly,
                         contentPadding = screenInsets,
@@ -538,8 +544,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                         onBack = if (downloadsAsSettingsPage) {
                             { selectTab(state.downloadsReturnTab.takeIf { it != AppTab.DOWNLOADS } ?: AppTab.SETTINGS) }
                         } else null,
-                    )
-                    AppTab.SETTINGS -> SettingsScreen(
+                    ) }
+                    AppTab.SETTINGS -> BelowMenu(menuInset) { SettingsScreen(
                         state = state,
                         contentPadding = screenInsets,
                         onConnectionClick = { viewModel.openSheet(AppSheet.ConnectionEditor(it)) },
@@ -565,7 +571,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                             else viewModel.openSheet(AppSheet.ConnectionEditor(kind))
                         },
                         onOpenDownloads = { selectTab(AppTab.DOWNLOADS) },
-                    )
+                    ) }
                 }
                 }
             }
@@ -584,19 +590,23 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         val search = remember(state.globalSearch, state.searchHistory, state.requestingMediaIds, state.accounts, state.connections) {
             state.toGlobalSearchUiState()
         }
-        Surface(Modifier.fillMaxSize().padding(top = if (topMenu) topBarHeight else 0.dp)
-            .focusRequester(searchPageFocus).focusRestorer().focusGroup(), color = Ink) {
-            app.reelstack.ui.screens.GlobalSearchScreen(
-                state = search,
-                onQuery = viewModel::setGlobalSearchQuery,
-                onClose = viewModel::closeGlobalSearch,
-                onLibraryDetails = viewModel::openLibraryDetails,
-                onDiscoverDetails = viewModel::openDiscoverDetails,
-                onLoadMore = viewModel::loadMoreGlobalSearch,
-                onPerson = viewModel::openPerson,
-                onNavigateUp = if (topMenu) { { topFocus.requestFocus(); Unit } } else null,
-                onCommitSearch = viewModel::commitGlobalSearchToHistory,
-            )
+        // The surface covers the whole screen, so the page underneath never shows through above the line; only what
+        // is drawn on it starts below the line.
+        Surface(Modifier.fillMaxSize().focusRequester(searchPageFocus).focusRestorer().focusGroup(), color = Ink) {
+            Box(Modifier.fillMaxSize().padding(top = if (topMenu) topBarHeight else 0.dp)
+                .then(if (topMenu) Modifier.softTopEdge() else Modifier)) {
+                app.reelstack.ui.screens.GlobalSearchScreen(
+                    state = search,
+                    onQuery = viewModel::setGlobalSearchQuery,
+                    onClose = viewModel::closeGlobalSearch,
+                    onLibraryDetails = viewModel::openLibraryDetails,
+                    onDiscoverDetails = viewModel::openDiscoverDetails,
+                    onLoadMore = viewModel::loadMoreGlobalSearch,
+                    onPerson = viewModel::openPerson,
+                    onNavigateUp = if (topMenu) { { topFocus.requestFocus(); Unit } } else null,
+                    onCommitSearch = viewModel::commitGlobalSearchToHistory,
+                )
+            }
         }
     }
 
@@ -607,8 +617,17 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             else stringResource(R.string.theme_season_halloween)
         val shelves = app.reelstack.data.model.menuShelves(state.smartShelves, java.time.LocalDate.now())
             .filter { shelf -> state.libraryConnection?.let(shelf::appliesTo) == true && shelf.pathId != seasonId }
+        val menuOptions = app.reelstack.ui.theme.LocalPersonalization.current
+        androidx.compose.runtime.LaunchedEffect(state.libraryConnection, state.libraryShortcuts.isEmpty(), state.menuLibraries == null) {
+            if (state.libraryShortcuts.isEmpty()) viewModel.loadMenuLibraries()
+        }
+        // Pinned libraries keep the order they were pinned in. With none pinned the menu lists the reader's libraries
+        // in the library page's own order, without the ones hidden there.
+        val libraries = if (state.libraryShortcuts.isNotEmpty()) state.libraryShortcuts
+            else state.menuLibraryShortcuts.filter { it.first !in menuOptions.libraryHidden }
+                .sortedBy { menuOptions.libraryOrder.indexOf(it.first).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
         val shortcuts = listOfNotNull(seasonId?.let { it to seasonName }) +
-            shelves.map { it.pathId to app.reelstack.ui.components.smartShelfName(it) } + state.libraryShortcuts
+            shelves.map { it.pathId to app.reelstack.ui.components.smartShelfName(it) } + libraries
         val account = homeState.preferredHomeAccount()
         val density = androidx.compose.ui.platform.LocalDensity.current
         TvTopBar(state.selectedTab, selectTab, shortcuts,
@@ -626,7 +645,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 else if (!focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down))
                     runCatching { contentFocus.requestFocus() }
             }, modifier = Modifier.focusRequester(topFocus), onFocusWithin = { topHasFocus = it },
-            onHeightChanged = { topBarHeight = with(density) { it.toDp() } })
+            onHeightChanged = { topBarHeight = with(density) { it.toDp() } },
+            menu = menuOptions.visibleMenu())
     }
 
     AppOverlayHost(viewModel, state, connectionDraft, startTab)
@@ -786,3 +806,9 @@ internal fun Modifier.appScaffoldPadding(padding: PaddingValues): Modifier =
 internal fun CompactTouchNavigation(selectedTab: AppTab, onSelect: (AppTab) -> Unit,
     isKidMode: Boolean = false, modifier: Modifier = Modifier) =
     AppCompactTouchNavigation(selectedTab, onSelect, isKidMode, modifier)
+
+/** A page without a picture under the television's menu line starts below it, so nothing that scrolls passes behind the words. */
+@androidx.compose.runtime.Composable
+private fun BelowMenu(inset: androidx.compose.ui.unit.Dp, content: @androidx.compose.runtime.Composable () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(top = inset).then(if (inset > 0.dp) Modifier.softTopEdge() else Modifier)) { content() }
+}

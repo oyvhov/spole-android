@@ -63,7 +63,9 @@ class LibraryReturnFocusTest {
                     onBack = { state = state.copy(libraryPath = emptyList(), libraryEntries = libraries) })
             }
         }
-        rule.onNodeWithTag("hub-all-shows").performScrollTo().requestFocus()
+        // The shelves stand below the Home-sized «Neste» cards, so the list is scrolled until the chip exists.
+        rule.onNodeWithTag("library-hub").performScrollToNode(hasTestTag("hub-all-shows"))
+        rule.onNodeWithTag("hub-all-shows").requestFocus()
         rule.onNodeWithTag("hub-all-shows").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
         rule.waitForIdle()
         rule.runOnIdle { state = state.copy(libraryPath = emptyList(), libraryEntries = libraries) }

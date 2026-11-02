@@ -1,6 +1,11 @@
 package app.reelstack.ui
 
+import androidx.annotation.StringRes
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.horizontalScroll
@@ -37,7 +42,6 @@ import app.reelstack.data.model.ServiceConnection
 import app.reelstack.ui.components.AccountAvatar
 import app.reelstack.ui.components.SpoleBrandMark
 import app.reelstack.ui.components.focusOutline
-import app.reelstack.ui.components.settingsSurface
 import app.reelstack.ui.theme.SpoleMotion
 import app.reelstack.ui.theme.motionTween
 import app.reelstack.ui.components.profileFlightTarget
@@ -64,19 +68,29 @@ internal fun TvTopBar(
     modifier: Modifier = Modifier,
     onFocusWithin: (Boolean) -> Unit = {},
     onHeightChanged: (Int) -> Unit = {},
+    /** The owner's «Sider og meny», in order. Without it: Home, Library and, when switched on, Discover. */
+    menu: List<String>? = null,
 ) {
     val alpha by animateFloatAsState(if (visible) 1f else 0f, motionTween(SpoleMotion.ChangeMs), label = "tv-menu")
     val selectedFocus = remember { FocusRequester() }
-    val pinned = shortcuts.distinctBy { it.first }
-    val selectedShortcut = selectedLibraryId.takeIf { selectedTab == AppTab.LIBRARY && !searchOpen }
-    val homeSelected = selectedTab == AppTab.HOME && !searchOpen
-    // Settings lives in the profile menu. On that page Up still has a dependable Home anchor.
-    val fallbackToHome = !searchOpen && !homeSelected && selectedShortcut !in pinned.map { it.first } &&
-        !(selectedTab == AppTab.DISCOVER && discoverVisible) && !(selectedTab == AppTab.LIBRARY && pinned.isEmpty())
+    val entries = remember(menu, discoverVisible, shortcuts) {
+        topMenuEntries(menu ?: listOfNotNull("HOME", "LIBRARY", "DISCOVER".takeIf { discoverVisible }),
+            shortcuts.distinctBy { it.first })
+    }
+    fun isSelected(entry: TopMenuEntry): Boolean = when (entry) {
+        TopMenuEntry.Search -> searchOpen
+        is TopMenuEntry.Library -> !searchOpen && selectedTab == AppTab.LIBRARY && selectedLibraryId == entry.id
+        is TopMenuEntry.Page -> !searchOpen && selectedTab == entry.tab
+    }
+    // Settings lives in the profile menu. On that page, and wherever the menu holds no entry for the
+    // page, Up still has a dependable Home anchor.
+    val focusTarget = entries.firstOrNull { isSelected(it) } ?: TopMenuEntry.Page(AppTab.HOME)
     Box(modifier.fillMaxWidth().graphicsLayer { this.alpha = alpha }
         .then(if (!visible) Modifier.clearAndSetSemantics {} else Modifier)) {
-        Box(Modifier.fillMaxWidth().height(120.dp).background(Brush.verticalGradient(
-            listOf(Color.Black.copy(alpha = .12f), Color.Transparent))))
+        // The picture runs behind the line, so the words carry their own shade: a bright poster must
+        // not take the white from them.
+        Box(Modifier.fillMaxWidth().height(150.dp).background(Brush.verticalGradient(
+            listOf(Color.Black.copy(alpha = .75f), Color.Black.copy(alpha = .35f), Color.Transparent))))
         Row(Modifier.fillMaxWidth().onSizeChanged { onHeightChanged(it.height) }.padding(horizontal = 48.dp, vertical = 20.dp)
             .onFocusChanged { onFocusWithin(it.hasFocus) }
             .focusProperties { onEnter = { if (visible) selectedFocus.requestFocus() } }
@@ -87,28 +101,31 @@ internal fun TvTopBar(
                 } else false
             }.focusGroup().testTag("tv-top-bar"),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SpoleBrandMark(Modifier.size(32.dp))
-            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TopBarTab(stringResource(R.string.nav_home), homeSelected, visible, "tv-top-HOME", { onSelect(AppTab.HOME) },
-                    if (homeSelected || fallbackToHome) Modifier.focusRequester(selectedFocus) else Modifier)
-                if (pinned.isEmpty()) {
-                    val selected = selectedTab == AppTab.LIBRARY && !searchOpen
-                    TopBarTab(stringResource(R.string.nav_library), selected, visible, "tv-top-LIBRARY", { onSelect(AppTab.LIBRARY) },
-                        if (selected) Modifier.focusRequester(selectedFocus) else Modifier)
-                } else pinned.forEach { (id, label) -> key(id) {
-                    val selected = selectedShortcut == id
-                    TopBarTab(label, selected, visible, "tv-top-library-$id", { onLibrarySelect(id) },
-                        if (selected) Modifier.focusRequester(selectedFocus) else Modifier)
-                } }
-                if (discoverVisible) {
-                    val selected = selectedTab == AppTab.DISCOVER && !searchOpen
-                    TopBarTab(stringResource(R.string.nav_discover), selected, visible, "tv-top-DISCOVER", { onSelect(AppTab.DISCOVER) },
-                        if (selected) Modifier.focusRequester(selectedFocus) else Modifier)
+            // The tabs sit in one capsule over the picture, centred between the mark and the profile circle.
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                val capsule = RoundedCornerShape(50)
+                Row(Modifier.clip(capsule).background(Color.Black.copy(alpha = .42f))
+                    .border(1.dp, Color.White.copy(alpha = .10f), capsule)
+                    .horizontalScroll(rememberScrollState()).padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    entries.forEach { entry ->
+                        val entryFocus = if (entry == focusTarget) Modifier.focusRequester(selectedFocus) else Modifier
+                        when (entry) {
+                            is TopMenuEntry.Page -> key(entry.tab) {
+                                TopBarTab(stringResource(entry.labelRes()), isSelected(entry), visible, "tv-top-${entry.tab.name}",
+                                    { onSelect(entry.tab) }, entryFocus)
+                            }
+                            is TopMenuEntry.Library -> key(entry.id) {
+                                TopBarTab(entry.label, isSelected(entry), visible, "tv-top-library-${entry.id}",
+                                    { onLibrarySelect(entry.id) }, entryFocus)
+                            }
+                            TopMenuEntry.Search -> TopBarTab(stringResource(R.string.tv_menu_search), isSelected(entry), visible,
+                                "tv-top-search", onSearch, entryFocus)
+                        }
+                    }
                 }
-                TopBarTab(stringResource(R.string.tv_menu_search), searchOpen, visible, "tv-top-search", onSearch,
-                    if (searchOpen) Modifier.focusRequester(selectedFocus) else Modifier)
             }
             val interaction = remember { MutableInteractionSource() }
             val accountDescription = stringResource(R.string.profile_switch_title)
@@ -121,15 +138,31 @@ internal fun TvTopBar(
     }
 }
 
+@StringRes
+private fun TopMenuEntry.Page.labelRes(): Int = when (tab) {
+    AppTab.HOME -> R.string.nav_home
+    AppTab.DISCOVER -> R.string.nav_discover
+    else -> R.string.nav_library
+}
+
 @Composable
 private fun TopBarTab(label: String, selected: Boolean, enabled: Boolean, tag: String, onClick: () -> Unit,
     modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(14.dp)
-    Text(label, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium,
-        maxLines = 1, modifier = modifier.heightIn(min = 48.dp)
-            .settingsSurface(interaction, shape, selected = selected)
+    val focused by interaction.collectIsFocusedAsState()
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(50)
+    val fill by animateColorAsState(
+        when {
+            focused -> colors.onSurface.copy(alpha = .16f)
+            selected -> colors.primary.copy(alpha = .26f)
+            else -> Color.Transparent
+        }, motionTween(SpoleMotion.FocusMs), label = "tv-top-tab")
+    Text(label, color = if (selected || focused) colors.onSurface else colors.onSurface.copy(alpha = .78f),
+        style = MaterialTheme.typography.titleMedium, maxLines = 1,
+        modifier = modifier.heightIn(min = 44.dp).clip(shape).background(fill)
+            .focusOutline(interaction, shape, glow = false)
             .selectable(selected, enabled = enabled, role = Role.Tab, interactionSource = interaction,
                 indication = null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp).testTag(tag))
+            .padding(horizontal = 14.dp, vertical = 10.dp).testTag(tag))
 }

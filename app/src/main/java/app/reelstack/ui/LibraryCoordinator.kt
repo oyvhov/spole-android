@@ -76,6 +76,7 @@ internal class LibraryCoordinator(
         )
 
     private var libraryChoicesJob: Job? = null
+    private var menuLibrariesJob: Job? = null
     private var libraryJob: Job? = null
     private var launcherLibraryJob: Job? = null
     /** The library a launcher opened, while the viewer is still at its root: Back from there returns to the launcher. */
@@ -126,10 +127,11 @@ internal class LibraryCoordinator(
         peekJob?.cancel()
         shelfJob?.cancel()
         libraryChoicesJob?.cancel()
+        menuLibrariesJob?.cancel()
         cancelSmartPeeks()
         closeSmartShelfEditor()
         libraryPageCache.clear()
-        _uiState.update { it.copy(selectedLibrarySource = source,
+        _uiState.update { it.copy(selectedLibrarySource = source, menuLibraries = null,
             libraryPath = emptyList(), libraryCollectionType = null, libraryEntries = emptyList(),
             libraryPeeks = emptyMap(), smartShelfPeeks = emptyMap(), libraryPeeksLoading = false,
             libraryShelves = app.reelstack.data.model.LibraryShelves(),
@@ -207,6 +209,29 @@ internal class LibraryCoordinator(
         }
     }
 
+    /**
+     * The libraries a top menu lists while none is pinned, so Filmar and Seriar stand in the menu
+     * without a visit to «Tilpass biblioteksida». Quiet on failure: the menu then keeps its one
+     * Library entry, and the page it opens says what went wrong.
+     */
+    fun loadMenuLibraries() {
+        val state = _uiState.value
+        val connection = state.libraryConnection ?: return
+        if (state.libraryShortcuts.isNotEmpty() || state.menuLibraries?.connection == connection) return
+        if (menuLibrariesJob?.isActive == true) return
+        menuLibrariesJob = operationScope.launch {
+            val views = try {
+                withContext(ioDispatcher) { mediaServerClient.browseLibraries(connection) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+            } catch (_: Exception) { return@launch }
+            if (!isActive) return@launch
+            val shown = views.filter { preferencesRepository.includesLibrary(connection, it) }.map { it.id to it.name }
+            _uiState.update { current ->
+                if (current.libraryConnection == connection) current.copy(menuLibraries = MenuLibraries(connection, shown)) else current
+            }
+        }
+    }
+
     fun closeLibraryChoices() {
         libraryChoicesJob?.cancel()
         _uiState.update { it.copy(libraryChoicesOpen = false) }
@@ -231,7 +256,9 @@ internal class LibraryCoordinator(
         libraryPageCache.clear()
         // Home has its own library choice (docs/HOME_LAYOUT.md). This one used to empty every Home
         // row and refetch the whole feed although nothing on Home depends on it any more.
+        menuLibrariesJob?.cancel()
         _uiState.update { it.copy(libraryChoicesOpen = false, selectedLibraryIds = ids, libraryShortcuts = pinned, libraryIcons = savedIcons,
+            menuLibraries = null,
             libraryPath = emptyList(), libraryEntries = emptyList(), libraryDetailMedia = null,
             libraryShelves = app.reelstack.data.model.LibraryShelves(),
             libraryPeeks = emptyMap(), libraryPeeksLoading = false,
@@ -441,7 +468,7 @@ internal class LibraryCoordinator(
         launcherLibraryJob?.cancel()
         launcherLibraryJob = null
         SmartShelf.idOfPath(id)?.let { openSmartShelf(it); return }
-        val shortcut = _uiState.value.libraryShortcuts.firstOrNull { it.first == id } ?: return
+        val shortcut = _uiState.value.menuLibraryShortcuts.firstOrNull { it.first == id } ?: return
         _uiState.update { it.copy(selectedTab = AppTab.LIBRARY, activeSheet = null, libraryPath = listOf(shortcut), libraryCollectionType = null,
             libraryFilters = app.reelstack.data.model.LibraryFilters(), libraryFacets = app.reelstack.data.model.LibraryFacets()) }
         browseLibrary()

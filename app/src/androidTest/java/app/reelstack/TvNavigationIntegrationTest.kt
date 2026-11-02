@@ -44,6 +44,11 @@ class TvNavigationIntegrationTest {
             rule.onNodeWithTag("side-navigation").assertDoesNotExist()
             rule.onNodeWithTag("home-account").assertDoesNotExist()
             saveTvReview("top-menu-home", rule.onRoot().captureToImage())
+            // The picture runs behind the menu line, not below it: the hero starts at the top edge, its words under the line.
+            rule.onNodeWithTag("tablet-library-feature").assertTopPositionInRootIsEqualTo(0.dp)
+            val line = rule.onNodeWithTag("tv-top-bar").fetchSemanticsNode().boundsInRoot
+            val words = rule.onNodeWithTag("feature-caption", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertTrue("the words start ${words.top} px down, above the line's ${line.bottom} px", words.top >= line.bottom)
             rule.onNodeWithTag("resume-card-resume-severance")
                 .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
             repeat(8) {

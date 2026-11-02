@@ -7,6 +7,8 @@ import app.reelstack.R
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.theme.ReelstackTheme
+import androidx.compose.ui.unit.dp
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -31,5 +33,21 @@ class TvHeroArtworkTest {
         // not in a line across the screen.
         assertTrue("the picture ends ${picture.bottom - hero.bottom} px below a ${hero.height} px hero",
             picture.bottom - hero.bottom >= hero.height * .4f)
+    }
+
+    /** The television's menu line is drawn over the hero: the picture starts at the top edge, the words below the line. */
+    @Test fun theMenuLineSitsOnThePictureAndTheWordsStayBelowIt() {
+        val film = LibraryMedia(id = "jf-1", title = "Film", subtitle = "2026", artworkRes = R.drawable.media_placeholder,
+            source = ServiceKind.JELLYFIN, remoteId = "1", mediaType = "Movie")
+        val line = 88.dp
+        rule.setContent { ReelstackTheme { TabletLibraryFeature(film, onOpen = {}, candidates = listOf(film), topInset = line) } }
+        rule.waitForIdle()
+        val hero = rule.onNodeWithTag("tablet-library-feature").fetchSemanticsNode().boundsInRoot
+        val picture = rule.onNodeWithTag("feature-artwork", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val caption = rule.onNodeWithTag("feature-caption", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val linePx = with(androidx.compose.ui.unit.Density(rule.activity.resources.displayMetrics.density)) { line.toPx() }
+        assertEquals("the picture reaches the top edge", 0f, picture.top, 1f)
+        assertEquals("the hero starts at the top edge", 0f, hero.top, 1f)
+        assertTrue("the words start ${caption.top} px down, below the ${linePx} px line", caption.top >= linePx)
     }
 }

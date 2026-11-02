@@ -69,6 +69,57 @@ class LibraryCoordinatorTest {
         assertFalse(preferences.includesLibrary(connection, views.last()))
     }
 
+    @Test fun `a menu with nothing pinned lists the libraries the reader has not hidden`() = runTest {
+        val preferences = AppPreferencesRepository(context)
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+        val feature = feature(snapshot)
+        feature.loadMenuLibraries()
+        runCurrent()
+        assertEquals(listOf("films" to "Filmar", "series" to "Seriar"), snapshot.value.menuLibraryShortcuts)
+
+        preferences.setSelectedLibraryIds(connection, setOf("series"))
+        snapshot.value = snapshot.value.copy(menuLibraries = null)
+        feature.loadMenuLibraries()
+        runCurrent()
+        assertEquals(listOf("series" to "Seriar"), snapshot.value.menuLibraryShortcuts)
+    }
+
+    @Test fun `pinned libraries win and nothing is fetched for the menu`() = runTest {
+        val transport = Transport()
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection),
+            libraryShortcuts = listOf("series" to "Seriar")))
+        feature(snapshot, transport).loadMenuLibraries()
+        runCurrent()
+        assertEquals(listOf("series" to "Seriar"), snapshot.value.menuLibraryShortcuts)
+        assertTrue(transport.urls.isEmpty())
+    }
+
+    @Test fun `a library in the menu opens like a pinned one`() = runTest {
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+        val feature = feature(snapshot)
+        feature.loadMenuLibraries()
+        runCurrent()
+        feature.openLibraryShortcut("series")
+        assertEquals(AppTab.LIBRARY, snapshot.value.selectedTab)
+        assertEquals(listOf("series" to "Seriar"), snapshot.value.libraryPath)
+    }
+
+    @Test fun `a failed menu load leaves the single Library tab`() = runTest {
+        val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
+        val feature = feature(snapshot, Transport().apply { fail = true })
+        feature.loadMenuLibraries()
+        runCurrent()
+        assertTrue(snapshot.value.menuLibraryShortcuts.isEmpty())
+        assertNull(snapshot.value.libraryError)
+    }
+
+    @Test fun `libraries listed for another account are never offered`() {
+        val other = connection.copy(baseUrl = "https://other.example", userId = "someone-else")
+        val state = ReelstackUiState(sessionScope = owner, connections = listOf(connection),
+            menuLibraries = MenuLibraries(other, listOf("theirs" to "Hans")))
+        assertTrue(state.menuLibraryShortcuts.isEmpty())
+    }
+
     @Test fun `closing choices cancels a queued load`() = runTest {
         val snapshot = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection)))
         val feature = feature(snapshot)

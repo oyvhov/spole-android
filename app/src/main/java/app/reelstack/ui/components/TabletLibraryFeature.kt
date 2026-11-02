@@ -174,6 +174,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     candidates: List<LibraryMedia> = listOf(media), rotationEnabled: Boolean = true,
     /** On a television, the height that leaves the first shelf whole at the bottom of the screen. */
     televisionHeight: Dp? = null,
+    /** How far the television's menu line reaches down: the picture runs behind it, the words stay below. */
+    topInset: Dp = 0.dp,
     onFocusWithin: (Boolean) -> Unit = {}) {
     val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
@@ -251,9 +253,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     // Reserve room for the first shelf's heading, artwork and captions at normal text size.
     // Large text can grow the scene instead of clipping its controls.
     // At least the old 44 % of the window, so a shelf too tall for the screen never shrinks the hero.
-    val tvSceneHeight = maxOf(televisionHeight ?: 0.dp, with(density) { windowInfo.containerSize.height.toDp() } * .44f)
+    // The menu line's height is part of the scene, not taken from it: the picture runs behind the line.
+    val tvSceneHeight = maxOf(televisionHeight ?: 0.dp, with(density) { windowInfo.containerSize.height.toDp() } * .44f + topInset)
     val sceneHeight = maxOf(if (television) tvSceneHeight else (if (compactTelevision) 220.dp else 330.dp) * heroScale,
-        reservedText + if (compactTelevision) 80.dp else 130.dp)
+        reservedText + topInset + if (compactTelevision) 80.dp else 130.dp)
     // The caption slot measures every carousel candidate. Its real height can exceed the text
     // estimate at large font sizes; a fixed touch height then squeezed the actions down to 16 dp.
     val featureSize = Modifier.heightIn(min = sceneHeight)
@@ -330,8 +333,10 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
         }
         Column(Modifier.align(if (television) Alignment.CenterStart else Alignment.TopStart)
             .fillMaxWidth(if (television && density.fontScale >= 1.5f) .82f else .54f).padding(
-            vertical = if (television) 24.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
-            horizontal = if (television) 40.dp else 28.dp,
+            top = (if (television) 24.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp) + topInset,
+            bottom = if (television) 24.dp else if (compactTelevision) 10.dp else if (shortWindow) 20.dp else 32.dp,
+            start = if (television) 40.dp else 28.dp,
+            end = if (television) 40.dp else 28.dp,
         ), verticalArrangement = Arrangement.spacedBy(featureSpacing)) {
           // Compose the bounded caption stack ahead of time: logos are ready and the actions
           // keep their position when a film replaces an episode with a taller caption.

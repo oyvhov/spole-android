@@ -294,14 +294,14 @@ class LibraryPresentationUiTest {
         rule.onNodeWithTag("card-remove-resume").assertIsDisplayed()
     }
 
-    @Test fun tvLibraryNextIsCompactWithoutTheHomePageLocals() = withDefaults("review-next-tv") {
+    @Test fun tvLibraryNextUsesTheSameCardAsHome() = withDefaults("review-next-tv") {
         val episode = LibraryMedia("current", "Ei serie med ein lang tittel", "S1 - E2", .4f,
             R.drawable.media_placeholder, ServiceKind.JELLYFIN, mediaType = "Episode")
         val content = state("review-next-tv", true).copy(libraryShelves =
             LibraryShelves("review-next-tv", listOf(episode), emptyList()))
         show(content, true)
-        rule.onNodeWithTag("compact-resume-current", true).assertExists()
+        rule.onNodeWithTag("compact-resume-current", true).assertDoesNotExist()
         val card = rule.onNodeWithTag("resume-card-current").fetchSemanticsNode().boundsInRoot
-        assertTrue(card.height < 120 * rule.density.density)
+        assertTrue(card.height > 130 * rule.density.density)
     }
 }

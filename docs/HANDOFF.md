@@ -5,6 +5,12 @@ spolt fram på `main` og gitt ut som 1.0.0-beta33 (170): stiane `discover…`, k
 Beta32 (169) var eit lokalt testbygg på Loftet; difor beta33. Sjå `VERIFICATION_v1.0.0-beta33.md`.
 Android-testane på 5562/5566 er ikkje køyrde (eigaren: berre ekte einingar no).
 
+# Beta32: toppmenyen bak biletet, fleksibel og med eigne bibliotek
+2026-11-02: etter at eigaren såg beta31 på Loftet. Biletet går bak menylina (`topInset`), menyen følgjer «Sider og
+meny» og viser biblioteka utan festing (`TopMenuEntries.kt`, `loadMenuLibraries`), fokus går attende til sida når ei
+flis forsvinn, profilmenyen startar på profilen i bruk, «Neste» på biblioteksidene er Heim-korta, episodar i søket er
+16:9. Sjå `RORSLE_OG_TOPPMENY_2026-11-01.md` (4b) og `VERIFICATION_v1.0.0-beta32.md`. Loftet står på Toppmeny.
+
 # Beta31: rørslespråk, profilflukt, toppmeny og Swiftly-punkta 1–7
 2026-11-02: Claude tok over att frå Codex (`1152599`), bygde profilflukta (`d96bc8a`) og fletta inn
 fire parallelle agentgreiner: seriesida (`1d8f002`), spelaren (`932b18e`…`a81f2c6`), kosmetikken

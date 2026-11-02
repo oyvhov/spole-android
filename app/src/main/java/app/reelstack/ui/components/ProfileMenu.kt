@@ -27,6 +27,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -81,6 +83,30 @@ fun ProfileMenu(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    Popup(
+        alignment = Alignment.TopEnd,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true, dismissOnBackPress = true, dismissOnClickOutside = true),
+    ) {
+        ProfileMenuPanel(profiles, activeProfileId, isKidMode, mainAccountName, mainAccountAvatarUrl,
+            onSelectProfile, onPicked, onOpenSettings, onDeleteProfile, modifier)
+    }
+}
+
+/** The menu itself, apart from the window it opens in. */
+@Composable
+internal fun ProfileMenuPanel(
+    profiles: List<UserProfile>,
+    activeProfileId: String,
+    isKidMode: Boolean,
+    mainAccountName: String?,
+    mainAccountAvatarUrl: String?,
+    onSelectProfile: (UserProfile) -> Unit,
+    onPicked: (UserProfile, Rect) -> Unit,
+    onOpenSettings: () -> Unit,
+    onDeleteProfile: (UserProfile) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val visible = remember { MutableTransitionState(false) }
     LaunchedEffect(Unit) { visible.targetState = true }
 
@@ -91,87 +117,86 @@ fun ProfileMenu(
         android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     val edge = if (television) 48.dp else 12.dp
     val top = if (television) 96.dp else 8.dp
+    // A popup does not hand focus to anything by itself, so the first press of the remote used to act on
+    // the page behind it. The menu starts on whoever is watching.
+    val startFocus = remember { FocusRequester() }
+    val startId = (profiles.firstOrNull { it.id == activeProfileId } ?: profiles.firstOrNull())?.id
 
-    Popup(
-        alignment = Alignment.TopEnd,
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true, dismissOnBackPress = true, dismissOnClickOutside = true),
+    AnimatedVisibility(
+        visibleState = visible,
+        enter = fadeIn(motionTween(SpoleMotion.FocusMs)) +
+            scaleIn(
+                animationSpec = motionTween(SpoleMotion.FocusMs, easing = LinearOutSlowInEasing),
+                initialScale = 0.98f,
+                // The corner the avatar sits in. Everything unfolds from that point.
+                transformOrigin = TransformOrigin(1f, 0f),
+            ),
+        exit = fadeOut(motionTween(SpoleMotion.FocusMs)),
     ) {
-        AnimatedVisibility(
-            visibleState = visible,
-            enter = fadeIn(motionTween(SpoleMotion.FocusMs)) +
-                scaleIn(
-                    animationSpec = motionTween(SpoleMotion.FocusMs, easing = LinearOutSlowInEasing),
-                    initialScale = 0.98f,
-                    // The corner the avatar sits in. Everything unfolds from that point.
-                    transformOrigin = TransformOrigin(1f, 0f),
-                ),
-            exit = fadeOut(motionTween(SpoleMotion.FocusMs)),
+        Surface(
+            modifier = modifier
+                .padding(top = top, end = edge)
+                .widthIn(min = 280.dp, max = 340.dp)
+                .testTag("profile-menu"),
+            shape = RoundedCornerShape(26.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+            shadowElevation = 12.dp,
         ) {
-            Surface(
-                modifier = modifier
-                    .padding(top = top, end = edge)
-                    .widthIn(min = 280.dp, max = 340.dp)
-                    .testTag("profile-menu"),
-                shape = RoundedCornerShape(26.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp,
-                shadowElevation = 12.dp,
+            Column(
+                modifier = Modifier
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f), RoundedCornerShape(26.dp))
+                    .padding(vertical = 10.dp),
             ) {
-                Column(
-                    modifier = Modifier
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f), RoundedCornerShape(26.dp))
-                        .padding(vertical = 10.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.profile_switch_title),
-                        color = Muted,
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 10.dp),
-                    )
+                Text(
+                    text = stringResource(R.string.profile_switch_title),
+                    color = Muted,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 10.dp),
+                )
 
-                    profiles.forEachIndexed { index, profile ->
-                        // The session's accounts name the main row only while the main profile is active.
-                        val resolved = if (profile.isMain && !isKidMode && activeProfileId.isBlank()) {
-                            profile.copy(
-                                name = mainAccountName?.takeIf { it.isNotBlank() } ?: profile.name,
-                                avatarUrl = profile.avatarUrl ?: mainAccountAvatarUrl,
-                            )
-                        } else {
-                            profile
-                        }
-                        StaggeredRow(index = index) {
-                            ProfileMenuRow(
-                                profile = resolved,
-                                selected = profile.id == activeProfileId,
-                                canDelete = !isKidMode && activeProfileId.isBlank() && !profile.isMain,
-                                onClick = { onSelectProfile(profile) },
-                                onPicked = { bounds -> onPicked(resolved, bounds) },
-                                onDelete = { onDeleteProfile(profile) },
-                            )
-                        }
-                    }
-
-                    if (!isKidMode) {
-                        Spacer(Modifier.height(8.dp))
-                        Box(
-                            Modifier
-                                .padding(horizontal = 20.dp)
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(Divider),
+                profiles.forEachIndexed { index, profile ->
+                    // The session's accounts name the main row only while the main profile is active.
+                    val resolved = if (profile.isMain && !isKidMode && activeProfileId.isBlank()) {
+                        profile.copy(
+                            name = mainAccountName?.takeIf { it.isNotBlank() } ?: profile.name,
+                            avatarUrl = profile.avatarUrl ?: mainAccountAvatarUrl,
                         )
-                        Spacer(Modifier.height(8.dp))
+                    } else {
+                        profile
+                    }
+                    StaggeredRow(index = index) {
+                        ProfileMenuRow(
+                            profile = resolved,
+                            selected = profile.id == activeProfileId,
+                            canDelete = !isKidMode && activeProfileId.isBlank() && !profile.isMain,
+                            onClick = { onSelectProfile(profile) },
+                            onPicked = { bounds -> onPicked(resolved, bounds) },
+                            onDelete = { onDeleteProfile(profile) },
+                            startFocus = if (television && profile.id == startId) startFocus else null,
+                        )
+                    }
+                }
 
-                        StaggeredRow(index = profiles.size + 1) {
-                            ProfileMenuAction(
-                                icon = SpoleIcons.Settings,
-                                label = stringResource(R.string.home_account_settings),
-                                testTag = "profile-action-settings",
-                                onClick = onOpenSettings,
-                            )
-                        }
+                if (!isKidMode) {
+                    Spacer(Modifier.height(8.dp))
+                    Box(
+                        Modifier
+                            .padding(horizontal = 20.dp)
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Divider),
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    StaggeredRow(index = profiles.size + 1) {
+                        ProfileMenuAction(
+                            icon = SpoleIcons.Settings,
+                            label = stringResource(R.string.home_account_settings),
+                            testTag = "profile-action-settings",
+                            onClick = onOpenSettings,
+                        )
                     }
                 }
             }
@@ -193,10 +218,17 @@ private fun ProfileMenuRow(
     onClick: () -> Unit,
     onDelete: () -> Unit,
     onPicked: (Rect) -> Unit = {},
+    /** Set on the one row the menu opens on, on a television. */
+    startFocus: FocusRequester? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(18.dp)
+    if (startFocus != null) LaunchedEffect(startFocus) {
+        // The row is attached a frame after it enters the composition.
+        androidx.compose.runtime.withFrameNanos { }
+        runCatching { startFocus.requestFocus() }
+    }
     // The menu is its own window, so the circle reports where it is on the screen, not in a root.
     var orb by remember { mutableStateOf<Rect?>(null) }
 
@@ -205,6 +237,7 @@ private fun ProfileMenuRow(
             .padding(horizontal = 10.dp, vertical = 3.dp)
             .fillMaxWidth()
             .defaultMinSize(minHeight = 64.dp)
+            .then(if (startFocus != null) Modifier.focusRequester(startFocus) else Modifier)
             .settingsSurface(interaction, shape, selected = selected)
             .selectable(
                 selected = selected,

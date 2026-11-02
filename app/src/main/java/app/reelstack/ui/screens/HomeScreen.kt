@@ -95,6 +95,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import app.reelstack.ui.components.fadeUnderMenuLine
+import app.reelstack.ui.components.softTopEdge
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import app.reelstack.R
@@ -166,6 +168,7 @@ fun HomeScreen(
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
     presentSince: Long? = 0L,
+    topInset: Dp = 0.dp,
 ) = HomeScreen(
     state = state.toHomeUiState(),
     contentPadding = contentPadding,
@@ -185,6 +188,7 @@ fun HomeScreen(
     showBrand = showBrand,
     cardActions = cardActions,
     presentSince = presentSince,
+    topInset = topInset,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -209,6 +213,8 @@ fun HomeScreen(
     showBrand: Boolean = true,
     cardActions: MediaCardActions? = null,
     presentSince: Long? = 0L,
+    /** How far the television's menu line reaches down. The hero runs behind it; a page without one starts below it. */
+    topInset: Dp = 0.dp,
 ) {
     var showTopRefreshIndicatorByUser by rememberSaveable { mutableStateOf(false) }
     val triggerRefresh = {
@@ -311,7 +317,11 @@ fun HomeScreen(
                 end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().padding(top = if (featured == null) topInset else 0.dp)
+                .then(if (topInset <= 0.dp) Modifier else if (featured == null) Modifier.softTopEdge()
+                    else Modifier.fadeUnderMenuLine(topInset) {
+                        if (feedState.firstVisibleItemIndex > 0) Float.MAX_VALUE else feedState.firstVisibleItemScrollOffset.toFloat()
+                    })
                 .then(if (television && tablet && featured != null) Modifier.tvHomeBottomFade(TV_SHELF_BOTTOM) else Modifier)
                 .testTag("home-feed"),
         ) {
@@ -342,6 +352,7 @@ fun HomeScreen(
                             candidates = features,
                             rotationEnabled = featureVisible && state.activeSheet == null,
                             televisionHeight = tvHeroHeight,
+                            topInset = topInset,
                             onFocusWithin = { focused -> if (television && focused) feedScope.launch {
                                 // Let the focus target finish its own bring-into-view request first.
                                 androidx.compose.runtime.withFrameNanos { }
@@ -976,16 +987,10 @@ private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: ap
  */
 @Composable
 internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, actions: MediaCardActions? = null, rowKey: String? = null,
-    resumeIds: Set<String>? = null, compact: Boolean = false) {
+    resumeIds: Set<String>? = null) {
     val format = homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)
     val chosenWide = resumeRailIsWide(format)
     val titleLines = 2
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val window = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
-    val wideWindow = with(density) {
-        app.reelstack.ui.layout.WindowLayoutPolicy(window.width.toDp().value, window.height.toDp().value).useTabletCanvas
-    }
-    val inline = compact && (isTelevision() || LocalTabletCanvas.current || wideWindow) && density.fontScale < 1.6f
     val railState = androidx.compose.foundation.lazy.rememberLazyListState()
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     val nextActions = actions.withoutResumeRemoval()
@@ -993,7 +998,7 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
         itemsIndexed(items, key = { _, media -> "resume-${media.id}" }) { index, media ->
             ResumeCard(media, titleLines, revealDelay = index.coerceAtMost(2) * 30,
                 actions = if (resumeIds == null || media.id in resumeIds) actions else nextActions,
-                wide = chosenWide, showSeriesYear = resumeIds == null, compact = inline) { onClick(media.id) }
+                wide = chosenWide, showSeriesYear = resumeIds == null) { onClick(media.id) }
         }
     }
 }
@@ -1136,12 +1141,10 @@ data class MediaCardActions(
 @Composable
 private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
     actions: MediaCardActions? = null, wide: Boolean, showSeriesYear: Boolean = true,
-    compact: Boolean = false, onClick: () -> Unit) {
-    val artworkHeight = (if (compact) 72.dp else ReelLayout.EpisodeHeight) *
-        app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
+    onClick: () -> Unit) {
+    val artworkHeight = ReelLayout.EpisodeHeight * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
     val frameRatio = if (wide) 16f / 9f else 2f / 3f
-    val cardWidth = if (compact) 340.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale
-        else artworkHeight * frameRatio
+    val cardWidth = artworkHeight * frameRatio
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
@@ -1189,14 +1192,8 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
                 titleModifier = Modifier.testTag("resume-title-${media.id}"),
                 subtitleModifier = Modifier.testTag("resume-subtitle-${media.id}"))
         }
-        if (compact) Row(Modifier.testTag("compact-resume-${media.id}"),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.width(artworkHeight * frameRatio)) { artwork() }
-            Column(Modifier.weight(1f)) { caption() }
-        } else {
-            artwork()
-            Column(Modifier.padding(top = 9.dp)) { caption() }
-        }
+        artwork()
+        Column(Modifier.padding(top = 9.dp)) { caption() }
     }
 }
 

@@ -393,6 +393,7 @@ class ReelstackViewModel(
     fun filterLibrary(filters: app.reelstack.data.model.LibraryFilters) = features.library.filterLibrary(filters)
     fun openLibraryEntry(id: String) = features.library.openLibraryEntry(id)
     fun openLibraryShortcut(id: String) = features.library.openLibraryShortcut(id)
+    fun loadMenuLibraries() = features.library.loadMenuLibraries()
     fun openSeasonShelf(season: app.reelstack.data.model.Season) = features.shelves.openSeasonShelf(season)
     fun openSmartShelf(id: String) = features.shelves.openSmartShelf(id)
     fun openSmartShelfEditor(id: String? = null, template: String? = null) = features.shelves.openSmartShelfEditor(id, template)

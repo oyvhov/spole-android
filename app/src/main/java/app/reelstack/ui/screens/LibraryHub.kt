@@ -22,6 +22,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.Dp
+import app.reelstack.ui.components.fadeUnderMenuLine
+import app.reelstack.ui.components.softTopEdge
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import app.reelstack.R
@@ -36,7 +39,9 @@ import app.reelstack.ui.theme.*
 internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     onTitle: (String) -> Unit, actions: MediaCardActions?, onRetry: () -> Unit,
     onCustomize: () -> Unit = {}, sourcePicker: @Composable () -> Unit = {}, list: LazyListState = rememberLazyListState(),
-    returnTo: String? = null, onReturned: () -> Unit = {}, onLeave: (String) -> Unit = {}) {
+    returnTo: String? = null, onReturned: () -> Unit = {}, onLeave: (String) -> Unit = {},
+    /** How far the television's menu line reaches down. */
+    topInset: Dp = 0.dp) {
     val options = LocalPersonalization.current
     val shelfActions = app.reelstack.ui.components.LocalSmartShelfActions.current
     val today = remember { java.time.LocalDate.now() }
@@ -77,6 +82,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     val hero: @Composable () -> Unit = {
         TabletLibraryFeature(featured.first(), onTitle,
             modifier = if (tv) Modifier.cinematicBleed(gutter) else Modifier, candidates = featured.take(5),
+            topInset = if (leadingHero) topInset else 0.dp,
             account = if (leadingHero) sourcePicker else null,
             rotationEnabled = list.layoutInfo.visibleItemsInfo.any { it.key == "feature" } && state.activeSheet == null,
             onFocusWithin = { focused -> if (tv && focused) scope.launch {
@@ -88,7 +94,11 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     // Keep the TV safe edge outside the scroll viewport. Content padding only appears after
     // scrolling to the very end, so the last visible shelf could still sit against the bezel.
     LazyColumn(state = list, modifier = Modifier.fillMaxSize()
-        .padding(bottom = if (tv) ReelLayout.TvSafeEdge else 0.dp)
+        .padding(top = if (leadingHero) 0.dp else topInset, bottom = if (tv) ReelLayout.TvSafeEdge else 0.dp)
+        .then(if (topInset <= 0.dp) Modifier else if (!leadingHero) Modifier.softTopEdge()
+            else Modifier.fadeUnderMenuLine(topInset) {
+                if (list.firstVisibleItemIndex > 0) Float.MAX_VALUE else list.firstVisibleItemScrollOffset.toFloat()
+            })
         .testTag("library-hub"),
         contentPadding = PaddingValues(start = gutter, end = gutter, top = if (leadingHero) 0.dp else 20.dp,
             bottom = if (tv) 0.dp else 32.dp),
@@ -129,7 +139,7 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
         if (!leadingHero && section == "FEATURE" && large && featured.isNotEmpty()) item("feature") { hero() }
         if (section == "LIBRARY_NEXT" && nextItems.isNotEmpty()) item("next") {
             HubShelf(stringResource(R.string.library_next)) {
-                ResumeRail(nextItems, onTitle, actions, resumeIds = resume.map { it.id }.toSet(), compact = true)
+                ResumeRail(nextItems, onTitle, actions, resumeIds = resume.map { it.id }.toSet())
             }
         }
         if (section == "FAVOURITES" && state.favourites.any { it.source == state.librarySource }) item("favourites") {
