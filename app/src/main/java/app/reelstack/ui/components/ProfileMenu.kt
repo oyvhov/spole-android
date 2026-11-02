@@ -276,7 +276,7 @@ private fun ProfileOrb(profile: UserProfile, selected: Boolean) {
             modifier = Modifier
                 .size(if (selected) 56.dp else 50.dp)
                 .clip(CircleShape)
-                .background(SurfaceRaised)
+                .background(profileBackground(profile.name))
                 .then(if (selected) Modifier.border(2.5.dp, Primary, CircleShape) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
@@ -290,7 +290,7 @@ private fun ProfileOrb(profile: UserProfile, selected: Boolean) {
             } else {
                 val initial = profile.name.trim().firstOrNull()?.uppercase()
                 if (initial != null) {
-                    Text(initial, color = Primary, fontSize = 22.sp, lineHeight = 26.sp)
+                    Text(initial, color = ProfileLetter, fontSize = 22.sp, lineHeight = 26.sp)
                 } else {
                     Icon(SpoleIcons.Person, contentDescription = null, tint = Muted, modifier = Modifier.size(22.dp))
                 }
