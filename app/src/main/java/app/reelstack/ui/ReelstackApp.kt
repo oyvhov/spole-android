@@ -163,8 +163,11 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     val startupRevealed = LocalStartupRevealed.current
     // A fresh presentation on return to Home or after a session change. Loading and recomposition
     // within the same page keep the epoch, so scrolling never replays an entrance.
-    val homePresentSince = remember(startupRevealed, state.sessionScope, state.selectedTab) {
-        android.os.SystemClock.uptimeMillis().takeIf { startupRevealed && state.selectedTab == AppTab.HOME }
+    // During a profile switch the rows are held until the picked picture has landed in the corner.
+    val switchMotion = viewModel.profileSwitchMotion
+    val homePresentSince = remember(startupRevealed, state.sessionScope, state.selectedTab, switchMotion.holding, switchMotion.landedAt) {
+        if (switchMotion.holding) null
+        else android.os.SystemClock.uptimeMillis().takeIf { startupRevealed && state.selectedTab == AppTab.HOME }
     }
     var appReadyForBackgroundWork by remember { mutableStateOf(false) }
     // Built once and handed to every rail that shows library cards, so a title offers the same

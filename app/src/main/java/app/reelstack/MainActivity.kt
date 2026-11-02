@@ -95,6 +95,9 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     app.reelstack.ui.components.LocalOpenSeasonShelf provides reelstackViewModel::openSeasonShelf,
                     app.reelstack.ui.components.LocalSmartShelfActions provides shelfActions,
                 ) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    app.reelstack.ui.LocalProfileSwitchMotion provides reelstackViewModel.profileSwitchMotion,
+                ) {
                 app.reelstack.ui.StartupReveal(reelstackViewModel) {
                     // Kids mode is a separate shell beside the adult app, not a condition inside
                     // it: no rail, no tabs, no adult detail sheet. Branching here keeps that
@@ -112,6 +115,9 @@ class MainActivity : app.reelstack.localization.LocalizedActivity() {
                     }
                 }
                 }
+                }
+                // The picked picture on its way to the corner, above whichever shell is current.
+                app.reelstack.ui.ProfileFlightLayer(reelstackViewModel.profileSwitchMotion)
                 // Over everything and touching nothing; see SpoleEggs.
                 app.reelstack.ui.components.SpoleRewindOverlay()
                 }

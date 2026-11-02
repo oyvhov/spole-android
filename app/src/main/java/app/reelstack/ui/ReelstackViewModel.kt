@@ -55,6 +55,8 @@ class ReelstackViewModel(
     private var boundSession = container.connectionRepository.captureSession()
     private var committingSession = false
     private var signOutJob: Job? = null
+    /** The picked picture flying to the corner on a profile switch; see [ProfileSwitchMotion]. */
+    val profileSwitchMotion = ProfileSwitchMotion(viewModelScope)
     private var features = newFeatures()
 
     private fun newFeatures() = ReelstackFeatures(
@@ -64,6 +66,7 @@ class ReelstackViewModel(
         synchronizeSession = ::synchronizeSession,
         switchProfile = ::switchProfileNow, commitConnections = ::commitConnections, onConnected = ::onConnected,
         remoteDetails = remoteDetailsLoader,
+        switchMotion = profileSwitchMotion,
     )
 
     init {
@@ -448,7 +451,8 @@ class ReelstackViewModel(
     fun selectKidsSeason(seasonId: String) = features.kids.selectKidsSeason(seasonId)
     fun closeKidsSeries() = features.kids.closeKidsSeries()
     fun openProfileSwitcher() = features.profiles.openProfileSwitcher()
-    fun selectProfile(profile: app.reelstack.data.model.UserProfile) = features.profiles.selectProfile(profile)
+    fun selectProfile(profile: app.reelstack.data.model.UserProfile, motionWanted: Boolean = true) =
+        features.profiles.selectProfile(profile, motionWanted)
     fun createOwnProfile(kind: ServiceKind, name: String, avatarUrl: String?) = features.profiles.createOwnProfile(kind, name, avatarUrl)
     fun submitPin(pin: String, targetProfileId: String, isSetup: Boolean) {
         synchronizeSession()

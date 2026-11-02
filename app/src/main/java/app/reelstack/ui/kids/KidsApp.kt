@@ -619,6 +619,7 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
 
     // Falls out of the account picture in the corner, the same motion as the adult app.
     if (sheet is AppSheet.ProfileSwitcher) {
+        val motionWanted = app.reelstack.ui.theme.LocalMotionEnabled.current
         ProfileMenu(
             profiles = state.profiles,
             activeProfileId = state.activeProfileId,
@@ -627,7 +628,7 @@ private fun KidsSheets(sheet: AppSheet?, viewModel: ReelstackViewModel) {
                 ?.displayName,
             mainAccountAvatarUrl = (state.accounts[ServiceKind.EMBY] ?: state.accounts[ServiceKind.JELLYFIN])
                 ?.avatarUrl,
-            onSelectProfile = viewModel::selectProfile,
+            onSelectProfile = { viewModel.selectProfile(it, motionWanted) },
             onOpenSettings = { },
             onDeleteProfile = { },
             onDismiss = viewModel::closeSheet,

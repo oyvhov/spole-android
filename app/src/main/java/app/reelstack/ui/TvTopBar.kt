@@ -40,6 +40,7 @@ import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.settingsSurface
 import app.reelstack.ui.theme.SpoleMotion
 import app.reelstack.ui.theme.motionTween
+import app.reelstack.ui.components.profileFlightTarget
 
 /** The page does not repeat the corner actions when the television's menu already carries them. */
 internal val LocalTopBarCarriesAccount = compositionLocalOf { false }
@@ -113,7 +114,7 @@ internal fun TvTopBar(
             val accountDescription = stringResource(R.string.profile_switch_title)
             IconButton(onClick = onAccount, enabled = visible, interactionSource = interaction,
                 modifier = Modifier.size(48.dp).focusOutline(interaction, androidx.compose.foundation.shape.CircleShape)
-                    .testTag("tv-top-account").semantics { contentDescription = accountDescription }) {
+                    .profileFlightTarget().testTag("tv-top-account").semantics { contentDescription = accountDescription }) {
                 AccountAvatar(account, connection, Modifier.size(40.dp))
             }
         }

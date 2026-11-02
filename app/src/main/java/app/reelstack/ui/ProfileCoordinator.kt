@@ -28,6 +28,8 @@ internal class ProfileCoordinator(
     private val pinSecurity: app.reelstack.data.security.PinSecurity,
     private val switchProfileNow: (String) -> Unit,
     private val closeSheet: () -> Unit,
+    /** Owned by the view model: the flight outlives the features the switch tears down. */
+    private val switchMotion: ProfileSwitchMotion? = null,
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
 ) {
     fun loadProfiles() {
@@ -50,6 +52,8 @@ internal class ProfileCoordinator(
         profile: UserProfile,
         onSwitchSuccess: (profileId: String) -> Unit,
         onPromptPin: (targetProfileId: String, isSetup: Boolean) -> Unit,
+        /** Wraps the whole switch, not only its callback: the active profile changes inside it. */
+        perform: (switch: () -> Unit) -> Unit = { it() },
     ) {
         val currentActive = connectionRepository.activeProfileId
         if (profile.id == currentActive) {
@@ -70,7 +74,7 @@ internal class ProfileCoordinator(
             }
         }
 
-        switchProfileGuarded(profile.id, onSwitchSuccess)
+        perform { switchProfileGuarded(profile.id, onSwitchSuccess) }
     }
 
     private fun switchProfileGuarded(profileId: String, onSwitchSuccess: (profileId: String) -> Unit) {
@@ -155,7 +159,7 @@ internal class ProfileCoordinator(
         }
     }
 
-    fun selectProfile(profile: app.reelstack.data.model.UserProfile) {
+    fun selectProfile(profile: app.reelstack.data.model.UserProfile, motionWanted: Boolean = true) {
         val currentActive = connectionRepository.activeProfileId
         if (profile.id == currentActive) {
             closeSheet()
@@ -171,6 +175,11 @@ internal class ProfileCoordinator(
                         activeSheet = AppSheet.PinPrompt(targetProfileId = targetProfileId, isSetup = isSetup),
                     )
                 }
+            },
+            // The menu goes at once; the switch follows inside the flight, or now when nothing flies.
+            perform = { switch ->
+                val motion = switchMotion
+                if (motion == null) switch() else { closeSheet(); motion.switch(motionWanted, switch) }
             },
         )
     }

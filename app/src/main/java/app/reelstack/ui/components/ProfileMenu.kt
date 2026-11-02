@@ -46,6 +46,12 @@ import app.reelstack.ui.theme.*
 import coil3.compose.AsyncImage
 import app.reelstack.ui.theme.SpoleMotion
 import app.reelstack.ui.theme.motionTween
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
+import androidx.compose.ui.unit.toSize
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /**
  * Profiles fall out of the account picture rather than arriving as a sheet from the bottom.
@@ -68,6 +74,8 @@ fun ProfileMenu(
     mainAccountName: String? = null,
     mainAccountAvatarUrl: String? = null,
     onSelectProfile: (UserProfile) -> Unit,
+    /** The picked profile and its circle's bounds on the screen, just before [onSelectProfile]. */
+    onPicked: (UserProfile, Rect) -> Unit = { _, _ -> },
     onOpenSettings: () -> Unit,
     onDeleteProfile: (UserProfile) -> Unit,
     onDismiss: () -> Unit,
@@ -139,6 +147,7 @@ fun ProfileMenu(
                                 selected = profile.id == activeProfileId,
                                 canDelete = !isKidMode && activeProfileId.isBlank() && !profile.isMain,
                                 onClick = { onSelectProfile(profile) },
+                                onPicked = { bounds -> onPicked(resolved, bounds) },
                                 onDelete = { onDeleteProfile(profile) },
                             )
                         }
@@ -183,10 +192,13 @@ private fun ProfileMenuRow(
     canDelete: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onPicked: (Rect) -> Unit = {},
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(18.dp)
+    // The menu is its own window, so the circle reports where it is on the screen, not in a root.
+    var orb by remember { mutableStateOf<Rect?>(null) }
 
     Row(
         modifier = Modifier
@@ -199,13 +211,14 @@ private fun ProfileMenuRow(
                 role = Role.RadioButton,
                 interactionSource = interaction,
                 indication = null,
-                onClick = onClick,
+                onClick = { orb?.let(onPicked); onClick() },
             )
             .padding(horizontal = 12.dp, vertical = 8.dp)
             .testTag("profile-row-${if (profile.isMain) "main" else profile.id}"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ProfileOrb(profile = profile, selected = selected)
+        ProfileOrb(profile = profile, selected = selected,
+            modifier = Modifier.onGloballyPositioned { orb = Rect(it.positionOnScreen(), it.size.toSize()) })
 
         Spacer(Modifier.width(14.dp))
 
@@ -268,9 +281,9 @@ private fun ProfileMenuRow(
  * kid's one accent and nothing beyond it.
  */
 @Composable
-private fun ProfileOrb(profile: UserProfile, selected: Boolean) {
+private fun ProfileOrb(profile: UserProfile, selected: Boolean, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier.size(56.dp),
+        modifier = modifier.size(56.dp),
         contentAlignment = Alignment.Center,
     ) {
         Box(
