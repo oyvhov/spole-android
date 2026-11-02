@@ -63,14 +63,16 @@ internal fun trackKey(label: String, language: String?, codec: String?, forced: 
         label.lowercase().replace(Regex("\\s+"), " ").trim(), forced.toString()).joinToString("|")
 
 /**
- * A stretch of the file the server has marked: the title sequence, or the closing credits.
+ * A stretch of the file the server has marked: the title sequence, the closing credits, the
+ * "previously on" before them or the "next time" after.
  *
  * Jellyfin 10.10 answers for this itself; before that the Intro Skipper plugin did, in seconds and
  * under a different address. Both are asked for, because a household that added the plugin years
- * ago should not lose the one feature they installed it for by upgrading the app.
+ * ago should not lose the one feature they installed it for by upgrading the app. Emby only knows
+ * the intro and the credits. Commercials are marked too, but nobody skips those in a film at home.
  */
 data class PlaybackSegment(val kind: Kind, val startMs: Long, val endMs: Long) {
-    enum class Kind { INTRO, OUTRO }
+    enum class Kind { INTRO, OUTRO, RECAP, PREVIEW }
 }
 
 /**
@@ -317,11 +319,14 @@ class MediaPlaybackClient(
             embyPlaybackSegments(read(c, "Users/${enc(user)}/Items/${enc(itemId)}?Fields=Chapters"))
         }.getOrDefault(emptyList())
         val modern = runCatching {
-            read(c, "MediaSegments/${enc(itemId)}?includeSegmentTypes=Intro&includeSegmentTypes=Outro")
+            read(c, "MediaSegments/${enc(itemId)}?" + listOf("Intro", "Outro", "Recap", "Preview")
+                .joinToString("&") { "includeSegmentTypes=$it" })
         }.getOrNull()?.objects("Items")?.mapNotNull { entry ->
             val kind = when (entry.str("Type").lowercase()) {
                 "intro" -> PlaybackSegment.Kind.INTRO
                 "outro", "credits" -> PlaybackSegment.Kind.OUTRO
+                "recap" -> PlaybackSegment.Kind.RECAP
+                "preview" -> PlaybackSegment.Kind.PREVIEW
                 else -> return@mapNotNull null
             }
             val start = (entry.num("StartTicks") ?: return@mapNotNull null) / 10_000

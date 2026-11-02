@@ -36,6 +36,8 @@
     <string name="detail_next_to_play">Next to play</string>
     <string name="player_skip_intro">Skip intro</string>
     <string name="player_skip_outro">Skip credits</string>
+    <string name="player_skip_recap">Skip recap</string>
+    <string name="player_skip_preview">Skip preview</string>
     <plurals name="detail_more_episodes">
         <item quantity="one">%1$d more episode</item>
         <item quantity="other">%1$d more episodes</item>

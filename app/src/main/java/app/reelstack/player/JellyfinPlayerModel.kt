@@ -839,10 +839,19 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         choose(next)
     }
 
-    /** Jumps past the title sequence or into the next episode's slot at the end of the credits. */
+    /**
+     * Does what the button on screen says: jumps past the marked stretch, or, when the credits run
+     * to the end of the file, leaves for the next episode.
+     *
+     * The button was visible to be pressed, so the rule that hides it behind the controls cannot
+     * have applied; asking with the controls shown gives the same action either way.
+     */
     fun skipSegment() {
-        val segment = state.value.activeSegment() ?: return
-        seek(segment.endMs)
+        when (val action = state.value.segmentOffer(controlsVisible = true)?.action) {
+            is SegmentAction.Skip -> seek(action.targetMs)
+            SegmentAction.NextEpisode -> playNext()
+            null -> Unit
+        }
     }
 
     /** Keeps the player where it is. The offer stays on screen; only the clock stops. */
