@@ -1,3 +1,10 @@
+# Spole 1.0.0-beta33: Oppdag for Stova
+2026-11-02, eigaren: «commit og lag nye versjoner av begge» (Spole og Stova). `launcher-discover` er
+spolt fram på `main` og gitt ut som 1.0.0-beta33 (170): stiane `discover…`, kalla
+`discover_request`/`discover_withdraw` og `spole://discover`, som Oppdag i Stova 0.2.0 byggjer på.
+Beta32 (169) var eit lokalt testbygg på Loftet; difor beta33. Sjå `VERIFICATION_v1.0.0-beta33.md`.
+Android-testane på 5562/5566 er ikkje køyrde (eigaren: berre ekte einingar no).
+
 # Beta31: rørslespråk, profilflukt, toppmeny og Swiftly-punkta 1–7
 2026-11-02: Claude tok over att frå Codex (`1152599`), bygde profilflukta (`d96bc8a`) og fletta inn
 fire parallelle agentgreiner: seriesida (`1d8f002`), spelaren (`932b18e`…`a81f2c6`), kosmetikken

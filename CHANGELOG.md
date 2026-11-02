@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta33 — Oppdag i Stova
+
+- Stova kan vise Oppdag frå Seerr med Spole si Seerr-innlogging, så Stova treng ingen Seerr-konto sjølv: aktuelle titlar, kommande filmar og seriar, tittelsida med sesongar og liknande titlar, og søk.
+- Stova kan be om ein tittel og trekkje tilbake ein førespurnad gjennom Spole, som personen. Spole følgjer førespurnaden etterpå, med varsel.
+- `spole://discover` opnar ein Seerr-tittel i Oppdag i Spole, også når Stova startar Spole frå kald. Ei rad som blir lasta seinare, går føre plasshaldaren.
+- Oppdag er berre for vaksne profilar. Ei lenkje til ein barnekonto seier no «Oppdag er berre for vaksne profilar.», ikkje at Spole er i barnemodus.
+- Ingen token eller Seerr-adresse går over til Stova; bileta kjem rett frå TMDB.
+- Versjonsnamnet beta32 gjekk til eit lokalt testbygg og blir hoppa over.
+
 ## 1.0.0-beta31 — eitt rørslespråk, toppmeny på TV og profilbyte som ei rørsle
 
 - Heile appen rører seg likt: fem faste lengder for fokus, endring, ark, landing og sidebyte. Med redusert rørsle tonar alt på 100 ms i staden for å kutte.
