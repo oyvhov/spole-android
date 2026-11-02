@@ -3,12 +3,14 @@
 1. november 2026. Bygd oppå beta30. Idéane kjem frå Swiftly Player (MPL-2.0); tal og åtferd er
 lånte, koden er skriven her.
 
-## Status 2. november, overlevering kl. 00:50
+## Status 2. november 2026: ferdig til beta31
 
-Rørslespråket vart ferdig i `fd03154`. Codex har vidareført hopp-knappen, inngangen til
-heimradene og den valfrie toppmenyen på TV. Profilflukta og koplinga til landing står att,
-og beta31 er ikkje gitt ut. Sjå [overleveringa](HANDOFF_CODEX_2026-11-02.md) for testbevis,
-implementasjonsavvik og neste steg. Resten av dokumentet er den opphavlege planen.
+Alt i planen er bygt: rørslespråket (`fd03154`), hopp-knappen, radinngangen og toppmenyen
+(Codex, sjå [overleveringa](HANDOFF_CODEX_2026-11-02.md)), og profilflukta (`d96bc8a`,
+`ui/ProfileSwitchMotion.kt` og `ui/ProfileFlightLayer.kt`). Avvik frå planen under 3: flukta
+startar frå menyen sin eigen `Popup`, så rada melder skjermkoordinatar som laget reknar om; utan
+kjent sirkel, med redusert rørsle, via PIN eller frå Stova er det berre vanleg byte. Testbevis
+står i `VERIFICATION_v1.0.0-beta31.md`. Resten av dokumentet er den opphavlege planen.
 
 ## Kvifor
 

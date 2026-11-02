@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.0-beta31 — eitt rørslespråk, toppmeny på TV og profilbyte som ei rørsle
+
+- Heile appen rører seg likt: fem faste lengder for fokus, endring, ark, landing og sidebyte. Med redusert rørsle tonar alt på 100 ms i staden for å kutte.
+- Radene på Heim kjem inn éi og éi, ovanfrå og ned, når innhaldet er klart: etter oppstartsbiletet, når du kjem tilbake til Heim, og etter profilbyte.
+- Profilbyte frå menyen i hjørnet: biletet du vel, glir opp til profilsirkelen og landar der; det gamle innhaldet forsvinn med ein gong, og det nye kjem inn i tur og orden.
+- TV: «Meny» under Utsjånad har fått eit tredje val, Toppmeny: Spole-merket, Heim, dei festa biblioteka og smarthyllene, Oppdag og Søk på éi line øvst, med profilsirkelen til høgre. Innstillingar ligg bak profilsirkelen. Opp frå innhaldet går til lina, Ned går attende.
+- Søk på TV har eit eige tastatur ved sida av treffa, så systemtastaturet ikkje lenger dekkjer resultata. Tilbake frå treffa går til siste tast, ikkje ut av søket.
+- Søk er rolegare: gamle treff står til nye kjem, eigen tenar viser treff før Seerr svarar, og eit ord hamnar i historikken først når du går inn i resultata.
+- Spelaren hoppar òg over resymé og førehandsvising. Knappen står i 6 sekund og så berre medan kontrollane er framme. Rulletekst som går heilt til slutt gir «Neste episode» i staden for eit hopp til svart. OK på hopp-knappen på TV hoppar no, i staden for å pause.
+- Lyd- og undertekstval blir hugsa per serie, òg «av», og følgjer deg til neste episode. Eit val på tittelsida vinn framleis.
+- Seriesida: episoderada på TV opnar på neste episode, og sesongbyte held høgda med plasshaldarar i staden for å tømme lista.
+- Éin framdriftsline overalt: 4 dp, kvitt spor, aksentfyll.
+- Varsel- og åtvaringsfargane følgjer aksenten, så ein feil ser aldri ut som eit val i jule- og haustpalettane. Profilar utan bilete får kvar sin farge frå namnet. Tekst over bilete er heiltdekkjande i staden for halvgjennomsiktig, og plasshaldaren for bilete følgjer temaet.
+
 ## 1.0.0-beta30 — Stova får radene, handlingane og spelestatusen
 
 - Stova kan vise radene til ein Spole-person: ein Stova-profil som følgjer ein person i Spole og ikkje har eigen konto der, får «Hald fram», nye filmar og nye seriar frå Spole, henta med Spole si innlogging (til dømes Eilev sine Emby-rader utan passordet hans i Stova). Radene har aldersgrensa med, så Stova sin hero held seg innanfor alderen til profilen, og nye episodar av same serie er eitt kort.
