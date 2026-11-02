@@ -1161,15 +1161,9 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
                     url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode),
                     contentDescription = null, frameRatio = frameRatio, fallbackRes = media.artworkRes,
                     source = media.source, modifier = Modifier.fillMaxSize(), fitMismatched = false)
-                // Stova's progress: a 4 dp line in the accent and nothing behind it. The other
-                // focus styles keep the white line on its dark track.
-                val lifted = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle == app.reelstack.data.model.FocusStyle.LIFT
-                if (percent > 0) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(if (lifted) 4.dp else 3.dp)
-                    .then(if (lifted) Modifier else Modifier.background(Color.Black.copy(alpha = .55f)))
-                    .testTag("resume-progress-${media.id}")) {
-                    Box(Modifier.fillMaxWidth((media.progress ?: 0f).coerceIn(0f, 1f)).fillMaxHeight()
-                        .background(if (lifted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface))
-                }
+                // The same bar as every other card, whichever focus style is chosen.
+                if (percent > 0) app.reelstack.ui.components.WatchProgressBar(media.progress ?: 0f,
+                    Modifier.align(Alignment.BottomStart).testTag("resume-progress-${media.id}"))
             }
         }
         val caption: @Composable () -> Unit = {
@@ -1465,9 +1459,8 @@ private fun IncomingRow(media: IncomingMedia, onClick: () -> Unit) {
                 Text(media.status, color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(start = 6.dp))
             }
             media.progress?.let { progress ->
-                Box(Modifier.fillMaxWidth().padding(top = 8.dp).height(4.dp).clip(CircleShape).background(SurfaceRaised)) {
-                    Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).height(4.dp).background(Primary))
-                }
+                // A download, in a row and away from any artwork edge: the same bar, as a capsule.
+                app.reelstack.ui.components.WatchProgressBar(progress / 100f, Modifier.padding(top = 8.dp), round = true)
             }
         }
         Icon(app.reelstack.ui.components.SpoleIcons.ChevronRight, contentDescription = null, tint = app.reelstack.ui.theme.Muted, modifier = Modifier.size(17.dp))

@@ -30,7 +30,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -344,15 +343,7 @@ private fun MobileHeroPage(
 
                 val progress = title.progress ?: 0f
                 if (progress > 0f) {
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth(0.48f)
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(1.5.dp)),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        trackColor = Color.White.copy(alpha = 0.25f),
-                    )
+                    WatchProgressBar(progress, Modifier.fillMaxWidth(0.48f), round = true)
                 }
               }
              } }
