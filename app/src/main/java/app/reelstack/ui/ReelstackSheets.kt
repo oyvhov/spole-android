@@ -118,6 +118,7 @@ import app.reelstack.data.model.IncomingState
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.model.UpcomingMedia
 import app.reelstack.data.model.canRequestType
+import app.reelstack.ui.theme.Caution
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
@@ -2016,7 +2017,7 @@ private fun connectionChipColors() = FilterChipDefaults.filterChipColors(
 
 @Composable
 private fun MessageCard(text: String, warning: Boolean) {
-    val accent = if (warning) Color(0xFFFFBE69) else Warning
+    val accent = if (warning) Caution else Warning
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = accent.copy(alpha = 0.1f),
