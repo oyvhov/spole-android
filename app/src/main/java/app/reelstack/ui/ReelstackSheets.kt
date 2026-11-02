@@ -903,8 +903,8 @@ private fun TitleActionRow(
     val offlineAllowed = !television && !state.isKidMode && offlineTarget?.remoteId != null &&
         offlineTarget.source in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
     val seriesDownload = details.mediaType.equals("Series", true)
-    val seriesEpisodes = remember(state.seriesBrowse.openedFor, state.seriesBrowse.nextUp, state.seriesBrowse.episodes) {
-        listOfNotNull(resumeTarget(state.seriesBrowse)) + state.seriesBrowse.episodes
+    val seriesEpisodes = remember(state.seriesBrowse.openedFor, state.seriesBrowse.nextUp, state.seriesBrowse.currentEpisodes) {
+        listOfNotNull(resumeTarget(state.seriesBrowse)) + state.seriesBrowse.currentEpisodes
     }.distinctBy { it.remoteId ?: it.id }.filter { it.remoteId != null }
     var chooseEpisode by remember(details.key) { mutableStateOf(false) }
     var seriesDownloadNotice by remember(details.key) { mutableStateOf<Int?>(null) }

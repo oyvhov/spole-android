@@ -472,17 +472,27 @@ internal class DetailsCoordinator(
         }
     }
 
-    /** Opens one season. The seasons themselves stay put; only the episode list changes. */
+    /**
+     * Opens one season. The seasons themselves stay put; only the episode list changes.
+     *
+     * The episodes of the season being left are not thrown away while the new ones load. They stay
+     * in [app.reelstack.data.model.SeriesBrowse.episodes], flagged as stale, so the list is never
+     * empty in between: an empty list is a one-line spinner, and the cast row below used to jump up
+     * and down again around every season change. The screen shows placeholders of the old height
+     * for as long as the flag is set, and nothing that picks an episode to play reads stale ones.
+     */
     fun selectSeason(seasonId: String) {
         val state = _uiState.value
         val browse = state.seriesBrowse
-        if (browse.seriesId.isBlank() || browse.selectedSeasonId == seasonId && browse.episodes.isNotEmpty()) return
+        if (browse.seriesId.isBlank() ||
+            browse.selectedSeasonId == seasonId && !browse.episodesStale && browse.episodes.isNotEmpty()) return
         val connection = state.connections.firstOrNull {
             it.kind == state.contentDetails?.source && it.token.isNotBlank()
         } ?: return
         val seriesId = browse.seriesId
         episodesJob?.cancel()
-        _uiState.update { it.copy(seriesBrowse = it.seriesBrowse.copy(selectedSeasonId = seasonId, episodes = emptyList(), loading = true, upcomingError = null)) }
+        _uiState.update { it.copy(seriesBrowse = it.seriesBrowse.copy(selectedSeasonId = seasonId,
+            episodesStale = it.seriesBrowse.episodes.isNotEmpty(), loading = true, upcomingError = null)) }
         episodesJob = operationScope.launch {
             val loaded = runCatching {
                 withContext(ioDispatcher) { mediaSyncRepository.episodes(connection, seriesId, seasonId) }
@@ -492,7 +502,8 @@ internal class DetailsCoordinator(
                 if (it.seriesBrowse.seriesId != seriesId || it.seriesBrowse.selectedSeasonId != seasonId) it
                 else it.copy(seriesBrowse = it.seriesBrowse.copy(
                     episodes = app.reelstack.data.model.orderedSeasonEpisodes(loaded.getOrDefault(emptyList()),
-                        browse.seasons.firstOrNull { season -> season.remoteId == seasonId }?.episode), loading = false,
+                        browse.seasons.firstOrNull { season -> season.remoteId == seasonId }?.episode),
+                    episodesStale = false, loading = false,
                     error = if (loaded.isFailure) appContext.getString(R.string.detail_episodes_failed) else null,
                 ))
             }
