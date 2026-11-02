@@ -55,6 +55,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.res.stringResource
+import app.reelstack.ui.theme.ArtworkTextSecondary
 import app.reelstack.ui.theme.LocalTabletCanvas
 import app.reelstack.ui.components.TabletLibraryFeature
 import app.reelstack.ui.components.cinematicBleed
@@ -812,7 +813,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             }
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 54.dp)) {
-            Text(media.metadata, color = Color.White.copy(alpha = .78f), fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(media.metadata, color = ArtworkTextSecondary, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(media.title, color = Color.White, fontSize = 17.sp, lineHeight = 20.sp,
                 fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp))
@@ -1377,10 +1378,10 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
             Text(if (recent) {
                 if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_new_movie) else stringResource(R.string.media_new_episode)
             } else if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_home_release) else stringResource(R.string.media_new_episode),
-                color = Color.White.copy(alpha = .8f), fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                color = ArtworkTextSecondary, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text(media.title, color = Color.White, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
-            Text(app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle), color = Color.White.copy(alpha = .85f),
+            Text(app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle), color = ArtworkTextSecondary,
                 fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
         }
     }

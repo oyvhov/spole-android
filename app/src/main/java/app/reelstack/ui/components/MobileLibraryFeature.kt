@@ -73,6 +73,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import app.reelstack.R
 import app.reelstack.data.model.LibraryMedia
+import app.reelstack.ui.theme.ArtworkTextSecondary
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.LocalMotionEnabled
 import app.reelstack.ui.theme.Primary
@@ -331,7 +332,7 @@ private fun MobileHeroPage(
                 if (episodeInfo.isNotBlank()) {
                     Text(
                         text = episodeInfo,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = ArtworkTextSecondary,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

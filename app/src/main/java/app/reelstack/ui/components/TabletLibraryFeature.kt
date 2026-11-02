@@ -58,6 +58,8 @@ import app.reelstack.R
 import app.reelstack.data.model.HomeSection
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.ui.theme.ArtworkTextQuiet
+import app.reelstack.ui.theme.ArtworkTextSecondary
 import app.reelstack.ui.theme.Ink
 import app.reelstack.ui.theme.LocalPersonalization
 import app.reelstack.ui.theme.Muted
@@ -382,7 +384,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             if (!compactTelevision && numbers.isNotBlank()) Text(
                 numbers,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
-                color = Color.White.copy(alpha = .72f),
+                color = ArtworkTextSecondary,
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.testTag("hero-episode-number"),
             )
@@ -391,11 +393,11 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             val name = readableMediaText(episodeTitle(title.subtitle, title.episode)).orEmpty()
             val episodeCaption = if (compactTelevision) listOf(numbers, name).filter(String::isNotBlank).joinToString(" · ") else name
             if (episodeCaption.isNotBlank()) Text(episodeCaption,
-                color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
+                color = ArtworkTextSecondary, style = MaterialTheme.typography.bodyMedium,
                 maxLines = if (compactTelevision) 1 else 2,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("hero-episode-info"))
             HeroMetadataRow(title, interactive = incoming)
-            readableMediaText(title.overview)?.let { overview -> Text(overview, color = Color.White.copy(alpha = .78f),
+            readableMediaText(title.overview)?.let { overview -> Text(overview, color = ArtworkTextSecondary,
                 fontSize = if (compactTelevision) 13.sp else 14.sp,
                 lineHeight = if (compactTelevision) 17.sp else 20.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -508,7 +510,7 @@ internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
         if (hasRatings) {
             title.tmdbRating?.let { TmdbRating(it, Modifier.testTag("hero-tmdb-rating")) }
             title.criticRating?.let { RottenTomatoesRating(it, Modifier.testTag("hero-critic-rating")) }
-            community?.let { Text(it, color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodyMedium,
+            community?.let { Text(it, color = ArtworkTextSecondary, style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1, modifier = Modifier.testTag("hero-community-rating")) }
             title.mdblistRating?.let {
                 Text("MDBList ${"%.1f".format(java.util.Locale.ROOT, it / 10f)}", color = Muted,
@@ -518,7 +520,7 @@ internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
         if (hasRatings && facts.isNotEmpty()) HeroMetadataDot()
         facts.forEachIndexed { index, fact ->
             if (index > 0) HeroMetadataDot()
-            Text(fact, color = Color.White.copy(alpha = .68f), style = MaterialTheme.typography.labelMedium,
+            Text(fact, color = ArtworkTextQuiet, style = MaterialTheme.typography.labelMedium,
                 maxLines = 1)
         }
     }
@@ -526,7 +528,7 @@ internal fun HeroMetadataRow(title: LibraryMedia, interactive: Boolean = true) {
 
 @Composable
 private fun HeroMetadataDot() {
-    Text("·", color = Color.White.copy(alpha = .35f), style = MaterialTheme.typography.labelMedium)
+    Text("·", color = ArtworkTextQuiet, style = MaterialTheme.typography.labelMedium)
 }
 
 /** Minutes left of a title part-way through; nothing before it is started or once it is nearly done. */
