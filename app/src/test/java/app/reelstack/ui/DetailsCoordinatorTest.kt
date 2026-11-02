@@ -63,6 +63,100 @@ class DetailsCoordinatorTest {
         assertEquals("kept", state.value.searchQuery)
     }
 
+    // A series with two seasons: season one has two episodes, season two has three.
+    private val series = LibraryMedia("jellyfin-series", "Serie", "", artworkRes = 0, source = ServiceKind.JELLYFIN,
+        remoteId = "series", mediaType = "Series")
+    private fun seriesState() = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection),
+        recentSeries = listOf(series)))
+    private fun items(vararg entries: String) = HttpResponse(200, """{"Items":[${entries.joinToString(",")}]}""")
+    private fun season(id: String, number: Int) = """{"Id":"$id","Name":"Season $number","Type":"Season","IndexNumber":$number}"""
+    private fun episode(id: String, season: Int, number: Int) =
+        """{"Id":"$id","Name":"Episode $number","SeriesName":"Serie","Type":"Episode","ParentIndexNumber":$season,"IndexNumber":$number}"""
+    private fun seriesServer(url: String, season2: () -> HttpResponse = {
+        items(episode("f1", 2, 1), episode("f2", 2, 2), episode("f3", 2, 3))
+    }): HttpResponse = when {
+        url.contains("Shows/series/Seasons") -> items(season("s1", 1), season("s2", 2))
+        url.contains("Shows/series/Episodes") && url.contains("seasonId=s1") -> items(episode("e1", 1, 1), episode("e2", 1, 2))
+        url.contains("Shows/series/Episodes") && url.contains("seasonId=s2") -> season2()
+        else -> HttpResponse(404, "")
+    }
+    private fun SeriesBrowse.episodeIds() = episodes.map { it.remoteId }
+
+    @Test fun `a season switch keeps the previous episodes, marked stale, until the new season arrives`() = runTest {
+        val state = seriesState()
+        val feature = feature(state, read = ::seriesServer)
+        feature.openLibraryDetails("jellyfin-series")
+        runCurrent()
+        val first = state.value.seriesBrowse
+        assertEquals("s1", first.selectedSeasonId)
+        assertEquals(listOf("e1", "e2"), first.episodeIds())
+        assertFalse(first.episodesStale)
+        assertFalse(first.loading)
+
+        feature.selectSeason("s2")
+
+        // Nothing has been answered yet: the list the reader was looking at is still there, but it
+        // is flagged as the old season's, and the playable target never reads from it.
+        val waiting = state.value.seriesBrowse
+        assertEquals("s2", waiting.selectedSeasonId)
+        assertEquals(listOf("e1", "e2"), waiting.episodeIds())
+        assertTrue(waiting.episodesStale)
+        assertTrue(waiting.loading)
+        assertTrue(waiting.currentEpisodes.isEmpty())
+
+        runCurrent()
+        val arrived = state.value.seriesBrowse
+        assertEquals(listOf("f1", "f2", "f3"), arrived.episodeIds())
+        assertFalse(arrived.episodesStale)
+        assertFalse(arrived.loading)
+        assertEquals(arrived.episodes, arrived.currentEpisodes)
+    }
+
+    @Test fun `a season that fails to load does not leave the old episodes standing in for it`() = runTest {
+        val state = seriesState()
+        val feature = feature(state, read = { seriesServer(it, season2 = { HttpResponse(500, "") }) })
+        feature.openLibraryDetails("jellyfin-series")
+        runCurrent()
+        feature.selectSeason("s2")
+        runCurrent()
+        val failed = state.value.seriesBrowse
+        assertEquals("s2", failed.selectedSeasonId)
+        assertTrue(failed.episodes.isEmpty())
+        assertFalse(failed.episodesStale)
+        assertFalse(failed.loading)
+        assertNotNull(failed.error)
+    }
+
+    @Test fun `going back to the first season before the second has answered ends with the first season's episodes`() = runTest {
+        val state = seriesState()
+        val feature = feature(state, read = ::seriesServer)
+        feature.openLibraryDetails("jellyfin-series")
+        runCurrent()
+        feature.selectSeason("s2")
+        feature.selectSeason("s1")
+        assertTrue(state.value.seriesBrowse.episodesStale)
+        runCurrent()
+        val settled = state.value.seriesBrowse
+        assertEquals("s1", settled.selectedSeasonId)
+        assertEquals(listOf("e1", "e2"), settled.episodeIds())
+        assertFalse(settled.episodesStale)
+        assertFalse(settled.loading)
+    }
+
+    @Test fun `choosing the season that is already open reloads nothing and never marks it stale`() = runTest {
+        val state = seriesState()
+        var episodeReads = 0
+        val feature = feature(state, read = { url -> if (url.contains("Shows/series/Episodes")) episodeReads++; seriesServer(url) })
+        feature.openLibraryDetails("jellyfin-series")
+        runCurrent()
+        val reads = episodeReads
+        val before = state.value.seriesBrowse
+        feature.selectSeason("s1")
+        runCurrent()
+        assertEquals(reads, episodeReads)
+        assertEquals(before, state.value.seriesBrowse)
+    }
+
     @Test fun `same title response from a retired account cannot overwrite new account details`() = runTest {
         val state = state()
         val writer = SessionUiState(state)

@@ -22,6 +22,20 @@ class DetailSeriesTargetTest {
         assertEquals("two", resumeTarget(browse)?.id)
     }
 
+    @Test fun `play never lands on an episode of the season that was just left`() {
+        val browse = SeriesBrowse(episodes = listOf(episode("old-one"), episode("old-two")), episodesStale = true, loading = true)
+
+        assertNull(nextEpisodeTarget(browse))
+        assertNull(resumeTarget(browse))
+    }
+
+    @Test fun `the server's next-up still decides Play while the new season loads`() {
+        val next = episode("next")
+        val browse = SeriesBrowse(episodes = listOf(episode("old-one")), nextUp = next, episodesStale = true, loading = true)
+
+        assertEquals("next", nextEpisodeTarget(browse)?.id)
+    }
+
     @Test fun `a completed season has no false next marker but can still restart from its first episode`() {
         val first = episode("one", played = true)
         val last = episode("two", played = true)

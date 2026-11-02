@@ -2,22 +2,27 @@ package app.reelstack.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,9 +30,13 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import app.reelstack.ui.theme.Success
@@ -47,6 +56,7 @@ import app.reelstack.ui.screens.Chip
 import app.reelstack.ui.theme.Muted
 import app.reelstack.ui.theme.Primary
 import app.reelstack.ui.theme.PrimarySoft
+import app.reelstack.ui.theme.ReelLayout
 
 /**
  * What the title *is*, as opposed to what you can do with it right now.
@@ -158,13 +168,25 @@ internal fun SeriesEpisodes(
 ) {
     val firstEpisode = remember { androidx.compose.ui.focus.FocusRequester() }
     val tv = app.reelstack.ui.components.isTelevision()
-    val episodes = browse.episodes
+    // Only this season's own episodes decide anything. While the next season loads, the old ones
+    // stay in the state so the list never collapses to nothing, but they are neither shown nor
+    // consulted; a placeholder with their height stands in for them.
+    val episodes = browse.currentEpisodes
+    val waiting = browse.loading || browse.episodesStale
     // The series Play button already resolves this target. Giving the same episode initial focus
     // in the season row makes a remote's first Select do the unsurprising thing as well.
     val preferredEpisode = nextEpisodeTarget(browse)?.remoteId?.let { id ->
         episodes.firstOrNull { it.remoteId == id }
     }
     val focusEpisode = preferredEpisode ?: episodes.firstOrNull()
+    // The row starts at the next episode, or at the first one in a season that has none. A fresh
+    // state per season (and per wait) means the first frame is already right and there is no layout
+    // left over from the season before to be mistaken for this one.
+    val startIndex = focusEpisode?.let { target -> episodes.indexOfFirst { it.id == target.id } }?.coerceAtLeast(0) ?: 0
+    val rowState = remember(detailKey, browse.selectedSeasonId, waiting) { LazyListState(startIndex) }
+    // How tall the episode area was the last time it held a list; the placeholder takes that height.
+    var keptHeight by remember(detailKey) { mutableIntStateOf(0) }
+    val density = LocalDensity.current
     if (browse.openedFor != detailKey) return
     if (browse.seasons.isEmpty() && !browse.loading && browse.error == null) return
     Column(Modifier.fillMaxWidth().padding(top = if (tv) 10.dp else 22.dp).testTag("detail-seasons"),
@@ -179,7 +201,9 @@ internal fun SeriesEpisodes(
             androidx.compose.runtime.LaunchedEffect(browse.selectedSeasonId, browse.seasons.size) {
                 if (chosenIndex >= 0) runCatching { strip.animateScrollToItem(chosenIndex) }
             }
-            LazyRow(state = strip, modifier = Modifier.focusProperties { if (tv && episodes.isNotEmpty()) down = firstEpisode }, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            // A lazy row can only take focus on a tile it has laid out, so Down goes to the next
+            // episode only while that tile is there; otherwise the search falls back to geometry.
+            LazyRow(state = strip, modifier = Modifier.focusProperties { if (tv && rowState.shows(focusEpisode?.id)) down = firstEpisode }, horizontalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(end = 24.dp)) {
                 items(browse.seasons, key = { it.id }) { season ->
                     val id = season.remoteId.orEmpty()
@@ -192,58 +216,112 @@ internal fun SeriesEpisodes(
             }
         }
         browse.upcomingError?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
-        when {
-            browse.error != null -> Text(browse.error, color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium)
-            browse.loading && episodes.isEmpty() -> Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
-                Text(stringResource(R.string.detail_loading_episodes), color = Muted,
-                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 10.dp))
-            }
-            episodes.isEmpty() -> Text(stringResource(R.string.detail_no_episodes), color = Muted,
-                style = MaterialTheme.typography.bodyMedium)
-            else -> {
-                if (tv) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(4.dp)) {
-                        items(episodes, key = { it.id }) { episode ->
-                            val ready = episode.id == preferredEpisode?.id
-                            Box(Modifier.width(248.dp).then(if (episode.id == focusEpisode?.id)
-                                Modifier.focusRequester(firstEpisode) else Modifier)) {
-                                TvEpisodeCard(episode, episode.id == detailKey, ready, onEpisodeClick = onEpisodeClick)
+        // A season that is still loading takes the place, and the height, of the list it will become.
+        // Before, the list was emptied and a one-line spinner stood in for it, so everything under
+        // the episodes (the cast row, on a television) jumped up and then down again.
+        if (waiting || browse.error == null && episodes.isNotEmpty()) {
+            Box(Modifier.testTag("episode-row")
+                .then(if (waiting && keptHeight > 0) Modifier.height(with(density) { keptHeight.toDp() }).clipToBounds() else Modifier)
+                .onSizeChanged { if (!waiting) keptHeight = it.height }) {
+                when {
+                    waiting -> app.reelstack.ui.components.EpisodeRowSkeleton(stringResource(R.string.detail_loading_episodes), tv)
+                    tv -> TvEpisodeRow(episodes, rowState, startIndex, preferredEpisode?.id, focusEpisode?.id, detailKey,
+                        firstEpisode, onEpisodeClick)
+                    else -> {
+                        // The list lives inside a scrolling column, so every row it holds is composed
+                        // whether or not anyone can see it. Twenty-six is a long season; two hundred is a
+                        // long-running anime, and composing two hundred rows to show six is what turns a
+                        // page open into a visible pause.
+                        var showAll by remember(browse.selectedSeasonId) { mutableStateOf(false) }
+                        val visible = if (showAll) episodes else episodes.take(EPISODE_PREVIEW)
+                        Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                            visible.forEachIndexed { index, episode ->
+                                val ready = episode.id == preferredEpisode?.id
+                                Box(if (episode.id == focusEpisode?.id || preferredEpisode !in visible && index == 0) Modifier.focusRequester(firstEpisode) else Modifier) {
+                                    EpisodeRow(episode, episode.id == detailKey, ready, onEpisodeClick)
+                                }
                             }
+                            if (visible.size < episodes.size) Chip(
+                                text = pluralStringResource(
+                                    R.plurals.detail_more_episodes,
+                                    episodes.size - visible.size,
+                                    episodes.size - visible.size,
+                                ),
+                                chosen = false,
+                                tag = "episodes-more",
+                            ) { showAll = true }
                         }
                     }
-                } else {
-                // The list lives inside a scrolling column, so every row it holds is composed
-                // whether or not anyone can see it. Twenty-six is a long season; two hundred is a
-                // long-running anime, and composing two hundred rows to show six is what turns a
-                // page open into a visible pause.
-                var showAll by remember(browse.selectedSeasonId) { mutableStateOf(false) }
-                    val visible = if (showAll) episodes else episodes.take(EPISODE_PREVIEW)
-                    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                        visible.forEachIndexed { index, episode ->
-                        val ready = episode.id == preferredEpisode?.id
-                        Box(if (episode.id == focusEpisode?.id || preferredEpisode !in visible && index == 0) Modifier.focusRequester(firstEpisode) else Modifier) {
-                            EpisodeRow(episode, episode.id == detailKey, ready, onEpisodeClick)
-                        }
-                    }
-                    if (visible.size < episodes.size) Chip(
-                        text = pluralStringResource(
-                            R.plurals.detail_more_episodes,
-                            episodes.size - visible.size,
-                            episodes.size - visible.size,
-                        ),
-                        chosen = false,
-                        tag = "episodes-more",
-                    ) { showAll = true }
-                }
                 }
             }
+        } else if (browse.error != null) {
+            Text(browse.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        } else {
+            Text(stringResource(R.string.detail_no_episodes), color = Muted, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
 private const val EPISODE_PREVIEW = 12
+
+/** True when the lazy row has laid out the tile with this key, which is when it can be given focus. */
+private fun LazyListState.shows(key: Any?): Boolean = key != null && layoutInfo.visibleItemsInfo.any { it.key == key }
+
+/**
+ * The television's episode row, opened at [startIndex] so the next episode is its first tile and a
+ * remote's Down from the buttons above lands on it.
+ *
+ * [state] is created already positioned there (see [SeriesEpisodes]); the effect below only covers
+ * the next episode changing while the row is on screen. Even then it never moves the row while
+ * focus is inside it: a reload of the same season replaces the list, and a jump would pull the
+ * row away from under the tile the reader is standing on. There is room after the last episode for
+ * it to sit first as well, which is what the end padding is for.
+ *
+ * `FocusProperties.onEnter` is still marked experimental. It is the only way to say "whichever tile
+ * the search would have picked, go to this one" for a group, and it only changes where focus lands.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun TvEpisodeRow(
+    episodes: List<LibraryMedia>,
+    state: LazyListState,
+    startIndex: Int,
+    readyId: String?,
+    targetId: String?,
+    detailKey: String,
+    firstEpisode: androidx.compose.ui.focus.FocusRequester,
+    onEpisodeClick: (LibraryMedia) -> Unit,
+) {
+    var focusInside by remember { mutableStateOf(false) }
+    LaunchedEffect(targetId) {
+        if (!focusInside) state.scrollToItem(startIndex)
+    }
+    // As wide as the screen is, minus one tile: whatever the row's own margins, the last episode can
+    // then be scrolled to the start. A little too much is harmless; too little would cap the scroll.
+    val endPadding = (LocalConfiguration.current.screenWidthDp.dp - ReelLayout.EpisodeWidth).coerceAtLeast(4.dp)
+    LazyRow(
+        state = state,
+        modifier = Modifier
+            // Entering the row from above goes to the next episode, whichever tile happens to be
+            // straight below the button that had focus. Coming up from the cast row is left to geometry.
+            .focusProperties {
+                onEnter = {
+                    if (requestedFocusDirection == FocusDirection.Down && state.shows(targetId)) firstEpisode.requestFocus()
+                }
+            }
+            .onFocusChanged { focusInside = it.hasFocus }
+            .focusGroup(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(start = 4.dp, top = 4.dp, end = endPadding, bottom = 4.dp),
+    ) {
+        items(episodes, key = { it.id }) { episode ->
+            Box(Modifier.width(ReelLayout.EpisodeWidth).then(if (episode.id == targetId)
+                Modifier.focusRequester(firstEpisode) else Modifier)) {
+                TvEpisodeCard(episode, episode.id == detailKey, episode.id == readyId, onEpisodeClick = onEpisodeClick)
+            }
+        }
+    }
+}
 
 /** Text tabs let the season title lead; only the selected season has an underline. */
 @Composable
@@ -359,13 +437,13 @@ internal fun episodeCardName(subtitle: String, episode: Int?, numberLabel: Strin
  */
 internal fun nextEpisodeTarget(browse: SeriesBrowse): LibraryMedia? =
     browse.nextUp?.takeIf { it.available }
-        ?: browse.episodes.firstOrNull { it.available && (it.progress ?: 0f) > 0f && !it.played }
-        ?: browse.episodes.firstOrNull { it.available && !it.played }
+        ?: browse.currentEpisodes.firstOrNull { it.available && (it.progress ?: 0f) > 0f && !it.played }
+        ?: browse.currentEpisodes.firstOrNull { it.available && !it.played }
 
 /** The first available episode is a sensible first start, but never a false “next” marker. */
 internal fun resumeTarget(browse: SeriesBrowse): LibraryMedia? =
     nextEpisodeTarget(browse)
-        ?: browse.episodes.firstOrNull { it.available }
+        ?: browse.currentEpisodes.firstOrNull { it.available }
 
 /** Says why Play is missing while the episodes are still on their way. */
 @Composable

@@ -355,9 +355,18 @@ data class SeriesBrowse(
     val selectedSeasonId: String = "",
     val upcomingError: String? = null,
     val episodes: List<LibraryMedia> = emptyList(),
+    /**
+     * True while [episodes] still belong to the season that was open *before* [selectedSeasonId]
+     * changed. They are kept so the list does not collapse to nothing (and the page under it jump)
+     * while the new season loads, but they are not this season's: [currentEpisodes] leaves them out.
+     */
+    val episodesStale: Boolean = false,
     val loading: Boolean = false,
     val error: String? = null,
-)
+) {
+    /** The episodes of [selectedSeasonId] itself; empty while only the previous season's are kept. */
+    val currentEpisodes: List<LibraryMedia> get() = if (episodesStale) emptyList() else episodes
+}
 
 /**
  * One audio or subtitle stream, named the way the server names it.

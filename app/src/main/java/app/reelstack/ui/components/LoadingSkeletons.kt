@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.reelstack.ui.theme.ReelLayout
 
@@ -195,6 +197,48 @@ fun ActivitySkeleton(modifier: Modifier = Modifier) {
                     ShimmerBlock(Modifier.padding(top = 8.dp).width(138.dp).height(10.dp), RoundedCornerShape(5.dp))
                 }
             }
+        }
+    }
+}
+
+/**
+ * One episode card with nothing in it yet: the 16:9 still and two lines of name, inside the card's
+ * own 6 dp, so the placeholder has the shape and the place of the tile that replaces it.
+ */
+@Composable
+private fun EpisodeCardSkeleton(spacing: Dp) {
+    Column(Modifier.fillMaxWidth().padding(6.dp), verticalArrangement = Arrangement.spacedBy(spacing)) {
+        ShimmerBlock(Modifier.fillMaxWidth().aspectRatio(16f / 9f), RoundedCornerShape(8.dp))
+        ShimmerBlock(Modifier.fillMaxWidth(.78f).height(15.dp), RoundedCornerShape(8.dp))
+        ShimmerBlock(Modifier.fillMaxWidth(.42f).height(10.dp), RoundedCornerShape(5.dp))
+    }
+}
+
+/**
+ * What a series page shows in the episode area while a season loads: tiles in the shape of an
+ * episode card instead of a line with a spinner.
+ *
+ * On a television that is a row of cards, laid out exactly like the real one; on a phone or tablet
+ * it is the start of the vertical list. The caller gives it the height the last list had, so the
+ * content below does not move when the episodes arrive.
+ */
+@Composable
+fun EpisodeRowSkeleton(description: String, television: Boolean, modifier: Modifier = Modifier) {
+    if (television) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(4.dp),
+            userScrollEnabled = false,
+            modifier = modifier.clearAndSetSemantics { contentDescription = description },
+        ) {
+            items(5) { Box(Modifier.width(ReelLayout.EpisodeWidth)) { EpisodeCardSkeleton(6.dp) } }
+        }
+    } else {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = modifier.clearAndSetSemantics { contentDescription = description },
+        ) {
+            repeat(3) { EpisodeCardSkeleton(10.dp) }
         }
     }
 }
