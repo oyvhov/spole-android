@@ -95,8 +95,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
-import app.reelstack.ui.components.fadeUnderMenuLine
-import app.reelstack.ui.components.softTopEdge
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import app.reelstack.R
@@ -309,19 +307,18 @@ fun HomeScreen(
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
                 if (television) app.reelstack.ui.components.DetailBringIntoView
                 else androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current) {
+        // The television's menu lies on the top of this page and leaves with it, so nothing ever scrolls behind it.
+        if (topInset > 0.dp) app.reelstack.ui.LendTopMenuLift(feedState)
         LazyColumn(
             state = feedState,
             contentPadding = PaddingValues(
                 start = ReelLayout.Gutter,
-                top = if (television && featured != null) 0.dp else if (!tablet && featured != null) 0.dp else ReelLayout.PageTop,
+                top = (if (television && featured != null) 0.dp else if (!tablet && featured != null) 0.dp else ReelLayout.PageTop) +
+                    (if (featured == null) topInset else 0.dp),
                 end = if (edge) 0.dp else ReelLayout.Gutter,
                 bottom = contentPadding.calculateBottomPadding() + 22.dp,
             ),
-            modifier = Modifier.fillMaxSize().padding(top = if (featured == null) topInset else 0.dp)
-                .then(if (topInset <= 0.dp) Modifier else if (featured == null) Modifier.softTopEdge()
-                    else Modifier.fadeUnderMenuLine(topInset) {
-                        if (feedState.firstVisibleItemIndex > 0) Float.MAX_VALUE else feedState.firstVisibleItemScrollOffset.toFloat()
-                    })
+            modifier = Modifier.fillMaxSize()
                 .then(if (television && tablet && featured != null) Modifier.tvHomeBottomFade(TV_SHELF_BOTTOM) else Modifier)
                 .testTag("home-feed"),
         ) {

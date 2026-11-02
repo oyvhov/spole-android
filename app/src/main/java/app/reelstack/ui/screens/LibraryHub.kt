@@ -23,8 +23,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
-import app.reelstack.ui.components.fadeUnderMenuLine
-import app.reelstack.ui.components.softTopEdge
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import app.reelstack.R
@@ -93,14 +91,12 @@ internal fun LibraryHub(state: ReelstackUiState, onLibrary: (String) -> Unit,
     }
     // Keep the TV safe edge outside the scroll viewport. Content padding only appears after
     // scrolling to the very end, so the last visible shelf could still sit against the bezel.
+    // The television's menu lies on the top of this page and leaves with it.
+    if (topInset > 0.dp) app.reelstack.ui.LendTopMenuLift(list)
     LazyColumn(state = list, modifier = Modifier.fillMaxSize()
-        .padding(top = if (leadingHero) 0.dp else topInset, bottom = if (tv) ReelLayout.TvSafeEdge else 0.dp)
-        .then(if (topInset <= 0.dp) Modifier else if (!leadingHero) Modifier.softTopEdge()
-            else Modifier.fadeUnderMenuLine(topInset) {
-                if (list.firstVisibleItemIndex > 0) Float.MAX_VALUE else list.firstVisibleItemScrollOffset.toFloat()
-            })
+        .padding(bottom = if (tv) ReelLayout.TvSafeEdge else 0.dp)
         .testTag("library-hub"),
-        contentPadding = PaddingValues(start = gutter, end = gutter, top = if (leadingHero) 0.dp else 20.dp,
+        contentPadding = PaddingValues(start = gutter, end = gutter, top = if (leadingHero) 0.dp else 20.dp + topInset,
             bottom = if (tv) 0.dp else 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (leadingHero) item("feature") { hero() }

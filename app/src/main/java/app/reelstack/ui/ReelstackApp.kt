@@ -187,7 +187,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
         app.reelstack.ui.theme.LocalPersonalization.current.tvMenuStyle == app.reelstack.data.model.TvMenuStyle.TOP_BAR
     val topFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     var topHasFocus by remember { mutableStateOf(false) }
-    var topBarHeight by remember { mutableStateOf(88.dp) }
+    var topBarHeight by remember { mutableStateOf(72.dp) }
+    val menuLift = remember { TopMenuLift() }
     var tvRailFocused by remember { mutableStateOf(false) }
     var railHasFocus by remember { mutableStateOf(false) }
     var railEntryRequested by remember { mutableStateOf(false) }
@@ -313,7 +314,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     // A wide window moves navigation to a side rail so the bottom bar does not stretch four
     // icons across a tablet, and so the content column keeps its own width. Measured from the
     // window, not the device configuration, so split-screen is handled correctly.
-    androidx.compose.runtime.CompositionLocalProvider(LocalTopBarCarriesAccount provides topMenu) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalTopBarCarriesAccount provides topMenu,
+        LocalTopMenuLift provides menuLift.takeIf { topMenu }) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Ink).onPreviewKeyEvent { event ->
         if (tvRail && !topMenu && event.key == androidx.compose.ui.input.key.Key.DirectionLeft) {
             if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) railEntryRequested = true
@@ -646,7 +648,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     runCatching { contentFocus.requestFocus() }
             }, modifier = Modifier.focusRequester(topFocus), onFocusWithin = { topHasFocus = it },
             onHeightChanged = { topBarHeight = with(density) { it.toDp() } },
-            menu = menuOptions.visibleMenu())
+            menu = menuOptions.visibleMenu(),
+            // The search page stands still under the line, whatever the page behind it had scrolled.
+            lift = { if (state.globalSearchOpen) 0 else menuLift.pixels() })
     }
 
     AppOverlayHost(viewModel, state, connectionDraft, startTab)
