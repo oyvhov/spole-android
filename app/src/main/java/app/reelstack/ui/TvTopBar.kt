@@ -11,6 +11,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,10 +60,18 @@ internal val LocalTopMenuLift = staticCompositionLocalOf<TopMenuLift?> { null }
 
 /** A page that scrolls under the television's menu lends it [list]'s distance from the top while it is shown. */
 @Composable
-internal fun LendTopMenuLift(list: LazyListState) {
+internal fun LendTopMenuLift(list: LazyListState) =
+    LendTopMenuLift(list) { if (list.firstVisibleItemIndex > 0) Int.MAX_VALUE else list.firstVisibleItemScrollOffset }
+
+/** The same for a grid; past its first row the menu has long gone. */
+@Composable
+internal fun LendTopMenuLift(grid: LazyGridState) =
+    LendTopMenuLift(grid) { if (grid.firstVisibleItemIndex > 0) Int.MAX_VALUE else grid.firstVisibleItemScrollOffset }
+
+@Composable
+private fun LendTopMenuLift(key: Any, read: () -> Int) {
     val lift = LocalTopMenuLift.current ?: return
-    DisposableEffect(lift, list) {
-        val read: () -> Int = { if (list.firstVisibleItemIndex > 0) Int.MAX_VALUE else list.firstVisibleItemScrollOffset }
+    DisposableEffect(lift, key) {
         lift.pixels = read
         // Pages cross-fade: the one leaving lets go only if the one arriving has not taken over yet.
         onDispose { if (lift.pixels === read) lift.pixels = { 0 } }

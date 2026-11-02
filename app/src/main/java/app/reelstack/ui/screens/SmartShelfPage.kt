@@ -135,7 +135,9 @@ private const val NEW_FOR_MILLIS = 14L * 24 * 60 * 60_000
 @OptIn(ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: (String) -> Unit, onBack: () -> Unit,
-    onEdit: () -> Unit, onRetry: () -> Unit) {
+    onEdit: () -> Unit, onRetry: () -> Unit,
+    /** How far the television's menu line reaches down; the page keeps its room and the line leaves with it. */
+    topInset: Dp = 0.dp) {
     val tv = isTelevision()
     val gutter = if (tv) 32.dp else ReelLayout.Gutter
     // About seven covers across a television and three or four on a phone, where the library grid fits five and two.
@@ -200,10 +202,11 @@ internal fun SmartShelfPage(state: ReelstackUiState, shelf: SmartShelf, onOpen: 
     // off on arrival; this one scrolls only when a focused card needs it, with a glimpse of the next row.
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
         if (tv) ShelfBringIntoView else androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current) {
+    if (topInset > 0.dp) app.reelstack.ui.LendTopMenuLift(grid)
     LazyVerticalGrid(
         state = grid,
         columns = GridCells.Adaptive(cell),
-        contentPadding = PaddingValues(start = gutter, end = gutter, top = 0.dp,
+        contentPadding = PaddingValues(start = gutter, end = gutter, top = topInset,
             bottom = if (tv) ReelLayout.TvSafeEdge + 24.dp else 32.dp),
         horizontalArrangement = Arrangement.spacedBy(if (tv) 18.dp else 12.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),

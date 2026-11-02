@@ -159,14 +159,15 @@ Eigaren såg beta33 på TV: «Topp baren skulle berre ligg øverst!!!», «Topba
 eksempelet eg sendte deg i går» (videoen av Swiftly Player) og «Den skal ikkje lage ein MØRK bar slik som no».
 
 - **Berre øvst.** Lina rullar vekk med sida: `TopMenuLift` (ein `CompositionLocal` frå `ReelstackApp`) får avstanden
-  frå toppen av lista til sida som står framme (`LendTopMenuLift` på Heim og biblioteksida), og lina flyttar seg like
+  frå toppen av lista til sida som står framme (`LendTopMenuLift` på Heim, biblioteksida, rutenettet inne i eit
+  bibliotek og smarthyllene), og lina flyttar seg like
   langt opp i lag-fasen. Når fjernkontrollen kjem til lina, står ho att heilt. Søkesida står stille under lina.
   Fordi lina følgjer sida, går ingenting bak orda, og tonen under lina (`fadeUnderMenuLine`) er fjerna. Heim og
   biblioteksida utan helt har plassen til lina øvst i lista i staden for som polstring utanfor.
 - **Liten og stilrein som Swiftly.** Små ord (`titleSmall`) rett på biletet frå venstre kant, profilsirkelen (32 dp)
   til høgre. Ingen kapsel, ingen skugge-stripe og ikkje Spole-merket. Sida du er på har ei kort strek i aksenten
   under ordet; fokus er ei svak flate med ring. Orda har sin eigen mjuke skugge, så eit lyst bilete ikkje tek dei.
-- **Står att:** Oppdag, Nedlastingar, Innstillingar og sidene inne i eit bibliotek startar framleis under lina, som
+- **Står att:** Oppdag, Nedlastingar og Innstillingar startar framleis under lina, som
   då står fast øvst (utan stripe).
 
 **Test:** `TvTopBarScrollTest` (Robolectric TV): lina står øvst i ro, rir opp med sida og kjem att med henne, og

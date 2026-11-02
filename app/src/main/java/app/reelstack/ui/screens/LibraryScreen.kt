@@ -33,7 +33,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import app.reelstack.ui.components.softTopEdge
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.TextButton
 import app.reelstack.R
@@ -61,12 +60,11 @@ fun LibraryScreen(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (S
     val sources = state.connections.filter { it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
         it.baseUrl.isNotBlank() && it.token.isNotBlank() }.map { it.kind }.distinct()
     key(state.librarySource) {
-        val atHub = state.libraryPath.isEmpty()
-        Box(Modifier.fillMaxSize().padding(top = if (atHub) 0.dp else topInset)
-            .then(if (atHub || topInset <= 0.dp) Modifier else Modifier.softTopEdge())) {
+        // Every page here keeps the television's menu line's room inside its own scroll, so the line leaves with it.
+        Box(Modifier.fillMaxSize()) {
             LibraryContent(state, onLoad, onOpen, onBack, onFilter, onShelfOpen, cardActions, onCustomize,
                 sourcePicker = { if (sources.size > 1) LibrarySourceMenu(state.librarySource, sources, onSource) },
-                hubInset = if (atHub) topInset else 0.dp)
+                menuInset = topInset)
         }
     }
 }
@@ -101,7 +99,7 @@ private fun LibrarySourceMenu(selected: ServiceKind, sources: List<ServiceKind>,
 private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit,
     onFilter: (app.reelstack.data.model.LibraryFilters) -> Unit,
     onShelfOpen: (String) -> Unit, cardActions: MediaCardActions?, onCustomize: () -> Unit,
-    sourcePicker: @Composable () -> Unit, hubInset: Dp = 0.dp) {
+    sourcePicker: @Composable () -> Unit, menuInset: Dp = 0.dp) {
     BackHandler(state.libraryPath.isNotEmpty() && state.activeSheet == null) { onBack() }
     // The library page keeps its place while a library is open, and the remote comes back to the
     // tile it left from rather than to the top of the page.
@@ -113,7 +111,8 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
         app.reelstack.data.model.mergedSmartShelves(state.smartShelves).firstOrNull { it.id == id }
     }
     if (smartShelf != null) {
-        SmartShelfPage(state, smartShelf, onOpen, onBack, onEdit = { shelfActions?.edit(smartShelf.id) }, onRetry = { onLoad(false) })
+        SmartShelfPage(state, smartShelf, onOpen, onBack, onEdit = { shelfActions?.edit(smartShelf.id) }, onRetry = { onLoad(false) },
+            topInset = menuInset)
         return
     }
     val connected = state.libraryConnection != null
@@ -141,7 +140,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     if (folders) {
         LibraryHub(state, onOpen, onShelfOpen, cardActions, onRetry = { onLoad(false) }, onCustomize = onCustomize,
             sourcePicker = sourcePicker, list = hubList, returnTo = returnTo, onReturned = { returnTo = null },
-            onLeave = { returnTo = it }, topInset = hubInset)
+            onLeave = { returnTo = it }, topInset = menuInset)
         return
     }
     val pageStates = rememberSaveableStateHolder()
@@ -155,9 +154,10 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
         val density = androidx.compose.ui.platform.LocalDensity.current
         app.reelstack.ui.components.PrefetchLibraryArtwork(state.libraryEntries, grid, artType, state.librarySource,
             listArtworkWidth = if (listView) with(density) { (listArtHeight * ratio).roundToPx() } else null)
+        if (menuInset > 0.dp) app.reelstack.ui.LendTopMenuLift(grid)
         LazyVerticalGrid(state = grid,
             columns = if (listView) GridCells.Fixed(1) else GridCells.Adaptive(cell),
-            contentPadding = PaddingValues(pageGutter),
+            contentPadding = PaddingValues(start = pageGutter, end = pageGutter, bottom = pageGutter, top = pageGutter + menuInset),
             horizontalArrangement = Arrangement.spacedBy(if (tv) 20.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp),
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
                 .steadyRemoteRows(grid).testTag("library-browser")) {
