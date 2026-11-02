@@ -17,8 +17,18 @@ val PrimarySoft: Color @Composable get() = MaterialTheme.colorScheme.secondary
 val Text = Color(0xFFF3F3EC)
 val Muted: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 val Success = Color(0xFF56D993)
-val Caution = Color(0xFFFFC66D)
-val Warning = Color(0xFFFF7A7D)
+
+/**
+ * Something that works, but not fully: a server that answered with a warning, an address that is not
+ * encrypted. Follows the accent, because a fixed amber sat 4 degrees from GOLD. See [AccentPalette].
+ */
+val Caution: Color @Composable get() = Color(LocalPersonalization.current.accent.cautionArgb)
+
+/**
+ * An error. The same colour as `MaterialTheme.colorScheme.error`, which the theme sets from the
+ * accent too, so the two never disagree. Outside [ReelstackTheme] it is LIME's red.
+ */
+val Warning: Color @Composable get() = Color(LocalPersonalization.current.accent.warningArgb)
 
 /** Follows the chosen mood's hue. See [app.reelstack.data.model.VisualTheme]. */
 val Divider: Color @Composable get() = MaterialTheme.colorScheme.outlineVariant
@@ -65,7 +75,7 @@ private val ReelstackColors = darkColorScheme(
     inverseSurface = Text,
     inverseOnSurface = Color(0xFF101211),
     inversePrimary = Color(0xFF415522),
-    error = Warning,
+    error = Color(app.reelstack.data.model.AccentPalette.LIME.warningArgb),
     onError = Color(0xFF101211),
     errorContainer = Color(0xFF43282A),
     onErrorContainer = Color(0xFFFFDADC),
@@ -111,6 +121,7 @@ fun ReelstackTheme(content: @Composable () -> Unit) {
             primaryContainer = Color(palette.containerArgb),
             onPrimaryContainer = Color(palette.softArgb),
             onSecondaryContainer = Color(palette.softArgb),
+            error = Color(palette.warningArgb),
         ),
         shapes = androidx.compose.material3.Shapes(
             extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(ReelShapes.ExtraSmall),

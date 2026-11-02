@@ -57,9 +57,9 @@ fun AccountAvatar(account: ServiceAccount?, connection: ServiceConnection?, modi
             }.getOrNull()?.also { data -> cacheKey?.let { ProfileImageMemory.put(it, data) } }
         }
     }
-    Box(modifier.clip(CircleShape).background(SurfaceRaised), contentAlignment = Alignment.Center) {
+    Box(modifier.clip(CircleShape).background(profileBackground(account?.displayName)), contentAlignment = Alignment.Center) {
         val initial = account?.displayName?.trim()?.firstOrNull()?.uppercase()
-        if (initial != null) Text(initial, color = Primary, fontSize = 20.sp, lineHeight = 24.sp)
+        if (initial != null) Text(initial, color = ProfileLetter, fontSize = 20.sp, lineHeight = 24.sp)
         else Icon(app.reelstack.ui.components.SpoleIcons.Person, contentDescription = null, tint = Muted, modifier = Modifier.size(24.dp))
         image?.let { data ->
             AsyncImage(model = data, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

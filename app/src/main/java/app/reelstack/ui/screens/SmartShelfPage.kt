@@ -42,7 +42,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -103,6 +102,7 @@ import app.reelstack.ui.components.SpoleChoiceDialog
 import app.reelstack.ui.components.SpoleChoiceRow
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.SpoleSecondaryButton
+import app.reelstack.ui.components.WatchProgressBar
 import app.reelstack.ui.components.cinematicBleed
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.animateFocusScale
@@ -473,9 +473,7 @@ private fun SmartShelfCard(entry: RemoteLibraryItem, source: ServiceKind, onClic
                     .testTag("smart-new-${entry.id}"))
             LibraryCardStatus(entry, LibraryDisplay(), Modifier.align(Alignment.TopEnd).padding(5.dp))
             entry.progress?.takeIf { it > 0f }?.let { progress ->
-                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(3.dp)
-                    .align(Alignment.BottomCenter), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .8f),
-                    trackColor = MaterialTheme.colorScheme.surface.copy(alpha = .65f), drawStopIndicator = {})
+                WatchProgressBar(progress, Modifier.align(Alignment.BottomStart))
             }
         }
         Text(entry.title, Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp), style = MaterialTheme.typography.titleSmall,
