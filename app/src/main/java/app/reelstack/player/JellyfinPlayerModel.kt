@@ -18,6 +18,8 @@ import app.reelstack.data.model.*
 import app.reelstack.data.network.readableMessage
 import app.reelstack.data.network.serviceError
 import app.reelstack.data.repository.DeviceIdentity
+import app.reelstack.data.repository.RememberedSubtitle
+import app.reelstack.data.repository.TrackChoiceStore
 import app.reelstack.background.PlaybackProgressRuntime
 import app.reelstack.background.PlaybackProgressScheduler
 import kotlinx.coroutines.*
@@ -106,10 +108,13 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         return if (kidsMode) kidsPreferences.read(container.connectionRepository.activeProfileId).playbackOptions(adult) else adult
     }
     private var autoplayChain = 0
+    /**
+     * What the title page chose before playback started. One-shot: the first plan applies it and
+     * hands it to [rememberTitlePageChoices], after which the series' memory is the only record,
+     * so a later retry cannot put an old title-page choice over a newer one made in the player.
+     */
     private var preferredAudio: Int? = null
     private var preferredSubtitle: Int? = null
-    private var preferredAudioKey: String? = null
-    private var preferredSubtitleKey: String? = null
     private var preferredSource: String? = null
     private var subtitleCache: SubtitleMemoryCache? = null
     private var subtitleLoadJob: Job? = null
@@ -639,12 +644,11 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
         val c = connection ?: return
         val item = selected ?: return
         val previous = plan?.takeIf { it.item.id == item.id }
-        val audioChoice = audio ?: previous?.audioIndex ?: preferredAudioKey?.let { key ->
-            (previous?.audio ?: plan?.audio)?.firstOrNull { it.key == key }?.index
-        } ?: preferredAudio.takeIf { item.id == rootId }
-        val subtitleChoice = subtitle ?: previous?.subtitleIndex ?: preferredSubtitleKey?.let { key ->
-            (previous?.subtitles ?: plan?.subtitles)?.firstOrNull { it.key == key }?.index
-        } ?: preferredSubtitle.takeIf { item.id == rootId }
+        // Named by the caller, kept from this item's own plan, or chosen on the title page: each of
+        // these is somebody's explicit choice for this very playback and outranks the series' memory.
+        val audioChoice = audio ?: previous?.audioIndex ?: preferredAudio.takeIf { item.id == rootId }
+        val subtitleChoice = subtitle ?: previous?.subtitleIndex ?: preferredSubtitle.takeIf { item.id == rootId }
+        val memoryKey = trackChoiceKey(item).takeIf { audioChoice == null || subtitleChoice == null }
         request?.cancel()
         val ticket = ++generation
         stopCurrent()
@@ -653,14 +657,17 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
             try {
                 val (prepared, detected) = withContext(Dispatchers.IO) {
                     check(sameAccount())
+                    // The series' memory is read off the main thread, and only when something is left to fill in.
+                    val remembered = memoryKey?.let { container.trackChoiceStore.read(it) }
                     client.prepare(c, userId, item, state.value.quality.takeIf { it > 0 } ?: autoBitrate(),
                         // The version the title page picked, until a plan exists and the player owns it.
                         audioChoice, subtitleChoice, mode, previous?.sourceId ?: preferredSource.takeIf { item.id == rootId },
                         playbackOptions().preferredSubtitleLanguage,
-                        playbackOptions().fallbackSubtitleLanguage) to deviceCapabilities.snapshot()
+                        playbackOptions().fallbackSubtitleLanguage, remembered) to deviceCapabilities.snapshot()
                 }
                 if (ticket != generation || !sameAccount()) return@launch
                 plan = prepared
+                rememberTitlePageChoices(item, prepared)
                 compatibility = prepared.compatibility
                 mutable.update { it.copy(videoFrameRate = prepared.sourceFrameRate, audioDecoder = "", videoDecoder = "",
                     advertisedAudio = detected.audio.joinToString(" · ") { audio ->
@@ -725,8 +732,6 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
                     trickplay = (prepared.item.trickplay.ifEmpty { previewManifest?.takeIf { cached -> cached.first == item.id }?.second.orEmpty() })
                         .filter { grid -> grid.mediaSourceId == prepared.sourceId }.minByOrNull { grid -> grid.width },
                     subtitleIndex = prepared.subtitleIndex, mode = prepared.mode, transcodeReasons = prepared.transcodeReasons) }
-                prepared.audio.firstOrNull { it.index == prepared.audioIndex }?.let { preferredAudioKey = it.key }
-                prepared.subtitles.firstOrNull { it.index == prepared.subtitleIndex }?.let { preferredSubtitleKey = it.key }
                 player.prepare(); player.playWhenReady = foreground && autoplay
                 loadChosenSubtitle(ticket)
                 loadPreviewManifest(c, item)
@@ -864,13 +869,50 @@ class JellyfinPlayerModel(private val container: AppContainer) : ViewModel() {
     fun retry() { networkRecoveries = 0; if (connection == null || selected == null && parent == null) loadRoot()
         else if (state.value.browsing) loadChildren() else prepare(state.value.positionMs) }
     fun audio(index: Int) { if (!state.value.busy && state.value.audio.any { it.index == index }) {
-        preferredAudioKey = state.value.audio.first { it.index == index }.key
+        rememberAudio(state.value.audio, index)
         prepare(player.currentPosition, audio = index, autoplay = player.playWhenReady)
     } }
+
+    /** The viewer's own pick, made in the player: the series is watched this way from now on. */
+    private fun rememberAudio(tracks: List<PlaybackTrack>, index: Int) {
+        val item = selected ?: return
+        val position = tracks.indexOfFirst { it.index == index }.takeIf { it >= 0 } ?: return
+        container.trackChoiceStore.rememberAudio(trackChoiceKey(item), rememberedTrack(tracks[position], position))
+    }
+
+    private fun rememberSubtitle(tracks: List<PlaybackTrack>, index: Int) {
+        val item = selected ?: return
+        val choice = if (index == -1) RememberedSubtitle.Off else {
+            val position = tracks.indexOfFirst { it.index == index }.takeIf { it >= 0 } ?: return
+            RememberedSubtitle.Track(rememberedTrack(tracks[position], position))
+        }
+        container.trackChoiceStore.rememberSubtitle(trackChoiceKey(item), choice)
+    }
+
+    /** One series, one profile, one server: see [TrackChoiceStore.key]. */
+    private fun trackChoiceKey(item: PlayableItem) = TrackChoiceStore.key(serviceKind, owner.profileId, item)
+
+    /**
+     * The title page's track choice is an explicit one too, so the rest of the series follows it.
+     * The first plan applies it and passes it on here; after that it is cleared, and the series'
+     * memory and the player's own menus are the only authority.
+     */
+    private fun rememberTitlePageChoices(item: PlayableItem, prepared: PlaybackPlan) {
+        if (item.id != rootId) return
+        preferredAudio?.let { chosen ->
+            rememberAudio(prepared.audio, chosen)
+            preferredAudio = null
+        }
+        preferredSubtitle?.let { chosen ->
+            rememberSubtitle(prepared.subtitles, chosen)
+            preferredSubtitle = null
+        }
+    }
+
     fun subtitles(index: Int) {
         if (state.value.busy || index != -1 && state.value.subtitles.none { it.index == index }) return
         val current = plan ?: return
-        preferredSubtitleKey = current.subtitles.firstOrNull { it.index == index }?.key
+        rememberSubtitle(current.subtitles, index)
         val c = connection ?: return
         val oldIsImage = current.subtitles.any { it.index == current.subtitleIndex && !it.sidecar && !it.localBitmap }
         val newIsImage = current.subtitles.any { it.index == index && !it.sidecar && !it.localBitmap }
