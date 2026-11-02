@@ -507,6 +507,8 @@ class ReelstackViewModel(
     fun setSearchQuery(value: String) = features.search.setQuery(value)
     fun loadMoreSearchResults() = features.search.loadMore()
     fun setGlobalSearchQuery(value: String) = features.globalSearch.setQuery(value)
+    /** The reader moved from typing into the results: that term is worth keeping in history. */
+    fun commitGlobalSearchToHistory() = features.globalSearch.commitSearchToHistory()
     fun loadMoreGlobalSearch() = features.globalSearch.loadMore()
     fun openSessionChannel() = features.home.openSessionChannel()
     fun closeSessionChannel() = features.home.closeSessionChannel()

@@ -9,12 +9,18 @@ Status ved Codex-overleveringa 2. november kl. 00:50: punkt 2 er delvis implemen
 inngang i resultata står att. TV-hoppfeilen i punkt 4 er retta; resten av punkt 4 og dei
 andre punkta står att. Sjå `HANDOFF_CODEX_2026-11-02.md` for verifikasjon.
 
+Status etter søkearbeidet (punkt 1 og resten av punkt 2): ferdig i kode og JVM-testar, ikkje prøvd
+på ei TV-eining eller emulator. Sjå «Søk på TV» nedanfor.
+
 ## Først
 
 1. **Søk på TV med eige skjermtastatur** ved sida av resultata (`GlobalSearchScreen.kt` opnar IME over
-   treffa). Bokstavrutenett til venstre, Tilbake går til siste tast. Middels–stort.
+   treffa). Bokstavrutenett til venstre, Tilbake går til siste tast. Middels–stort. **Bygd:**
+   `TvSearchKeyboard.kt` (kort med spørjelinje og tastar), `SearchKeys.kt` (oppsett og skrivereglar).
 2. **Rolegare søk** (`DiscoverSearchCoordinator.kt:69,87,89`): gamle treff står til nye kjem, eigen
-   tenar før Seerr, historikk først når ein går inn i resultata. Lite.
+   tenar før Seerr, historikk først når ein går inn i resultata. Lite. **Bygd:** historikken blir
+   skriven av `commitSearchToHistory()` når eit treff får fokus eller blir opna (TV), når eit treff
+   blir trykt eller søkehandlinga blir brukt (telefon), aldri for «Ga» og «Gam» på vegen til «Game».
 3. **Lyd/undertekst hugsa per serie**, òg «av» (`JellyfinPlayerModel.kt:111,642`). Lite–middels.
 4. **Hopp-over-reglar** (`JellyfinPlayback.kt:320`, `JellyfinPlayerActivity.kt:1087`): resymé og
    førehandsvising, knappen 6 s så berre i OSD, rulletekst til slutt → «Neste episode». **Feil
@@ -29,6 +35,22 @@ andre punkta står att. Sjå `HANDOFF_CODEX_2026-11-02.md` for verifikasjon.
    tag < versionCode, greiner føre main, grep etter nøklar.
 9. Einings-ID ut av overføring: `reelstack_device.xml` i `data_extraction_rules.xml`.
 10. Logg i minnet (4 000 liner, token fjerna per line) + «meld feil»-lenkje.
+
+## Søk på TV (punkt 1 og 2)
+
+- **Tastaturet:** seks kolonnar, A–Å (Æ Ø Å etter Z), 0–9, bindestrek, mellomrom og slett, i tastar på minst
+  48 dp utan fast høgd. Mikrofon på ei eiga rad berre når `SpeechRecognizer.isRecognitionAvailable` seier ja
+  (`<queries>` for `RecognitionService` i manifestet). Mikrofonen opnar systemet sin eigen talerøyst, så
+  ingen mikrofontilgang blir spurd om. Fokus er ein ring, som elles på TV.
+- **Spørjelinja** er berre visning: ho tek aldri fokus, har ingen blinkande peikar og kuttar teksten framme,
+  så slutten står att. Kvart ord får stor forbokstav (også tale og eit tilkopla tastatur).
+- **Slett:** eitt trykk tek ein bokstav når tasten blir sleppt; OK halde inne i 500 ms tømmer heile søket.
+- **Fokus:** Tilbake frå treffa går til siste tast, Tilbake frå tastane lukkar søk som før, Venstre frå treffa
+  går til siste tast. Opp frå øvste rad kallar `onNavigateUp` (toppmenyen).
+- **Tilkopla tastatur** (USB/Bluetooth): bokstavar, sifre, bindestrek, mellomrom og Backspace via
+  `onPreviewKeyEvent` på søkesida. Teiknet kjem frå tastaturoppsettet, så Æ Ø Å verkar på nordisk oppsett.
+- **Ikkje prøvd på eining:** fokusrørsle med ekte fjernkontroll, fokusrestaurering ved Venstre, taleinnskriving
+  og Tilbake-rekkjefølgja mot `ReelstackApp` sin eigen handterar er dekte av Robolectric, ikkje av emulator.
 
 ## Kosmetisk
 

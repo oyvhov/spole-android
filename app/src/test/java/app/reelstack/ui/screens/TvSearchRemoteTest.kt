@@ -24,7 +24,7 @@ import org.robolectric.annotation.GraphicsMode
 class TvSearchRemoteTest {
     @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
 
-    @Test fun downFromTheSearchFieldReachesTheResults() {
+    @Test fun rightFromTheKeyboardReachesTheResults() {
         val owned = LibraryMedia(id = "jf-1", title = "Trolljegeren", subtitle = "2010", artworkRes = R.drawable.media_placeholder,
             source = ServiceKind.JELLYFIN, remoteId = "1", mediaType = "Movie")
         rule.setContent {
@@ -35,12 +35,13 @@ class TvSearchRemoteTest {
                     onQuery = {}, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = {})
             }
         }
-        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("global-search-field").assertIsFocused() }.isSuccess }
-        // The remote's down: out of the field, past the clear button, to the first title.
-        repeat(2) {
-            rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) }
-            rule.waitForIdle()
-        }
+        // A television has no text field: the page opens on its own keyboard, where typing starts.
+        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("search-key-A").assertIsFocused() }.isSuccess }
+        rule.onNodeWithTag("global-search-field").assertDoesNotExist()
+        // The remote's right from the last column of keys: out of the keyboard, to the first title.
+        rule.onNodeWithTag("search-key-F").requestFocus()
+        rule.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) }
+        rule.waitForIdle()
         rule.onNodeWithTag("library-hit-jf-1").assertIsFocused()
     }
 

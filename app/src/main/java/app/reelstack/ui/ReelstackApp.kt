@@ -592,6 +592,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                 onLoadMore = viewModel::loadMoreGlobalSearch,
                 onPerson = viewModel::openPerson,
                 onNavigateUp = if (topMenu) { { topFocus.requestFocus(); Unit } } else null,
+                onCommitSearch = viewModel::commitGlobalSearchToHistory,
             )
         }
     }
