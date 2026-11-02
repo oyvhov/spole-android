@@ -36,3 +36,19 @@ på Loftet-TV-en. Denne utgåva heiter difor beta33 med kode 170, så Loftet kan
 - `check-native-subtitles.py`: OK (fire ABI-ar, 16 KB-justering, åtte lisensar). Dei 20 native biblioteka
   er byte for byte like testbygget på Loftet, og ingen native kjelde er endra sidan beta31. Kjeldearkiva
   for FFmpeg og dei native undertekstbiblioteka er difor dei same som i beta31 (same digest).
+
+## Publisering
+
+- Release-commit `40bb6e7`, tagg `v1.0.0-beta33`, pusha med `git push --atomic origin main v1.0.0-beta33`.
+  CI («Bygg og test») er grøn på `40bb6e7`.
+- Seks assets med digest kontrollert mot GitHub: APK, `SHA256SUMS.txt`, mapping, `SOURCE_COMMIT.txt`,
+  FFmpeg-kjelda og kjeldearkivet for dei native undertekstbiblioteka. Releasen er publisert som
+  prerelease (ikkje `latest`), og den offentlege nedlastinga utan innlogging har same SHA-256 som bygget.
+- **Oppdatering i appen på ein ekte TV:** Loftet (Google TV Streamer) med det lokale beta32-bygget (169):
+  Innstillingar → Varsler og oppdatering → Appoppdateringer → Sjekk nå fann `v1.0.0-beta33` (26,8 MB) med
+  release-notata, Last ned → Installer oppdatering → Android sin «Oppdater». Etterpå: versjonskode 170,
+  `1.0.0-beta33`, kontoen og «Fortsett å se» for Øyvind er der, og Oppdag i Spole viser førespurnader og
+  «Populært nå». Stova 0.2.0 på same TV viser Oppdag-rada for Øyvind og Spole-test og ingenting for
+  barneprofilen.
+- Merk: beta32-arbeidet med toppmenyen (`C:/JellyBin/spole-sesong`, ucommitta) er ikkje med i beta33.
+  Loftet viser difor den eldre toppmenyen («Bibliotek») etter oppdateringa.
