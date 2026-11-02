@@ -31,6 +31,12 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="http" />
         </intent>
+        <!-- The search keyboard on a television only offers its microphone when something can listen
+             (SpeechRecognizer.isRecognitionAvailable looks for a recognition service, which Android 11
+             and later hide from apps that do not ask). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
         <!-- Stova, the TV launcher: Spole names it when it approves a sign-in and tells it where playback stopped. -->
         <package android:name="app.stova" />
         <package android:name="app.stova.debug" />

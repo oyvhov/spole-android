@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_keyboard">Tastatur for søk</string>
+    <string name="search_key_space">Mellomrom</string>
+    <string name="search_key_delete">Slett. Hald inne for å tømme søket.</string>
+    <string name="search_key_speak">Søk med tale</string>
+    <string name="search_speak_prompt">Sei kva du leitar etter</string>
+    <string name="search_query_described">Søk: %1$s</string>
+</resources>

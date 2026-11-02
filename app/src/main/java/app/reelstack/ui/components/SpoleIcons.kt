@@ -553,4 +553,22 @@ object SpoleIcons {
         moveTo(10f, 10f); lineTo(10f, 16.5f)
         moveTo(14f, 10f); lineTo(14f, 16.5f)
     }
+
+    /** The delete key of the search keyboard: a tag pointing back, crossed out. */
+    val Backspace = glyph("Backspace") {
+        moveTo(9f, 5f); lineTo(20f, 5f); lineTo(20f, 19f); lineTo(9f, 19f); lineTo(3f, 12f); close()
+        moveTo(12.5f, 9.5f); lineTo(16.5f, 14.5f)
+        moveTo(16.5f, 9.5f); lineTo(12.5f, 14.5f)
+    }
+
+    val Mic = glyph("Mic") {
+        moveTo(9f, 6f); arcTo(3f, 3f, 0f, false, true, 15f, 6f); lineTo(15f, 11f); arcTo(3f, 3f, 0f, false, true, 9f, 11f); close()
+        moveTo(5.5f, 11f); arcTo(6.5f, 6.5f, 0f, false, false, 18.5f, 11f)
+        moveTo(12f, 17.5f); lineTo(12f, 21f)
+        moveTo(9f, 21f); lineTo(15f, 21f)
+    }
+
+    val SpaceBar = glyph("SpaceBar") {
+        moveTo(4f, 10f); lineTo(4f, 15f); lineTo(20f, 15f); lineTo(20f, 10f)
+    }
 }

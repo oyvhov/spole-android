@@ -94,7 +94,8 @@ internal class DiscoverSearchCoordinator(
             edit { it.copy(libraryResults = libraryResult.getOrDefault(emptyList())) }
             val discoverResult = discoverDeferred.await()
             if (!isActive || slice(readState()).query.trim() != query) return@launch
-            preferencesRepository.rememberSearch(readState().activeProfileId, query)
+            // Nothing is remembered here. This runs for every pause in typing, so "Ga" and "Gam" on
+            // the way to "Game" would all land in history; [commitSearchToHistory] decides what counts.
             updateState {
                 withSlice(it, slice(it).copy(
                     results = discoverResult.getOrNull()?.items.orEmpty(),
@@ -109,9 +110,27 @@ internal class DiscoverSearchCoordinator(
                         libraryResult.isFailure -> appString(R.string.error_search_libraries)
                         else -> null
                     },
-                )).copy(searchHistory = preferencesRepository.searchHistory(it.activeProfileId))
+                ))
             }
         }
+    }
+
+    /**
+     * The reader has moved from typing to the results: that is the one moment a term is worth
+     * remembering. The screen calls this when a result gets focus or is opened (or, with a touch
+     * screen, when the keyboard's search action is pressed). Terms typed on the way never get here, so
+     * the history reads as what was looked for. It is the typed term, trimmed, and not the answer
+     * that is on screen: the last answer may still be on its way.
+     */
+    fun commitSearchToHistory() {
+        val state = readState()
+        val query = slice(state).query.trim()
+        if (query.length < MIN_REMEMBERED) return
+        // Already first: nothing to write, and no new state to redraw the page for.
+        if (state.searchHistory.firstOrNull() == query) return
+        preferencesRepository.rememberSearch(state.activeProfileId, query)
+        val history = preferencesRepository.searchHistory(state.activeProfileId)
+        updateState { it.copy(searchHistory = history) }
     }
 
     /** Appends one verified Seerr page; a changed query discards a late response. */
@@ -154,6 +173,7 @@ internal class DiscoverSearchCoordinator(
 
     companion object {
         private const val DEBOUNCE_MILLIS = 350L
+        private const val MIN_REMEMBERED = 2
         private val MEDIA_SERVERS = setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY)
 
         /** Discover's search still lives in the flat fields its screen and tests read. */

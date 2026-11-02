@@ -97,4 +97,62 @@ class DiscoverSearchCoordinatorTest {
         assertTrue(fixture.state.searchResults.isEmpty())
         assertFalse(fixture.state.isSearching)
     }
+
+    // History is what you looked at, not what you passed on the way. On a television the keyboard
+    // searches after every key, so "Ga" and "Gam" are only the road to "Game".
+
+    @Test fun typingNeverWritesTheTermsOnTheWayToHistory() = runTest {
+        val fixture = Fixture(this)
+        fixture.coordinator.setQuery("Ga")
+        advanceUntilIdle()
+        fixture.coordinator.setQuery("Gam")
+        advanceUntilIdle()
+        fixture.coordinator.setQuery("Game")
+        advanceUntilIdle()
+        assertTrue(fixture.preferences.searchHistory(fixture.state.activeProfileId).isEmpty())
+        assertTrue(fixture.state.searchHistory.isEmpty())
+    }
+
+    @Test fun committingRemembersTheTermOnceAndShowsItAtOnce() = runTest {
+        val fixture = Fixture(this)
+        fixture.coordinator.setQuery("Game")
+        advanceUntilIdle()
+        fixture.coordinator.commitSearchToHistory()
+        fixture.coordinator.commitSearchToHistory()
+        assertEquals(listOf("Game"), fixture.preferences.searchHistory(fixture.state.activeProfileId))
+        assertEquals(listOf("Game"), fixture.state.searchHistory)
+    }
+
+    @Test fun theNewestCommittedTermComesFirst() = runTest {
+        val fixture = Fixture(this)
+        fixture.coordinator.setQuery("Game")
+        advanceUntilIdle()
+        fixture.coordinator.commitSearchToHistory()
+        fixture.coordinator.setQuery("Game Of Thrones")
+        advanceUntilIdle()
+        fixture.coordinator.commitSearchToHistory()
+        fixture.coordinator.setQuery("game")
+        fixture.coordinator.commitSearchToHistory()
+        assertEquals(listOf("game", "Game Of Thrones"), fixture.state.searchHistory)
+    }
+
+    @Test fun aTermTooShortToSearchIsNotCommitted() = runTest {
+        val fixture = Fixture(this)
+        fixture.coordinator.setQuery("G")
+        fixture.coordinator.commitSearchToHistory()
+        fixture.coordinator.setQuery("")
+        fixture.coordinator.commitSearchToHistory()
+        assertTrue(fixture.state.searchHistory.isEmpty())
+        assertTrue(fixture.preferences.searchHistory(fixture.state.activeProfileId).isEmpty())
+    }
+
+    @Test fun theCommittedTermIsTheTypedOneEvenBeforeItsAnswerArrives() = runTest {
+        val fixture = Fixture(this)
+        fixture.coordinator.setQuery("  Silo ")
+        assertTrue(fixture.state.isSearching)
+        fixture.coordinator.commitSearchToHistory()
+        assertEquals(listOf("Silo"), fixture.state.searchHistory)
+        advanceUntilIdle()
+        assertEquals(listOf("Silo"), fixture.state.searchHistory)
+    }
 }

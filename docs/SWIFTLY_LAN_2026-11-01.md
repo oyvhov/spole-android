@@ -4,21 +4,21 @@
 aldri kode). Kvart punkt vart sjekka mot Spole-koden før det kom med. Eigaren har bede om 1–7 og
 det kosmetiske etter runden i `RORSLE_OG_TOPPMENY_2026-11-01.md`.
 
-Status ved Codex-overleveringa 2. november kl. 00:50: punkt 2 er delvis implementert
-(behald førre treff under lasting, eigne bibliotek før sein Seerr). Historikk først ved
-inngang i resultata står att. TV-hoppfeilen i punkt 4 er retta; resten av punkt 4 og dei
-andre punkta står att. Sjå `HANDOFF_CODEX_2026-11-02.md` for verifikasjon.
-
-Punkt 3 (lyd/undertekst per serie) og 4 (hopp-over-reglar, resymé, førehandsvising, «Neste
-episode») er bygde og JVM-testa; sjå «Hopp over» og «Lyd og undertekst per serie» i
-`JELLYFIN_PLAYER.md`. Ikkje køyrt på eining eller emulator enno.
+Status 2. november 2026, før beta31: punkt 1–7 og det kosmetiske er bygde og JVM-testa — søk på
+TV med eige tastatur og historikk først ved inngang i treffa, hopp-over-reglane og lyd/undertekst
+per serie (sjå «Hopp over» og «Lyd og undertekst per serie» i `JELLYFIN_PLAYER.md`), episoderada på
+neste episode, éin framdriftsline, varselfargar per aksent, profilfargar, heildekkjande tekst over
+bilete og plasshaldar i temaet. Kva som er køyrt på TV 5566, står i `VERIFICATION_v1.0.0-beta31.md`.
 
 ## Først
 
 1. **Søk på TV med eige skjermtastatur** ved sida av resultata (`GlobalSearchScreen.kt` opnar IME over
-   treffa). Bokstavrutenett til venstre, Tilbake går til siste tast. Middels–stort.
+   treffa). Bokstavrutenett til venstre, Tilbake går til siste tast. Middels–stort. **Bygd:**
+   `TvSearchKeyboard.kt` (kort med spørjelinje og tastar), `SearchKeys.kt` (oppsett og skrivereglar).
 2. **Rolegare søk** (`DiscoverSearchCoordinator.kt:69,87,89`): gamle treff står til nye kjem, eigen
-   tenar før Seerr, historikk først når ein går inn i resultata. Lite.
+   tenar før Seerr, historikk først når ein går inn i resultata. Lite. **Bygd:** historikken blir
+   skriven av `commitSearchToHistory()` når eit treff får fokus eller blir opna (TV), når eit treff
+   blir trykt eller søkehandlinga blir brukt (telefon), aldri for «Ga» og «Gam» på vegen til «Game».
 3. **Lyd/undertekst hugsa per serie**, òg «av» (`JellyfinPlayerModel.kt:111,642`). Lite–middels.
 4. **Hopp-over-reglar** (`JellyfinPlayback.kt:320`, `JellyfinPlayerActivity.kt:1087`): resymé og
    førehandsvising, knappen 6 s så berre i OSD, rulletekst til slutt → «Neste episode». **Feil
@@ -33,6 +33,22 @@ episode») er bygde og JVM-testa; sjå «Hopp over» og «Lyd og undertekst per 
    tag < versionCode, greiner føre main, grep etter nøklar.
 9. Einings-ID ut av overføring: `reelstack_device.xml` i `data_extraction_rules.xml`.
 10. Logg i minnet (4 000 liner, token fjerna per line) + «meld feil»-lenkje.
+
+## Søk på TV (punkt 1 og 2)
+
+- **Tastaturet:** seks kolonnar, A–Å (Æ Ø Å etter Z), 0–9, bindestrek, mellomrom og slett, i tastar på minst
+  48 dp utan fast høgd. Mikrofon på ei eiga rad berre når `SpeechRecognizer.isRecognitionAvailable` seier ja
+  (`<queries>` for `RecognitionService` i manifestet). Mikrofonen opnar systemet sin eigen talerøyst, så
+  ingen mikrofontilgang blir spurd om. Fokus er ein ring, som elles på TV.
+- **Spørjelinja** er berre visning: ho tek aldri fokus, har ingen blinkande peikar og kuttar teksten framme,
+  så slutten står att. Kvart ord får stor forbokstav (også tale og eit tilkopla tastatur).
+- **Slett:** eitt trykk tek ein bokstav når tasten blir sleppt; OK halde inne i 500 ms tømmer heile søket.
+- **Fokus:** Tilbake frå treffa går til siste tast, Tilbake frå tastane lukkar søk som før, Venstre frå treffa
+  går til siste tast. Opp frå øvste rad kallar `onNavigateUp` (toppmenyen).
+- **Tilkopla tastatur** (USB/Bluetooth): bokstavar, sifre, bindestrek, mellomrom og Backspace via
+  `onPreviewKeyEvent` på søkesida. Teiknet kjem frå tastaturoppsettet, så Æ Ø Å verkar på nordisk oppsett.
+- **Ikkje prøvd på eining:** fokusrørsle med ekte fjernkontroll, fokusrestaurering ved Venstre, taleinnskriving
+  og Tilbake-rekkjefølgja mot `ReelstackApp` sin eigen handterar er dekte av Robolectric, ikkje av emulator.
 
 ## Kosmetisk
 
