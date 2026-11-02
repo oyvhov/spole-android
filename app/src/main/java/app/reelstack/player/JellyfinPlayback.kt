@@ -8,6 +8,7 @@ import app.reelstack.data.model.SubtitleLanguage
 import app.reelstack.data.model.MediaTrack
 import app.reelstack.data.model.preferredSubtitleIndex
 import app.reelstack.data.network.*
+import app.reelstack.data.repository.TrackChoices
 import kotlinx.serialization.json.*
 import java.net.URI
 import java.net.URLDecoder
@@ -53,24 +54,42 @@ data class PlaybackTrack(
     val embeddedBitmapMime: String? = null,
     val externalBitmapUrl: String? = null,
     val externalBitmapMime: String? = null,
+    /**
+     * What the server knows about the stream beyond its name: the next episode is searched for
+     * the closest match to these, because stream numbers change from one file to the next.
+     */
+    val title: String? = null,
+    val codec: String? = null,
+    val forced: Boolean = false,
+    val hearingImpaired: Boolean = false,
+    val channels: Int = 0,
 ) {
     val localBitmap: Boolean get() = externalBitmapUrl == null && (embeddedPgs || embeddedBitmapMime != null)
     val sidecar: Boolean get() = isText || externalBitmapUrl != null
 }
+
+/**
+ * Emby does not always set `IsHearingImpaired`, and release groups write "SDH" into the title
+ * instead. Either one means the track carries sound descriptions, which is worth telling apart from
+ * the ordinary track of the same language.
+ */
+private val hearingImpairedWords = Regex("\\b(sdh|hearing[ -]impaired|hard of hearing)\\b", RegexOption.IGNORE_CASE)
 
 internal fun trackKey(label: String, language: String?, codec: String?, forced: Boolean): String =
     listOf(language.orEmpty().lowercase().trim(), codec.orEmpty().lowercase().trim(),
         label.lowercase().replace(Regex("\\s+"), " ").trim(), forced.toString()).joinToString("|")
 
 /**
- * A stretch of the file the server has marked: the title sequence, or the closing credits.
+ * A stretch of the file the server has marked: the title sequence, the closing credits, the
+ * "previously on" before them or the "next time" after.
  *
  * Jellyfin 10.10 answers for this itself; before that the Intro Skipper plugin did, in seconds and
  * under a different address. Both are asked for, because a household that added the plugin years
- * ago should not lose the one feature they installed it for by upgrading the app.
+ * ago should not lose the one feature they installed it for by upgrading the app. Emby only knows
+ * the intro and the credits. Commercials are marked too, but nobody skips those in a film at home.
  */
 data class PlaybackSegment(val kind: Kind, val startMs: Long, val endMs: Long) {
-    enum class Kind { INTRO, OUTRO }
+    enum class Kind { INTRO, OUTRO, RECAP, PREVIEW }
 }
 
 /**
@@ -317,11 +336,14 @@ class MediaPlaybackClient(
             embyPlaybackSegments(read(c, "Users/${enc(user)}/Items/${enc(itemId)}?Fields=Chapters"))
         }.getOrDefault(emptyList())
         val modern = runCatching {
-            read(c, "MediaSegments/${enc(itemId)}?includeSegmentTypes=Intro&includeSegmentTypes=Outro")
+            read(c, "MediaSegments/${enc(itemId)}?" + listOf("Intro", "Outro", "Recap", "Preview")
+                .joinToString("&") { "includeSegmentTypes=$it" })
         }.getOrNull()?.objects("Items")?.mapNotNull { entry ->
             val kind = when (entry.str("Type").lowercase()) {
                 "intro" -> PlaybackSegment.Kind.INTRO
                 "outro", "credits" -> PlaybackSegment.Kind.OUTRO
+                "recap" -> PlaybackSegment.Kind.RECAP
+                "preview" -> PlaybackSegment.Kind.PREVIEW
                 else -> return@mapNotNull null
             }
             val start = (entry.num("StartTicks") ?: return@mapNotNull null) / 10_000
@@ -376,9 +398,15 @@ class MediaPlaybackClient(
             if (compatible) PlaybackCompatibility.FULL else PlaybackCompatibility.DIRECT,
             sourceId, preferredLanguage, fallbackLanguage)
 
+    /**
+     * [remembered] is what this series was last watched with. It only fills in what was not asked
+     * for: an explicit [audio] or [subtitle] (the title page's choice, or a track the viewer picked
+     * a moment ago) always wins, and a remembered track the file has no match for is ignored.
+     */
     internal fun prepare(c: ServiceConnection, user: String, item: PlayableItem, bitrate: Int,
         audio: Int?, subtitle: Int?, compatibility: PlaybackCompatibility, sourceId: String?,
-        preferredLanguage: SubtitleLanguage, fallbackLanguage: SubtitleLanguage): PlaybackPlan {
+        preferredLanguage: SubtitleLanguage, fallbackLanguage: SubtitleLanguage,
+        remembered: TrackChoices? = null): PlaybackPlan {
         if (item.type !in setOf("Movie", "Episode", "Video")) serviceError(R.string.player_err_pick_episode)
         val detected = if (compatibility == PlaybackCompatibility.FULL) DevicePlaybackCapabilities.CONSERVATIVE else
             runCatching { capabilities() }.getOrDefault(DevicePlaybackCapabilities.CONSERVATIVE)
@@ -425,17 +453,29 @@ class MediaPlaybackClient(
                 embeddedBitmapMime = if (type == "Subtitle" && codec in setOf("dvdsub", "vobsub") &&
                     !it.flag("IsExternal") && source.str("Container").equals("mkv", true) && direct)
                     "application/vobsub" else null,
-                externalBitmapUrl = bitmap?.url, externalBitmapMime = bitmap?.mimeType)
+                externalBitmapUrl = bitmap?.url, externalBitmapMime = bitmap?.mimeType,
+                title = it.str("Title").trim().takeIf(String::isNotEmpty), codec = codec, forced = forced,
+                hearingImpaired = it.flag("IsHearingImpaired") ||
+                    hearingImpairedWords.containsMatchIn(it.str("Title") + " " + it.str("DisplayTitle")),
+                channels = it.num("Channels")?.toInt() ?: 0)
         }
+        val audioTracks = tracks("Audio")
         val subtitles = tracks("Subtitle")
         val serverSubtitle = source.num("DefaultSubtitleStreamIndex")?.toInt() ?: -1
-        val selectedSubtitle = subtitle ?: preferredSubtitleIndex(subtitles.map { track ->
+        val serverAudio = source.num("DefaultAudioStreamIndex")?.toInt()
+        // What the series was last watched with fills in only what was not asked for. A remembered
+        // track the file has no match for says nothing, and the usual default decides.
+        val rememberedAudio = if (audio == null) rememberedAudioIndex(remembered?.audio, audioTracks) else null
+        val rememberedSubtitle = if (subtitle == null) rememberedSubtitleIndex(remembered?.subtitle, subtitles) else null
+        val selectedSubtitle = subtitle ?: rememberedSubtitle ?: preferredSubtitleIndex(subtitles.map { track ->
             MediaTrack(track.index, track.label, track.language, track.index == serverSubtitle,
                 streams.firstOrNull { it.num("Index")?.toInt() == track.index }?.flag("IsForced") == true)
         }, preferredLanguage, fallbackLanguage, serverSubtitle)
-        val selectedAudio = audio ?: source.num("DefaultAudioStreamIndex")?.toInt() ?: tracks("Audio").firstOrNull()?.index
-        // The server must negotiate the selected language too, especially for burnt-in subtitles.
-        if (subtitle == null && selectedSubtitle != serverSubtitle) {
+        val selectedAudio = audio ?: rememberedAudio ?: serverAudio ?: audioTracks.firstOrNull()?.index
+        // The server must negotiate the selected language too, especially for burnt-in subtitles,
+        // and a transcode is built for one audio track: a remembered one the server did not pick
+        // needs a second answer.
+        if ((subtitle == null && selectedSubtitle != serverSubtitle) || (rememberedAudio != null && rememberedAudio != serverAudio)) {
             return prepare(c, user, item, bitrate, selectedAudio, selectedSubtitle, compatibility, mediaSourceId,
                 preferredLanguage, fallbackLanguage)
         }
@@ -462,7 +502,7 @@ class MediaPlaybackClient(
             it.externalBitmapUrl ?: safePlaybackUrl(c.baseUrl, "Videos/${enc(item.id)}/${enc(mediaSourceId)}/Subtitles/${it.index}/Stream.${if (it.nativeAss) "ass" else "vtt"}")
         }
         return PlaybackPlan(item, mediaSourceId, session, safePlaybackUrl(c.baseUrl, url),
-            playbackModeFor(source, direct), tracks("Audio"), subtitles,
+            playbackModeFor(source, direct), audioTracks, subtitles,
             selectedAudio, selectedSubtitle, subtitleUrl, playbackTranscodeReasons(source), compatibility,
             if (direct) sourceVideoFrameRate(source) else 0f,
             source.objects("MediaAttachments").take(24).mapNotNull { attachment ->

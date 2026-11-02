@@ -91,19 +91,56 @@ class MediaSegmentTest {
         assertTrue(client(mapOf("MediaSegments/" to body)).segments(connection, "u1", "e1").isEmpty())
     }
 
+    /** Recap and preview are marked by the same route and read the same way. */
+    @Test
+    fun `recap and preview are read next to intro and outro`() {
+        val body = """{"Items":[{"Type":"Recap","StartTicks":0,"EndTicks":450000000},
+            {"Type":"Intro","StartTicks":450000000,"EndTicks":900000000},
+            {"Type":"Preview","StartTicks":25000000000,"EndTicks":25400000000},
+            {"Type":"Outro","StartTicks":25400000000,"EndTicks":26000000000}]}"""
+        val segments = client(mapOf("MediaSegments/" to body)).segments(connection, "u1", "e1")
+        assertEquals(
+            listOf(PlaybackSegment.Kind.RECAP, PlaybackSegment.Kind.INTRO, PlaybackSegment.Kind.PREVIEW, PlaybackSegment.Kind.OUTRO),
+            segments.map { it.kind },
+        )
+        assertEquals(PlaybackSegment(PlaybackSegment.Kind.PREVIEW, 2_500_000, 2_540_000), segments[2])
+    }
+
+    /** Commercials and anything a newer server invents are left out without losing the rest. */
+    @Test
+    fun `commercials and unknown types are dropped but the known ones stay`() {
+        val body = """{"Items":[{"Type":"Commercial","StartTicks":0,"EndTicks":900000000},
+            {"Type":"Unknown","StartTicks":0,"EndTicks":900000000},
+            {"Type":"Banana","StartTicks":0,"EndTicks":900000000},
+            {"Type":"Recap","StartTicks":0,"EndTicks":450000000}]}"""
+        val segments = client(mapOf("MediaSegments/" to body)).segments(connection, "u1", "e1")
+        assertEquals(listOf(PlaybackSegment.Kind.RECAP), segments.map { it.kind })
+    }
+
+    @Test
+    fun `the server is asked for all four kinds and for no commercials`() {
+        val transport = Routes(mapOf("MediaSegments/" to """{"Items":[]}"""))
+        JellyfinPlaybackClient(deviceId = "d", transport = transport).segments(connection, "u1", "e1")
+        val asked = transport.requested.first { it.contains("MediaSegments/") }
+        for (type in listOf("Intro", "Outro", "Recap", "Preview")) assertTrue(type, asked.contains("includeSegmentTypes=$type"))
+        assertTrue(!asked.contains("Commercial"))
+    }
+
     /**
      * The offer appears inside the stretch and stops a little before the end, so it neither
      * flickers around the boundary nor shows up for the last half second of a title sequence.
      */
     @Test
-    fun `the active stretch follows the playhead`() {
+    fun `the offer follows the playhead`() {
         val state = PlayerScreenState(
             segments = listOf(PlaybackSegment(PlaybackSegment.Kind.INTRO, 5_000, 90_000)),
         )
-        assertEquals(null, state.copy(positionMs = 4_000).activeSegment())
-        assertEquals(PlaybackSegment.Kind.INTRO, state.copy(positionMs = 5_000).activeSegment()?.kind)
-        assertEquals(PlaybackSegment.Kind.INTRO, state.copy(positionMs = 80_000).activeSegment()?.kind)
-        assertEquals(null, state.copy(positionMs = 89_000).activeSegment())
-        assertEquals(null, state.copy(positionMs = 120_000).activeSegment())
+        fun kindAt(position: Long) = (state.copy(positionMs = position).segmentOffer(controlsVisible = true)
+            ?.action as? SegmentAction.Skip)?.kind
+        assertEquals(null, kindAt(4_000))
+        assertEquals(PlaybackSegment.Kind.INTRO, kindAt(5_000))
+        assertEquals(PlaybackSegment.Kind.INTRO, kindAt(80_000))
+        assertEquals(null, kindAt(89_000))
+        assertEquals(null, kindAt(120_000))
     }
 }

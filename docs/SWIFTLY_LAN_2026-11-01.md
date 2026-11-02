@@ -9,6 +9,10 @@ Status ved Codex-overleveringa 2. november kl. 00:50: punkt 2 er delvis implemen
 inngang i resultata står att. TV-hoppfeilen i punkt 4 er retta; resten av punkt 4 og dei
 andre punkta står att. Sjå `HANDOFF_CODEX_2026-11-02.md` for verifikasjon.
 
+Punkt 3 (lyd/undertekst per serie) og 4 (hopp-over-reglar, resymé, førehandsvising, «Neste
+episode») er bygde og JVM-testa; sjå «Hopp over» og «Lyd og undertekst per serie» i
+`JELLYFIN_PLAYER.md`. Ikkje køyrt på eining eller emulator enno.
+
 ## Først
 
 1. **Søk på TV med eige skjermtastatur** ved sida av resultata (`GlobalSearchScreen.kt` opnar IME over

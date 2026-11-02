@@ -36,6 +36,8 @@
     <string name="detail_next_to_play">Neste å spele</string>
     <string name="player_skip_intro">Hopp over introen</string>
     <string name="player_skip_outro">Hopp over rulleteksten</string>
+    <string name="player_skip_recap">Hopp over resymé</string>
+    <string name="player_skip_preview">Hopp over førehandsvising</string>
     <plurals name="detail_more_episodes">
         <item quantity="one">%1$d episode til</item>
         <item quantity="other">%1$d episodar til</item>
