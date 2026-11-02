@@ -23,6 +23,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -147,6 +149,12 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
     pageStates.SaveableStateProvider(state.libraryPath.joinToString("/") { it.first }) {
         val grid = rememberLazyGridState()
         val firstContent = remember { FocusRequester() }
+        // The menu line lies only on the top of the page: the remote reaching the page's first rows brings the
+        // whole top back, line and all, instead of the little the focused row needs.
+        val topScope = androidx.compose.runtime.rememberCoroutineScope()
+        val backToTop = if (tv && menuInset > 0.dp) Modifier.onFocusChanged { focus ->
+            if (focus.hasFocus) topScope.launch { androidx.compose.runtime.withFrameNanos { }; grid.scrollToItem(0) }
+        } else Modifier
         val cell = app.reelstack.data.model.mediaCardMinimumWidth(
             (if (wideCards) { if (tv) 240f else 156f } else if (tv) 155f else 130f) * size,
             androidx.compose.ui.platform.LocalDensity.current.fontScale).dp
@@ -162,7 +170,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
                 .steadyRemoteRows(grid).testTag("library-browser")) {
             item(key = "heading", span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.focusProperties { if (tv && (showShelves || state.libraryEntries.isNotEmpty())) down = firstContent },
+                Column(backToTop.focusProperties { if (tv && (showShelves || state.libraryEntries.isNotEmpty())) down = firstContent },
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // One library deep, the sidebar already says Bibliotek. The trail is worth a
                     // line only once there is something in it the sidebar cannot say.
@@ -206,7 +214,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             // Only on the library's front page and only unfiltered: a filtered view is a query
             // result, and "what you were watching" is not part of the answer to a query.
             if (showShelves) item(key = "shelves", span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(bottom = 8.dp).focusRequester(firstContent)) {
+                Column(Modifier.padding(bottom = 8.dp).focusRequester(firstContent).then(backToTop)) {
                     LibraryShelfTitle(stringResource(R.string.library_next), cardActions != null)
                     ResumeRail(nextItems, onShelfOpen, cardActions, resumeIds = shelfResume.map { it.id }.toSet())
                 }
@@ -243,7 +251,7 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
                 )
                 val shape = RoundedCornerShape(app.reelstack.ui.theme.ReelLayout.ArtworkCorner)
                 val card = Modifier.fillMaxWidth()
-                    .then(if (!showShelves && entry.id == state.libraryEntries.firstOrNull()?.id) Modifier.focusRequester(firstContent) else Modifier)
+                    .then(if (!showShelves && entry.id == state.libraryEntries.firstOrNull()?.id) Modifier.focusRequester(firstContent).then(backToTop) else Modifier)
                     .zIndex(if (focused) 10f else 0f)
                     // A list row is already full width; scaling it on focus makes it collide with
                     // its neighbours. The focus ring carries the state instead.
