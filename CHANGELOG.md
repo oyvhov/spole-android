@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0-beta35 — toppmenyen på TV: liten og berre øvst
+
+- TV: toppmenyen er små ord rett på biletet frå venstre kant, med profilsirkelen til høgre. Han har ingen kapsel, ingen mørk stripe og ikkje Spole-merket. Sida du er på har ei kort strek i aksentfargen under ordet. Orda har sin eigen mjuke skugge, så dei held seg lesbare over lyse bilete.
+- Menyen ligg berre øvst. Han rullar vekk med sida på Heim, på biblioteksida, inne i eit bibliotek og på smarthyllene, og kjem att når du går opp. Eit bibliotek opnar med menyen øvst.
+- Menyen følgjer «Sider og meny», med rekkjefølgja di og utan sidene du har slått av. Biblioteka står der Bibliotek står, også når du ikkje har festa nokon, og då i same rekkjefølgje som på biblioteksida. Søk står alltid sist, og Innstillingar ligg bak profilsirkelen.
+- Biletet på Heim og på biblioteksida går heilt til toppen av skjermen.
+- Profilmenyen opnar på profilen du brukar.
+- Når flisa du stod på forsvinn, går fokus til sida, ikkje opp i menyen.
+- «Neste» på biblioteksidene brukar dei same korta som Heim, og episodar i søket er 16:9.
+- Oppdag, Nedlastingar og Innstillingar startar framleis under menyen, og der står han fast øvst.
+- Versjonsnamnet beta34 gjekk til eit lokalt testbygg og blir hoppa over.
+
 ## 1.0.0-beta33 — Oppdag i Stova
 
 - Stova kan vise Oppdag frå Seerr med Spole si Seerr-innlogging, så Stova treng ingen Seerr-konto sjølv: aktuelle titlar, kommande filmar og seriar, tittelsida med sesongar og liknande titlar, og søk.
