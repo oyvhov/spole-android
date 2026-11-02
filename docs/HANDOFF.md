@@ -1,4 +1,13 @@
-# Toppmenyen på TV: liten, utan stripe, berre øvst (`main`, ikkje gitt ut)
+# Spole 1.0.0-beta35 er ute: toppmenyen liten og berre øvst
+2026-11-02, eigaren: «Lag ny versjon av Spole». Release `v1.0.0-beta35` (172, `4ad2b04`, prerelease): toppmenyen
+frå `c95668f..e8925b9` (sjå under). Beta34 (171) var testbygget på Loftet, så denne heiter beta35.
+Kontroll: 1 620 testar, lint 0 feil, signatur/hash/native OK, offentleg nedlasting lik bygget. Loftet oppdaterte
+seg *gjennom appen* 171 → 172; første «Installer oppdatering» opna ingen dialog, det andre gjorde. Sjå
+`VERIFICATION_v1.0.0-beta35.md`. Står att: Oppdag, Nedlastingar og Innstillingar har lina fast øvst, og
+«Vis i sidemenyen»/«Legg i sidemenyen» seier framleis sidemeny om toppmenyen. Worktreen `C:/JellyBin/spole-beta34`
+(grein `release-beta34`, lik `e8925b9`) kan ryddast.
+
+# Toppmenyen på TV: liten, utan stripe, berre øvst (gitt ut som 1.0.0-beta35)
 2026-11-02 kveld, eigaren på beta33: «Topp baren skulle berre ligg øverst!!!», «liten og nett slik som eksempelet
 eg sendte deg i går» (Swiftly-videoen), «Den skal ikkje lage ein MØRK bar», «Test på Loftet ikkje emulator».
 Beta32-arbeidet frå `C:/JellyBin/spole-sesong` (ucommitta der, urørt) er teke inn (`c95668f`), og oppå det
@@ -8,7 +17,7 @@ aksentstrek under sida du er på; lina rullar vekk med Heim, biblioteksida, rute
 Kontroll: 1 620 testar (1 hoppa over), lint 0 feil. Loftet: signert 1.0.0-beta34 (171) installert med `-r`
 (mapping i `app/build/loftet-v1.0.0-beta34/`); Heim og Filmar prøvde: lina står øvst, er borte etter éin Ned og
 kjem att med Opp. Står att: Oppdag, Nedlastingar og Innstillingar har framleis lina fast over sida. Ikkje pusha,
-ikkje gitt ut; versjonen står alt som beta34 (171), så ein release må anten vere dette bygget eller beta35.
+gitt ut som 1.0.0-beta35 (172) same kveld, sjå over.
 
 # Spole 1.0.0-beta33: Oppdag for Stova
 2026-11-02, eigaren: «commit og lag nye versjoner av begge» (Spole og Stova). `launcher-discover` er

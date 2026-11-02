@@ -44,4 +44,14 @@ Loftet-TV-en. Denne utgåva heiter difor beta35 med kode 172, så Loftet kan opp
 
 ## Publisering
 
-Blir fylt inn etter publisering.
+- Release-commit `4ad2b04`, tagg `v1.0.0-beta35`, pusha med `git push --atomic origin main v1.0.0-beta35`.
+- Seks assets med digest kontrollert mot GitHub: APK, `SHA256SUMS.txt`, mapping, `SOURCE_COMMIT.txt`,
+  FFmpeg-kjelda og kjeldearkivet for dei native undertekstbiblioteka. Releasen er publisert som
+  prerelease (ikkje `latest`), og den offentlege nedlastinga utan innlogging har same SHA-256 som bygget.
+- **Oppdatering i appen på ein ekte TV:** Loftet (Google TV Streamer) med det lokale beta34-bygget (171):
+  Innstillinger → Varsler og oppdatering → Appoppdateringer → Sjekk nå fann `v1.0.0-beta35` (26,8 MB) med
+  release-notata, Last ned oppdatering → Installer oppdatering → Android sin «Oppdater» → «Appen er installert».
+  Etterpå: versjonskode 172, `1.0.0-beta35`, og Spole opnar på Heim med den nye toppmenyen, kontoen til Øyvind
+  og «Fortsett å se» med ekte innhald.
+- Merk: det første trykket på «Installer oppdatering» opna Android sin pakkeinstallasjon i ei gammal oppgåve
+  (task 193), som lukka seg utan dialog. Det andre trykket viste dialogen. Ikkje undersøkt vidare.
