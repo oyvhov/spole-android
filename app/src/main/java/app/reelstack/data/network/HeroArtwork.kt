@@ -8,6 +8,17 @@ import app.reelstack.data.model.ContentDetails
 fun detailBackdropUrl(opening: ContentDetails, details: ContentDetails): String? = heroArtworkUrl(
     opening.backdropUrl?.takeIf(String::isNotBlank) ?: details.backdropUrl?.takeIf(String::isNotBlank))
 
+/**
+ * What stands under the backdrop until it has loaded: the picture the card or list already showed,
+ * which is in the image cache, whereas the backdrop is a larger request that is not. Without it the
+ * page opened as flat dark and the artwork faded in a third of a second later. Null once the backdrop
+ * is that same picture, and for a page that never had one.
+ */
+fun detailBackdropPreviewUrl(opening: ContentDetails, details: ContentDetails): String? {
+    val card = opening.artworkUrl?.takeIf(String::isNotBlank) ?: return null
+    return card.takeUnless { it == detailBackdropUrl(opening, details) || it == details.backdropUrl }
+}
+
 /** A portrait hero must not enlarge the lettering already printed on a Thumb or poster. */
 fun mobileHeroArtworkUrl(media: LibraryMedia): String? {
     media.backdropUrl?.takeIf(String::isNotBlank)?.let { return it }

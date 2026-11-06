@@ -464,7 +464,14 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
             val navigation = updateTransition(state.selectedTab, label = "navigation-state")
             navigation.AnimatedContent(
-                transitionSpec = { fadeIn(motionSpec(motion, SpoleMotion.ChangeMs)) togetherWith fadeOut(motionSpec(motion, SpoleMotion.FocusMs)) },
+                // A true crossfade: the new page fades in over the old one, and the old one stays fully
+                // opaque until the new is, then goes. The earlier pair (a quick fade-out beside a slower
+                // fade-in) left ~0.1 s of bare background between the two pages.
+                transitionSpec = {
+                    val ms = if (motion) SpoleMotion.ChangeMs else SpoleMotion.ReducedMs
+                    fadeIn(motionSpec(motion, SpoleMotion.ChangeMs)) togetherWith
+                        fadeOut(androidx.compose.animation.core.tween(durationMillis = 1, delayMillis = ms))
+                },
                 modifier = Modifier.fillMaxSize(),
             ) { tab ->
                 val searchTransition = Modifier.sharedBounds(

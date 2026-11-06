@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.ContentDetails
 import app.reelstack.ui.theme.Ink
+import androidx.compose.ui.draw.alpha
 import app.reelstack.ui.theme.LocalPersonalization
 
 /** One scrolling page keeps remote focus, artwork and the episode rail in the same coordinate space. */
@@ -60,6 +61,7 @@ internal fun TvCinematicDetails(
         }
         if (options.detailBackdrop) {
             Box(Modifier.fillMaxWidth().height(maxHeight)) {
+                BackdropPreview(opening, details, Alignment.TopCenter, Modifier.matchParentSize())
                 MediaArtwork(app.reelstack.data.network.detailBackdropUrl(opening, details), null,
                     Modifier.matchParentSize().testTag("tv-detail-backdrop"),
                     fallbackRes = if (opening.remoteId == null && opening.artworkUrl == null) opening.artworkRes else 0,
@@ -132,4 +134,22 @@ internal fun TvDetailSynopsis(details: ContentDetails, onReachable: (Boolean) ->
                 label, Modifier.padding(start = 8.dp).size(24.dp))
         }
     }
+}
+
+/**
+ * The picture the list already showed, under the backdrop until that has loaded.
+ *
+ * The backdrop is a larger request than the card's, so it is never in the image cache when the page
+ * opens, and the page used to stand flat dark for the third of a second it took, or for good when a
+ * title had no backdrop at all. The card's picture is cached, so the first frame has artwork and the
+ * backdrop fades in over it. A tall poster is cropped to the screen and so is dimmed rather than shown
+ * at full strength; it is only there to keep the page from going dark.
+ */
+@Composable
+internal fun BackdropPreview(opening: ContentDetails, details: ContentDetails, alignment: Alignment, modifier: Modifier) {
+    val url = app.reelstack.data.network.detailBackdropPreviewUrl(opening, details) ?: return
+    var wide by remember(url) { mutableStateOf(false) }
+    MediaArtwork(url, null, modifier.alpha(if (wide) 1f else .38f).testTag("detail-backdrop-preview"),
+        contentScale = ContentScale.Crop, source = details.source, protectAspectRatio = false, alignment = alignment,
+        crossfadeDurationMillis = 0, onAspectRatio = { wide = it >= 1.3f })
 }

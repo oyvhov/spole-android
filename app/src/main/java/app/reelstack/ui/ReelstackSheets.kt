@@ -549,8 +549,12 @@ internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String)
     var chosenVersion by remember(details.key) { mutableStateOf<String?>(null) }
     val seriesLinkFocus = remember(details.key) { androidx.compose.ui.focus.FocusRequester() }
     var synopsisReachable by remember(details.key) { mutableStateOf(false) }
+    // On a television «Be om» leads the action group, before «Følg i kalenderen» and «Trailer», and takes the
+    // start focus: the primary action is the one a reader came for (Apple: first, and the most prominent).
+    val requestAction = if (tv) seerrActions.firstOrNull { it.tag == "title-request" } else null
     val actions: @Composable () -> Unit = {
         TitleActionRow(state, details, chosenAudio, chosenSubtitle, chosenVersion, onFavourite, onPlayed,
+            leading = requestAction?.let { ask -> { app.reelstack.ui.components.TextActions(listOf(ask), focusFirst = true) } },
             onSeries = if (mediaType == "Episode" && state.seriesBrowse.seriesId.isNotBlank()) onEpisodeSeries else null,
             onOfflineDownload = onOfflineDownload, onCalendarFollow = onCalendarFollow,
             includePlayback = tv,
@@ -580,8 +584,8 @@ internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String)
                 app.reelstack.ui.components.TvDetailSynopsis(details) { synopsisReachable = it }
                 actions()
                 if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
-                app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
-                    focusFirst = seerrActions.firstOrNull()?.tag == "title-request" || detailPlaybackTarget(state, details) == null)
+                app.reelstack.ui.components.TextActions(seerrActions.filterNot { it === requestAction }, Modifier.padding(top = 16.dp),
+                    focusFirst = requestAction == null && detailPlaybackTarget(state, details) == null)
             } else {
                 DetailTextSkeleton(Modifier.fillMaxWidth().padding(top = 24.dp).testTag("detail-loading"))
             }
@@ -617,8 +621,11 @@ internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String)
     Column(Modifier.fillMaxSize()) {
     Box(Modifier.weight(1f).fillMaxWidth()) {
     val artOptions = app.reelstack.ui.theme.LocalPersonalization.current
-    if (!cinematicPhone && artOptions.detailBackdrop && !artOptions.highContrast && !artOptions.lightweightTv && details.backdropUrl != null) {
-        MediaArtwork(details.backdropUrl, null, Modifier.matchParentSize().graphicsLayer { alpha = .22f },
+    // A title with no backdrop of its own keeps the list's picture here, darkened like the backdrop would be,
+    // rather than a flat page.
+    val phoneBackdrop = details.backdropUrl ?: opening.artworkUrl?.takeIf(String::isNotBlank)
+    if (!cinematicPhone && artOptions.detailBackdrop && !artOptions.highContrast && !artOptions.lightweightTv && phoneBackdrop != null) {
+        MediaArtwork(phoneBackdrop, null, Modifier.matchParentSize().graphicsLayer { alpha = .22f },
             fallbackRes = opening.artworkRes, contentScale = ContentScale.Crop, source = details.source)
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Ink.copy(alpha = .35f), Ink))))
     }
@@ -692,8 +699,8 @@ internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String)
         if (!tv && mediaType == "Episode") synopsis()
         if (tv && !wideDetail) synopsis()
         if (isSeries) SeriesPlayNote(state.seriesBrowse, details.key)
-        if (tv) app.reelstack.ui.components.TextActions(seerrActions, Modifier.padding(top = 16.dp),
-            focusFirst = seerrActions.firstOrNull()?.tag == "title-request" || detailPlaybackTarget(state, details) == null)
+        if (tv) app.reelstack.ui.components.TextActions(seerrActions.filterNot { it === requestAction }, Modifier.padding(top = 16.dp),
+            focusFirst = requestAction == null && detailPlaybackTarget(state, details) == null)
         if (details.title != opening.title) {
             Text(details.title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 20.dp))
@@ -892,6 +899,8 @@ private fun TitleActionRow(
     seriesFocus: FocusRequester? = null,
     includePlayback: Boolean = true,
     onCalendarFollow: (ContentDetails) -> Unit = {},
+    /** The group's primary action when it is not Play (Seerr's «Be om»): first in the row. */
+    leading: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val television = (androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
@@ -923,6 +932,7 @@ private fun TitleActionRow(
             // TV keeps Play with the other actions. Mobile pins Play outside this scrolling row.
             if (includePlayback) IntegratedPlaybackButton(state, details,
                 if (television) Modifier else Modifier.fillMaxWidth(), audioIndex, subtitleIndex, versionId)
+            leading?.invoke()
             if (!state.isKidMode && details.tmdbId != null &&
                 state.connections.any { it.kind == ServiceKind.SEERR && it.sessionCookie && it.userId.isNotBlank() } &&
                 (details.mediaType?.lowercase() in setOf("movie", "series", "tv") ||

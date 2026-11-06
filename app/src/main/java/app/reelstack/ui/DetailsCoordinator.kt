@@ -552,7 +552,11 @@ internal class DetailsCoordinator(
                 contentDetails = ContentDetails(
                     key = media.id,
                     tmdbId = media.remoteId,
-                    backdropUrl = media.backdropUrl,
+                    // The picture the Oppdag header showed for this title came from its own detail call
+                    // (see focusDiscoverTitle) and the row has none; without it the page opened flat dark
+                    // although the header had just had a backdrop.
+                    backdropUrl = media.backdropUrl?.takeIf(String::isNotBlank)
+                        ?: _uiState.value.discoverHub.focusDetails[media.id]?.backdropUrl?.takeIf(String::isNotBlank),
                     title = media.title,
                     eyebrow = appString(if (media.inLibrary) R.string.details_eyebrow_in_library else R.string.details_eyebrow_discover),
                     // The kind, then the year: the detail sheet has no type badge to carry it.
