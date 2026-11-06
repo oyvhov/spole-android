@@ -145,10 +145,21 @@ internal fun SettingsOptionPreview(value: Any?) {
                     width, height, 3f, colors.onSurfaceVariant.copy(alpha = .3f + index * .2f)) }
             }
             is FocusStyle -> if (value == FocusStyle.LIFT) {
-                // The middle card a little larger and the others dim, with no ring at all.
-                card(3f, 9f, 16f, 27f, 3f, colors.onSurfaceVariant.copy(alpha = .12f))
-                card(43f, 9f, 16f, 27f, 3f, colors.onSurfaceVariant.copy(alpha = .12f))
-                card(21.5f, 6.5f, 19f, 32f, 3.5f, colors.onSurfaceVariant.copy(alpha = .45f))
+                // The middle card larger (LiftScale), lit and standing in its own shadow, with no ring
+                // at all; the others stay as they are and are not dimmed.
+                card(3f, 9f, 16f, 27f, 3f, colors.onSurfaceVariant.copy(alpha = .3f))
+                card(45f, 9f, 16f, 27f, 3f, colors.onSurfaceVariant.copy(alpha = .3f))
+                val w = 16f * LiftScale
+                val h = 27f * LiftScale
+                val x = (64f - w) / 2f
+                val y = (44f - h) / 2f
+                // The same stack of growing outlines the real card casts: dark below, light around.
+                repeat(6) { step ->
+                    val grow = 5f * (step + 1) / 6f
+                    card(x - grow, y - grow + 1.5f, w + 2 * grow, h + 2 * grow, 3f + grow, Color.Black.copy(alpha = .09f))
+                    card(x - grow * .7f, y - grow * .7f, w + 1.4f * grow, h + 1.4f * grow, 3f + grow, colors.onSurface.copy(alpha = .03f))
+                }
+                card(x, y, w, h, 3f, colors.onSurfaceVariant.copy(alpha = .62f))
             } else {
                 repeat(3) { index -> card(3f + index * 20f, 9f, 16f, 27f, 3f,
                     colors.onSurfaceVariant.copy(alpha = .22f)) }

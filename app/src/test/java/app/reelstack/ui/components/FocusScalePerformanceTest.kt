@@ -114,15 +114,27 @@ class FocusScalePerformanceTest {
         emit(PressInteraction.Cancel(press))
         assertEquals(LIFTED, frames().last(), .0001f)
 
+        // Reduced motion: no animated size. A lifted card has nothing else to carry its focus, so
+        // it takes its final size in the very next frame and does not dip under a press.
         rule.runOnIdle { motion.value = false }
-        assertEquals(1f, frames().last(), .0001f)
+        assertEquals(LIFTED, frames().first(), .0001f)
         val stillPress = PressInteraction.Press(Offset.Zero)
         emit(stillPress)
-        assertEquals(1f, frames().last(), .0001f)
+        assertEquals(LIFTED, frames().first(), .0001f)
         emit(PressInteraction.Release(stillPress))
-        assertEquals(1f, frames().last(), .0001f)
+        assertEquals(LIFTED, frames().first(), .0001f)
+    }
+
+    @Test fun reducedMotionDoesNotAnimateTheLiftOnTheWayIn() {
+        content()
+        rule.runOnIdle { motion.value = false }
+        rule.mainClock.advanceTimeByFrame()
+        emit(FocusInteraction.Focus())
+        val samples = frames()
+        assertTrue("A reduced-motion lift must not pass through in-between sizes: $samples", samples.all { it == 1f || it == LIFTED })
+        assertEquals(LIFTED, samples.last(), .0001f)
     }
 }
 
-/** The standard focus lifts a card as much as Stova does. */
-private const val LIFTED = 1.06f
+/** The standard focus lifts a card well beyond its neighbours: see LiftScale. */
+private const val LIFTED = LiftScale

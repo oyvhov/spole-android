@@ -77,6 +77,7 @@ import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.focusBleed
 import app.reelstack.ui.components.focusOutline
+import app.reelstack.ui.components.liftShadow
 import app.reelstack.ui.components.animateFocusScale
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.mediaCardIndication
@@ -341,7 +342,8 @@ internal fun PosterOnlyCard(media: DiscoverMedia, onClick: () -> Unit, modifier:
     LaunchedEffect(focusedNow) { if (focusedNow) onFocused() }
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val scale by animateFocusScale(focusedNow, false)
-    Box(modifier.aspectRatio(2f / 3f).graphicsLayer { scaleX = scale; scaleY = scale }.focusOutline(interaction, shape, artwork = true).clip(shape)
+    Box(modifier.aspectRatio(2f / 3f).graphicsLayer { scaleX = scale; scaleY = scale }
+        .liftShadow(interaction, shape).focusOutline(interaction, shape, artwork = true).clip(shape)
         .background(SurfaceRaised)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .semantics(mergeDescendants = true) { contentDescription = media.title }

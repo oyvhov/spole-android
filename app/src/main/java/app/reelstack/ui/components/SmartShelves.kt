@@ -186,6 +186,7 @@ private fun SmartShelfTile(shelf: SmartShelf, items: List<RemoteLibraryItem>, so
     val posters = items.mapNotNull { libraryArtworkUrl(it, LibraryArtType.POSTER) }.distinct().take(TILE_POSTERS)
     Box(Modifier.width(width).heightIn(min = width / 2)
         .graphicsLayer { scaleX = scale; scaleY = scale }
+        .liftShadow(interaction, shape)
         .clip(shape)
         .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceVariant)))
         .focusOutline(interaction, shape, artwork = true)

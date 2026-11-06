@@ -18,7 +18,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -322,15 +328,31 @@ internal fun ThemePreview(value: Personalization, artwork: List<LibraryMedia> = 
                 Column(Modifier.width(42.dp * scale), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Box(
                         Modifier.fillMaxWidth().height(63.dp * scale)
+                            // Lifted focus, as on a real shelf: the card grows by LiftScale and
+                            // stands in a soft shadow (dark below, light around), drawn before
+                            // the clip so the clip does not cut it off.
+                            .then(if (index == 0 && value.focusStyle == FocusStyle.LIFT) Modifier
+                                .zIndex(1f)
+                                .graphicsLayer { scaleX = LiftScale; scaleY = LiftScale }
+                                .drawBehind {
+                                    val corner = shape.topStart.toPx(Size(size.width, size.height), this)
+                                    repeat(6) { step ->
+                                        val grow = 6.dp.toPx() * (step + 1) / 6f
+                                        drawRoundRect(Color.Black.copy(alpha = .10f), Offset(-grow, -grow + 2.dp.toPx()),
+                                            Size(size.width + 2 * grow, size.height + 2 * grow), CornerRadius(corner + grow))
+                                        drawRoundRect(focus.copy(alpha = .035f), Offset(-grow * .7f, -grow * .7f),
+                                            Size(size.width + 1.4f * grow, size.height + 1.4f * grow), CornerRadius(corner + grow))
+                                    }
+                                } else Modifier)
                             .background(Color(value.visualTheme.raised), shape)
                             // The progress bar is inside the card, so the card's corners have to
                             // hold it — without this it squared off the bottom-left of the artwork.
                             .clip(shape)
                             .then(if (index == 0 && value.focusStyle != FocusStyle.LIFT) Modifier.border(
                                 if (value.focusStyle == FocusStyle.BOLD) 3.dp else 2.dp, focus, shape) else Modifier)
-                            // Lifted focus has no ring: the cards beside the focused one dim instead.
-                            .then(if (index != 0 && value.focusStyle == FocusStyle.LIFT) Modifier.drawWithContent {
-                                drawContent(); drawRect(Color(value.visualTheme.background).copy(alpha = .30f))
+                            // Lifted focus has no ring and dims nobody: the focused card is lit instead.
+                            .then(if (index == 0 && value.focusStyle == FocusStyle.LIFT) Modifier.drawWithContent {
+                                drawContent(); drawRect(Color.White.copy(alpha = .05f))
                             } else Modifier),
                         contentAlignment = Alignment.BottomStart,
                     ) {

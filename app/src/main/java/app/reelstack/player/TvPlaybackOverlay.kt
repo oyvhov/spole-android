@@ -261,7 +261,7 @@ internal fun TvPlayerAction(icon: ImageVector, label: String, tag: String, modif
     // The transport row used to draw its own 1.5 dp edge while every card in the app used
     // `focusOutline` — two different answers to the same question, and the weaker one sat over
     // moving video where contrast is worst. One treatment now, plus the same lift the rails have.
-    val scale by animateFocusScale(focused, pressed = false)
+    val scale by animateFocusScale(focused, pressed = false, card = false)
     Surface(onClick,
         modifier.size(48.dp).graphicsLayer { scaleX = scale; scaleY = scale }
             .focusOutline(interaction, shape)
