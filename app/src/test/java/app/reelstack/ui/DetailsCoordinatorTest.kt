@@ -170,4 +170,59 @@ class DetailsCoordinatorTest {
         runCurrent()
         assertEquals("New account", state.value.contentDetails?.title)
     }
+
+    @Test fun `a library title opens with the artwork and the logo its card had`() = runTest {
+        val card = media("one").copy(logoUrl = "https://media.example/Items/one/Images/Logo", heroUrl = "https://media.example/Items/one/Images/Thumb",
+            artworkUrl = "https://media.example/Items/one/Images/Primary?maxWidth=480", mediaType = "Movie",
+            backdropUrl = "https://media.example/Items/one/Images/Backdrop/0?maxWidth=480")
+        val state = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection), recentMovies = listOf(card)))
+        val feature = feature(state) { HttpResponse(200, "{}") }
+        feature.openLibraryDetails(card.id)
+        // Before the server has answered anything: the first frame of the page.
+        val first = state.value.contentDetails!!
+        assertTrue(first.loading)
+        assertEquals(card.logoUrl, first.logoUrl)
+        assertEquals(card.artworkUrl, first.artworkUrl)
+        assertNotNull(detailBackdropUrl(first, first))
+        assertEquals(card.title, first.title)
+    }
+
+    @Test fun `a card without a true backdrop still opens over its own picture`() = runTest {
+        val card = media("one").copy(artworkUrl = "https://media.example/Items/one/Images/Primary?maxWidth=480")
+        val state = MutableStateFlow(ReelstackUiState(sessionScope = owner, connections = listOf(connection), recentMovies = listOf(card)))
+        val feature = feature(state) { HttpResponse(200, "{}") }
+        feature.openLibraryDetails(card.id)
+        val first = state.value.contentDetails!!
+        assertNull(first.backdropUrl)
+        assertEquals(card.artworkUrl, detailBackdropPreviewUrl(first, first))
+    }
+
+    @Test fun `a Seerr title opens with the backdrop the Oppdag header had`() = runTest {
+        val title = DiscoverMedia("seerr-tv-9", "Eşref Tek", "2026", artworkRes = 0, inLibrary = false, artworkUrl = "https://image.tmdb.org/t/p/w342/poster.jpg",
+            remoteId = 9, mediaType = "tv")
+        val shown = "https://image.tmdb.org/t/p/w1280/header.jpg"
+        val state = MutableStateFlow(ReelstackUiState(sessionScope = owner, discover = listOf(title),
+            discoverHub = DiscoverHubState(focusDetails = mapOf(title.id to FocusDetails(emptyList(), null, shown)))))
+        val feature = feature(state) { HttpResponse(200, "{}") }
+        feature.openDiscoverDetails(title.id)
+        val first = state.value.contentDetails!!
+        assertEquals(shown, first.backdropUrl)
+        assertEquals(title.artworkUrl, first.artworkUrl)
+    }
+
+    @Test fun `the list's own backdrop wins over the header's and a bare title keeps its poster as the fallback`() = runTest {
+        val listed = DiscoverMedia("seerr-movie-1", "Med", "", artworkRes = 0, inLibrary = false, artworkUrl = "https://image.tmdb.org/p.jpg",
+            backdropUrl = "https://image.tmdb.org/listed.jpg", remoteId = 1, mediaType = "movie")
+        val bare = DiscoverMedia("seerr-movie-2", "Utan", "", artworkRes = 0, inLibrary = false, artworkUrl = "https://image.tmdb.org/bare.jpg",
+            remoteId = 2, mediaType = "movie")
+        val state = MutableStateFlow(ReelstackUiState(sessionScope = owner, discover = listOf(listed, bare),
+            discoverHub = DiscoverHubState(focusDetails = mapOf(listed.id to FocusDetails(emptyList(), null, "https://image.tmdb.org/header.jpg")))))
+        val feature = feature(state) { HttpResponse(200, "{}") }
+        feature.openDiscoverDetails(listed.id)
+        assertEquals(listed.backdropUrl, state.value.contentDetails!!.backdropUrl)
+        feature.openDiscoverDetails(bare.id)
+        val first = state.value.contentDetails!!
+        assertNull(first.backdropUrl)
+        assertEquals(bare.artworkUrl, detailBackdropPreviewUrl(first, first))
+    }
 }

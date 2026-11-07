@@ -82,4 +82,13 @@ class HeroArtworkTest {
         assertNull(heroArtworkUrl(null))
         assertEquals("https://image.tmdb.org/t/p/w780/a.jpg", heroArtworkUrl("https://image.tmdb.org/t/p/w780/a.jpg"))
     }
+
+    @Test fun theCardsPictureStandsUnderTheBackdropUntilItArrives() {
+        val card = detail.copy(artworkUrl = "https://media.example/Items/film/Images/Primary?maxWidth=480")
+        assertEquals(card.artworkUrl, detailBackdropPreviewUrl(card, card))
+        // Once the page has the very picture as its backdrop there is nothing to put under it.
+        assertNull(detailBackdropPreviewUrl(card, card.copy(backdropUrl = card.artworkUrl)))
+        assertNull(detailBackdropPreviewUrl(card.copy(artworkUrl = " "), card))
+        assertNull(detailBackdropPreviewUrl(card.copy(artworkUrl = null), card))
+    }
 }

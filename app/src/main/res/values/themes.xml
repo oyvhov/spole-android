@@ -7,7 +7,7 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@color/reelstack_background</item>
         <item name="android:windowNoTitle">true</item>
-        <item name="android:windowBackground">@color/reelstack_background</item>
+        <item name="android:windowBackground">@drawable/spole_window_background</item>
     </style>
     <!-- The player owns its first frame.  Never expose the library behind it while Compose and
          Media3 initialise after a reader presses Hald fram. -->

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The first frame of a cold start: the mark where StartupReveal holds it, so nothing dark stands
+     between the launch window and the logo, and nothing jumps when Compose takes over. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/reelstack_background" />
+    <item android:drawable="@drawable/spole_splash_mark" android:gravity="center" />
+</layer-list>

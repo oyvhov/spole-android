@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,8 +51,14 @@ internal fun SpoleFormationMark(progress: () -> Float, modifier: Modifier = Modi
     )
 }
 
+/**
+ * The mark sits on the centre of the box, and the name hangs below it, so the launch window (a plain
+ * layer-list drawable with the mark in the middle of the screen) and this first frame agree to the pixel.
+ * [markProgress] is separate from [progress] for the cover, which starts with the mark already formed:
+ * the system window has just shown it whole, and forming it again would blank it first.
+ */
 @Composable
-internal fun SpoleStartupArt(progress: () -> Float, modifier: Modifier = Modifier) {
+internal fun SpoleStartupArt(progress: () -> Float, modifier: Modifier = Modifier, markProgress: () -> Float = progress) {
     val accent = MaterialTheme.colorScheme.primary
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(
@@ -73,19 +80,23 @@ internal fun SpoleStartupArt(progress: () -> Float, modifier: Modifier = Modifie
                 center = center,
             )
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            SpoleFormationMark(progress)
-            Spacer(Modifier.height(20.dp))
-            Text(
-                "Spole", fontSize = 52.sp, lineHeight = 58.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2).sp,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.testTag("startup-wordmark").graphicsLayer {
+        SpoleFormationMark(markProgress)
+        Text(
+            "Spole", fontSize = 52.sp, lineHeight = 58.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2).sp,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier
+                // Top of the name 76 dp below the centre: half the mark (56) and the old 20 dp gap.
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    layout(placeable.width, placeable.height) { placeable.place(0, 76.dp.roundToPx() + placeable.height / 2) }
+                }
+                .testTag("startup-wordmark")
+                .graphicsLayer {
                     val wordmark = formationPhase(progress(), .34f, .90f)
                     alpha = wordmark
                     translationY = (1f - wordmark) * 6.dp.toPx()
                 },
-            )
-        }
+        )
     }
 }
 

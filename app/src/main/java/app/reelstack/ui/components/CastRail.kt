@@ -25,7 +25,11 @@ import androidx.compose.ui.unit.sp
 import app.reelstack.R
 import app.reelstack.data.model.CastMember
 import app.reelstack.ui.theme.Muted
+import app.reelstack.ui.theme.SpoleMotion
 import app.reelstack.ui.theme.SurfaceRaised
+import app.reelstack.ui.theme.motionTween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.getValue
 
 @Composable
 fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKind? = null,
@@ -65,12 +69,7 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
                 }.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(portraitSize).focusOutline(interaction, CircleShape).clip(CircleShape).background(SurfaceRaised),
                     contentAlignment = Alignment.Center) {
-                    if (person.portraitUrl != null) {
-                        MediaArtwork(person.portraitUrl, null, Modifier.matchParentSize(), fallbackRes = R.drawable.media_placeholder, source = source)
-                    } else {
-                        Text(person.name.split(' ').filter(String::isNotBlank).take(2).map { it.first() }.joinToString(""),
-                            color = Muted, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)
-                    }
+                    CastPortrait(person, source)
                 }
                 Text(person.name, style = MaterialTheme.typography.labelMedium, maxLines = 3,
                     overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
@@ -105,5 +104,31 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
             }
         }
     }
+    }
+}
+
+/**
+ * The face in its circle. The circle itself is always there (the neutral raised surface), and the
+ * picture fades in over it once decoded instead of replacing it in one frame, which read as the
+ * portraits popping in after a row of empty circles. The initials show for a name with no picture
+ * or one that failed to load.
+ */
+@Composable
+private fun CastPortrait(person: CastMember, source: app.reelstack.data.model.ServiceKind?) {
+    var loaded by remember(person.portraitUrl) { mutableStateOf(false) }
+    var failed by remember(person.portraitUrl) { mutableStateOf(false) }
+    val alpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (loaded) 1f else 0f,
+        animationSpec = motionTween(SpoleMotion.ChangeMs),
+        label = "cast-portrait-fade",
+    )
+    if (person.portraitUrl != null && !failed) {
+        // The fade is ours, so Coil's own crossfade stays off; no placeholder drawable either, it
+        // would be the very thing that flashes before the face.
+        MediaArtwork(person.portraitUrl, null, Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha }, source = source,
+            crossfadeDurationMillis = 0, onError = { failed = true }, onAspectRatio = { loaded = true })
+    } else {
+        Text(person.name.split(' ').filter(String::isNotBlank).take(2).map { it.first() }.joinToString(""),
+            color = Muted, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)
     }
 }

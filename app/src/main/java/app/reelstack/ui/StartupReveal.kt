@@ -100,7 +100,9 @@ internal fun StartupCover(awaitContentReady: suspend () -> Unit, content: @Compo
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                SpoleStartupArt(progress = { reveal.value }, modifier = Modifier.safeDrawingPadding().padding(24.dp))
+                // Not inset by the system bars: the launch window centres the mark on the whole screen, and
+                // 300 dp of art has room to spare. The mark is already whole (see SpoleStartupArt).
+                SpoleStartupArt(progress = { reveal.value }, modifier = Modifier.padding(24.dp), markProgress = { 1f })
             }
         }
     }

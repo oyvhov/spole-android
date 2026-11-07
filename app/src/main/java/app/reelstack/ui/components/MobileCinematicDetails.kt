@@ -24,6 +24,7 @@ internal fun MobileCinematicDetails(
     metadata: @Composable () -> Unit,
 ) {
     Box(Modifier.fillMaxWidth().heightIn(min = 340.dp).testTag("mobile-detail-hero")) {
+        BackdropPreview(opening, details, Alignment.TopCenter, Modifier.matchParentSize())
         MediaArtwork(
             url = app.reelstack.data.network.detailBackdropUrl(opening, details),
             contentDescription = null,
