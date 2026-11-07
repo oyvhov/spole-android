@@ -128,3 +128,25 @@ Neste steg for Loftet:
     sjekke det tenestene ser: kortet fjernar det som ligg under, og ber ikkje tekstane under seg.
 - Tre testar fann korta på teksten under dei. No finn dei korta på namnet (`hasCardLabel`).
 - Prøvebygga av beta39 vart lagde inn på Loftet med `install -r`. Første installasjonsdato er uendra.
+
+## Publisering
+
+- Release-commit `c089f4a`, tagg `v1.0.0-beta39`, pusha med `git push --atomic origin HEAD:main v1.0.0-beta39`
+  (spola fram frå `e01eb0b`).
+- Signert APK: 28 157 852 byte, SHA-256 `9b135d30…7d639a59`, sertifikat `36fa94f0…`, `app.reelstack` 176, ikkje
+  debuggable, `profileable` frå skalet. Alle 20 native bibliotek er byte for byte like beta38.
+- Seks assets med digest kontrollert mot GitHub. Releasen er publisert som prerelease (ikkje `latest`), og den
+  offentlege nedlastinga utan innlogging har same SHA-256 som bygget.
+- CI «Bygg og test» på `c089f4a`: grøn ([køyring 42405875567](https://github.com/oyvhov/spole-android/actions/runs/42405875567)).
+
+## Den offentlege APK-en på Loftet
+
+Lagd inn med `install -r`. Første installasjonsdato (28.10.2026) er uendra. Sett på eininga:
+
+- «Kommer snart» er like stor som overskriftene over.
+- Innstillingane går ned til botnen og tonar ut. «Legg til barneprofil» står heil.
+- «Tøm bildebuffer» står på bokmål.
+- Episodane som kjem, er merkte «Kommende».
+
+Funne etterpå: forklaringa under «Tøm bildebuffer» hadde «utan». Ho er retta til «uten» i commiten etter releasen og
+kjem med i neste utgåve.

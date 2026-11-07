@@ -57,7 +57,7 @@
     <string name="notice_wifi_policy_updated">Wi-Fi-valget er endret</string>
     <string name="settings_about">Om appen</string>
     <string name="image_cache_clear">Tøm bildebuffer</string>
-    <string name="image_cache_clear_hint">Last inn kunst på nytt utan å logge ut eller slette mediedata.</string>
+    <string name="image_cache_clear_hint">Last inn kunst på nytt uten å logge ut eller slette mediedata.</string>
     <string name="image_cache_cleared">Bildebufferen er tømt. Åpne Hjem igjen for å laste inn bildene på nytt.</string>
     <string name="library_cache_clear">Tøm bibliotekbuffer</string>
     <string name="library_cache_clear_hint">Glem mellomlagrede biblioteksider og hent dem på nytt.</string>
