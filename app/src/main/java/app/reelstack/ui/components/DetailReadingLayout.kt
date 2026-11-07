@@ -67,14 +67,12 @@ internal val DetailSafeBottom = 32.dp
  * never stops in this band ([SafeBottomBringIntoView]), so nothing the remote is on is ever dimmed by it.
  */
 internal fun Modifier.safeBottomFade(): Modifier = this
-    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
     .drawWithContent {
-        drawContent()
-        val band = DetailSafeBottom.toPx()
-        drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to androidx.compose.ui.graphics.Color.Transparent,
-            1f to androidx.compose.ui.graphics.Color.Black, startY = size.height - band, endY = size.height),
-            topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - band),
-            size = androidx.compose.ui.geometry.Size(size.width, band), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+        val band = DetailSafeBottom.toPx().coerceAtMost(size.height)
+        drawFaded(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height - band), listOf(FadeBand(
+            androidx.compose.ui.geometry.Rect(0f, size.height - band, size.width, size.height),
+            androidx.compose.ui.graphics.Brush.verticalGradient(0f to androidx.compose.ui.graphics.Color.Black,
+                1f to androidx.compose.ui.graphics.Color.Transparent, startY = size.height - band, endY = size.height))))
     }
 
 /**

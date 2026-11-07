@@ -77,7 +77,7 @@ import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.focusBleed
 import app.reelstack.ui.components.focusOutline
-import app.reelstack.ui.components.liftShadow
+import app.reelstack.ui.components.focusLift
 import app.reelstack.ui.components.animateFocusScale
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.mediaCardIndication
@@ -342,12 +342,13 @@ internal fun PosterOnlyCard(media: DiscoverMedia, onClick: () -> Unit, modifier:
     LaunchedEffect(focusedNow) { if (focusedNow) onFocused() }
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
     val scale by animateFocusScale(focusedNow, false)
-    Box(modifier.aspectRatio(2f / 3f).graphicsLayer { scaleX = scale; scaleY = scale }
-        .liftShadow(interaction, shape).focusOutline(interaction, shape, artwork = true).clip(shape)
-        .background(SurfaceRaised)
+    // The clickable comes before the lift, so the remote measures from the poster as laid out (see focusLift).
+    Box(modifier.aspectRatio(2f / 3f)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .semantics(mergeDescendants = true) { contentDescription = media.title }
-        .testTag("discover-poster-${media.id}")) {
+        .testTag("discover-poster-${media.id}")
+        .focusLift { scale }.focusOutline(interaction, shape, artwork = true).clip(shape)
+        .background(SurfaceRaised)) {
         MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, contentScale = ContentScale.Crop,
             source = ServiceKind.SEERR)
     }

@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.inset
-import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import app.reelstack.ui.theme.SpoleMotion
 import app.reelstack.ui.theme.motionTween
@@ -39,12 +39,15 @@ internal fun mediaCardIndication(): androidx.compose.foundation.Indication? {
 /**
  * How far a focused card in the standard (LIFT) style grows.
  *
- * Measured on a Shield at 1080p, 1.06 left the focused card only 5-6 % wider than its neighbours,
- * which does not read from the sofa over a bright poster. Apple asks for the focused item to come
- * forward and Google TV scales its cards 1.025 / 1.05 / 1.1; 1.09 sits at the top of that range
- * and still fits in the gap between cards.
+ * Beta37 grew cards to 1.09 with a two-layer glow around them, which looked smudged on the Shield
+ * (2026-11-07). Stova's calm 1.04 and [LiftRise] without the glow then left it hard to tell which card had
+ * focus. A lifted card now grows to 1.08, rises, is lit a little and has a crisp light edge, as Google TV's
+ * cards do; nothing soft spills onto the page around it.
  */
-internal const val LiftScale = 1.09f
+internal const val LiftScale = 1.08f
+
+/** How far a focused lifted card rises, as in Stova. */
+internal val LiftRise = 2.dp
 
 /** Small controls in a lifted style (the player's transport row) keep the older, quieter lift. */
 internal const val LiftControlScale = 1.06f
@@ -58,7 +61,7 @@ internal const val LiftControlScale = 1.06f
  *
  * Styles with a ring keep a small 1.035, enough to see without shoving a row's neighbours around.
  * The standard style has no ring on artwork, so a [card] there carries the focus with [LiftScale],
- * the shadow of [liftShadow] and the light of [ring]. Press still wins, so a card that is being
+ * the rise of [focusLift] and the light of [ring]. Press still wins, so a card that is being
  * clicked dips under the finger.
  *
  * Reduced motion never animates the size. Where a ring carries the focus the card stays put; where
@@ -71,7 +74,7 @@ internal const val LiftControlScale = 1.06f
 @Composable
 internal fun animateFocusScale(focused: Boolean, pressed: Boolean, card: Boolean = true): State<Float> {
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
-    // A lifted card has no ring to carry it, so it grows as much as Stova's do.
+    // A lifted card has no ring to carry it: it grows and rises as Stova's do.
     val lift = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle == app.reelstack.data.model.FocusStyle.LIFT
     val target = when {
         pressed && motion -> 0.985f
@@ -114,7 +117,7 @@ internal fun Modifier.focusOutline(source: InteractionSource, shape: Shape, glow
 }
 
 /** White laid over a focused lifted card's artwork: light enough to leave the poster itself alone. */
-private const val LiftIllumination = 0.05f
+private const val LiftIllumination = 0.06f
 
 /**
  * The light on a focused lifted card. The artwork is never dimmed and its neighbours stay at full
@@ -130,56 +133,23 @@ private fun Modifier.illuminate(alpha: State<Float>, shape: Shape): Modifier = t
     }
 }
 
-/** One soft shadow: [spreadDp] wide, [total] opaque at the card's edge, [offsetYDp] lower than the card. */
-private class GlowLayer(val color: Color, val spreadDp: Float, val offsetYDp: Float, val total: Float)
-
-private const val GlowSteps = 10
-
 /**
- * The elevation of a focused lifted card: a soft shadow that follows [shape] and gives the card
- * something to stand in front of.
+ * The focus movement of a card's picture: it grows by [scale] and, in the LIFT style, rises [LiftRise] with it.
  *
- * Two layers, because no single colour reads on both grounds Spole puts cards on. A black drop
- * shadow, a little lower than the card, shows on a bright poster row or a backdrop but vanishes on
- * the near-black page; a faint halo in the text colour shows on the page and costs nothing on a
- * bright ground. Both are stacks of outlines, not a blur, so they look the same on every device and
- * are cheap: [GlowSteps] outlines per layer, drawn only while focused.
- *
- * It draws outside the card, so put it before `clip`, which would cut it off at the card's edge.
- * It does nothing in any style but LIFT. Reduced motion keeps it; only the fade is shortened.
+ * Put it on the artwork, inside the card's clickable, never on the clickable itself. The remote measures
+ * from the focused element's bounds: when the whole card grew, caption and all, a neighbour whose caption
+ * ran to two lines reached lower than the grown card and counted as "below" it, so Down moved focus one card
+ * to the right (the Shield, 2026-11-07). Read [scale] only here, in the layer, so the card does not
+ * recompose on every animation frame.
  */
 @Composable
-internal fun Modifier.liftShadow(source: InteractionSource, shape: Shape): Modifier {
-    if (app.reelstack.ui.theme.LocalPersonalization.current.focusStyle != app.reelstack.data.model.FocusStyle.LIFT) return this
-    val focused by source.collectIsFocusedAsState()
-    val alphaState = animateFloatAsState(if (focused) 1f else 0f, motionTween(SpoleMotion.FocusMs), label = "lift-shadow")
-    val halo = MaterialTheme.colorScheme.onSurface
-    return this.drawWithCache {
-        val layers = listOf(
-            GlowLayer(Color.Black, spreadDp = 16f, offsetYDp = 6f, total = 0.60f),
-            GlowLayer(halo, spreadDp = 12f, offsetYDp = 0f, total = 0.16f),
-        )
-        // The outlines depend only on the size, so they are made once per size, not once per frame.
-        val rings = layers.map { layer ->
-            val spread = layer.spreadDp.dp.toPx()
-            List(GlowSteps) { i ->
-                val grow = spread * (i + 1) / GlowSteps
-                grow to shape.createOutline(androidx.compose.ui.geometry.Size(size.width + 2 * grow, size.height + 2 * grow), layoutDirection, this)
-            }
-        }
-        onDrawWithContent {
-            val alpha = alphaState.value
-            if (alpha > 0.001f) layers.forEachIndexed { index, layer ->
-                val stepAlpha = layer.total * alpha / GlowSteps
-                val dy = layer.offsetYDp.dp.toPx()
-                rings[index].forEach { (grow, outline) ->
-                    translate(-grow, -grow + dy) {
-                        drawOutline(outline, SolidColor(layer.color.copy(alpha = stepAlpha)))
-                    }
-                }
-            }
-            drawContent()
-        }
+internal fun Modifier.focusLift(scale: () -> Float): Modifier {
+    val lift = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle == app.reelstack.data.model.FocusStyle.LIFT
+    return this.graphicsLayer {
+        val s = scale()
+        scaleX = s
+        scaleY = s
+        if (lift) translationY = -LiftRise.toPx() * ((s - 1f) / (LiftScale - 1f)).coerceIn(0f, 1f)
     }
 }
 
@@ -201,11 +171,17 @@ private fun Modifier.ring(focused: Boolean, shape: Shape, glow: Boolean, artwork
     val alphaState = animateFloatAsState(if (focused) 1f else 0f, motionTween(SpoleMotion.FocusMs), label = "focus-outline")
     val style = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle
     val lift = style == app.reelstack.data.model.FocusStyle.LIFT
-    if (lift && artwork) return this.illuminate(alphaState, shape)
+    // Lifted artwork is lit and gets a crisp edge, never the soft glow: that read as a smudge round the card.
+    val liftedArt = lift && artwork
     val color = if (style == app.reelstack.data.model.FocusStyle.ACCENT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-    val strokeWidthDp = if (style == app.reelstack.data.model.FocusStyle.BOLD || (lift && isTelevision())) 4.dp else 2.dp
+    val strokeWidthDp = when {
+        liftedArt -> if (isTelevision()) 3.dp else 2.dp
+        style == app.reelstack.data.model.FocusStyle.BOLD || (lift && isTelevision()) -> 4.dp
+        else -> 2.dp
+    }
+    val base = if (liftedArt) this.illuminate(alphaState, shape) else this
 
-    return this.drawWithCache {
+    return base.drawWithCache {
         val strokeWidthPx = strokeWidthDp.toPx()
         val glowStrokeWidthPx = strokeWidthPx + 1.dp.toPx()
         val shadowStrokeWidthPx = strokeWidthPx + 4.dp.toPx()
@@ -219,7 +195,7 @@ private fun Modifier.ring(focused: Boolean, shape: Shape, glow: Boolean, artwork
 
         onDrawWithContent {
             val alpha = alphaState.value
-            if (glow && motion && alpha > 0.001f) {
+            if (glow && !liftedArt && motion && alpha > 0.001f) {
                 inset(edge) {
                 drawOutline(
                     outline = outline,

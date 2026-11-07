@@ -29,6 +29,11 @@ internal fun RailCardCaption(
 ) {
     @Suppress("NAME_SHADOWING") val subtitle = withoutPlaceholders(subtitle)
     val hasSubtitle = subtitle.isNotBlank()
+    // On a television every card in a row takes the same room: one line for the episode, kept even when
+    // there is none. A row is as tall as its tallest card in view, so a two-line episode name coming into view
+    // grew the row and everything under it jumped (the Shield, 2026-11-07).
+    val tv = isTelevision()
+    @Suppress("NAME_SHADOWING") val subtitleMaxLines = if (tv) 1 else subtitleMaxLines
     Layout(modifier = modifier, content = {
         Text(title, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
             lineHeight = 19.sp, maxLines = titleMaxLines, overflow = TextOverflow.Ellipsis,
@@ -41,12 +46,16 @@ internal fun RailCardCaption(
         Text(title, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
             lineHeight = 19.sp, minLines = reserveTitleLines, maxLines = titleMaxLines,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.clearAndSetSemantics {})
+        // The episode line's room, measured like the title's reserve and never placed.
+        if (tv) Text("", fontSize = 12.sp, lineHeight = 17.sp, minLines = 1, maxLines = 1,
+            modifier = Modifier.padding(top = 2.dp).clearAndSetSemantics {})
     }) { measurables, constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val heading = measurables[0].measure(loose)
         val subtitle = if (hasSubtitle) measurables[1].measure(loose) else null
-        val titleReserve = measurables.last().measure(loose)
-        val height = maxOf(heading.height, titleReserve.height) + (subtitle?.height ?: 0)
+        val titleReserve = measurables[if (hasSubtitle) 2 else 1].measure(loose)
+        val subtitleReserve = if (tv) measurables.last().measure(loose).height else 0
+        val height = maxOf(heading.height, titleReserve.height) + maxOf(subtitle?.height ?: 0, subtitleReserve)
         layout(constraints.constrainWidth(maxOf(heading.width, subtitle?.width ?: 0)),
             constraints.constrainHeight(height)) {
             heading.placeRelative(0, 0)

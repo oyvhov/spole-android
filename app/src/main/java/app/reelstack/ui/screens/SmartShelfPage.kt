@@ -103,7 +103,7 @@ import app.reelstack.ui.components.SpoleChoiceRow
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.SpoleSecondaryButton
 import app.reelstack.ui.components.WatchProgressBar
-import app.reelstack.ui.components.liftShadow
+import app.reelstack.ui.components.focusLift
 import app.reelstack.ui.components.cinematicBleed
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.animateFocusScale
@@ -459,12 +459,11 @@ private fun SmartShelfCard(entry: RemoteLibraryItem, source: ServiceKind, onClic
     val density = LocalDensity.current
     val isNew = entry.addedAtEpochMillis?.let { System.currentTimeMillis() - it in 0..NEW_FOR_MILLIS } == true
     Column(modifier.zIndex(if (focused) 1f else 0f)
-        .graphicsLayer { scaleX = scale; scaleY = scale }
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .semantics { contentDescription = entry.title }
         .testTag("smart-item-${entry.id}")) {
         BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(2f / 3f)
-            .liftShadow(interaction, shape)
+            .focusLift { scale }
             .background(MaterialTheme.colorScheme.surfaceVariant, shape)
             .focusOutline(interaction, shape, artwork = true).clip(shape)) {
             val widthPx = with(density) { maxWidth.roundToPx() }.coerceAtLeast(1)

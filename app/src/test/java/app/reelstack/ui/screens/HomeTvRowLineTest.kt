@@ -137,7 +137,8 @@ class HomeTvRowLineTest {
         press(Key.DirectionDown)
         press(Key.DirectionDown)
         val heroes = rule.onAllNodesWithTag("tablet-library-feature").fetchSemanticsNodes()
-        assertTrue("the shelves are up", heroes.isEmpty() || heroTop() < -10f)
+        // A hero kept composed above the page (the list's cache window) is not placed: its bounds are NaN.
+        assertTrue("the shelves are up", heroes.isEmpty() || heroTop().isNaN() || heroTop() < -10f)
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
         rule.waitForIdle()
         assertFalse("Back did not leave the activity", rule.activity.isFinishing)

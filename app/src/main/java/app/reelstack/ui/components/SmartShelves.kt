@@ -184,15 +184,15 @@ private fun SmartShelfTile(shelf: SmartShelf, items: List<RemoteLibraryItem>, so
     val scale by animateFocusScale(focused, false)
     val width = tileWidth()
     val posters = items.mapNotNull { libraryArtworkUrl(it, LibraryArtType.POSTER) }.distinct().take(TILE_POSTERS)
+    // The clickable comes before the lift, so the remote measures from the tile as laid out (see focusLift).
     Box(Modifier.width(width).heightIn(min = width / 2)
-        .graphicsLayer { scaleX = scale; scaleY = scale }
-        .liftShadow(interaction, shape)
-        .clip(shape)
-        .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceVariant)))
-        .focusOutline(interaction, shape, artwork = true)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
         .semantics { contentDescription = name }
-        .testTag("smart-shelf-${shelf.id}")) {
+        .testTag("smart-shelf-${shelf.id}")
+        .focusLift { scale }
+        .clip(shape)
+        .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceVariant)))
+        .focusOutline(interaction, shape, artwork = true)) {
         Row(Modifier.matchParentSize()) {
             posters.forEach { url ->
                 MediaArtwork(librarySizedArtwork(url, 240), null, Modifier.weight(1f).fillMaxHeight(), source = source)

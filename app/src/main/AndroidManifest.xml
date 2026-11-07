@@ -149,5 +149,7 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Lets a shell profile frame timing and CPU on a television (simpleperf, Perfetto); not debuggable. -->
+        <profileable android:shell="true" />
     </application>
 </manifest>

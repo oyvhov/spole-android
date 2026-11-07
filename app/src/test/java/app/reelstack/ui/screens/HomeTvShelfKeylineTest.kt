@@ -29,8 +29,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * A television row scrolls to a keyline: once it has to move, the focused card lands where the first
- * card started, so no card is ever left sliced by the menu with its caption cut mid-word (Shield, 2026-11-07).
+ * A television row scrolls to a keyline: the focused card always lands where the first card started, so no
+ * card is ever left sliced by the menu with its caption cut mid-word, and the row never jumps (Shield, 2026-11-07).
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -62,19 +62,21 @@ class HomeTvShelfKeylineTest {
 
     private fun card(index: Int) = rule.onNode(hasClickAction() and hasText("Serie $index"))
 
-    @Test fun theFocusedCardLandsOnTheKeylineAndNoCardIsSlicedAcrossIt() {
+    /**
+     * Every step lands the card in focus on the keyline, from the first press on: the row moves one card
+     * at a time under a still focus. A row that let focus walk to the far edge and then moved four cards
+     * at once read as the screen jumping (the Shield, 2026-11-07, «Sjå vidare»).
+     */
+    @Test fun everyStepLandsTheFocusedCardOnTheKeylineAndNoCardIsSlicedAcrossIt() {
         show()
         card(0).requestFocus()
-        // The page gutter, where the titles and the first card start. A focused card is scaled around its
-        // centre, so its own left edge reads a few dp short of it.
+        // The page gutter, where the titles and the first card start.
         val keyline = 24f
-        var scrolledOntoKeyline = false
         repeat(10) { step ->
             rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionRight) }
             rule.mainClock.advanceTimeBy(1_000)
             val focused = card(step + 1).assertIsFocused().getUnclippedBoundsInRoot()
-            // Scaled around its centre, the card's own edge may read a few dp short of the keyline.
-            if (step >= 5 && kotlin.math.abs(focused.left.value - keyline) <= 8f) scrolledOntoKeyline = true
+            assertEquals("after step $step the focused card stands on the keyline", keyline, focused.left.value, 3f)
             (0..step).forEach { other ->
                 if (rule.onAllNodes(hasClickAction() and hasText("Serie $other")).fetchSemanticsNodes().isEmpty()) return@forEach
                 val b = card(other).getUnclippedBoundsInRoot()
@@ -82,8 +84,6 @@ class HomeTvShelfKeylineTest {
                 assertTrue("card $other is sliced by the keyline after step $step: ${b.left}..${b.right} vs $keyline", !sliced)
             }
         }
-        // Five cards fit, so the row had to move, and then the focused card stood on the keyline.
-        assertTrue("the row scrolled a card onto the keyline", scrolledOntoKeyline)
     }
 
     @Test fun aFocusedCardHasRoomToGrowAboveAndBelow() {

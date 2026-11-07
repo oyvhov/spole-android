@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0-beta38 — tydeleg fokus utan glød, rader som står stille
+
+- TV: Kortet med fokus har ikkje lenger glød rundt seg. Det veks til 1,08 gonger storleiken, løftar seg litt, blir litt lysare og får ein skarp lys kant, som på Google TV.
+- TV: Ned frå eit kort går til rada under. Før kunne fokus gå eitt kort til høgre når kortet ved sida hadde to linjer tekst, og rada hoppa.
+- TV: Bortover i ei rad flyttar rada seg eitt kort per trykk, og fokus står i ro. Før gjekk fokus til kanten, og så hoppa rada fire kort.
+- TV: Ei rad står i ro når du kjem inn i henne ovanfrå eller nedanfrå. Ho flyttar seg berre for venstre og høgre.
+- TV: Alle korta i ei rad er like høge, for episodenamnet står på éi linje. Før vaks rada når eit kort med to linjer kom til syne, og alt under hoppa.
+- TV: Rullinga held farten mellom trykka i staden for å starte frå ro kvar gong.
+- TV: Kantane tonar ut i smale band. Før vart heile sida teikna på nytt i eit eige lag for kvart bilete. Grafikkbrikka på Shield har no halvparten så mykje å gjere.
+- TV: Heim og radene byggjer det som kjem rett etter, medan sida står i ro.
+- TV: Overskriftene på radene er mindre.
+- Appen kan profilerast frå adb-skalet (`profileable`), slik at bilettida kan målast på TV. Han kan framleis ikkje feilsøkjast.
+
 ## 1.0.0-beta37 — roleg Heim på TV, tydeleg fokus og sidebyte utan mørke
 
 - TV: Ned frå toppbiletet flyttar heile sida i éi roleg rørsle, og overskrifta på kvar rad står på same linje under toppkanten. Ingen halve rader eller halve knappar blir ståande øvst. Opp tek toppbiletet heilt tilbake med same rørsle.

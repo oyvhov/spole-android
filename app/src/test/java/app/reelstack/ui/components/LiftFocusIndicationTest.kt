@@ -30,6 +30,7 @@ import app.reelstack.ui.theme.LocalPersonalization
 import app.reelstack.ui.theme.ReelstackTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import app.reelstack.ui.ringAt
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,8 +38,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * A focused LIFT card must read from the sofa: a glow on the page around it and a light
- * brightening of its own artwork, and neither may need motion.
+ * A focused LIFT card comes forward: it grows, rises, is lit and has a crisp edge, and the page around it stays
+ * as it was. The glow Spole drew around the card (beta37) looked smudged on the Shield, and Stova's lift alone
+ * left it hard to tell which card had focus there (2026-11-07).
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -64,8 +66,8 @@ class LiftFocusIndicationTest {
     @Composable private fun Card() {
         val source = remember { MutableInteractionSource() }
         val shape = RoundedCornerShape(12.dp)
-        // The cards' own order: the shadow before the clip, the illumination inside it.
-        Box(Modifier.size(100.dp, 150.dp).testTag("card").liftShadow(source, shape).clip(shape)
+        // The cards' own order: the lift before the clip, the illumination inside it.
+        Box(Modifier.size(100.dp, 150.dp).testTag("card").focusLift { 1f }.clip(shape)
             .background(Color(0xFF404040)).focusOutline(source, shape, artwork = true).focusable(interactionSource = source))
     }
 
@@ -89,14 +91,14 @@ class LiftFocusIndicationTest {
         val pageAfter = red(-5f, 75f, box)
         val artAfter = red(50f, 75f, box)
         assertEquals("the page is black before focus", 0, pageBefore)
-        assertTrue("no glow on the page around the focused card: $pageAfter", pageAfter >= 12)
+        assertEquals("no glow on the page around the focused card", pageBefore, pageAfter)
         assertTrue("the focused artwork is not brightened: $artBefore -> $artAfter", artAfter - artBefore >= 6)
         assertTrue("the brightening must stay light: $artBefore -> $artAfter", artAfter - artBefore <= 30)
     }
 
-    @Test fun aFocusedLiftCardGlowsAndIsBrightened() = assertLit(motion = true)
+    @Test fun aFocusedLiftCardIsLitWithoutAGlow() = assertLit(motion = true)
 
-    @Test fun reducedMotionKeepsTheGlowAndTheBrightening() = assertLit(motion = false)
+    @Test fun reducedMotionKeepsTheBrightening() = assertLit(motion = false)
 
     @Test fun otherStylesAreNotBrightened() {
         card(FocusStyle.WHITE, true)
@@ -109,7 +111,23 @@ class LiftFocusIndicationTest {
         assertEquals("WHITE must keep its artwork as it was", before, red(50f, 75f, box))
     }
 
-    @Test fun theLiftIsBigEnoughToSeeFromTheSofa() {
-        assertEquals(1.09f, LiftScale, 0f)
+    @Test fun theLiftReadsFromTheSofa() {
+        assertEquals(1.08f, LiftScale, 0f)
+        assertEquals(2f, LiftRise.value, 0f)
+    }
+
+    /** A sharp light edge on the artwork itself, as Google TV draws: nothing soft spills onto the page. */
+    @Test fun aFocusedLiftCardHasACrispEdge() {
+        card(FocusStyle.LIFT, true)
+        rule.waitForIdle()
+        val box = bounds()
+        val d = rule.density.density
+        val before = rule.runOnIdle { app.reelstack.ui.drawnContent(rule.activity) }
+        assertTrue("no edge before focus", !before.ringAt(1f, 75f, box, d))
+        rule.onNodeWithTag("card").requestFocus()
+        rule.waitForIdle()
+        val after = rule.runOnIdle { app.reelstack.ui.drawnContent(rule.activity) }
+        assertTrue("a light edge just inside the focused card", after.ringAt(1f, 75f, box, d))
+        assertTrue("the edge is crisp: the art a few dp in is not lit by it", !after.ringAt(8f, 75f, box, d))
     }
 }

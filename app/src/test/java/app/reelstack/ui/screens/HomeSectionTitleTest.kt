@@ -37,4 +37,11 @@ class HomeSectionTitleTest {
         rule.onNodeWithText("Sjå vidare · Emby", useUnmergedTree = true).assertExists()
         rule.onAllNodesWithText("Emby", useUnmergedTree = true).assertCountEquals(0)
     }
+
+    /** «Sjå vidare · Jellyfin» in the page's large title size outshouted the cards under it (the Shield, 2026-11-07). */
+    @Test fun aShelfHeadingIsOneQuietLine() {
+        rule.setContent { ReelstackTheme { MediaSectionTitle("Sjå vidare", ServiceKind.EMBY, showSource = true) } }
+        val height = rule.onNodeWithText("Sjå vidare · Emby", useUnmergedTree = true).getUnclippedBoundsInRoot().let { (it.bottom - it.top).value }
+        org.junit.Assert.assertTrue("the heading is $height dp tall", height <= 21f)
+    }
 }

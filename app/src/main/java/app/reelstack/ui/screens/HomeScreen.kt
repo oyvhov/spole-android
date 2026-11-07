@@ -97,7 +97,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import app.reelstack.ui.components.liftShadow
+import app.reelstack.ui.components.drawFaded
+import app.reelstack.ui.components.focusLift
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -286,7 +287,7 @@ fun HomeScreen(
         val features = if (personalization.showHero) tabletFeaturedTitles(featurePool, layout,
             allowLocalArtwork = state.configuredCount == 0) else emptyList()
         val featured = features.firstOrNull()
-        val feedState = androidx.compose.foundation.lazy.rememberLazyListState()
+        val feedState = rememberTvListState(aheadFraction = 1f, behindFraction = 1f)
         val feedScope = rememberCoroutineScope()
         // Scroll changes only the artwork's graphics layer, not the hero's lazy-item composition.
         val parallaxOffsetProvider = remember(feedState) {
@@ -319,24 +320,25 @@ fun HomeScreen(
         val fadedEdge = television && tablet && featured != null
         val tvPaged = fadedEdge
         val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
-        val pageSpec = app.reelstack.ui.theme.motionSpec<Float>(motion, app.reelstack.ui.theme.SpoleMotion.LandMs)
         val heroFocus = remember { androidx.compose.ui.focus.FocusRequester() }
         val linePx = with(density) { TV_ROW_TITLE_LINE.toPx() }
         val topBandPx = with(density) { (TV_ROW_TITLE_LINE - 6.dp).toPx() }
         val feedAtRest by remember { androidx.compose.runtime.derivedStateOf {
             feedState.firstVisibleItemIndex == 0 && feedState.firstVisibleItemScrollOffset == 0
         } }
+        // One glide owns the page: a press while it moves aims it anew and keeps its speed (see ScrollGlide).
+        val pageGlide = remember(feedState) { app.reelstack.ui.components.ScrollGlide() }
         fun toHero() = feedScope.launch {
             androidx.compose.runtime.withFrameNanos { }
             if (feedState.firstVisibleItemIndex == 0)
-                feedState.animateScrollBy(-feedState.firstVisibleItemScrollOffset.toFloat(), pageSpec)
+                pageGlide.by(feedState, -feedState.firstVisibleItemScrollOffset.toFloat(), motion)
             else feedState.animateScrollToItem(0)
         }
         fun toLine(key: String, index: Int, inset: Dp) = feedScope.launch {
             androidx.compose.runtime.withFrameNanos { }
             val target = linePx - with(density) { inset.toPx() }
             val info = feedState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
-            if (info != null) feedState.animateScrollBy(info.offset - target, pageSpec)
+            if (info != null) pageGlide.by(feedState, info.offset - target, motion)
             else feedState.animateScrollToItem(index, -target.toInt())
         }
         // 1 while the hero stands, 0 once the shelves are up: the hero fades as it leaves, so the picture that runs
@@ -786,6 +788,20 @@ private fun Modifier.shelfBleed(vertical: Dp = 0.dp): Modifier = layout { measur
 }
 
 /**
+ * A list on a television keeps what lies just ahead of it composed, and what it has just passed.
+ *
+ * Without it the next shelf, or the next card, was built in the middle of the move that brought it in: on the
+ * Shield that stopped a frame for 50 to 80 ms while the page glided down (2026-11-07). With a cache window the
+ * list builds them while it stands still, between presses.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+internal fun rememberTvListState(aheadFraction: Float, behindFraction: Float): LazyListState =
+    if (isTelevision()) rememberLazyListState(cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(
+        aheadFraction = aheadFraction, behindFraction = behindFraction))
+    else rememberLazyListState()
+
+/**
  * A television shelf scrolls to a keyline and fades where it runs on; see [rowKeylineScroll].
  *
  * The keyline is the start gutter, where the first card stands, so a row that has moved still has its
@@ -797,7 +813,7 @@ private fun Modifier.shelfBleed(vertical: Dp = 0.dp): Modifier = layout { measur
 @Composable
 private fun ShelfRow(
     modifier: Modifier = Modifier,
-    state: LazyListState = rememberLazyListState(),
+    state: LazyListState = rememberTvListState(aheadFraction = .5f, behindFraction = .5f),
     spacing: Dp = 12.dp,
     content: LazyListScope.() -> Unit,
 ) {
@@ -874,7 +890,9 @@ internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Mod
                 withStyle(androidx.compose.ui.text.SpanStyle(color = Muted)) { append(" · ${source.displayName}") }
             },
             color = TextColor,
-            style = MaterialTheme.typography.titleLarge,
+            // On a television the large title size made «Sjå vidare · Jellyfin» outshout its cards (the Shield,
+            // 2026-11-07); Stova's small row heading is the same size as this.
+            style = if (isTelevision()) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(end = 12.dp),
@@ -1020,7 +1038,7 @@ internal fun LibraryRail(items: List<LibraryMedia>, onClick: (String) -> Unit, w
     // TV allows two title lines on every shelf. The whole caption keeps that reserve below its
     // content, so a short title's episode follows immediately without changing the rail height.
     val titleLines = if (isTelevision()) 2 else if (items.any { it.title.length > if (chosenWide) 26 else 15 }) 2 else 1
-    val railState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val railState = rememberTvListState(aheadFraction = .5f, behindFraction = .5f)
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide, libraryDisplay = libraryDisplay)
     ShelfRow(state = railState, modifier = Modifier.testTag("library-rail")) {
         itemsIndexed(items, key = { _, media -> media.id }) { index, media ->
@@ -1066,12 +1084,12 @@ private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: ap
     val focused by interactionSource.collectIsFocusedAsState()
     val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
     val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
-    Column(Modifier.width(cardWidth).zIndex(if (focused) 10f else 0f).graphicsLayer { scaleX = scale; scaleY = scale }
+    Column(Modifier.width(cardWidth).zIndex(if (focused) 10f else 0f)
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(),
             role = Role.Button, onClick = seeAll.onClick)
         .semantics { contentDescription = seeAll.label }.testTag(seeAll.tag)) {
         Box(Modifier.fillMaxWidth().height(cardWidth / railArtType(wide, libraryDisplay).ratio)
-            .liftShadow(interactionSource, shape).clip(shape)
+            .focusLift { scale }.clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant).focusOutline(interactionSource, shape, artwork = true), contentAlignment = Alignment.Center) {
             Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
                 Icon(seeAll.icon, null, Modifier.size(28.dp), tint = TextColor)
@@ -1097,7 +1115,7 @@ internal fun ResumeRail(items: List<LibraryMedia>, onClick: (String) -> Unit, ac
     val format = homeRowFormat(app.reelstack.ui.theme.LocalPersonalization.current.homeRowFormats, rowKey)
     val chosenWide = resumeRailIsWide(format)
     val titleLines = 2
-    val railState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val railState = rememberTvListState(aheadFraction = .5f, behindFraction = .5f)
     app.reelstack.ui.components.PrefetchRailArtwork(items, railState, wide = chosenWide)
     val nextActions = actions.withoutResumeRemoval()
     ShelfRow(state = railState) {
@@ -1179,25 +1197,27 @@ private object HoldFeedStill : androidx.compose.foundation.gestures.BringIntoVie
  * shelf under the first one never peeks in, and a row scrolled past the margin leaves softly.
  */
 private fun Modifier.tvHomeBottomFade(margin: Dp, topBand: Dp = 0.dp, topStrength: () -> Float = { 0f }): Modifier = this
-    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
     .drawWithContent {
-        drawContent()
+        val end = size.height - margin.toPx()
+        val fade = 8.dp.toPx()
         // Once the shelves are up, whatever has scrolled past the title line fades out under the top edge
         // instead of standing there cut through.
         val strength = topStrength()
-        if (strength > 0f && topBand > 0.dp) {
-            val band = topBand.toPx()
-            drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black.copy(alpha = strength),
-                1f to Color.Transparent, startY = 0f, endY = band),
-                size = androidx.compose.ui.geometry.Size(size.width, band), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+        val band = if (strength > 0f && topBand > 0.dp) topBand.toPx().coerceAtMost(end - fade) else 0f
+        // Named here: inside buildList, `size` is the list's.
+        val width = size.width
+        val bands = buildList {
+            if (band > 0f) add(app.reelstack.ui.components.FadeBand(
+                androidx.compose.ui.geometry.Rect(0f, 0f, width, band),
+                androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black.copy(alpha = 1f - strength),
+                    1f to Color.Black, startY = 0f, endY = band)))
+            add(app.reelstack.ui.components.FadeBand(
+                androidx.compose.ui.geometry.Rect(0f, end - fade, width, end),
+                androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent,
+                    startY = end - fade, endY = end)))
         }
-        val end = size.height - margin.toPx()
-        val fade = 8.dp.toPx()
-        drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black,
-            startY = end - fade, endY = end), topLeft = androidx.compose.ui.geometry.Offset(0f, end - fade),
-            size = androidx.compose.ui.geometry.Size(size.width, fade), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
-        drawRect(Color.Black, topLeft = androidx.compose.ui.geometry.Offset(0f, end),
-            size = androidx.compose.ui.geometry.Size(size.width, margin.toPx()), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+        // Nothing is drawn below [end]: the bottom margin hides what has scrolled past it.
+        drawFaded(androidx.compose.ui.geometry.Rect(0f, band, width, end - fade), bands)
     }
 
 private const val HERO_IMAGE_SIZE = "maxWidth=1920&quality=90"
@@ -1284,7 +1304,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
         else listOf(media.title, app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle))
             .filter(String::isNotBlank).joinToString(", ")
     Column(Modifier.width(cardWidth).zIndex(if (focused) 10f else 0f)
-        .graphicsLayer { alpha = reveal; translationY = (1f - reveal) * 30f; scaleX = scale; scaleY = scale }
+        .graphicsLayer { alpha = reveal; translationY = (1f - reveal) * 30f }
         .tvCardPress(onClick, actions?.let { { menuOpen = true } })
         .combinedClickable(interactionSource = interactionSource,
             indication = app.reelstack.ui.components.mediaCardIndication(), onClick = onClick,
@@ -1297,7 +1317,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
             val isEpisode = media.mediaType.equals("Episode", true) || (media.season != null && media.episode != null)
             val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
             Box(Modifier.fillMaxWidth().height(artworkHeight).testTag("resume-artwork-${media.id}")
-                .liftShadow(interactionSource, shape)
+                .focusLift { scale }
                 .clip(shape).focusOutline(interactionSource, shape, artwork = true)) {
                 app.reelstack.ui.components.RailArtwork(
                     url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode),
@@ -1397,8 +1417,6 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             .graphicsLayer {
                 alpha = reveal
                 translationY = (1f - reveal) * 30f
-                scaleX = scale
-                scaleY = scale
             }
             .tvCardPress(onClick, actions?.let { { menuOpen = true } })
             .combinedClickable(
@@ -1418,7 +1436,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .fillMaxWidth()
                 .height(artworkHeight)
                 .testTag("library-artwork-${media.id}")
-                .liftShadow(interactionSource, artworkShape)
+                .focusLift { scale }
                 .clip(artworkShape).focusOutline(interactionSource, artworkShape, artwork = true),
         ) {
             val image = if (libraryDisplay == null) railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode = isEpisode)
