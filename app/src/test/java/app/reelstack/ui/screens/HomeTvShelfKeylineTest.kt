@@ -60,7 +60,7 @@ class HomeTvShelfKeylineTest {
         }
     }
 
-    private fun card(index: Int) = rule.onNode(hasClickAction() and hasText("Serie $index"))
+    private fun card(index: Int) = rule.onNode(hasClickAction() and hasCardLabel("Serie $index"))
 
     /**
      * Every step lands the card in focus on the keyline, from the first press on: the row moves one card
@@ -78,7 +78,7 @@ class HomeTvShelfKeylineTest {
             val focused = card(step + 1).assertIsFocused().getUnclippedBoundsInRoot()
             assertEquals("after step $step the focused card stands on the keyline", keyline, focused.left.value, 3f)
             (0..step).forEach { other ->
-                if (rule.onAllNodes(hasClickAction() and hasText("Serie $other")).fetchSemanticsNodes().isEmpty()) return@forEach
+                if (rule.onAllNodes(hasClickAction() and hasCardLabel("Serie $other")).fetchSemanticsNodes().isEmpty()) return@forEach
                 val b = card(other).getUnclippedBoundsInRoot()
                 val sliced = b.left.value < keyline - 1f && b.right.value > keyline + 1f
                 assertTrue("card $other is sliced by the keyline after step $step: ${b.left}..${b.right} vs $keyline", !sliced)

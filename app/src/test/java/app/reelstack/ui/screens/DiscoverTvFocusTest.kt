@@ -113,6 +113,20 @@ class DiscoverTvFocusTest {
         rule.onNodeWithTag("discover-focus-backdrop").assertExists()
     }
 
+    /**
+     * A title with only a poster put the poster behind the page as a narrow strip in the middle, the rest dark:
+     * a portrait picture is not cropped into a landscape frame (Loftet, «Eşref Tek», 2026-11-07). Without a
+     * still there is no picture behind the page.
+     */
+    @Test fun aTitleWithOnlyAPosterPutsNoPictureBehindThePage() {
+        val posterOnly = media(1).copy(artworkUrl = "https://image.tmdb.org/t/p/w342/poster.jpg", backdropUrl = null)
+        keyboard { DiscoverHubContent(DiscoverUiState(connections = listOf(seerr), hub = DiscoverHubState(
+            rows = mapOf(DiscoverRowKind.TRENDING to DiscoverRowState(listOf(posterOnly, media(2)))))), PaddingValues(),
+            DiscoverHubActions({}, {}, {}, {}, {}, {}, {})) }
+        rule.waitUntil(3_000) { runCatching { rule.onNodeWithTag("discover-poster-seerr-movie-1").assertIsFocused() }.isSuccess }
+        rule.onAllNodesWithTag("discover-focus-backdrop").assertCountEquals(0)
+    }
+
     @Test fun readMoreOnAPersonStaysAndReadsLessAfterwards() {
         val page = PersonPage(DiscoverPerson(9, "Margaret Qualley", null), department = "Acting",
             biography = "Margaret Qualley is an American actress. ".repeat(12))

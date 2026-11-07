@@ -1,5 +1,6 @@
 package app.reelstack.ui.screens
 
+import app.reelstack.ui.components.safeBottomFade
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -29,6 +30,7 @@ import app.reelstack.ui.theme.SpoleMotion
 
 /** Television is an input mode, not a width breakpoint: 1080p TVs are often only 960 dp wide. */
 @Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingValues,
     onConnectionClick: (ServiceKind) -> Unit, onNotificationsChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit, onHomeSectionChange: (HomeSection, Boolean) -> Unit,
@@ -76,10 +78,18 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
     BackHandler(television && inPanel && state.activeSheet == null && !state.libraryChoicesOpen) {
         categoryFocus.getValue(category).requestFocus()
     }
-    Row(Modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 24.dp, vertical = 24.dp)
+    // The bottom inset is kept inside the lists, not round them: a list that stopped short of the screen's edge cut
+    // «Legg til barneprofil» through the middle of its line 72 dp above it (Loftet, 2026-11-07). The settings run on
+    // to the edge and fade out there, as a television detail page does.
+    val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
+    val bottomInset = contentPadding.calculateBottomPadding()
+    Row(Modifier.fillMaxSize()
+        .padding(start = contentPadding.calculateStartPadding(layoutDirection), top = contentPadding.calculateTopPadding(),
+            end = contentPadding.calculateEndPadding(layoutDirection))
+        .padding(start = 24.dp, end = 24.dp, top = 24.dp)
         .testTag("tv-settings"),
         horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-        Column(Modifier.width(192.dp).fillMaxHeight().verticalScroll(rememberScrollState())
+        Column(Modifier.width(192.dp).fillMaxHeight().padding(bottom = bottomInset + 24.dp).verticalScroll(rememberScrollState())
             .testTag("settings-categories"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(start = 12.dp, bottom = 12.dp))
@@ -120,7 +130,10 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             ) { activeCategory ->
                 panes.SaveableStateProvider(activeCategory.name) {
-                    Column(Modifier.fillMaxSize().focusRequester(panelFocus)
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
+                            app.reelstack.ui.components.rememberSafeDetailBringIntoView()) {
+                    Column(Modifier.fillMaxSize().safeBottomFade().focusRequester(panelFocus)
                         .focusProperties {
                             onExit = {
                                 if (television && requestedFocusDirection == FocusDirection.Left)
@@ -133,7 +146,9 @@ internal fun TvSettingsScreen(state: ReelstackUiState, contentPadding: PaddingVa
                         SharedSettingsContent(activeCategory, state, onConnectionClick, onNotificationsChange, onWifiOnlyChange,
                             onHomeSectionChange, onAccountClick, onManageLibraries, onHomeRowOrderChange, onSignOutAll,
                             onAddProfile, onClearLibraryCache, onRequestPinSetup, onDisablePin, homeEditor, onOwnProfile)
-                        Spacer(Modifier.height(16.dp))
+                        // Room for the last row to come up out of the fade and the safe area below it.
+                        Spacer(Modifier.height(16.dp + app.reelstack.ui.components.DetailSafeBottom + bottomInset))
+                    }
                     }
                 }
             }

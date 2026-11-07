@@ -1,5 +1,6 @@
 package app.reelstack.ui.screens
 
+import app.reelstack.ui.components.cardSemantics
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.vector
@@ -862,13 +863,15 @@ private val SHELF_END_FADE = 40.dp
 private val SHELF_START_CLEAR = 12.dp
 private val SHELF_START_FADE = 16.dp
 
-/** One size for every section heading on Home. */
+/** One size for every section heading on Home: the same as [MediaSectionTitle]'s. */
 @Composable
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         color = TextColor,
-        style = MaterialTheme.typography.titleLarge,
+        // Beta38 made the shelf headings quiet on a television, and these stayed large: «Anbefalinger», «Nylig
+        // tilgjengelig» and «Kommer snart» stood out over the shelves above them (Loftet, 2026-11-07).
+        style = if (isTelevision()) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
         modifier = modifier,
     )
 }
@@ -922,8 +925,10 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
             .focusOutline(interaction, RoundedCornerShape(16.dp))
             .clickable(interactionSource = interaction, indication = app.reelstack.ui.components.mediaCardIndication(),
                 onClickLabel = stringResource(R.string.flow_detail_named, media.title), onClick = onClick)
-            .semantics(mergeDescendants = true) { role = Role.Button }
-            .testTag("recommendation-${media.id}"),
+            .testTag("recommendation-${media.id}")
+            .cardSemantics(listOf(media.title, if (media.isSeries) stringResource(R.string.media_series)
+                else stringResource(R.string.media_movie), media.metadata, status).filter(String::isNotBlank).joinToString(", "),
+                mergeOnPhone = true),
     ) {
         MediaArtwork(media.artworkUrl, media.title, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
         Box(
@@ -1087,7 +1092,7 @@ private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: ap
     Column(Modifier.width(cardWidth).zIndex(if (focused) 10f else 0f)
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(),
             role = Role.Button, onClick = seeAll.onClick)
-        .semantics { contentDescription = seeAll.label }.testTag(seeAll.tag)) {
+        .testTag(seeAll.tag).cardSemantics(seeAll.label)) {
         Box(Modifier.fillMaxWidth().height(cardWidth / railArtType(wide, libraryDisplay).ratio)
             .focusLift { scale }.clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant).focusOutline(interactionSource, shape, artwork = true), contentAlignment = Alignment.Center) {
@@ -1310,8 +1315,8 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
             indication = app.reelstack.ui.components.mediaCardIndication(), onClick = onClick,
             onClickLabel = resumeLabel, onLongClick = actions?.let { { menuOpen = true } },
             onLongClickLabel = stringResource(R.string.library_card_options, media.title))
-        .semantics { contentDescription = resumeLabel; role = Role.Button }
-        .testTag("resume-card-${media.id}")) {
+        .testTag("resume-card-${media.id}")
+        .cardSemantics(resumeLabel)) {
         if (actions != null) MediaCardMenu(media, actions, menuOpen, onDetails = onClick) { menuOpen = false }
         val artwork: @Composable () -> Unit = {
             val isEpisode = media.mediaType.equals("Episode", true) || (media.season != null && media.episode != null)
@@ -1427,8 +1432,8 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 onLongClick = actions?.let { { menuOpen = true } },
                 onLongClickLabel = stringResource(R.string.library_card_options, media.title),
             )
-            // See ResumeCard on why this is a plain `semantics` block.
-            .semantics { contentDescription = cardLabel; role = Role.Button },
+            // See ResumeCard on why this is not a merging `semantics` block.
+            .cardSemantics(cardLabel),
     ) {
         val isEpisode = media.mediaType.equals("Episode", ignoreCase = true) || (media.season != null && media.episode != null)
         Box(
@@ -1511,11 +1516,18 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         animationSpec = motionTween(SpoleMotion.FocusMs),
         label = "upcoming-card-press",
     )
+    val dayLabel = upcomingDayLabel(media.dateLabel, media.airDateEpochMillis, LocalDate.now(), ZoneId.systemDefault(),
+        stringResource(R.string.calendar_today), stringResource(R.string.calendar_tomorrow))
+    val kindLabel = if (recent) {
+        if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_new_movie) else stringResource(R.string.media_new_episode)
+    } else if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_home_release) else stringResource(R.string.media_new_episode)
+    val upcomingLabel = listOf(media.title, app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle),
+        kindLabel, dayLabel).filter(String::isNotBlank).joinToString(", ")
     Box(Modifier.width(280.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).heightIn(min = 226.dp * app.reelstack.ui.theme.LocalPersonalization.current.artworkSize.scale).graphicsLayer {
         alpha = reveal; translationY = (1f - reveal) * 18f; scaleX = scale; scaleY = scale
     }.clip(shape).background(SurfaceRaised).focusOutline(interactionSource, shape)
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(), onClick = onClick)
-        .semantics(mergeDescendants = true) { role = Role.Button }.testTag("upcoming-cover-${media.id}")) {
+        .testTag("upcoming-cover-${media.id}").cardSemantics(upcomingLabel, mergeOnPhone = true)) {
         MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(
             0f to Color.Black.copy(alpha = .12f), .35f to Color.Transparent,
@@ -1523,15 +1535,12 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         Row(Modifier.align(Alignment.TopStart).padding(14.dp).background(Color.Black.copy(alpha = .76f), CircleShape)
             .padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(app.reelstack.ui.components.SpoleIcons.Clock, null, tint = Primary, modifier = Modifier.size(14.dp))
-            Text(upcomingDayLabel(media.dateLabel, media.airDateEpochMillis, LocalDate.now(), ZoneId.systemDefault(),
-                stringResource(R.string.calendar_today), stringResource(R.string.calendar_tomorrow)),
+            Text(dayLabel,
                 color = Color.White, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 6.dp))
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 70.dp)) {
-            Text(if (recent) {
-                if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_new_movie) else stringResource(R.string.media_new_episode)
-            } else if (media.mediaType.equals("Movie", true)) stringResource(R.string.media_home_release) else stringResource(R.string.media_new_episode),
+            Text(kindLabel,
                 color = ArtworkTextSecondary, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text(media.title, color = Color.White, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))

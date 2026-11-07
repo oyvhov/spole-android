@@ -137,8 +137,7 @@ internal class AppUpdateModel(application: Application) : AndroidViewModel(appli
                     app.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${app.packageName}".toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 } else {
                     val uri = FileProvider.getUriForFile(app, "${app.packageName}.updates", apk)
-                    app.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
-                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
+                    app.startActivity(updateInstallIntent(uri))
                 }
             } catch (e: CancellationException) { throw e
             } catch (_: Exception) { mutable.update { it.copy(message = R.string.update_install_error) } }
@@ -189,3 +188,15 @@ private fun java.io.InputStream.readBytesBounded(max: Int): ByteArray {
     while (true) { val n = read(buffer); if (n < 0) break; if (output.size() + n > max) throw UpdateFailure(R.string.update_invalid); output.write(buffer, 0, n) }
     return output.toByteArray()
 }
+
+/**
+ * The system installer for a downloaded update, in a task of its own.
+ *
+ * The installer's last screen stays behind in a hidden task after it has replaced the app. With only
+ * `NEW_TASK`, the next update brought that old task to the front instead of starting the installer, and it closed
+ * at once: on Loftet (Google TV Streamer, 2026-11-07) the first "Install update" did nothing, and only a second
+ * press opened the installer. `CLEAR_TASK` empties the old task and starts the installer in it.
+ */
+internal fun updateInstallIntent(apk: android.net.Uri): Intent =
+    Intent(Intent.ACTION_VIEW).setDataAndType(apk, "application/vnd.android.package-archive")
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)

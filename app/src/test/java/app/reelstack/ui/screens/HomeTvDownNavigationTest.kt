@@ -122,12 +122,12 @@ class HomeTvDownNavigationTest {
             rule.onNodeWithTag("resume-card-episode-1").getUnclippedBoundsInRoot().left.value > 100f)
         val films = rule.onAllNodes(hasTestTag("library-rail")).fetchSemanticsNodes()
         org.junit.Assert.assertTrue("the films row is on the page", films.isNotEmpty())
-        val before = rule.onAllNodes(hasText("Film", substring = true) and hasClickAction()).fetchSemanticsNodes()
+        val before = rule.onAllNodes(hasContentDescription("Film", substring = true) and hasClickAction()).fetchSemanticsNodes()
             .associate { it.id to it.boundsInRoot.left }
         rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionDown) }
         rule.mainClock.advanceTimeBy(1_000)
         val focused = rule.onNode(isFocused()).fetchSemanticsNode()
-        org.junit.Assert.assertTrue("focus went down into the films", rule.onAllNodes(isFocused() and hasText("Film", substring = true)).fetchSemanticsNodes().isNotEmpty())
+        org.junit.Assert.assertTrue("focus went down into the films", rule.onAllNodes(isFocused() and hasContentDescription("Film", substring = true)).fetchSemanticsNodes().isNotEmpty())
         val leftBefore = before[focused.id]
         org.junit.Assert.assertNotNull("the focused film was in view before the move", leftBefore)
         org.junit.Assert.assertEquals("the films row did not slide sideways (px)", leftBefore!!, focused.boundsInRoot.left, 2f)

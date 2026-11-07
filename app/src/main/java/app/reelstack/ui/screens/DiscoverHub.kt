@@ -1,5 +1,6 @@
 package app.reelstack.ui.screens
 
+import app.reelstack.ui.components.cardSemantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -206,8 +207,10 @@ fun DiscoverHubContent(state: DiscoverUiState, contentPadding: PaddingValues, ac
         if (returnTo != null && !returnHandled && it.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) returnInterrupted = true
         false
     }.testTag("discover-hub")) {
-        if (tv) (if (focusedRequest != null) requestDetails?.backdropUrl ?: requestMedia?.backdropUrl ?: requestMedia?.artworkUrl
-            else shown?.let { it.backdropUrl ?: it.artworkUrl })?.let { FocusBackdrop(it) }
+        // Only a still goes behind the page. A poster in its place stood as a narrow strip in the middle, dark on
+        // either side, since a portrait picture is not cropped into a landscape frame (Loftet, 2026-11-07).
+        if (tv) (if (focusedRequest != null) requestDetails?.backdropUrl ?: requestMedia?.backdropUrl
+            else shown?.backdropUrl)?.let { FocusBackdrop(it) }
         Column(Modifier.fillMaxSize()) {
             if (tv) Row(Modifier.fillMaxWidth().padding(start = ReelLayout.Gutter, end = ReelLayout.Gutter, top = 20.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.Top) {
@@ -345,8 +348,8 @@ internal fun PosterOnlyCard(media: DiscoverMedia, onClick: () -> Unit, modifier:
     // The clickable comes before the lift, so the remote measures from the poster as laid out (see focusLift).
     Box(modifier.aspectRatio(2f / 3f)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
-        .semantics(mergeDescendants = true) { contentDescription = media.title }
         .testTag("discover-poster-${media.id}")
+        .cardSemantics(media.title)
         .focusLift { scale }.focusOutline(interaction, shape, artwork = true).clip(shape)
         .background(SurfaceRaised)) {
         MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, contentScale = ContentScale.Crop,

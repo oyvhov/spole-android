@@ -75,7 +75,7 @@ class HomeTvShelfNavigationTest {
     }
 
     private fun assertReturnToFirstCard(movies: Boolean = false, direction: LayoutDirection = LayoutDirection.Ltr) {
-        fun card(index: Int) = if (movies) rule.onNode(hasClickAction() and hasText("Serie $index"))
+        fun card(index: Int) = if (movies) rule.onNode(hasClickAction() and hasCardLabel("Serie $index"))
             else rule.onNodeWithTag("resume-card-episode-$index")
         fun start(bounds: androidx.compose.ui.unit.DpRect) =
             if (direction == LayoutDirection.Ltr) bounds.left.value else bounds.right.value

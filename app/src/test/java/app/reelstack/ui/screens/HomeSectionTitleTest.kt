@@ -44,4 +44,15 @@ class HomeSectionTitleTest {
         val height = rule.onNodeWithText("Sjå vidare · Emby", useUnmergedTree = true).getUnclippedBoundsInRoot().let { (it.bottom - it.top).value }
         org.junit.Assert.assertTrue("the heading is $height dp tall", height <= 21f)
     }
+
+    /**
+     * After beta38 made the shelf headings quiet, «Anbefalinger», «Nylig tilgjengelig» and «Kommer snart» were still
+     * in the large title size, the same page with two heading sizes (Loftet, 2026-11-07).
+     */
+    @Test fun theCalendarHeadingIsAsQuietAsTheShelves() {
+        rule.setContent { ReelstackTheme { UpcomingSectionTitle(onCalendarClick = {}) } }
+        val title = rule.activity.getString(app.reelstack.R.string.home_upcoming)
+        val height = rule.onNodeWithText(title, useUnmergedTree = true).getUnclippedBoundsInRoot().let { (it.bottom - it.top).value }
+        org.junit.Assert.assertTrue("the heading is $height dp tall", height <= 21f)
+    }
 }

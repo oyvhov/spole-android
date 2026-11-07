@@ -187,8 +187,8 @@ private fun SmartShelfTile(shelf: SmartShelf, items: List<RemoteLibraryItem>, so
     // The clickable comes before the lift, so the remote measures from the tile as laid out (see focusLift).
     Box(Modifier.width(width).heightIn(min = width / 2)
         .clickable(interactionSource = interaction, indication = mediaCardIndication(), role = Role.Button, onClick = onClick)
-        .semantics { contentDescription = name }
         .testTag("smart-shelf-${shelf.id}")
+        .cardSemantics(name)
         .focusLift { scale }
         .clip(shape)
         .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceVariant)))

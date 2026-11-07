@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta39 — gjennomgang på Loftet: oppdatering, overskrifter og innstillingar
+
+- Oppdatering i appen: «Installer oppdatering» opnar Android-installasjonen ved første trykk. Før henta Android fram den gøymde installasjonen frå førre oppdatering, og ingenting skjedde før andre trykk. (Rettinga verkar frå neste oppdatering, sidan det er den installerte utgåva som opnar installasjonen.)
+- TV: «Anbefalinger», «Nylig tilgjengelig» og «Kommer snart» på Heim er like store som dei andre overskriftene.
+- TV: Innstillingane går heilt ned til botnen av skjermen og tonar ut der. Før slutta dei 72 dp over botnen med ei tekstlinje skoren gjennom midten.
+- TV: Oppdag viser ikkje lenger plakaten som ei smal stripe bak sida når ein tittel manglar bakgrunnsbilete.
+- TV: Kvart kort er eitt stopp for tilgjengelegheitstenester, med tittel, episode og framdrift i namnet. Tenester som Button Mapper og Stova Heim-knapp har mindre å gå gjennom når sida rører seg.
+- Bokmål: 15 tekstar med nynorske ord er retta, mellom anna «Kommende», «Tøm bildebuffer» og «Velg noe å se på».
+
 ## 1.0.0-beta38 — tydeleg fokus utan glød, rader som står stille
 
 - TV: Kortet med fokus har ikkje lenger glød rundt seg. Det veks til 1,08 gonger storleiken, løftar seg litt, blir litt lysare og får ein skarp lys kant, som på Google TV.
