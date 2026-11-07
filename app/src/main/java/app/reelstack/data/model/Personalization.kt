@@ -88,8 +88,8 @@ enum class ArtworkCorners(val radius: Int) {
 }
 
 /**
- * LIFT is Stova's card focus and the standard: the focused card grows and has no ring, and the other
- * cards on its shelf dim. Buttons and menus still get a ring, white and as bold as BOLD's on a
+ * LIFT is Stova's card focus and the standard: the focused card grows (about 9 %), casts a soft
+ * shadow and is lit a little, with no ring; the other cards on its shelf are left alone. Buttons and menus still get a ring, white and as bold as BOLD's on a
  * television, because focus is the only orientation a D-pad user has and a hairline does not read
  * from three metres away. A stored choice always wins.
  */
