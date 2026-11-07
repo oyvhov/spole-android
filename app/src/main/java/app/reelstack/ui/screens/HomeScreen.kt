@@ -95,6 +95,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import app.reelstack.ui.components.liftShadow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -1041,7 +1042,8 @@ private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: ap
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(),
             role = Role.Button, onClick = seeAll.onClick)
         .semantics { contentDescription = seeAll.label }.testTag(seeAll.tag)) {
-        Box(Modifier.fillMaxWidth().height(cardWidth / railArtType(wide, libraryDisplay).ratio).clip(shape)
+        Box(Modifier.fillMaxWidth().height(cardWidth / railArtType(wide, libraryDisplay).ratio)
+            .liftShadow(interactionSource, shape).clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant).focusOutline(interactionSource, shape, artwork = true), contentAlignment = Alignment.Center) {
             Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
                 Icon(seeAll.icon, null, Modifier.size(28.dp), tint = TextColor)
@@ -1267,6 +1269,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
             val isEpisode = media.mediaType.equals("Episode", true) || (media.season != null && media.episode != null)
             val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
             Box(Modifier.fillMaxWidth().height(artworkHeight).testTag("resume-artwork-${media.id}")
+                .liftShadow(interactionSource, shape)
                 .clip(shape).focusOutline(interactionSource, shape, artwork = true)) {
                 app.reelstack.ui.components.RailArtwork(
                     url = railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode),
@@ -1387,6 +1390,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 .fillMaxWidth()
                 .height(artworkHeight)
                 .testTag("library-artwork-${media.id}")
+                .liftShadow(interactionSource, artworkShape)
                 .clip(artworkShape).focusOutline(interactionSource, artworkShape, artwork = true),
         ) {
             val image = if (libraryDisplay == null) railArtworkUrl(wide, media.heroUrl, media.posterUrl, media.artworkUrl, isEpisode = isEpisode)
