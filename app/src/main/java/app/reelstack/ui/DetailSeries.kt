@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package app.reelstack.ui
 
 import androidx.compose.foundation.background
@@ -49,6 +51,12 @@ import app.reelstack.data.model.ContentDetails
 import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.SeriesBrowse
 import app.reelstack.data.model.ServiceKind
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.runtime.CompositionLocalProvider
+import app.reelstack.ui.components.NoBringIntoView
+import app.reelstack.ui.components.rememberKeylineEndPadding
+import app.reelstack.ui.components.rowEdgeFade
+import app.reelstack.ui.components.rowKeylineScroll
 import app.reelstack.ui.components.MediaArtwork
 import app.reelstack.ui.components.SpoleIcons
 import app.reelstack.ui.components.focusOutline
@@ -203,8 +211,15 @@ internal fun SeriesEpisodes(
             }
             // A lazy row can only take focus on a tile it has laid out, so Down goes to the next
             // episode only while that tile is there; otherwise the search falls back to geometry.
-            LazyRow(state = strip, modifier = Modifier.focusProperties { if (tv && rowState.shows(focusEpisode?.id)) down = firstEpisode }, horizontalArrangement = Arrangement.spacedBy(6.dp),
-                contentPadding = PaddingValues(end = 24.dp)) {
+            // On a television a tab is moved to the start of the strip when it does not fit whole, and the
+            // strip fades where it runs on, so no tab is left cut through its name at either edge
+            // (Shield, 2026-11-07: «esong 6»).
+            CompositionLocalProvider(LocalBringIntoViewSpec provides
+                if (tv) NoBringIntoView else LocalBringIntoViewSpec.current) {
+            LazyRow(state = strip, modifier = Modifier.testTag("season-strip")
+                .then(if (tv) Modifier.rowKeylineScroll(strip, 0.dp, TV_ROW_FADE).rowEdgeFade(strip, endFade = TV_ROW_FADE) else Modifier)
+                .focusProperties { if (tv && rowState.shows(focusEpisode?.id)) down = firstEpisode }, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(end = if (tv) rememberKeylineEndPadding(strip, 0.dp, 6.dp, 24.dp) else 24.dp)) {
                 items(browse.seasons, key = { it.id }) { season ->
                     val id = season.remoteId.orEmpty()
                     SeasonTab(
@@ -213,6 +228,7 @@ internal fun SeriesEpisodes(
                         tag = "season-$id",
                     ) { onSeason(id) }
                 }
+            }
             }
         }
         browse.upcomingError?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
@@ -299,9 +315,12 @@ private fun TvEpisodeRow(
     // As wide as the screen is, minus one tile: whatever the row's own margins, the last episode can
     // then be scrolled to the start. A little too much is harmless; too little would cap the scroll.
     val endPadding = (LocalConfiguration.current.screenWidthDp.dp - ReelLayout.EpisodeWidth).coerceAtLeast(4.dp)
+    CompositionLocalProvider(LocalBringIntoViewSpec provides NoBringIntoView) {
     LazyRow(
         state = state,
         modifier = Modifier
+            .rowKeylineScroll(state, 4.dp, TV_ROW_FADE)
+            .rowEdgeFade(state, endFade = TV_ROW_FADE)
             // Entering the row from above goes to the next episode, whichever tile happens to be
             // straight below the button that had focus. Coming up from the cast row is left to geometry.
             .focusProperties {
@@ -321,7 +340,11 @@ private fun TvEpisodeRow(
             }
         }
     }
+    }
 }
+
+/** How far a series page's rows fade out where they run on; focus never stops inside it. */
+private val TV_ROW_FADE = 40.dp
 
 /** Text tabs let the season title lead; only the selected season has an underline. */
 @Composable

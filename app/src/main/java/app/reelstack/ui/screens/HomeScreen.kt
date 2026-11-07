@@ -6,6 +6,8 @@ import app.reelstack.ui.components.vector
 import app.reelstack.ui.components.isTelevision
 import app.reelstack.ui.components.playableNow
 import app.reelstack.ui.components.rowEntrance
+import app.reelstack.ui.components.rowEdgeFade
+import app.reelstack.ui.components.rowKeylineScroll
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -758,7 +760,8 @@ private fun mediaEndInset() = if (app.reelstack.ui.theme.LocalMediaEdgeToEdge.cu
 
 /** The first card lines up with the titles; see [shelfBleed] for why the start is padding, not margin. */
 @Composable
-private fun shelfPadding() = PaddingValues(start = ReelLayout.Gutter, end = mediaEndInset())
+private fun shelfPadding(vertical: Dp = 0.dp, end: Dp = mediaEndInset()) =
+    PaddingValues(start = ReelLayout.Gutter, end = end, top = vertical, bottom = vertical)
 
 /**
  * A shelf reaches back into the page gutter and pads its start by the same amount.
@@ -768,18 +771,28 @@ private fun shelfPadding() = PaddingValues(start = ReelLayout.Gutter, end = medi
  * all. It only showed with «Rolege overgangar» off, because that is what turns the growth on.
  * Scrolled cards now also slide out under the gutter instead of stopping short of it.
  */
-private fun Modifier.shelfBleed(): Modifier = layout { measurable, constraints ->
+private fun Modifier.shelfBleed(vertical: Dp = 0.dp): Modifier = layout { measurable, constraints ->
+    // The same trick on the other axis: the row is taller by the room its focused card grows into and
+    // reports its own height, so the page does not move by it.
+    val room = vertical.roundToPx()
     if (!constraints.hasBoundedWidth) {
         val child = measurable.measure(constraints)
-        return@layout layout(child.width, child.height) { child.placeRelative(0, 0) }
+        return@layout layout(child.width, (child.height - 2 * room).coerceAtLeast(0)) { child.placeRelative(0, -room) }
     }
     val margin = ReelLayout.Gutter.roundToPx()
     val width = constraints.maxWidth + margin
     val child = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
-    layout(constraints.maxWidth, child.height) { child.placeRelative(-margin, 0) }
+    layout(constraints.maxWidth, (child.height - 2 * room).coerceAtLeast(0)) { child.placeRelative(-margin, -room) }
 }
 
-/** Keep the focused card inside the start gutter, even when returning from further along the row. */
+/**
+ * A television shelf scrolls to a keyline and fades where it runs on; see [rowKeylineScroll].
+ *
+ * The keyline is the start gutter, where the first card stands, so a row that has moved still has its
+ * focused card where the titles above it start. The end keeps room for the fade, since a card focused
+ * inside the fade would be dimmed. The far edge also keeps a gutter: a card that ended at the screen's
+ * edge was cut off once focus lifted it, with its title running off the screen (Shield, 2026-11-01).
+ */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ShelfRow(
@@ -788,35 +801,50 @@ private fun ShelfRow(
     spacing: Dp = 12.dp,
     content: LazyListScope.() -> Unit,
 ) {
-    val inset = with(LocalDensity.current) { ReelLayout.Gutter.toPx() }
+    val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
-    val shelfSpec = remember(inset, direction) {
+    // The keyline and the fades are the left-to-right layout's. Right to left keeps the least distance.
+    val keyline = isTelevision() && direction == LayoutDirection.Ltr
+    val tv = isTelevision()
+    val rtlSpec = remember(density) {
+        val inset = with(density) { ReelLayout.Gutter.toPx() }
         object : androidx.compose.foundation.gestures.BringIntoViewSpec {
-            override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-                val leftInset = if (direction == LayoutDirection.Ltr) inset else 0f
-                // The far edge keeps a gutter as well: a card that ended at the screen's edge was cut off
-                // once focus lifted it, with its title running off the screen (Shield, 2026-11-01).
-                return app.reelstack.ui.components.DetailBringIntoView.calculateScrollDistance(
-                    offset - leftInset, size, (containerSize - inset - leftInset).coerceAtLeast(0f),
-                )
-            }
+            override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+                app.reelstack.ui.components.DetailBringIntoView.calculateScrollDistance(
+                    offset, size, (containerSize - inset).coerceAtLeast(0f))
         }
     }
     val inheritedSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
     CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
-        if (isTelevision()) shelfSpec else inheritedSpec) {
-        run {
-            LazyRow(state = state, modifier = Modifier.shelfBleed().then(modifier)
-                // Right at the end of a row stays there, as on Discover. It used to drop to a card in the
-                // next row, far along it and mostly below the screen (Shield, 2026-11-01). Left still
-                // leaves for the sidebar.
-                .focusProperties {
-                    onExit = { if (requestedFocusDirection == androidx.compose.ui.focus.FocusDirection.Right) cancelFocusChange() }
-                }, contentPadding = shelfPadding(),
-                horizontalArrangement = Arrangement.spacedBy(spacing), content = content)
-        }
+        if (keyline) app.reelstack.ui.components.NoBringIntoView else if (tv) rtlSpec else inheritedSpec) {
+        // A focused card grows by up to ten percent and a row clips at its own edge, so the room it grows
+        // into is padding that the row does not report as height; see [shelfBleed].
+        val grow = if (tv) SHELF_FOCUS_ROOM else 0.dp
+        val keylineModifier = if (keyline) Modifier.rowKeylineScroll(state, ReelLayout.Gutter, SHELF_END_FADE)
+            .rowEdgeFade(state, SHELF_START_CLEAR, SHELF_START_FADE, SHELF_END_FADE) else Modifier
+        LazyRow(state = state, modifier = Modifier.shelfBleed(grow).then(modifier).then(keylineModifier)
+            // Right at the end of a row stays there, as on Discover. It used to drop to a card in the
+            // next row, far along it and mostly below the screen (Shield, 2026-11-01). Left still
+            // leaves for the sidebar.
+            .focusProperties {
+                onExit = { if (requestedFocusDirection == androidx.compose.ui.focus.FocusDirection.Right) cancelFocusChange() }
+            }, contentPadding = shelfPadding(grow, if (keyline)
+                app.reelstack.ui.components.rememberKeylineEndPadding(state, ReelLayout.Gutter, spacing, mediaEndInset()) else mediaEndInset()),
+            horizontalArrangement = Arrangement.spacedBy(spacing), content = content)
     }
 }
+
+/** Room a focused card grows into above and below its row (10 % of a 250 dp poster is 12.5 dp a side). */
+private val SHELF_FOCUS_ROOM = 16.dp
+/** A shelf's end fade is wider than a gutter; cards are not focused inside it, see [app.reelstack.ui.components.RowKeylineSpec]. */
+private val SHELF_END_FADE = 40.dp
+/**
+ * The start fade may only use the gutter left of the keyline. The card before the focused one ends a
+ * spacing short of the keyline, so its last 12 dp are what shows: those are cleared, and the fade is
+ * whole before the room the focused card grows into.
+ */
+private val SHELF_START_CLEAR = 12.dp
+private val SHELF_START_FADE = 16.dp
 
 /** One size for every section heading on Home. */
 @Composable

@@ -75,7 +75,7 @@ internal fun TvCinematicDetails(
                     0f to Color.Transparent, .55f to Ink.copy(alpha = .16f), .92f to Ink)))
             }
         }
-        CompositionLocalProvider(LocalBringIntoViewSpec provides DetailBringIntoView) {
+        CompositionLocalProvider(LocalBringIntoViewSpec provides rememberSafeDetailBringIntoView()) {
             Column(Modifier.fillMaxSize().verticalScroll(scroll).testTag("detail-scroll")) {
                 Box(Modifier.fillMaxWidth().heightIn(min = heroHeight).testTag("tv-detail-hero")) {
                     Column(Modifier.fillMaxWidth(if (largeText) .92f else .62f)

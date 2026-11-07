@@ -21,7 +21,7 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
     content: @Composable ColumnScope.() -> Unit) {
     if (tv) {
         if (series) {
-            CompositionLocalProvider(LocalBringIntoViewSpec provides DetailBringIntoView) {
+            CompositionLocalProvider(LocalBringIntoViewSpec provides rememberSafeDetailBringIntoView()) {
                 Column(Modifier.fillMaxSize().testTag("detail-scroll").verticalScroll(scroll)
                     .padding(horizontal = 32.dp, vertical = 16.dp)) {
                     Row(Modifier.fillMaxWidth().testTag("tv-series-header"),
@@ -56,11 +56,34 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
     }
 }
 
-/** As [DetailBringIntoView], but the container's last [hidden] px do not count: a faded edge hides them. */
+/** What a television detail page keeps between a focused control and the bottom of the screen: 28 dp is the safe area, the rest is air. */
+internal val DetailSafeBottom = 32.dp
+
+/**
+ * [DetailBringIntoView] that stops [bottomInset] short of the bottom edge.
+ *
+ * The least distance puts the focused tile flush with the bottom of the screen, so an episode's caption
+ * sat 26 px above it on the Shield (2026-11-07), inside the margin tvOS and Google TV both keep clear.
+ * A control taller than the room that is left is aligned to its own top instead of being scrolled past.
+ */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-internal class FadedEdgeBringIntoView(private val hidden: Float) : BringIntoViewSpec {
-    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-        DetailBringIntoView.calculateScrollDistance(offset, size, (containerSize - hidden).coerceAtLeast(0f))
+internal class SafeBottomBringIntoView(private val bottomInset: Float) : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val end = containerSize - bottomInset
+        return when {
+            offset >= 0 && offset + size <= end -> 0f
+            offset < 0 && offset + size > end -> 0f
+            offset < 0 -> offset
+            else -> minOf(offset + size - end, offset)
+        }
+    }
+}
+
+@Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+internal fun rememberSafeDetailBringIntoView(): BringIntoViewSpec {
+    val inset = with(androidx.compose.ui.platform.LocalDensity.current) { DetailSafeBottom.toPx() }
+    return androidx.compose.runtime.remember(inset) { SafeBottomBringIntoView(inset) }
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)

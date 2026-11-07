@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.focus.FocusRequester
@@ -73,6 +74,18 @@ internal fun AppSidebarSlot(
     Box(Modifier.width(if (hidden) 0.dp else if (expanded) 200.dp else 80.dp).fillMaxHeight().zIndex(1f).testTag("sidebar-slot")) {
         Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)) { content() }
     }
+}
+
+/** Dims the page behind the expanded television menu. */
+@Composable
+internal fun RailScrim(visible: Boolean, modifier: Modifier = Modifier) {
+    // The expanded television menu is drawn over the page, so what it covers read as cut mid-word beside it.
+    // Dimming the page, as a navigation drawer does, makes the menu the one thing to read. The scrim is
+    // neither focusable nor clickable: it only paints, and goes once it has faded out.
+    val dim by animateFloatAsState(if (visible) .5f else 0f, motionTween(SpoleMotion.ChangeMs), label = "rail-scrim")
+    if (dim > 0f) Box(modifier.testTag("rail-scrim").drawBehind {
+        drawRect(androidx.compose.ui.graphics.Color.Black.copy(alpha = dim))
+    })
 }
 
 @Composable
