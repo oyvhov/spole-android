@@ -203,3 +203,10 @@ private fun TopBarTab(label: String, selected: Boolean, enabled: Boolean, tag: S
             .background(if (selected) colors.primary else Color.Transparent))
     }
 }
+
+/**
+ * Whether the menu line stays on screen while [sheet] is open: always for the profile menu, which drops from the avatar
+ * on the line itself. Hiding the line took the avatar's focus away, so focus fell to «Tittel (A–Å)» behind the menu and
+ * the line vanished (Loftet, 2026-11-07). Every other sheet covers the page and the line with it.
+ */
+internal fun topBarStaysFor(sheet: AppSheet?): Boolean = sheet == null || sheet is AppSheet.ProfileSwitcher

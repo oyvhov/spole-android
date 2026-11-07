@@ -168,7 +168,10 @@ internal fun Modifier.focusRing(shape: Shape, glow: Boolean = true): Modifier {
 @Composable
 private fun Modifier.ring(focused: Boolean, shape: Shape, glow: Boolean, artwork: Boolean = false): Modifier {
     val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
-    val alphaState = animateFloatAsState(if (focused) 1f else 0f, motionTween(SpoleMotion.FocusMs), label = "focus-outline")
+    // Behind a menu or a dialog, which has the window focus, the element keeps its own focus but shows no ring: with
+    // the profile menu open on Loftet, «Spill av» behind it was ringed too, and two things looked focused (2026-11-07).
+    val windowFocused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
+    val alphaState = animateFloatAsState(if (focused && windowFocused) 1f else 0f, motionTween(SpoleMotion.FocusMs), label = "focus-outline")
     val style = app.reelstack.ui.theme.LocalPersonalization.current.focusStyle
     val lift = style == app.reelstack.data.model.FocusStyle.LIFT
     // Lifted artwork is lit and gets a crisp edge, never the soft glow: that read as a smudge round the card.

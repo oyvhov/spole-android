@@ -462,7 +462,8 @@ internal fun RichTitleDetailsSheet(state: ReelstackUiState, onAddMedia: (String)
         if (details.cast.isNotEmpty()) {
             Text(stringResource(R.string.details_cast), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = if (tv) 12.dp else 18.dp, bottom = 12.dp))
-            app.reelstack.ui.components.CastRail(details.cast, details.source, onPersonTitles, onPersonTitle, onSeerrPerson)
+            app.reelstack.ui.components.CastRail(details.cast, details.source, onPersonTitles, onPersonTitle, onSeerrPerson,
+                endBleed = if (tv) app.reelstack.ui.components.DetailPageEndMargin else 0.dp)
         }
     }
     // What can be done with a Seerr title, as words: ask for it, withdraw your own waiting
@@ -1264,12 +1265,12 @@ private fun MediaTrackChoices(
         // press and does nothing when pressed.
         if (details.audioTracks.size == 1) TrackFact(
             stringResource(R.string.player_audio_tracks), details.audioTracks.single().let {
-                app.reelstack.data.model.readableAudioTrackLabel(it.label, it.language)
+                app.reelstack.data.model.readableTrackLabel(it.label, it.languageCode ?: it.language)
             })
         else if (details.audioTracks.size > 1) TrackChooser(
             label = stringResource(R.string.player_audio_tracks),
             tag = "audio",
-            options = details.audioTracks.map { it.index to app.reelstack.data.model.readableAudioTrackLabel(it.label, it.language) },
+            options = details.audioTracks.map { it.index to app.reelstack.data.model.readableTrackLabel(it.label, it.languageCode ?: it.language) },
             selected = selectedAudio,
             onSelect = onAudio,
         )
@@ -1277,7 +1278,7 @@ private fun MediaTrackChoices(
             label = stringResource(R.string.player_subtitles),
             tag = "subtitle",
             options = listOf(-1 to stringResource(R.string.player_off)) +
-                details.subtitleTracks.map { it.index to it.label },
+                details.subtitleTracks.map { it.index to app.reelstack.data.model.readableTrackLabel(it.label, it.languageCode ?: it.language) },
             selected = selectedSubtitle,
             onSelect = onSubtitle,
         )

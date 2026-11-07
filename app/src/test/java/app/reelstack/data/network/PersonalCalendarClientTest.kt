@@ -115,6 +115,19 @@ class PersonalCalendarClientTest {
         assertFalse(client.feed(connection,"7",listOf(title)).incomplete)
         assertEquals(3,network.reads.size)
     }
+    /**
+     * A title or season the server does not know has no dates to give, and asking again will not change that. Counting
+     * it as a failure put «Noen utgivelsesdatoer kunne ikke hentes. Prøv å oppdatere.» under «Kommer snart» after every
+     * refresh (Loftet, 2026-11-07). Busy and broken answers still count, as above.
+     */
+    @Test fun aTitleOrSeasonTheServerDoesNotKnowIsNotAFailure() = runBlocking {
+        val unknownTitle = Transport(mapOf("tv/42" to HttpResponse(404, """{"message":"Unable to retrieve series."}""")))
+        val missing = PersonalCalendarClient(unknownTitle, clock).feed(connection, "7", listOf(title))
+        assertFalse(missing.incomplete)
+        assertEquals(listOf("tv:42"), missing.undated.map { it.key })
+        val unknownSeason = Transport(mapOf("tv/42" to tv(), "tv/42/season/2" to HttpResponse(404, "{}")))
+        assertFalse(PersonalCalendarClient(unknownSeason, clock).feed(connection, "7", listOf(title)).incomplete)
+    }
     @Test fun largeSeasonIsNotCutAtThirtyOrSixtyEpisodes() = runBlocking {
         val network=transport(*(2..86).map { episode(it,"2026-10-12") }.toTypedArray())
         val feed=PersonalCalendarClient(network,clock).feed(connection,"7",listOf(title))

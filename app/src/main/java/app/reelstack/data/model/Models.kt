@@ -381,6 +381,8 @@ data class MediaTrack(
     val isDefault: Boolean = false,
     val forced: Boolean = false,
     val codec: String? = null,
+    /** The stream's ISO 639 code, for naming the language in the app's own language. */
+    val languageCode: String? = null,
 )
 
 data class ActivityEvent(

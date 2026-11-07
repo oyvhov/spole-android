@@ -1,6 +1,8 @@
 package app.reelstack.ui.screens
 
 import app.reelstack.ui.components.cardSemantics
+import app.reelstack.ui.components.devTag
+import app.reelstack.ui.components.drawnBackground
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.focusRing
 import app.reelstack.ui.components.vector
@@ -705,10 +707,9 @@ private fun HomeFreshness(state: HomeUiState, onRefresh: () -> Unit) {
 
 @Composable
 private fun HomeHeader(state: HomeUiState, onAccountClick: () -> Unit, showBrand: Boolean, onSearchClick: (() -> Unit)? = null, onArtwork: Boolean = false) {
-    var appeared by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) { appeared = true }
+    val appeared = app.reelstack.ui.components.rememberCardAppeared(Unit, reveal = app.reelstack.ui.theme.LocalMotionEnabled.current && !isTelevision())
     val reveal by animateFloatAsState(
-        targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
+        targetValue = if (appeared) 1f else 0f,
         animationSpec = motionTween(SpoleMotion.ChangeMs),
         label = "home-header-reveal",
     )
@@ -932,7 +933,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
     ) {
         MediaArtwork(media.artworkUrl, media.title, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
         Box(
-            Modifier.matchParentSize().background(
+            Modifier.matchParentSize().drawnBackground(
                 Brush.verticalGradient(
                     0f to Color.Black.copy(alpha = .14f),
                     .42f to Color.Transparent,
@@ -960,7 +961,7 @@ private fun RecommendationCard(media: DiscoverMedia, onClick: () -> Unit) {
                     if (media.inLibrary || media.seerrStatus == 5) app.reelstack.ui.components.SpoleIcons.DoneCircle else app.reelstack.ui.components.SpoleIcons.CloudReady,
                     contentDescription = null,
                     tint = app.reelstack.ui.theme.Success,
-                    modifier = Modifier.background(Color.Black.copy(alpha = .72f), CircleShape).padding(6.dp).size(18.dp),
+                    modifier = Modifier.drawnBackground(Color.Black.copy(alpha = .72f), CircleShape).padding(6.dp).size(18.dp),
                 )
             }
         }
@@ -1095,8 +1096,8 @@ private fun RailSeeAllCard(seeAll: RailSeeAll, wide: Boolean, libraryDisplay: ap
         .testTag(seeAll.tag).cardSemantics(seeAll.label)) {
         Box(Modifier.fillMaxWidth().height(cardWidth / railArtType(wide, libraryDisplay).ratio)
             .focusLift { scale }.clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant).focusOutline(interactionSource, shape, artwork = true), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
+            .drawnBackground(MaterialTheme.colorScheme.surfaceVariant).focusOutline(interactionSource, shape, artwork = true), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(56.dp).drawnBackground(MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
                 Icon(seeAll.icon, null, Modifier.size(28.dp), tint = TextColor)
             }
         }
@@ -1298,10 +1299,9 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
     val scale by app.reelstack.ui.components.animateFocusScale(focused, pressed)
-    var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
-    LaunchedEffect(media.id) { appeared = true }
+    val appeared = app.reelstack.ui.components.rememberCardAppeared(media.id, reveal = app.reelstack.ui.theme.LocalMotionEnabled.current && !isTelevision())
     val reveal by animateFloatAsState(
-        if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
+        if (appeared) 1f else 0f,
         motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay), label = "resume-card-reveal")
     var menuOpen by remember(media.id) { mutableStateOf(false) }
     val percent = ((media.progress ?: 0f).coerceIn(0f, 1f) * 100).toInt()
@@ -1321,7 +1321,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
         val artwork: @Composable () -> Unit = {
             val isEpisode = media.mediaType.equals("Episode", true) || (media.season != null && media.episode != null)
             val shape = RoundedCornerShape(ReelLayout.ArtworkCorner)
-            Box(Modifier.fillMaxWidth().height(artworkHeight).testTag("resume-artwork-${media.id}")
+            Box(Modifier.fillMaxWidth().height(artworkHeight).devTag("resume-artwork-${media.id}")
                 .focusLift { scale }
                 .clip(shape).focusOutline(interactionSource, shape, artwork = true)) {
                 app.reelstack.ui.components.RailArtwork(
@@ -1330,7 +1330,7 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
                     source = media.source, modifier = Modifier.fillMaxSize(), fitMismatched = false)
                 // The same bar as every other card, whichever focus style is chosen.
                 if (percent > 0) app.reelstack.ui.components.WatchProgressBar(media.progress ?: 0f,
-                    Modifier.align(Alignment.BottomStart).testTag("resume-progress-${media.id}"))
+                    Modifier.align(Alignment.BottomStart).devTag("resume-progress-${media.id}"))
             }
         }
         val caption: @Composable () -> Unit = {
@@ -1338,9 +1338,9 @@ private fun ResumeCard(media: LibraryMedia, titleLines: Int, revealDelay: Int,
                 subtitle = if (showSeriesYear || !media.mediaType.equals("Series", true))
                     app.reelstack.ui.components.episodeLine(media.season, media.episode, media.subtitle) else "",
                 titleMaxLines = titleLines,
-                modifier = Modifier.testTag("resume-caption-${media.id}"),
-                titleModifier = Modifier.testTag("resume-title-${media.id}"),
-                subtitleModifier = Modifier.testTag("resume-subtitle-${media.id}"))
+                modifier = Modifier.devTag("resume-caption-${media.id}"),
+                titleModifier = Modifier.devTag("resume-title-${media.id}"),
+                subtitleModifier = Modifier.devTag("resume-subtitle-${media.id}"))
         }
         artwork()
         Column(Modifier.padding(top = 9.dp)) { caption() }
@@ -1407,10 +1407,9 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
-    var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
-    LaunchedEffect(media.id) { appeared = true }
+    val appeared = app.reelstack.ui.components.rememberCardAppeared(media.id, reveal = app.reelstack.ui.theme.LocalMotionEnabled.current && !isTelevision())
     val reveal by animateFloatAsState(
-        targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
+        targetValue = if (appeared) 1f else 0f,
         animationSpec = motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay),
         label = "library-card-reveal",
     )
@@ -1440,7 +1439,7 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
             modifier = Modifier
                 .fillMaxWidth()
                 .height(artworkHeight)
-                .testTag("library-artwork-${media.id}")
+                .devTag("library-artwork-${media.id}")
                 .focusLift { scale }
                 .clip(artworkShape).focusOutline(interactionSource, artworkShape, artwork = true),
         ) {
@@ -1474,9 +1473,9 @@ private fun LibraryCard(media: LibraryMedia, wide: Boolean, titleLines: Int, rev
                 titleMaxLines = if (density.fontScale >= 1.5f) 1 else titleLines,
                 reserveTitleLines = if (libraryDisplay == null && density.fontScale < 1.5f) titleLines else 1,
                 subtitleMaxLines = if (wide) 2 else 1,
-                modifier = Modifier.padding(top = 9.dp).testTag("library-caption-${media.id}"),
-                titleModifier = Modifier.testTag("library-title-${media.id}"),
-                subtitleModifier = Modifier.testTag("library-subtitle-${media.id}"))
+                modifier = Modifier.padding(top = 9.dp).devTag("library-caption-${media.id}"),
+                titleModifier = Modifier.devTag("library-title-${media.id}"),
+                subtitleModifier = Modifier.devTag("library-subtitle-${media.id}"))
         }
     }
 }
@@ -1504,10 +1503,9 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
     val shape = RoundedCornerShape(16.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    var appeared by rememberSaveable(media.id) { mutableStateOf(false) }
-    LaunchedEffect(media.id) { appeared = true }
+    val appeared = app.reelstack.ui.components.rememberCardAppeared(media.id, reveal = app.reelstack.ui.theme.LocalMotionEnabled.current && !isTelevision())
     val reveal by animateFloatAsState(
-        targetValue = if (appeared || !app.reelstack.ui.theme.LocalMotionEnabled.current || isTelevision()) 1f else 0f,
+        targetValue = if (appeared) 1f else 0f,
         animationSpec = motionTween(SpoleMotion.ChangeMs, delayMs = revealDelay),
         label = "upcoming-card-reveal",
     )
@@ -1529,10 +1527,10 @@ private fun UpcomingCard(media: UpcomingMedia, revealDelay: Int, recent: Boolean
         .clickable(interactionSource = interactionSource, indication = app.reelstack.ui.components.mediaCardIndication(), onClick = onClick)
         .testTag("upcoming-cover-${media.id}").cardSemantics(upcomingLabel, mergeOnPhone = true)) {
         MediaArtwork(media.artworkUrl, null, Modifier.matchParentSize(), fallbackRes = media.artworkRes, ContentScale.Crop)
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+        Box(Modifier.matchParentSize().drawnBackground(Brush.verticalGradient(
             0f to Color.Black.copy(alpha = .12f), .35f to Color.Transparent,
             .7f to Color.Black.copy(alpha = .62f), 1f to Color.Black.copy(alpha = .94f))))
-        Row(Modifier.align(Alignment.TopStart).padding(14.dp).background(Color.Black.copy(alpha = .76f), CircleShape)
+        Row(Modifier.align(Alignment.TopStart).padding(14.dp).drawnBackground(Color.Black.copy(alpha = .76f), CircleShape)
             .padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(app.reelstack.ui.components.SpoleIcons.Clock, null, tint = Primary, modifier = Modifier.size(14.dp))
             Text(dayLabel,

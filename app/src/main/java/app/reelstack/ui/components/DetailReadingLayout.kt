@@ -58,6 +58,9 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
     }
 }
 
+/** The end margin of every television detail page; a row runs on under it to the screen's edge ([bleedToEnd]). */
+internal val DetailPageEndMargin = 32.dp
+
 /** What a television detail page keeps between a focused control and the bottom of the screen: 28 dp is the safe area, the rest is air. */
 internal val DetailSafeBottom = 32.dp
 
@@ -69,8 +72,11 @@ internal val DetailSafeBottom = 32.dp
 internal fun Modifier.safeBottomFade(): Modifier = this
     .drawWithContent {
         val band = DetailSafeBottom.toPx().coerceAtMost(size.height)
-        drawFaded(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height - band), listOf(FadeBand(
-            androidx.compose.ui.geometry.Rect(0f, size.height - band, size.width, size.height),
+        // Sideways the page is not cut: a row runs on under its end margin to the screen's edge (see bleedToEnd).
+        val left = -size.width
+        val right = size.width * 2
+        drawFaded(androidx.compose.ui.geometry.Rect(left, 0f, right, size.height - band), listOf(FadeBand(
+            androidx.compose.ui.geometry.Rect(left, size.height - band, right, size.height),
             androidx.compose.ui.graphics.Brush.verticalGradient(0f to androidx.compose.ui.graphics.Color.Black,
                 1f to androidx.compose.ui.graphics.Color.Transparent, startY = size.height - band, endY = size.height))))
     }

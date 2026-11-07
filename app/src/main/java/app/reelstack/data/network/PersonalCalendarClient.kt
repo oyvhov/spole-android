@@ -40,6 +40,7 @@ class PersonalCalendarClient(
                 if (response.statusCode in setOf(401, 403)) {
                     cache.clear(scope); throw CalendarAccessException()
                 }
+                if (response.statusCode == 404) throw UnknownCalendarTitle()
                 check(response.statusCode in 200..299) { "Calendar metadata unavailable" }
                 cache.put(scope, path, clock.millis(), response.body)
             }
@@ -76,6 +77,7 @@ class PersonalCalendarClient(
                             try { episodes += (get("tv/${title.tmdbId}/season/$season")["episodes"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject } }
                             catch (e: CancellationException) { throw e }
                             catch (e: CalendarAccessException) { throw e }
+                            catch (e: UnknownCalendarTitle) { }
                             catch (e: Exception) { incomplete.set(true) }
                         }
                         episodes.mapNotNull { episode -> calendarEpisode(root, episode, title.tmdbId, today) }
@@ -84,6 +86,10 @@ class PersonalCalendarClient(
                     items to pending
                 } catch (e: CancellationException) { throw e }
                 catch (e: CalendarAccessException) { throw e }
+                // A title the server does not know has no dates, and asking again will not change that. Counted as a
+                // failure, it kept «Noen utgivelsesdatoer kunne ikke hentes» under «Kommer snart» after every refresh
+                // (Loftet, 2026-11-07). It stays in the calendar as one without a date.
+                catch (e: UnknownCalendarTitle) { emptyList<RemoteUpcomingItem>() to title }
                 catch (e: Exception) { incomplete.set(true); emptyList<RemoteUpcomingItem>() to title }
         }
         PersonalCalendarFeed(results.flatMap { it.first }.distinctBy { it.id }.sortedBy { it.dateTime },
@@ -115,3 +121,6 @@ private fun digitalRegion(root: JsonObject, date: String): String? =
         .firstOrNull { region -> (region["release_dates"] as? JsonArray).orEmpty().any { entry ->
             (entry as? JsonObject)?.let { it.number("type") == 4 && it.text("release_date")?.take(10) == date } == true
         } }?.text("iso_3166_1")
+
+/** The server answered that it has no such title or season (404): no dates, but not a failure to fetch them. */
+private class UnknownCalendarTitle : Exception()

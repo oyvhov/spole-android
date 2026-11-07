@@ -5,7 +5,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,6 +33,15 @@ internal fun RailCardCaption(
     // grew the row and everything under it jumped (the Shield, 2026-11-07).
     val tv = isTelevision()
     @Suppress("NAME_SHADOWING") val subtitleMaxLines = if (tv) 1 else subtitleMaxLines
+    // The reserves are measured, not composed. Two hidden texts that were never placed still sat in the semantics
+    // tree, and Compose sorts every node there about every 100 ms while a page moves (the Shield, 2026-11-07).
+    // A text measurer lays out the same line boxes as the visible title, which sp converted to dp can underestimate
+    // at large text sizes.
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer(cacheSize = 4)
+    val base = androidx.compose.material3.LocalTextStyle.current
+    val titleStyle = base.merge(androidx.compose.ui.text.TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 19.sp))
+    val subtitleStyle = base.merge(androidx.compose.ui.text.TextStyle(fontSize = 12.sp, lineHeight = 17.sp))
+    val subtitleGap = with(androidx.compose.ui.platform.LocalDensity.current) { 2.dp.roundToPx() }
     Layout(modifier = modifier, content = {
         Text(title, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
             lineHeight = 19.sp, maxLines = titleMaxLines, overflow = TextOverflow.Ellipsis,
@@ -41,21 +49,17 @@ internal fun RailCardCaption(
         if (hasSubtitle) Text(subtitle, color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
             maxLines = subtitleMaxLines, overflow = TextOverflow.Ellipsis,
             modifier = subtitleModifier.padding(top = 2.dp))
-        // Measure the same line boxes as the visible title. Converting sp to dp alone can
-        // underestimate their real height at large text sizes. This child is never placed.
-        Text(title, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
-            lineHeight = 19.sp, minLines = reserveTitleLines, maxLines = titleMaxLines,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.clearAndSetSemantics {})
-        // The episode line's room, measured like the title's reserve and never placed.
-        if (tv) Text("", fontSize = 12.sp, lineHeight = 17.sp, minLines = 1, maxLines = 1,
-            modifier = Modifier.padding(top = 2.dp).clearAndSetSemantics {})
     }) { measurables, constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val heading = measurables[0].measure(loose)
         val subtitle = if (hasSubtitle) measurables[1].measure(loose) else null
-        val titleReserve = measurables[if (hasSubtitle) 2 else 1].measure(loose)
-        val subtitleReserve = if (tv) measurables.last().measure(loose).height else 0
-        val height = maxOf(heading.height, titleReserve.height) + maxOf(subtitle?.height ?: 0, subtitleReserve)
+        val width = androidx.compose.ui.unit.Constraints(maxWidth = loose.maxWidth)
+        val titleReserve = if (reserveTitleLines > 0) measurer.measure(
+            List(reserveTitleLines) { "Ag" }.joinToString(separator = Char(10).toString()),
+            titleStyle, constraints = width).size.height else 0
+        // The episode line's room, kept on a television even when there is no episode line.
+        val subtitleReserve = if (tv) measurer.measure("Ag", subtitleStyle, maxLines = 1, constraints = width).size.height + subtitleGap else 0
+        val height = maxOf(heading.height, titleReserve) + maxOf(subtitle?.height ?: 0, subtitleReserve)
         layout(constraints.constrainWidth(maxOf(heading.width, subtitle?.width ?: 0)),
             constraints.constrainHeight(height)) {
             heading.placeRelative(0, 0)

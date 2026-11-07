@@ -47,6 +47,17 @@ class MediaLineTest {
         assertEquals(listOf(LocalizedText.raw("2026")), facts)
     }
 
+    /**
+     * A collection has no year of its own: the server sends its first film's, and «Action · 1967» or «80-talet · 1980»
+     * under a collection read as the year of something that has none (Loftet, Samlingar, 2026-11-07).
+     */
+    @Test fun aCollectionCarriesNoYear() {
+        val set = ServicePayloadParser.libraryItems(
+            """{"Items":[{"Id":"b","Name":"Action","Type":"BoxSet","ProductionYear":1967}]}""").single()
+        assertEquals("", set.subtitle)
+        assertEquals(emptyList<LocalizedText>(), set.facts)
+    }
+
     @Test fun theTypeWordIsNotAFact() {
         // It is derivable from mediaType, which every one of these rows already carries. Storing it
         // as well is what forced the grid to filter it back out by name.

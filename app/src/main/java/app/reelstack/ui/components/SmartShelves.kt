@@ -202,7 +202,7 @@ private fun SmartShelfTile(shelf: SmartShelf, items: List<RemoteLibraryItem>, so
         if (posters.isEmpty()) Icon(shelf.icon.vector(), null, Modifier.align(Alignment.Center).size(36.dp),
             tint = colors.onSurfaceVariant.copy(alpha = .5f))
         // The shade rises from the bottom, so the name reads over any poster and the tops stay clear.
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+        Box(Modifier.matchParentSize().drawnBackground(Brush.verticalGradient(
             0f to Color.Transparent, .4f to Color.Transparent, 1f to colors.background.copy(alpha = .94f))))
         Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

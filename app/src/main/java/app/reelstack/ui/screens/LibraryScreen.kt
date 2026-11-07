@@ -1,4 +1,5 @@
 package app.reelstack.ui.screens
+import app.reelstack.ui.components.bleedToEnd
 import app.reelstack.ui.components.SpoleDropdownMenu as DropdownMenu
 import app.reelstack.ui.components.SpoleDropdownMenuItem as DropdownMenuItem
 
@@ -216,7 +217,10 @@ private fun LibraryContent(state: ReelstackUiState, onLoad: (Boolean) -> Unit, o
             if (showShelves) item(key = "shelves", span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(bottom = 8.dp).focusRequester(firstContent).then(backToTop)) {
                     LibraryShelfTitle(stringResource(R.string.library_next), cardActions != null)
-                    ResumeRail(nextItems, onShelfOpen, cardActions, resumeIds = shelfResume.map { it.id }.toSet())
+                    // On a television the shelf runs on under the page's margin to the screen's edge and fades there.
+                    Box(if (tv) Modifier.bleedToEnd(pageGutter) else Modifier) {
+                        ResumeRail(nextItems, onShelfOpen, cardActions, resumeIds = shelfResume.map { it.id }.toSet())
+                    }
                 }
             }
             if (!connected) item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.library_connect)) }

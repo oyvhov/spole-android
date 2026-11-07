@@ -338,7 +338,9 @@ object ServicePayloadParser {
             val episodeLabel = if (season != null && episode != null) {
                 "S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"
             } else null
-            val year = item.int("ProductionYear") ?: item.int("productionYear")
+            // A collection has no year of its own: the server sends its first film's, and «Action · 1967» under a
+            // collection read as the year of something that has none (Loftet, Samlingar, 2026-11-07).
+            val year = (item.int("ProductionYear") ?: item.int("productionYear")).takeUnless { isCollection(item) }
             val ownStill = (item.obj("ImageTags") ?: item.obj("imageTags")).tag("Primary")
             val artwork = if (preferEpisodeStill && mediaType == "Episode" && ownStill != null)
                 LibraryArtwork(id, "Primary", ownStill) else libraryArtwork(item, id, mediaType, preferEpisodeStill)
@@ -782,6 +784,7 @@ object ServicePayloadParser {
                 isDefault = stream["IsDefault"]?.jsonPrimitive?.booleanOrNull == true,
                 forced = stream["IsForced"]?.jsonPrimitive?.booleanOrNull == true,
                 codec = stream.string("Codec")?.takeIf(String::isNotBlank),
+                languageCode = stream.string("Language")?.takeIf(String::isNotBlank),
             )
         }
 
@@ -880,7 +883,8 @@ object ServicePayloadParser {
                 add(LocalizedText.raw("S${season.toString().padStart(2, '0')} E${episode.toString().padStart(2, '0')}"))
             }
         }
-        (item.int("ProductionYear") ?: item.int("productionYear"))?.let { add(LocalizedText.raw(it.toString())) }
+        // A collection's year is only its first film's (see the subtitle in libraryItems).
+        if (!isCollection(item)) (item.int("ProductionYear") ?: item.int("productionYear"))?.let { add(LocalizedText.raw(it.toString())) }
         runtimeTicks?.takeIf { it > 0 }?.let { add(LocalizedText(R.string.media_minutes, (it / TICKS_PER_MINUTE).toInt())) }
         (item.string("OfficialRating") ?: item.string("officialRating"))?.trim()?.takeIf(String::isNotEmpty)?.let { rating ->
             // A bare age needs a unit, and so does a Norwegian one ("NO-15"); "NO-A" is for everyone.
@@ -1074,4 +1078,7 @@ object ServicePayloadParser {
     )
 
     private data class LibraryArtwork(val itemId: String, val imageType: String, val tag: String? = null)
+
+    private fun isCollection(item: JsonObject): Boolean =
+        (item.string("Type") ?: item.string("type")).equals("BoxSet", ignoreCase = true)
 }

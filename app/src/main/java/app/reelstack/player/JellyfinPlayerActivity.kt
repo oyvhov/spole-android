@@ -80,7 +80,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.reelstack.data.model.ServiceKind
-import app.reelstack.data.model.readableAudioTrackLabel
+import app.reelstack.data.model.readableTrackLabel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -836,7 +836,7 @@ fun PlayerScreen(
                             // Source first, then what is arriving. When the server converts the audio
                             // those are two different things, and printing only the source made the panel
                             // contradict the reason printed three lines above it.
-                            Text("${stringResource(R.string.player_stats_audio)} · ${audioTrack?.let { readableAudioTrackLabel(it.label, it.language) } ?: unknown}", color = Color.White)
+                            Text("${stringResource(R.string.player_stats_audio)} · ${audioTrack?.let { readableTrackLabel(it.label, it.language) } ?: unknown}", color = Color.White)
                             state.audioCodec?.let { codec ->
                                 val channels = state.audioChannels.takeIf { it > 0 }?.let { " · $it ch" }.orEmpty()
                                 Text("→ $codec$channels", color = Color.White)

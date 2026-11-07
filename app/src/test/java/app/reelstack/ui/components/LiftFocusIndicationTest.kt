@@ -48,12 +48,16 @@ import org.robolectric.annotation.GraphicsMode
 class LiftFocusIndicationTest {
     @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
 
-    private fun card(style: FocusStyle, motion: Boolean) = rule.setContent {
+    private fun card(style: FocusStyle, motion: Boolean, windowFocused: Boolean = true) = rule.setContent {
         val input = LocalInputModeManager.current
         SideEffect { input.requestInputMode(InputMode.Keyboard) }
         // Inside the theme, which provides both of these itself.
         ReelstackTheme {
-            CompositionLocalProvider(LocalMotionEnabled provides motion, LocalPersonalization provides Personalization(focusStyle = style)) {
+            val window = androidx.compose.ui.platform.LocalWindowInfo.current
+            CompositionLocalProvider(LocalMotionEnabled provides motion, LocalPersonalization provides Personalization(focusStyle = style),
+                androidx.compose.ui.platform.LocalWindowInfo provides object : androidx.compose.ui.platform.WindowInfo by window {
+                    override val isWindowFocused: Boolean get() = windowFocused && window.isWindowFocused
+                }) {
                 Box(Modifier.background(Color.Black).padding(60.dp)) {
                     // Whatever comes first takes the initial focus; the card must start unfocused.
                     Box(Modifier.size(1.dp).focusable())
@@ -129,5 +133,19 @@ class LiftFocusIndicationTest {
         val after = rule.runOnIdle { app.reelstack.ui.drawnContent(rule.activity) }
         assertTrue("a light edge just inside the focused card", after.ringAt(1f, 75f, box, d))
         assertTrue("the edge is crisp: the art a few dp in is not lit by it", !after.ringAt(8f, 75f, box, d))
+    }
+
+    /**
+     * Behind a menu or a dialog, which has the window focus, a card keeps its own focus but shows no ring. With the
+     * profile menu open on Loftet, «Spill av» in the hero behind it had its ring too, and two things looked focused
+     * at once (2026-11-07).
+     */
+    @Test fun aCardInAWindowWithoutFocusShowsNoEdge() {
+        card(FocusStyle.LIFT, true, windowFocused = false)
+        rule.waitForIdle()
+        rule.onNodeWithTag("card").requestFocus()
+        rule.waitForIdle()
+        val after = rule.runOnIdle { app.reelstack.ui.drawnContent(rule.activity) }
+        assertTrue("no edge while another window has the focus", !after.ringAt(1f, 75f, bounds(), rule.density.density))
     }
 }

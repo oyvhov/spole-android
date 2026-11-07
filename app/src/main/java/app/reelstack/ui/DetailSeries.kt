@@ -2,6 +2,7 @@
 
 package app.reelstack.ui
 
+import app.reelstack.ui.components.bleedToEnd
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -319,6 +320,7 @@ private fun TvEpisodeRow(
     LazyRow(
         state = state,
         modifier = Modifier
+            .bleedToEnd(app.reelstack.ui.components.DetailPageEndMargin)
             .rowKeylineScroll(state, 4.dp, TV_ROW_FADE)
             .rowEdgeFade(state, endFade = TV_ROW_FADE)
             // Entering the row from above goes to the next episode, whichever tile happens to be

@@ -653,7 +653,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             }, AppTab.DISCOVER.name in app.reelstack.ui.theme.LocalPersonalization.current.visibleMenu(),
             state.globalSearchOpen, { if (!state.globalSearchOpen) viewModel.openGlobalSearch() }, account,
             state.connections.firstOrNull { it.kind == account?.source }, viewModel::openProfileSwitcher,
-            visible = state.activeSheet == null,
+            visible = topBarStaysFor(state.activeSheet),
             onDown = {
                 if (state.globalSearchOpen) runCatching { searchPageFocus.requestFocus() }
                 else if (!focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down))

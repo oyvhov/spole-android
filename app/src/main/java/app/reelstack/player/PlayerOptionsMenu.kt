@@ -15,7 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.reelstack.R
 import app.reelstack.data.model.SubtitleStyle
-import app.reelstack.data.model.readableAudioTrackLabel
+import app.reelstack.data.model.readableTrackLabel
 import app.reelstack.ui.components.*
 
 internal enum class PlayerMenu(val label: Int) {
@@ -55,8 +55,8 @@ internal fun PlayerOptionsMenu(page: PlayerMenu, state: PlayerScreenState, adjus
                         returnPage = destination; onPage(destination)
                     }
                 }
-                route(PlayerMenu.AUDIO, state.audio.firstOrNull { it.index == state.audioIndex }?.let { readableAudioTrackLabel(it.label, it.language) }, state.audio.isNotEmpty())
-                route(PlayerMenu.SUBTITLES, state.subtitles.firstOrNull { it.index == state.subtitleIndex }?.label ?: stringResource(R.string.player_off), state.subtitles.isNotEmpty())
+                route(PlayerMenu.AUDIO, state.audio.firstOrNull { it.index == state.audioIndex }?.let { readableTrackLabel(it.label, it.language) }, state.audio.isNotEmpty())
+                route(PlayerMenu.SUBTITLES, state.subtitles.firstOrNull { it.index == state.subtitleIndex }?.let { readableTrackLabel(it.label, it.language) } ?: stringResource(R.string.player_off), state.subtitles.isNotEmpty())
                 if (state.chapters.isNotEmpty()) route(PlayerMenu.CHAPTERS)
                 route(PlayerMenu.SPEED, speedLabel(adjustments.speed))
                 route(PlayerMenu.AUDIO_DELAY, delayLabel(adjustments.audioDelayMs))
@@ -79,8 +79,8 @@ internal fun PlayerOptionsMenu(page: PlayerMenu, state: PlayerScreenState, adjus
             } else {
                 if (page == PlayerMenu.SUBTITLES) app.reelstack.ui.screens.SubtitleAppearanceSetting(style, onStyle)
                 val options = when (page) {
-                    PlayerMenu.AUDIO -> state.audio.map { it.index to readableAudioTrackLabel(it.label, it.language) }
-                    PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to it.label }
+                    PlayerMenu.AUDIO -> state.audio.map { it.index to readableTrackLabel(it.label, it.language) }
+                    PlayerMenu.SUBTITLES -> listOf(-1 to stringResource(R.string.player_off)) + state.subtitles.map { it.index to readableTrackLabel(it.label, it.language) }
                     PlayerMenu.CHAPTERS -> state.chapters.mapIndexed { index, chapter -> index to "${playbackTime(chapter.startPositionMs)} · ${chapter.name}" }
                     PlayerMenu.SPEED -> listOf(50, 75, 100, 125, 150, 175, 200).map { it to speedLabel(it / 100f) }
                     else -> listOf(0 to stringResource(R.string.player_auto), 80_000_000 to stringResource(R.string.player_quality_ultra),

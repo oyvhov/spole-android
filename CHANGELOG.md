@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta40 — kvart trykk byggjer berre det som endrar seg
+
+- TV: Eit trykk på fjernkontrollen byggjer ikkje lenger om korta på ei rad som nettopp kom til syne. Før vart kvart nytt kort bygt to gonger, og det andre bygget tok 14–20 ms i det første biletet etter kvart trykk på Shield. No tek det under 1 ms.
+- TV: Korta har færre usynlege delar i tilgjengelegheitstreet, så tenester som Button Mapper har mindre å gå gjennom når sida rører seg.
+- TV: Rader på bibliotek- og detaljsidene («Neste», episodane og «Medvirkende») går ut til skjermkanten og tonar ut der, slik radene på Heim gjer. Før stoppa dei ved sidemargen med eit kort skore tvert av.
+- TV: Toppmenyen blir verande når profilmenyen er open, og fokus går attende til avataren når han lukkar seg. Ingenting bak ein meny eller ein dialog har fokusring lenger.
+- Lydspor og undertekstar har språket på appspråket og formatet med kortnamn: «Norsk · SRT» i staden for «Norwegian - SUBRIP».
+- Samlingar viser ikkje lenger eit årstal, som berre var året til den første filmen.
+- Kalenderen reknar ikkje lenger ein tittel tenaren ikkje kjenner, som ein feil ved henting.
+
 ## 1.0.0-beta39 — gjennomgang på Loftet: oppdatering, overskrifter og innstillingar
 
 - Oppdatering i appen: «Installer oppdatering» opnar Android-installasjonen ved første trykk. Før henta Android fram den gøymde installasjonen frå førre oppdatering, og ingenting skjedde før andre trykk. (Rettinga verkar frå neste oppdatering, sidan det er den installerte utgåva som opnar installasjonen.)

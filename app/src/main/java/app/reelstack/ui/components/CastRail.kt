@@ -35,7 +35,9 @@ import androidx.compose.runtime.getValue
 fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKind? = null,
     loadTitles: suspend (CastMember, app.reelstack.data.model.ServiceKind) -> List<app.reelstack.data.model.LibraryMedia> = { _, _ -> emptyList() },
     onTitle: (app.reelstack.data.model.LibraryMedia) -> Unit = {},
-    onSeerrPerson: (Int) -> Unit = {}) {
+    onSeerrPerson: (Int) -> Unit = {},
+    /** On a television, the page's end margin, which the row runs on under to the screen's edge. */
+    endBleed: androidx.compose.ui.unit.Dp = 0.dp) {
     var selected by remember(cast) { mutableStateOf<CastMember?>(null) }
     var titles by remember(cast) { mutableStateOf(emptyList<app.reelstack.data.model.LibraryMedia>()) }
     var loading by remember { mutableStateOf(false) }
@@ -56,7 +58,9 @@ fun CastRail(cast: List<CastMember>, source: app.reelstack.data.model.ServiceKin
         finally { loading = false }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    val castState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LazyRow(state = castState, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = if (tv) Modifier.bleedToEnd(endBleed).rowEdgeFade(castState, endFade = 40.dp) else Modifier) {
         items(cast.distinctBy { it.remoteId ?: it.seerrPersonId?.toString() ?: it.name },
             key = { it.remoteId ?: it.seerrPersonId?.toString() ?: it.name }) { person ->
             val interaction = remember { MutableInteractionSource() }

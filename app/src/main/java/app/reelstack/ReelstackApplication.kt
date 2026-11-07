@@ -51,6 +51,7 @@ class ReelstackApplication : Application(), coil3.SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         CrashReporter.install(this)
+        lightenTelevisionSemantics()
         // Reading the preference touches disk, and scheduling talks to WorkManager's database.
         // Neither belongs on the main thread during startup: the first frame should not wait on
         // a decision about a refresh that will not run for another half hour anyway.
@@ -65,5 +66,20 @@ class ReelstackApplication : Application(), coil3.SingletonImageLoader.Factory {
             // built. Starting the download service from here crashed a process that WorkManager
             // had started in the background.
         }
+    }
+
+    /**
+     * On a television, a layer's shape is left out of the semantics tree.
+     *
+     * Any accessibility service makes Compose walk and compare the whole tree about every 100 ms while a page moves,
+     * and every `graphicsLayer` and `clip` (each card has several) ran its layer block again on each walk to find its
+     * shape. On the Shield, with Button Mapper on, that work took a fifth of the main thread (2026-11-07). The shape
+     * only rounds a screen reader's focus box, which a television's own focus ring already shows.
+     */
+    @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+    private fun lightenTelevisionSemantics() {
+        val television = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+        if (television) androidx.compose.ui.ComposeUiFlags.isGraphicsLayerShapeSemanticsEnabled = false
     }
 }
