@@ -579,6 +579,8 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
             }
             }
             }
+            // Dims the page behind the expanded television menu; it only paints, so focus and clicks pass through.
+            RailScrim(tvRail && showRail && expandedRail, Modifier.matchParentSize())
             }
             }
         }
