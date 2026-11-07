@@ -161,6 +161,17 @@ internal fun HeroCaptionGroup(
     }
 }
 
+/** How a hero picture fades: in over [durationMillis] when it comes, out at once when its successor has come. */
+internal fun heroArtworkOpacitySpec(motion: Boolean, incoming: Boolean, durationMillis: Int): androidx.compose.animation.core.AnimationSpec<Float> =
+    when {
+        !motion -> androidx.compose.animation.core.snap()
+        incoming -> tween(durationMillis)
+        // A zero-length tween reaches its target at once whatever its delay, so the outgoing picture vanished in
+        // the first frame and the hero stood empty and dark until the next one had faded in (the Shield,
+        // 2026-11-07). A snap honours its delay: the picture stays whole under the incoming one, then goes.
+        else -> androidx.compose.animation.core.snap(delayMillis = durationMillis)
+    }
+
 /** Extend artwork into the list gutters without changing the width of the rows below it. */
 internal fun Modifier.cinematicBleed(inset: Dp): Modifier = layout { measurable, constraints ->
     val margin = inset.roundToPx()
@@ -178,6 +189,8 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
     televisionHeight: Dp? = null,
     /** How far the television's menu line reaches down: the picture runs behind it, the words stay below. */
     topInset: Dp = 0.dp,
+    /** Lets the page send the remote back into the hero, as Back from the shelves does. */
+    focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
     onFocusWithin: (Boolean) -> Unit = {}) {
     val titles = candidates.ifEmpty { listOf(media) }.take(HERO_FEATURE_COUNT)
     val identities = titles.map { it.id }
@@ -301,6 +314,7 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
             if (television && it.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) interaction++
             false
         }
+        .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
         .focusGroup()
         .then(if (television) Modifier else Modifier.clip(RoundedCornerShape(24.dp)).background(Ink))
         // On television the whole hero used to take focus, and the only way to show that was a
@@ -335,15 +349,19 @@ internal fun TabletLibraryFeature(media: LibraryMedia, onOpen: (String) -> Unit,
                 val incoming = title.id == selected.id
                 val duration = if (television) 1100 else 500
                 val opacity by animateFloatAsState(if (incoming) 1f else 0f,
-                    tween(durationMillis = if (motion && incoming) duration else 0,
-                        delayMillis = if (motion && !incoming) duration else 0), label = "feature-artwork-${title.id}")
+                    heroArtworkOpacitySpec(motion, incoming, duration), label = "feature-artwork-${title.id}")
                 Box(Modifier.matchParentSize().zIndex(if (incoming) 1f else 0f).graphicsLayer { alpha = opacity }) {
                     MediaArtwork(app.reelstack.data.network.heroArtworkUrl(if (television) app.reelstack.data.network.televisionHeroArtworkUrl(title) else app.reelstack.data.network.libraryHeroArtworkUrl(title), LocalPersonalization.current.lightweightTv), null, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (television) 1f else .72f).fillMaxHeight(), fallbackRes = title.artworkRes, contentScale = ContentScale.Crop, source = title.source, protectAspectRatio = false, alignment = Alignment.TopCenter, crossfadeDurationMillis = 0)
                 }
               }
             }
           }
-            if (!television) {
+            if (television) {
+                // The words stand on the left of the picture. A backdrop with its title printed into it showed that title
+                // a second time behind the clear logo and the buttons; a shade under the words keeps it in the back.
+                Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
+                    0f to Ink.copy(alpha = .74f), .34f to Ink.copy(alpha = .52f), .62f to Color.Transparent)))
+            } else {
                 Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
                     0f to Ink, .27f to Ink, .52f to Ink.copy(alpha = .88f),
                     .72f to Ink.copy(alpha = .18f), 1f to Color.Transparent)))

@@ -25,6 +25,16 @@ class HomeSectionTitleTest {
 
     @Test fun twoServersWithTheSameRowAreToldApartByName() {
         rule.setContent { ReelstackTheme { MediaSectionTitle("Sjå vidare", ServiceKind.EMBY, showSource = true) } }
-        rule.onNodeWithText("Emby", useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("Emby", substring = true, useUnmergedTree = true).assertExists()
+    }
+
+    /**
+     * Two «Sjå vidare» headings told apart only by a small grey server name at the far right read as the same
+     * row twice (the Shield, 2026-11-07). The server belongs in the heading itself.
+     */
+    @Test fun theServerIsPartOfTheHeadingNotALabelAtTheFarEnd() {
+        rule.setContent { ReelstackTheme { MediaSectionTitle("Sjå vidare", ServiceKind.EMBY, showSource = true) } }
+        rule.onNodeWithText("Sjå vidare · Emby", useUnmergedTree = true).assertExists()
+        rule.onAllNodesWithText("Emby", useUnmergedTree = true).assertCountEquals(0)
     }
 }

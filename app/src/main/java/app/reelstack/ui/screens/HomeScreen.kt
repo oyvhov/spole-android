@@ -76,6 +76,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.draw.clip
@@ -93,6 +94,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -167,6 +169,8 @@ fun HomeScreen(
     cardActions: MediaCardActions? = null,
     presentSince: Long? = 0L,
     topInset: Dp = 0.dp,
+    /** Back on a television's Home goes to the hero first; off while something above Home takes Back. */
+    backToTop: Boolean = true,
 ) = HomeScreen(
     state = state.toHomeUiState(),
     contentPadding = contentPadding,
@@ -187,6 +191,7 @@ fun HomeScreen(
     cardActions = cardActions,
     presentSince = presentSince,
     topInset = topInset,
+    backToTop = backToTop,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -213,6 +218,7 @@ fun HomeScreen(
     presentSince: Long? = 0L,
     /** How far the television's menu line reaches down. The hero runs behind it; a page without one starts below it. */
     topInset: Dp = 0.dp,
+    backToTop: Boolean = true,
 ) {
     var showTopRefreshIndicatorByUser by rememberSaveable { mutableStateOf(false) }
     val triggerRefresh = {
@@ -303,14 +309,57 @@ fun HomeScreen(
                 else info.viewportSize.height - shelf.size
             }.collect { room -> if (room != null) tvHeroHeight = tvHeroHeightFor(with(density) { room.toDp() }) }
         }
-        // The faded edge hides the screen's last TV_SHELF_BOTTOM and the 8 dp over it. The page stops what the
-        // remote reaches above them, so the last button on Home is whole (Eilev's Home on the Shield, 2026-11-02).
+        // On a television with a hero, Home has two calm states: the hero, and the shelves. Going down from the hero
+        // moves the whole page once, and every shelf's title then lands on one line under the top edge; Up and Back
+        // bring the hero back whole. Scrolling only as far as the focused card needed left half rows and half the
+        // hero's buttons on the screen, and the page jumped instead of moving (the Shield, 2026-11-07).
         val fadedEdge = television && tablet && featured != null
-        val hiddenEdge = with(density) { (TV_SHELF_BOTTOM + 8.dp).toPx() }
-        val feedSpec = remember(hiddenEdge) { app.reelstack.ui.components.FadedEdgeBringIntoView(hiddenEdge) }
+        val tvPaged = fadedEdge
+        val motion = app.reelstack.ui.theme.LocalMotionEnabled.current
+        val pageSpec = app.reelstack.ui.theme.motionSpec<Float>(motion, app.reelstack.ui.theme.SpoleMotion.LandMs)
+        val heroFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+        val linePx = with(density) { TV_ROW_TITLE_LINE.toPx() }
+        val topBandPx = with(density) { (TV_ROW_TITLE_LINE - 6.dp).toPx() }
+        val feedAtRest by remember { androidx.compose.runtime.derivedStateOf {
+            feedState.firstVisibleItemIndex == 0 && feedState.firstVisibleItemScrollOffset == 0
+        } }
+        fun toHero() = feedScope.launch {
+            androidx.compose.runtime.withFrameNanos { }
+            if (feedState.firstVisibleItemIndex == 0)
+                feedState.animateScrollBy(-feedState.firstVisibleItemScrollOffset.toFloat(), pageSpec)
+            else feedState.animateScrollToItem(0)
+        }
+        fun toLine(key: String, index: Int, inset: Dp) = feedScope.launch {
+            androidx.compose.runtime.withFrameNanos { }
+            val target = linePx - with(density) { inset.toPx() }
+            val info = feedState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
+            if (info != null) feedState.animateScrollBy(info.offset - target, pageSpec)
+            else feedState.animateScrollToItem(index, -target.toInt())
+        }
+        // 1 while the hero stands, 0 once the shelves are up: the hero fades as it leaves, so the picture that runs
+        // on behind the first shelf never vanishes in one frame when the list lets go of the hero.
+        val heroOpacity = {
+            if (feedState.firstVisibleItemIndex > 0) 0f else {
+                val height = feedState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == 0 }?.size ?: 1
+                (1f - feedState.firstVisibleItemScrollOffset / (height * .7f)).coerceIn(0f, 1f)
+            }
+        }
+        val topFade = {
+            if (feedState.firstVisibleItemIndex > 0) 1f
+            else (feedState.firstVisibleItemScrollOffset / topBandPx).coerceIn(0f, 1f)
+        }
+        // Back from the shelves goes to the hero first; only Back from the hero leaves Home.
+        androidx.activity.compose.BackHandler(enabled = tvPaged && backToTop && !feedAtRest) {
+            feedScope.launch {
+                if (feedState.firstVisibleItemIndex > 0) feedState.animateScrollToItem(0)
+                androidx.compose.runtime.withFrameNanos { }
+                // Focus in the hero moves the rest of the way up, through the hero's own onFocusWithin.
+                runCatching { heroFocus.requestFocus() }
+            }
+        }
         androidx.compose.runtime.CompositionLocalProvider(
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
-                if (fadedEdge) feedSpec
+                if (tvPaged) HoldFeedStill
                 else if (television) app.reelstack.ui.components.DetailBringIntoView
                 else androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current) {
         // The television's menu lies on the top of this page and leaves with it, so nothing ever scrolls behind it.
@@ -328,14 +377,17 @@ fun HomeScreen(
                     (if (television && tablet && featured != null) TV_SHELF_BOTTOM + 8.dp else 0.dp),
             ),
             modifier = Modifier.fillMaxSize()
-                .then(if (television && tablet && featured != null) Modifier.tvHomeBottomFade(TV_SHELF_BOTTOM) else Modifier)
+                .then(if (tvPaged) Modifier.tvHomeBottomFade(TV_SHELF_BOTTOM, TV_ROW_TITLE_LINE - 6.dp, topFade) else Modifier)
                 .testTag("home-feed"),
         ) {
             var entranceIndex = 0
-            fun entranceItem(key: String, content: @Composable () -> Unit) {
+            fun entranceItem(key: String, inset: Dp = 0.dp, content: @Composable () -> Unit) {
                 val index = entranceIndex++
                 item(key = key) {
-                    Column(Modifier.fillMaxWidth().rowEntrance(index, presentSince)) {
+                    Column(Modifier.fillMaxWidth().rowEntrance(index, presentSince)
+                        .then(if (tvPaged && key != "tablet-feature") Modifier.onFocusChanged {
+                            if (it.hasFocus) toLine(key, index, inset)
+                        } else Modifier)) {
                         // The faded edge is the page's alone; anything that scrolls sideways inside a row keeps the plain rule.
                         if (fadedEdge) androidx.compose.runtime.CompositionLocalProvider(
                             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides
@@ -353,7 +405,13 @@ fun HomeScreen(
                 if (tablet) {
                     entranceItem(key = "tablet-feature") {
                         TabletLibraryFeature(featured, onLibraryClick,
-                            Modifier.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp)
+                            Modifier.graphicsLayer {
+                                if (tvPaged) {
+                                    alpha = heroOpacity()
+                                    // Per draw, not through a buffer: the picture runs on below the hero's bounds.
+                                    compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+                                }
+                            }.padding(bottom = 4.dp, end = if (edge) ReelLayout.Gutter else 0.dp)
                                 .then(if (television) Modifier.cinematicBleed(ReelLayout.Gutter) else Modifier),
                             account = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -362,13 +420,17 @@ fun HomeScreen(
                                 }
                             },
                             candidates = features,
-                            rotationEnabled = featureVisible && state.activeSheet == null,
+                            // The hero turns only while it is the page; behind the shelves it holds still.
+                            rotationEnabled = (if (tvPaged) feedAtRest else featureVisible) && state.activeSheet == null,
                             televisionHeight = tvHeroHeight,
+                            focusRequester = heroFocus,
                             topInset = topInset,
-                            onFocusWithin = { focused -> if (television && focused) feedScope.launch {
-                                // Let the focus target finish its own bring-into-view request first.
-                                androidx.compose.runtime.withFrameNanos { }
-                                feedState.scrollToItem(0)
+                            onFocusWithin = { focused -> if (television && focused) {
+                                if (tvPaged) toHero() else feedScope.launch {
+                                    // Let the focus target finish its own bring-into-view request first.
+                                    androidx.compose.runtime.withFrameNanos { }
+                                    feedState.scrollToItem(0)
+                                }
                             } },
                         )
                     }
@@ -414,7 +476,7 @@ fun HomeScreen(
                 val source = row.source
                 if (row.kind == HomeRowKind.NOW_PLAYING && state.sessions.isNotEmpty()) {
                     val sectionTop = nextSectionTop()
-                    entranceItem(key = "now-playing") {
+                    entranceItem(key = "now-playing", inset = sectionTop) {
                             Row(Modifier.fillMaxWidth().padding(top = sectionTop, bottom = ReelLayout.SectionBottom, end = mediaEndInset()), verticalAlignment = Alignment.Bottom) {
                                 SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_now_playing), Modifier.weight(1f))
                                 // A count is status, not an action, so it stays out of the accent colour.
@@ -437,7 +499,7 @@ fun HomeScreen(
                     val firstLoad = state.isRefreshing && state.configuredCount > 0 && source !in state.loadedSources
                     if (items.isNotEmpty() || incomplete || firstLoad) {
                         val sectionTop = nextSectionTop(if (television && featured != null) 14.dp else ReelLayout.SectionTop)
-                        entranceItem(key = "continue-watching-${source.name}") {
+                        entranceItem(key = "continue-watching-${source.name}", inset = sectionTop) {
                             Column(Modifier.testTag("continue-watching-${source.name}")) {
                                 MediaSectionTitle(stringResource(if (combine(source)) R.string.tv_continue_combined else R.string.home_continue), source, Modifier.padding(
                                     top = sectionTop,
@@ -456,7 +518,7 @@ fun HomeScreen(
                     val items = state.favourites.filter { it.source == source }
                     if (items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      entranceItem(key = "favourites-${source.name}") {
+                      entranceItem(key = "favourites-${source.name}", inset = sectionTop) {
                         MediaSectionTitle(stringResource(R.string.home_favourites), source,
                             Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom), showSource = layout.sourceNeeded(row, homeSources))
                         LibraryRail(items, onLibraryClick, wide = false, rowKey = row.id, actions = cardActions)
@@ -467,7 +529,7 @@ fun HomeScreen(
                     val items = nextRows[source].orEmpty()
                     if (items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      entranceItem(key = "next-up-${source.name}") {
+                      entranceItem(key = "next-up-${source.name}", inset = sectionTop) {
                         Column(Modifier.testTag("next-up-${source.name}")) {
                             MediaSectionTitle(stringResource(R.string.tv_next_up), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
@@ -479,7 +541,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.NEW_MOVIES && source != null && source in mediaSources) {
                         val sectionTop = nextSectionTop()
-                        entranceItem(key = "recent-movies-${source.name}") {
+                        entranceItem(key = "recent-movies-${source.name}", inset = sectionTop) {
                             MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_movies), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
                             val items = state.recentMovies.filter { it.source == source }
@@ -496,7 +558,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.NEW_SERIES && source != null && source in mediaSources) {
                         val sectionTop = nextSectionTop()
-                        entranceItem(key = "recent-series-${source.name}") {
+                        entranceItem(key = "recent-series-${source.name}", inset = sectionTop) {
                             MediaSectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_new_episodes), source, Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
                                 showSource = layout.sourceNeeded(row, homeSources))
                             val items = state.recentSeries.filter { it.source == source }
@@ -520,7 +582,7 @@ fun HomeScreen(
                     val items = state.homeShelfMedia[row.id].orEmpty()
                     if (shelf != null && items.isNotEmpty()) {
                       val sectionTop = nextSectionTop()
-                      entranceItem(key = "smart-shelf-${row.id}") {
+                      entranceItem(key = "smart-shelf-${row.id}", inset = sectionTop) {
                         Column(Modifier.testTag("home-shelf-${row.id}")) {
                             // The shelf's own icon marks the row as a shelf; the way into all of it is the row's last card.
                             MediaSectionTitle(app.reelstack.ui.components.smartShelfName(shelf), source,
@@ -535,7 +597,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.RECOMMENDATIONS) {
                     val sectionTop = nextSectionTop()
-                    entranceItem(key = "recommendations") {
+                    entranceItem(key = "recommendations", inset = sectionTop) {
                         SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recommendations), Modifier.padding(top = sectionTop, bottom = 4.dp))
                         Text(stringResource(R.string.home_recommendations_note), color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                             modifier = Modifier.padding(bottom = 12.dp))
@@ -550,7 +612,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.RECENT_RELEASES) {
                     val sectionTop = nextSectionTop()
-                    entranceItem(key = "recent-releases") {
+                    entranceItem(key = "recent-releases", inset = sectionTop) {
                         Column(Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom)) {
                             SectionTitle(androidx.compose.ui.res.stringResource(app.reelstack.R.string.home_recent_releases))
                             Text(
@@ -575,7 +637,7 @@ fun HomeScreen(
                 }
                 if (row.kind == HomeRowKind.UPCOMING) {
                     val sectionTop = nextSectionTop()
-                    entranceItem(key = "upcoming") {
+                    entranceItem(key = "upcoming", inset = sectionTop) {
                         UpcomingSectionTitle(
                             onCalendarClick = onCalendarClick,
                             modifier = Modifier.padding(top = sectionTop, bottom = ReelLayout.SectionBottom),
@@ -597,7 +659,12 @@ fun HomeScreen(
                     }
                 }
             }
-            item(key = "freshness") { HomeFreshness(state, triggerRefresh) }
+            val freshnessIndex = entranceIndex
+            item(key = "freshness") {
+                Box(if (tvPaged) Modifier.onFocusChanged { if (it.hasFocus) toLine("freshness", freshnessIndex, 0.dp) } else Modifier) {
+                    HomeFreshness(state, triggerRefresh)
+                }
+            }
         }
         }
       }
@@ -770,21 +837,18 @@ internal fun MediaSectionTitle(title: String, source: ServiceKind, modifier: Mod
     }) {
         if (leading != null) Icon(leading, null, Modifier.padding(end = 8.dp, bottom = 4.dp).size(20.dp), tint = Muted)
         // The server's name is there only to tell two servers' rows apart; with one server it only
-        // repeated what the whole page is. Accessibility keeps it in the spoken description above.
+        // repeated what the whole page is. Accessibility keeps it in the spoken description above. It is part of
+        // the heading itself: as a small grey label at the far end, two «Sjå vidare» rows read as the same row twice.
         Text(
-            text = title,
+            text = if (!showSource) androidx.compose.ui.text.AnnotatedString(title) else androidx.compose.ui.text.buildAnnotatedString {
+                append(title)
+                withStyle(androidx.compose.ui.text.SpanStyle(color = Muted)) { append(" · ${source.displayName}") }
+            },
             color = TextColor,
             style = MaterialTheme.typography.titleLarge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(end = 12.dp),
-        )
-        if (showSource) Text(
-            text = source.displayName,
-            color = Muted,
-            fontSize = 12.sp, lineHeight = 17.sp,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(bottom = 2.dp),
         )
     }
 }
@@ -1071,14 +1135,32 @@ internal fun tvHeroHeightFor(room: Dp): Dp = room - 4.dp - TV_SHELF_BOTTOM
 
 internal val TV_SHELF_BOTTOM = 28.dp
 
+/** Where every shelf's title stands once the shelves are up on a television: under the 60 pt top safe area. */
+internal val TV_ROW_TITLE_LINE = 44.dp
+
+/** The television's Home moves itself to the title line; focus alone must not scroll it as well. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private object HoldFeedStill : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
+}
+
 /**
  * Rows end a margin above the bottom of the screen, in a short fade, as they do on Stova's Home: the
  * shelf under the first one never peeks in, and a row scrolled past the margin leaves softly.
  */
-private fun Modifier.tvHomeBottomFade(margin: Dp): Modifier = this
+private fun Modifier.tvHomeBottomFade(margin: Dp, topBand: Dp = 0.dp, topStrength: () -> Float = { 0f }): Modifier = this
     .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
     .drawWithContent {
         drawContent()
+        // Once the shelves are up, whatever has scrolled past the title line fades out under the top edge
+        // instead of standing there cut through.
+        val strength = topStrength()
+        if (strength > 0f && topBand > 0.dp) {
+            val band = topBand.toPx()
+            drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black.copy(alpha = strength),
+                1f to Color.Transparent, startY = 0f, endY = band),
+                size = androidx.compose.ui.geometry.Size(size.width, band), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+        }
         val end = size.height - margin.toPx()
         val fade = 8.dp.toPx()
         drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black,

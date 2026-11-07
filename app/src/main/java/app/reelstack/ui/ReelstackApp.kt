@@ -199,7 +199,9 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
     var contentHasFocus by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val selectTab: (AppTab) -> Unit = { tab ->
-        focusManager.clearFocus()
+        // On a television the remote stays on the menu item it chose until the new page takes it. Clearing focus
+        // here sent the ring to the first menu item for a moment, so «Heim» lit up on the way to «Bibliotek».
+        if (!tvRail) focusManager.clearFocus()
         keyboard?.hide()
         viewModel.selectTab(tab)
         if (tvRail) { tvRailFocused = false; moveIntoContent = true }
@@ -479,6 +481,7 @@ fun ReelstackApp(viewModel: ReelstackViewModel) {
                     AppTab.HOME -> HomeScreen(
                         state = homeState,
                         presentSince = homePresentSince,
+                        backToTop = !state.globalSearchOpen && state.activeSheet == null,
                         topInset = menuInset,
                         contentPadding = screenInsets,
                         onSessionClick = { viewModel.openSheet(AppSheet.SessionDetails(it)) },
