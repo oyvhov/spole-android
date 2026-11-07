@@ -9,6 +9,8 @@ import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
@@ -22,7 +24,7 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
     if (tv) {
         if (series) {
             CompositionLocalProvider(LocalBringIntoViewSpec provides rememberSafeDetailBringIntoView()) {
-                Column(Modifier.fillMaxSize().testTag("detail-scroll").verticalScroll(scroll)
+                Column(Modifier.fillMaxSize().safeBottomFade().testTag("detail-scroll").verticalScroll(scroll)
                     .padding(horizontal = 32.dp, vertical = 16.dp)) {
                     Row(Modifier.fillMaxWidth().testTag("tv-series-header"),
                         horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -44,7 +46,7 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
                 // TV's default pivot scrolls Play towards the middle even when it is visible,
                 // clipping the heading on entry. Move only enough to reveal the focused control.
                 CompositionLocalProvider(LocalBringIntoViewSpec provides DetailBringIntoView) {
-                    Column(Modifier.weight(1f).fillMaxHeight().testTag("detail-scroll")
+                    Column(Modifier.weight(1f).fillMaxHeight().safeBottomFade().testTag("detail-scroll")
                         .verticalScroll(scroll).padding(bottom = 32.dp)) { heading(); content() }
                 }
             }
@@ -58,6 +60,22 @@ internal fun DetailReadingLayout(tv: Boolean, scroll: ScrollState,
 
 /** What a television detail page keeps between a focused control and the bottom of the screen: 28 dp is the safe area, the rest is air. */
 internal val DetailSafeBottom = 32.dp
+
+/**
+ * What runs on below the page fades out over [DetailSafeBottom] instead of ending in a cut at the screen's
+ * edge: at rest an episode row stood with its titles 26 px above the bottom (the Shield, 2026-11-07). Focus
+ * never stops in this band ([SafeBottomBringIntoView]), so nothing the remote is on is ever dimmed by it.
+ */
+internal fun Modifier.safeBottomFade(): Modifier = this
+    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val band = DetailSafeBottom.toPx()
+        drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to androidx.compose.ui.graphics.Color.Transparent,
+            1f to androidx.compose.ui.graphics.Color.Black, startY = size.height - band, endY = size.height),
+            topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - band),
+            size = androidx.compose.ui.geometry.Size(size.width, band), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+    }
 
 /**
  * [DetailBringIntoView] that stops [bottomInset] short of the bottom edge.

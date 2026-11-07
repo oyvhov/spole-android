@@ -76,7 +76,7 @@ internal fun TvCinematicDetails(
             }
         }
         CompositionLocalProvider(LocalBringIntoViewSpec provides rememberSafeDetailBringIntoView()) {
-            Column(Modifier.fillMaxSize().verticalScroll(scroll).testTag("detail-scroll")) {
+            Column(Modifier.fillMaxSize().safeBottomFade().verticalScroll(scroll).testTag("detail-scroll")) {
                 Box(Modifier.fillMaxWidth().heightIn(min = heroHeight).testTag("tv-detail-hero")) {
                     Column(Modifier.fillMaxWidth(if (largeText) .92f else .62f)
                         .padding(start = 40.dp, top = 24.dp, end = 20.dp,

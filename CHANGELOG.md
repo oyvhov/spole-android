@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.0-beta37 — roleg Heim på TV, tydeleg fokus og sidebyte utan mørke
+
+- TV: Ned frå toppbiletet flyttar heile sida i éi roleg rørsle, og overskrifta på kvar rad står på same linje under toppkanten. Ingen halve rader eller halve knappar blir ståande øvst. Opp tek toppbiletet heilt tilbake med same rørsle.
+- TV: Tilbake frå radene går til toppbiletet først. Først Tilbake derifrå lukkar Spole.
+- TV: toppbiletet står i ro medan du er i radene, og tonar ut når radene kjem opp.
+- Byte av toppbilete er ei ekte krysstoning. Før vart helten tom og mørk i eit halvt sekund mellom to titlar.
+- Teksten i toppbiletet har ein skugge under seg, så ein tittel som er trykt inn i bakgrunnsbiletet ikkje syner to gonger.
+- Når same rad finst for to tenarar, står tenaren i overskrifta: «Sjå vidare · Emby».
+- Fokusmarkeringa «Løft»: kortet med fokus veks til 1,09 gonger storleiken, med ein mjuk skugge under og litt lys, så det er lett å sjå frå sofaen.
+- Ein tittel opnar med biletet kortet hadde, utan mørk mellomside. Oppdag tek med bakgrunnen frå toppen av sida, og ein tittel utan bakgrunn får plakaten dempa.
+- Sidebyte i menyen er ei krysstoning utan tom side mellom, og fokus står på menyvalet til den nye sida tek det.
+- Oppstarten viser Spole-merket frå første bilete, utan mørk pause.
+- Portretta under «Medverkande» tonar inn.
+- TV: «Be om» står først og har fokus på Oppdag-sider.
+- TV: radene rullar til ei fast venstrelinje og tonar ut der dei held fram, så ingen kort blir skorne av mot menyen.
+- TV: ingen sesongfane blir skoren av, og episodane står innanfor tryggsona nedst.
+- TV: sidemenyen dempar sida bak seg når han er open.
+- Med toppmeny står første rad heil nedst på Heim, og den siste knappen på Heim blir aldri skjult under botnen.
+- Versjonsnamnet beta36 gjekk til eit lokalt testbygg og blir hoppa over.
+
 ## 1.0.0-beta35 — toppmenyen på TV: liten og berre øvst
 
 - TV: toppmenyen er små ord rett på biletet frå venstre kant, med profilsirkelen til høgre. Han har ingen kapsel, ingen mørk stripe og ikkje Spole-merket. Sida du er på har ei kort strek i aksentfargen under ordet. Orda har sin eigen mjuke skugge, så dei held seg lesbare over lyse bilete.
