@@ -103,3 +103,17 @@ heldt kontrollane framme. Brukaren spurde om det var meg.
 Vernet mitt stoppa berre for avspeling i andre appar og sjekka berre ved starten av ein bolk. No stoppar det for all
 avspeling og for spelarvindauge, og det sjekkar før kvart trykk. Det vart ikkje trykt OK, og ingenting vart spola eller
 endra.
+
+## Publisering
+
+- Release-commit `35acc9c`, tagg `v1.0.0-beta40`, pusha med `git push --atomic origin HEAD:main v1.0.0-beta40`
+  (spola fram frå `3e1c5da`).
+- Signert APK: 28 157 920 byte, SHA-256 `283f1ba6…0e64f98`, sertifikat `36fa94f0…`, `app.reelstack` 177, ikkje
+  debuggable. Alle 20 native bibliotek er byte for byte like beta39.
+- Seks assets med digest kontrollert mot GitHub. Releasen er publisert som prerelease (ikkje `latest`), og den
+  offentlege nedlastinga har same SHA-256 som bygget.
+- CI «Bygg og test» på `35acc9c`: grøn ([køyring 42416131145](https://github.com/oyvhov/spole-android/actions/runs/42416131145)).
+- Den offentlege APK-en er lagd inn på Loftet med `install -r`. Første installasjonsdato er uendra.
+- Shield har eit prøvebygg (176) med koden for oppdateringa frå beta39. Når han oppdaterer seg til beta40 i appen, skal
+  det første trykket på «Installer oppdatering» opne installasjonen (`FLAG_ACTIVITY_CLEAR_TASK`). Det er ikkje prøvd
+  enno, for Shield var i bruk.
