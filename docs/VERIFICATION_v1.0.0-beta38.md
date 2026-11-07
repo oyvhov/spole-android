@@ -83,6 +83,16 @@ Profilen (simpleperf, `profileable`) syner kvifor. Om lag 40 % av tida på hovud
 
 Compose samanliknar då treet om lag kvart 100. ms medan noko rører seg. Det er neste steg. Bufferet i `rememberTvListState` gjer treet større, og verknaden av det er ikkje målt med tenestene på.
 
+## Publisering
+
+- Release-commit `d5f1565`, tagg `v1.0.0-beta38`, pusha med `git push --atomic origin HEAD:main v1.0.0-beta38`
+  (spola fram frå `1f8ae3f`).
+- Signert APK: 28 157 460 byte, SHA-256 `4e9d8473…e38100eb`, sertifikat `36fa94f0…`, `app.reelstack` 175, ikkje
+  debuggable, `profileable` frå skalet. Dei native undertekstbiblioteka er kontrollerte.
+- Seks assets med digest kontrollert mot GitHub. Releasen er publisert som prerelease (ikkje `latest`), og den
+  offentlege nedlastinga utan innlogging har same SHA-256 som bygget.
+- CI «Bygg og test» på `d5f1565`: grøn ([køyring 42371372277](https://github.com/oyvhov/spole-android/actions/runs/42371372277)).
+
 ## Hending
 
 Medan eg måla, starta nokon ein film i Emby på Shield. Ein bolk med D-pad-trykk (5 × opp, 6 × ned) som var meint for Spole, gjekk inn i Emby-spelaren og viste kontrollane der. OK vart ikkje trykt, og filmen spelte vidare. Eg slutta å bruke Shield. Ingen førespurnad vart send, og ingen avspeling starta i Spole.
