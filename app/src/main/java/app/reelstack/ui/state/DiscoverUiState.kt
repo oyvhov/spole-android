@@ -24,6 +24,7 @@ data class DiscoverUiState(
     val searchError: String? = null,
     val searchHasMore: Boolean = false,
     val loadingMoreSearch: Boolean = false,
+    val searchMoreFailed: Boolean = false,
     val requestingMediaIds: Set<String> = emptySet(),
     val hub: app.reelstack.data.model.DiscoverHubState = app.reelstack.data.model.DiscoverHubState(),
     val trackedRequests: List<app.reelstack.data.model.TrackedRequest> = emptyList(),
@@ -53,6 +54,7 @@ fun ReelstackUiState.toDiscoverUiState(): DiscoverUiState = DiscoverUiState(
     searchError = searchError,
     searchHasMore = searchHasMore,
     loadingMoreSearch = loadingMoreSearch,
+    searchMoreFailed = searchMoreFailed,
     requestingMediaIds = requestingMediaIds,
     // Without any server the preview still has a row: the demo titles, under «Populært no».
     hub = if (configuredCount == 0 && discoverHub.rows.isEmpty() && discover.isNotEmpty())

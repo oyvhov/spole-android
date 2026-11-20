@@ -28,6 +28,11 @@ pwsh -NoProfile -File C:\JellyBin\reelstack-android\scripts\Start-SpoleEmulators
 
 `-RestartApp` stoppar berre Spole-prosessen og kan avbryte avspeling i denne emulatoren. Standardkommandoen tvingar ikkje appen til å starte på nytt. Ingen av variantane installerer ein APK, aktiverer demo, køyrer testar, loggar ut eller slettar data.
 
+Med `-NoWindows` kan skriptet òg bruke ein eksisterande ADB-tenar som berre lyttar på
+`127.0.0.1:5037` inne i WSL. Når resultatet viser `AdbViaWsl = True`, køyr vidare
+ADB-kommandoar med `wsl.exe -d Ubuntu -u root --exec /home/oyvhov/Android/Sdk/platform-tools/adb`
+og serienummeret frå resultatet.
+
 ## Rette profilar
 
 | Bruk | AVD | Varig datamappe | ADB-serienummer |

@@ -1,14 +1,18 @@
 package app.reelstack.ui
 
 import app.reelstack.R
+import app.reelstack.data.model.LibraryMedia
+import app.reelstack.data.model.ServiceConnection
 import app.reelstack.data.model.ServiceKind
+import app.reelstack.data.repository.MediaSyncRepository
+import app.reelstack.data.repository.mergeLibrarySearch
 import app.reelstack.ui.state.SearchSlice
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -18,18 +22,18 @@ import kotlinx.coroutines.withContext
  */
 internal class DiscoverSearchCoordinator(
     private val appContext: android.content.Context,
-    private val mediaSyncRepository: app.reelstack.data.repository.MediaSyncRepository,
+    mediaSyncRepository: MediaSyncRepository,
     private val preferencesRepository: app.reelstack.data.repository.AppPreferencesRepository,
     private val scope: CoroutineScope,
     private val readState: () -> ReelstackUiState,
     private val updateState: ((ReelstackUiState) -> ReelstackUiState) -> Unit,
     private val slice: (ReelstackUiState) -> SearchSlice = ::discoverSlice,
     private val withSlice: (ReelstackUiState, SearchSlice) -> ReelstackUiState = ::withDiscoverSlice,
-    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
-    private val searchLibraries: suspend (List<app.reelstack.data.model.ServiceConnection>, String) -> List<app.reelstack.data.model.LibraryMedia> =
-        { connections, query -> withContext(ioDispatcher) { mediaSyncRepository.searchLibraries(connections, query) } },
-    private val searchDiscover: suspend (app.reelstack.data.model.ServiceConnection, String) -> app.reelstack.data.repository.MediaSyncRepository.SearchPage =
-        { connection, query -> withContext(ioDispatcher) { mediaSyncRepository.search(connection, query, page = 1) } },
+    ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
+    private val searchLibrary: suspend (ServiceConnection, String) -> List<LibraryMedia> =
+        { server, query -> withContext(ioDispatcher) { mediaSyncRepository.searchLibrary(server, query) } },
+    private val searchDiscover: suspend (ServiceConnection, String, Int) -> MediaSyncRepository.SearchPage =
+        { server, query, page -> withContext(ioDispatcher) { mediaSyncRepository.search(server, query, page) } },
 ) {
     private var searchJob: Job? = null
     private var loadMoreJob: Job? = null
@@ -60,58 +64,51 @@ internal class DiscoverSearchCoordinator(
         }
         if (seerr == null && mediaServers.isEmpty()) {
             updateState {
-                withSlice(it, slice(it).copy(
+                withSlice(it, SearchSlice(
                     query = value,
                     results = it.discover.filter { media -> media.title.contains(query, ignoreCase = true) },
-                    libraryResults = emptyList(),
-                    searching = false,
-                    error = null,
                 ))
             }
             return
         }
         // Keep the last answer while typing and fetching. Pagination belongs to the new query,
         // so the old page cannot be appended while those cards are still visible.
-        edit { it.copy(query = value, searching = true, error = null, page = 1, hasMore = false, loadingMore = false) }
+        edit { previous -> SearchSlice(
+            query = value, searching = true,
+            results = if (seerr != null) previous.results else emptyList(),
+            people = if (seerr != null) previous.people else emptyList(),
+            libraryResults = if (mediaServers.isNotEmpty()) previous.libraryResults else emptyList(),
+        ) }
+        fun publish(transform: (SearchSlice) -> SearchSlice) =
+            edit { if (it.query == value) transform(it) else it }
+
         searchJob = scope.launch {
             delay(DEBOUNCE_MILLIS)
-            // Your own libraries and Seerr answer independently. A title you own must remain
-            // discoverable when Seerr is unavailable, and a Seerr result must remain useful when
-            // one media server is down.
-            val libraryDeferred = async {
-                if (mediaServers.isEmpty()) Result.success(emptyList()) else attempt {
-                    searchLibraries(mediaServers, query)
+            val failed = mutableSetOf<ServiceKind>()
+            val groups = MutableList<List<LibraryMedia>>(mediaServers.size) { emptyList() }
+            coroutineScope {
+                mediaServers.forEachIndexed { index, server ->
+                    launch {
+                        val answer = attempt { searchLibrary(server, query) }
+                        ensureActive()
+                        if (answer.isFailure) failed += server.kind
+                        groups[index] = answer.getOrDefault(emptyList())
+                        val hits = mergeLibrarySearch(groups)
+                        publish { it.copy(libraryResults = hits) }
+                    }
+                }
+                if (seerr != null) {
+                    val answer = attempt { searchDiscover(seerr, query, 1) }
+                    ensureActive()
+                    if (answer.isFailure) failed += seerr.kind
+                    val page = answer.getOrNull()
+                    publish { it.copy(results = page?.items.orEmpty(), people = page?.people.orEmpty(),
+                        page = page?.page ?: 1, hasMore = page?.hasMore == true) }
                 }
             }
-            val discoverDeferred = async {
-                if (seerr == null) {
-                    Result.success(app.reelstack.data.repository.MediaSyncRepository.SearchPage(emptyList(), 1, false))
-                } else attempt { searchDiscover(seerr, query) }
-            }
-            val libraryResult = libraryDeferred.await()
-            if (!isActive || slice(readState()).query.trim() != query) return@launch
-            // A slow Seerr must not hold back a title that can already be played at home.
-            edit { it.copy(libraryResults = libraryResult.getOrDefault(emptyList())) }
-            val discoverResult = discoverDeferred.await()
-            if (!isActive || slice(readState()).query.trim() != query) return@launch
-            // Nothing is remembered here. This runs for every pause in typing, so "Ga" and "Gam" on
-            // the way to "Game" would all land in history; [commitSearchToHistory] decides what counts.
-            updateState {
-                withSlice(it, slice(it).copy(
-                    results = discoverResult.getOrNull()?.items.orEmpty(),
-                    people = discoverResult.getOrNull()?.people.orEmpty(),
-                    page = discoverResult.getOrNull()?.page ?: 1,
-                    hasMore = discoverResult.getOrNull()?.hasMore == true,
-                    libraryResults = libraryResult.getOrDefault(emptyList()),
-                    searching = false,
-                    error = when {
-                        discoverResult.isFailure && libraryResult.isFailure -> appString(R.string.error_search_all)
-                        discoverResult.isFailure && seerr != null -> appString(R.string.error_search_seerr)
-                        libraryResult.isFailure -> appString(R.string.error_search_libraries)
-                        else -> null
-                    },
-                ))
-            }
+            val error = if (failed.isEmpty()) null else appString(R.string.error_search_sources,
+                failed.sortedBy { it.ordinal }.joinToString(", ") { it.displayName })
+            publish { it.copy(searching = false, error = error) }
         }
     }
 
@@ -133,6 +130,12 @@ internal class DiscoverSearchCoordinator(
         updateState { it.copy(searchHistory = history) }
     }
 
+    fun clearSearchHistory() {
+        val profile = readState().activeProfileId
+        preferencesRepository.clearSearchHistory(profile)
+        updateState { if (it.activeProfileId == profile) it.copy(searchHistory = emptyList()) else it }
+    }
+
     /** Appends one verified Seerr page; a changed query discards a late response. */
     fun loadMore() {
         val state = readState()
@@ -142,27 +145,25 @@ internal class DiscoverSearchCoordinator(
             query.isBlank() ||
             !current.hasMore ||
             current.loadingMore ||
-            current.searching ||
             loadMoreJob?.isActive == true
         ) return
         val seerr = state.connections.firstOrNull {
             it.kind == ServiceKind.SEERR && it.baseUrl.isNotBlank() && it.token.isNotBlank()
         } ?: return
         val next = current.page + 1
-        edit { it.copy(loadingMore = true) }
+        edit { it.copy(loadingMore = true, moreFailed = false) }
         loadMoreJob = scope.launch {
-            val result = attempt {
-                withContext(ioDispatcher) { mediaSyncRepository.search(seerr, query, next) }
-            }
+            val result = attempt { searchDiscover(seerr, query, next) }
+            ensureActive()
             edit { latest ->
-                if (latest.query.trim() != query) return@edit latest.copy(loadingMore = false)
+                if (latest.query.trim() != query) return@edit latest
                 val page = result.getOrNull()
                 latest.copy(
                     loadingMore = false,
                     results = if (page == null) latest.results else (latest.results + page.items).distinctBy { it.id },
                     page = page?.page ?: latest.page,
-                    hasMore = page?.hasMore == true,
-                    error = if (result.isFailure) appString(R.string.error_search_more) else latest.error,
+                    hasMore = page?.hasMore ?: latest.hasMore,
+                    moreFailed = result.isFailure,
                 )
             }
         }
@@ -187,6 +188,7 @@ internal class DiscoverSearchCoordinator(
             page = state.searchPage,
             hasMore = state.searchHasMore,
             loadingMore = state.loadingMoreSearch,
+            moreFailed = state.searchMoreFailed,
         )
 
         fun withDiscoverSlice(state: ReelstackUiState, search: SearchSlice) = state.copy(
@@ -199,6 +201,7 @@ internal class DiscoverSearchCoordinator(
             searchPage = search.page,
             searchHasMore = search.hasMore,
             loadingMoreSearch = search.loadingMore,
+            searchMoreFailed = search.moreFailed,
         )
     }
 }

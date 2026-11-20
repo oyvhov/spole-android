@@ -95,6 +95,8 @@
     <string name="search_clear">Tøm søket</string>
     <string name="search_libraries">I biblioteka dine</string>
     <string name="search_recent">Tidlegare søk</string>
+    <string name="search_clear_history">Tøm søkjehistorikken</string>
+    <string name="search_one_more_character">Skriv eitt teikn til for å søkje.</string>
     <string name="search_ready">Alt her kan du sjå med ein gong.</string>
     <string name="search_add_new">Legg til noko nytt</string>
     <string name="search_no_new">Ingenting nytt å leggje til for «%1$s».</string>
@@ -186,9 +188,7 @@
     <string name="media_login_add">Logg inn for å leggje til</string>
     <string name="media_adding">Legg til…</string>
     <string name="error_content_details">Fekk ikkje henta alle detaljane</string>
-    <string name="error_search_all">Fekk ikkje søkt. Sjekk tilkoplingane og prøv igjen.</string>
-    <string name="error_search_seerr">Fekk ikkje søkt i Seerr. Sjekk tilkoplinga og prøv igjen.</string>
-    <string name="error_search_libraries">Fekk ikkje søkt i biblioteka dine. Sjekk tilkoplinga og prøv igjen.</string>
+    <string name="error_search_sources">Fekk ikkje søkt i %1$s. Sjekk tilkoplinga og prøv igjen.</string>
     <string name="error_search_more">Fekk ikkje henta fleire treff. Prøv igjen.</string>
     <string name="error_request_seasons">Fekk ikkje henta sesongar og tilgjenge. Prøv igjen.</string>
     <string name="error_save_watch">Fekk ikkje lagra varselet. Sjekk sesongane på nytt og prøv igjen.</string>

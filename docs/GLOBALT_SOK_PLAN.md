@@ -1,5 +1,18 @@
 # Globalt søk · arbeidsplan
 
+## Oppdatering 20. november 2026
+
+Globalt søk og Oppdag viser svar frå Jellyfin, Emby og Seerr etter kvart som dei kjem.
+Har både Jellyfin og Emby same tittel, står éin spelbar kopi att når begge har svart.
+Plasseringa i treffa frå kvar tenar og rekkjefølgja på kjeldene avgjer kva kopi som blir vist.
+Ved tenestefeil står dei andre treffa framleis
+på skjermen, saman med namnet på tenesta og knappen «Prøv igjen».
+
+Fleire treff kan hentast også når alle titlane på første side allereie ligg i biblioteket.
+Dersom neste side feilar, kan brukaren hente den sida om att og behalde treffa frå før.
+Eit tomt felt i globalt søk viser tidlegare søk for den aktive profilen. «Tøm søkjehistorikken»
+fjernar desse lokalt. På TV går fokus tilbake til tastaturet.
+
 Status 26. september 2026: **påbegynt.** Søket er ein eigen skjerm med eiga spørjing
 (`GlobalSearchScreen`, `ReelstackUiState.globalSearch`), og telefonen og nettbrettet opnar det frå eit
 ikon ved profilbiletet på Heim. Sjå statustabellen. Dokumentet er arbeidslista; kvar funksjon har ein

@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -216,18 +217,40 @@ class DownloadsAndSearchUiTest {
     }
 
     @Test fun existingSearchCardsRemainVisibleWhileTheNextQueryLoads() {
+        var submitted: String? = null
         rule.setContent {
             ReelstackTheme {
                 GlobalSearchScreen(
                     state = GlobalSearchUiState(search = SearchSlice(query = "silo two", searching = true,
                         libraryResults = listOf(owned), results = listOf(newTitle))),
-                    onQuery = {}, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = {},
+                    onQuery = { submitted = it }, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = {},
                 )
             }
         }
         rule.onNodeWithTag("library-hit-jf-1").assertIsDisplayed()
         rule.onNodeWithTag("discover-poster-seerr-tv-2").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("global-search-empty").assertDoesNotExist()
+        rule.onNodeWithTag("global-search-clear").performClick()
+        rule.runOnIdle { assertEquals("", submitted) }
+    }
+
+    @Test fun anotherPageIsReachableWhenEverySeerrTitleIsAlreadyInTheLibrary() {
+        var more = 0
+        rule.setContent {
+            ReelstackTheme {
+                CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                    GlobalSearchScreen(
+                        state = GlobalSearchUiState(search = SearchSlice(query = "silo", libraryResults = listOf(owned),
+                            results = listOf(available), hasMore = true)),
+                        onQuery = {}, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = { more++ },
+                    )
+                }
+            }
+        }
+        rule.onNodeWithTag("library-hit-jf-1").assertExists()
+        rule.onNodeWithTag("global-search-results").performScrollToKey("more")
+        rule.onNodeWithText(rule.activity.getString(R.string.search_more)).assertIsDisplayed().performClick()
+        rule.runOnIdle { assertEquals(1, more) }
     }
 
     @Test fun anEmptySearchOffersEarlierSearches() {
@@ -244,6 +267,21 @@ class DownloadsAndSearchUiTest {
         rule.onNodeWithText(rule.activity.getString(R.string.search_recent)).assertIsDisplayed()
         rule.onNodeWithText("Dune").performClick()
         rule.runOnIdle { assertEquals("Dune", query) }
+    }
+
+    @Test fun aSearchCanBeRetriedWithoutRetypingWhenOneServerFailed() {
+        var submitted: String? = null
+        val message = rule.activity.getString(R.string.error_search_sources, "Seerr")
+        rule.setContent { ReelstackTheme {
+            GlobalSearchScreen(
+                state = GlobalSearchUiState(search = SearchSlice(query = "Silo", libraryResults = listOf(owned), error = message)),
+                onQuery = { submitted = it }, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = {},
+            )
+        } }
+        rule.onNodeWithTag("library-hit-jf-1").assertExists()
+        rule.onNodeWithText(message).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.action_retry)).performScrollTo().performClick()
+        rule.runOnIdle { assertEquals("Silo", submitted) }
     }
 
     @Test fun noResultsSaysSoWithoutMentioningFilters() {

@@ -96,6 +96,8 @@
     <string name="search_clear">Clear search</string>
     <string name="search_libraries">In your libraries</string>
     <string name="search_recent">Recent searches</string>
+    <string name="search_clear_history">Clear search history</string>
+    <string name="search_one_more_character">Type one more character to search.</string>
     <string name="search_ready">Everything here is ready to watch.</string>
     <string name="search_add_new">Add something new</string>
     <string name="search_no_new">Nothing new to add for “%1$s”.</string>
@@ -187,9 +189,7 @@
     <string name="media_login_add">Sign in to add</string>
     <string name="media_adding">Adding…</string>
     <string name="error_content_details">Could not load all details</string>
-    <string name="error_search_all">Search failed. Check connections and try again.</string>
-    <string name="error_search_seerr">Could not search in Seerr. Check connection and try again.</string>
-    <string name="error_search_libraries">Could not search your libraries. Check connection and try again.</string>
+    <string name="error_search_sources">Could not search %1$s. Check the connection and try again.</string>
     <string name="error_search_more">Could not load more results. Try again.</string>
     <string name="error_request_seasons">Could not load seasons and availability. Try again.</string>
     <string name="error_save_watch">Could not save notification. Check seasons and try again.</string>

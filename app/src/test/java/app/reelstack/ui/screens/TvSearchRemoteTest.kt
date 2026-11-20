@@ -1,6 +1,9 @@
 package app.reelstack.ui.screens
 
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.test.*
@@ -23,6 +26,25 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "w960dp-h540dp-television-xhdpi", application = app.reelstack.SheetTestApplication::class)
 class TvSearchRemoteTest {
     @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
+
+    @Test fun clearingHistoryWithTheRemoteReturnsFocusToTheKeyboard() {
+        var history by mutableStateOf(listOf("Dune"))
+        rule.setContent {
+            val input = LocalInputModeManager.current
+            SideEffect { input.requestInputMode(InputMode.Keyboard) }
+            ReelstackTheme {
+                GlobalSearchScreen(state = GlobalSearchUiState(history = history),
+                    onQuery = {}, onClose = {}, onLibraryDetails = {}, onDiscoverDetails = {}, onLoadMore = {},
+                    onClearHistory = { history = emptyList() })
+            }
+        }
+        val clear = rule.onNodeWithText(rule.activity.getString(R.string.search_clear_history))
+        clear.requestFocus()
+        clear.assertIsFocused().performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
+        clear.assertDoesNotExist()
+        rule.onNodeWithText("Dune").assertDoesNotExist()
+        rule.onNodeWithTag("search-key-A").assertIsFocused()
+    }
 
     @Test fun rightFromTheKeyboardReachesTheResults() {
         val owned = LibraryMedia(id = "jf-1", title = "Trolljegeren", subtitle = "2010", artworkRes = R.drawable.media_placeholder,

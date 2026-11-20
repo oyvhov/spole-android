@@ -1,5 +1,6 @@
 package app.reelstack.ui.screens
 import app.reelstack.ui.components.SettingsServiceRow
+import app.reelstack.ui.state.discoverSearchTitles
 
 import app.reelstack.ui.components.focusOutline
 import app.reelstack.ui.components.focusRing
@@ -243,11 +244,12 @@ fun DiscoverScreen(
                 value = state.searchQuery,
                 onValueChange = onSearch,
                 singleLine = true,
-                leadingIcon = { Icon(app.reelstack.ui.components.SpoleIcons.Search, contentDescription = null) },
+                leadingIcon = {
+                    if (state.isSearching) CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    else Icon(app.reelstack.ui.components.SpoleIcons.Search, contentDescription = null)
+                },
                 trailingIcon = {
-                    if (state.isSearching) {
-                        CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                    } else if (state.searchQuery.isNotEmpty()) {
+                    if (state.searchQuery.isNotEmpty()) {
                         IconButton(onClick = { onSearch("") }) {
                             Icon(app.reelstack.ui.components.SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
                         }
@@ -303,7 +305,7 @@ fun DiscoverScreen(
                 }
             })
             else -> DiscoverSearchGrid(state, contentPadding, { if (television) discoverTop() }, onDetails, onLibraryDetails, onLoadMore,
-                hubActions.onPerson, top = if (television) ReelLayout.PageTop else 8.dp)
+                hubActions.onPerson, onRetry = { onSearch(state.searchQuery) }, top = if (television) ReelLayout.PageTop else 8.dp)
         }
         }
         }
@@ -323,10 +325,13 @@ private fun DiscoverSearchGrid(
     onLibraryDetails: (String) -> Unit,
     onLoadMore: () -> Unit,
     onPerson: (Int) -> Unit,
+    onRetry: () -> Unit,
     top: androidx.compose.ui.unit.Dp = ReelLayout.PageTop,
 ) {
     val gridState = rememberLazyGridState()
-    val visible = state.searchResults
+    val visible = remember(state.searchResults, state.librarySearchResults) {
+        discoverSearchTitles(state.searchResults, state.librarySearchResults)
+    }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(posterCell()),
         state = gridState,
@@ -337,6 +342,12 @@ private fun DiscoverSearchGrid(
         modifier = Modifier.fillMaxSize().steadyRemoteRows(gridState).testTag("discover-grid"),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) { header() }
+        if (state.searchQuery.trim().length < 2) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                app.reelstack.ui.components.QuietEmptyState(stringResource(R.string.search_one_more_character), app.reelstack.ui.components.SpoleIcons.Search)
+            }
+            return@LazyVerticalGrid
+        }
         if (state.searchPeople.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(stringResource(R.string.discover_people), color = Muted, style = MaterialTheme.typography.labelLarge,
@@ -363,21 +374,21 @@ private fun DiscoverSearchGrid(
             items(state.librarySearchResults, key = { "library-hit-${it.id}" }) { media ->
                 LibraryHitCard(media) { onLibraryDetails(media.id) }
             }
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            if (visible.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(stringResource(R.string.search_add_new), color = TextColor, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
             }
         }
         if (state.isSearching && visible.isEmpty() && state.librarySearchResults.isEmpty() && state.searchPeople.isEmpty()) {
             items(8, key = { "discover-loading-$it" }) { DiscoverSkeleton(Modifier.fillMaxWidth()) }
-        } else if (!state.isSearching && visible.isEmpty() && state.searchPeople.isEmpty()) {
+        } else if (!state.isSearching && state.searchError == null && !state.searchHasMore && visible.isEmpty() && state.searchPeople.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 app.reelstack.ui.components.QuietEmptyState(
-                    state.searchError ?: when {
+                    when {
                         state.librarySearchResults.isNotEmpty() -> stringResource(R.string.search_no_new, state.searchQuery.trim())
                         else -> stringResource(R.string.search_no_results, state.searchQuery.trim())
                     },
-                    icon = if (state.searchError != null) app.reelstack.ui.components.SpoleIcons.Wifi else app.reelstack.ui.components.SpoleIcons.Search,
+                    icon = app.reelstack.ui.components.SpoleIcons.Search,
                     modifier = Modifier,
                 )
             }
@@ -386,26 +397,13 @@ private fun DiscoverSearchGrid(
                 if (app.reelstack.ui.components.isTelevision()) NamedPoster(media, { onDetails(media.id) }, Modifier.fillMaxWidth())
                 else PosterOnlyCard(media, { onDetails(media.id) }, Modifier.fillMaxWidth())
             }
-            // Seerr answers 20 results at a time. Loading the next page is explicit rather than
-            // automatic, so scrolling a long list never fires requests the reader did not ask for.
-            if (state.searchHasMore) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    OutlinedButton(
-                        onClick = onLoadMore,
-                        enabled = !state.loadingMoreSearch && !state.isSearching,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 52.dp)
-                            .focusRing(RoundedCornerShape(14.dp)).testTag("discover-load-more"),
-                    ) {
-                        if (state.loadingMoreSearch) {
-                            CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)
-                            Text(stringResource(R.string.search_loading_more), modifier = Modifier.padding(start = 10.dp))
-                        } else {
-                            Text(stringResource(R.string.search_more))
-                        }
-                    }
-                }
-            }
+        }
+        if (state.searchHasMore) item(key = "more", span = { GridItemSpan(maxLineSpan) }) {
+            SearchMoreButton(state.loadingMoreSearch, state.searchMoreFailed, onLoadMore,
+                Modifier.testTag("discover-load-more"))
+        }
+        if (!state.isSearching && state.searchError != null) item(key = "search-error", span = { GridItemSpan(maxLineSpan) }) {
+            SearchFailure(state.searchError, onRetry)
         }
     }
 }

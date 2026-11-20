@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.reelstack.ui.components.OpenMenuAction
@@ -116,6 +117,7 @@ fun GlobalSearchScreen(
      * pressed (phone). It is never called for the terms typed on the way.
      */
     onCommitSearch: () -> Unit = {},
+    onClearHistory: () -> Unit = {},
 ) {
     val television = app.reelstack.ui.components.isTelevision()
     val focusManager = LocalFocusManager.current
@@ -149,7 +151,7 @@ fun GlobalSearchScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
             if (television) {
                 TvSearchPage(state, keys, grid, onQuery, onNavigateUp, onCommitSearch, pickEarlier, openLibrary, openDiscover,
-                    onLoadMore, openPerson)
+                    onLoadMore, openPerson, onClearHistory)
                 return@Column
             }
             Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = ReelLayout.Gutter, top = 12.dp, bottom = 8.dp),
@@ -161,12 +163,13 @@ fun GlobalSearchScreen(
                     value = search.query,
                     onValueChange = onQuery,
                     singleLine = true,
-                    leadingIcon = { Icon(SpoleIcons.Search, contentDescription = null) },
+                    leadingIcon = {
+                        if (search.searching) CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                        else Icon(SpoleIcons.Search, contentDescription = null)
+                    },
                     trailingIcon = {
-                        if (search.searching) {
-                            CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                        } else if (search.query.isNotEmpty()) {
-                            IconButton(onClick = { onQuery(""); runCatching { field.requestFocus() } },
+                        if (search.query.isNotEmpty()) {
+                            IconButton(onClick = { onQuery(""); field.requestFocus(); keyboard?.show() },
                                 modifier = Modifier.size(48.dp).focusRing(CircleShape).testTag("global-search-clear")) {
                                 Icon(SpoleIcons.Close, contentDescription = stringResource(R.string.search_clear))
                             }
@@ -205,8 +208,8 @@ fun GlobalSearchScreen(
             SearchResults(
                 state, grid,
                 contentPadding = PaddingValues(start = ReelLayout.Gutter, end = ReelLayout.Gutter, top = 8.dp, bottom = 24.dp),
-                onPickEarlier = pickEarlier, onLibraryDetails = openLibrary, onDiscoverDetails = openDiscover,
-                onLoadMore = onLoadMore, onPerson = openPerson, modifier = Modifier.fillMaxSize(),
+                onPickEarlier = pickEarlier, onClearHistory = onClearHistory, onLibraryDetails = openLibrary, onDiscoverDetails = openDiscover,
+                onLoadMore = onLoadMore, onRetry = { onQuery(search.query) }, onPerson = openPerson, modifier = Modifier.fillMaxSize(),
             )
         }
     }
@@ -232,6 +235,7 @@ private fun TvSearchPage(
     onDiscoverDetails: (String) -> Unit,
     onLoadMore: () -> Unit,
     onPerson: (Int) -> Unit,
+    onClearHistory: () -> Unit,
 ) {
     val term = state.search.query
     var inResults by remember { mutableStateOf(false) }
@@ -249,7 +253,8 @@ private fun TvSearchPage(
             state, grid,
             contentPadding = PaddingValues(end = ReelLayout.Gutter, top = 8.dp, bottom = 24.dp),
             onPickEarlier = onPickEarlier, onLibraryDetails = onLibraryDetails, onDiscoverDetails = onDiscoverDetails,
-            onLoadMore = onLoadMore, onPerson = onPerson,
+            onClearHistory = { keys.toLastKey(); onClearHistory() },
+            onLoadMore = onLoadMore, onRetry = { onQuery(term) }, onPerson = onPerson,
             modifier = Modifier.weight(1f).fillMaxHeight().onFocusChanged { focus ->
                 val entered = focus.hasFocus && !inResults
                 inResults = focus.hasFocus
@@ -266,9 +271,11 @@ private fun SearchResults(
     grid: LazyGridState,
     contentPadding: PaddingValues,
     onPickEarlier: (String) -> Unit,
+    onClearHistory: () -> Unit,
     onLibraryDetails: (String) -> Unit,
     onDiscoverDetails: (String) -> Unit,
     onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
     onPerson: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -287,22 +294,27 @@ private fun SearchResults(
             .testTag("global-search-results"),
     ) {
         if (query.length < 2) {
-            item(key = "intro", span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (state.history.isNotEmpty()) {
-                        SearchHeading(stringResource(R.string.search_recent))
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            state.history.forEach { previous ->
-                                OpenMenuAction(onClick = { onPickEarlier(previous) }, modifier = Modifier.fillMaxWidth()) {
-                                    Icon(SpoleIcons.Clock, null, Modifier.size(20.dp), tint = Muted)
-                                    Text(previous, Modifier.weight(1f).padding(horizontal = 14.dp), style = MaterialTheme.typography.bodyLarge)
-                                    Icon(SpoleIcons.ArrowForward, null, Modifier.size(18.dp), tint = Muted)
-                                }
-                            }
-                        }
+            if (query.isEmpty() && state.history.isNotEmpty()) {
+                item(key = "recent", span = { GridItemSpan(maxLineSpan) }) {
+                    SearchHeading(stringResource(R.string.search_recent), Modifier.padding(top = 8.dp))
+                }
+                items(state.history, key = { "recent-$it" }, span = { GridItemSpan(maxLineSpan) }) { previous ->
+                    OpenMenuAction(onClick = { onPickEarlier(previous) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(SpoleIcons.Clock, null, Modifier.size(20.dp), tint = Muted)
+                        Text(previous, Modifier.weight(1f).padding(horizontal = 14.dp), style = MaterialTheme.typography.bodyLarge)
+                        Icon(SpoleIcons.ArrowForward, null, Modifier.size(18.dp), tint = Muted)
                     }
-                    QuietEmptyState(stringResource(R.string.home_search), SpoleIcons.Search,
-                        hint = stringResource(R.string.search_everywhere_hint))
+                }
+                item(key = "clear-history", span = { GridItemSpan(maxLineSpan) }) {
+                    TextButton(onClick = onClearHistory, modifier = Modifier.focusRing(RoundedCornerShape(14.dp))) {
+                        Text(stringResource(R.string.search_clear_history))
+                    }
+                }
+            } else item(key = "intro", span = { GridItemSpan(maxLineSpan) }) {
+                if (query.isEmpty()) {
+                    QuietEmptyState(stringResource(R.string.home_search), SpoleIcons.Search, hint = stringResource(R.string.search_everywhere_hint))
+                } else {
+                    QuietEmptyState(stringResource(R.string.search_one_more_character), SpoleIcons.Search)
                 }
             }
             return@LazyVerticalGrid
@@ -347,34 +359,42 @@ private fun SearchResults(
                     if (app.reelstack.ui.components.isTelevision()) NamedPoster(media, { onDiscoverDetails(media.id) }, Modifier.fillMaxWidth())
                     else PosterOnlyCard(media, { onDiscoverDetails(media.id) }, Modifier.fillMaxWidth())
                 }
-                // Seerr answers twenty at a time; the next page is a choice, not a scroll trap.
-                if (search.hasMore) item(key = "more", span = { GridItemSpan(maxLineSpan) }) {
-                    OutlinedButton(
-                        onClick = onLoadMore,
-                        enabled = !search.loadingMore && !search.searching,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).focusRing(RoundedCornerShape(14.dp)).testTag("global-search-more"),
-                    ) {
-                        if (search.loadingMore) {
-                            CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)
-                            Text(stringResource(R.string.search_loading_more), modifier = Modifier.padding(start = 10.dp))
-                        } else Text(stringResource(R.string.search_more))
-                    }
-                }
             }
-            !search.searching && search.libraryResults.isEmpty() && search.people.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
-                QuietEmptyState(search.error ?: stringResource(R.string.search_global_no_results, query),
-                    if (search.error != null) SpoleIcons.Wifi else SpoleIcons.Search,
+            !search.searching && search.error == null && !search.hasMore && search.libraryResults.isEmpty() && search.people.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
+                QuietEmptyState(stringResource(R.string.search_global_no_results, query), SpoleIcons.Search,
                     modifier = Modifier.testTag("global-search-empty"))
             }
         }
-        // One service failing leaves the other's answers in place, with a line saying which.
-        val partialError = search.error
-        if (!search.searching && partialError != null && (search.libraryResults.isNotEmpty() || requestable.isNotEmpty() || search.people.isNotEmpty())) {
-            item(key = "partial-error", span = { GridItemSpan(maxLineSpan) }) {
-                Text(partialError, color = Muted, style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 8.dp))
+        if (search.hasMore) item(key = "more", span = { GridItemSpan(maxLineSpan) }) {
+            SearchMoreButton(search.loadingMore, search.moreFailed, onLoadMore, Modifier.testTag("global-search-more"))
+        }
+        if (!search.searching && search.error != null) {
+            item(key = "search-error", span = { GridItemSpan(maxLineSpan) }) {
+                SearchFailure(search.error, onRetry)
             }
+        }
+    }
+}
+
+@Composable
+internal fun SearchFailure(message: String, onRetry: () -> Unit) {
+    QuietEmptyState(message, SpoleIcons.Wifi, action = {
+        TextButton(onClick = onRetry, modifier = Modifier.focusRing(RoundedCornerShape(14.dp))) {
+            Text(stringResource(R.string.action_retry))
+        }
+    })
+}
+
+@Composable
+internal fun SearchMoreButton(loading: Boolean, failed: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (failed) Text(stringResource(R.string.error_search_more), color = Muted, style = MaterialTheme.typography.bodyMedium)
+        OutlinedButton(onClick = onClick, enabled = !loading, shape = RoundedCornerShape(14.dp),
+            modifier = modifier.fillMaxWidth().heightIn(min = 52.dp).focusRing(RoundedCornerShape(14.dp))) {
+            if (loading) {
+                CircularProgressIndicator(Modifier.size(16.dp), color = Primary, strokeWidth = 2.dp)
+                Text(stringResource(R.string.search_loading_more), Modifier.padding(start = 10.dp))
+            } else Text(stringResource(R.string.search_more))
         }
     }
 }

@@ -535,53 +535,8 @@ class MediaSyncRepository(
     fun recommended(connection: ServiceConnection, media: DiscoverMedia): List<DiscoverMedia> =
         seerrDiscoverClient.recommendations(connection, requireNotNull(media.mediaType), requireNotNull(media.remoteId)).map(::discoverMedia)
 
-    /** Searches every connected media server, so a title you already own is findable by name. */
-    suspend fun searchLibraries(
-        connections: List<ServiceConnection>,
-        query: String,
-    ): List<LibraryMedia> = supervisorScope {
-        val servers = connections.filter {
-            it.kind in setOf(ServiceKind.JELLYFIN, ServiceKind.EMBY) &&
-                it.baseUrl.isNotBlank() && it.token.isNotBlank()
-        }
-        val groups = servers.map { connection ->
-            async {
-                runCatching { mediaServerClient.search(connection, query) }.getOrNull()
-                    ?.map { it to connection.kind }
-            }
-        }.awaitAll().filterNotNull()
-        // Deduplicated by the work, not by the copy. A series held on both Jellyfin and Emby has a
-        // different item id on each, so the old id-based pass could not see that they were the
-        // same thing — and the user got two cards with the same TMDB poster and nothing to tell
-        // them apart. Interleaving still decides which server's copy wins, so neither server's
-        // whole library outranks the other's.
-        val unique = interleave(groups).distinctBy { (item, _) -> workKey(item) }
-
-        // An episode carries its *series* name as its title, so searching for a series returns the
-        // series and every episode that matched — each drawn with the same poster whenever the
-        // episode has no still of its own. When the series itself is among the hits, its episodes
-        // are the same answer repeated; the series card is the one that leads somewhere.
-        val seriesTitles = unique.filter { (item, _) -> item.mediaType.equals("Series", ignoreCase = true) }
-            .mapTo(mutableSetOf()) { (item, _) -> item.title.trim().lowercase(java.util.Locale.ROOT) }
-        unique.filterNot { (item, _) ->
-            item.mediaType.equals("Episode", ignoreCase = true) &&
-                item.title.trim().lowercase(java.util.Locale.ROOT) in seriesTitles
-        }
-            .map { (item, kind) -> libraryMedia(item, kind) }
-            .take(24)
-    }
-
-    /**
-     * Identifies the title itself across servers. TMDB's id is the reliable answer when the server
-     * knows it; otherwise name, type and release year together are specific enough to catch the
-     * ordinary case without merging, say, two different films that share a name.
-     */
-    private fun workKey(item: RemoteLibraryItem): String = item.tmdbId?.let { "tmdb:$it" }
-        ?: listOf(
-            item.title.trim().lowercase(java.util.Locale.ROOT),
-            item.mediaType.lowercase(java.util.Locale.ROOT),
-            item.premiereDate?.take(4).orEmpty(),
-        ).joinToString("|")
+    fun searchLibrary(connection: ServiceConnection, query: String): List<LibraryMedia> =
+        mediaServerClient.search(connection, query).map { libraryMedia(it, connection.kind) }
 
     fun details(connection: ServiceConnection, media: DiscoverMedia): RemoteMediaDetails =
         seerrServiceClient.details(
@@ -915,6 +870,31 @@ internal fun homeRowForServer(items: List<LibraryMedia>, cap: Int): List<Library
 
 /** One row per server, merged in the order the servers are configured, the same way every time. */
 internal fun mergeHomeRows(bySource: List<List<LibraryMedia>>): List<LibraryMedia> = interleave(bySource)
+
+/** The configured source order decides which playable copy wins once both servers have answered. */
+internal fun mergeLibrarySearch(bySource: List<List<LibraryMedia>>): List<LibraryMedia> {
+    val hits = interleave(bySource)
+    // Keep parent IDs from every source, including copies that collapse into a single series card.
+    val series = hits.filter { it.mediaType.equals("Series", ignoreCase = true) }
+    val parents = series.mapTo(mutableSetOf()) { it.source to it.remoteId }
+    val seriesTitles = series.mapTo(mutableSetOf()) { it.title.trim().lowercase(Locale.ROOT) }
+    val unique = hits.distinctBy { item ->
+        val kind = item.mediaType.lowercase(Locale.ROOT)
+        when {
+            item.tmdbId != null -> "$kind:tmdb:${item.tmdbId}"
+            // An episode's title is its series name. Without a provider ID the local copy
+            // is safer than merging distinct episodes of the same series and year.
+            kind == "episode" -> item.id
+            else -> "$kind:${item.title.trim().lowercase(Locale.ROOT)}:${item.premiereDate?.take(4).orEmpty()}"
+        }
+    }
+    return unique.filterNot {
+        it.mediaType.equals("Episode", ignoreCase = true) && when {
+            it.seriesId != null -> (it.source to it.seriesId) in parents
+            else -> it.title.trim().lowercase(Locale.ROOT) in seriesTitles
+        }
+    }.take(24)
+}
 
 private fun <T> interleave(groups: List<List<T>>): List<T> = buildList {
     val maxSize = groups.maxOfOrNull(List<T>::size) ?: 0

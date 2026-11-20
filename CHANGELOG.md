@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 — betre søk
+
+- Søket viser treff etter kvart som Jellyfin, Emby og Seerr svarar, og tilbyr ny prøving ved feil.
+- Fleire treff kan hentast sjølv om første side berre inneheld titlar i biblioteket.
+- Sikrare samanslåing av treff og lokal tømming av søkjehistorikk per profil.
+
 ## 1.0.0-beta40 — kvart trykk byggjer berre det som endrar seg
 
 - TV: Eit trykk på fjernkontrollen byggjer ikkje lenger om korta på ei rad som nettopp kom til syne. Før vart kvart nytt kort bygt to gonger, og det andre bygget tok 14–20 ms i det første biletet etter kvart trykk på Shield. No tek det under 1 ms.

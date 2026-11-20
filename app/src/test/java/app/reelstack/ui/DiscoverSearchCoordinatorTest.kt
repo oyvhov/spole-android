@@ -26,6 +26,8 @@ class DiscoverSearchCoordinatorTest {
         scope: TestScope,
         library: suspend (String) -> List<LibraryMedia> = { delay(100); listOf(owned(it)) },
         discover: suspend (String) -> MediaSyncRepository.SearchPage = { delay(500); page(it) },
+        libraryByServer: suspend (ServiceConnection, String) -> List<LibraryMedia> = { _, query -> library(query) },
+        discoverPage: suspend (String, Int) -> MediaSyncRepository.SearchPage = { query, _ -> discover(query) },
     ) {
         val preferences = AppPreferencesRepository(ApplicationProvider.getApplicationContext())
         var state = ReelstackUiState(
@@ -39,7 +41,7 @@ class DiscoverSearchCoordinatorTest {
         val coordinator = DiscoverSearchCoordinator(
             ApplicationProvider.getApplicationContext(), MediaSyncRepository(), preferences, scope,
             { state }, { state = it(state) }, ioDispatcher = StandardTestDispatcher(scope.testScheduler),
-            searchLibraries = { _, query -> library(query) }, searchDiscover = { _, query -> discover(query) },
+            searchLibrary = libraryByServer, searchDiscover = { _, query, number -> discoverPage(query, number) },
         )
     }
 
@@ -75,6 +77,33 @@ class DiscoverSearchCoordinatorTest {
         assertFalse(fixture.state.isSearching)
     }
 
+    @Test fun fastSeerrTitlesAndPeopleAppearWhileTheLibraryIsStillSearching() = runTest {
+        val person = DiscoverPerson(12, "Person", null)
+        val fixture = Fixture(this,
+            library = { delay(1000); listOf(owned(it)) },
+            discover = { page(it).copy(people = listOf(person)) },
+        )
+        fixture.coordinator.setQuery("Silo")
+        advanceTimeBy(351)
+        assertEquals(listOf(found("Silo")), fixture.state.searchResults)
+        assertEquals(listOf(person), fixture.state.searchPeople)
+        assertTrue(fixture.state.isSearching)
+        advanceUntilIdle()
+        assertEquals(listOf(owned("Silo")), fixture.state.librarySearchResults)
+        assertFalse(fixture.state.isSearching)
+    }
+
+    @Test fun localSearchDoesNotKeepPeopleOrPaginationFromThePreviousServerQuery() = runTest {
+        val fixture = Fixture(this)
+        fixture.state = fixture.state.copy(connections = emptyList(), discover = listOf(found("Silo")),
+            searchPeople = listOf(DiscoverPerson(1, "Previous", null)))
+        fixture.coordinator.setQuery("sil")
+        assertEquals(listOf(found("Silo")), fixture.state.searchResults)
+        assertTrue(fixture.state.searchPeople.isEmpty())
+        assertFalse(fixture.state.searchHasMore)
+        assertEquals(1, fixture.state.searchPage)
+    }
+
     @Test fun failedSeerrDoesNotRemovePlayableLibraryAnswers() = runTest {
         val fixture = Fixture(this, discover = { delay(500); error("offline") })
         fixture.coordinator.setQuery("Silo")
@@ -83,6 +112,84 @@ class DiscoverSearchCoordinatorTest {
         assertTrue(fixture.state.searchResults.isEmpty())
         assertNotNull(fixture.state.searchError)
         assertFalse(fixture.state.isSearching)
+    }
+
+    @Test fun aSlowUnavailableEmbyDoesNotHideJellyfinOrLookLikeAnEmptyAnswer() = runTest {
+        val fixture = Fixture(this, libraryByServer = { server, query ->
+            if (server.kind == ServiceKind.EMBY) { delay(2000); error("offline") }
+            listOf(owned(query))
+        })
+        fixture.state = fixture.state.copy(connections = fixture.state.connections +
+            ServiceConnection(ServiceKind.EMBY, "Cabin", "https://emby.example", "test", userId = "u"))
+        fixture.coordinator.setQuery("Silo")
+        advanceTimeBy(351)
+        assertEquals(listOf(owned("Silo")), fixture.state.librarySearchResults)
+        assertTrue(fixture.state.isSearching)
+        advanceUntilIdle()
+        assertTrue(fixture.state.searchError.orEmpty().contains("Emby"))
+        assertFalse(fixture.state.searchError.orEmpty().contains("Jellyfin"))
+        assertEquals(listOf(owned("Silo")), fixture.state.librarySearchResults)
+        assertEquals(listOf(found("Silo")), fixture.state.searchResults)
+    }
+
+    @Test fun aFailedNextPageCanBeRetriedOnceAndKeepsTheLibraryError() = runTest {
+        val pages = mutableListOf<Int>()
+        val fixture = Fixture(this, library = { error("offline") }, discoverPage = { _, number ->
+            pages += number
+            if (pages == listOf(1, 2)) error("temporary")
+            MediaSyncRepository.SearchPage(listOf(found("First"), found("Page $number")), number, number == 1)
+        })
+        fixture.coordinator.setQuery("Silo")
+        advanceUntilIdle()
+        val libraryError = fixture.state.searchError
+        assertTrue(libraryError.orEmpty().contains("Jellyfin"))
+        fixture.coordinator.loadMore()
+        advanceUntilIdle()
+        assertTrue(fixture.state.searchHasMore)
+        assertTrue(fixture.state.searchMoreFailed)
+        assertEquals(1, fixture.state.searchPage)
+        assertEquals(listOf("First", "Page 1"), fixture.state.searchResults.map { it.title })
+        fixture.coordinator.loadMore()
+        fixture.coordinator.loadMore()
+        advanceUntilIdle()
+        assertEquals(listOf(1, 2, 2), pages)
+        assertEquals(listOf("First", "Page 1", "Page 2"), fixture.state.searchResults.map { it.title })
+        assertFalse(fixture.state.searchMoreFailed)
+        assertFalse(fixture.state.searchHasMore)
+        assertEquals(libraryError, fixture.state.searchError)
+    }
+
+    @Test fun seerrCanPageWhileWaitingForASlowLibrary() = runTest {
+        val fixture = Fixture(this, library = { delay(3000); listOf(owned(it)) },
+            discoverPage = { _, number -> MediaSyncRepository.SearchPage(listOf(found("Page $number")), number, number == 1) })
+        fixture.coordinator.setQuery("Silo")
+        advanceTimeBy(351)
+        assertTrue(fixture.state.isSearching)
+        assertTrue(fixture.state.searchHasMore)
+        fixture.coordinator.loadMore()
+        runCurrent()
+        assertEquals(2, fixture.state.searchPage)
+        advanceUntilIdle()
+        assertEquals(listOf("Page 1", "Page 2"), fixture.state.searchResults.map { it.title })
+        assertFalse(fixture.state.searchHasMore)
+        assertEquals(listOf(owned("Silo")), fixture.state.librarySearchResults)
+    }
+
+    @Test fun anOldPageCannotAppendAfterChangingAwayAndBackToTheSameTerm() = runTest {
+        val fixture = Fixture(this, discoverPage = { query, number ->
+            if (number > 1) withContext(NonCancellable) { delay(3000) }
+            MediaSyncRepository.SearchPage(listOf(found("$query $number")), number, true)
+        })
+        fixture.coordinator.setQuery("Silo")
+        advanceUntilIdle()
+        fixture.coordinator.loadMore()
+        runCurrent()
+        fixture.coordinator.setQuery("Dune")
+        fixture.coordinator.setQuery("Silo")
+        advanceUntilIdle()
+        assertEquals(listOf(found("Silo 1")), fixture.state.searchResults)
+        assertEquals(1, fixture.state.searchPage)
+        assertFalse(fixture.state.loadingMoreSearch)
     }
 
     @Test fun clearingTheFieldImmediatelyClearsOldCardsAndCancelsPendingAnswers() = runTest {
@@ -134,6 +241,18 @@ class DiscoverSearchCoordinatorTest {
         fixture.coordinator.setQuery("game")
         fixture.coordinator.commitSearchToHistory()
         assertEquals(listOf("game", "Game Of Thrones"), fixture.state.searchHistory)
+    }
+
+    @Test fun clearingHistoryIsImmediateAndOnlyClearsTheActiveProfile() = runTest {
+        val fixture = Fixture(this)
+        fixture.preferences.rememberSearch("other", "Dune")
+        fixture.coordinator.setQuery("Silo")
+        fixture.coordinator.commitSearchToHistory()
+        fixture.coordinator.clearSearchHistory()
+        assertTrue(fixture.state.searchHistory.isEmpty())
+        assertTrue(fixture.preferences.searchHistory(fixture.state.activeProfileId).isEmpty())
+        assertEquals(listOf("Dune"), fixture.preferences.searchHistory("other"))
+        assertEquals("Silo", fixture.state.searchQuery)
     }
 
     @Test fun aTermTooShortToSearchIsNotCommitted() = runTest {

@@ -8,6 +8,9 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.reelstack.data.model.ServiceConnection
+import app.reelstack.R
+import app.reelstack.data.model.DiscoverMedia
+import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.ui.state.DiscoverUiState
 import app.reelstack.ui.theme.ReelstackTheme
@@ -36,9 +39,28 @@ class DiscoverSearchFocusTest {
         rule.onNodeWithTag("discover-search").performTextInput("S")
         rule.waitForIdle()
         rule.onNodeWithTag("discover-search").assertIsFocused().assertTextContains("S")
+        rule.onNodeWithText(rule.activity.getString(R.string.search_one_more_character)).assertIsDisplayed()
         // And back again when the field is emptied.
         rule.onNodeWithTag("discover-search").performTextClearance()
         rule.waitForIdle()
         rule.onNodeWithTag("discover-search").assertIsFocused()
+    }
+
+    @Test fun discoverKeepsOnePlayableCopyAndOffersLaterPagesWhileAnotherSourceLoads() {
+        val owned = LibraryMedia("jf-1", "Silo", "", artworkRes = R.drawable.media_placeholder,
+            source = ServiceKind.JELLYFIN, mediaType = "Series", tmdbId = 42)
+        val available = DiscoverMedia("seerr-tv-42", "Silo", "", R.drawable.media_placeholder, true, remoteId = 42, mediaType = "tv")
+        var pages = 0
+        rule.setContent { ReelstackTheme {
+            DiscoverScreen(DiscoverUiState(searchQuery = "Silo", librarySearchResults = listOf(owned),
+                searchResults = listOf(available), isSearching = true, searchHasMore = true), PaddingValues(),
+                onSearch = {}, onDetails = {}, hubActions = DiscoverHubActions({}, {}, {}, {}, {}, {}, {}),
+                onLoadMore = { pages++ })
+        } }
+        rule.onNodeWithTag("library-hit-jf-1").assertExists()
+        rule.onNodeWithTag("discover-poster-seerr-tv-42").assertDoesNotExist()
+        rule.onNodeWithTag("discover-grid").performScrollToKey("more")
+        rule.onNodeWithText(rule.activity.getString(R.string.search_more)).assertIsEnabled().performClick()
+        rule.runOnIdle { org.junit.Assert.assertEquals(1, pages) }
     }
 }

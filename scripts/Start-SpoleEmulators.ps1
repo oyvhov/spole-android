@@ -89,6 +89,9 @@ function Start-LoggedProcess {
 
 function Invoke-Adb {
     param([string[]]$Command, [int]$TimeoutSeconds = 20)
+    if ($script:useWslAdb) {
+        return Invoke-Tool $wsl (@('-d', $Distro, '-u', 'root', '--exec', "$LinuxSdk/platform-tools/adb", '-H', '127.0.0.1', '-P', '5037') + $Command) -TimeoutSeconds $TimeoutSeconds
+    }
     Invoke-Tool $adb (@('-H', $script:adbHost, '-P', '5037') + $Command) -TimeoutSeconds $TimeoutSeconds
 }
 
@@ -137,7 +140,19 @@ try {
         if (!(Test-Path -LiteralPath (Join-Path $DataRoot "$($profile.Home)/$($profile.Name).ini"))) { throw "Missing AVD registration for $($profile.Name)." }
     }
 
+    $script:useWslAdb = $false
     $devices = Invoke-Adb @('devices')
+    if ($NoWindows -and $devices.Code -ne 0) {
+        # A headless review can talk to the existing loopback server inside WSL.
+        # Check the listener first so the probe cannot start a competing adb server.
+        $listener = Invoke-Linux @('ss', '-H', '-ltn', 'sport = :5037')
+        if ($listener.Code -eq 0 -and $listener.Output -match '127\.0\.0\.1:5037\s') {
+            $script:useWslAdb = $true
+            $devices = Invoke-Adb @('devices')
+            [void](Require-Success $devices 'Connect to the existing loopback adb server in WSL')
+            Write-Host 'Using the existing WSL loopback adb server.'
+        }
+    }
     if ($devices.Code -ne 0) {
         Write-Host "Starting shared WSL adb at ${script:adbHost}:5037..."
         $server = Start-LoggedProcess $wsl @('-d', $Distro, '-u', 'root', '--exec', "$LinuxSdk/platform-tools/adb", '-a', '-P', '5037', 'nodaemon', 'server') 'adb-server'
@@ -218,7 +233,7 @@ try {
                 } finally { $env:ADB_SERVER_SOCKET = $oldSocket }
             }
         }
-        $results += [pscustomobject]@{ Device = $profile.Device; Serial = $serial; Avd = $profile.Name; AdbHost = $script:adbHost; NetworkValidated = $networkReady; Window = $windowState; App = 'app.reelstack'; Logs = $runDir }
+        $results += [pscustomobject]@{ Device = $profile.Device; Serial = $serial; Avd = $profile.Name; AdbHost = $(if ($script:useWslAdb) { '127.0.0.1' } else { $script:adbHost }); AdbViaWsl = $script:useWslAdb; NetworkValidated = $networkReady; Window = $windowState; App = 'app.reelstack'; Logs = $runDir }
         Write-Host "Spole ready on $serial; network=$networkReady; window=$windowState."
     }
     $results | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $logRoot 'last-start.json') -Encoding utf8

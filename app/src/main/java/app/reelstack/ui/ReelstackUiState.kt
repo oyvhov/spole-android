@@ -219,6 +219,7 @@ data class ReelstackUiState(
     val searchPage: Int = 1,
     val searchHasMore: Boolean = false,
     val loadingMoreSearch: Boolean = false,
+    val searchMoreFailed: Boolean = false,
     val activity: List<ActivityEvent> = demoActivity(),
     val searchQuery: String = "",
     val isSearching: Boolean = false,

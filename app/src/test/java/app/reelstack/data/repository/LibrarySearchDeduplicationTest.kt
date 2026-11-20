@@ -1,11 +1,11 @@
 package app.reelstack.data.repository
 
 import app.reelstack.data.model.ServiceConnection
+import app.reelstack.data.model.LibraryMedia
 import app.reelstack.data.model.ServiceKind
 import app.reelstack.data.network.HttpResponse
 import app.reelstack.data.network.JsonHttpTransport
 import app.reelstack.data.network.MediaServerClient
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -48,8 +48,10 @@ class LibrarySearchDeduplicationTest {
 
     private fun search(vararg items: String) = """{"Items":[${items.joinToString(",")}]}"""
 
-    private fun repository(transport: JsonHttpTransport) =
-        MediaSyncRepository(mediaServerClient = MediaServerClient(transport))
+    private fun searchLibraries(transport: JsonHttpTransport, connections: List<ServiceConnection>, query: String): List<LibraryMedia> {
+        val repository = MediaSyncRepository(mediaServerClient = MediaServerClient(transport))
+        return mergeLibrarySearch(connections.map { repository.searchLibrary(it, query) })
+    }
 
     @Test fun theSameSeriesOnTwoServersIsOneResult() {
         val transport = Fake { url ->
@@ -59,7 +61,7 @@ class LibrarySearchDeduplicationTest {
                 else -> HttpResponse(200, search(series("emby-9", 125988)))
             }
         }
-        val results = runBlocking { repository(transport).searchLibraries(listOf(jellyfin, emby), "Silo") }
+        val results = searchLibraries(transport, listOf(jellyfin, emby), "Silo")
 
         assertEquals(listOf("Silo"), results.map { it.title })
     }
@@ -72,7 +74,7 @@ class LibrarySearchDeduplicationTest {
                 else -> HttpResponse(200, search(series("emby-9", null)))
             }
         }
-        val results = runBlocking { repository(transport).searchLibraries(listOf(jellyfin, emby), "Silo") }
+        val results = searchLibraries(transport, listOf(jellyfin, emby), "Silo")
 
         assertEquals(1, results.size)
     }
@@ -84,7 +86,7 @@ class LibrarySearchDeduplicationTest {
                 else -> HttpResponse(200, search(series("jf-1", 125988), episode("jf-2", 3), episode("jf-3", 4)))
             }
         }
-        val results = runBlocking { repository(transport).searchLibraries(listOf(jellyfin), "Silo") }
+        val results = searchLibraries(transport, listOf(jellyfin), "Silo")
 
         assertEquals(listOf("Silo"), results.map { it.title })
         assertEquals(listOf("Series"), results.map { it.mediaType })
@@ -99,7 +101,7 @@ class LibrarySearchDeduplicationTest {
                 else -> HttpResponse(200, search(episode("jf-2", 3)))
             }
         }
-        val results = runBlocking { repository(transport).searchLibraries(listOf(jellyfin), "Freedom Day") }
+        val results = searchLibraries(transport, listOf(jellyfin), "Freedom Day")
 
         assertEquals(1, results.size)
         assertEquals("Episode", results.single().mediaType)
@@ -112,8 +114,38 @@ class LibrarySearchDeduplicationTest {
                 else -> HttpResponse(200, search(series("jf-1", 125988), series("jf-2", 407)))
             }
         }
-        val results = runBlocking { repository(transport).searchLibraries(listOf(jellyfin), "Silo") }
+        val results = searchLibraries(transport, listOf(jellyfin), "Silo")
 
         assertEquals(2, results.size)
+    }
+
+    @Test fun differentEpisodesWithoutProviderIdsStayPlayable() {
+        val transport = Fake { url ->
+            if ("Views" in url) HttpResponse(200, views)
+            else HttpResponse(200, search(episode("one", 1), episode("two", 2)))
+        }
+        val hits = searchLibraries(transport, listOf(jellyfin), "Freedom")
+        assertEquals(listOf("one", "two"), hits.map { it.remoteId })
+    }
+
+    @Test fun movieAndSeriesCanShareANumericTmdbId() {
+        val transport = Fake { url ->
+            if ("Views" in url) HttpResponse(200, views)
+            else HttpResponse(200, search(series("series", 123), series("film", 123).replace("Series", "Movie")))
+        }
+        val hits = searchLibraries(transport, listOf(jellyfin), "Silo")
+        assertEquals(listOf("Series", "Movie"), hits.map { it.mediaType })
+    }
+
+    @Test fun anEpisodeOfADifferentSeriesWithTheSameNameStillAppears() {
+        val filmSeries = series("original", 42)
+        val matchingEpisode = episode("episode-original", 1).replace("\"SeriesName\"", "\"SeriesId\":\"original\",\"SeriesName\"")
+        val remakeEpisode = episode("episode-remake", 1).replace("\"SeriesName\"", "\"SeriesId\":\"remake\",\"SeriesName\"")
+        val transport = Fake { url ->
+            if ("Views" in url) HttpResponse(200, views)
+            else HttpResponse(200, search(filmSeries, matchingEpisode, remakeEpisode))
+        }
+        val hits = searchLibraries(transport, listOf(jellyfin), "Silo")
+        assertEquals(listOf("original", "episode-remake"), hits.map { it.remoteId })
     }
 }
